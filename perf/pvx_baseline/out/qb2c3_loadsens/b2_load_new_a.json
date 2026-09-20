@@ -1,0 +1,246 @@
+{
+ "tag": "b2_load_new_a",
+ "model": "boltz2",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "card_env": "3",
+ "ttnn": "0.68.0",
+ "tree": "/home/ttuser/pvx_qb2/new",
+ "clock_target": 1350,
+ "timers": [],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "started_utc": "2026-09-20T04:04:10Z",
+ "loadavg_start": [
+  "13.78",
+  "13.64",
+  "14.47"
+ ],
+ "foreign_at_start": [],
+ "runs": [
+  {
+   "i": 0,
+   "cold": true,
+   "fold_s": 26.559,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [],
+   "loadavg1": 14.92,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.4
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.4
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 56.6
+    }
+   },
+   "load_mean": 15.16,
+   "load_max": 15.64,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 97,
+   "power_w_mean": 56.6
+  },
+  {
+   "i": 1,
+   "cold": false,
+   "fold_s": 23.656,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [],
+   "loadavg1": 16.31,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.5
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.5
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 68.3
+    }
+   },
+   "load_mean": 15.43,
+   "load_max": 16.31,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 86,
+   "power_w_mean": 68.3
+  },
+  {
+   "i": 2,
+   "cold": false,
+   "fold_s": 24.644,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [],
+   "loadavg1": 15.34,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.6
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.5
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 57.6
+    }
+   },
+   "load_mean": 15.41,
+   "load_max": 16.31,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 88,
+   "power_w_mean": 57.6
+  },
+  {
+   "i": 3,
+   "cold": false,
+   "fold_s": 24.023,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [],
+   "loadavg1": 17.44,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.7
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 29.0
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.5
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 62.1
+    }
+   },
+   "load_mean": 16.51,
+   "load_max": 17.44,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 85,
+   "power_w_mean": 62.1
+  }
+ ],
+ "fixture_sha256": {
+  "cdk2x2_512.yaml": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+  "cdk2x2_512.a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e"
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "device_nodes": [
+  3
+ ],
+ "clock_after_force": {
+  "3": 1350
+ },
+ "clock_reasserts": 0,
+ "summary": {
+  "n": 3,
+  "fold_s_sorted": [
+   23.656,
+   24.023,
+   24.644
+  ],
+  "median_fold_s": 24.023,
+  "min_fold_s": 23.656,
+  "max_fold_s": 24.644,
+  "aa_floor_s": 0.988,
+  "aa_floor_pct": 4.11,
+  "aiclk_mean_over_timed": 1350.0,
+  "aiclk_min_over_timed": 1350,
+  "digests": [
+   "3fcdf07f23ea72ab"
+  ],
+  "plddts": [
+   0.844645
+  ],
+  "cotenanted_folds": 0,
+  "partner_busy": false,
+  "box_busy": false,
+  "host_quiet": false,
+  "load_max_during": 17.44,
+  "clean_session": false
+ }
+}
