@@ -1,0 +1,52 @@
+{
+ "what": "the model-scope consequence of of3t-adaln's softmax finding, computed from the 547-tensor per-tensor array by splitting the diffusion arm into the half downstream of a no-config attention softmax and the half that is not. Nothing new was run.",
+
+ "the_split": {
+  "attention_side": {"n": 288, "pct_of_model": 27.2441, "mass_weighted_rel": 10.3684,
+   "definition": "tensors under diffusion_transformer.blocks.N.attention_pair_bias.* and atom_attn_{enc,dec}.atom_transformer.blocks.N.attention_pair_bias.* -- everything downstream of the three no-config softmax call sites the row identified"},
+  "everything_else_in_the_arm": {"n": 259, "pct_of_model": 23.8917, "mass_weighted_rel": 0.1855,
+   "note": "no softmax lever touches any of it. 13 of 259 tensors are inside the 2.0e-02 bar, holding 1.1541 % of the model."}
+ },
+
+ "headline": "The softmax is confirmed as the dominant defect -- it owns 27.2441 % of the model at mass-weighted rel 10.3684. But NO softmax lever brings the diffusion arm inside the bar, because the other 23.8917 % sits at 0.1855 and is untouched by any of them. Even an EXACT softmax leaves the arm at 0.1867, which is 9.3x the 2.0e-02 mass-weighted bar.",
+
+ "extrapolation": {
+  "caveat": "the factors are of3t-adaln's BLOCK-ARM measurements with a generic cotangent, applied here to model-scope rels. That is an extrapolation and is labelled as one everywhere it appears; the row's own DOESNOT says how 55x at one block composes over 24 blocks and 48 samples is not established.",
+  "table": [
+   {"lever": "none (measured)",              "factor": 1.00,  "attention_side_rel": 10.3684, "whole_arm_rel": 7.5692},
+   {"lever": "precise_config() on softmax",  "factor": 2.25,  "attention_side_rel": 4.6082,  "whole_arm_rel": 3.3660},
+   {"lever": "_accurate_softmax",            "factor": 4.39,  "attention_side_rel": 2.3618,  "whole_arm_rel": 1.7286},
+   {"lever": "float64 softmax (upper bound)","factor": 55.24, "attention_side_rel": 0.1877,  "whole_arm_rel": 0.1867}
+  ],
+  "bar": 0.02
+ },
+
+ "what_the_other_half_is": {
+  "total": "23.8917 % of the model at mass-weighted rel 0.1855, 9.3x the bar",
+  "top_leaves": [
+   {"pct_of_model": 15.5125, "n": 24, "mw_rel": 0.1828, "leaf": "diffusion_transformer.blocks.N.conditioned_transition.layer_norm.layer_norm_s.weight"},
+   {"pct_of_model": 3.3866,  "n": 1,  "mw_rel": 0.1680, "leaf": "atom_attn_enc.noisy_position_embedder.linear_s.weight"},
+   {"pct_of_model": 1.2198,  "n": 1,  "mw_rel": 0.2208, "leaf": "atom_attn_enc.linear_q.N.weight"},
+   {"pct_of_model": 0.4803,  "n": 24, "mw_rel": 0.1382, "leaf": "diffusion_transformer.blocks.N.conditioned_transition.linear_g.weight"}
+  ],
+  "the_awkward_part": "the largest member is the SISTER AdaLN gain -- the tensor I used as the exoneration control at pass 153 and described as 'clean' against the failing leaf's 10.6980. It is 59x better and it is still 9x over bar. A differential control being valid does not make its reference arm passing, and I should have said 'less bad', not 'clean'.",
+  "owner": "none. This is now the campaign's largest unowned item."
+ },
+
+ "the_decision_the_row_handed_the_orchestrator": {
+  "levers": [
+   {"lever": "compute_kernel_config=precise_config() on the forward softmax",
+    "gradient": "2.25x / 2.41x / 1.99x at blocks 8 / 0 / 12",
+    "forward": "2.274755e-02 -> 6.888150e-04, a 33x improvement on a value that is ON THE INFERENCE PATH",
+    "cost": "UNKNOWN -- nobody has measured it. This is the single missing number in the decision."},
+   {"lever": "tenstorrent._accurate_softmax (already exists, opt-in)",
+    "gradient": "4.39x / 4.11x / 3.02x",
+    "forward": "-> 2.780055e-04, an 82x improvement",
+    "cost": "4.22x the fused kernel at [1,16,1024,1024], per its own docstring"}
+  ],
+  "recommendation": "SPLIT THE TWO CASES, because they have different strengths and only one of them is strong. (a) As a TRAINING-PARITY lever the case is weak and should not be taken to the release gate on its own: no softmax lever reaches the bar, and even the float64 bound leaves the arm 9.3x outside it. (b) As an INFERENCE-ACCURACY finding it is unmeasured and possibly strong -- the shipped softmax carries 2.274755e-02 relative error on the inference path at [1,16,384,384] and a kernel config improves that 33x. That deserves a fold-level measurement in Angstrom against the seed floor, not a rel number, and it is cheap.",
+  "a_correction_the_row_found_that_outlives_the_decision": "`_accurate_softmax`'s docstring says a compute kernel config changes nothing. On [1,16,384,384] on a p300c it changes 2.274755e-02 into 6.888150e-04. That is a wrong statement in shipped source that has presumably been steering people away from the cheap lever."
+ },
+
+ "provenance": "computed 2026-09-20 pass 157 by of3t-orchestrator on pc, CPU only, no device opened. Inputs: state/of3t-adaln.md (the row's measured levers and forward numbers) and device_gradient_043pt.json's 547 per-tensor entries against per-tensor reference mass."
+}

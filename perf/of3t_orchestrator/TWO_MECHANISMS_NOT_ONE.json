@@ -1,44 +1,108 @@
 {
  "what": "of3t-adaln's measured K-ladder used as a PREDICTOR, per tensor, across all 547 compared tensors of the diffusion arm. For each tensor the ladder is interpolated at that tensor's own rel_l2 and asked to predict its norm ratio and cosine; the prediction is then compared to what the tensor actually reads. Nothing new was run.",
  "test": "a tensor is ON the curve if the ladder's predicted r is within a factor 2 of the observed r AND the predicted cos is within 0.15 of the observed cos.",
-
  "headline": "D56's conditioning mechanism is validated far more broadly than the row claimed -- 448 tensors holding 34.2337 % of the model lie on the measured curve. But it does NOT explain the tensors the campaign has been chasing: 99 tensors holding 16.9021 % are off it, and 9 of those are the high-rel blocks of the failing leaf. Fifteen of that leaf's 24 blocks are on the curve. There are two mechanisms, and the second owns the worst nine tensors in the model.",
-
  "split": {
-  "on_the_curve":  {"n": 448, "pct_of_model": 34.2337, "of_which_failing_leaf": {"blocks": 15, "pct_of_model": 8.9097}},
-  "off_the_curve": {"n": 99,  "pct_of_model": 16.9021, "of_which_failing_leaf": {"blocks": 9,  "pct_of_model": 16.6698}},
+  "on_the_curve": {
+   "n": 448,
+   "pct_of_model": 34.2337,
+   "of_which_failing_leaf": {
+    "blocks": 15,
+    "pct_of_model": 8.9097
+   }
+  },
+  "off_the_curve": {
+   "n": 99,
+   "pct_of_model": 16.9021,
+   "of_which_failing_leaf": {
+    "blocks": 9,
+    "pct_of_model": 16.6698
+   }
+  },
   "reading": "the leaf is not special as a leaf. Its LOW-rel blocks behave exactly like the rest of the diffusion module; its NINE HIGH-rel blocks depart. Whatever the second mechanism is, it is not a property of the leaf's code path -- the same code at the same site in fifteen other blocks stays on the curve."
  },
-
  "how_the_off_curve_tensors_depart": {
   "examples": [
-   {"tensor": "blocks.8...layer_norm_a.layer_norm_s.weight", "pct": 8.0542, "rel": 18.504, "r": 19.2415, "r_pred": 22.255, "cos": 0.74941, "cos_pred": 0.1642},
-   {"tensor": "blocks.7...layer_norm_a.layer_norm_s.weight", "pct": 2.8605, "rel": 5.307,  "r": 5.1979,  "r_pred": 7.159,  "cos": -0.01417, "cos_pred": 0.1705},
-   {"tensor": "blocks.5...layer_norm_a.layer_norm_s.weight", "pct": 2.4331, "rel": 4.542,  "r": 5.5205,  "r_pred": 5.276,  "cos": 0.98243,  "cos_pred": 0.1713},
-   {"tensor": "blocks.6...layer_norm_a.layer_norm_s.weight", "pct": 1.3912, "rel": 2.841,  "r": 1.9735,  "r_pred": 3.625,  "cos": -0.80457, "cos_pred": 0.3051},
-   {"tensor": "blocks.1...layer_norm_a.layer_norm_s.weight", "pct": 0.6716, "rel": 0.833,  "r": 1.8225,  "r_pred": 1.715,  "cos": 0.99546,  "cos_pred": 0.7336}
+   {
+    "tensor": "blocks.8...layer_norm_a.layer_norm_s.weight",
+    "pct": 8.0542,
+    "rel": 18.504,
+    "r": 19.2415,
+    "r_pred": 22.255,
+    "cos": 0.74941,
+    "cos_pred": 0.1642
+   },
+   {
+    "tensor": "blocks.7...layer_norm_a.layer_norm_s.weight",
+    "pct": 2.8605,
+    "rel": 5.307,
+    "r": 5.1979,
+    "r_pred": 7.159,
+    "cos": -0.01417,
+    "cos_pred": 0.1705
+   },
+   {
+    "tensor": "blocks.5...layer_norm_a.layer_norm_s.weight",
+    "pct": 2.4331,
+    "rel": 4.542,
+    "r": 5.5205,
+    "r_pred": 5.276,
+    "cos": 0.98243,
+    "cos_pred": 0.1713
+   },
+   {
+    "tensor": "blocks.6...layer_norm_a.layer_norm_s.weight",
+    "pct": 1.3912,
+    "rel": 2.841,
+    "r": 1.9735,
+    "r_pred": 3.625,
+    "cos": -0.80457,
+    "cos_pred": 0.3051
+   },
+   {
+    "tensor": "blocks.1...layer_norm_a.layer_norm_s.weight",
+    "pct": 0.6716,
+    "rel": 0.833,
+    "r": 1.8225,
+    "r_pred": 1.715,
+    "cos": 0.99546,
+    "cos_pred": 0.7336
+   }
   ],
   "reading": "the norm ratios are broadly right -- the ladder predicts the MAGNITUDE of these errors well. What it gets wrong is the DIRECTION, and in both directions: block 5 keeps cos 0.982 where the curve says 0.171, block 1 keeps 0.995 where the curve says 0.734, while blocks 6 and 0 read -0.80. A cancellation floor produces a specific amount of direction loss for a given amount of magnitude error. These tensors do not have that relationship."
  },
-
  "the_signature_the_curve_can_never_produce": {
   "claim": "21 tensors holding 4.8058 % of the model have cos < 0 -- an ANTI-CORRELATED gradient, pointing away from the reference.",
   "why_it_matters": "across five decades of K the measured curve's cosine bottoms out at 0.162 and never goes negative. Rounding residue accumulated into a cancelled sum is uncorrelated with the sum; it drives cosine toward zero, not past it. Something that systematically points the other way is not a precision floor.",
   "largest": [
-   {"pct": 2.8605, "cos": -0.01417, "tensor": "blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
-   {"pct": 1.3912, "cos": -0.80457, "tensor": "blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
-   {"pct": 0.3111, "cos": -0.16902, "tensor": "blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
-   {"pct": 0.1813, "cos": -0.79583, "tensor": "blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"}
+   {
+    "pct": 2.8605,
+    "cos": -0.01417,
+    "tensor": "blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   },
+   {
+    "pct": 1.3912,
+    "cos": -0.80457,
+    "tensor": "blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   },
+   {
+    "pct": 0.3111,
+    "cos": -0.16902,
+    "tensor": "blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   },
+   {
+    "pct": 0.1813,
+    "cos": -0.79583,
+    "tensor": "blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   }
   ]
  },
-
  "what_this_does_to_the_fix_arithmetic": {
   "if_the_floor_closes": "closing the ~2,172x device-vs-torch-fp32 gap scales every ON-CURVE tensor down by that factor while its K is unchanged. 34.2337 % of the model would move from a median rel near 0.17 to near 8e-05 -- comfortably inside the 2.0e-02 bar. That is the demonstrable prize for the amendment-4 test, and it is larger than the 25.5795 % the test was dispatched for.",
   "what_it_would_NOT_fix": "the 16.9021 % off the curve, because the curve does not describe them. No claim is made about what happens to those under a precision change -- they may improve, may not, and the arm will say.",
   "honesty": "34.2337 % is what the DATA supports. It is not a promise that the floor is reducible; that is exactly what is untested."
  },
-
  "the_bisection_this_hands_the_row": "the leaf's own 24 blocks now split 15 on-curve / 9 off-curve at the SAME code, the same site, the same weights class and the same shapes. That is a within-leaf contrast far sharper than any cross-leaf one, and it is free: ask what differs between block 9 (rel 0.1237, r 1.1089, cos 0.99845, ON the curve) and block 8 (rel 18.504, r 19.2415, cos 0.74941, OFF it). They are adjacent blocks of the same stack.",
-
- "provenance": "computed 2026-09-20 pass 156 by of3t-orchestrator on pc, CPU only, no device opened. Inputs: of3t-adaln's published K-ladder (state/of3t-adaln.md), device_gradient_043pt.json's 547 per-tensor entries (archived at perf/of3t_orchestrator/pt/), and per-tensor reference mass from bundle_min_043/grads_f64_043.pt. The ladder was measured on a SYNTHETIC sign-alternating cancellation, so it is one path through the family of ill-conditioned cases and need not be quantitative for every real one -- which is itself part of why the off-curve group is interesting rather than damning."
+ "provenance": "computed 2026-09-20 pass 156 by of3t-orchestrator on pc, CPU only, no device opened. Inputs: of3t-adaln's published K-ladder (state/of3t-adaln.md), device_gradient_043pt.json's 547 per-tensor entries (archived at perf/of3t_orchestrator/pt/), and per-tensor reference mass from bundle_min_043/grads_f64_043.pt. The ladder was measured on a SYNTHETIC sign-alternating cancellation, so it is one path through the family of ill-conditioned cases and need not be quantitative for every real one -- which is itself part of why the off-curve group is interesting rather than damning.",
+ "REFUTED_AT_PASS_157": "this file's headline -- 'there are two mechanisms' -- is WRONG. of3t-adaln's float64-softmax arm puts blocks 8, 0 and 12 all inside the 5.0e-02 bar, and block 0 is one of the off-curve, anti-correlated tensors this file argued had a different cause. One lever fixes both groups. The error: I fitted against a ladder measured on a CORRECT softmax perturbed only by rounding residue, and argued anti-correlation was impossible because uncorrelated residue drives cosine toward zero, not past it. Sound argument, wrong premise -- the real softmax forward is BIASED by 2.274755e-02, and a biased y makes sum(g*y) wrong in a consistent direction, so g - inner can land the wrong side of zero. The SPLIT is still a measurement and the 15-vs-9 within-leaf contrast is still the sharpest available; they just do not mean what the headline said. See D57 and SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR.json."
 }

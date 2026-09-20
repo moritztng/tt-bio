@@ -3334,10 +3334,30 @@ changes nothing is indistinguishable from one that never reached the kernel, so 
 deliberately wrong config (LoFi, `fp32_dest_acc_en` off) must make the number **worse**. If neither
 direction moves, this lead is refuted and that is a result.
 
-Owner: `of3t-adaln` (brief amendment 3, sent while the row is live). **UNFIXED.** Nothing is to be
-merged even if it works: a precision change to a training backward on a path five models share is
-release-gated. Artifact:
-`perf/of3t_orchestrator/CANCELLATION_REDUCTIONS_UNCONFIGURED.json`.
+**RESOLVED AT PASS 157: RIGHT LOCUS, WRONG MECHANISM — HALF CONFIRMED, HALF REFUTED.**
+`of3t-adaln` measured it. The **softmax is the locus**, exactly as this entry ranked it first:
+replacing it with float64 on the real operands takes the attention-side gain from 8.060854e-01
+to **1.459256e-02** at block 8 (55.2x), 2.933287e-01 → 5.217859e-03 at block 0 and
+1.829792e-01 → 6.438348e-03 at block 12, while the sister AdaLN with no softmax above it moves
+**1.23x**.
+
+But the mechanism this entry proposed — the missing `precise_config()` on the reduction inside
+the cancellation — is **REFUTED by measurement**: *"Giving it `precise_config()` changes nothing
+at any rung, and `inner` recomputed in float64 on the DEVICE's own `y` reads 8.808894e-03
+against the device sum's 8.954591e-03. **`y` is the source.**"* The reduction is innocent. What
+is wrong is the softmax **forward** — `ttnn.softmax` with no compute kernel config reads
+**2.274755e-02** against float64 on [1,16,384,384] — and the backward's `g − Σ(g·y)`
+cancellation amplifies that forward error linearly in the cancellation ratio. The row measured
+the amplification law directly: rel 2.4e-02 at K = 1.42 rising to 1.68e+01 at K = 1932, with `r`
+tracking `rel` and `cos` falling to 0.0637.
+
+So the *inconsistency* this entry documented is real and still stands as a source defect — the
+docstring's "every op here defaults to it" remains false at four sites — but it is **not** the
+cause of the 25.5795 %, and the other three sites are now untested rather than suspected.
+
+Owner: `of3t-orchestrator`. **UNFIXED as a source inconsistency, REFUTED as the mechanism.**
+Artifacts: `perf/of3t_orchestrator/CANCELLATION_REDUCTIONS_UNCONFIGURED.json`,
+`state/of3t-adaln.md`.
 
 ---
 
@@ -3416,14 +3436,27 @@ headline is less exposed — but **not** by the row's reasoning that "a cancelle
 little mass by construction", which is false here: this tensor is 8.05416 % of the model and
 28 % of its gradient *norm*. A large result can still be a heavily cancelled sum.
 
-Owner: `of3t-adaln` (brief amendment 4, sent while the row is live). **UNFIXED.** Nothing merges
-either way; the path is shared by four of the six AdaLN-constructing modules and is
-release-gated. Artifacts: `state/of3t-adaln.md`, `perf/of3t_adaln/`,
+**PASS 157: the ratio argument stands and the lever it named is answered in its nearest form.**
+The row tested precisely the adjacent site — `precise_config()` on the softmax backward's
+reduction — and found it **changes nothing at any rung**, with `inner` recomputed in float64 on
+the device's own `y` reading 8.808894e-03 against the device sum's 8.954591e-03. The
+accumulation is not the floor; **`y` is**. The floor this entry correctly identified as a
+constant ~2,172x multiplier is the softmax **forward**, not the reductions around it, and it
+*is* reducible: a compute kernel config takes it from 2.274755e-02 to 6.888150e-04.
+
+The inference this entry defended — that the floor is a port gap rather than a property of the
+arithmetic, and that retiring 25.5795 % of the model as unfixable would be wrong — is
+**confirmed**. The specific lever it proposed (the bf16 product forming `_sum_leading`'s
+summands) is **untested and now lower-priority**, since the nearest analogue measured innocent.
+
+Owner: `of3t-orchestrator`. **UNFIXED.** Artifacts as below plus
+`perf/of3t_orchestrator/SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR.json`. Original artifacts:
+`state/of3t-adaln.md`, `perf/of3t_adaln/`,
 `perf/of3t_orchestrator/CONDITIONING_AMPLIFIES_A_FLOOR_WE_CAN_MOVE.json`.
 
 ---
 
-### D57. There are two mechanisms, not one: the measured conditioning curve accounts for 34.2337 % of the model but not for the nine worst tensors in it, and 4.8058 % of the model has an *anti-correlated* gradient, which a precision floor cannot produce. FOUND by `of3t-orchestrator`, pass 156. **UNFIXED.**
+### D57. *(REFUTED at pass 157.)* There are two mechanisms, not one: the measured conditioning curve accounts for 34.2337 % of the model but not for the nine worst tensors in it, and 4.8058 % of the model has an *anti-correlated* gradient, which a precision floor cannot produce. FOUND by `of3t-orchestrator`, pass 156. **REFUTED** — retained as a record of the error.
 
 `of3t-adaln`'s K-ladder was measured on a synthetic sign-alternating cancellation and used to
 explain the campaign's worst tensor. Used as a **predictor** instead — interpolated at each
@@ -3491,7 +3524,27 @@ entry is **refuted**. If block 8's measured K does not account for its departure
 mechanism is **confirmed**. The anti-correlation is the part that survives either way: a
 cancellation floor has no way to produce cos = −0.80.
 
-Owner: `of3t-adaln` (brief amendment 5, sent while the row is live), which now has two things to
-do and an explicit ordering: the fp32-summand arm first because it is cheap and on an existing
-harness and a negative result is as valuable as a positive one, then the within-leaf 15-vs-9
-contrast. **UNFIXED.** Artifact: `perf/of3t_orchestrator/TWO_MECHANISMS_NOT_ONE.json`.
+**REFUTED AT PASS 157, BY THE MEASUREMENT IT ASKED FOR.** This entry claimed the off-curve
+group — the leaf's nine high-rel blocks, including the anti-correlated ones — has a cause
+different from the conditioning mechanism. `of3t-adaln`'s float64-softmax arm puts blocks **8,
+0 and 12 all inside the 5.0e-02 bar** (1.459256e-02, 5.217859e-03, 6.438348e-03), and **block 0
+reads cos −0.796 in the model and is off-curve**. One lever fixes both the on-curve and the
+off-curve members. There is **one** mechanism, not two.
+
+**Where my reasoning went wrong, because it is a reusable error.** I fitted the off-curve group
+against a ladder measured on a *correct* softmax perturbed only by rounding residue, and argued
+that anti-correlation was impossible because uncorrelated residue drives cosine toward zero and
+not past it. That argument is sound for its premise and the premise was wrong: the real softmax
+forward is **biased** by 2.274755e-02, not merely noisy, and a biased `y` makes `Σ(g·y)` wrong
+in a *consistent* direction, so `g − inner` can and does land the wrong side of zero. **A curve
+measured under one error model cannot classify errors produced by a different one**, and
+"off the curve" was evidence about my ladder, not about the tensors.
+
+What survives: the *split itself* is a measurement and is still useful — 448 tensors on, 99
+off, at a stated criterion — and the observation that the leaf's own 24 blocks divide 15/9 at
+identical code remains the sharpest within-leaf contrast available. It just does not mean what
+this entry said it meant.
+
+Owner: `of3t-orchestrator`. **REFUTED, retained as a record of the error.** Artifact:
+`perf/of3t_orchestrator/TWO_MECHANISMS_NOT_ONE.json`, whose headline is wrong and is annotated
+in place.

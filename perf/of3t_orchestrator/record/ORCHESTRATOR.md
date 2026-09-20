@@ -411,10 +411,13 @@ softmax backward among them — unmeasured, five models if real, release-gated e
 constant **~2,172x** device arithmetic floor — and torch fp32 computes the same sum **inside
 the bar**, so the floor is the source and the conditioning only the multiplier; the one lever
 that could close it, the bf16 product forming the summands inside an otherwise-precise
-reduction, is untested. **D57 (UNFIXED)**: used as a per-tensor predictor that curve accounts
-for **34.2337 %** of the model but not for the nine worst tensors in it, and **4.8058 %** of
-the model has an **anti-correlated** gradient, which no precision floor produces — so there
-are two mechanisms and the second owns the worst nine. **D53 (UNFIXED)**: A23's
+reduction, is untested. **D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
+`of3t-adaln`'s float64-softmax arm puts blocks 8, 0 and 12 all inside the bar, block 0 being
+one of the anti-correlated ones, so there is one mechanism. My ladder assumed a *correct*
+softmax perturbed by rounding residue; the real forward is **biased** by 2.27e-02, and a biased
+`y` drives the cancellation past zero. **The open item it displaced**: the **23.8917 %** of the
+model no softmax lever touches, at mass-weighted **0.1855**, whose largest member is
+`conditioned_transition.layer_norm.layer_norm_s.weight` at 15.5125 % — unowned. **D53 (UNFIXED)**: A23's
 argument met data and landed the unflattering way — the ten worst tensors of the existing
 diffusion arm hold **15.7140 %** of the model and the ten best **1.1650 %**, a 13.5x
 concentration of error on the mass, with the worst point (rel **18.504**) on the model's
@@ -704,7 +707,7 @@ mass is measured against a float64 reference and inside the bars, 52.7798 % is m
 outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
-two live; fifty-seven defects on the record, twenty-six of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live, one newly dispatched; fifty-seven defects on the record, twenty-five of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6371,3 +6374,69 @@ positive one. Filed as **D57**, with the caveat that the ladder is one synthetic
 family of ill-conditioned cases, so "off the curve" is evidence of a different relationship
 rather than proof of a different cause — which is why the anti-correlation carries more weight
 than the numeric departures.
+
+---
+
+## Pass 157 — the softmax is the mechanism, it refutes three of my filings, and it does not reach the bar
+
+`of3t-adaln` measured it. **The attention-side gradient defect is the softmax.** Replacing it
+with float64 on the real operands takes the leaf from **8.060854e-01 → 1.459256e-02** at block 8
+(55.2x), 2.933287e-01 → 5.217859e-03 at block 0 and 1.829792e-01 → 6.438348e-03 at block 12,
+while the sister AdaLN with no softmax above it moves **1.23x**. The kernel's forward on
+`[1,16,384,384]` in fp32 against float64: **2.274755e-02** with no compute kernel config,
+6.888150e-04 with `precise_config()`, 2.780055e-04 through `_accurate_softmax`, against a host
+float32 floor of 6.053848e-08. The backward's `g − Σ(g·y)` cancellation amplifies whichever it
+is given, linearly in the cancellation ratio — measured, rel 2.4e-02 at K = 1.42 rising to
+1.68e+01 at K = 1932 with cos falling to 0.0637.
+
+### Three of my own filings, corrected
+
+- **D55 — half right.** The softmax was the locus, as I ranked it. My *mechanism* is refuted by
+  measurement: *"Giving it `precise_config()` changes nothing at any rung, and `inner`
+  recomputed in float64 on the DEVICE's own `y` reads 8.808894e-03 against the device sum's
+  8.954591e-03. `y` is the source."* The reduction is innocent. The source inconsistency I
+  documented is still real; it is not the cause.
+- **D56 — the argument stands, the lever is deprioritised.** The floor is a port gap and not a
+  property of the arithmetic, which is what I defended; it just lives in the softmax forward
+  rather than in the accumulation around it.
+- **D57 — fully refuted, by the measurement it asked for.** I argued the off-curve group had a
+  second cause and leaned hardest on the anti-correlation, reasoning that uncorrelated rounding
+  residue drives cosine toward zero and not past it. The argument is sound and its premise was
+  wrong: the real forward is **biased** by 2.27e-02, not merely noisy, so a biased `y` makes
+  `Σ(g·y)` wrong in a consistent direction and `g − inner` lands the wrong side of zero. **A
+  curve measured under one error model cannot classify errors produced by a different one.**
+  Block 0 — cos −0.796, off my curve — is one of the three the float64 arm fixes.
+
+### And the lever does not reach the bar
+
+Splitting the 547-tensor array by whether a tensor is downstream of a no-config softmax:
+
+    attention side           n=288   27.2441 % of model   mass-wtd rel 10.3684
+    everything else in arm   n=259   23.8917 % of model   mass-wtd rel  0.1855
+
+    lever                        attention-side rel   WHOLE-ARM rel
+    none (measured)                        10.3684          7.5692
+    precise_config()                        4.6082          3.3660
+    _accurate_softmax                       2.3618          1.7286
+    float64 softmax (bound)                 0.1877          0.1867      bar 0.02
+
+**Even an exact softmax leaves the diffusion arm 9.3x outside the bar**, because the other half
+is untouched by any softmax lever. So as a *training-parity* lever this does not reach the bar
+and I will not take it to the release gate on that argument. As an *inference-accuracy* finding
+it is unmeasured and possibly strong — 2.274755e-02 sits on the shipped path and one argument
+improves it 33x — so row **`of3t-softmax`** is dispatched for the two numbers nobody has: what
+`precise_config()` costs (AICLK sampled during, arms interleaved A/B/A) and what it is worth in
+**Angstrom** against the 0.324 A seed floor. A lever inside the seed scatter is a NO-GO with a
+number, which is a good outcome. It also carries a comment fix: `_accurate_softmax`'s docstring
+says a compute kernel config changes nothing, and on this shape it changes 2.27e-02 into
+6.89e-04 — a wrong statement in shipped source that has been steering people off the cheap lever.
+
+### What the split promoted
+
+The **23.8917 %** of the model no softmax lever touches, at mass-weighted **0.1855** — 9.3x the
+bar, with only 1.1541 % of the model inside it. Its largest member is
+`conditioned_transition.layer_norm.layer_norm_s.weight` at **15.5125 %**, mass-weighted 0.1828:
+the sister AdaLN I used as the exoneration control at pass 153 and called **clean**. It is 59x
+better than the failing leaf and it is still 9x over bar. A differential control being valid
+does not make its reference arm passing, and I should have written "less bad". That section is
+now the campaign's largest unowned item.
