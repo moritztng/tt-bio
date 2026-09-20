@@ -1,5 +1,25 @@
 {
- "SUPERSEDED_IN_PART": "2026-09-21, pass 203, by of3t-crop640's measured backward PROFILE. The DEFICIT SIZING stands; the LEVER PRICING does not. Measured at the 256 rung: at the backward peak the recompute working set is 71.17 % of 6.81 GB and the retained boundary set is 1.11 % of it -- `_retire` clears the pin and deallocates as the backward walks down, so the set DRAINS rather than standing for the whole backward. of3t-l1 read it the other way round and I inherited that reading.",
+ "RESOLVED_pass203b": {
+  "768_is_the_open_one": "It straddles the card: both levers land at 33.91 GB (+0.31 GB margin) on the structural arm and 35.44 GB (-1.22 GB) on the fitted one -- 0.9 % inside one way, 3.6 % over the other. Neither named lever reaches it alone. 768 is 2 of upstream's 4 stage configs, and the row names the cheap decider: ONE instrumented rung at 512, which separates the recompute exponent from the regime difference between the 256 and 384 peaks.",
+  "how_my_estimates_scored": {
+   "640 deficit": "mine 12.3 GB; the row's 11.53-14.53 GB. Inside.",
+   "640 projected peak": "mine 45.6-51.4 GB; the row's 45.75 (structural N^2) to 48.75 (fitted exponent). Inside my bracket.",
+   "spill the boundaries alone": "mine 'necessary, not sufficient' -- CONFIRMED, it leaves 40.54/43.54 GB against a 34.22 GB card.",
+   "the unpriced second lever": "halving the recompute CLOSES 640 on its own (28.86/29.41 GB), and both levers together land at 23.66/24.20 GB, margin +10.56/+10.02 GB. VERDICT GO."
+  },
+  "measured_384_peak_by_owner_GB": {
+   "note": "shares 72.83 / 11.28 / 9.05 / 4.61 / 2.00 %; walk gap to the peak 0 bytes",
+   "recompute": 12.158,
+   "retained_boundaries": 1.883,
+   "tape": 0.77,
+   "total": 16.693,
+   "unattributed": 1.51,
+   "weights": 0.334
+  },
+  "what_I_got_wrong_in_the_correction": "I superseded my own boundary decomposition on a 1.11 %-of-peak figure taken from of3t-crop640's 256 rung, read out of a commit message as though it were a general fact. At 384 the row measures the retained boundaries at 1.883 GB, **11.28 %** of the 17.924 GB peak -- against my estimate of 1.825 GB and 10.9 %, accurate to 3 %. The two rungs PEAK IN DIFFERENT REGIMES, which is the row's own explanation for why it gives two projection arms. Correcting a good estimate on one rung's number is the same error class as the one this file was written to fix.",
+  "what_my_first_correction_got_right": "The peak and the 640 FAILURE are different moments of the same backward -- 640 died inside the first recompute -- and a single sample at the maximum cannot tell them apart. That is the row's finding and it stands."
+ },
+ "SUPERSEDED_IN_PART": "2026-09-21. Read RESOLVED_pass203b below: my first supersession OVER-CORRECTED. `of3t-crop640` concluded GO and its measured 384 profile vindicates most of this file.",
  "THE_ERROR_NAMED": "I priced the boundary spill against the deficit AT THE PEAK. But the peak and the 640 failure are DIFFERENT MOMENTS of the same backward: 640 died inside the FIRST recompute, when the boundary set was still full, while 384 peaks later, when it has largely drained. A single sample at the maximum cannot tell those apart, which is why of3t-crop640 now keeps the whole profile -- owner totals at every walk, the full sample at the first recompute as well as at the peak, and boundaries-plus-recompute taken CO-LIVE rather than as two maxima added.",
  "WHICH_FIGURES_SURVIVE": {
   "'34.215 GB is where it DIED, not what it needs'": "STANDS, and it is the correction this file was written for.",
