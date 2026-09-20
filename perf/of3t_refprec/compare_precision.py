@@ -28,6 +28,24 @@ REF_NORM_FLOOR = 1e-12
 MASS_BAR = 2.0e-02        # the campaign's mass-weighted bar
 PER_TENSOR_BAR = 5.0e-02  # PROTOCOL 3d's per-tensor bar
 
+# The leaf of3t-orchestrator localises the device arm's failure to: 24 tensors, 25.5795 % of the
+# model, mass-weighted 10.6980 at norm ratio 7.8658 on device
+# (perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json, measured_and_outside_bar.items[0]).
+ONE_LEAF = re.compile(
+    r"^diffusion_module\.diffusion_transformer\.blocks\.\d+\."
+    r"attention_pair_bias\.layer_norm_a\.layer_norm_s\.weight$")
+
+# What the device arm reads on the individual tensors this row is asked to name, so upstream's
+# own fp32 lands beside it rather than in a separate document. Provenance is PER ENTRY.
+DEVICE_READS = {
+    "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias"
+    ".layer_norm_a.layer_norm_s.weight": {
+        "device_rel_l2": 18.504,
+        "source": "workstreams/of3t-refprec.txt, quoting of3t-orchestrator D62/D63: "
+                  "'the tensor our device reads at rel 18.504'",
+    },
+}
+
 ATTENTION_SIDE = re.compile(
     r"^diffusion_module\.(diffusion_transformer\.blocks\.\d+"
     r"|atom_attn_(enc|dec)\.atom_transformer\.blocks\.\d+)\.attention_pair_bias\.")
@@ -45,8 +63,16 @@ def per_tensor(ref, arm):
         row["ref_norm"] = rb
         row["ref_sq"] = rb * rb
         if not row["arm_present"] or b64 is None:
-            row.update(arm_norm=None, diff_norm=None, rel_l2=None, r=None, cos=None,
-                       unmeasurable="absent on one side")
+            # The arm supplying no gradient where the reference has one is not "unmeasurable":
+            # the arm's value there IS zero, and scoring it as a missing row would silently
+            # remove its mass from the numerator while leaving it in the denominator. Score it
+            # exactly the way the zero model is scored, and still name it.
+            if b64 is not None and rb >= REF_NORM_FLOOR:
+                row.update(arm_norm=0.0, diff_norm=rb, dot=0.0, rel_l2=1.0, r=0.0, cos=0.0,
+                           unmeasurable="absent from the arm, scored as zero")
+            else:
+                row.update(arm_norm=None, diff_norm=None, dot=0.0, rel_l2=None, r=None,
+                           cos=None, unmeasurable="absent on one side")
             rows.append(row)
             continue
         a64 = arm[name].to(torch.float64).reshape(-1)
@@ -128,6 +154,10 @@ def main():
     total_sq = sum(float(torch.linalg.vector_norm(v.to(torch.float64))) ** 2
                    for v in ref.values() if v is not None)
     print(f"reference: {len(ref)} tensors, squared norm {total_sq!r}", flush=True)
+    published = 10.279642678524985  # DISTANCE_TO_GO_BY_MASS.json, "what"
+    assert abs(total_sq - published) < 1e-12, (
+        f"denominator {total_sq!r} is not the campaign's published {published!r}; every share "
+        "in this file would be in a different denominator than every share it is compared to")
 
     args.sidecar_dir.mkdir(parents=True, exist_ok=True)
     manifests = dict(m.split("=", 1) for m in args.manifest)
@@ -160,6 +190,13 @@ def main():
                          "diffusion_conditioning), FULL denominator per A20"))
         sets.append(stat(att, total_sq, "attention side of the diffusion arm"))
         sets.append(stat(rest, total_sq, "rest of the diffusion arm"))
+        leaf = [r for r in rows if ONE_LEAF.match(r["param"])]
+        sets.append(stat(leaf, total_sq,
+                         "the one leaf (blocks.N.attention_pair_bias.layer_norm_a"
+                         ".layer_norm_s.weight), device reads 10.6980"))
+        sets.append(stat([r for r in arm_rows if not ONE_LEAF.match(r["param"])], total_sq,
+                         "diffusion device-arm scope minus the one leaf, "
+                         "device reads 0.2929"))
         for sec in sections:
             sets.append(stat([r for r in rows if r["section"] == sec], total_sq,
                              f"section {sec}"))
@@ -181,6 +218,14 @@ def main():
                 for r in heavy],
             "mass_reached_by_the_top_8_tensors_pct": sum(
                 r["pct_of_model_mass"] for r in ordered[:8]),
+            "named_tensors_beside_the_device_reading": [
+                {"param": name,
+                 "pct_of_model_mass": by_name[name]["pct_of_model_mass"],
+                 "this_arm_rel_l2": by_name[name]["rel_l2"],
+                 "this_arm_r": by_name[name]["r"],
+                 "this_arm_cos": by_name[name]["cos"],
+                 **d}
+                for name, d in DEVICE_READS.items() if name in by_name],
             "unmeasurable": [{"param": r["param"], "why": r["unmeasurable"],
                               "ref_norm": r["ref_norm"], "arm_norm": r.get("arm_norm"),
                               "pct_of_model_mass": r["pct_of_model_mass"]}
