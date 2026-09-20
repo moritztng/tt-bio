@@ -2799,8 +2799,23 @@ def _size_ladder_structure(out_dir: Path) -> dict | None:
     by this instrument's own reading. Reuses the five-model GPU benchmark's accuracy gate
     rather than a second CIF reader (it is pure stdlib for exactly this reason).
 
-    Never fails the rung. A structure that reads badly is for a human to look at, and a
-    parser bug in a read-only instrument must not be able to take a release gate down.
+    WHAT IT IS NOT: a fold-quality verdict. The ladder folds at SIZE_LADDER_STEPS, and six
+    diffusion steps does not converge. Measured on boltz2/256, same fixture, same seed, same
+    card, only the step count moving (perf/sizegate/campaign/steps_ctl.log, 2026-09-20):
+
+        steps   runtime   CA-CA median   breaks   Rg      plDDT
+            6     11.7 s      137.17 A    100 %   111.1   0.526
+           25     11.9 s        3.80 A      0 %    19.1   0.874
+          100     19.6 s        3.81 A      0 %    19.2   0.870
+          200     27.3 s        3.80 A      0 %    19.1   0.861
+
+    So `geometry_ok` is False on every predict rung of this ladder and says nothing about the
+    port: at 25 steps the same code folds a clean protein. The block is recorded because it
+    is a cheap comparator ACROSS cells, pass to pass and arm to arm, where the config is held
+    fixed. `steps` rides along so the verdict cannot be quoted out of that context.
+
+    Never fails the rung. A parser bug in a read-only instrument must not be able to take a
+    release gate down.
     """
     mod = _load_by_path("scripts/gpu_vs_tt/gpu5_accuracy_gate.py")
     if mod is None:
@@ -2812,7 +2827,7 @@ def _size_ladder_structure(out_dir: Path) -> dict | None:
         r = mod.gate(cifs[0], None, None)
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
-    return {"file": cifs[0].name, "n_ca": r["n_ca"],
+    return {"file": cifs[0].name, "steps": SIZE_LADDER_STEPS, "n_ca": r["n_ca"],
             "clash_frac": r.get("clash_frac"),
             "chain_break_frac": r.get("chain_break_frac"),
             "ca_ca_median_A": r.get("ca_ca_median_A"),
@@ -3374,11 +3389,6 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         if runs[0].get("structure"):
             structure[str(rung)] = runs[0]["structure"]
-            st = runs[0]["structure"]
-            if not st.get("geometry_ok", True):
-                print(f"  [size-ladder] {model}/{rung}: the fold is timed but its geometry "
-                      f"does not read as a fold — {'; '.join(st.get('geometry_fail') or [])}",
-                      flush=True)
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
         reps_s[str(rung)] = [round(t, 2) for t in ts]
