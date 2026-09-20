@@ -942,7 +942,32 @@ if ORCH.is_file():
     _words = {n: _word(n) for n in range(1, 100)}
     if DEF.is_file():
         _dt = DEF.read_text()
+        # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
+        # keys on the STRICT `### D<n>.` heading. At pass 175 D74 and D75 were written with an
+        # em dash instead of the period, and all three guards silently SKIPPED them: the count
+        # read 73 against a file holding 75, and the two entries were invisible to the check
+        # that exists to notice exactly that. The guard did not fail, it undercounted, which is
+        # the worse failure -- the same "goes quiet when its subject leaves the matched form"
+        # class as the word list at twenty-one and the placeholder regex at pass 160.
+        #
+        # So the delimiter is now itself checked: anything that looks like a defect heading but
+        # does not parse as one is a FAILURE. A document may not go partly invisible to its
+        # own audit.
+        _loose = _re.findall(r"^### (D\d+)(.)", _dt, _re.M)
+        _malformed = [f"{d}{c!r}" for d, c in _loose if c != "."]
+        if _malformed:
+            bad.append("defect heading(s) do not use the `### D<n>.` form the DEFECTS guards "
+                       "match, so they are INVISIBLE to the count, the UNFIXED list and GAP's "
+                       "coverage check: " + ", ".join(_malformed))
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
+        # The strict count and the loose count must agree, or one of them is reading a subset.
+        if len(_loose) != n_def:
+            bad.append(f"DEFECTS holds {len(_loose)} defect-shaped headings but only {n_def} "
+                       f"parse -- {len(_loose) - n_def} entr(y/ies) are unaudited")
+        if not _malformed and len(_loose) == n_def:
+            # Said out loud on success: a guard that is silent when green is invisible when
+            # green, which is how this one's absence went unnoticed for 175 passes.
+            ok.append(f"all {n_def} defect headings parse, so none is invisible to its audit")
         n_unf = len([m for m in _re.finditer(r"^### D\d+\..*$", _dt, _re.M)
                      if "UNFIXED" in m.group(0)])
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):

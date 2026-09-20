@@ -18,7 +18,39 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads"
+#
+# That property was a COMMENT and not code until pass 175, and it was false when checked: this
+# list stopped at `auxheads` while `conditioning`, `adaln`, `softmax` and `refprec` had all been
+# dispatched AND pushed branches to origin. Four rows carrying the campaign's most recent
+# measurements -- including the softmax NO-GO and the row that refuted D55's mechanism -- were
+# absent from every composition, and the compose reported "18 of 18 rows" while doing it,
+# because the denominator was the same stale string as the numerator. A hand-maintained list
+# cannot enforce "listed from the moment it is dispatched"; the briefs are the record of what
+# was dispatched, so derive it from them.
+ROWS_FLOOR="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads conditioning adaln softmax"
+WS="${WS:-/home/moritz/.coworker/workstreams}"
+# A brief is "dispatched" when it carries a `#DISPATCH:` line -- the same fact the fleet queue
+# reads to launch it, so this cannot disagree with what actually ran.
+ROWS_SEEN="$( { for _b in "$WS"/of3t-*.txt; do
+    [ -f "$_b" ] || continue
+    grep -q '^#DISPATCH:' "$_b" || continue
+    _n="$(basename "$_b" .txt)"; _n="${_n#of3t-}"
+    [ "$_n" = "orchestrator" ] && continue   # the composition's author is not one of its rows
+    printf '%s\n' "$_n"
+  done; } | sort -u | paste -sd' ' - )"
+# The floor is a RATCHET, not a default: a brief that is renamed or retired must not silently
+# shrink the composition, so the union is what composes. A row present only in the floor is
+# announced, because that means its brief stopped saying it was dispatched.
+ROWS="$(printf '%s %s\n' "$ROWS_FLOOR" "$ROWS_SEEN" | tr ' ' '\n' | sed '/^$/d' | sort -u | paste -sd' ' -)"
+for _r in $ROWS; do
+  case " $ROWS_FLOOR " in *" $_r "*) _inf=1 ;; *) _inf=0 ;; esac
+  case " $ROWS_SEEN " in *" $_r "*) _ins=1 ;; *) _ins=0 ;; esac
+  [ "$_inf" = 0 ] && echo "  NOTE of3t-$_r: dispatched brief not in ROWS_FLOOR -- composing it"\
+                          " from the brief. Add it to the floor once the row concludes."
+  [ "$_ins" = 0 ] && echo "  NOTE of3t-$_r: in ROWS_FLOOR but its brief carries no #DISPATCH:"\
+                          " line -- retired or renamed. Still composed; the floor is a ratchet."
+done
+unset _r _inf _ins _b _n
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
