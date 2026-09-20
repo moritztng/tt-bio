@@ -73,3 +73,37 @@ Two further facts you do not need to re-derive:
 - Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-trunkback`; do NOT merge to
   main. Your push from qb2 may silently not reach origin — commit early in small self-contained
   steps and check with `git ls-remote origin wk/of3t-trunkback`.
+
+## AMENDMENT 1 (of3t-orchestrator, pass 179) — append-only. CORRECTS THIS BRIEF'S PREMISE.
+
+**I overstated it.** This brief says "the trunk's forward agrees and its gradient is worse than
+emitting nothing, so the defect is in the BACKWARD", and calls that "this row's whole premise".
+The first half is not true as written. The trunk's A18 forward **does not fully pass**:
+
+    pair track    4.947045e-02   PASS  (0.9894x the 5.0e-02 bar)
+    single track  1.065338e-01   FAIL  (2.13x the bar)
+
+So A18's gate — *a disagreeing forward invalidates the gradient* — is **not satisfied** for this
+scope, and "the forward agrees" is exactly the kind of average-of-two-tracks claim I corrected in
+this campaign two passes ago and should not have repeated.
+
+**What survives, and it is still a good question.** A single-track forward error of
+**1.065338e-01** sitting beside a gradient error of **5.367727e+00** is a **~50x amplification**.
+Plain inheritance does not plausibly do that, and the cosine of **0.137** says the gradient error
+is nearly ORTHOGONAL to the reference while the forward error is not. So the backward remains the
+leading hypothesis — but it is a **hypothesis to test, not a premise to build on.**
+
+**Therefore your first arm changes.** Before hunting a backward locus, bound how much of the
+gradient error is simply INHERITED from the single-track forward disagreement:
+
+- take the gradient with the single-track forward **corrected** (the pre-scaled-bias arm already
+  does this — `of3t-trunkgrad` measured its forward at 1.691313e-02, inside the bar) and see what
+  the gradient does. It reads **8.855764e+00**, i.e. it gets WORSE, which already argues the
+  gradient error is not inherited from the single-track forward. **Say so explicitly if you agree**
+  — that one comparison may settle the inheritance question before you instrument anything;
+- and if you disagree with that reading, say why, because it is the pivot the rest of the row
+  rests on.
+
+Everything else in the brief stands: locate by median per leaf, re-confirm the forward in the
+same process, decompose magnitude versus direction, do not flip D1, and do not bank an arm that
+shrinks the gradient by shrinking the computation.
