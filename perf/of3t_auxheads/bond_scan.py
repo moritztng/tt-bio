@@ -48,6 +48,14 @@ def main() -> int:
         tm = s["token_mask"]
         lw = {k: float(v) for k, v in s["loss_weights"].items()} if "loss_weights" in s else {}
         nnz = int((tb != 0).sum())
+        # The predicate the bond term ACTUALLY requires. core/loss/diffusion.py:208-210
+        # builds bond_mask = token_bonds * (is_polymer[..., None, :] * is_ligand[..., None]),
+        # so it is a POLYMER-LIGAND bond loss: an intra-ligand bond contributes nothing and a
+        # crop full of them still evaluates the term to exactly 0.0. Counting token_bonds alone
+        # answers a different question than the one SS6 asks.
+        is_poly = s["is_protein"] + s["is_dna"] + s["is_rna"]
+        pl = tb * (is_poly[..., None, :] * s["is_ligand"][..., None])
+        pl_nnz = int((pl != 0).sum())
         # token_bonds is symmetric with no self-bonds in their featuriser; count PAIRS.
         rows.append({
             "index": i,
@@ -55,6 +63,7 @@ def main() -> int:
             "n_tokens_padded": int(tm.numel()),
             "token_bonds_nnz": nnz,
             "token_bonds_pairs": nnz // 2,
+            "polymer_ligand_bond_nnz": pl_nnz,
             "is_ligand": int(s["is_ligand"].sum()),
             "is_atomized": int(s["is_atomized"].sum()),
             "loss_weight_bond": lw.get("bond"),
@@ -63,8 +72,12 @@ def main() -> int:
 
     out = {"stage": a.stage, "crop": BD.STAGE_CROP[a.stage], "pkg": a.pkg,
            "retries": guard["retries"], "rows": rows,
-           "with_bond": [r["index"] for r in rows if r["token_bonds_nnz"] > 0]}
-    print(json.dumps({"with_bond": out["with_bond"], "retries": guard["retries"]}, indent=1))
+           "with_bond": [r["index"] for r in rows if r["token_bonds_nnz"] > 0],
+           "with_polymer_ligand_bond": [r["index"] for r in rows
+                                       if r["polymer_ligand_bond_nnz"] > 0]}
+    print(json.dumps({"with_bond": out["with_bond"],
+                      "with_polymer_ligand_bond": out["with_polymer_ligand_bond"],
+                      "retries": guard["retries"]}, indent=1))
     if a.json_out:
         a.json_out.write_text(json.dumps(out, indent=1) + "\n")
     return 0

@@ -10,6 +10,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 290,
    "token_bonds_pairs": 145,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 142,
    "is_atomized": 142,
    "loss_weight_bond": 4.0
@@ -20,6 +21,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 296,
    "token_bonds_pairs": 148,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 144,
    "is_atomized": 144,
    "loss_weight_bond": 4.0
@@ -30,6 +32,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 300,
    "token_bonds_pairs": 150,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 143,
    "is_atomized": 143,
    "loss_weight_bond": 4.0
@@ -40,6 +43,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 290,
    "token_bonds_pairs": 145,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 139,
    "is_atomized": 139,
    "loss_weight_bond": 4.0
@@ -50,6 +54,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 172,
    "token_bonds_pairs": 86,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 94,
    "is_atomized": 94,
    "loss_weight_bond": 4.0
@@ -60,6 +65,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 300,
    "token_bonds_pairs": 150,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 146,
    "is_atomized": 146,
    "loss_weight_bond": 4.0
@@ -70,6 +76,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 294,
    "token_bonds_pairs": 147,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 141,
    "is_atomized": 141,
    "loss_weight_bond": 4.0
@@ -80,6 +87,7 @@
    "n_tokens_padded": 640,
    "token_bonds_nnz": 130,
    "token_bonds_pairs": 65,
+   "polymer_ligand_bond_nnz": 0,
    "is_ligand": 72,
    "is_atomized": 72,
    "loss_weight_bond": 4.0
@@ -94,5 +102,6 @@
   5,
   6,
   7
- ]
+ ],
+ "with_polymer_ligand_bond": []
 }
