@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 183 -- an INDEPENDENT re-check of pass 176's inertness audit, read from the source trees on pc, CPU only",
+
+ "why_I_re-checked_something_that_already_passed": "36.9462 % of the campaign's gradient mass -- the bulk of its entire positive result -- rests on ONE claim: that 0.5.0's change to diffusion_conditioning is cosmetic, so our agreement there is not an artefact of scoring against the wrong revision. Pass 176 verified it and I had been repeating it. This pass I caught two CHARACTERISATIONS I had repeated without checking (an inference cost quoted as the price of training parity, and 'fused-qkv' for 240 unplaced leaves), so the load-bearing one deserved the same treatment. It survives.",
+
+ "what_pass_176_claimed": "0.5.0 constructs linear_s with linear_init_params.linear_s where 0.4.3 passed linear_init_params.linear_z -- a call site reading the right values from the wrong key -- and under diffusion_cond_init both keys are the BYTE-IDENTICAL {'bias': False, 'init': 'default'} in BOTH trees, so same state_dict and same init, cosmetic.",
+
+ "what_I_read_myself": {
+  "files": [
+   "~/.coworker/scratch/of3t-reference/upstream/openfold3/projects/of3_all_atom/config/linear_init_config.py",
+   "~/.coworker/scratch/of3t-reference/upstream050/openfold3/projects/of3_all_atom/config/linear_init_config.py",
+   "the same pair's openfold3/core/model/layers/diffusion_conditioning.py"
+  ],
+  "diffusion_cond_init_0_4_3": {"linear_s": "{\"bias\": False, \"init\": \"default\"}", "linear_z": "{\"bias\": False, \"init\": \"default\"}"},
+  "diffusion_cond_init_0_5_0": {"linear_s": "{\"bias\": False, \"init\": \"default\"}", "linear_z": "{\"bias\": False, \"init\": \"default\"}"},
+  "the_call_sites": {
+   "line_92": "linear_init_params.linear_z in BOTH trees -- unchanged",
+   "line_108": "linear_init_params.linear_z in 0.4.3, linear_init_params.linear_s in 0.5.0 -- the one change"
+  },
+  "verdict": "CONFIRMED. One call site switches which key it reads; both keys hold the identical dict in both trees. `bias: False` means the same state_dict keys and shapes, and `init: default` is overwritten by a loaded checkpoint. Functionally inert."
+ },
+
+ "what_this_re-check_does_and_does_not_extend": "it re-verifies diffusion_conditioning (36.9462 %) from source, independently of the row that first claimed it. It does NOT re-verify msa_module (1.24 %, '20 lines of cache plumbing' -- still pass 176's reading), and it does NOT touch the diffusion transformer carrying the 51.1358 %, which remains D22's reading rather than anyone's re-check. Those two are named here so the stronger claim does not silently cover them.",
+
+ "the_general_point_this_pass_keeps_producing": "the campaign's numbers are audited on every compose -- 162 checks, 0 drifted. Its CHARACTERISATIONS are not, and they are where the errors have been: a cost figure from the wrong execution, a category ('fused-qkv') with nothing establishing it, and this one, which happened to be right. A number has a check; a word has an author. Re-read the words that carry the most mass.",
+
+ "provenance": "of3t-orchestrator pass 183 on pc, CPU only, no device. Both release trees read directly; no figure taken from an artifact."
+}
