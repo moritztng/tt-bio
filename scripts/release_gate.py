@@ -2639,8 +2639,19 @@ def _size_limit_refusal(text: str) -> str | None:
     and the guard is what defines that.
     """
     for line in text.splitlines():
-        if "SizeTooLargeError" in line:
-            return line.split("SizeTooLargeError", 1)[1].lstrip(": ").strip()[:400]
+        if "SizeTooLargeError" not in line:
+            continue
+        # A CPython traceback prints the RAISING SOURCE LINE as well as the exception
+        # line, and `raise SizeTooLargeError(` comes first. Matching it recorded the
+        # refusal reason as the literal string "(" — a cell that looks like a reason,
+        # reads back as one in the check's `(was: ...)`, and carries nothing. openbind's
+        # 1024 rung on the Galaxy is the first refusal this file ever recorded and it
+        # landed that way. Skip the source line and require the message to have letters.
+        if line.lstrip().startswith("raise "):
+            continue
+        msg = line.split("SizeTooLargeError", 1)[1].lstrip(": ").strip()
+        if any(c.isalpha() for c in msg):
+            return msg[:400]
     return None
 
 
