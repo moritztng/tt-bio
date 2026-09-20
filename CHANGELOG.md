@@ -10,13 +10,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Triangle attention now picks a wider SDPA key chunk, and at twenty padded lengths that changes
   the bytes you get back.** `TT_BIO_SDPA_WIDE_K` is on by default. The fused kernel refuses any key
   chunk that does not divide the padded sequence, so at those lengths it used to decline every call
-  and fall back to the stock op; it now takes the widest dividing chunk instead. Protenix-v2's trunk
-  stage goes from 120.0 s to 106.3 s at 686 tokens (1.1285x, all 1208 calls served, none falling
-  back) on one Blackhole processor of a p300c, and the op is 1.27x-4.39x wherever it fires. The
+  and fall back to the stock op; it now takes the widest dividing chunk instead. The op is
+  1.27x-4.39x wherever it fires, measured on a Blackhole p150a with the arms interleaved. The
   affected padded lengths are 288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088,
   1184, 1216, 1248, 1312, 1376, 1472 and 1504. Every model buckets to a multiple of 32, so any model
   that reaches this kernel can present all twenty; OpenFold3, ESMFold2 and RFD3 reach it at no
-  length and are untouched.
+  length and are untouched. It does nothing at a length the 256 cap already divides, so 512, 768 and
+  1024 folds are unchanged, byte for byte. There is no fold-level speedup figure here on purpose:
+  the one stage arm that exists recorded no clock and no board class, and the parts differ by 1.19x
+  on the same fold.
 
   **This is not bit-exact.** The wider chunk changes the online-softmax reduction order, and this
   path used to reproduce byte for byte at a fixed seed, so a run at one of those lengths will not

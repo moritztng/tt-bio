@@ -600,11 +600,13 @@ structure 0.060-0.146 A, against a 3.69-7.28 A spread between seeds of the same 
 0.0001 against a seed-to-seed 0.0041. `TT_BIO_SDPA_WIDE_K=0` restores the old pick exactly, byte for
 byte. Full envelope in [sdpa-wide-k-parity.md](sdpa-wide-k-parity.md).
 
-**Speed: 1.1285x on Protenix-v2's trunk stage**, 120.0 s to 106.3 s at 686 tokens padded to 704, all
-1208 triangle-attention calls served and none falling back, on one Blackhole processor of a p300c.
-The trunk is the arm because nothing else in the fold reads this path. At the op it is 1.27x-4.39x
-where it fires, and the ratio tracks the padded length rather than the model: 704 reads 3.41x at 4
-heads, 2.45x at 8 and 3.51x at 12. Eight measured legs are `torch.equal` between arms, so their
+**Speed: 1.27x-4.39x at the op where it fires**, measured on a Blackhole p150a with the arms
+interleaved, and the ratio tracks the padded length rather than the model: 704 reads 3.41x at 4
+heads, 2.45x at 8 and 3.51x at 12. The one fold-level arm that exists, Protenix-v2's trunk stage at
+686 tokens, moved 120.0 s to 106.3 s, and it is deliberately not quoted as a figure: it recorded no
+clock and no board class, and the parts run the same fold 1.19x apart. **It changes nothing at a
+padded length the 256 cap already divides**, so 512, 768 and 1024 folds are byte for byte the
+default with the flag on or off. Eight measured legs are `torch.equal` between arms, so their
 0.955x-1.013x spread is the instrument's floor and every win above it is real.
 
 Padded 1248 perturbs numerics for 1.0090x, inside that floor. It is left in rather than allow-listed
