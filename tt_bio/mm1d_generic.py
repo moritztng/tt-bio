@@ -29,7 +29,7 @@ from pathlib import Path
 
 import ttnn
 
-from tt_bio.mm_generic import TILE_HW, ttnn_cpp_root, tile_bytes
+from tt_bio.mm_generic import TILE_HW, ttnn_cpp_root, tile_bytes, _div_up
 
 INVALID, VALID = 0, 1
 
@@ -86,6 +86,137 @@ def _num_cores_to_corerangeset(start, target, grid, row_wise=True):
     if left > 0:
         ranges.append(ttnn.CoreRange(ttnn.CoreCoord(sx, sy), ttnn.CoreCoord(sx + left - 1, sy)))
     return ttnn.CoreRangeSet(ranges)
+
+
+# ---------------------------------------------------------------------------------------------
+# The block-config chooser, transcribed from
+# ttnn/cpp/ttnn/operations/matmul/device/config/matmul_program_config.cpp at v0.67.4.
+#
+# One deliberate difference, and it is the reason a fold A/B here needs three arms rather than
+# two: the C++ `get_max_l1_space` reads `device->lowest_occupied_compute_l1_address()`, which is
+# LIVE ALLOCATOR STATE and is not bound in Python.  So the L1 fit below runs against an explicit
+# conservative budget instead, and a shape whose estimate exceeds it is declined rather than
+# guessed at.  For every shape the fold actually issues on this path the estimate is 30-210 KB,
+# so the budget is not the binding constraint and this reproduces the C++ choice; the arm that
+# runs the transcription WITHOUT the split exists to price any case where it does not.
+# ---------------------------------------------------------------------------------------------
+
+#: matmul_program_config.cpp:16-21, as (out_subblock_w, out_subblock_h) in the file's own order.
+SUBBLOCK_HW_CHOICES = ((4, 2), (2, 4), (8, 1), (1, 8), (7, 1), (1, 7), (3, 2), (2, 3), (6, 1),
+                       (1, 6), (5, 1), (1, 5), (2, 2), (4, 1), (1, 4), (3, 1), (1, 3), (2, 1),
+                       (1, 2), (1, 1))
+
+#: matmul_utilities.hpp:19
+MCAST_INPUT_BUFFERING_DEPTH = 2
+
+#: Well under a Blackhole core's L1.  Deliberately a floor rather than the live bound: exceeding
+#: it means "decline this shape", which costs a shipped-path fallback, and under-running it costs
+#: nothing because the choice only depends on the budget once the estimate approaches it.
+CONSERVATIVE_L1_BUDGET = 1_000_000
+
+
+def get_subblock_sizes(m_tiles, n_tiles, fp32_dest_acc_en):
+    """matmul_program_config.cpp:164-177.  Returns ``(out_subblock_h, out_subblock_w)``."""
+    for w, h in SUBBLOCK_HW_CHOICES:
+        if (h * w <= 4 or not fp32_dest_acc_en) and m_tiles % h == 0 and n_tiles % w == 0:
+            return h, w
+    raise ValueError(f"no subblock for {m_tiles}x{n_tiles} (fp32_dest_acc={fp32_dest_acc_en})")
+
+
+def estimated_size_of_cbs(per_core_M, per_core_N, in0_block_w, in0_dtype, in1_dtype,
+                          interm_tile_size):
+    """matmul_utilities.cpp:15-61, for the unsharded no-bias no-transpose case.
+
+    Note the C++ prices the output CB at the IN0 tile size, not the output's -- that is the
+    estimate's own approximation and is reproduced rather than corrected, because the point is to
+    land on the same block config it does.
+    """
+    in0_tile = tile_bytes(in0_dtype)
+    in1_tile = tile_bytes(in1_dtype)
+    return (per_core_M * in0_block_w * MCAST_INPUT_BUFFERING_DEPTH * in0_tile
+            + per_core_N * in0_block_w * MCAST_INPUT_BUFFERING_DEPTH * in1_tile
+            + per_core_M * per_core_N * in0_tile
+            + per_core_M * per_core_N * interm_tile_size)
+
+
+def estimate_interm_tile_size(fp32_dest_acc_en, out_dtype):
+    """matmul_utilities.cpp:63-74."""
+    if fp32_dest_acc_en:
+        return tile_bytes(ttnn.float32)
+    return max(tile_bytes(out_dtype), tile_bytes(ttnn.bfloat16))
+
+
+def multi_dim_per_core_factor(per_core_M, per_core_N, in0_block_w, in0_dtype, in1_dtype,
+                              interm_tile_size, budget):
+    """matmul_program_config.cpp:72-144 with ``adjust_in0_block_w=false``."""
+    fits = lambda m, n, k: estimated_size_of_cbs(m, n, k, in0_dtype, in1_dtype,
+                                                 interm_tile_size) < budget
+    if fits(per_core_M, per_core_N, in0_block_w):
+        return per_core_M, per_core_N, in0_block_w
+
+    m_factors = [per_core_M, 1] + [f for f in range(per_core_M // 2, 1, -1)
+                                   if per_core_M % f == 0]
+    n_factors = [per_core_N, 1] + [f for f in range(per_core_N // 2, 1, -1)
+                                   if per_core_N % f == 0]
+    # One entry per m*n product, keeping whichever pair is closest to square.
+    factors = {}
+    for m in m_factors:
+        for n in n_factors:
+            ratio = max(m, n) / min(m, n)
+            cur = factors.get(m * n)
+            if cur is None or max(cur) / min(cur) >= ratio:
+                factors[m * n] = (m, n)
+    for k in range(in0_block_w, 0, -1):
+        if in0_block_w % k:
+            continue
+        for _, (m, n) in sorted(factors.items(), reverse=True):
+            if fits(m, n, k):
+                return m, n, k
+    return 1, 1, 1
+
+
+def systolic_1d_config(in0, in1, grid_xy, fp32_dest_acc_en, out_dtype,
+                       budget=CONSERVATIVE_L1_BUDGET):
+    """``create_matmul_1d_systolic_array_program_config`` (:206-283), unsharded, no bias.
+
+    Returns ``(pc, mcast_in0)`` where ``pc`` is the tuple ``build`` takes, or ``(None, None)``
+    when the shape does not fit the budget.  ``mcast_in0`` is False for the tall case, which is
+    the ``mcast_in1`` path this module transcribes.
+    """
+    gx, gy = grid_xy
+    num_cores = gx * gy
+    a = [int(d) for d in in0.padded_shape]
+    b = [int(d) for d in in1.padded_shape]
+    batch_a = 1
+    for d in a[:-2]:
+        batch_a *= d
+    bm_tiles = batch_a * a[-2] // TILE_HW
+    k_tiles = a[-1] // TILE_HW
+    n_tiles = b[-1] // TILE_HW
+
+    is_tall = bm_tiles > n_tiles
+    if is_tall:
+        per_core_M = _div_up(bm_tiles, num_cores)
+        per_core_N = n_tiles
+    else:
+        per_core_M = bm_tiles
+        per_core_N = _div_up(n_tiles, num_cores)
+    in0_block_w = _div_up(k_tiles, num_cores)
+    while in0_block_w > 1 and k_tiles % in0_block_w:
+        in0_block_w -= 1
+    if k_tiles % in0_block_w:
+        return None, None
+
+    interm = estimate_interm_tile_size(fp32_dest_acc_en, out_dtype)
+    obh, obw, _ = multi_dim_per_core_factor(per_core_M, per_core_N, in0_block_w,
+                                            in0.dtype, in1.dtype, interm, budget)
+    if estimated_size_of_cbs(obh, obw, in0_block_w, in0.dtype, in1.dtype, interm) >= budget:
+        return None, None
+    try:
+        sbh, sbw = get_subblock_sizes(obh, obw, fp32_dest_acc_en)
+    except ValueError:
+        return None, None
+    return ((gx, gy), in0_block_w, sbh, sbw, obh, obw, per_core_M, per_core_N), (not is_tall)
 
 
 def wheel_dataflow_dir():
