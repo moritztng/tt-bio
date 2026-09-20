@@ -1,0 +1,38 @@
+trimul is 26.10 % of the fold (12.6881 s of 48.62 s)
+
+CEILINGS -- what is available at all, before anyone writes a kernel
+delete trimul entirely (unreachable)           module 11.519 ->  0.000 ms (11519000000.0000x)   fold 1.3531x
+compulsory arithmetic only (unreachable)       module 11.519 ->  2.223 ms (5.1817x)   fold 1.2668x
+
+ROUTES -- each takes its own term to zero, perfectly
+A  rate: every matmul class at the roof        module 11.519 ->  8.028 ms (1.4349x)   fold 1.0859x
+B  transpose: the 64 B all-to-all deleted      module 11.519 ->  8.968 ms (1.2845x)   fold 1.0613x
+A+B stacked, both perfect                      module 11.519 ->  5.477 ms (2.1032x)   fold 1.1586x
+
+ROUTE A priced at rates anyone has actually reached, not at the roof
+  arithmetic at the call sites' own rates = 5.714 ms; a rate lever of r shrinks that term by 1/r
+   rate lever 1.135x on all matmul classes     module 11.519 -> 10.839 ms (1.0627x)   fold 1.0156x  <- measured, S13 no-mcast halved output
+   rate lever 1.200x on all matmul classes     module 11.519 -> 10.567 ms (1.0901x)   fold 1.0221x
+   rate lever 1.300x on all matmul classes     module 11.519 -> 10.200 ms (1.1293x)   fold 1.0308x
+   rate lever 1.500x on all matmul classes     module 11.519 ->  9.614 ms (1.1981x)   fold 1.0451x
+   rate lever 2.000x on all matmul classes     module 11.519 ->  8.662 ms (1.3298x)   fold 1.0692x
+
+WHY THE MEASURED 1.135x WAS DISMISSED, AND WHY THAT IS STALE
+  S13 screened it on the contraction alone, which the campaign then priced at 8.9 % of the module:
+    1.135x on 8.9 %  = 1.0107x on the module  -- correctly dismissed
+  today's split puts the contraction at 14.14 % and the projection at 38.59 %.
+    the same lever on both matmul classes (52.73 %) = 1.0669x on the module, fold 1.0166x
+  so the mechanism is 5.92x better placed than when it was screened,
+  and that re-pricing is the campaign's case for a rate route.
+
+TRANSPOSE BAND (route B is quoted on MIXED PARTS -- read it as a band)
+   transpose term 2.5 ms deleted               module 11.519 ->  9.019 ms (1.2772x)   fold 1.0600x
+   transpose term 3.7 ms deleted               module 11.519 ->  7.819 ms (1.4732x)   fold 1.0915x
+
+KILL ARITHMETIC
+  a fold win must clear 1.05x to be worth landing over this campaign's 0.00-2.43 % A/A twins.
+  rate lever 1.15x -> fold 1.0172x  MISSES the 1.05x bar
+  rate lever 1.30x -> fold 1.0308x  MISSES the 1.05x bar
+  rate lever 1.50x -> fold 1.0451x  MISSES the 1.05x bar
+  shipped contraction 41.54 TFLOP/s, best measured alternative 47.15 = 1.1351x.
+  so the smallest artifact must beat 1.30x, not 1.135x: 1.135x is a repeat of a measured dead end.
