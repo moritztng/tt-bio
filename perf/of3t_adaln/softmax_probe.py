@@ -40,6 +40,14 @@ print()
 print("== the ablation harness: does replacing _VERBS['softmax'] bite? ==")
 shipped = TT._VERBS["softmax"]
 
+
+def install(rule):
+    """`_taped_verb` reads `_VERBS` once and `_Ttnn.__getattr__` caches the wrapper in the
+    shim's instance dict, so replacing the registry entry alone is a NO-OP on a verb that has
+    already been called. Dropping the cached attribute is the other half."""
+    TT._VERBS["softmax"] = rule
+    TT._SHIM.__dict__.pop("softmax", None)
+
 def broken(shipped_fn, args, kwargs):
     """Negative control: drop the `inner` term entirely. dx = y*g instead of y*(g - inner).
     If the harness installs, this MUST move the number; if it does not move, the harness is
@@ -63,7 +71,7 @@ def run(rule, cancel=0.0137):
     x64 = sc.double().requires_grad_(True)
     yy = torch.softmax(x64, dim=-1); yy.backward(g_in.double())
     d64 = x64.grad.detach()
-    TT._VERBS["softmax"] = rule
+    install(rule)
     try:
         ag.forget_parameters()
         sd = ttnn.from_torch(sc, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
@@ -76,7 +84,7 @@ def run(rule, cancel=0.0137):
             ag.backward([attn], [gd])
         dd = ttnn.to_torch(X.grad).double()
     finally:
-        TT._VERBS["softmax"] = shipped
+        install(shipped)
     return rel(dd, d64), float(dd.norm()) / float(d64.norm())
 
 r_ship, ratio_ship = run(shipped)
@@ -105,3 +113,11 @@ print(f"  inner, precise sum on device y              : {rel(inner_pre, inner64)
 print(f"  inner, float64 sum on DEVICE y              : {rel(inner_hybrid, inner64):.6e}")
 print("  -> if the last line ~ the first two, the reduction is innocent and y is the source")
 json.dump({"forward": rows}, open("perf/of3t_adaln/softmax_probe.json", "w"), indent=1)
+
+print()
+print("== a shippable alternative: tenstorrent._accurate_softmax ==")
+from tt_bio.tenstorrent import _accurate_softmax
+d32 = ttnn.from_torch(sc, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.float32)
+for cname, ckc in (("default", None), ("precise", precise_config())):
+    y = _accurate_softmax(d32, compute_kernel_config=ckc)
+    print(f"  _accurate_softmax cfg {cname:8s} rel {rel(ttnn.to_torch(y), y64):.6e}")
