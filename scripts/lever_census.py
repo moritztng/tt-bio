@@ -101,6 +101,15 @@ LEVERS = [
     ("SDPA_FUSED_LARGE_S", "tt_bio.tenstorrent", "_SDPA_FUSED_LARGE_S",
      "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS", "stats"),
     ("RFD3_SPARSE_BIAS", "tt_bio.rfd3_bias", "_ENABLED", "tt_bio.rfd3_bias.STATS", "stats"),
+    # The three eltwise fusions. They shipped without a counter, so this census was blind to
+    # them: `scale_add` declines on the operands' dtype, which is a property of the call site
+    # rather than of the flag, and no amount of reading the default tells you which way it went.
+    ("FUSE_SCALE_ADD", "tt_bio.eltwise_fusion", "FUSE_SCALE_ADD",
+     "tt_bio.eltwise_fusion.SCALE_ADD_STATS", "stats"),
+    ("FUSE_MASK_ADD", "tt_bio.eltwise_fusion", "FUSE_MASK_ADD",
+     "tt_bio.eltwise_fusion.MASK_ADD_STATS", "stats"),
+    ("FUSE_NORM_RESIDUAL", "tt_bio.eltwise_fusion", "FUSE_NORM_RESIDUAL",
+     "tt_bio.eltwise_fusion.NORM_RESIDUAL_STATS", "stats"),
     ("RFD3_FUSED_SCORES", "tt_bio.rfd3_bias", "_FUSED_ENABLED",
      "tt_bio.rfd3_bias.FSTATS", "stats"),
     ("TRIATT_HEAD_MAJOR_QKV", "tt_bio.triatt_qkv", "_ENABLED",

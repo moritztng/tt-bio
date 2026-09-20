@@ -51,6 +51,15 @@ FUSE_MASK_ADD = env_flag("TT_BIO_FUSE_MASK_ADD", True)
 #: execute in the 298 aa protocol, so the fold-level win is unpriced rather than measured.
 FUSE_NORM_RESIDUAL = env_flag("TT_BIO_FUSE_NORM_RESIDUAL", True)
 
+#: ``[served, declined]`` per fusion. These three were the only shipped levers in the tree with
+#: no counter, so `scripts/lever_census.py` could not tell a fusion that fires from one whose
+#: operands never satisfy it -- and ``scale_add`` declines on a dtype, which is a property of the
+#: call site and not of the flag. Counting is free and the count is the only way to read
+#: eligibility off a fold instead of off the source.
+SCALE_ADD_STATS = [0, 0]
+MASK_ADD_STATS = [0, 0]
+NORM_RESIDUAL_STATS = [0, 0]
+
 
 def scale_add(x, scale: float, bias, **kwargs):
     """``x * scale + bias`` -- one ``ttnn.addalpha`` instead of a multiply then an add.
@@ -78,7 +87,9 @@ def scale_add(x, scale: float, bias, **kwargs):
     """
     if (FUSE_SCALE_ADD and x.dtype == ttnn.float32 and bias.dtype == ttnn.float32
             and not _taping()):
+        SCALE_ADD_STATS[0] += 1
         return ttnn.addalpha(bias, x, scale, **kwargs)
+    SCALE_ADD_STATS[1] += 1
     return ttnn.add(ttnn.multiply(x, scale), bias, **kwargs)
 
 
@@ -102,7 +113,9 @@ def mask_add(x, y, mask, **kwargs):
     ``mask`` broadcasts, so the usual column form ``[..., N, 1]`` is fine.
     """
     if FUSE_MASK_ADD and not _taping():
+        MASK_ADD_STATS[0] += 1
         return ttnn.addcmul(x, y, mask, value=1.0, **kwargs)
+    MASK_ADD_STATS[1] += 1
     return ttnn.add(x, ttnn.multiply(y, mask), **kwargs)
 
 
@@ -113,5 +126,7 @@ def norm_residual(x, residual, **kwargs):
     still needs the sum as a tensor and there is nothing to fuse.
     """
     if FUSE_NORM_RESIDUAL and not _taping():
+        NORM_RESIDUAL_STATS[0] += 1
         return ttnn.layer_norm(x, residual_input_tensor=residual, **kwargs)
+    NORM_RESIDUAL_STATS[1] += 1
     return ttnn.layer_norm(ttnn.add(x, residual), **kwargs)
