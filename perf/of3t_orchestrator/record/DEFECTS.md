@@ -7242,3 +7242,45 @@ the fitted arm on adjacent rungs is the one to quote.
 specifically to discriminate between two exponents is supposed to produce. Two of upstream's four
 stage configs need a third lever, and the bytes after the first two are on the record for whoever
 looks for one.
+
+### D120. Our port is within 1.8x of upstream on every fp32 island at 0.4.3 and 19,000-30,000x away at 0.5.0, with nothing about our arithmetic different between those two sentences. FOUND by `of3t-fp32islands` (PARTIAL). It retires D9, retires half of D8, and corrects D118 — which is mine.
+
+**The finding.** OpenFold3 **0.4.3** runs LayerNorm (`normalization.py:64-75`) and the attention
+softmax (`attention.py:105-121`, `softmax_no_cast`) in **bf16**, by explicitly disabling autocast.
+**0.5.0** restores both to genuine fp32 (`normalization.py:60-74` upcasts with `x.float()`,
+`pairformer.py:199` puts the whole trunk AttentionPairBias in an fp32 region). Measured against
+float64 at crop-384 shapes, our port sits **within 1.8x of upstream at 0.4.3 on every island** and
+**19,000x to 30,000x away at 0.5.0**. Only the boundary moved.
+
+**So the silicon ceiling is real and mostly irrelevant.** Device fp32 stops around 5e-04 where IEEE
+fp32 reaches 1e-07 — but that gap does not matter *wherever upstream rounds the island back to
+bf16*, which is every single-op forward island at both versions, and there we are already at the
+floor with `precise_config()`.
+
+**D9 is RESOLVED as a policy mismatch, not a defect, and the resolution inverts the fp32 story.**
+`openfold3_trunk.py:139` ships `fp32_softmax=True` while 0.4.3 runs that softmax in bf16. D9's
+measured 3.2x gradient improvement with the flag **off** is a move *toward* 0.4.3's own policy. Our
+fp32 softmax is **3.2x more accurate** than upstream's bf16 one (5.110116e-04 against 1.617567e-03)
+— and being more accurate than the reference is what makes the gradient worse against it. The
+paradox that a more precise softmax degrades a gradient dissolves.
+
+**D8's attention hypothesis is RETIRED at 0.4.3**: our 4-op attention region reads **7.192778e-03**
+against upstream 0.4.3's own **7.259395e-03**, a ratio of **0.99**. Its residual is a
+LayerNorm-gradient class — its worst tensors are the affine gradient of exactly the island whose
+policy changed, and the LayerNorm substitution is worth a factor of **30,245**. This does not close
+D8: one site reads 4.26e-03 against a 5.0e-02 per-tensor bar, so the per-site term is well inside
+the bar and the accumulation is inferred from D8's own ladder rather than measured here.
+
+**D118 is corrected, and the correction is exactly the failure D118 itself warned about.** I wrote
+*"a satisfying mechanism is also the moment over-attribution starts"*, put seven defects in the
+fp32-ceiling bucket, and **two of them — D8 and D9 — do not belong there.** They are
+boundary-version and policy mismatches. D9's true cause is the opposite of the silicon story: not
+that we cannot reach upstream's precision, but that **we exceed it**. The protected list in D118
+held; the attributed list did not.
+
+**The campaign-wide action, and it is mine**: *any of3t gradient number is unreadable without its
+boundary version.* Every figure this document publishes must name the revision its reference was
+built on.
+
+**Durable lesson**: an upstream version bump can move a precision island, and **a port compared
+against the wrong version's boundary shows a 30,000x gradient gap with no defect present**.
