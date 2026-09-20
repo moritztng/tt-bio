@@ -51,7 +51,8 @@ def main():
 
     legs = []
     for tok in a.legs.split(","):
-        sz, ns, nw = (int(x) for x in tok.split(":"))
+        sz, ns, nw = tok.split(":")          # sz stays a STRING: the MSA-depth fixtures
+        ns, nw = int(ns), int(nw)            # are named 652d512 / 652d2048, not integers
         legs.append((sz, ns, nw))
 
     dev_opened = False
