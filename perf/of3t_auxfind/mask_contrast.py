@@ -150,7 +150,17 @@ def main() -> int:
             CAP[key] = rec
         return hook
 
+    BLK = {}
+
+    def mkb(bi):
+        def hook(mod, args, kwargs, output):
+            s_, z_ = output
+            BLK[(ARM["tag"], bi)] = (s_.detach().clone(), z_.detach().clone())
+        return hook
+
     hooks = []
+    for bi, blk in enumerate(blocks):
+        hooks.append(blk.register_forward_hook(mkb(bi), with_kwargs=True))
     for bi, blk in enumerate(blocks):
         for leaf in LEAVES:
             mod = getattr(blk.pair_stack, leaf, None) or getattr(blk, leaf)
@@ -218,14 +228,19 @@ def main() -> int:
     rep["note_amplification"] = ("head rel over pairformer-output rel; the pairformer outputs are "
                                  "taken from the last block's captured leaf outputs")
     amp = {}
-    lastb = len(blocks) - 1
-    for tag, leaf, what in (("z", "pair_transition", "zij_conf"),
-                            ("s", "single_transition", "si_conf")):
-        kr, ku = ("R", lastb, leaf), ("U", lastb, leaf)
-        if kr in CAP and ku in CAP:
-            oR, oU = CAP[kr]["out"], CAP[ku]["out"]
-            amp[what + "_leafdelta"] = stats(oU, oR)
-    rep["pairformer_output_contrast"] = amp
+    for bi in range(len(blocks)):
+        sR, zR = BLK[("R", bi)]
+        sU, zU = BLK[("U", bi)]
+        sR3, sU3 = sq(sR, 2), sq(sU, 2)
+        zR3, zU3 = sq(zR, 3), sq(zU, 3)
+        amp[f"block{bi}_s"] = stats(sU3[tokm], sR3[tokm])
+        amp[f"block{bi}_z"] = stats(zU3[tokm][:, tokm], zR3[tokm][:, tokm])
+        amp[f"block{bi}_s_padded"] = stats(sU3, sR3)
+        amp[f"block{bi}_z_padded"] = stats(zU3, zR3)
+    rep["pairformer_output_contrast_real_block"] = amp
+    print("  PAIRFORMER OUT (real block): " + "  ".join(
+        f"{k} {v['rel_l2']:.3e}" for k, v in amp.items() if not k.endswith("padded")),
+        flush=True)
 
     # ---- per-leaf: propagated, then created --------------------------------------------------
     prop = []
@@ -266,7 +281,19 @@ def main() -> int:
                 kw_brk = dict(base_kw); kw_brk["mask"] = m_brk.reshape(base_kw["mask"].shape)
                 o_brk = mod(*tuple(x.clone() if torch.is_tensor(x) else x for x in args),
                             **kw_brk)
-            created.append({"block": bi, "leaf": leaf, **stats(o_ones, rec["out"])})
+            # the residual stream the leaf writes into: positional for the pair leaves,
+            # `a` for attn_pair_bias, `x`/`z` for whatever passes it by keyword
+            zin = args[0] if args else next(
+                (base_kw[k] for k in ("z", "a", "x") if torch.is_tensor(base_kw.get(k))), None)
+            if zin is None:
+                raise SystemExit(f"{leaf}: no input tensor found in args/kwargs "
+                                 f"{list(base_kw)} -- the common denominator cannot be built")
+            d = (o_ones - rec["out"]).flatten().double()
+            created.append({"block": bi, "leaf": leaf, **stats(o_ones, rec["out"]),
+                            "created_abs": float(d.norm()),
+                            "input_norm": float(zin.flatten().double().norm()),
+                            "created_vs_input": float(d.norm()
+                                                      / (zin.flatten().double().norm() + 1e-300))})
             ctl_vacuous.append({"block": bi, "leaf": leaf,
                                 "rel_l2": stats(o_same, rec["out"])["rel_l2"],
                                 "max_abs": float((o_same - rec["out"]).abs().max())})
@@ -277,16 +304,24 @@ def main() -> int:
     rep["control_created_vacuous"] = ctl_vacuous
     rep["control_created_broken"] = ctl_broken
 
-    def med(rows):
+    def med(rows, field="rel_l2"):
         out = {}
         for leaf in LEAVES:
-            vs = [r["rel_l2"] for r in rows if r["leaf"] == leaf and r.get("rel_l2") is not None]
+            vs = [r[field] for r in rows if r["leaf"] == leaf and r.get(field) is not None]
             if vs:
                 out[leaf] = {"median": statistics.median(vs), "n": len(vs),
                              "min": min(vs), "max": max(vs)}
         return out
     rep["leaf_created_median"] = med(created)
     rep["leaf_propagated_median"] = med(prop)
+    # The denominator that makes the seven leaves comparable: each leaf's own output norm is a
+    # different quantity (0.4.3's tri_mul leaves return the UPDATED z, the attention and
+    # transition leaves return an update), so rel_l2 per leaf cannot be ranked across families.
+    # ||created delta|| over the norm of the tensor the leaf was handed can be.
+    rep["leaf_created_vs_input_median"] = med(created, "created_vs_input")
+    print("  LOCUS created/input medians: " + "  ".join(
+        f"{k} {v['median']:.3e}" for k, v in rep["leaf_created_vs_input_median"].items()),
+        flush=True)
     print("  LOCUS created medians: " + "  ".join(
         f"{k} {v['median']:.3e}" for k, v in rep["leaf_created_median"].items()), flush=True)
     print("  LOCUS propagated medians: " + "  ".join(
