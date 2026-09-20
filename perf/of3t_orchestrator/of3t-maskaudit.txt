@@ -1,0 +1,66 @@
+# Workstream: of3t-maskaudit
+#DISPATCH: host=pc card=- repo=tt-bio maxit=200 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-maskaudit
+
+OF3T row `of3t-maskaudit` — **did the campaign's activation-space readings mask their padding, or
+not?** One question, enumerated over every reading, answered from artifacts rather than prose.
+
+## Why this row exists
+
+D95, pass 176. Scoring the same two tensors over a 384-padded activation versus over the 56 real
+tokens gave:
+
+    pair track z                  over 384x384 (padded)   over 56x56 (real)   dilution
+    a STRUCTURAL difference             0.005374               0.21040          39.2x
+    a NUMERICAL difference (bf16)       0.019607               0.02441           1.2x
+
+**Padding is not a uniform scale-down.** Numerical noise is generated everywhere, including the
+padded rows; a structural difference is generated only where the model does real work. So padding
+deflates the structural term by roughly the padding ratio and the numerical term hardly at all.
+On the padded tensor the comparison reads *"the two agree to within bf16"* (0.27x). On the real
+tokens it reads *"8.6x worse than bf16"*. **Same tensors, opposite conclusion, and the wrong one
+is the comforting one.**
+
+That matters most for **A18** — the rule that a disagreeing forward invalidates the gradient.
+A18 exists to catch a **wrong transform**, which is exactly the class padding hides, and it is
+fully sensitive to the imprecision it does not need to catch.
+
+## What is already known, so you do not redo it
+
+`of3t-trunkfwd` **did mask**: every tensor in its artifacts is named `*_masked` and
+`UPSTREAM_FLOOR.json` records `tokens 64, real_tokens 56`. So the trunk readings, including the
+46.67x, are **not** exposed. That is one reading of many and it is the only one I checked.
+
+## What to do
+
+**1. ENUMERATE.** Every activation-space reading the campaign relies on — the A18 forwards above
+all, plus any forward comparison quoted in `THE_ANSWER.json`, `SCOREBOARD_PASS_175.json` or a
+row's own headline. For each, open **the artifact that produced it**, not the write-up, and
+record MASKED or PADDED. A write-up saying "masked" is not evidence; a tensor named `*_masked`
+with a `real_tokens` field beside it is.
+
+**2. PADDING.** For each, the padding fraction as real/total tokens. A reading with no padding
+is not exposed and should be marked so explicitly rather than omitted.
+
+**3. RECOMPUTE.** Every PADDED reading, recomputed restricted to real tokens in **both**
+numerator and denominator. Publish old and new side by side. **Do not scale** — the dilution is
+not uniform across error types and a scale factor would be a guess.
+
+**4. A18.** The pass/fail table before and after. If no verdict changes, that is the result and
+it is a good one — say it in your first sentence. If any changes, say which and by how much.
+
+**5. CONTROL.** Two, both measured: a reading known to be masked must recompute **unchanged**
+(if it moves, your recomputation is wrong, not the reading), and a deliberately unmasked variant
+of that same reading must **move** (if it does not, your mask is not being applied).
+
+## Rules
+
+- `PARITY MEANS ACCURACY, NOT BIT-EXACTNESS`. Report the absolute relative L2 **and** any ratio,
+  and per **PROTOCOL A27** name how a ratio's denominator arm was built.
+- You hold **no card lease**; do NOT open a Tenstorrent device. This is a re-reading of committed
+  artifacts and is CPU work.
+- Work only in your own worktree on branch `wk/of3t-maskaudit`. Explicit `git add <paths>` only,
+  never `git add -A`. Push your branch; do NOT merge to main.
+- If the honest answer is "every reading was already masked and D95 has no victims", **that is a
+  complete and valuable result** — report it as plainly and as prominently as the alarming one.
+  Do not go looking for a victim to justify the row.
