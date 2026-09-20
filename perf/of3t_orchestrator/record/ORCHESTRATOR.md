@@ -3384,9 +3384,14 @@ denominator sharpens the point rather than softening it.** Full working in
 
 - **Forward verified**, D23 closed and inside the 5.0e-02 bar: `diffusion_module` **89.211 %**
   plus pairformer blocks 0 and 23 at ~0.32 % — **≈ 89.53 %**.
-- **Per-parameter GRADIENT passing at §3d bars**, which is what instrument A and the charter
-  actually require: pairformer block 0 at **1.2136e-02** and block 23 at **1.9191e-02**, and
-  **nothing else** — **0.201 %, measured** (corrected pass 112; the ≈0.32 % first written here
+- **Per-parameter GRADIENT MEASURED at §3d bars** — updated pass 116, now that the diffusion
+  module has a properly-scoped reading: `diffusion_module` at median **1.6588e-01** over
+  **51.14 %** of the squared norm (**FAIL**, 8.3x the median bar, but **6.0x better than a
+  deleted model** with 73 of 547 tensors inside the per-tensor bar), plus pairformer block 0 at
+  **1.2136e-02** and block 23 at **1.9191e-02** (**PASS**). So **51.3 % of the mass is now
+  measured** where it was ~0 % before, and what it says is *fails by 8x*, not *unmeasurable*.
+- **Per-parameter GRADIENT PASSING** remains pairformer blocks 0 and 23 alone — **0.201 %,
+  measured** (corrected pass 112; the ≈0.32 % first written here
   assumed the 48 blocks carry equal mass and they do not — three of 48 hold **21.6 %** of the
   trunk's gradient mass). And the block that **fails**, block 47, carries **1.057 %** on its own,
   **5.2x the passing pair**.
@@ -4022,3 +4027,42 @@ a state doc does not reach a running row.
 at the same scope on both sides. D21's 0.7672 was withheld for a scope defect (283 of 870), this
 is the same class one level up, and in both cases the tell was a median sitting at the zero-model
 answer — *a number a zero model could also have produced is not evidence about the model.*
+
+PASS 116. **The diffusion gradient has a real measurement for the first time, and it FAILS by 8x
+rather than reading the zero model.** Every figure verified from
+`perf/of3t_rebase/device_gradient_043all.json`, not from prose.
+
+| | |
+|---|---|
+| median relative L2 | **1.6588e-01** — **8.3x** the 2.0e-02 median bar |
+| worst | **1.8504e+01** on `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` |
+| over the 5.0e-02 bar | **474 of 547**, **73 inside it** |
+| weights with no gradient | **0** |
+| compared set | 547 of 761 tensors, **51.14 %** of the model's squared gradient norm |
+| zero model | 1.0 — this is **6.0x better than a deleted model** |
+| A18 discriminator | **8.4748e-03**, inside the 5.0e-02 gate A19 fixed before the number existed |
+| reference floor | **bit-exact, 0.000e+00 over all 761** |
+| structures | **48 of 48**, probe growing **26.68x** |
+
+**The probe growth is what certifies the scope.** 48 independent samples would grow **√48 =
+6.93x**, perfectly correlated ones **48x**; the measured **26.68x** sits between — so `backward`
+accumulates across tape contexts rather than replacing, and the structures correlate as the same
+weights under different noise should. **Both conditions I named at pass 115 are satisfied**, which
+is why this number is admissible where 0.9778 was not.
+
+**So the campaign's largest block is measured and fails.** The reference correction bought
+**4.62x** on the median and **4.75x** on the worst case. D21's 0.7672 (a bijection defect at 283
+of 870) and the 1-of-48 run's 0.9778 (a scope defect) are both superseded, and neither was ever a
+statement about the port.
+
+**The sharpest handle nobody has pursued:** one tensor is worst in **all three** measurements,
+across two references and three scopes —
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight`, at
+**87.82** under D21, **1.291** at 1-of-48, **18.50** now. A reproducible named worst case across
+independent runs is where a bisection should start.
+
+**What the map now says.** **51.3 % of the squared gradient norm is measured**, against ~0 %
+before tonight: the diffusion module fails at 1.6588e-01 and pairformer blocks 0 and 23 pass at
+1.2136e-02 and 1.9191e-02. **Passing is still 0.201 %.** The honest headline is that the
+instrument finally reaches the mass that matters, and on that mass our gradient is eight times
+outside the bar.
