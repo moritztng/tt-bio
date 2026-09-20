@@ -2650,6 +2650,9 @@ def _census_pythonpath_args() -> list:
     return ["--pythonpath", p] if p else []
 
 
+_SIZE_REFUSAL_RE = re.compile(r"^(?:[\w.]+\.)?SizeTooLargeError: *(\S.*)$")
+
+
 def _size_limit_refusal(text: str) -> str | None:
     """The size guard's own one-line refusal for this fold, or None.
 
@@ -2665,10 +2668,20 @@ def _size_limit_refusal(text: str) -> str | None:
     next wall and the wrong thing here: this arm measures what a user can actually submit,
     and the guard is what defines that.
     """
+    # Only the traceback's FINAL line carries the message: `tt_bio.size_limits.SizeTooLargeError:
+    # <why>`. The raise site is a multi-line call, so its source line -- `raise
+    # SizeTooLargeError(` -- also contains the name, comes FIRST, and splitting on the name
+    # there yields "(" . That is what opendde's four refused rungs recorded on 2026-09-20:
+    # `"1152": "("`, a refusal whose reason is a bracket. Requiring the colon-and-message form
+    # skips the source line, and taking the last match takes the raised exception rather than a
+    # `raise ... from` cause. No match at all returns None, so the rung is recorded as an error
+    # with the log text rather than as a refusal nobody can read.
+    found = None
     for line in text.splitlines():
-        if "SizeTooLargeError" in line:
-            return line.split("SizeTooLargeError", 1)[1].lstrip(": ").strip()[:400]
-    return None
+        m = _SIZE_REFUSAL_RE.match(line.strip())
+        if m:
+            found = m.group(1).strip()[:400]
+    return found or None
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
