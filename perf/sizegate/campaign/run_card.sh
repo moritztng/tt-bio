@@ -28,8 +28,29 @@ sys.exit(0 if NEW <= have else 1)
 PYEOF
 }
 
+# A card that has taken a PCIe DPC containment event still enumerates and still opens
+# /dev/tenstorrent, but its ARC is dead and every fold dies in ttnn.open_device. Without this
+# gate the runner walks its whole model list into that card, burning a model load per entry and
+# releasing each claim so the NEXT card picks the same model up and kills itself on it too.
+# That is what emptied four cards on 2026-09-20. One reset is worth trying; a card that stays
+# dead is abandoned, so the claims it has not taken stay available to a card that works.
+healthy() {
+  "$PY" perf/sizegate/campaign/card_health.py "$CARD"
+}
+
+revive() {
+  echo "[card $CARD] ARC dead, resetting $(date -u +%FT%TZ)"
+  timeout 300 "$HOME/.local/bin/tt-smi" -r "$CARD" 2>&1 | tail -2
+  sleep 10
+  healthy
+}
+
 for M in "$@"; do
   if recorded "$M"; then echo "[card $CARD] $M already carries the new rungs"; continue; fi
+  if ! healthy && ! revive; then
+    echo "[card $CARD] ARC still dead after reset, abandoning this card $(date -u +%FT%TZ)"
+    exit 3
+  fi
   if ! mkdir "perf/sizegate/campaign/claim/$M" 2>/dev/null; then
     echo "[card $CARD] $M claimed by another card"; continue
   fi
@@ -47,6 +68,10 @@ for M in "$@"; do
   else
     # release the claim so another card can retry; the artifact is the judge
     rmdir "perf/sizegate/campaign/claim/$M" 2>/dev/null
+    if ! healthy; then
+      echo "=== $M card $CARD failed WITH A DEAD ARC: the card, not the model ===" >> "$LOG"
+      revive || { echo "[card $CARD] unrecoverable, abandoning $(date -u +%FT%TZ)"; exit 3; }
+    fi
   fi
 done
 echo "[card $CARD] slice finished $(date -u +%FT%TZ)"
