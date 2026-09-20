@@ -1,0 +1,5 @@
+# Fold/design working directories and the hooks dumps. The census JSONs in out/ are the
+# artifact; everything else here is a byproduct of the run that produced them.
+out/fold_*/
+out/design_*/
+out/.mmcensus-*/
