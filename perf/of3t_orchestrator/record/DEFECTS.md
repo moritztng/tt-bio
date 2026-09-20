@@ -5174,10 +5174,14 @@ references are interchangeable — which is what `cos ≈ 0` means, and why the 
 other readings does not apply here.
 
 **This is a port defect, not a precision one**, and it is the first of those the campaign has found
-at this size. It is also the second scope to fail A18 after `aux_heads`, which is a pattern worth
-naming: **the campaign has been measuring gradients on scopes whose forwards were never checked to
-agree.** A18 exists precisely for this and it should gate every scope before its gradient is
-scored, not be consulted afterwards.
+at this size. It is the second scope to fail A18 after `aux_heads`. **I first read that as a
+methodological hole — "the campaign has been measuring gradients on scopes whose forwards were
+never checked" — and that is wrong.** A18 was run on all four scopes and PASSES on the two
+carrying the campaign's result (diffusion arm 8.34e-03; conditioning si 2.641455e-03 / zij
+2.629445e-03, run before any gradient across 48 noise levels and both dtypes). **Two failures are
+evidence the check ran.** The honest statement is narrower: **8.6713 % of the model is void for a
+failing forward**, which belongs in the accounting as void rather than measured. See
+`perf/of3t_orchestrator/A18_WAS_RUN_ON_EVERY_SCOPE.json`.
 
 **Reach caveat, stated by the row.** The 240 unplaced tensors are five leaves per block —
 `attn_pair_bias.linear_z.weight`, `mha.linear_{q,k,v}.weight`, `mha.linear_q.bias` — which the
@@ -5221,3 +5225,42 @@ with a bad instruction: verify, refuse, say why in numbers, build the correct th
 every digest. Had it followed the brief, the trunk would have a published agreement figure that
 looked like a measurement. Owner: `of3t-orchestrator`. **FIXED** at pass 175 — brief corrected by
 the row in flight, A24 amended, and no bad number was published.
+
+### D89. I cannot reproduce one sub-figure in the arithmetic that carries my own retraction. UNFIXED, and it does not change the conclusion.
+
+The retraction of *"the failure is one module"* rests on `of3t-pairformer`'s error-mass split
+(error mass = the scope's share of the model's squared gradient norm, times `rel²`):
+
+    published by the row        recomputed by me
+    diffusion transformer   28.0929      28.0929   MATCH, to every digit
+    pairformer trunk         6.5678       6.5677   MATCH
+    other five diffusion
+      sections               0.1118       0.0035   <-- 32x apart, NOT reproduced
+
+I tried four plausible forms for the last row and none lands on 0.1118: shipped rels with
+`mass·rel²` gives **0.0035**; the bound arm's rels give 0.0015; `mass·rel` (unsquared) gives
+0.0152; mass expressed as a **percent** rather than a fraction gives 0.3471. So I cannot say what
+the row computed, only that I get a figure 32x smaller from its own published inputs.
+
+**It does not change the conclusion, and that is worth stating precisely rather than using as a
+reason not to file it.** The trunk's share is 18.95 % against my denominator and 18.89 % against
+the row's — self-consistent with whichever "other five" is used, because the disputed term is
+0.3 % of the total either way. *"One module"* allotted **0.4 %** to everything outside the
+diffusion transformer and the trunk alone is **~19 %** on every reading. The refutation stands.
+
+**A second and separate point, which is mine.** The trunk's error mass uses the **full** stack mass
+(5.8282 %) with a `rel` measured over the **placed** 94.886 %. That extrapolates the measured rel
+onto the 5.114 % that was never placed — and those unplaced tensors are **not evenly spread**
+(26.789 % of block 47, itself 18.295 % of the stack). On placed mass only, the trunk is **6.2318**
+and **18.15 %**. All three readings — 18.15, 18.89, 18.95 — refute "one module"; the campaign
+should quote the placed-mass one, because it is the one that assumes nothing.
+
+**And the row's own caveat already covers the spread**: the diffusion rows are at the 043 step and
+the trunk at the 0.5.0 boundary, so this was offered as an order-of-magnitude statement rather
+than a partition of one number. That caveat is correct and it is why the discrepancy is a defect
+in the record rather than in the finding.
+
+Owner: `of3t-orchestrator`. **UNFIXED** — needs the row's derivation of 0.1118, and the row has
+concluded, so this is a question for whoever next touches that arithmetic. Recorded rather than
+silently replaced with my own number, which is the temptation when the difference does not change
+the answer.
