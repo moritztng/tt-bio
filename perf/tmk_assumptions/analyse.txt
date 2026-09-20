@@ -1,0 +1,41 @@
+IN-SESSION ROOFS  cube4096 113.44 TFLOP/s (campaign quotes 123.65)
+  DRAM  2R1W add 431.1 | 1R1W 391.6 | 1R2W concat 284.2 | read-only 218.64 GB/s  -> best 431.1
+  machine balance at the cube, against the best DRAM stream: 263 FLOP/byte
+
+site                                           TF/s   GB/s     AI |  same-mix      % |  best-BW      % |  headroom band | claimed
+------------------------------------------------------------------------------------------------------------------------------------
+  (same-mix roof for this site raised 284.2 -> 308.5 GB/s: the 1R:2W bandwidth arm is slower than the call site, so it is not a roof)
+in-projection  [1,1,262144,256]@[256,512]     52.62  308.5  170.6 |     52.62 100.0% |    73.53  71.6% |   1.00x- 1.40x |  2.35x
+contraction    [1,128,512,512] x same         41.81  245.0  170.7 |     73.58  56.8% |    73.58  56.8% |   1.76x- 1.76x |  2.96x
+out-projection [1,512,512,256]@[256,256]      43.83  342.6  127.9 |     50.10  87.5% |    55.15  79.5% |   1.14x- 1.26x |  2.82x
+
+THE MODULE'S 274.877 GFLOP, priced four ways (ms/call):
+  at the campaign's 123.65 square roof          2.223   <- the 2.223 ms line
+  at each site's OWN best-BW roof               4.049
+  at each site's OWN same-mix roof              4.917
+  at today's measured call-site rates           5.823
+  campaign 'kernel-rate deficit'                3.600 ms
+  REACHABLE deficit (best-BW roof)              1.774 ms  = 49 % of it
+  REACHABLE deficit (same-mix roof)             0.906 ms  = 25 % of it
+
+BFP8_B: identical FLOPs, 0.53x the bytes. If a site is traffic-bound this MUST show up.
+  A_inproj_DRAM      1.3059 -> 1.0371 ms  1.259x | bytes 402.9 -> 214.0 MB (1.882x) | 66.26 TFLOP/s 206.4 GB/s
+  B_contract_DRAM    0.8218 -> 0.7138 ms  1.151x | bytes 201.3 -> 107.0 MB (1.882x) | 48.14 TFLOP/s 149.8 GB/s
+  C_outproj_linear   0.7840 -> 0.9325 ms  0.841x | bytes 268.6 -> 142.7 MB (1.882x) | 36.85 TFLOP/s 153.0 GB/s
+
+GRANULE: the pair-major -> channel-major exchange, priced by route
+  G_channel_move_0312        2.1213 ms     63.3 GB/s   14.7 % of best DRAM  | the SHIPPED channel move: [1,512,512,128] -> [1,128,512,512], 64 B granule
+  G_channel_move_0312_AA     2.1072 ms     63.7 GB/s   14.8 % of best DRAM  | A/A twin
+  G_channel_move_0321        6.5896 ms     20.4 GB/s    4.7 % of best DRAM  | the other role's move
+  G_tile_transpose_last2     0.3680 ms    364.7 GB/s   84.6 % of best DRAM  | TILE-granular control: same bytes, last-two-axis transpose
+  G_clone_same_bytes         0.3520 ms    381.3 GB/s   88.4 % of best DRAM  | no-permute control: the same bytes copied
+
+A/A twins (the session's own floor):
+  roof_cube4096           0.08 %
+  roof_dram_2R1W          0.08 %
+  A_inproj_DRAM           1.15 %
+  B_contract_DRAM         0.04 %
+  C_outproj_linear        0.08 %
+  G_channel_move_0312     0.67 %
+
+CLOCK: {"n": 216, "min": 1350, "max": 1350, "median": 1350.0, "max_gap_ms": 604.2, "errors": 0, "sampler_span_s": 16.24, "measure_span_s": 16.32, "target": 1350}

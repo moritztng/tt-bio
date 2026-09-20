@@ -1,0 +1,616 @@
+{
+ "clock": {
+  "n": 216,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350.0,
+  "max_gap_ms": 604.2,
+  "errors": 0,
+  "sampler_span_s": 16.24,
+  "measure_span_s": 16.32,
+  "target": 1350
+ },
+ "arms": {
+  "roof_cube4096": {
+   "serial_ms": 1.21158,
+   "pipe_ms": 1.18689,
+   "serial_intercept_ms": 0.00842,
+   "serial_raw": {
+    "1": 1.22,
+    "2": 2.4297,
+    "4": 4.8505,
+    "8": 9.701
+   },
+   "pipe_raw": {
+    "1": 1.2108,
+    "2": 2.4022,
+    "4": 4.7837,
+    "8": 9.5191
+   },
+   "GFLOP": 137.439,
+   "MB": 100.663,
+   "AI_flop_per_byte": 1365.33,
+   "serial_TFLOPs": 113.438,
+   "pipe_TFLOPs": 115.797,
+   "serial_GBs": 83.08,
+   "pipe_GBs": 84.81,
+   "note": "shipped ckc HiFi4/fp32T/pl1T"
+  },
+  "roof_cube4096_AA": {
+   "serial_ms": 1.21249,
+   "pipe_ms": 1.18655,
+   "serial_intercept_ms": 0.00368,
+   "serial_raw": {
+    "1": 1.2162,
+    "2": 2.4318,
+    "4": 4.8554,
+    "8": 9.7036
+   },
+   "pipe_raw": {
+    "1": 1.214,
+    "2": 2.3993,
+    "4": 4.7711,
+    "8": 9.5199
+   },
+   "GFLOP": 137.439,
+   "MB": 100.663,
+   "AI_flop_per_byte": 1365.33,
+   "serial_TFLOPs": 113.352,
+   "pipe_TFLOPs": 115.83,
+   "serial_GBs": 83.02,
+   "pipe_GBs": 84.84,
+   "note": "A/A twin"
+  },
+  "roof_dram_2R1W": {
+   "serial_ms": 0.93401,
+   "pipe_ms": 0.91099,
+   "serial_intercept_ms": 0.00661,
+   "serial_raw": {
+    "1": 0.9406,
+    "2": 1.8728,
+    "4": 3.7458,
+    "8": 7.4787
+   },
+   "pipe_raw": {
+    "1": 0.9322,
+    "2": 1.84,
+    "4": 3.6648,
+    "8": 7.3091
+   },
+   "GFLOP": 0.0,
+   "MB": 402.653,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 431.1,
+   "pipe_GBs": 442.0,
+   "note": "add: 2 reads 1 write"
+  },
+  "roof_dram_2R1W_AA": {
+   "serial_ms": 0.93472,
+   "pipe_ms": 0.90912,
+   "serial_intercept_ms": 0.01146,
+   "serial_raw": {
+    "1": 0.9462,
+    "2": 1.8664,
+    "4": 3.7415,
+    "8": 7.4893
+   },
+   "pipe_raw": {
+    "1": 0.9373,
+    "2": 1.8489,
+    "4": 3.6679,
+    "8": 7.3012
+   },
+   "GFLOP": 0.0,
+   "MB": 402.653,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 430.77,
+   "pipe_GBs": 442.9,
+   "note": "A/A twin"
+  },
+  "roof_dram_1R1W": {
+   "serial_ms": 0.77962,
+   "pipe_ms": 0.75459,
+   "serial_intercept_ms": 0.00335,
+   "serial_raw": {
+    "1": 0.783,
+    "2": 1.5645,
+    "4": 3.1145,
+    "8": 6.2403
+   },
+   "pipe_raw": {
+    "1": 0.7766,
+    "2": 1.5323,
+    "4": 3.0364,
+    "8": 6.0588
+   },
+   "GFLOP": 0.0,
+   "MB": 268.435,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 344.31,
+   "pipe_GBs": 355.74,
+   "note": "scalar mul: 1 read 1 write"
+  },
+  "roof_dram_1R2W": {
+   "serial_ms": 1.41678,
+   "pipe_ms": 1.39599,
+   "serial_intercept_ms": 0.00681,
+   "serial_raw": {
+    "1": 1.4236,
+    "2": 2.8356,
+    "4": 5.6672,
+    "8": 11.341
+   },
+   "pipe_raw": {
+    "1": 1.4168,
+    "2": 2.8158,
+    "4": 5.6089,
+    "8": 11.1887
+   },
+   "GFLOP": 0.0,
+   "MB": 402.653,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 284.2,
+   "pipe_GBs": 288.44,
+   "note": "concat dup: 1 read 2 writes (a data-movement op, a weak roof)"
+  },
+  "roof_dram_1R0W": {
+   "serial_ms": 0.61388,
+   "pipe_ms": 0.59405,
+   "serial_intercept_ms": 0.00362,
+   "serial_raw": {
+    "1": 0.6175,
+    "2": 1.2287,
+    "4": 2.4662,
+    "8": 4.9147
+   },
+   "pipe_raw": {
+    "1": 0.614,
+    "2": 1.2056,
+    "4": 2.3898,
+    "8": 4.7723
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 218.64,
+   "pipe_GBs": 225.94,
+   "note": "sum: read only"
+  },
+  "roof_dram_clone": {
+   "serial_ms": 0.68549,
+   "pipe_ms": 0.66718,
+   "serial_intercept_ms": 0.00865,
+   "serial_raw": {
+    "1": 0.6941,
+    "2": 1.3797,
+    "4": 2.7485,
+    "8": 5.4925
+   },
+   "pipe_raw": {
+    "1": 0.6857,
+    "2": 1.361,
+    "4": 2.6971,
+    "8": 5.356
+   },
+   "GFLOP": 0.0,
+   "MB": 268.435,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 391.6,
+   "pipe_GBs": 402.35,
+   "note": "clone: 1 read 1 write"
+  },
+  "A_inproj_DRAM": {
+   "serial_ms": 1.30586,
+   "pipe_ms": 1.26528,
+   "serial_intercept_ms": -0.00734,
+   "serial_raw": {
+    "1": 1.2985,
+    "2": 2.6087,
+    "4": 5.193,
+    "8": 10.4395
+   },
+   "pipe_raw": {
+    "1": 1.2677,
+    "2": 2.611,
+    "4": 5.1251,
+    "8": 10.1247
+   },
+   "GFLOP": 68.7195,
+   "MB": 402.915,
+   "AI_flop_per_byte": 170.56,
+   "serial_TFLOPs": 52.624,
+   "pipe_TFLOPs": 54.312,
+   "serial_GBs": 308.54,
+   "pipe_GBs": 318.44,
+   "note": "_in_proj_matmul, [1,1,262144,256]@[256,512], DRAM out"
+  },
+  "A_inproj_DRAM_AA": {
+   "serial_ms": 1.29105,
+   "pipe_ms": 1.25792,
+   "serial_intercept_ms": 0.02544,
+   "serial_raw": {
+    "1": 1.3165,
+    "2": 2.5777,
+    "4": 5.1722,
+    "8": 10.3539
+   },
+   "pipe_raw": {
+    "1": 1.305,
+    "2": 2.5506,
+    "4": 5.0388,
+    "8": 10.1104
+   },
+   "GFLOP": 68.7195,
+   "MB": 402.915,
+   "AI_flop_per_byte": 170.56,
+   "serial_TFLOPs": 53.227,
+   "pipe_TFLOPs": 54.629,
+   "serial_GBs": 312.08,
+   "pipe_GBs": 320.3,
+   "note": "A/A twin"
+  },
+  "B_contract_DRAM": {
+   "serial_ms": 0.82177,
+   "pipe_ms": 0.79183,
+   "serial_intercept_ms": 0.02457,
+   "serial_raw": {
+    "1": 0.8463,
+    "2": 1.6545,
+    "4": 3.3334,
+    "8": 6.5988
+   },
+   "pipe_raw": {
+    "1": 0.827,
+    "2": 1.5908,
+    "4": 3.2132,
+    "8": 6.3697
+   },
+   "GFLOP": 34.3597,
+   "MB": 201.327,
+   "AI_flop_per_byte": 170.67,
+   "serial_TFLOPs": 41.812,
+   "pipe_TFLOPs": 43.393,
+   "serial_GBs": 244.99,
+   "pipe_GBs": 254.26,
+   "note": "[1,128,512,512]@[1,128,512,512], _triangle_mul_program_config(16)"
+  },
+  "B_contract_DRAM_AA": {
+   "serial_ms": 0.82141,
+   "pipe_ms": 0.79545,
+   "serial_intercept_ms": 0.00563,
+   "serial_raw": {
+    "1": 0.827,
+    "2": 1.6658,
+    "4": 3.3037,
+    "8": 6.5769
+   },
+   "pipe_raw": {
+    "1": 0.8255,
+    "2": 1.63,
+    "4": 3.2332,
+    "8": 6.3936
+   },
+   "GFLOP": 34.3597,
+   "MB": 201.327,
+   "AI_flop_per_byte": 170.67,
+   "serial_TFLOPs": 41.83,
+   "pipe_TFLOPs": 43.195,
+   "serial_GBs": 245.1,
+   "pipe_GBs": 253.1,
+   "note": "A/A twin"
+  },
+  "B_contract_tb": {
+   "serial_ms": 0.83208,
+   "pipe_ms": 0.81073,
+   "serial_intercept_ms": 0.00013,
+   "serial_raw": {
+    "1": 0.8322,
+    "2": 1.6495,
+    "4": 3.3199,
+    "8": 6.6568
+   },
+   "pipe_raw": {
+    "1": 0.8291,
+    "2": 1.6306,
+    "4": 3.2485,
+    "8": 6.5042
+   },
+   "GFLOP": 34.3597,
+   "MB": 201.327,
+   "AI_flop_per_byte": 170.67,
+   "serial_TFLOPs": 41.294,
+   "pipe_TFLOPs": 42.381,
+   "serial_GBs": 241.96,
+   "pipe_GBs": 248.33,
+   "note": "transpose_b=True, the shipped deferred-transpose leg"
+  },
+  "C_outproj_linear": {
+   "serial_ms": 0.78395,
+   "pipe_ms": 0.75787,
+   "serial_intercept_ms": 0.02283,
+   "serial_raw": {
+    "1": 0.8068,
+    "2": 1.5736,
+    "4": 3.1312,
+    "8": 6.2944
+   },
+   "pipe_raw": {
+    "1": 0.7853,
+    "2": 1.5423,
+    "4": 3.0723,
+    "8": 6.0904
+   },
+   "GFLOP": 34.3597,
+   "MB": 268.567,
+   "AI_flop_per_byte": 127.94,
+   "serial_TFLOPs": 43.829,
+   "pipe_TFLOPs": 45.337,
+   "serial_GBs": 342.58,
+   "pipe_GBs": 354.37,
+   "note": "_pair_proj_linear, [1,512,512,256]@[256,256], DRAM out"
+  },
+  "C_outproj_linear_AA": {
+   "serial_ms": 0.78459,
+   "pipe_ms": 0.75859,
+   "serial_intercept_ms": 0.0104,
+   "serial_raw": {
+    "1": 0.795,
+    "2": 1.5768,
+    "4": 3.1503,
+    "8": 6.2872
+   },
+   "pipe_raw": {
+    "1": 0.7926,
+    "2": 1.5454,
+    "4": 3.061,
+    "8": 6.1028
+   },
+   "GFLOP": 34.3597,
+   "MB": 268.567,
+   "AI_flop_per_byte": 127.94,
+   "serial_TFLOPs": 43.793,
+   "pipe_TFLOPs": 45.294,
+   "serial_GBs": 342.3,
+   "pipe_GBs": 354.03,
+   "note": "A/A twin"
+  },
+  "C_outproj_minimal": {
+   "serial_ms": 0.93073,
+   "pipe_ms": 0.91812,
+   "serial_intercept_ms": 0.015,
+   "serial_raw": {
+    "1": 0.9457,
+    "2": 1.8846,
+    "4": 3.7367,
+    "8": 7.4609
+   },
+   "pipe_raw": {
+    "1": 0.9314,
+    "2": 1.8515,
+    "4": 3.6614,
+    "8": 7.3583
+   },
+   "GFLOP": 34.3597,
+   "MB": 268.567,
+   "AI_flop_per_byte": 127.94,
+   "serial_TFLOPs": 36.917,
+   "pipe_TFLOPs": 37.424,
+   "serial_GBs": 288.55,
+   "pipe_GBs": 292.52,
+   "note": "minimal_matmul, the _TRIMUL_MM_OUT leg"
+  },
+  "A_inproj_bfp8": {
+   "serial_ms": 1.03708,
+   "pipe_ms": 1.01165,
+   "serial_intercept_ms": 0.00708,
+   "serial_raw": {
+    "1": 1.0442,
+    "2": 2.0794,
+    "4": 4.1608,
+    "8": 8.3037
+   },
+   "pipe_raw": {
+    "1": 1.0394,
+    "2": 2.0477,
+    "4": 4.0717,
+    "8": 8.1209
+   },
+   "GFLOP": 68.7195,
+   "MB": 214.049,
+   "AI_flop_per_byte": 321.05,
+   "serial_TFLOPs": 66.262,
+   "pipe_TFLOPs": 67.928,
+   "serial_GBs": 206.4,
+   "pipe_GBs": 211.58,
+   "note": "bfp8_b operands and result"
+  },
+  "B_contract_bfp8": {
+   "serial_ms": 0.71377,
+   "pipe_ms": 0.69127,
+   "serial_intercept_ms": 0.00559,
+   "serial_raw": {
+    "1": 0.7194,
+    "2": 1.4343,
+    "4": 2.8574,
+    "8": 5.7158
+   },
+   "pipe_raw": {
+    "1": 0.7161,
+    "2": 1.4091,
+    "4": 2.7855,
+    "8": 5.555
+   },
+   "GFLOP": 34.3597,
+   "MB": 106.955,
+   "AI_flop_per_byte": 321.25,
+   "serial_TFLOPs": 48.138,
+   "pipe_TFLOPs": 49.705,
+   "serial_GBs": 149.84,
+   "pipe_GBs": 154.72,
+   "note": "bfp8_b operands and result"
+  },
+  "C_outproj_bfp8": {
+   "serial_ms": 0.93253,
+   "pipe_ms": 0.9054,
+   "serial_intercept_ms": 0.01143,
+   "serial_raw": {
+    "1": 0.944,
+    "2": 1.8711,
+    "4": 3.7419,
+    "8": 7.4717
+   },
+   "pipe_raw": {
+    "1": 0.9401,
+    "2": 1.842,
+    "4": 3.6756,
+    "8": 7.2779
+   },
+   "GFLOP": 34.3597,
+   "MB": 142.676,
+   "AI_flop_per_byte": 240.82,
+   "serial_TFLOPs": 36.846,
+   "pipe_TFLOPs": 37.95,
+   "serial_GBs": 153.0,
+   "pipe_GBs": 157.58,
+   "note": "bfp8_b operands and result"
+  },
+  "G_channel_move_0312": {
+   "serial_ms": 2.12134,
+   "pipe_ms": 2.08797,
+   "serial_intercept_ms": 0.00606,
+   "serial_raw": {
+    "1": 2.1274,
+    "2": 4.227,
+    "4": 8.4814,
+    "8": 16.9768
+   },
+   "pipe_raw": {
+    "1": 2.1452,
+    "2": 4.1651,
+    "4": 8.3479,
+    "8": 16.7609
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 63.27,
+   "pipe_GBs": 64.28,
+   "note": "the SHIPPED channel move: [1,512,512,128] -> [1,128,512,512], 64 B granule"
+  },
+  "G_channel_move_0312_AA": {
+   "serial_ms": 2.10721,
+   "pipe_ms": 2.09894,
+   "serial_intercept_ms": 0.01318,
+   "serial_raw": {
+    "1": 2.1204,
+    "2": 4.2326,
+    "4": 8.5731,
+    "8": 16.8708
+   },
+   "pipe_raw": {
+    "1": 2.0977,
+    "2": 4.2125,
+    "4": 8.4226,
+    "8": 16.7902
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 63.69,
+   "pipe_GBs": 63.95,
+   "note": "A/A twin"
+  },
+  "G_channel_move_0321": {
+   "serial_ms": 6.58963,
+   "pipe_ms": 6.54696,
+   "serial_intercept_ms": 0.03197,
+   "serial_raw": {
+    "1": 6.6216,
+    "2": 13.3007,
+    "4": 26.3303,
+    "8": 52.749
+   },
+   "pipe_raw": {
+    "1": 6.5804,
+    "2": 13.1545,
+    "4": 26.303,
+    "8": 52.4092
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 20.37,
+   "pipe_GBs": 20.5,
+   "note": "the other role's move"
+  },
+  "G_tile_transpose_last2": {
+   "serial_ms": 0.36804,
+   "pipe_ms": 0.3515,
+   "serial_intercept_ms": 0.00713,
+   "serial_raw": {
+    "1": 0.3752,
+    "2": 0.745,
+    "4": 1.4791,
+    "8": 2.9514
+   },
+   "pipe_raw": {
+    "1": 0.3633,
+    "2": 0.7281,
+    "4": 1.4217,
+    "8": 2.8238
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 364.69,
+   "pipe_GBs": 381.85,
+   "note": "TILE-granular control: same bytes, last-two-axis transpose"
+  },
+  "G_clone_same_bytes": {
+   "serial_ms": 0.35202,
+   "pipe_ms": 0.33326,
+   "serial_intercept_ms": 0.00577,
+   "serial_raw": {
+    "1": 0.3578,
+    "2": 0.7121,
+    "4": 1.4183,
+    "8": 2.8219
+   },
+   "pipe_raw": {
+    "1": 0.3508,
+    "2": 0.6843,
+    "4": 1.3508,
+    "8": 2.6836
+   },
+   "GFLOP": 0.0,
+   "MB": 134.218,
+   "AI_flop_per_byte": 0.0,
+   "serial_TFLOPs": null,
+   "pipe_TFLOPs": null,
+   "serial_GBs": 381.28,
+   "pipe_GBs": 402.75,
+   "note": "no-permute control: the same bytes copied"
+  }
+ },
+ "node": 3
+}
