@@ -763,7 +763,7 @@ if _DEFP.is_file() and (_reach_top or j("perf/of3t_orchestrator/SECTION_MASS_MEA
         # rejected. Same defect the pass-37 "3.16 % vs 3.156 %" check had; a matcher that
         # insists on its own rounding reports drift against a document that is more correct
         # than the check is.
-        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _dt)]
+        _pcts = [float(m) for m in re.findall(r"(\d+\.\d+)\s*%", _dt)]
         for _name, _sh in (("diffusion_module", _diff_share), ("aux_heads", _aux_share)):
             _want = _sh * 100
             if not any(abs(_p - _want) <= 0.005 for _p in _pcts):
