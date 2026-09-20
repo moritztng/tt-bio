@@ -3072,6 +3072,25 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
             # Name the clause it went dark ON: that is the mechanism, and it is the
             # difference between "K2 stopped firing" and "K2 stopped firing because
             # fill_preconditions rejects a padded mask", which is the actual defect.
+            #
+            # First separate darkness from an UNOBSERVED rung. `frac` above is
+            # `served / total if total else 0.0`, so a lever the census saw zero calls of
+            # reads 0.0 -- byte-identical to one that declined every call. Those are
+            # different facts with different remedies: a declining lever records a reject
+            # clause and wants investigating, an unobserved one records nothing and wants
+            # re-running. Boltz-2 hit this on 2026-09-20: seven levers at 768 aa and 896 aa
+            # read served 0 declined 0 with rc=0 and the same 11x10 grid, and were all
+            # reported as "went dark" while 512 aa and 1024 aa served 72/560/3. Verdict is
+            # unchanged -- this is still a finding and still fails the arm -- only the
+            # sentence is, because the old one sent the reader after seven regressions that
+            # were one unmeasured fold.
+            if fc == 0.0 and not (c["served"] or 0) and not (c["declined"] or 0):
+                findings.append(
+                    f"{where} {flag}: census observed NO calls (served 0, declined 0) where "
+                    f"the baseline recorded {b['served']} served / {b['declined']} declined "
+                    f"-- this rung was not measured, so re-run it rather than reading it as "
+                    f"darkness")
+                continue
             clause = ", ".join(sorted(c.get("rejects") or {})) if fc == 0.0 else ""
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
                             f"({'went dark' if fc == 0.0 else 'started firing'}"
