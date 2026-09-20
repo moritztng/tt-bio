@@ -3959,3 +3959,50 @@ calibrated for a regime where D23 has closed.
 **12 %** forward change, so 2e-02 forward does not imply 2e-02 gradient. The amendment count on
 the record moves **eighteen → nineteen** accordingly; a nineteenth amendment that does not appear
 in the tally is the same defect as a superseded number that keeps being quoted.
+
+PASS 114. **The diffusion gradient came in at the zero-model baseline, and it is a 1-of-48 scope
+artefact rather than a ceiling. Catching that before it was published is the most valuable thing
+this desk has done.** Full working in `perf/of3t_orchestrator/scope/one_of_48.md`.
+
+`of3t-rebase` reported median **9.778e-01**, worst **1.291e+00**, **547 of 547** tensors over the
+5.0e-02 bar, over a set holding **51.14 %** of the model's squared gradient norm, against a
+zero-model baseline of **1.0**. Read as written, that refutes half the proof mass.
+
+**`device_gradient_043.json` says `structures_asked [0]`, `structures_done [0]`,
+`n_struct_total 48`.** The arm differentiated **one** noised structure; the reference is
+BUNDLE-MIN's gradient from a full training step, which accumulates **all 48**.
+
+**The generator's own comment names the failure mode** (`device_gradient.py:326`): *"A norm that
+grows structure over structure is the evidence; one that stays flat means the run is measuring the
+LAST structure alone and the total is wrong."* With one structure there is one probe value,
+`1.2510e-04`, and nothing to compare it to — the check built for exactly this **cannot fire**.
+
+**And the arithmetic predicts the number.** With `G = Σ_{k<48} g_k` and the arm computing `g_0`:
+`‖g_0 − G‖² ≈ (1 − 2 + 48)‖g‖² = 47‖g‖²`, so the ratio is `√47/√48 = 0.9895`.
+
+| predicted for a 1-of-48 arm | **0.9895** |
+|---|---|
+| **observed** | **0.9778** |
+| zero model | 1.0000 |
+
+A single-sample gradient against a 48-sample sum lands at ~0.99 **by construction**, whether the
+port is right or wrong — which is also why all 547 tensors are over bar *uniformly* and why the
+median sits a hair under the zero-model answer instead of at it.
+
+**What is good here and must not be thrown out with it.** A18's discriminator reads **1.104e-02**,
+inside the **5.0e-02** bar PROTOCOL **A19** fixed earlier the same night *before the number
+existed* — so admitting the gradient was correct, and the recalibration earned its keep within one
+pass. Coverage is **547 of 761** with `weights_without_grad = 0`, against D21's 283. And the
+reference floor is **bit-exact, 0.000e+00 over all 761**. The instrument is in far better shape
+than at D21; only its **scope** is wrong.
+
+**Two ways out, the second far cheaper:** run all 48 structures with the probe growing structure
+over structure as its comment requires; or emit the **per-structure** reference gradient for
+`k = 0` from `bundle_min.py`, which makes the arm already taken valid at no extra device cost.
+Sent to the row and written into its brief as amendment 5, because a correction that reaches only
+a state doc does not reach a running row.
+
+**The standing lesson, and it is the campaign's own in a new place:** a comparison must be taken
+at the same scope on both sides. D21's 0.7672 was withheld for a scope defect (283 of 870), this
+is the same class one level up, and in both cases the tell was a median sitting at the zero-model
+answer — *a number a zero model could also have produced is not evidence about the model.*
