@@ -5864,3 +5864,38 @@ and requested of the live `of3t-conditioning` row as an explicitly secondary del
 The durable lesson: **a result file that keeps only the extremes cannot be re-analysed under a
 denominator discovered later**, and this campaign has now changed its denominator twice — once at
 pass 91 (0.5.0 → 0.4.3) and once at pass 151 (count → mass).
+
+### Pass 151, third finding — A23 applied to the campaign's one good news story
+
+D49 was the campaign's first lever that improved gradient parity: `fp32_softmax=False`, five of
+seven measured trunk blocks improved, three crossing the median bar against two. I verified it
+independently four passes ago and reported it that way.
+
+Weighted by the mass each block actually holds:
+
+| | mass-weighted | unweighted mean | median-of-blocks |
+|---|---|---|---|
+| `fp32_softmax=True`  | **0.14053** | 0.05749 | 0.02162 |
+| `fp32_softmax=False` | **0.13707** | 0.04182 | 0.01513 |
+| off / on | **0.9754** | | 0.6998 |
+
+**A 2.5 % improvement, not a 2–6x one** — because block 47 alone is **64.86 %** of the measured
+set's mass and its ratio is **1.009**, marginally worse. Excluding block 47 the lever is a real
+halving: mass-weighted **0.02840 → 0.01521**, ratio **0.5353**. So the honest sentence is that
+`fp32_softmax=False` halves the mass-weighted gradient error across six of seven measured trunk
+blocks and leaves the seventh — which holds two thirds of the measured mass — unchanged. The
+measurement and its verification stand; the sentence I attached to them overstated the effect on
+the gradient as a vector by roughly 20x, and D49's heading is corrected in place rather than
+annotated.
+
+The same table carries a second number worth more than the lever. **Before any lever**, the
+trunk's mass-weighted rel is **0.14053** against the **0.02162** median-of-blocks the campaign
+has been quoting — the statistic understates its own arm by **6.5x**, lever on or off. That is
+A23's argument measured a second time on the campaign's own data, in the same direction as D53.
+And even this restatement covers **1.64401 %** of the model; the other 41 trunk blocks are
+unmeasured at this config.
+
+Three times this pass the denominator changed the reading and never once in the flattering
+direction: the diffusion arm's errors sit on its heaviest tensors (D53), the trunk's headline
+understates it 6.5x, and the campaign's best lever is 2.5 % rather than 2–6x by the measure that
+matters. `perf/of3t_orchestrator/smoff/FP32_SOFTMAX_UNDER_A23.json`.

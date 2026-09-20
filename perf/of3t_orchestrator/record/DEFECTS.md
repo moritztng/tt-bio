@@ -2842,7 +2842,7 @@ ninety passes** — including me, through the whole of D46's three wrong version
 
 Owner: `of3t-rebase`. Evidence: `perf/of3t_orchestrator/diffusion/WHY_57_PERCENT.json`.
 
-### D49. `fp32_softmax=False` takes five of seven measured trunk blocks across the median bar, against two with it on — the campaign's first lever that improves gradient parity. FOUND by `of3t-rebase`, INDEPENDENTLY VERIFIED by `of3t-orchestrator`, pass 148. RELEASE-GATED and deliberately not flipped.
+### D49. `fp32_softmax=False` takes five of seven measured trunk blocks across the median bar, against two with it on — the campaign's first lever that improves gradient parity — though **by mass it is a 2.5 % improvement, not a 2-6x one**, because block 47 holds 64.86 % of the measured mass and does not move (restated under A23, pass 151). FOUND by `of3t-rebase`, INDEPENDENTLY VERIFIED by `of3t-orchestrator`, pass 148. RELEASE-GATED and deliberately not flipped.
 
 Recomputed from the row's own `SMOFF` and `LADDER` bundles, config fields checked (`fp32_softmax`
 **False** in every SMOFF, **True** in every LADDER):
@@ -2878,9 +2878,39 @@ seven blocks crossing the bar. If it does cost forward accuracy, the campaign ha
 tension between forward and gradient parity — **a finding either way**, and the first one in this
 campaign that points at a decision rather than at another measurement.
 
+**RESTATED UNDER A23, pass 151 — the heading above overstates this by roughly 20x and is
+corrected here rather than annotated.** The seven blocks are not equal: block 47 alone holds
+**64.86 %** of the measured set's gradient mass, and its ratio is **1.009** — very slightly
+worse. Weighting each block by the share of the model it actually holds:
+
+| | mass-weighted | unweighted mean | median-of-blocks |
+|---|---|---|---|
+| `fp32_softmax=True` | **0.14053** | 0.05749 | 0.02162 |
+| `fp32_softmax=False` | **0.13707** | 0.04182 | 0.01513 |
+| off / on | **0.9754** | | 0.6998 |
+
+So by mass the lever is a **2.5 %** improvement, not the 2–6x the per-block ratios suggest.
+**Excluding block 47 it is a genuine halving — mass-weighted 0.02840 → 0.01521, ratio 0.5353.**
+The lever is real and it is not small; what it does not do is touch the block that dominates the
+mass, which is also the block already known to be the worst.
+
+Two further things this restatement shows. **Before any lever**, the trunk's mass-weighted rel is
+**0.14053** against the median-of-blocks **0.02162** the campaign has been quoting — the
+statistic understates its own arm by **6.5x**, with the lever on or off. And the whole
+restatement still covers **1.64401 %** of the model (28.21 % of the trunk); the other 41 blocks
+are unmeasured at this config.
+
+The measurement and its independent verification stand exactly as taken. What changes is the
+sentence attached to them. The honest statement: **`fp32_softmax=False` halves the mass-weighted
+gradient error across six of seven measured trunk blocks and leaves the seventh — which holds two
+thirds of the measured mass — unchanged.** The forward A/B below is still the right next step and
+the decision it feeds is now better specified.
+
 Owner: unassigned — it needs a forward-accuracy arm, which is a different kind of work from
 everything the gradient rows have been doing. Evidence:
-`perf/of3t_orchestrator/smoff/FP32_SOFTMAX_LEVER.json`.
+`perf/of3t_orchestrator/smoff/FP32_SOFTMAX_LEVER.json` and
+`perf/of3t_orchestrator/smoff/FP32_SOFTMAX_UNDER_A23.json`. Default remains `True`; nothing is
+flipped.
 
 ### D50. A live row is running on an inverted premise I wrote: `of3t-auxheads`' brief says aux_heads is larger than the whole pairformer stack. Measured, aux_heads is 2.8431 % and pairformer is 5.8282 % — pairformer is 2.05x LARGER. FOUND by `of3t-orchestrator`, pass 149. Brief amended while the row holds the card.
 
