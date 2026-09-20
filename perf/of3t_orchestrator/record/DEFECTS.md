@@ -254,6 +254,36 @@ confidence term, with a positive sign**. A rival sample needs pTM higher by 0.12
 sample 0.05 more disordered. That is a concrete reason for a selector to prefer the looser mode and
 it predicts the sign D10 observes.
 
+**PASS 103 CORRECTION, from reading the four sites in source: OpenFold3 is alone in the CODE and
+is NOT alone in the resulting ORDER, and the actual outlier is Boltz-2.** Monomer ordering implied
+by each site with `iptm = 0` or `None`:
+
+| site | monomer score reduces to | orders by |
+|---|---|---|
+| `openfold3_fold.py:277` | `0.2*ptm + 0.5*disorder`; disorder = 0 on 1UBQ → `0.2*ptm` | **pTM** |
+| `rf3/confidence.py:108` | `iptm_v := ptm_v`, so `1.0*ptm − 100*clash` | **pTM** |
+| `worker.py:1065` | `iptm ≤ 0 → ptm` (pLDDT only if `ptm == 0`) | **pTM** |
+| `boltz2.py:6238` | `4*complex_plddt + ptm` | **a pLDDT blend** |
+
+**Three of the four order monomers identically, and OpenFold3 is one of the three** — `0.2*ptm`,
+`1.0*ptm` and `ptm` are positive multiples of one another. That is the same algebra `of3t-confhead`
+used to prove the family fallback inert, carried one step further: it is inert across rf3 and
+protenix too, so adopting it would move OpenFold3 from one pTM ordering to another.
+
+**Boltz-2 is the outlier and it is the only site that reads pLDDT at all** — which matters because
+pLDDT is the better signal on this evidence, serving **0.709 A** against `of3_fix`'s 0.755 A and
+shipped's 0.775 A on the same samples. So the chosen fix is **adopting Boltz-2's shape and
+departing from rf3 and protenix**, which is the right direction on the measurement and is not
+"bringing OpenFold3 into line with the family". Consistency with the family is the one
+justification the source does not support.
+
+**And UNIFIED-NEVER-PER-MODEL is not satisfied by making a fourth copy agree with three others
+when the four are four different formulas.** If pLDDT ranks better, the unified answer is one
+shared ranking function all four call, and rf3, protenix and of3 are all currently on the worse
+side of the campaign's own measurement. That is a larger change than `of3t-confhead` should make
+unasked; it is recorded here as the recommendation the evidence supports and as the thing that row
+is deliberately not doing.
+
 **OpenFold3 is alone in the family in leaving the degeneracy unhandled**, checked against the four
 source sites:
 

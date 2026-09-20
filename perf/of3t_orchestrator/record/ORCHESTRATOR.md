@@ -3524,3 +3524,34 @@ a ratio of 5 or 6, or with a visible spread, and at r = 0 that means something *
 stop the gradient work rather than be absorbed as a known wart. I also asked which eight of the
 4,170 parameters it samples and whether they span sections — a validation that touches only the
 trunk says nothing about the **91.21 %** of the squared norm living in the diffusion module.
+
+PASS 103. **"OpenFold3 is the only family member without the monomer fallback" is true about the
+code and false about the order, and the real outlier is Boltz-2.** Read from the four ranking
+sites in source rather than from the row's summary. With `iptm = 0` or `None`:
+
+| site | monomer score reduces to | orders by |
+|---|---|---|
+| `openfold3_fold.py:277` | `0.2*ptm + 0.5*disorder`; disorder = 0 on 1UBQ → `0.2*ptm` | **pTM** |
+| `rf3/confidence.py:108` | `iptm_v := ptm_v`, so `1.0*ptm − 100*clash` | **pTM** |
+| `worker.py:1065` | `iptm ≤ 0 → ptm` (pLDDT only if `ptm == 0`) | **pTM** |
+| `boltz2.py:6238` | `4*complex_plddt + ptm` | **a pLDDT blend** |
+
+**Three of the four order monomers identically and OpenFold3 is one of the three**, because
+`0.2*ptm`, `1.0*ptm` and `ptm` are positive multiples of one another — the same algebra
+`of3t-confhead` used to prove the family fallback inert, carried one step further. Adopting the
+fallback would move OpenFold3 from one pTM ordering to another.
+
+**Boltz-2 is the outlier, and it is the only site that reads pLDDT at all.** That matters because
+pLDDT is the better signal on this campaign's own measurement: it serves **0.709 A** against the
+chosen rule's 0.755 A and shipped's 0.775 A. So `of3t-confhead`'s fix is **adopting Boltz-2's
+shape and departing from rf3 and protenix** — right on the evidence, and not the "consistency with
+the family" the framing implied. That is the one justification the source does not support, and I
+told the row so; its numbers are untouched.
+
+**The larger point, which is mine to raise and not that row's to act on: UNIFIED, NEVER
+PER-MODEL is not satisfied by making a fourth copy agree with three others when the four are four
+different formulas.** Four sites independently implement "rank samples, handle the no-interface
+case". If pLDDT ranks better, the unified answer is **one shared ranking function all four call**,
+and rf3, protenix and OpenFold3 are all on the worse side of our own number. Recorded in D24 as
+the recommendation the evidence supports, and left unowned deliberately: it changes what four
+shipped models return and belongs behind Moritz's gate, not inside a row chartered for D10.
