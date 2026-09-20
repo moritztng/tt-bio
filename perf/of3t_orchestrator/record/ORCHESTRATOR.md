@@ -3378,8 +3378,25 @@ person who wrote it down.
   at its own scope. This is the honest soft spot and it is bigger than the pairformer.
 - **1.37 %, the remainder.**
 
-**So 94.4 % of the proof mass is closed or has a named mechanical next measurement, 4.27 % is
-unexamined, and 1.37 % is small.** That is why the verdict stays **PARTIAL and does not become
+**CORRECTED PASS 111 — that sentence conflated UNBLOCKED with MEASURED, and the corrected
+denominator sharpens the point rather than softening it.** Full working in
+`perf/of3t_orchestrator/distance/distance_to_go_043.md`. The honest split:
+
+- **Forward verified**, D23 closed and inside the 5.0e-02 bar: `diffusion_module` **89.211 %**
+  plus pairformer blocks 0 and 23 at ~0.32 % — **≈ 89.53 %**.
+- **Per-parameter GRADIENT passing at §3d bars**, which is what instrument A and the charter
+  actually require: pairformer block 0 at **1.2136e-02** and block 23 at **1.9191e-02**, and
+  **nothing else** — **≈ 0.32 %**.
+
+So the campaign has verified a great deal about the **forward** and almost nothing yet about the
+**gradient**. The 0.32 % is an estimate — `replay_vs_r0.json` put block 0 at 2.72 % of the trunk,
+rescaled to the corrected 5.828 % trunk gives ~0.159 % per block — and the order, **sub-1 %
+rather than double digits**, is what is robust.
+
+**And the corrected denominator surfaces an unowned bucket.** `msa_module` (1.240 %) plus
+`input_embedder` (0.801 %) is **2.041 %**, up from 1.29 % on the stale figures, which is
+comparable to `aux_heads` at 2.843 % — and **no row owns it**. That is the real allocation gap,
+in place of the `aux_heads`-versus-pairformer one I claimed at pass 96 and withdrew at pass 110. That is why the verdict stays **PARTIAL and does not become
 NO-GO**: the reproduction is not established, and it is not established unreachable either. Pass
 88's ceiling argument has been refuted on nine tenths of the mass by measurement, not by
 argument.
