@@ -1,105 +1,287 @@
 {
   "AF2": {
     "OuterProductMean": [
-      "tt_bio/af2.py:558"
+      {
+        "flags": {},
+        "site": "tt_bio/af2.py:558"
+      }
     ],
     "TriangleAttention": [
-      "tt_bio/af2.py:330",
-      "tt_bio/af2.py:334"
+      {
+        "flags": {
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False"
+        },
+        "site": "tt_bio/af2.py:330"
+      },
+      {
+        "flags": {
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False"
+        },
+        "site": "tt_bio/af2.py:334"
+      }
     ],
     "TriangleMultiplication": [
-      "tt_bio/af2.py:315",
-      "tt_bio/af2.py:317"
+      {
+        "flags": {},
+        "site": "tt_bio/af2.py:315"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/af2.py:317"
+      }
     ]
   },
   "Boltz-2": {
     "PairformerModule": [
-      "tt_bio/boltz2.py:4022",
-      "tt_bio/boltz2.py:4878",
-      "tt_bio/boltz2.py:5148",
-      "tt_bio/boltz2.py:5502"
+      {
+        "flags": {},
+        "site": "tt_bio/boltz2.py:4022"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/boltz2.py:4878"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/boltz2.py:5148"
+      },
+      {
+        "flags": {
+          "tri_att_sdpa_hifi": "tenstorrent.triatt_sdpa_hifi_site('boltz2.trunk')"
+        },
+        "site": "tt_bio/boltz2.py:5502"
+      }
     ]
   },
   "BoltzGen": {
     "PairformerModule": [
-      "tt_bio/boltzgen/model/models/boltz.py:258",
-      "tt_bio/boltzgen/model/modules/confidence.py:92"
+      {
+        "flags": {},
+        "site": "tt_bio/boltzgen/model/models/boltz.py:258"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/boltzgen/model/modules/confidence.py:92"
+      }
     ]
   },
   "ESMC": {},
   "ESMFold2": {
     "TriangleMultiplication": [
-      "tt_bio/esmfold2.py:153",
-      "tt_bio/esmfold2.py:157",
-      "tt_bio/esmfold2.py:1263",
-      "tt_bio/esmfold2.py:1264"
+      {
+        "flags": {
+          "gated_move": "True"
+        },
+        "site": "tt_bio/esmfold2.py:153"
+      },
+      {
+        "flags": {
+          "gated_move": "True"
+        },
+        "site": "tt_bio/esmfold2.py:157"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/esmfold2.py:1263"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/esmfold2.py:1264"
+      }
     ]
   },
   "Nesso-1": {
     "PairformerModule": [
-      "tt_bio/nesso1.py:153"
+      {
+        "flags": {},
+        "site": "tt_bio/nesso1.py:153"
+      }
     ]
   },
   "OpenDDE": {
     "Pairformer": [
-      "tt_bio/opendde.py:415"
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site('opendde.refiner', default=True)",
+          "gated_move": "True"
+        },
+        "site": "tt_bio/opendde.py:415"
+      }
     ]
   },
   "OpenFold3": {
     "OuterProductMean": [
-      "tt_bio/openfold3_msa_embedder.py:75"
+      {
+        "flags": {},
+        "site": "tt_bio/openfold3_msa_embedder.py:75"
+      }
     ],
     "Pairformer": [
-      "tt_bio/openfold3_confidence.py:86",
-      "tt_bio/openfold3_trunk.py:137"
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site('openfold3.confidence')",
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False"
+        },
+        "site": "tt_bio/openfold3_confidence.py:86"
+      },
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site('openfold3.trunk')",
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False",
+          "transpose_bias": "tri_att_end_bias_follows_pair"
+        },
+        "site": "tt_bio/openfold3_trunk.py:137"
+      }
     ],
     "PairformerLayer": [
-      "tt_bio/openfold3_msa_embedder.py:85",
-      "tt_bio/openfold3_template.py:114"
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site('openfold3.msa')",
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False",
+          "transpose_bias": "transpose_bias"
+        },
+        "site": "tt_bio/openfold3_msa_embedder.py:85"
+      },
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site('openfold3.template')",
+          "fp32_softmax": "True",
+          "scale_pair_bias": "False",
+          "transpose_bias": "transpose_bias"
+        },
+        "site": "tt_bio/openfold3_template.py:114"
+      }
     ],
     "Transition": [
-      "tt_bio/openfold3_msa_embedder.py:81"
+      {
+        "flags": {},
+        "site": "tt_bio/openfold3_msa_embedder.py:81"
+      }
     ]
   },
   "Protenix-v2": {
     "AttentionPairBias": [
-      "tt_bio/protenix.py:930"
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:930"
+      }
     ],
     "OuterProductMean": [
-      "tt_bio/protenix.py:2507"
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:2507"
+      }
     ],
     "Pairformer": [
-      "tt_bio/protenix.py:1458",
-      "tt_bio/protenix.py:2463"
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.confidence', default=True)",
+          "gated_move": "gated_move"
+        },
+        "site": "tt_bio/protenix.py:1458"
+      },
+      {
+        "flags": {
+          "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.trunk', default=True)",
+          "gated_move": "gated_move"
+        },
+        "site": "tt_bio/protenix.py:2463"
+      }
     ],
     "PairformerLayer": [
-      "tt_bio/protenix.py:2473",
-      "tt_bio/protenix.py:2509"
+      {
+        "flags": {
+          "gated_move": "gated_move"
+        },
+        "site": "tt_bio/protenix.py:2473"
+      },
+      {
+        "flags": {
+          "gated_move": "gated_move"
+        },
+        "site": "tt_bio/protenix.py:2509"
+      }
     ],
     "Transition": [
-      "tt_bio/protenix.py:904",
-      "tt_bio/protenix.py:2157",
-      "tt_bio/protenix.py:2486",
-      "tt_bio/protenix.py:2124",
-      "tt_bio/protenix.py:2516"
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:904"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:2157"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:2486"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:2124"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/protenix.py:2516"
+      }
     ]
   },
   "RFdiffusion3": {
     "OuterProductMean": [
-      "tt_bio/rf3/msa.py:103"
+      {
+        "flags": {},
+        "site": "tt_bio/rf3/msa.py:103"
+      }
     ],
     "Pairformer": [
-      "tt_bio/rf3/confidence_head.py:114",
-      "tt_bio/rf3/model.py:51"
+      {
+        "flags": {
+          "**": "**kwargs (unresolved -- read the site)"
+        },
+        "site": "tt_bio/rf3/confidence_head.py:114"
+      },
+      {
+        "flags": {
+          "**": "**kwargs (unresolved -- read the site)"
+        },
+        "site": "tt_bio/rf3/model.py:51"
+      }
     ],
     "PairformerLayer": [
-      "tt_bio/rf3/msa.py:116",
-      "tt_bio/rf3/template.py:100"
+      {
+        "flags": {
+          "**": "**kwargs (unresolved -- read the site)",
+          "scale_pair_bias": "False",
+          "transpose_bias": "False"
+        },
+        "site": "tt_bio/rf3/msa.py:116"
+      },
+      {
+        "flags": {
+          "**": "**kwargs (unresolved -- read the site)",
+          "scale_pair_bias": "False",
+          "transpose_bias": "False"
+        },
+        "site": "tt_bio/rf3/template.py:100"
+      }
     ],
     "Transition": [
-      "tt_bio/rf3/diffusion_conditioning.py:82",
-      "tt_bio/rf3/diffusion_conditioning.py:86",
-      "tt_bio/rf3/msa.py:112"
+      {
+        "flags": {},
+        "site": "tt_bio/rf3/diffusion_conditioning.py:82"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/rf3/diffusion_conditioning.py:86"
+      },
+      {
+        "flags": {},
+        "site": "tt_bio/rf3/msa.py:112"
+      }
     ]
   }
 }

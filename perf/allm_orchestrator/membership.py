@@ -78,8 +78,35 @@ def scan(path):
                 and fn.value.id == "tenstorrent":
             name = fn.attr                      # `tenstorrent.PairformerModule(...)`
         if name in PRIMS:
-            hits.setdefault(name, []).append(node.lineno)
+            hits.setdefault(name, []).append((node.lineno, _flags(node)))
     return hits
+
+
+# Keyword arguments that decide WHICH route a Pairformer site takes, as opposed to what it
+# computes. `fp32_softmax=True` is the one that matters most: tenstorrent.py:2189 turns it into
+# `_gate_reject("site")`, so a site passing it never reaches the fused triangle attention, and
+# rf3/remap.py:230 spells the two as mutually exclusive (`fp32_softmax=not on`).
+ROUTING_KWARGS = ("fp32_softmax", "scale_pair_bias", "transpose_bias", "gated_move",
+                  "accurate_softmax", "tri_att_sdpa_hifi", "tri_att_sdpa_ragged_pad",
+                  "tri_att_accurate_softmax")
+
+
+def _flags(node):
+    """-> {kwarg: source text} for the routing kwargs this call site passes explicitly.
+
+    Only what the site SPELLS. A kwarg absent here takes Pairformer's default, which for
+    fp32_softmax is False -- and the absence is the point, so it must not be filled in.
+    """
+    out = {}
+    for kw in node.keywords:
+        if kw.arg in ROUTING_KWARGS:
+            try:
+                out[kw.arg] = ast.unparse(kw.value)
+            except Exception:
+                out[kw.arg] = "?"
+        elif kw.arg is None:
+            out["**"] = "**kwargs (unresolved -- read the site)"
+    return out
 
 
 def build():
@@ -87,8 +114,9 @@ def build():
     for model, files in MODELS.items():
         agg = {}
         for f in files:
-            for op, lines in scan(f).items():
-                agg.setdefault(op, []).extend(f"{f}:{ln}" for ln in lines)
+            for op, entries in scan(f).items():
+                agg.setdefault(op, []).extend(
+                    {"site": f"{f}:{ln}", "flags": fl} for ln, fl in entries)
         out[model] = agg
     return out
 
@@ -111,8 +139,18 @@ def main():
     w("\nsites, per entry\n")
     for model, agg in m.items():
         for op in PRIMS:
-            if agg.get(op):
-                w(f"  {model:<14} {op:<24} {' '.join(agg[op])}\n")
+            for e in agg.get(op, []):
+                w(f"  {model:<14} {op:<24} {e['site']}\n")
+
+    w("\nrouting flags each Pairformer site SPELLS (absent = Pairformer's default)\n")
+    for model, agg in m.items():
+        for op in PAIRFORMER:
+            for e in agg.get(op, []):
+                fl = e["flags"]
+                shown = ", ".join(f"{k}={v}" for k, v in sorted(fl.items())) or "(none: all defaults)"
+                mark = "  <-- OFF the fused tri-att route" \
+                    if fl.get("fp32_softmax") == "True" else ""
+                w(f"  {model:<14} {e['site']:<46} {shown}{mark}\n")
 
     if args.json:
         Path(args.json).write_text(json.dumps(m, indent=2, sort_keys=True) + "\n")
