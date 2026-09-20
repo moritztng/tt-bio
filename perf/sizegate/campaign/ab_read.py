@@ -44,14 +44,20 @@ def summarise(path):
         print(f"   DEFECT: digest moved across budgets {sorted(digests)} -- the tail is"
               " documented bit-exact under a block-size change; the runtimes are void")
         return
-    print(f"   digest identical across every arm ({digests.pop()}): bit-exactness holds")
+    elif sum(len(rs) for rs in by.values()) < 2:
+        print(f"   one fold only ({digests.pop()}): nothing to compare a digest against yet")
+    else:
+        print(f"   digest identical across every arm ({digests.pop()}): bit-exactness holds")
 
     counters = {b: (rs[0]["fp32_softmax"]["l1_blocks"], rs[0]["fp32_softmax"]["l1_refused"])
                 for b, rs in by.items()}
-    moved = len(set(counters.values())) > 1
     for b, (bl, rf) in sorted(counters.items()):
         print(f"   {b >> 10:4d} KB  blocks={bl} refused={rf}")
-    if not moved:
+    # "the counters did not move" needs two budgets to be a statement about anything. With one
+    # arm measured it is true of every possible outcome, which is not an inertness finding.
+    if len(counters) < 2:
+        print(f"   only {len(counters)} budget measured: inert-or-not is undecidable, not inert")
+    elif len(set(counters.values())) == 1:
         print("   INERT at this shape: the counters are identical across budgets, so the"
               " budget changed nothing the kernel did and the runtime spread is noise")
 
@@ -60,6 +66,8 @@ def summarise(path):
     means = {b: statistics.fmean(x["runtime_s"] for x in rs) for b, rs in by.items()}
     best, worst = min(means, key=means.get), max(means, key=means.get)
     spread = means[worst] - means[best]
+    if len(means) < 2:
+        return
     print(f"   runtime: best {best >> 10} KB {means[best]:.1f}s, worst {worst >> 10} KB"
           f" {means[worst]:.1f}s, spread {spread:.1f}s ({100 * spread / means[worst]:.2f}%)"
           f" over {min(len(rs) for rs in by.values())}+ reps/arm")
