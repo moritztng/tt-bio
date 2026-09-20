@@ -7,35 +7,50 @@ had `rf3` at 896, 1024 and 1088, and by 2026-09-20 every other structure model
 walked p150a to 1536. Nothing was checking, because a sentence is not a number.
 
 So the table is generated from the same files the size-ladder recorder writes,
-and this fails if the two drift. The ceiling table higher up the README is a
+and this fails if the two drift, reading them through the recorder's own
+assembler rather than a second copy of it. The ceiling table higher up the README is a
 different invariant -- that one is held to `size_limits.CEILINGS`, the guard that
 refuses a job, and only `opendde` has a Blackhole entry there. This one is a
 record of what folded, which on Blackhole is most of what a user has.
 """
 from __future__ import annotations
 
-import json
+import importlib.util
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
-FRAGMENTS = ROOT / "docs" / "size_ladder_baseline.d"
 CARDS = ("p150a", "p300c")
 HEADER = "| model | p150a | p300c |"
+
+
+def _baseline() -> dict:
+    """The assembled baseline, read the way the recorder writes it.
+
+    `scripts/release_gate.py` owns the monolith-plus-fragments layout and already
+    merges the two: a model can hold one card's rows in
+    `docs/size_ladder_baseline.json` and another's in
+    `size_ladder_baseline.d/<model>.json`. Reading only the fragment directory here
+    would publish a table that silently drops whichever rows stayed in the monolith.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "release_gate_for_readme_table", ROOT / "scripts" / "release_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod._size_ladder_read_baseline(ROOT / "docs" / "size_ladder_baseline.json")
 
 
 def recorded_tops() -> dict[str, dict[str, int]]:
     """Largest rung each model has a runtime for, per Blackhole card."""
     tops: dict[str, dict[str, int]] = {}
-    for path in sorted(FRAGMENTS.glob("*.json")):
-        for card, entry in json.loads(path.read_text())["cards"].items():
-            if card not in CARDS:
-                continue
-            for model, row in entry.get("models", {}).items():
-                runtimes = row.get("runtime_s") or {}
-                if runtimes:
-                    tops.setdefault(model, {})[card] = max(int(k) for k in runtimes)
+    for card, entry in _baseline().get("cards", {}).items():
+        if card not in CARDS:
+            continue
+        for model, row in entry.get("models", {}).items():
+            runtimes = row.get("runtime_s") or {}
+            if runtimes:
+                tops.setdefault(model, {})[card] = max(int(k) for k in runtimes)
     return tops
 
 
