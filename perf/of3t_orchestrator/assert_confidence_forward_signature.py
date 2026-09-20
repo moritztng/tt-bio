@@ -10,6 +10,7 @@ Every parameter must also keep a DEFAULT: both sides added theirs as optional, a
 turned one into a positional would break every existing caller of a shipped function.
 """
 import ast
+import re
 import sys
 
 PATH = sys.argv[1] if len(sys.argv) > 1 else "tt_bio/openfold3_confidence.py"
@@ -66,15 +67,30 @@ if _bad_default:
     sys.exit(f"FAIL {PATH}: the release-gated masks are no longer off by default "
              f"({', '.join(_bad_default)}) -- a gated fix has become a shipped default")
 
-# and the shipped inference call site must still not pass them
+# and the shipped inference call site must still not pass them.
+# SCOPE, third iteration and each one was caught by running it against the real file rather than
+# against my own examples: (1) a substring test fired on `max_atom_per_token_mask=`, which the
+# fold path passes legitimately; (2) a word-bounded test still fired, on `token_mask=token_mask`
+# at line 409 -- a call into a DIFFERENT function entirely. Only the calls inside the
+# `_confidence` method can turn this gated fix into live inference, so that is the only place
+# looked at, and it is found by AST rather than by matching text anywhere in a 450-line file.
 import os as _os
 _fold = _os.path.join(_os.path.dirname(PATH), "openfold3_fold.py")
 if _os.path.exists(_fold):
-    _fsrc = open(_fold).read()
-    _passed = [n for n in ("token_mask=", "single_mask=") if n in _fsrc]
-    if _passed:
-        sys.exit(f"FAIL {_fold}: the shipped fold path now passes {_passed} into the confidence "
-                 f"head -- that is the release-gated change becoming live inference")
+    try:
+        _ftree = ast.parse(open(_fold).read())
+    except SyntaxError as e:
+        sys.exit(f"FAIL {_fold}: does not parse -- {e}")
+    _live = []
+    for _fn in ast.walk(_ftree):
+        if isinstance(_fn, ast.FunctionDef) and _fn.name == "_confidence":
+            for _call in ast.walk(_fn):
+                if isinstance(_call, ast.Call):
+                    _live += [k.arg for k in _call.keywords
+                              if k.arg in ("token_mask", "single_mask")]
+    if _live:
+        sys.exit(f"FAIL {_fold}: _confidence() now passes {sorted(set(_live))} -- the "
+                 f"release-gated change has become live inference")
 
 print(f"OK {PATH}: confidence forward keeps all of {sorted(WANT)}; the release-gated masks "
       f"default to None and the shipped fold path does not pass them")
