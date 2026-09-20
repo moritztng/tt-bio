@@ -1,6 +1,6 @@
 affected padded lengths (computed from tt_bio at this commit): [288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088, 1184, 1216, 1248, 1312, 1376, 1472, 1504]
-ladder rungs that appear in findings: [256, 512, 640, 768, 896, 1024]
-of those, affected by the flag: []
+ladder rungs that appear in findings: [256, 512, 640, 768, 896, 1024, 1088]
+of those, affected by the flag: [1088]
 
 model        rung      lever                         verdict
 protenix-v1  256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
@@ -80,10 +80,32 @@ openbind     640       SDPA_WIDE_K                   flip: resolved-value only, 
 openbind     768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
 openbind     896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
 openbind     1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          256       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+rf3          256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          512       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          640       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          768       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          896       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          1024      QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+rf3          1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+rf3          1088      QKV_MM_CONFIG                 AMBIGUOUS: other lever at a rung the flip can reach
+rf3          1088      SDPA_WIDE_K                   FLIP: REACHABLE -- this rung is one of the affected lengths, review it
+rf3          512->768  exponent                      main: the flip changes no bytes at this rung
+rf3          256,512,640,768,896,1024,1088runtime                       AMBIGUOUS: other lever at a rung the flip can reach
 
-  47  main: the flip changes no bytes at this rung
-  30  flip: resolved-value only, bit-identical at this rung
+  55  main: the flip changes no bytes at this rung
+  36  flip: resolved-value only, bit-identical at this rung
+   2  AMBIGUOUS: other lever at a rung the flip can reach
+   1  FLIP: REACHABLE -- this rung is one of the affected lengths, review it
 
 NEGATIVE CONTROL: treating protenix-v1/256 REBLOCK_PERMUTE as a firing rung MOVES its verdict ('main: the flip changes no bytes at this rung' -> 'AMBIGUOUS: other lever at a rung the flip can reach')
 
-findings this flag could have caused: 0
+findings this flag could have caused: 3
+  rf3/1088 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,24)', 'no_mm_block:(2,8)', 'no_mm_block:(8,2)'] -> ['no_mm_block:(2,24)', 'no_mm_block:(8,2)']
+  rf3/1088 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+  rf3/256,512,640,768,896,1024,1088 runtime: 256 23.9->20.7 0.87x, 512 42.4->37.0 0.87x, 640 58.0->52.2 0
