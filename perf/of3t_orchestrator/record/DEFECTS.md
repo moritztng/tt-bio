@@ -4832,3 +4832,95 @@ accurate** than upstream's own step and fails by direction (cos -0.273). `msa_mo
 *larger than either distance from float64*. `aux_heads` has a broken forward, so no gradient
 statement about it means anything. Owner: `of3t-orchestrator`. **UNFIXED** — the retraction is
 recorded; what closes it is a port fix, not a measurement.
+
+### D83. the guard I wrote against stale artifacts was itself pinned to one, and required VERDICT to quote a superseded framing. FIXED.
+
+`audit_evidence.py`'s distance-to-go check read
+`perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json` — **as_of pass 157** — and **required VERDICT
+to quote its three shares**, failing the audit if it did not. Those shares are distances from the
+**float64 ideal**:
+
+    39.7893 % measured and INSIDE THE BARS / 54.0115 % outside / 6.1992 % unread
+
+Every *"inside the bars"* among them is a **shared-subtrahend reading**, which is the thing D72
+published and D82 retracted: three of the scopes counted inside those bars have since been tested
+**directly** against upstream's own training step and **all three failed**. So from the moment the
+campaign started measuring agreement, this guard was **mechanically enforcing the superseded
+framing** — VERDICT could not be updated to the honest numbers without failing the audit.
+
+**This is the fourth sighting of "a guard pinned to a superseded artifact enforces staleness", and
+it is on the guard I wrote for that class.** The earlier three were guards pinned to a disqualified
+model revision, to a superseded share table, and to the wrong model's figure. The pattern has a
+tell I keep missing: a guard that requires a *specific number* to appear in prose is a guard that
+**forbids the prose from improving**. A guard should assert that VERDICT quotes **the current
+artifact**, which means it has to be re-pointed whenever the artifact is superseded — and that
+re-pointing is not optional maintenance, it is part of superseding.
+
+**Fixed three ways.** (1) `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` scores the same partition
+against **upstream's own step**: **0.2666 %** survives, **89.0554 %** measured-and-fails,
+**2.8431 %** measured-and-**void under A18**, **7.8349 %** unread — summing to 100.0000 %, with
+direct coverage 92.1651 % reconciling against the figure computed independently from the four
+measured scopes. Two routes to one number is the check that no section is double-counted, the
+failure that cost pass 152 a headline. (2) The guard reads the new file. (3) The old file's
+**headline is nulled in place**, not merely stamped — a superseded stamp does not stop a number
+being read, and this file's split sat in VERDICT for twenty-three passes — with the original kept
+as `headline_RETIRED` for the record, and a **new check that fails if that headline ever goes live
+again**, since something restoring it from history would drag VERDICT back with it.
+
+**Note what the restatement does and does not mean.** Nothing regressed and no measurement changed:
+0.2666 % reads so much worse than 39.7893 % because **the yardstick moved to the one the charter
+actually asks about**. Agreement with upstream's real step is a strictly harder test than distance
+from an ideal neither side computes (A25). The accuracy column moved the other way and is published
+beside it. Owner: `of3t-orchestrator`. **FIXED** at pass 175.
+
+### D84. I cross-compared two columns of a table whose device column is on differently-scoped sets, and published it. WITHDRAWN same pass. FIXED.
+
+`of3t-refprec`'s matched-scope table has an fp32 column, a bf16 column it measured itself, and a
+**device** column it did not — refprec has no device gradient of its own and quoted those figures
+from other rows. It **annotated the scope mismatch explicitly** on two rows:
+
+    | diffusion device-arm scope | 735 | 52.2644 | ... | 6.035589e-02 | 7.5692 over its own 547 / 51.1358 % |
+    | msa_module                | 227 |  1.2400 | ... | 1.789444e-01 | 0.16211 over its own 227 / 1.2317 % |
+
+and not on the two pairformer rows. **I read past the annotations and cross-compared the columns
+anyway**, publishing *"on pairformer's 7 measured blocks the device is 2.09x MORE accurate than
+upstream's bf16 step"* in three artifacts, my VERDICT and my report to Moritz.
+
+**The pairformer device figures fail a subset-consistency test.** Block 47 is in the 7-block set
+and is **64.9 %** of its reference mass, so its error mass **cannot exceed** the set's. It does:
+
+    7 blocks       rel 0.14053  mass 0.016440  ->  error mass 3.2467e-04
+    block 47 alone rel 0.20129  mass 0.010662  ->  error mass 4.3200e-04   = 1.33x the superset
+
+The **bf16 column passes the same test at 0.399**, which localises the defect to the device column
+rather than to the masses. So at least one pairformer device figure is not a mass-weighted `rel_l2`
+over the set it is labelled with, and **neither is comparable across columns** until its scope is
+established. Establishing it needs a device pairformer gradient at **model** scope, which does not
+exist — `of3t_gradients/cap` holds only blocks 0, 23 and 47 as boundaries.
+
+**And a second, independent reason nothing on that subset extrapolates.** The 7 measured blocks
+(0, 8, 16, 23, 32, 40, 47) average **1.93x** an average pairformer block, because **block 47 alone
+is 1.06624 % of the model — 18.3 % of the entire 48-block stack** — and is in the sample. A naive
+48x extrapolation from the subset reads **11.2732 %** against the true **5.8282 %**. Even a sound
+measurement on those 7 blocks would say little about the stack; this is the campaign's own
+"random sampling follows count, not mass", with the twist that the sample was *chosen* evenly in
+INDEX and is therefore badly uneven in MASS.
+
+**Withdrawn and propagated**, which is the part D67 exists to enforce: the claim is nulled in place
+in `SCOREBOARD_PASS_175.json`, `ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json` and
+`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` (originals kept in `*_RETIRED` fields), and removed from
+the two live quotes in my own record. A scripted check confirms every remaining occurrence of
+"2.09" in those artifacts sits inside a retired or withdrawal field.
+
+**What still stands, and why those rows are different.** The diffusion arm's **129.343x** is sound
+because `of3t-trajectory` measured **both** columns on the **same 547 tensors** — the only row where
+one instrument did that. `diffusion_conditioning`'s **7.95x** is sound: `of3t-direct`, same 26
+tensors, with the capture verified bit-identical to the bundle's float64 over all 26. `msa_module`'s
+~1.10x survives as **approximate**, its 0.7 % mass mismatch flagged, with refprec's bf16 side
+corroborated to 0.1 % by of3t-direct's independently measured floor of 1.787604e-01.
+
+**Standing lesson.** A table with one column supplied by a different measurement is not a table you
+may read across, however neatly it is aligned — and when a row annotates its own scope caveat, that
+annotation is the load-bearing part, not decoration. Before cross-comparing set statistics, run the
+**subset consistency test**: any subset's error mass must not exceed its superset's. It is three
+multiplications and it caught this. Owner: `of3t-orchestrator`. **FIXED** at pass 175.

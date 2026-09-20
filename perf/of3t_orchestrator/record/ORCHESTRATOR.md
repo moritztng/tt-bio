@@ -150,7 +150,7 @@ PROVES: the **state-free half of OpenFold3's update rule, exactly and against up
 objects** — and, for the model-dependent half, that **the machinery to measure it now exists
 and what it currently reports is a ceiling**.
 
-Recomputed from the artifacts on every compose (154 checks, 0 drifted):
+Recomputed from the artifacts on every compose (160 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -820,12 +820,18 @@ column**, including `diffusion_conditioning`'s 36.9462 % — the campaign's **be
 shared-subtrahend reading, which `layer_norm_s` proved can invert. Row `of3t-direct` dispatched
 for exactly that.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
-mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
-outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
-leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
-compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-four concluded rows,
-two live plus `of3t-direct` newly dispatched; eighty-two defects on the record, thirty-four of them UNFIXED. **The closing
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Scored against upstream OpenFold3's
+OWN bf16 training step rather than a float64 ideal it never computes: 0.2666 % of the gradient
+mass survives the direct comparison, 91.8985 % is measured and fails or is void under A18, and
+7.8349 % has no direct reading (0.74055 % of it never can). But the ACCURACY picture is the
+opposite and both are true: outside the diffusion transformer the port is MORE accurate than
+upstream's own training step where one instrument measured both sides — conditioning by 7.95x —
+and computing every softmax in float64 takes the 51.1358 % diffusion scope
+from 129.343x less accurate than that step to 1.823x. The failure is one module and, inside it,
+one mechanism.** The pass-157 split (39.7893 in / 54.0115 out / 6.1992 unread) is retired: those
+were distances from float64, and every "inside the bars" among them was a shared-subtrahend
+reading — three were tested directly and all three failed (D82). Twenty-five concluded rows,
+two live plus `of3t-direct` newly dispatched; eighty-four defects on the record, thirty-four of them UNFIXED. **The closing
 measurement landed this pass: our device gradient differs from upstream OpenFold3's own bf16
 training gradient by 7.426742 mass-weighted over 51.1358 % of the model — 126.9x upstream's own
 distance from the float64 ideal, and essentially orthogonal to their error (cos ~ 0.20, 4 % shared
@@ -7942,8 +7948,8 @@ and only that — D72's error kept out):
 
     scope                                 mass      upstream bf16   device      device is
     diffusion device-arm scope (735)   52.2644 %   6.035589e-02    7.5692      125.41x LESS accurate
-    pairformer, 7 measured blocks      1.6440 %   2.942526e-01    0.14053       2.09x MORE accurate
-    pairformer block 47 alone          1.0662 %   2.307760e-01    0.20129       1.15x MORE accurate
+    pairformer, 7 measured blocks      1.6440 %   2.942526e-01    0.14053       WITHDRAWN (D84)
+    pairformer block 47 alone          1.0662 %   2.307760e-01    0.20129       WITHDRAWN (D84)
     msa_module                         1.2400 %   1.789444e-01    0.16211       1.10x MORE accurate
 
 **Outside the diffusion transformer, the port is MORE accurate than upstream's own bf16 training
@@ -7996,3 +8002,103 @@ bound at 5.65x, and the worst tensor relocating to a `conditioned_transition` la
 stays **PARTIAL** because that measurement can still change the answer, and because `of3t-refprec`
 has not yet written its concluded marker. Neither is a formality: one is the campaign's remaining
 distance and the other is its bar.
+
+**D83 — the guard I wrote against stale artifacts was pinned to one.** The distance-to-go check
+read `DISTANCE_TO_GO_BY_MASS.json` (as_of **pass 157**) and **required VERDICT to quote its three
+shares**, failing the audit otherwise. Those shares are distances from **float64**, and every
+"inside the bars" among them is the shared-subtrahend reading D72 published and D82 retracted — so
+from the moment the campaign began measuring agreement, the guard was **mechanically enforcing the
+superseded framing**: VERDICT could not be corrected without failing the audit.
+
+**Fourth sighting of the class, and it is on the guard I wrote for the class.** The tell I keep
+missing: a guard that requires a *specific number* to appear in prose **forbids the prose from
+improving**. Re-pointing such a guard is not optional maintenance — it is part of superseding.
+
+Fixed three ways: `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` restates the partition against
+upstream's own step — **0.2666 % survives / 89.0554 % fails / 2.8431 % void under A18 / 7.8349 %
+unread**, summing to 100.0000 %, with direct coverage 92.1651 % reconciling against the figure
+computed independently from the four measured scopes; the guard reads the new file; and the old
+file's headline is **nulled in place** with the original kept as `headline_RETIRED`, plus a new
+check that **fails if that headline ever goes live again**, since restoring it from history would
+drag VERDICT back with it.
+
+**And the restatement is a change of yardstick, not a regression.** 0.2666 % reads far worse than
+39.7893 % because agreement with upstream's real step is a strictly harder test than distance from
+an ideal neither side computes. No measurement changed. The accuracy column moved the other way
+and is published beside it, which is what A25 requires of a verdict.
+
+## Pass 175 (cont.) — D84: I published a cross-column comparison the table could not support
+
+Checking whether `of3t-refprec`'s 7-block pairformer subset is mass-representative turned up
+something worse than bias: **the figure I published from that table this pass is unsound.**
+
+`of3t-refprec`'s matched-scope table has an fp32 column, a bf16 column **it measured itself**, and
+a **device** column it did not — it has no device gradient of its own and quoted those figures from
+other rows. It **annotated the scope mismatch explicitly** on two rows (*"7.5692 over its own 547 /
+51.1358 %"*, *"0.16211 over its own 227 / 1.2317 %"*) and not on the two pairformer rows. **I read
+past the annotations and compared across the columns anyway**, publishing *"on pairformer's 7
+blocks the device is 2.09x MORE accurate than upstream's bf16 step"* into three artifacts, my
+VERDICT, and my report.
+
+**The subset-consistency test kills it.** Block 47 is in the 7-block set and is **64.9 %** of its
+reference mass, so its error mass cannot exceed the set's — and it does, by **1.33x**:
+
+    7 blocks        rel 0.14053  mass 0.016440  ->  error mass 3.2467e-04
+    block 47 alone  rel 0.20129  mass 0.010662  ->  error mass 4.3200e-04
+
+The **bf16 column passes the same test at 0.399**, which localises the defect to the device column
+rather than to the masses. Withdrawn and **propagated** — nulled in place across all three
+artifacts with originals in `*_RETIRED`, removed from both live quotes in my own record, and a
+scripted check confirms no live occurrence remains. Filed as **D84**.
+
+**And a second, independent reason nothing on that subset extrapolates.** The 7 blocks average
+**1.93x** an average pairformer block, because **block 47 alone is 1.06624 % of the model — 18.3 %
+of the whole 48-block stack** — and is in the sample. A naive 48x extrapolation reads **11.2732 %**
+against the true **5.8282 %**. The sample was chosen evenly in **index** and is therefore badly
+uneven in **mass**.
+
+**What stands, and why those rows differ.** The diffusion arm's **129.343x** is sound because
+`of3t-trajectory` measured **both** columns on the **same 547 tensors** — the only row where one
+instrument did that. Conditioning's **7.95x** is sound: same 26 tensors, capture verified
+bit-identical to the bundle's float64 over all 26. `msa_module`'s ~1.10x survives as
+**approximate**, its 0.7 % mass mismatch flagged by refprec, bf16 side corroborated to 0.1 % by
+`of3t-direct`'s independent floor of 1.787604e-01.
+
+**The test is now a guard, and it is not vacuous.** `audit_evidence.py` checks any artifact
+declaring `subset_of`, and `THE_ERROR_MASS_IS_ONE_MODULE.json` declares the six real nestings
+inside the diffusion arm — so six subset relations are verified on every run. Negative-controlled:
+it fires on D84's own figures at 1.33x and stays quiet on a sound nesting.
+
+**That artifact also yields the sharpest statement of the campaign's result so far.**
+`diffusion_transformer` alone carries **99.6036 %** of the diffusion arm's entire error mass; the
+other five sections contribute **0.4123 %** between them, and the six masses partition the arm
+exactly (51.1358 %) while carrying 99.6159 % of its error mass, the 0.38 % shortfall being the
+published figures' rounding. So *"the failure is one module"* is not a ratio argument — it is
+almost all of the error. Which also reframes the ratios: `atom_attn_dec` is 5.65x out and
+contributes **0.0036 %** of the arm's error, so it is where a second mechanism is *visible*, not
+where the error *is*. That is why `of3t-residual` was told to measure it separately rather than by
+mass.
+
+**Dispatched `of3t-pairformer` (pass 175) — the row that can refute the campaign's headline.**
+"The failure is one module" is scoped to the **92.1651 %** with a direct reading.
+`pairformer_stack`, **5.8282 %**, has none — and after D84 it has nothing else either: the
+device-vs-bf16 figures I published this pass were withdrawn the same pass, so the trunk is
+**unmeasured**, not merely unread. If it is badly out, the headline is wrong.
+
+The capability mostly exists and the blocker is the familiar one:
+`perf/of3t_gradients/instrument_a_stack.py` already runs SS3 at **stack scope** over a whole
+pairformer stack with the bijection derived rather than transcribed — and **writes no tensors**,
+the **fourth** summary-only result file to block this campaign. The brief asks for `--dump-grads`
+as `device_gradient.py` gained it, and flags the trap that instrument's own docstring states: its
+reference is upstream's `PairFormerBlock`, *"NOT the frozen bundle"*, so the naming must be
+reconciled and the **matched-tensor count and mass share asserted** before scoring — a comparison
+over a silently-partial intersection is precisely the `aux_heads` failure mode.
+
+Pre-registered at `floor/r` on its own matched scope, with the attainable-range check: at or below
+it, "one module" becomes a **measured** statement over 97.99 % of the model; between it and ~10x
+it survives with a named second contributor, **reported as an error-mass share and not only a
+ratio**; **above ~100x it is REFUTED and the headline must be rewritten** — which the brief
+requires be reported as prominently as any favourable result, because *a row that can only confirm
+the dispatcher's expectation was not worth running*. Per-block splits with mass shares are owed
+too, since block 47 alone is 18.3 % of the stack and a stack headline would hide it — exactly what
+the diffusion transformer turned out to do.
