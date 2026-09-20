@@ -40,6 +40,12 @@
    "status": "MOSTLY PROTECTED, with a name heuristic as the fallback"
   }
  ],
+ "the_correct_pattern_exists_in_the_tree": {
+  "consequence": "of3t-pairformer, which builds on instrument_a_stack.py, is NOT exposed to D86. Verified and told to the row, with a request to run the fingerprint on its own reconciliation code anyway, since that is new and is where an orientation gets lost.",
+  "site": "perf/of3t_gradients/instrument_a_stack.py:427",
+  "what_it_does": "takes orientation from pl['layout'].endswith('transposed') -- a RECORDED layout from bijection_device.py, matched by exact bf16 value with every candidate confirmed elementwise -- instead of inferring it from a shape.",
+  "why_it_matters": "the correct pattern was already in the tree, in the same campaign, while six instruments inferred from shape and one of them bit. So this was never a case of nobody knowing how to do it -- the reference implementation people copied was simply the wrong one. of3t-residual's fix converges on the same approach: compare bit-exactly in both orientations at load and assert the final shape."
+ },
  "the_general_rule": "never infer a transform from a shape. Record the transform where it happens -- of3t-residual's fix compares the tensor handed to ttnn.from_torch against the checkpoint tensor bit-exactly in both orientations and asserts the final shape, so a wrong answer throws rather than being silently inferred.",
  "the_propagation_is_the_lesson": "D59 fixed one site and recorded the lesson; the lesson was not swept. In the interval the approach was COPIED into at least two more instruments, once with an explicit comment naming the site it was copied from. A defect in a reference implementation propagates faster than its fix, because the fix lands in one file and the pattern lands in the next author's head. Fixing a defect class means sweeping for the pattern at the time, not recording a lesson for later -- and the grep is one line: `shape)[::-1] ==`.",
  "what": "the sweep for other shape-inferred transposes that D59 never did and D86 forced. Seven sites in the campaign's instruments share the pattern `if tuple(x.shape) != want and tuple(x.shape)[::-1] == want: x = x.t()`, which CANNOT FIRE on a square weight because a square shape is its own reverse.",
