@@ -46,6 +46,18 @@ TRANSPOSE_L1_RESIDENT = (
 )
 
 # model -> flag -> the rungs where it is dark on this card.
+REBLOCK_PERMUTE = (
+    "the traffic moved to the gated channel and the handful left over is the measured band "
+    "doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at "
+    "1024) and this wrapper is reached four times, declining on three clauses that are all "
+    "one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at "
+    "an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute"
+    ".py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which "
+    "was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 "
+    "grid. A lever that refuses the shapes it was measured to be slower on is not dark, it "
+    "is correct"
+)
+
 J = {
     "openfold3": {
         "TRANSITION_H_CHUNK":    ("512", "640", "768", "896", "1024"),
@@ -59,14 +71,21 @@ J = {
         "TRANSITION_H_CHUNK":    ("512", "640", "768", "896", "1024"),
         "TRANSPOSE_L1_RESIDENT": ("640", "768", "896", "1024"),
     },
+    "nesso1": {
+        "REBLOCK_PERMUTE": ("256", "512", "640", "768", "896", "1024"),
+    },
 }
 WHY = {"TRANSITION_H_CHUNK": TRANSITION_H_CHUNK,
-       "TRANSPOSE_L1_RESIDENT": TRANSPOSE_L1_RESIDENT}
+       "TRANSPOSE_L1_RESIDENT": TRANSPOSE_L1_RESIDENT,
+       "REBLOCK_PERMUTE": REBLOCK_PERMUTE}
 
-# nesso1/256 REBLOCK_PERMUTE is the fourth model's single TODO and is NOT written here: it
-# declines on window_BufferType.L1 x2, gated_window_BufferType.L1 x1, back_l1_src_narrow x1
-# -- four calls, three different clauses, none of them the two mechanisms above. It needs
-# its own reading of the trimul path and gets no invented sentence from this file.
+# nesso1's carried text was the reason this file also rewrites its rungs 512-1024. It opened
+# "the window declining is the window working: 3842 calls at this rung ask for an L1
+# destination at an N outside the measured [288, 352] L1 band", which is the p150a reading:
+# that head is not one of SIZE_LADDER_EVIDENCE_HEADS, so _size_ladder_fill_reasons could not
+# split it and carried it VERBATIM onto Galaxy entries that measure 4 declines on three
+# clauses, one of which the sentence does not mention. Same failure the p300c campaign
+# documented one card over. Rewritten with a head the gate regenerates.
 
 def main() -> int:
     frag_dir = ROOT / "docs" / "size_ladder_baseline.d"
