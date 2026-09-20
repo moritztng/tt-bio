@@ -609,6 +609,16 @@ git worktree remove --force "$BASE"
 "$PY" "$HERE/assert_confidence_forward_signature.py" "$CO/tt_bio/openfold3_confidence.py" \
   || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
 
+# The THIRD and FOURTH shipped defaults, added pass 209 after both pass-207 repairs landed in the
+# composition. Neither can ride in live: TT_BIO_SOFTMAX_BW_RENORM moves every taped gradient (it is
+# what takes the trunk from 9.025172e+00 to 3.833066e-01) and the host float64 softmax moves fold
+# output and costs a round trip at any site where it is on. The asserter reads the composed tree and
+# checks BOTH halves per lever -- the default exists as off, AND no construction site overrides it to
+# True -- because a selector defaulting False says nothing when a site passes default=True, which is
+# exactly how opendde.refiner ships the accurate-softmax chain ON.
+"$PY" "$HERE/assert_new_levers_default_off.py" "$CO" \
+  || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
+
 _trunk="$CO/tt_bio/openfold3_trunk.py"
 _want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
