@@ -4,7 +4,8 @@ VERDICT: GO
 
 Row `of3t-adaln`, 2026-09-20, qb2 card 3. Branch `wk/of3t-adaln` (0b7584fc3, pushed, verified
 against origin). Artifacts in `perf/of3t_adaln/`. Nothing in `tt_bio/` changed: the tracked diff
-against `wk/of3t` touches 0 files under `tt_bio/` and adds 11 under `perf/of3t_adaln/`. Every
+against the commit this branch was cut from (592d632e1 on `wk/of3t`) touches 0 files under
+`tt_bio/` and adds 15 under `perf/of3t_adaln/`. Every
 ablation below is installed from the instrument and removed again. The orchestrator holds the
 merge gate; this branch stays on its own.
 
