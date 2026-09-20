@@ -34,6 +34,9 @@ BUDGETS = [700_000, 900_000, 1_000_000, 1_100_000, 1_200_000, 1_250_000, 1_300_0
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jsonl", default=str(HERE / "mm1dfold.jsonl"))
+    ap.add_argument("--tag", default=None,
+                    help="which mm1dfold record to take the shape list from; default is the last "
+                         "tr arm. Pass a --wide run's tag to calibrate the wider set.")
     ap.add_argument("--out", default=str(HERE / "mm1dcalib.json"))
     a = ap.parse_args()
 
@@ -42,9 +45,14 @@ def main() -> int:
     from tt_bio.mm1d_generic import systolic_1d_config
 
     recs = [json.loads(l) for l in open(a.jsonl)]
-    shapes = [(s["a"], s["b"], s["n"])
-              for s in [x for x in recs if x["arm"] == "tr"][-1]["route_shapes"]
+    picked = [x for x in recs if (x["tag"] == a.tag if a.tag else x["arm"] == "tr")]
+    if not picked:
+        print("no record in %s matching %r" % (a.jsonl, a.tag or "arm=tr"))
+        return 2
+    shapes = [(s["a"], s["b"], s["n"]) for s in picked[-1]["route_shapes"]
               if s["a"][-1] == s["b"][-2]]   # a transposed pair is not this path's to answer
+    print("%d shapes from %s (wide=%s)" % (len(shapes), picked[-1]["tag"],
+                                           picked[-1].get("wide")))
 
     device = T.get_device()
     G = T.CORE_GRID_MAIN
