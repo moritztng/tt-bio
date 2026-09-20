@@ -988,6 +988,24 @@ if _host_only is None:
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
 
+# --- and the check COUNT the summary quotes ---------------------------------------------------
+# Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
+# is a claim about how much evidence stands behind the field, it is quoted verbatim, and nothing
+# updated it when checks were added. Self-referential by construction: the number is whatever
+# this run ends with, so the doc has to match it. The first run after adding a check will fail,
+# which is exactly when the author is there to fix it.
+if ORCH.is_file():
+    _n_now = len(ok) + 1                       # +1 for the ok this check is about to append
+    _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
+    if _cm is None:
+        bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
+                   "audit reports a total that nothing in the summary is pinned to")
+    elif int(_cm.group(1)) != _n_now:
+        bad.append(f"PROVES states ({_cm.group(1)} checks, 0 drifted) but this audit confirms "
+                   f"{_n_now} -- the count drifted when checks were added (pass-133 recurrence)")
+    else:
+        ok.append(f"PROVES states the check count correctly ({_n_now})")
+
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")
