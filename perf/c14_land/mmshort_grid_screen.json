@@ -1,0 +1,467 @@
+{
+ "git_head": "1cad5839fcb9efc28467f1af11797856c2a2e72b",
+ "cb_budget_bytes": 1532416,
+ "mm_in1_block_tiles": 30,
+ "grids": [
+  [
+   11,
+   10
+  ],
+  [
+   13,
+   10
+  ],
+  [
+   8,
+   8
+  ],
+  [
+   10,
+   10
+  ],
+  [
+   11,
+   9
+  ],
+  [
+   7,
+   10
+  ]
+ ],
+ "shapes": [
+  {
+   "shape": "dit_token_768x768",
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 24,
+   "per_grid": {
+    "11x10": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "13x10": {
+     "in0_block_w": 12,
+     "out_subblock_h": 2,
+     "out_subblock_w": 2,
+     "out_block_h": 2,
+     "out_block_w": 2,
+     "per_core_M": 2,
+     "per_core_N": 2
+    },
+    "8x8": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "10x10": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "11x9": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "7x10": {
+     "in0_block_w": 6,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 4,
+     "per_core_M": 2,
+     "per_core_N": 4
+    }
+   },
+   "grids_served": [
+    "10x10",
+    "11x10",
+    "11x9",
+    "13x10",
+    "7x10",
+    "8x8"
+   ],
+   "grids_declined": [],
+   "in0_block_w_by_grid": {
+    "11x10": 8,
+    "13x10": 12,
+    "8x8": 8,
+    "10x10": 8,
+    "11x9": 8,
+    "7x10": 6
+   },
+   "in0_block_w_constant": false,
+   "config_constant_across_serving_grids": false
+  },
+  {
+   "shape": "dit_token_768x1536",
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 48,
+   "per_grid": {
+    "11x10": {
+     "in0_block_w": 6,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 5,
+     "per_core_M": 2,
+     "per_core_N": 5
+    },
+    "13x10": {
+     "in0_block_w": 6,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 4,
+     "per_core_M": 2,
+     "per_core_N": 4
+    },
+    "8x8": {
+     "in0_block_w": 4,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 6,
+     "per_core_M": 2,
+     "per_core_N": 6
+    },
+    "10x10": {
+     "in0_block_w": 6,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 5,
+     "per_core_M": 2,
+     "per_core_N": 5
+    },
+    "11x9": {
+     "in0_block_w": 6,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 5,
+     "per_core_M": 2,
+     "per_core_N": 5
+    },
+    "7x10": {
+     "in0_block_w": 4,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 7,
+     "per_core_M": 2,
+     "per_core_N": 7
+    }
+   },
+   "grids_served": [
+    "10x10",
+    "11x10",
+    "11x9",
+    "13x10",
+    "7x10",
+    "8x8"
+   ],
+   "grids_declined": [],
+   "in0_block_w_by_grid": {
+    "11x10": 6,
+    "13x10": 6,
+    "8x8": 4,
+    "10x10": 6,
+    "11x9": 6,
+    "7x10": 4
+   },
+   "in0_block_w_constant": false,
+   "config_constant_across_serving_grids": false
+  },
+  {
+   "shape": "dit_token_768x3072",
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 96,
+   "per_grid": {
+    "11x10": {
+     "in0_block_w": 3,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 9,
+     "per_core_M": 2,
+     "per_core_N": 9
+    },
+    "13x10": {
+     "in0_block_w": 3,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 8,
+     "per_core_M": 2,
+     "per_core_N": 8
+    },
+    "8x8": {
+     "in0_block_w": 2,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 12,
+     "per_core_M": 2,
+     "per_core_N": 12
+    },
+    "10x10": {
+     "in0_block_w": 3,
+     "out_subblock_h": 2,
+     "out_subblock_w": 2,
+     "out_block_h": 2,
+     "out_block_w": 10,
+     "per_core_M": 2,
+     "per_core_N": 10
+    },
+    "11x9": {
+     "in0_block_w": 3,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 9,
+     "per_core_M": 2,
+     "per_core_N": 9
+    },
+    "7x10": {
+     "in0_block_w": 2,
+     "out_subblock_h": 2,
+     "out_subblock_w": 2,
+     "out_block_h": 2,
+     "out_block_w": 14,
+     "per_core_M": 2,
+     "per_core_N": 14
+    }
+   },
+   "grids_served": [
+    "10x10",
+    "11x10",
+    "11x9",
+    "13x10",
+    "7x10",
+    "8x8"
+   ],
+   "grids_declined": [],
+   "in0_block_w_by_grid": {
+    "11x10": 3,
+    "13x10": 3,
+    "8x8": 2,
+    "10x10": 3,
+    "11x9": 3,
+    "7x10": 2
+   },
+   "in0_block_w_constant": false,
+   "config_constant_across_serving_grids": false
+  },
+  {
+   "shape": "dit_token_1536x768",
+   "m_tiles": 16,
+   "k_tiles": 48,
+   "n_tiles": 24,
+   "per_grid": {
+    "11x10": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "13x10": {
+     "in0_block_w": 12,
+     "out_subblock_h": 2,
+     "out_subblock_w": 2,
+     "out_block_h": 2,
+     "out_block_w": 2,
+     "per_core_M": 2,
+     "per_core_N": 2
+    },
+    "8x8": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "10x10": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "11x9": {
+     "in0_block_w": 8,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 3,
+     "per_core_M": 2,
+     "per_core_N": 3
+    },
+    "7x10": {
+     "in0_block_w": 6,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 4,
+     "per_core_M": 2,
+     "per_core_N": 4
+    }
+   },
+   "grids_served": [
+    "10x10",
+    "11x10",
+    "11x9",
+    "13x10",
+    "7x10",
+    "8x8"
+   ],
+   "grids_declined": [],
+   "in0_block_w_by_grid": {
+    "11x10": 8,
+    "13x10": 12,
+    "8x8": 8,
+    "10x10": 8,
+    "11x9": 8,
+    "7x10": 6
+   },
+   "in0_block_w_constant": false,
+   "config_constant_across_serving_grids": false
+  },
+  {
+   "shape": "dit_token_768x2304",
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 72,
+   "per_grid": {
+    "11x10": {
+     "in0_block_w": 4,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 7,
+     "per_core_M": 2,
+     "per_core_N": 7
+    },
+    "13x10": {
+     "in0_block_w": 4,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 6,
+     "per_core_M": 2,
+     "per_core_N": 6
+    },
+    "8x8": {
+     "in0_block_w": 3,
+     "out_subblock_h": 1,
+     "out_subblock_w": 3,
+     "out_block_h": 2,
+     "out_block_w": 9,
+     "per_core_M": 2,
+     "per_core_N": 9
+    },
+    "10x10": {
+     "in0_block_w": 3,
+     "out_subblock_h": 1,
+     "out_subblock_w": 4,
+     "out_block_h": 2,
+     "out_block_w": 8,
+     "per_core_M": 2,
+     "per_core_N": 8
+    },
+    "11x9": {
+     "in0_block_w": 4,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 7,
+     "per_core_M": 2,
+     "per_core_N": 7
+    },
+    "7x10": {
+     "in0_block_w": 2,
+     "out_subblock_h": 2,
+     "out_subblock_w": 1,
+     "out_block_h": 2,
+     "out_block_w": 11,
+     "per_core_M": 2,
+     "per_core_N": 11
+    }
+   },
+   "grids_served": [
+    "10x10",
+    "11x10",
+    "11x9",
+    "13x10",
+    "7x10",
+    "8x8"
+   ],
+   "grids_declined": [],
+   "in0_block_w_by_grid": {
+    "11x10": 4,
+    "13x10": 4,
+    "8x8": 3,
+    "10x10": 3,
+    "11x9": 4,
+    "7x10": 2
+   },
+   "in0_block_w_constant": false,
+   "config_constant_across_serving_grids": false
+  }
+ ],
+ "negative_control": {
+  "grid_2x2": null,
+  "grid_native": {
+   "in0_block_w": 8,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 2,
+   "out_block_w": 3,
+   "per_core_M": 2,
+   "per_core_N": 3
+  },
+  "screen_separates_them": true,
+  "why": "if the screen cannot tell a refusing grid from a serving one it cannot tell two serving grids apart either, and every 'constant' above would be vacuous"
+ },
+ "in0_block_w_moves_with_grid": [
+  "dit_token_768x768",
+  "dit_token_768x1536",
+  "dit_token_768x3072",
+  "dit_token_1536x768",
+  "dit_token_768x2304"
+ ],
+ "config_moves_with_grid": [
+  "dit_token_768x768",
+  "dit_token_768x1536",
+  "dit_token_768x3072",
+  "dit_token_1536x768",
+  "dit_token_768x2304"
+ ],
+ "verdict": "GRID-SENSITIVE: the K folding moves with the core grid on dit_token_768x768, dit_token_768x1536, dit_token_768x3072, dit_token_1536x768, dit_token_768x2304. The gate's l1-budget arm is the decider and must run before this lever is considered for a default."
+}
