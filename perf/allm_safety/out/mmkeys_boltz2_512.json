@@ -1,0 +1,25 @@
+{
+  "label": "boltz2-512-c0",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "predict",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/size512/fixtures/cdk2x2_512.yaml",
+    "--model",
+    "boltz2",
+    "--single_sequence",
+    "--seed",
+    "0",
+    "--out_dir",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/allm_safety/out/fold_boltz2_512_c0"
+  ],
+  "rc": 0,
+  "wall_s": 151.808,
+  "processes": 1,
+  "grid": "11x10",
+  "keys": {
+    "tenstorrent|4,17|served": 1120,
+    "tenstorrent|4,4|served": 1680,
+    "trimul_tail|4,4|declined": 560
+  }
+}
