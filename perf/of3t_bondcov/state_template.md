@@ -119,12 +119,18 @@ the rows that own model-scope gradients. It does not establish that the 8-struct
 cover `bond`: it cannot, which is why the corpus was extended with structures upstream already
 ships in its own cache.
 
-GAP: the two crops differ because crop {{MASK_CROP}} does not fit in this host's memory for the
-backward. The first attempt at crop {{MASK_CROP}} finished its forward in 269 s and was
-OOM-killed during the backward at 22 GB RSS with 30 GB of RAM on the box, so the gradient is read
-at crop {{HEAD_CROP}} and the mask table at {{MASK_CROP}}. Both crops carry the bond on the batch
-they were read on and both are recorded. A crop-{{MASK_CROP}} gradient wants a bigger host and is
-left to whichever row next has one.
+GAP: the gradient is read at crop {{HEAD_CROP}} and the mask table at {{MASK_CROP}}, and the
+reason is worth stating because it stopped being true during the pass. The first attempt at crop
+{{MASK_CROP}} finished its forward in 269 s and was OOM-killed during the backward at 22 GB RSS
+on a 30 GB box. Dropping to {{HEAD_CROP}} barely moved the peak, which is the tell: the memory was
+not the activations. `of3-p2-155k` is 2.29 GB, so 570 M parameters in fp32, and the probe held four
+copies of that scale — the checkpoint and its recast copy for the whole run, and two float64
+gradient snapshots at 4.6 GB each. Freeing the checkpoint after `load_state_dict` and cloning at
+the parameter's own dtype (the comparison upcasts per tensor, so every accumulated sum is float64
+either way) takes about 14 GB off the peak, and crop {{MASK_CROP}} now fits on this host. The
+reading below is the {{HEAD_CROP}} one because that is what ran; re-reading it at {{MASK_CROP}} is
+now an ordinary run rather than a bigger host, and it is the obvious next thing to do with this
+instrument.
 
 4BYH's gradient is read at mask level only. `of3t-orchestrator/bondcov`'s three high-count targets
 (6VXX 48 links, 7KJ2 38, 5T3X 19) are deliberately excluded: they are the same predicate at higher
