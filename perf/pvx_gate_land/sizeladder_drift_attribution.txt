@@ -14,20 +14,20 @@ boltz2       256       REBLOCK_PERMUTE               main: the flip changes no b
 boltz2       256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
 boltz2       512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
 boltz2       640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
-boltz2       768       ADALN_S_HOIST                 main: the flip changes no bytes at this rung
-boltz2       768       PAIR_TRANSPOSE_VIA_ROW_MAJOR  main: the flip changes no bytes at this rung
+boltz2       768       ADALN_S_HOIST                 unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
+boltz2       768       PAIR_TRANSPOSE_VIA_ROW_MAJOR  unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
 boltz2       768       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
-boltz2       768       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+boltz2       768       QKV_MM_CONFIG                 unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
 boltz2       768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
-boltz2       768       B2_BIAS_SLICE_HOIST           main: the flip changes no bytes at this rung
-boltz2       768       B2_ADALN_S_MEMO               main: the flip changes no bytes at this rung
-boltz2       896       ADALN_S_HOIST                 main: the flip changes no bytes at this rung
-boltz2       896       PAIR_TRANSPOSE_VIA_ROW_MAJOR  main: the flip changes no bytes at this rung
+boltz2       768       B2_BIAS_SLICE_HOIST           unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
+boltz2       768       B2_ADALN_S_MEMO               unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
+boltz2       896       ADALN_S_HOIST                 unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
+boltz2       896       PAIR_TRANSPOSE_VIA_ROW_MAJOR  unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
 boltz2       896       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
-boltz2       896       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+boltz2       896       QKV_MM_CONFIG                 unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
 boltz2       896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
-boltz2       896       B2_BIAS_SLICE_HOIST           main: the flip changes no bytes at this rung
-boltz2       896       B2_ADALN_S_MEMO               main: the flip changes no bytes at this rung
+boltz2       896       B2_BIAS_SLICE_HOIST           unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
+boltz2       896       B2_ADALN_S_MEMO               unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
 boltz2       1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
 boltz2       256->512  exponent                      main: the flip changes no bytes at this rung
 boltz2       512->768  exponent                      main: the flip changes no bytes at this rung
@@ -98,8 +98,9 @@ rf3          1088      SDPA_WIDE_K                   FLIP: REACHABLE -- this run
 rf3          512->768  exponent                      main: the flip changes no bytes at this rung
 rf3          256,512,640,768,896,1024,1088runtime                       AMBIGUOUS: other lever at a rung the flip can reach
 
-  55  main: the flip changes no bytes at this rung
+  45  main: the flip changes no bytes at this rung
   36  flip: resolved-value only, bit-identical at this rung
+  10  unattributable from the log: went dark with no clause named -- read served/declined in the census before crediting this to anyone
    2  AMBIGUOUS: other lever at a rung the flip can reach
    1  FLIP: REACHABLE -- this rung is one of the affected lengths, review it
 

@@ -37,6 +37,9 @@ SPAN = re.compile(r"^\s+FAIL (?P<model>[a-z0-9-]+) (?P<lo>\d+)->(?P<hi>\d+): (?P
 # `    FAIL boltz2 per-rung base->run: ...`
 RUNS = re.compile(r"^\s+FAIL (?P<model>[a-z0-9-]+) per-rung base->run: (?P<detail>.+)$")
 
+UNMEASURED = "unmeasured: the census observed no calls, re-run this rung"
+NEEDS_CENSUS = ("unattributable from the log: went dark with no clause named -- read "
+                "served/declined in the census before crediting this to anyone")
 FLIP_BOOKKEEPING = "flip: resolved-value only, bit-identical at this rung"
 FLIP_REACHABLE = "FLIP: REACHABLE -- this rung is one of the affected lengths, review it"
 NOT_FLIP = "main: the flip changes no bytes at this rung"
@@ -50,6 +53,18 @@ def affected_set(max_len: int) -> set:
 
 def classify(flag: str, detail: str, rungs: set, affected: set) -> str:
     reaches = bool(rungs & affected)
+    # A rung the census saw no calls of belongs to neither side. Crediting it to main says a
+    # merged commit changed behaviour there, and the evidence says nothing ran to change.
+    # Matches both the gate's new wording and the old "went dark" with no clause named.
+    if "observed NO calls" in detail:
+        return UNMEASURED
+    # Pre-fix logs say only "(went dark)". A lever that really declines names the clause it
+    # declined on, so a bare one is EITHER a decline with an empty rejects dict OR a rung the
+    # census never observed -- and the log cannot tell those apart. Refuse to guess: say so and
+    # send the reader to the census, rather than crediting a merged commit with a change that
+    # may never have been executed.
+    if "went dark" in detail and " on " not in detail:
+        return NEEDS_CENSUS
     if flag == FLAG:
         if detail.startswith("resolved ") and not reaches:
             return FLIP_BOOKKEEPING
@@ -123,7 +138,8 @@ def main() -> int:
     # NEGATIVE CONTROL. The classifier must be reading the census, not the flag's name. Pretend one
     # unaffected rung IS affected and require at least one verdict to move; if nothing moves, the
     # affected set is not what the classification turns on and the table above means nothing.
-    victim = next((r for r in rows if r[1].isdigit() and int(r[1]) not in affected), None)
+    victim = next((r for r in rows if r[1].isdigit() and int(r[1]) not in affected
+                   and r[4] not in (UNMEASURED, NEEDS_CENSUS)), None)
     if victim is None:
         print("\nNEGATIVE CONTROL: no unaffected-rung finding to perturb -- control not run")
         return 1
