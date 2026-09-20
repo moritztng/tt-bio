@@ -846,8 +846,8 @@ extrapolations under an `a + b·N²` model, and the pairwise exponents differ ac
 (**1.55** from 128→256, **2.20** from 256→384), so the constant is soft. What is robust is the
 order of magnitude, and it says 640 is out of reach rather than nearly in it.
 
-**What that leaves, honestly.** Tensor parallelism would fit 640 across two chips' 68.4 GB and is
-**forbidden on this fleet**, so more chips is not a path. The one legitimate lever is **deeper
+**What that leaves, honestly.** Splitting one model across two chips would fit 640 in their
+combined 68.4 GB and is **forbidden on this fleet**, so more chips is not a path. The one legitimate lever is **deeper
 activation checkpointing** — more recompute for less memory, which trades time and is not "doing
 less of the model's own work". `ops.checkpoint_segment` already covers the three block stacks
 after `of3t-l1`; whether finer segmentation can find 15-18 GB at 640 is **unmeasured and

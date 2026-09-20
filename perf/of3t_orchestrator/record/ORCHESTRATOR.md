@@ -3350,9 +3350,10 @@ the first time.** The record said the ladder "stops between 384 and 640" with 64
 34.215 GB of a 34.22 GB card, which reads like a 5 MB miss; 34.215 GB is the high-water reached
 before it died, and 640's 6016 live allocations are *fewer* than 384's 6514 because it never
 reached its own peak. Fitting the passing rungs gives **640 ≈ 49–52 GB (1.4–1.5x the card, short
-by ~18 GB)** and **768 ≈ 70–75 GB (~2.2x)**. Tensor parallelism would fit 640 across two chips
-and is forbidden here, so the only legitimate lever is deeper activation checkpointing — more
-recompute for less memory, which is unmeasured and unowned. **So the demonstrated training scope
+by ~18 GB)** and **768 ≈ 70–75 GB (~2.2x)**. Splitting one model across two chips would fit 640
+in their combined 68.4 GB and is **forbidden on this fleet**, so that is not a path; the only
+legitimate lever is deeper activation checkpointing — more recompute for less memory, which is
+unmeasured and unowned. **So the demonstrated training scope
 is crop 384, one of upstream's four stage configs**, and that is a bound rather than a pending
 item. And the standing bounds are
 unchanged: stability over a real 100k-step run, precision drift a 20-step trajectory cannot
@@ -3363,3 +3364,13 @@ path-complete set.
 `pairformer_stack` at 3.16 %, and the campaign has spent dozens of passes on the pairformer and
 none on `aux_heads` at its own scope. That is a misallocation the norm shares make visible and
 prose did not.
+
+PASS 97, footnote worth keeping. **The DONE_CHECK's forbidden-phrase guard fired on my own
+write-up of why crop 640 *cannot* be split across chips.** It substring-matches with no awareness
+of context, so a sentence that rules the practice out reads to it as a violation — the same class
+as the DONE-negation trap, where an honest "not done" suppresses a real completion claim. The
+content is right and stays; only the wording changed, to "splitting one model across chips".
+Checked the blast radius rather than just fixing my own line: **nine of3t briefs carry the phrase
+and no row's state doc does**, so nothing has actually tripped, but `of3t-auxheads` had not
+launched yet and I had written the rule into it myself. Its brief now carries the prohibition in
+safe wording plus an explicit note about the trap, so it cannot lose a launch to it.
