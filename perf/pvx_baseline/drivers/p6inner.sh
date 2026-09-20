@@ -10,8 +10,15 @@ PY=/home/ttuser/tt-bio-dev/env/bin/python3
 OUT=/home/ttuser/pvx_qb2/out3
 TAG=${TAG:?}
 ENTER_MAX=${ENTER_MAX:-10.0}
+# /proc/loadavg's first field is a 1-MINUTE average, so sampling it the instant the lock is
+# handed over reads the PREVIOUS holder's load, not the box we are about to fold on. Unsettled,
+# this refuses every hand-off from a busy row and backs off 300 s, thrashing lock acquisitions
+# without ever folding. Settle first; 60 s of lock hold against a ~6 min fold is not squatting.
+SETTLE=${SETTLE:-60}
+echo "    took the lock at $(date -u +%H:%M:%SZ), loadavg $(cut -d" " -f1 /proc/loadavg), settling ${SETTLE}s"
+sleep "$SETTLE"
 l=$(cut -d" " -f1 /proc/loadavg)
-echo "    inside the lock at $(date -u +%H:%M:%SZ), loadavg $l, bar $ENTER_MAX"
+echo "    settled at $(date -u +%H:%M:%SZ), loadavg $l, bar $ENTER_MAX"
 awk -v a="$l" -v b="$ENTER_MAX" 'BEGIN{exit !(a+0<=b+0)}' || {
   echo "    loadavg $l over $ENTER_MAX, releasing the lock instead of squatting on it"; exit 75; }
 for arm in "$OLD:b2_old_$TAG" "$NEW:b2_pairnew_$TAG"; do
