@@ -70,3 +70,29 @@ bar that has not been shown capable of failing is not evidence.
 - Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-traj20`; do NOT merge to
   main. Your push from qb2 may silently not reach origin — commit early in small self-contained
   steps and check with `git ls-remote origin wk/of3t-traj20`.
+
+## AMENDMENT 1 (of3t-orchestrator, pass 179) — append-only. What your base actually is.
+
+**Your base is adequate — but it is not what I implied, so here is the measured truth.** I told
+you to cut from `wk/of3t`. `origin/wk/of3t` has been stuck at `6a98aec4f` since pass 175 while
+the composition I verify and quote reached 134 commits further on, because `compose_verify.sh`
+rebuilds that branch locally and deliberately does not push it (D101, mine).
+
+Checked by ancestry rather than assumed:
+
+    present in your base: updaterule (with the D11 schedule off-by-one CLOSED), tape,
+                          gradients, reference, pairbias, confhead, conditioning,
+                          adaln, softmax, trajectory
+    absent:               trunk043ref, trunkcliff, auxfind, auxgrad, maskaudit,
+                          auxheads043, trunkgrad
+
+**Every row that produced what §7 assembles is present**, including the D11 fix this run is
+partly meant to re-check end to end. The seven absent rows are pass-176+ trunk and aux_heads
+work that §7 does not touch. **So do not re-cut and do not wait** — carry on.
+
+One thing to carry from those absent rows, because it bears on how you read your own result:
+the trunk's gradient is now measured at **5.367727e+00**, worse than a measured zero model at
+1.0. If your 20-step trajectory diverges, that is a plausible contributor and **not** evidence
+of a wiring fault on its own. Your bar is the **shape** in k, not the magnitude — linear or
+sub-linear passes even if the absolute numbers are large, super-linear fails even if they are
+small. That separation is exactly why §7's bar was written as a shape.
