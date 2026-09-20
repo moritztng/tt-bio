@@ -79,7 +79,13 @@ def read(p: Path):
             "walk_gap_pct": b.get("walk_gap_to_peak_pct"),
             "census_dram_b": w["census_dram_b"], "parts": parts,
             "boundary_pins": b.get("ckpt_pins"), "allocs": b.get("dram_live_allocs"),
-            "boundary_shapes": w["shapes"]["boundaries"],
+            # AFTER THE FORWARD, not at the peak. `_retire` clears the pin and deallocates as
+            # the backward walks down the stack, so the set is only complete before the backward
+            # starts -- at the 256 peak it has drained to 3 of its 52 z boundaries, and a form
+            # built on that census is short by an order of magnitude.
+            "boundary_shapes": d["after_forward"]["shapes"]["boundaries"],
+            "boundaries_after_forward_b":
+                d["after_forward"]["by_owner"]["boundaries"]["dram_b"],
             "card": d["env"].get("tt_visible_devices"), "commit": d["env"].get("commit"),
             "branch": d["env"].get("branch"), "host": d["env"].get("host"),
             "aiclk": d["env"].get("aiclk_line")}
@@ -106,21 +112,41 @@ def main() -> int:
             expo[o] = (round(math.log(b_ / a_) / math.log(hi["tokens"] / lo["tokens"]), 3)
                        if a_ > 0 and b_ > 0 else None)
 
-    bnd_a, bnd_b = bnd_closed_form(base)
+    # Built on the SMALLEST rung, not the base. The token axis is identified by which dims
+    # equal the crop, and at 384 the single track's own width is 384 too -- s is [1, N, 384],
+    # so the crop and a channel count collide there and s lands in the N^2 bucket. At 256
+    # nothing collides. The form is then validated against the base rung, which is the control
+    # that would catch the collision if it were still there.
+    small = rungs[0]
+    bnd_a, bnd_b = bnd_closed_form(small)
     bnd_exact = lambda n: bnd_a * n * n + bnd_b * n
 
-    def scale(o, n):
-        """The closed form for the boundaries; the measured exponent elsewhere; N^2 as the
-        fallback where a rung read zero and no exponent could be fitted."""
+    # Weight-shaped owners do not depend on the crop. Fitting an exponent to them would fit
+    # WHERE each rung peaked instead: at 384 the peak lands early with 34 weight gradients
+    # accumulated, at 256 late with 1488, and the ratio of those two is a fact about the
+    # moment, not about the crop.
+    FLAT = ("weights", "weight_grads")
+
+    def scale(o, n, arm):
+        """The closed form for the boundaries, flat for the weight-shaped owners, and for the
+        rest either the fitted exponent or a structural N^2.
+
+        Both arms are reported because the two rungs do not peak in the same regime. The 384
+        peak is co-live with the FULL boundary set; the 256 peak lands after `_retire` has
+        drained it, and in a different block stack. An exponent fitted across them carries that
+        difference, so it brackets the structural N^2 rather than replacing it.
+        """
         if o == "boundaries":
             return bnd_exact(n)
-        p = expo.get(o)
-        if p is None:
-            p = 2.0
+        if o in FLAT:
+            return base["parts"][o]
+        p = 2.0 if arm == "structural_N2" else (expo.get(o) or 2.0)
         return base["parts"][o] * (n / n0) ** p
 
-    def project(n, drop=()):
-        return sum(scale(o, n) for o in OWNERS if o not in drop)
+    ARMS = ("structural_N2", "fitted_exponent")
+
+    def project(n, arm):
+        return sum(scale(o, n, arm) for o in OWNERS)
 
     # The non-boundary term is what the SECOND lever has to reach, so the split is quoted
     # against it and not against the peak.
@@ -136,10 +162,14 @@ def main() -> int:
            "boundary_closed_form": {
                "form": "a*N^2 + b*N, substituted into the shape census, not fitted",
                "a_b_per_token2": bnd_a, "b_b_per_token": bnd_b,
+               "built_on_tokens": small["tokens"],
                "reproduces_base_rung_b": bnd_exact(n0),
-               "measured_base_rung_b": base["parts"]["boundaries"],
-               "rel_err_pct": round(100 * (bnd_exact(n0) - base["parts"]["boundaries"])
-                                    / base["parts"]["boundaries"], 4),
+               "measured_base_rung_after_forward_b": base["boundaries_after_forward_b"],
+               "measured_base_rung_at_peak_b": base["parts"]["boundaries"],
+               "rel_err_pct": round(100 * (bnd_exact(n0) - base["boundaries_after_forward_b"])
+                                    / base["boundaries_after_forward_b"], 4),
+               "reproduces_every_rung_after_forward": all(
+                   bnd_exact(r["tokens"]) == r["boundaries_after_forward_b"] for r in rungs),
                "cross_check_vs_fitted_exponent": expo.get("boundaries"),
                "shapes": base["boundary_shapes"]},
            "at_base": {
@@ -155,59 +185,63 @@ def main() -> int:
            "pre_registered_branch": verdict, "projections": {}}
 
     for n in (640, 768):
-        full = project(n)
-        # Lever 1: spill the retained (s, z) boundaries to host.
-        spill = scale("boundaries", n)
-        # Lever 2: recompute a block in halves, which halves the LIVE recompute working set.
-        half = scale("recompute", n) / 2
-        both = full - spill - half
-        row = {
-            "projected_peak_GB": round(full / GB, 3),
-            "deficit_GB": round((full - CARD_GB * GB) / GB, 3),
-            "by_owner_GB": {o: round(scale(o, n) / GB, 3) for o in OWNERS},
-            "lever_boundary_spill": {
-                "saves_GB": round(spill / GB, 3),
-                "share_of_deficit_pct": round(100 * spill / (full - CARD_GB * GB), 1)
-                if full > CARD_GB * GB else None,
-                "peak_after_GB": round((full - spill) / GB, 3),
-                "fits": bool(full - spill <= CARD_GB * GB)},
-            "lever_halve_recompute": {
-                "saves_GB": round(half / GB, 3),
-                "share_of_deficit_pct": round(100 * half / (full - CARD_GB * GB), 1)
-                if full > CARD_GB * GB else None,
-                "peak_after_GB": round((full - half) / GB, 3),
-                "fits": bool(full - half <= CARD_GB * GB)},
-            "both_levers": {
-                "saves_GB": round((spill + half) / GB, 3),
-                "peak_after_GB": round(both / GB, 3),
-                "margin_GB": round(CARD_GB - both / GB, 3),
-                "fits": bool(both <= CARD_GB * GB)},
-        }
-        if not row["both_levers"]["fits"]:
-            # What a THIRD lever would have to save, and where the bytes are once the first two
-            # have run. Naming the remainder's largest owner is the whole point of the split.
-            rest = {o: scale(o, n) for o in OWNERS}
-            rest["boundaries"] = 0.0
-            rest["recompute"] = rest["recompute"] / 2
-            row["third_lever"] = {
-                "must_save_GB": round((both - CARD_GB * GB) / GB, 3),
-                "largest_remaining_owners_GB": {
-                    o: round(v / GB, 3) for o, v in
-                    sorted(rest.items(), key=lambda kv: -kv[1])[:4]},
-                "as_pct_of_largest_remaining": round(
-                    100 * (both - CARD_GB * GB) / max(rest.values()), 1)}
-        out["projections"][n] = row
+        out["projections"][n] = {}
+        for arm in ARMS:
+            full = project(n, arm)
+            # Lever 1: spill the retained (s, z) boundaries to host.
+            spill = scale("boundaries", n, arm)
+            # Lever 2: recompute a block in halves, which halves the LIVE recompute working set.
+            half = scale("recompute", n, arm) / 2
+            both = full - spill - half
+            row = {
+                "projected_peak_GB": round(full / GB, 3),
+                "deficit_GB": round((full - CARD_GB * GB) / GB, 3),
+                "by_owner_GB": {o: round(scale(o, n, arm) / GB, 3) for o in OWNERS},
+                "lever_boundary_spill": {
+                    "saves_GB": round(spill / GB, 3),
+                    "share_of_deficit_pct": round(100 * spill / (full - CARD_GB * GB), 1)
+                    if full > CARD_GB * GB else None,
+                    "peak_after_GB": round((full - spill) / GB, 3),
+                    "fits": bool(full - spill <= CARD_GB * GB)},
+                "lever_halve_recompute": {
+                    "saves_GB": round(half / GB, 3),
+                    "share_of_deficit_pct": round(100 * half / (full - CARD_GB * GB), 1)
+                    if full > CARD_GB * GB else None,
+                    "peak_after_GB": round((full - half) / GB, 3),
+                    "fits": bool(full - half <= CARD_GB * GB)},
+                "both_levers": {
+                    "saves_GB": round((spill + half) / GB, 3),
+                    "peak_after_GB": round(both / GB, 3),
+                    "margin_GB": round(CARD_GB - both / GB, 3),
+                    "fits": bool(both <= CARD_GB * GB)},
+            }
+            if not row["both_levers"]["fits"]:
+                # What a THIRD lever would have to save, and where the bytes are once the first two
+                # have run. Naming the remainder's largest owner is the whole point of the split.
+                rest = {o: scale(o, n, arm) for o in OWNERS}
+                rest["boundaries"] = 0.0
+                rest["recompute"] = rest["recompute"] / 2
+                row["third_lever"] = {
+                    "must_save_GB": round((both - CARD_GB * GB) / GB, 3),
+                    "largest_remaining_owners_GB": {
+                        o: round(v / GB, 3) for o, v in
+                        sorted(rest.items(), key=lambda kv: -kv[1])[:4]},
+                    "as_pct_of_largest_remaining": round(
+                        100 * (both - CARD_GB * GB) / max(rest.values()), 1)}
+            out["projections"][n][arm] = row
 
     out["controls"] = {
-        "reproduces_base_rung": {
-            "projected_b": round(project(n0)), "measured_b": base["peak_b"],
-            "rel_err_pct": round(100 * (project(n0) - base["peak_b"]) / base["peak_b"], 4)},
-        "clears_640_observational_floor": bool(out["projections"][640]["projected_peak_GB"]
-                                               >= FLOOR_640_GB),
+        "reproduces_base_rung": {arm: {
+            "projected_b": round(project(n0, arm)), "measured_b": base["peak_b"],
+            "rel_err_pct": round(100 * (project(n0, arm) - base["peak_b"]) / base["peak_b"], 4)}
+            for arm in ARMS},
+        "clears_640_observational_floor": {
+            arm: bool(out["projections"][640][arm]["projected_peak_GB"] >= FLOOR_640_GB)
+            for arm in ARMS},
         "640_floor_GB": FLOOR_640_GB,
         "walk_gap_to_peak_pct": {r["tokens"]: r["walk_gap_pct"] for r in rungs},
     }
-    if not out["controls"]["clears_640_observational_floor"]:
+    if not all(out["controls"]["clears_640_observational_floor"].values()):
         out["REFUTED"] = ("the projection at 640 is under 34.215 GB, which the run already "
                           "reached and still failed. The model is wrong, not the card.")
     a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -224,21 +258,21 @@ def main() -> int:
           "exponent %s)" % (bnd_a, bnd_b, n0, out["boundary_closed_form"]["rel_err_pct"],
                             expo.get("boundaries")))
     for n in (640, 768):
-        r = out["projections"][n]
-        print("%d: peak %.2f GB, deficit %.2f GB | spill %.2f -> %.2f | halve recompute %.2f "
-              "-> %.2f | BOTH -> %.2f GB, margin %+.2f GB, fits=%s"
-              % (n, r["projected_peak_GB"], r["deficit_GB"],
-                 r["lever_boundary_spill"]["saves_GB"], r["lever_boundary_spill"]["peak_after_GB"],
-                 r["lever_halve_recompute"]["saves_GB"],
-                 r["lever_halve_recompute"]["peak_after_GB"],
-                 r["both_levers"]["peak_after_GB"], r["both_levers"]["margin_GB"],
-                 r["both_levers"]["fits"]))
-        if "third_lever" in r:
-            print("     third lever must save %.2f GB; largest remaining: %s"
-                  % (r["third_lever"]["must_save_GB"],
-                     r["third_lever"]["largest_remaining_owners_GB"]))
-    print("control: reproduces the %d rung to %.4f %%; clears the 640 floor: %s"
-          % (n0, out["controls"]["reproduces_base_rung"]["rel_err_pct"],
+        for arm in ARMS:
+            r = out["projections"][n][arm]
+            print("%d [%-16s]: peak %6.2f GB, deficit %6.2f | spill -> %6.2f | halve recompute "
+                  "-> %6.2f | BOTH -> %6.2f GB, margin %+6.2f GB, fits=%s"
+                  % (n, arm, r["projected_peak_GB"], r["deficit_GB"],
+                     r["lever_boundary_spill"]["peak_after_GB"],
+                     r["lever_halve_recompute"]["peak_after_GB"],
+                     r["both_levers"]["peak_after_GB"], r["both_levers"]["margin_GB"],
+                     r["both_levers"]["fits"]))
+            if "third_lever" in r:
+                print("      third lever must save %.2f GB; largest remaining: %s"
+                      % (r["third_lever"]["must_save_GB"],
+                         r["third_lever"]["largest_remaining_owners_GB"]))
+    print("control: reproduces the %d rung to %s %%; clears the 640 floor: %s"
+          % (n0, {a: out["controls"]["reproduces_base_rung"][a]["rel_err_pct"] for a in ARMS},
              out["controls"]["clears_640_observational_floor"]))
     print("wrote", a.out)
     return 0
