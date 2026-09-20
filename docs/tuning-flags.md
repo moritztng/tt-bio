@@ -25,11 +25,14 @@ every fold, reads +0.0551 s against a control spread of 0.0314 s. **It is off be
 has separated the win from its own control to the campaign's bar, not because anything is wrong with
 it.**
 
-It reaches Boltz-2 and Protenix-v2, and accuracy is measured on both. Boltz-2 moves 0.2244 Å
-all-atom against a 0.35 Å bar, on a fixture whose seed-to-seed scatter is 0.7998 Å. Protenix-v2
-scores 1.997 Å against the experimental structure with the flag on and 1.999 Å with it off, TM 0.867
-either way. The output does not depend on the core grid: the release gate's `l1-budget` arm gives
-one digest across the native, 8x8 and narrow grids in both arms.
+It reaches every model with token-level attention pair bias, which is most of them: Boltz-2, RF3,
+OpenDDE, OpenFold3, OpenBind, BoltzGen and Protenix. Accuracy is measured on two of those at full
+coverage. Boltz-2 moves 0.2244 Å all-atom against a 0.35 Å bar, on a fixture whose seed-to-seed
+scatter is 0.7998 Å. OpenDDE moves 0.1337 Å where changing the seed on the same input moves 1.23 to
+5.54 Å. Protenix-v2 scores 1.997 Å against the experimental structure with the flag on and 1.999 Å
+with it off, though there it re-lanes only about a tenth of the attention sites, so it is the
+weaker of the three readings. The output does not depend on the core grid: the release gate's
+`l1-budget` arm gives one digest across the native, 8x8 and narrow grids.
 
 `TT_BIO_APB_CONCAT_HEADS=0` is the default and the way back. The measurements are in
 `perf/c14_land/apb_grid_independence.md`, `perf/c14_land/apb_cross_session.json` and the session
