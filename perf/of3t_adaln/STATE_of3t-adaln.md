@@ -1,4 +1,4 @@
-# of3t-adaln — the AdaLN gate is clean, the attention softmax is the defect, and block 8 is not higher-K
+# of3t-adaln — the AdaLN gate is clean, the attention softmax is the defect, and neither the block nor the transition is broken
 
 VERDICT: GO
 
@@ -9,7 +9,7 @@ against the commit this branch was cut from (592d632e1 on `wk/of3t`) touches 0 f
 ablation below is installed from the instrument and removed again. The orchestrator holds the
 merge gate; this branch stays on its own.
 
-The brief was amended five times while this pass was running. Amendment 1 refuted its own premise
+The brief was amended six times while this pass was running. Amendment 1 refuted its own premise
 from the model's natural A/B: two instances of `tenstorrent.AdaLN` per DiT block, the same class
 on the same `(a, s)`, one reading 10.6980 mass-weighted and the other 0.1828. Amendment 2 closed
 the AdaLN op by measurement and handed over a five-item list on the DiT attention path. This
@@ -237,6 +237,54 @@ self-check that the summands add back to the reference's own gamma gradient at 3
   zero. The conclusion holds in its strong form; the evidence for it is the DISTANCE from zero
   rather than the sign.
 
+AMENDMENT6: the conditioned transition is not broken either, and the widened block arm caught a
+defect in this instrument before it became a finding.
+
+  The transition branch, run ALONE against upstream 0.4.3's own `ConditionedTransitionBlock` in
+  float64 on the real `(a, s)` the block hands it — captured by a pre-hook on THEIR module while
+  THEIR block runs, so the operands are the model's — reads mass-weighted 5.468736e-03 at block
+  8, 7.278610e-03 at block 9 and 9.595681e-03 at block 0, with 0 of 9 parameters over the
+  5.0e-02 per-tensor bar at every block, cosines at or above 0.99997 and norm ratios within 1 %
+  of unity. The gain itself reads 5.548868e-03, 7.438482e-03 and 9.684134e-03. Feeding it OUR
+  block's `a` rather than the reference's — a 1.912528e-03, 8.487426e-04 and 4.523406e-03
+  difference at the three blocks — moves the headline to 7.897092e-03, 8.039326e-03 and
+  5.733396e-03, so at most 1.44x and at block 0 slightly better. The module's own K is 17.4 to
+  35.8. Extrapolating this arm's slope, the transition would need K near 1.2e+03 to reach the
+  0.1828 the model shows. So the 15.5125 % leaf is not made inside the transition; it is carried
+  by what arrives at the transition's output, which is the blocks above it, the atom decoder, or
+  the accumulation over 48 samples.
+
+  Widening the block arm from 8 parameters to all 19 with a 1:1 checkpoint tensor gives the
+  whole block under an exact softmax at 1.489217e-02 mass-weighted, inside the 2.0e-02 mass bar,
+  against 7.856040e-01 shipped. Two tensors are still over the per-tensor bar,
+  `attention_pair_bias.linear_z.weight` at 1.107297e-01 and `layer_norm_z.weight` at
+  5.341521e-02, and between them they hold 0.008 % of the block's gradient mass; the leaf this
+  row was dispatched for holds 94.939 % of it and reads 1.459256e-02. Those two are in the pair
+  bias, they barely move under any softmax arm (3.2187e-01 and 4.0666e-01 shipped), and they are
+  the one thing in this block the row leaves located and unexplained.
+
+  This is one block under one controlled cotangent and it does not overturn amendment 6's
+  whole-arm extrapolation, which is taken over 547 tensors under the real cotangent and 48
+  samples. It does say the block's own arithmetic is inside the bar once the softmax is exact,
+  and the difference between that and 0.1867 is again the cotangent.
+
+  The instrument correction: the first widened run reported
+  `attention_pair_bias.mha.linear_o.weight` and `mha.linear_g.weight` at rel 1.411 with
+  `r` about 0.996 and `cos` 0.000135 and 0.001519 — the exact r ~ 1, cos ~ 0 signature this row
+  spent three passes teaching people to read as a wrong transform. Both are 768x768, and the
+  instrument inferred the transpose from the shape, which is silent on a square matrix, so it
+  compared the device gradient against the reference's transpose. Reading the flag
+  `_DiTBlock._w_tt` already records in its `(key, transpose)` cache key gives 2.492647e-02 with
+  cos 0.999740 and 2.469198e-02 with cos 0.999853. Ordinary. A shape-inferred transpose
+  manufactures the one signature a reader is primed to believe.
+
+  And the A23 note in this document was wrong where amendment 6 says it was. A cancelled
+  component does NOT carry little mass: `blocks.8...layer_norm_a.layer_norm_s.weight` is
+  8.05416 % of the model, the fourth-heaviest tensor in OpenFold3, 94.939 % of its own block's
+  gradient mass, and the one at the highest cancellation. That sentence is withdrawn. What
+  stands is the rest: a per-tensor RELATIVE bar is not a readable instrument on a cancelled
+  component, and the 474-of-547 over-bar count must be read with that in mind.
+
 PROVES: the sigmoid-gated AdaLN backward is right — 4 of 4 parameter gradients at 8.679667e-04
 to 2.194329e-03 against a float64 reference built from upstream 0.4.3's own class, norm ratios
 inside [0.99877, 1.00087], cosines above 0.9999981, zero-model baseline 1.000000, and the fused
@@ -252,7 +300,10 @@ control that moves: `precise_config()` on the softmax backward's reduction, and 
 gradient's summand product in fp32 on both activation dtypes. And the within-leaf split is not
 conditioning: the attention-side gain sum has K 172.6 at block 8 and 175.6 at block 9 while the
 model reads 18.504 and 0.1237, and under one controlled cotangent the two blocks read 8.060854e-01
-and 6.047823e-01.
+and 6.047823e-01. The conditioned transition, run alone on real operands against upstream's own
+float64 module, is inside the mass bar at three blocks with 0 of 9 parameters over the
+per-tensor bar, so the campaign's 15.5125 % leaf is not made inside it; and with an exact
+softmax the whole block is 1.489217e-02 mass-weighted over 19 of 19 parameters.
 
 DOESNOT: this does not ship a fix. Both levers change the forward, so they move inference on four
 of five models and they stay on this branch under the release gate. It does not measure the 48
@@ -263,14 +314,22 @@ random cotangent, not the model's own: they establish that blocks 8 and 9 are ma
 conditioning, and they do not measure what K each block has in the real backward, which needs a
 cotangent at `dit_out` that the boundary capture does not carry. It does not locate the
 793x-to-6,970x floor between the device and torch float32; it rules out the summand dtype and
-the two reduction configs and leaves the rest open. It does not re-derive the model-scope number after
+the two reduction configs and leaves the rest open. It does not explain
+`attention_pair_bias.linear_z.weight` and `layer_norm_z.weight`, which stay over the per-tensor
+bar under an exact softmax at 1.107297e-01 and 5.341521e-02 while holding 0.008 % of the block.
+And the whole-block and transition readings are taken under one controlled cotangent on one
+sample, so they measure the modules' arithmetic and not the arm's number under the real
+cotangent over 48 samples, which is where amendment 6's 0.1867 comes from. It does not re-derive the model-scope number after
 a lever, so how 55x at one block composes over 24 blocks and 48 samples is not established here.
 And it is a statement about one backward at one step, not about stability: it does not show that
 a training run stays on the reference trajectory over 100k steps, it does not bound long-run
 drift, and nothing here licenses a claim about a full run.
 
-A23 note. A per-tensor relative bar is not a readable instrument on a gradient component whose
-reference has cancelled: a correct implementation reads rel 26.4 at a cancellation ratio of
-2.1e+06 and 2.1e-03 at 20. The mass-weighted headline is not affected the same way, since a
-cancelled component carries little mass by construction. The 474-of-547 over-bar count at
-diffusion scope should be read with that in mind.
+A23 note, corrected. A per-tensor relative bar is not a readable instrument on a gradient
+component whose reference has cancelled: a correct implementation reads rel 26.4 at a
+cancellation ratio of 2.1e+06 and 2.1e-03 at 20, so the 474-of-547 over-bar count at diffusion
+scope must be read with that in mind. An earlier version of this note added that a cancelled
+component carries little mass by construction. It does not, and amendment 6 is right to strike
+it: the tensor at the highest cancellation here is 8.05416 % of the model and its
+fourth-heaviest. A large result can be a heavily cancelled sum, which is why it was worth
+chasing.

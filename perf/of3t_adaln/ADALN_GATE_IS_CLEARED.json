@@ -1,4 +1,5 @@
 {
+ "a23_note_corrected": "an earlier version of this rows A23 note said a cancelled component carries little mass by construction. That is wrong and amendment 6 is right: blocks.8...layer_norm_a.layer_norm_s.weight is 8.05416 % of the model and the fourth-heaviest tensor in OpenFold3, and it is the one at the highest cancellation. A large result can be a heavily cancelled sum. What survives is the rest of the note: a per-tensor RELATIVE bar is not a readable instrument on a cancelled component, and the 474-of-547 over-bar count must be read with that in mind.",
  "amendment_4_summand_dtype": {
   "arms": [
    {
@@ -695,6 +696,73 @@
   ],
   "verdict": "NO. On the real operands the cancellation ratio of the attention-side AdaLN gain sum is K=172.6 at block 8 and K=175.6 at block 9 -- 1.7 % apart -- while the model reads rel 18.504 and 0.1237, a 150x split. Under the same controlled cotangent the two blocks also read the same on the device: 8.060854e-01 and 6.047823e-01, 1.33x apart. The blocks code, operands and conditioning are matched; whatever produces the 150x arrives through the real cotangent."
  },
+ "amendment_6_the_transition_branch": {
+  "arms": [
+   {
+    "block": 8,
+    "compared": "9 of 9",
+    "forward_rel": 0.004082501382279741,
+    "gain_cancellation_K": 35.71070413256852,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.005468735843305745,
+    "over_bar": 0
+   },
+   {
+    "block": 8,
+    "compared": "9 of 9",
+    "forward_rel": 0.004079441264700118,
+    "gain_cancellation_K": 35.79699731861262,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0019125276413133254,
+    "mass_weighted_rel": 0.00789709236729021,
+    "over_bar": 0
+   },
+   {
+    "block": 9,
+    "compared": "9 of 9",
+    "forward_rel": 0.00475844676088867,
+    "gain_cancellation_K": 31.512229581863032,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.007278610039564238,
+    "over_bar": 0
+   },
+   {
+    "block": 9,
+    "compared": "9 of 9",
+    "forward_rel": 0.0049342320322087125,
+    "gain_cancellation_K": 31.5693507727739,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0008487425529685591,
+    "mass_weighted_rel": 0.008039326401098446,
+    "over_bar": 0
+   },
+   {
+    "block": 0,
+    "compared": "9 of 9",
+    "forward_rel": 0.006543222570398997,
+    "gain_cancellation_K": 17.529410648377887,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.009595681097830867,
+    "over_bar": 0
+   },
+   {
+    "block": 0,
+    "compared": "9 of 9",
+    "forward_rel": 0.005427882754104481,
+    "gain_cancellation_K": 17.43054514220223,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0045234061982470705,
+    "mass_weighted_rel": 0.005733395955656431,
+    "over_bar": 0
+   }
+  ],
+  "question": "amendment 6 hands over the 23.8917 % of the arm no softmax lever touches, whose largest member is conditioned_transition.layer_norm.layer_norm_s.weight at 15.5125 % of the model and mass-weighted rel 0.1828.",
+  "verdict": "the conditioned transition is NOT broken. Run alone on the real (a, s) the block hands it, against upstream 0.4.3s own ConditionedTransitionBlock in float64, all 9 of its parameter gradients read 5.5e-03 to 9.7e-03 at blocks 8, 9 and 0, mass-weighted 5.468736e-03 / 7.278610e-03 / 9.595681e-03, 0 of 9 over the 5.0e-02 per-tensor bar and inside the 2.0e-02 mass bar, with cos >= 0.99997 and norm ratios within 1 % of unity. Feeding it OUR blocks `a` instead of the references moves it at most 1.44x and at block 0 slightly improves it. The models 0.1828 is not made inside this module.",
+  "what_it_leaves": "the 0.1828 must be carried by the cotangent that arrives at the transitions output -- from the blocks above it, the atom decoder, or the accumulation over 48 samples. Extrapolating this arms slope (rel ~ 1.55e-04 x K at K 35.7) the transition would need K ~ 1.2e+03 to reach 0.1828, against the K 10.5 to 35.8 measured here."
+ },
  "amendments": {
   "answer": "the attention-side gradient defect is the attention SOFTMAX. Replacing it with float64 on the real operands takes attention_pair_bias.layer_norm_a.layer_norm_s.weight from 8.060854e-01 to 1.459256e-02 at DiT block 8, while the sister AdaLN under conditioned_transition, which has no softmax above it, moves 1.23x.",
   "block_arms": [
@@ -1030,6 +1098,13 @@
   "bf16": true,
   "fp32": true
  },
+ "instrument_correction": {
+  "after": "mha.linear_o.weight 2.492647e-02 cos 0.999740, mha.linear_g.weight 2.469198e-02 cos 0.999853 -- both ordinary. No defect there.",
+  "cause": "both are 768x768. The instrument inferred the transpose from the shape, which cannot disambiguate a square matrix, so the device gradient was compared against the references transpose.",
+  "fix": "read the flag `_DiTBlock._w_tt` already records in its `(key, transpose)` cache key.",
+  "lesson": "a transpose inferred from shape is silent on a square weight, and it manufactures exactly the r ~ 1 / cos ~ 0 signature this row taught everyone to read as a wrong transform.",
+  "what": "the first widened block arm reported attention_pair_bias.mha.linear_o.weight and mha.linear_g.weight at rel 1.411 with r ~ 0.996 and cos ~ 0.0001 -- the textbook signature of a wrong transform."
+ },
  "mechanism": "the disagreement is a device precision floor amplified by the conditioning of the LayerNorm-gain reduction. rel grows LINEARLY in K = sum_i||term_i|| / ||sum_i term_i||, the cancellation ratio of the gain gradient's own sum over tokens. A generic input gives K ~ 20 and rel ~ 2e-03; the published rel 18.504 sits between the K = 2.1e+05 and K = 2.1e+06 rungs of the ladder below.",
  "micro_arm_base": {
   "block": 8,
@@ -1115,5 +1190,13 @@
  },
  "verdict": "the sigmoid-gated AdaLN backward is CORRECT. rel 2.071014e-03 mass-weighted at block 8's real weights on generic inputs, norm ratio 1.00087 and cosine 0.99999823 on the leaf that reads 18.504 in the model. The fused-sigmoid rule is BIT-IDENTICAL to an unfused sigmoid + multiply, in fp32 and in bf16.",
  "what": "the AdaLN backward, measured in isolation against a float64 torch autograd reference built from upstream OpenFold3 0.4.3's own AdaLN class. Four hypotheses had been eliminated from source; this is the measurement that replaces the argument.",
- "what_this_does_not_establish": "K at the model's own block-8 inputs was not measured -- that needs the real activations and the real upstream cotangent at that AdaLN, which live inside a float64 DiT run this row does not do. What is measured is that the rule is right, that r/cos on the real tensor match the amplification signature the ladder produces, and that they do not match a wrong transform or a wrong constant."
+ "what_this_does_not_establish": "K at the model's own block-8 inputs was not measured -- that needs the real activations and the real upstream cotangent at that AdaLN, which live inside a float64 DiT run this row does not do. What is measured is that the rule is right, that r/cos on the real tensor match the amplification signature the ladder produces, and that they do not match a wrong transform or a wrong constant.",
+ "whole_block_under_an_exact_softmax": {
+  "block": 8,
+  "compared": "19 of 19",
+  "mass_weighted_rel": 0.014892170372615466,
+  "over_bar": 2,
+  "rule": "softmax_host_f64",
+  "shipped_for_contrast": 0.7856039601563344
+ }
 }

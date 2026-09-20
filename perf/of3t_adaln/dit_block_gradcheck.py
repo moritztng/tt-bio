@@ -300,6 +300,15 @@ def main() -> int:
                     for attr in ("s_norm_weight", "s_scale_weight", "s_scale_bias",
                                  "s_bias_weight"):
                         walked[f"{nm}.{attr}"] = getattr(mod, attr)
+                # `_w_tt` caches under (key, transpose), and the flag is the only thing that
+                # can undo the transpose on a SQUARE weight. Inferring it from the shape reads
+                # `mha.linear_g.weight` and `mha.linear_o.weight` -- both 768x768 -- as
+                # r ~ 1, cos ~ 0.0001, which is the signature of a wrong transform and was
+                # this instrument transposing nothing.
+                transposed = {}
+                for (k_, t_), v_ in ours._wc.items():
+                    walked[f"_wc:{k_}"] = v_
+                    transposed[f"_wc:{k_}"] = bool(t_)
                 leaves = {k: ag.parameter(v) for k, v in walked.items()}
                 with device_dtype_override(ttnn.float32), ag.tape():
                     o = ours(ag.Tensor(ft(ab)), ag.Tensor(ft(Sv)), ag.Tensor(ft(Z)),
@@ -309,7 +318,11 @@ def main() -> int:
             finally:
                 install(shipped_rule)
 
-            # name the device leaves against the checkpoint, by shape-aware mapping
+            # name the device leaves against the checkpoint. `_DiTBlock._w_tt` caches every
+            # weight it loads under its own checkpoint-relative key, so the map is the module's
+            # own bookkeeping rather than a list this instrument has to keep in step. The fused
+            # padded qkv is the one weight with no 1:1 checkpoint tensor and is left out.
+            # `AdaLN.torch_to_tt` defaults to `.t()`, so its 2-D weights are transposed too.
             name_of = {
                 "adaln_a.s_norm_weight": "attention_pair_bias.layer_norm_a.layer_norm_s.weight",
                 "adaln_a.s_scale_weight": "attention_pair_bias.layer_norm_a.linear_g.weight",
@@ -320,6 +333,8 @@ def main() -> int:
                 "adaln_t.s_scale_bias": "conditioned_transition.layer_norm.linear_g.bias",
                 "adaln_t.s_bias_weight": "conditioned_transition.layer_norm.linear_s.weight",
             }
+            for k_ in [k for k in walked if k.startswith("_wc:")]:
+                name_of[k_] = k_[4:]
             rows = []
             for dk, nm in name_of.items():
                 r = ref_grad.get(nm)
@@ -330,6 +345,9 @@ def main() -> int:
                 r = r.double()
                 d = ttnn.to_torch(g).double()
                 d = d.reshape(d.shape[-r.dim():]) if d.dim() > r.dim() else d
+                if d.dim() == 2 and (transposed.get(dk, dk.startswith("adaln"))
+                                     or tuple(d.shape)[::-1] == tuple(r.shape)):
+                    d = d.t().contiguous()
                 if tuple(d.shape) != tuple(r.shape) and tuple(d.shape)[::-1] == tuple(r.shape):
                     d = d.t().contiguous()
                 rn, dn = float(r.norm()), float(d.norm())
@@ -343,8 +361,18 @@ def main() -> int:
             den = sum(r["ref_norm"] ** 2 for r in got)
             mw = ((sum((r["rel_l2"] * r["ref_norm"]) ** 2 for r in got) / den) ** 0.5) \
                 if den else None
+            att = [r for r in got if r["tensor"].startswith("attention_pair_bias")]
+            ctr = [r for r in got if r["tensor"].startswith("conditioned_transition")]
+            def _mw(rs):
+                d = sum(r["ref_norm"] ** 2 for r in rs)
+                return ((sum((r["rel_l2"] * r["ref_norm"]) ** 2 for r in rs) / d) ** 0.5) \
+                    if d else None
             arm = {"block": b, "rule": rule_name, "forward_rel": fwd, "tokens": int(N),
                    "K": kmeas,
+                   "branch_mass_weighted_rel": {"attention_pair_bias": _mw(att),
+                                                "conditioned_transition": _mw(ctr)},
+                   "branch_counts": {"attention_pair_bias": len(att),
+                                     "conditioned_transition": len(ctr)},
                    "mass_weighted_rel": mw, "tensors": rows,
                    "over_bar": sum(1 for r in got if r["over_bar"]),
                    "compared": f"{len(got)} of {len(name_of)}",
@@ -357,7 +385,7 @@ def main() -> int:
                   f"mw {mw:.6e}  apb_gain rel {g1['rel_l2']:.6e} r {g1['norm_ratio']:.5f} "
                   f"cos {g1['cos']:.5f} | ct_gain rel {g2['rel_l2']:.6e} "
                   f"r {g2['norm_ratio']:.5f} cos {g2['cos']:.5f}", flush=True)
-            for r in got:
+            for r in sorted(got, key=lambda x: -x["rel_l2"]):
                 print(f"      {r['tensor']:62s} rel {r['rel_l2']:.6e}  r {r['norm_ratio']:9.5f}"
                       f"  cos {r['cos']:9.6f}", flush=True)
 
