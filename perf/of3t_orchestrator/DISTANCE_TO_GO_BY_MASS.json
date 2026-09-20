@@ -1,7 +1,7 @@
 {
  "what": "the campaign's state of proof stated in the only denominator that means anything for a gradient claim: the share of OpenFold3's squared gradient norm that is measured and inside bar, measured and outside, and not measured at all. Every share is from the exhaustive 0.4.3 table (4,170 tensors, model squared norm 10.279642678524985) and sums to exactly 100.0000 %.",
- "as_of": "2026-09-20, orchestrator pass 153. Revised from pass 152 once the diffusion arm's per-tensor array was read: it turns out to cover 51.1358 % of the model over 547 tensors, so atom_attn_dec, diffusion_module.layer_norm_s and diffusion_module.linear_s move from 'no reading' into the measured arm, and diffusion_module.layer_norm_a is no longer promoted out of a failing arm as a single passing tensor.",
- "headline": "39.7893 % of OpenFold3's gradient mass is measured by a section-scope arm with its own controls and inside the bars. 52.7798 % is measured and outside them. 7.4309 % has no reading. And the failing half is now localised: ONE leaf of 24 tensors, 25.5795 % of the model, reads mass-weighted 10.6980 while the other 523 compared tensors, holding almost the same mass, read 0.2929.",
+ "as_of": "2026-09-20, orchestrator pass 157, after of3t-adaln's softmax finding and of3t-auxheads' conclusion added msa_module's reading.",
+ "headline": "39.7893 % of OpenFold3's gradient mass is measured by a section-scope arm and inside the bars, 54.0115 % is measured and outside, 6.1992 % has no reading. Of the failing share, 27.2441 % is downstream of a no-config attention softmax and is now mechanistically explained; 23.8917 % is not, sits at mass-weighted 0.1855, and no softmax lever touches it.",
  "measured_and_inside_bar": {
   "total_pct": 39.7893,
   "sections": [
@@ -25,7 +25,7 @@
   "note_on_not_promoting_tensors": "diffusion_module.layer_norm_a (0.2666 %) is a one-tensor section that reads rel 0.0095, and pass 152 counted it here. It is measured INSIDE the diffusion arm, which fails, and 2.7940 % of the model passes the per-tensor bar inside that same arm. Promoting individually-passing tensors out of a failing arm is cherry-picking, so none are promoted: the arm is reported whole, below."
  },
  "measured_and_outside_bar": {
-  "total_pct": 52.7798,
+  "total_pct": 54.0115,
   "items": [
    {
     "arm": "the diffusion device arm (diffusion_module minus diffusion_conditioning)",
@@ -48,20 +48,22 @@
     "n": 399,
     "mass_weighted_rel": 0.14053,
     "note": "0.13707 with fp32_softmax=False. The median-of-blocks 0.02162 the campaign quoted understates this 6.5x."
+   },
+   {
+    "arm": "msa_module",
+    "pct": 1.2317,
+    "n": 227,
+    "mass_weighted_rel": 0.16211,
+    "note": "of3t-auxheads, concluded. Misses both bars. Reads a 19.8x backward-over-forward factor (forward 0.82 %, gradient 16.2 %) that reproduces D30's 19.6x on the diffusion module -- different module, different ops, different track, same factor to two significant figures."
    }
   ]
  },
  "not_measured_at_its_own_scope": {
-  "total_pct": 7.4309,
+  "total_pct": 6.1992,
   "items": [
    {
     "section": "pairformer_stack (the other 41 blocks)",
     "pct": 4.18419
-   },
-   {
-    "section": "msa_module",
-    "pct": 1.24,
-    "note": "boundary capture in flight under of3t-auxheads amendment 2"
    },
    {
     "section": "unreached inside the diffusion arm",
@@ -71,15 +73,21 @@
    {
     "section": "input_embedder",
     "pct": 0.8007,
-    "note": "same capture, in flight"
+    "note": "of3t-auxheads answered this as a PORT-COVERAGE gap rather than measuring it: 92.4879 % of the section sits on a weight our shipped path applies on the HOST after a ttnn.to_torch, so there is no device gradient at that scope to compare. Named, not measured."
    },
    {
     "section": "msa_module_embedder",
-    "pct": 0.0612
+    "pct": 0.0612,
+    "note": "a separate section from msa_module; my pass-157 filter matched it by prefix and dropped it for one edit"
    },
    {
     "section": "template_embedder",
     "pct": 0.0103
+   },
+   {
+    "section": "msa_module (the part its arm did not reach)",
+    "pct": 0.0083,
+    "note": "the section is 1.2400 % and of3t-auxheads measured 1.2317 %"
    },
    {
     "section": "layer_norm_z / layer_norm_s / linear_z / linear_s (top level)",
