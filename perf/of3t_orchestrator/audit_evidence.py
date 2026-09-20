@@ -758,11 +758,18 @@ if _DEFP.is_file() and (_reach_top or j("perf/of3t_orchestrator/SECTION_MASS_MEA
             bad.append(f"DEFECTS D20 headlines {_m.group(1)} % where the artifacts give "
                        f"{_want_sum} -- the ceiling is quoted against a reference that has "
                        f"been replaced")
+        # Compare NUMERICALLY, not as a format string. The first version required "89.21 %"
+        # and the document said "89.2106 %" -- a more precise statement of the same number,
+        # rejected. Same defect the pass-37 "3.16 % vs 3.156 %" check had; a matcher that
+        # insists on its own rounding reports drift against a document that is more correct
+        # than the check is.
+        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _dt)]
         for _name, _sh in (("diffusion_module", _diff_share), ("aux_heads", _aux_share)):
-            _s = f"{_sh * 100:.2f} %"
-            if _s not in _dt:
-                bad.append(f"DEFECTS never quotes {_name}'s current share {_s} -- D20's body "
-                           f"is the campaign's ceiling and it must follow the artifact")
+            _want = _sh * 100
+            if not any(abs(_p - _want) <= 0.005 for _p in _pcts):
+                bad.append(f"DEFECTS never quotes {_name}'s current share {_want:.4f} % -- "
+                           f"D20's body is the campaign's ceiling and it must follow the "
+                           f"artifact")
 
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
 # GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
