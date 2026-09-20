@@ -1,0 +1,167 @@
+{
+ "host": "tt-quietbox2",
+ "model": "esmfold2",
+ "size": 128,
+ "card": 3,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "47810889f9c49909d5efa00dcaa90b8080acc2ac",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 77,
+ "env": {
+  "TT_VISIBLE_DEVICES": "3",
+  "TT_BIO_LEASE_CARDS": "3",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 13.17,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_esmfold2_128",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-esmfold2-hagnerzt/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 100
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 22.9185,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 39,
+    "power_w_mean": 49.4
+   },
+   "plddt": 0.9208,
+   "n_tokens": null
+  },
+  {
+   "tag": "B",
+   "fold_s": 3.803,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 13,
+    "power_w_mean": 54.5
+   },
+   "plddt": 0.9208,
+   "n_tokens": null,
+   "blocks": {
+    "esmfold2.InputsEmbedder": {
+     "n": 1,
+     "incl_s": 0.00894,
+     "self_s": 0.00894,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.RelPosEncoding": {
+     "n": 1,
+     "incl_s": 0.011856,
+     "self_s": 0.011856,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2_runtime._ESMCAdapter": {
+     "n": 1,
+     "incl_s": 0.150012,
+     "self_s": 0.150012,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.LanguageModelShimModel": {
+     "n": 1,
+     "incl_s": 0.006382,
+     "self_s": 0.006382,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.MSAEncoder": {
+     "n": 1,
+     "incl_s": 0.07487,
+     "self_s": 0.07487,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.FoldingTrunkModel": {
+     "n": 12,
+     "incl_s": 2.24366,
+     "self_s": 2.24366,
+     "depths": {
+      "0": 12
+     }
+    },
+    "esmfold2.FoldingTrunk": {
+     "n": 2,
+     "incl_s": 0.052542,
+     "self_s": 0.052542,
+     "depths": {
+      "0": 2
+     }
+    },
+    "esmfold2.DistogramHeadModel": {
+     "n": 1,
+     "incl_s": 0.015452,
+     "self_s": 0.015452,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.TransitionLayer": {
+     "n": 138,
+     "incl_s": 0.028688,
+     "self_s": 0.028688,
+     "depths": {
+      "0": 138
+     }
+    },
+    "esmfold2.AtomEncoder": {
+     "n": 68,
+     "incl_s": 0.168944,
+     "self_s": 0.168944,
+     "depths": {
+      "0": 68
+     }
+    },
+    "esmfold2.DiffusionTransformerModel": {
+     "n": 68,
+     "incl_s": 0.462715,
+     "self_s": 0.462715,
+     "depths": {
+      "0": 68
+     }
+    },
+    "esmfold2.AtomDecoder": {
+     "n": 68,
+     "incl_s": 0.146486,
+     "self_s": 0.146486,
+     "depths": {
+      "0": 68
+     }
+    }
+   }
+  }
+ ]
+}

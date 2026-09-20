@@ -1,0 +1,188 @@
+{
+ "host": "tt-quietbox2",
+ "model": "rfd3",
+ "size": 512,
+ "card": 2,
+ "depth": 1,
+ "driver": "rfd3",
+ "git_head": "ec5f8f66fb9e72be7af164d58a43d85fe1715fd9",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 49,
+ "env": {
+  "TT_VISIBLE_DEVICES": "2",
+  "TT_BIO_LEASE_CARDS": "2",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "spec": "/home/ttuser/.coworker/wt/allm-model/examples/rfd3_binder.json",
+  "weights": "/home/ttuser/.boltz/rfd3/weights",
+  "protocol": {
+   "num_timesteps": 4,
+   "num_designs": 1,
+   "batch_size": 1
+  },
+  "timed_region": "run_design (featurise + sample + CIF write)"
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 3.4743,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 13,
+    "power_w_mean": 33.8
+   },
+   "depth": null,
+   "plddt": null,
+   "n_tokens": null
+  },
+  {
+   "tag": "A",
+   "fold_s": 1.5551,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 35.0
+   },
+   "depth": null,
+   "plddt": null,
+   "n_tokens": null
+  },
+  {
+   "tag": "B:1",
+   "fold_s": 1.5233,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 34.7
+   },
+   "depth": 1,
+   "plddt": null,
+   "n_tokens": null,
+   "blocks": {
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.776442,
+     "self_s": 0.776442,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 3,
+     "incl_s": 0.342279,
+     "self_s": 0.342279,
+     "depths": {
+      "0": 3
+     }
+    }
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 1.5542,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 35.0
+   },
+   "depth": 2,
+   "plddt": null,
+   "n_tokens": null,
+   "blocks": {
+    "model.Transition": {
+     "n": 28,
+     "incl_s": 0.015131,
+     "self_s": 0.015131,
+     "depths": {
+      "1": 28
+     }
+    },
+    "model.PairformerBlock": {
+     "n": 14,
+     "incl_s": 0.022113,
+     "self_s": 0.022113,
+     "depths": {
+      "1": 14
+     }
+    },
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.79955,
+     "self_s": 0.794125,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.LocalAtomTransformer": {
+     "n": 3,
+     "incl_s": 0.145914,
+     "self_s": 0.145914,
+     "depths": {
+      "1": 3
+     }
+    },
+    "model.LocalTokenTransformer": {
+     "n": 6,
+     "incl_s": 0.085036,
+     "self_s": 0.085036,
+     "depths": {
+      "1": 6
+     }
+    },
+    "model.RFD3AtomBlock": {
+     "n": 18,
+     "incl_s": 0.027469,
+     "self_s": 0.027469,
+     "depths": {
+      "1": 18
+     }
+    },
+    "model.LinearSequenceHead": {
+     "n": 6,
+     "incl_s": 0.000821,
+     "self_s": 0.000821,
+     "depths": {
+      "1": 6
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 3,
+     "incl_s": 0.355194,
+     "self_s": 0.064135,
+     "depths": {
+      "0": 3
+     }
+    }
+   }
+  },
+  {
+   "tag": "C",
+   "fold_s": 1.539,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 33.4
+   },
+   "depth": null,
+   "plddt": null,
+   "n_tokens": null
+  }
+ ]
+}

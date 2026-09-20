@@ -1,0 +1,284 @@
+{
+ "host": "tt-quietbox2",
+ "model": "opendde",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "47810889f9c49909d5efa00dcaa90b8080acc2ac",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 81,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 2.32,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_opendde_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-opendde-7l7_c59r/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 200
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 91.5901,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 321,
+    "power_w_mean": 92.0
+   },
+   "depth": null,
+   "plddt": 0.717514,
+   "n_tokens": 512
+  },
+  {
+   "tag": "A",
+   "fold_s": 81.319,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 308,
+    "power_w_mean": 94.5
+   },
+   "depth": null,
+   "plddt": 0.717514,
+   "n_tokens": 512
+  },
+  {
+   "tag": "B:1",
+   "fold_s": 82.6504,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 316,
+    "power_w_mean": 94.1
+   },
+   "depth": 1,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "blocks": {
+    "protenix.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.079873,
+     "self_s": 0.079873,
+     "depths": {
+      "0": 1
+     }
+    },
+    "protenix.Trunk": {
+     "n": 1,
+     "incl_s": 60.806671,
+     "self_s": 60.806671,
+     "depths": {
+      "0": 1
+     }
+    },
+    "opendde.StructuralTokenExpander": {
+     "n": 1,
+     "incl_s": 0.922715,
+     "self_s": 0.922715,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 2,
+     "incl_s": 2.280054,
+     "self_s": 2.280054,
+     "depths": {
+      "0": 2
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 402,
+     "incl_s": 0.138689,
+     "self_s": 0.138689,
+     "depths": {
+      "0": 402
+     }
+    },
+    "protenix.AtomTransformer": {
+     "n": 400,
+     "incl_s": 2.768957,
+     "self_s": 2.768957,
+     "depths": {
+      "0": 400
+     }
+    },
+    "tenstorrent.AdaLN": {
+     "n": 9600,
+     "incl_s": 1.423522,
+     "self_s": 1.423522,
+     "depths": {
+      "0": 9600
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 4800,
+     "incl_s": 6.293755,
+     "self_s": 6.293755,
+     "depths": {
+      "0": 4800
+     }
+    }
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 82.3278,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 289,
+    "power_w_mean": 93.6
+   },
+   "depth": 2,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "blocks": {
+    "protenix.AtomTransformer": {
+     "n": 401,
+     "incl_s": 3.117395,
+     "self_s": 2.629937,
+     "depths": {
+      "0": 400,
+      "1": 1
+     }
+    },
+    "protenix.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.076205,
+     "self_s": 0.065648,
+     "depths": {
+      "0": 1
+     }
+    },
+    "protenix.TrunkInput": {
+     "n": 1,
+     "incl_s": 0.007151,
+     "self_s": 0.007151,
+     "depths": {
+      "1": 1
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 128,
+     "incl_s": 7.793843,
+     "self_s": 7.793843,
+     "depths": {
+      "1": 128
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.170942,
+     "self_s": 0.170942,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 442,
+     "incl_s": 0.148795,
+     "self_s": 0.148795,
+     "depths": {
+      "0": 402,
+      "1": 40
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.73155,
+     "self_s": 0.73155,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 12,
+     "incl_s": 55.550115,
+     "self_s": 53.266194,
+     "depths": {
+      "0": 2,
+      "1": 10
+     }
+    },
+    "protenix.Trunk": {
+     "n": 1,
+     "incl_s": 60.758728,
+     "self_s": 1.053331,
+     "depths": {
+      "0": 1
+     }
+    },
+    "opendde.StructuralTokenExpander": {
+     "n": 1,
+     "incl_s": 1.02667,
+     "self_s": 1.02667,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.AdaLN": {
+     "n": 13200,
+     "incl_s": 1.74303,
+     "self_s": 1.74303,
+     "depths": {
+      "0": 9600,
+      "1": 3600
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 4800,
+     "incl_s": 6.221716,
+     "self_s": 6.221716,
+     "depths": {
+      "0": 4800
+     }
+    }
+   }
+  },
+  {
+   "tag": "C",
+   "fold_s": 79.4665,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 311,
+    "power_w_mean": 95.7
+   },
+   "depth": null,
+   "plddt": 0.717514,
+   "n_tokens": 512
+  }
+ ]
+}
