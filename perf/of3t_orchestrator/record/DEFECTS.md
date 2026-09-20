@@ -3674,3 +3674,46 @@ human-written one** — templates, tokens, and uppercase identifiers are what ac
 an unfinished document.
 
 Owner: `of3t-orchestrator`. **FIXED.** `workstreams/_of3t_donecheck.py`.
+
+---
+
+### D61. An accumulation probe reading 26.68x over 48 samples where √48 = 6.93 looks exactly like a 3.85x accumulation defect and is not one — it is the correlation of real draws, and only the independent-draw control makes it readable. FOUND by `of3t-orchestrator`, pass 160. **FIXED (as a reading); no defect exists.**
+
+At pass 159 I wrote that the residual surviving a perfect softmax *"is carried in the accumulated
+cotangent, pointing at the 48-sample accumulation"*. I then read the per-sample arrays in
+`device_gradient_043pt.json` — which I had not opened — and they give that no support.
+
+**The forward does not degrade across samples.** `forward_rel` over the 48: min **2.0493e-03**,
+median **8.3422e-03**, max **1.5670e-02**, and Pearson **−0.0565** against sample index. Flat.
+
+**The accumulation itself is exact.** `of3t-adaln`'s controlled arm drives 48 tapes into the same
+leaves with independent cotangents: the probe grows 3.433209e+03 → 2.364329e+04, a factor
+**6.887 against the 6.928 independent draws predict** — 0.6 %. And its headline moves only
+2.071014e-03 → 2.116898e-03 over that 48×, 2.2 %.
+
+**The trap.** The same probe in the *real* run grows **26.68×** over 48 samples where
+`√48 = 6.93`. That is 3.85× "too fast" and reads precisely like an accumulation defect. It is
+not. Independent draws give `√N`; identical draws give `N`; **anything between is partial
+correlation** — and 48 noise samples of one target are strongly correlated by construction. The
+number is uninterpretable without the independent-draw control, and the real run does not carry
+one. A reader comparing 26.68 against √48 and stopping there would open an investigation into an
+arithmetic that has already been proved exact.
+
+**And a partial withdrawal of my own pass-159 arithmetic.** The claim *"even an exact softmax
+leaves ~0.137, 6.9x the bar"* applied a **55.24×** factor measured on **one block under a
+controlled cotangent** to a whole-arm number measured over **547 tensors under the real
+cotangent**. That is the same context-mixing that made pass 157 wrong, and here the shortfall is
+only 6.8× — comfortably inside the error such mixing produces. `of3t-adaln`'s own block arm
+under an exact softmax reads **1.489217e-02, inside the bar**, which points the other way.
+**Withdrawn.**
+
+What survives is the part where the gap is large: shippable levers leave the arm at **3.3641**
+(168.2× over) and **1.7242** (86.2× over) against a needed **378×**. An upper bound that still
+lands 86× outside is safe; the same bound landing 6.9× outside is not. **The robustness of an
+extrapolation is a function of the margin it leaves, and I should state the margin whenever I
+use one.**
+
+Owner: `of3t-orchestrator`. **No defect in the code.** The reading is corrected and the pointer
+is removed before any row acted on it. Artifact:
+`perf/of3t_orchestrator/NO_SOFTMAX_LEVER_REACHES_THE_BAR.json`, both withdrawals recorded in
+place.

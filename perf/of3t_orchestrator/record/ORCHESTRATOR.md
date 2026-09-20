@@ -709,14 +709,17 @@ the campaign trained itself to read as a wrong transform. Mass-weighted conclusi
 unaffected (7.5692 → 7.5688) and anything read per tensor is not; annotated, not rewritten. **D60 (FIXED)**: the DONE_CHECK's placeholder guard matched `\bplaceholder\b` in prose and
 missed the token form, so a row concluded with a literal `MODELS_TABLE_PLACEHOLDER` in a
 measured field while its PROVES claimed the table; token forms and TODO/FIXME/XXX are now
-matched and in the selftest.
+matched and in the selftest. **D61 (no code defect)**: my pass-159 pointer at the 48-sample accumulation is withdrawn —
+the forward is flat across samples (Pearson −0.0565) and the accumulation is exact (6.887
+against 6.928 predicted); the real run's 26.68x probe reading is the correlation of real
+draws, not an error, and is uninterpretable without the independent-draw control.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live; sixty defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+one live; sixty-one defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6617,3 +6620,50 @@ at twenty-four, and the summary-quote check demanding its own rounding. Every on
 written against the shape of the thing it was tested on rather than the shape of the thing it
 must catch. **A guard's test cases must include the machine-generated form, not only the
 human-written one.**
+
+---
+
+## Pass 160 — I read the per-sample arrays I had been reasoning about without opening
+
+Pass 159 ended with a pointer: the residual surviving a perfect softmax *"is carried in the
+accumulated cotangent, pointing at the 48-sample accumulation"*. `device_gradient_043pt.json`
+carries two 48-long arrays I had never opened. They give that no support, and one of them is a
+trap.
+
+**The forward does not degrade across samples.** `forward_rel`: min **2.0493e-03**, median
+**8.3422e-03**, max **1.5670e-02**, Pearson **−0.0565** against sample index. Flat. Whatever is
+wrong is not accumulating over samples in the forward.
+
+**The accumulation is exact.** `of3t-adaln` drove 48 tapes into the same leaves with independent
+cotangents and its probe grew 3.433209e+03 → 2.364329e+04 — a factor **6.887 against the 6.928
+independent draws predict**, 0.6 % — with the headline moving 2.071014e-03 → 2.116898e-03 over
+that 48×.
+
+**And the trap.** The same probe in the *real* run grows **26.68×** where `√48 = 6.93`: 3.85×
+"too fast", reading exactly like an accumulation defect. It is not one. Independent draws give
+`√N`, identical draws give `N`, and **anything between is partial correlation** — which 48 noise
+samples of one target have by construction. Without the independent-draw control the number is
+uninterpretable, and the real run carries no such control. Filed as **D61**; no code defect
+exists, and the pointer is withdrawn before any row spent a card on it.
+
+### And a partial withdrawal of my own pass-159 arithmetic
+
+The claim *"even an exact softmax leaves ~0.137, 6.9x the bar"* took a **55.24×** factor measured
+on **one block under a controlled cotangent** and applied it to a whole-arm number measured over
+**547 tensors under the real cotangent**. That is the context-mixing that made pass 157 wrong,
+and here the shortfall is only 6.8× — inside the error such mixing produces. `of3t-adaln`'s own
+block arm under an exact softmax reads **1.489217e-02, inside the bar**, pointing the other way.
+Withdrawn.
+
+What stands is the half where the margin is large: shippable levers leave the arm at **3.3641**
+(168.2× over bar) and **1.7242** (86.2× over) against a needed **378×**. **An upper bound that
+still lands 86x outside is safe; the same bound landing 6.9x outside is not.** The robustness of
+an extrapolation is a function of the margin it leaves, and the margin belongs beside it every
+time I use one — I gave both figures the same confidence last pass and only one of them had
+earned it.
+
+So the position on this defect is narrower and more honest than yesterday: the mechanism is the
+softmax forward amplified by the backward's cancellation; **no shippable lever reaches the bar**;
+the inference case is a measured NO-GO at 0.3237 Å against a 0.6250 Å seed floor; and what would
+fix the attention-side 27.2441 % is **not a precision knob and is not currently known**. The
+23.8917 % on the other side remains unexplained and unowned.
