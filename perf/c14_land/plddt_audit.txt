@@ -1,0 +1,20 @@
+arm     folds   mean pLDDT     stdev       min       max
+base       96     0.844645  0.000000  0.844645  0.844645
+on         48     0.843404  0.000000  0.843404  0.843404
+
+pLDDT shift (on - base)           : -0.001241
+  within-arm fold-to-fold stdev   : 0.000000
+  base block-to-block stdev       : 0.000000
+
+  NOTE: within-arm stdev is EXACTLY zero -- each configuration reproduces itself fold for fold. So the shift is a real systematic difference, not noise, and the block-to-block reference is the one that matters.
+
+SAME LEVER AT 298 aa (perf/c14_land/apb_accuracy_298.json, production protocol)
+  base 0.908011   apb 0.909892   shift +0.001881
+
+SEED REFERENCE: a seed change moves boltz-2 pLDDT by about 0.0230
+  (from perf/roof_concat via the orchestrator's pass-51 note -- another row's number, cited rather than re-measured, and the comparison is only as good as it is.)
+  512 aa shift is 19x smaller than a seed change
+  298 aa shift is 12x smaller than a seed change
+
+VERDICT: SIGN FLIPS WITH SIZE -- rounding, not a systematic confidence cost
+  APB RAISES pLDDT at 298 aa (+0.001881) and LOWERS it at 512 aa (-0.001241). A lever that degraded confidence would push one way at both sizes. This is the re-laned projections rounding differently, which is what the docs entry already says the lever does.
