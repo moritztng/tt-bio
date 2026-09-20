@@ -1,0 +1,121 @@
+{
+ "THE_CAVEAT_THAT_LIMITS_ALL_OF_IT": {
+  "statement": "both columns are distances from the SAME float64 reference. Two deviations from a shared reference do not order each other: our 7.865e-03 beside bf16's 6.2532e-02 does NOT establish that we agree with bf16's gradient to 6e-02. The errors could point in different directions and our distance FROM BF16 could exceed both.",
+  "the_measurement_that_would_close_it": "compare our device gradient tensors DIRECTLY against arm4's bf16 gradients rather than both against float64. arm4 is on disk at of3t_refprec/run/arm4_bf16_autocast/grads_f64.pt; what is missing is our device gradient TENSORS -- the device arm published rel/r/cos per tensor but not the gradients. One re-run of device_gradient.py writing the tensors closes it.",
+  "this_is_the_shared_subtrahend_rule": "two diffs against one reference do not order each other; an A/A arm is needed. It is on the campaign's own standing list and applies squarely here.",
+  "what_is_NOT_established": "that we reproduce upstream's bf16 TRAJECTORY. 'Reproduce OpenFold3 training' in the strict sense is agreement with what their step actually computes, which is a device-vs-arm4 comparison.",
+  "what_is_established": "our deviation from the float64 ideal is no larger than the recipe's own deviation from it, on 42.2794 % of the model. That is real and useful."
+ },
+ "provenance": "computed 2026-09-20 pass 173 by of3t-orchestrator, CPU only, no device opened. bf16 column from arm4_bf16_autocast/grads_f64.pt against bundle_min_043/grads_f64_043.pt, aggregated by top-level section over all 4,170 tensors. Device column is each section's own published figure, source named per row -- three come from their own rows at their own scopes rather than from the 547-tensor diffusion array, and mixing sources is why every row carries its provenance.",
+ "table": [
+  {
+   "band": "FAR",
+   "bf16": 0.057877,
+   "device": 8.1947,
+   "device_source": "device diffusion arm, 547-tensor array",
+   "pct": 43.8936,
+   "ratio": 141.588,
+   "section": "diffusion_module.diffusion_transformer"
+  },
+  {
+   "band": "AT OR BETTER",
+   "bf16": 0.062532,
+   "device": 0.007865385,
+   "device_source": "of3t-conditioning, own arm, 26 of 26, with its own controls",
+   "pct": 36.9462,
+   "ratio": 0.126,
+   "section": "diffusion_module.diffusion_conditioning"
+  },
+  {
+   "band": "no section arm",
+   "bf16": 0.31477,
+   "device": null,
+   "device_source": "seven of 48 blocks measured at block scope only",
+   "pct": 5.8282,
+   "ratio": null,
+   "section": "pairformer_stack"
+  },
+  {
+   "band": "close",
+   "bf16": 0.082258,
+   "device": 0.19759,
+   "device_source": "device diffusion arm",
+   "pct": 5.5589,
+   "ratio": 2.402,
+   "section": "diffusion_module.atom_attn_enc"
+  },
+  {
+   "band": "AT OR BETTER",
+   "bf16": 0.23937,
+   "device": 0.0022996,
+   "device_source": "of3t-auxheads, own arm",
+   "pct": 2.8431,
+   "ratio": 0.01,
+   "section": "aux_heads"
+  },
+  {
+   "band": "close",
+   "bf16": 0.050705,
+   "device": 0.28295,
+   "device_source": "device diffusion arm",
+   "pct": 1.3173,
+   "ratio": 5.58,
+   "section": "diffusion_module.atom_attn_dec"
+  },
+  {
+   "band": "AT OR BETTER",
+   "bf16": 0.17894,
+   "device": 0.16211,
+   "device_source": "of3t-auxheads amendment 2, own arm",
+   "pct": 1.24,
+   "ratio": 0.906,
+   "section": "msa_module"
+  },
+  {
+   "band": "AT OR BETTER",
+   "bf16": 0.031012,
+   "device": 0.023809,
+   "device_source": "device diffusion arm",
+   "pct": 0.9835,
+   "ratio": 0.768,
+   "section": "diffusion_module.layer_norm_s"
+  },
+  {
+   "band": "no arm",
+   "bf16": 0.34222,
+   "device": null,
+   "device_source": "answered as a port-coverage gap: 92.4879 % applied on the host",
+   "pct": 0.8007,
+   "ratio": null,
+   "section": "input_embedder"
+  },
+  {
+   "band": "AT OR BETTER",
+   "bf16": 0.03697,
+   "device": 0.0094683,
+   "device_source": "device diffusion arm, single tensor",
+   "pct": 0.2666,
+   "ratio": 0.256,
+   "section": "diffusion_module.layer_norm_a"
+  },
+  {
+   "band": "close",
+   "bf16": 0.065442,
+   "device": 0.22723,
+   "device_source": "device diffusion arm, single tensor",
+   "pct": 0.2445,
+   "ratio": 3.472,
+   "section": "diffusion_module.linear_s"
+  }
+ ],
+ "the_reframing": {
+  "at_or_better_than_upstreams_own_bf16": 42.2794,
+  "far_past_it": 43.8936,
+  "headline": "RETIRED at pass 175. This field claimed the failure was one module. of3t-pairformer measured the trunk at 1.061553e+01 -- worse than the diffusion transformer's 8.025 -- and 18.89 % of measured error mass against the 0.4 % this framing allotted to everything outside the diffusion transformer. See perf/of3t_orchestrator/THE_ERROR_MASS_IS_ONE_MODULE.json, field REFUTED.",
+  "headline_RETIRED": "49.4 % of the model deviates from float64 by NO MORE than upstream's own training precision does, and essentially the entire failure is ONE module: the diffusion transformer at 141.6x. Scored against float64 the campaign reported 54 % outside the bar; scored against the recipe's own floor it is one bad module and a long tail already at parity.",
+  "no_arm_at_section_scope": 6.6289,
+  "within_10x_of_it": 7.1207
+ },
+ "what": "every measured section re-scored against upstream's OWN bf16 gradient error instead of against float64. The bf16 column is computed here from arm4; the device column is each section's own measured figure with its source named. Nothing new was run.",
+ "why": "D70 established that the 2.0e-02 mass-weighted bar against a float64 reference is missed by upstream's own training dtype (bf16 autocast, 2.9x outside on the device arm's scope). A bar the model's authors do not meet is the wrong yardstick for 'reproduce OpenFold3 training'. This table asks the useful question instead: how does our deviation compare to the recipe's own?"
+}
