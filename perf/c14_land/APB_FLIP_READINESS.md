@@ -56,3 +56,33 @@ not a blocker for the flip decision, and this row should stop carrying it as an 
 Stated limit: the 0.05-0.08 s figure is measured at 512 aa only. If APB's saving were far larger at
 one rung than another the exponent could move more, but the mechanism is per attention call, so the
 saving tracks call count and therefore size.
+
+## 3. There is no cheap substitute for the paired cross-model reading. I looked.
+
+The gate prints an RMSD per arm, and with seven arms now running the flag it is tempting to read
+those as cross-model accuracy evidence and skip the five-fold paired run. They are not, and the
+reason is measurable rather than theoretical.
+
+The gate's APB-ON numbers on qb2 p300c, prot.yaml, 200 steps / 5 samples, seed 0:
+
+    boltz2 1.185   rf3 1.240   opendde 1.411 (TM 0.944)   protenix-v2 1.465
+    openbind 1.493   protenix-v1 1.616   openfold3 1.755
+
+To turn any of those into evidence about the flag you need the same fixture with the flag OFF. The
+only stored gate table in the tree with per-model RMSDs is
+`perf/inblockw/qb1/gate/release_gate_summary.txt` — same fixture, same protocol, same seed, but a
+**qb1 p150a** on a different tree. It reads:
+
+    opendde       3.144   TM 0.835      against qb2's 1.411 / 0.944 here
+    protenix-v2   1.422   TM 0.948      against qb2's 1.465 here
+
+**OpenDDE moves 1.73 A between board class and tree, with the flag off in both.** That is what an
+unpaired comparison of this fixture carries before the lever is even considered, and it is roughly
+8x the 0.2244 A that APB moves Boltz-2. So the gate's per-arm RMSDs cannot resolve this flag, and
+the MODELS table does not help either: it stores floors (`max_rmsd`, `min_tm`), not a recorded
+measured value to difference against.
+
+This is `unpaired-cross-stack-rmsd-carries-full-seed-floor` with a number attached. The paired,
+same-seed, same-box, same-tree five-fold run in `apb_xmodel_accuracy.sh` is not belt-and-braces —
+it is the only design that can see an effect this size, which is why its A/A control must read
+0.000000 A before anything else in it is readable.
