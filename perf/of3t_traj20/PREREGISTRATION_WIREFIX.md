@@ -37,8 +37,19 @@ here and this file is pushed before the run.
 All five at warmup 20, 4 samples per step, rho 0.005, seed 20260920, over the same 4,147
 tensors. `fixed` and `scaled` therefore differ in exactly the four fixes and nothing else.
 
-`ulp` perturbs one side's master by a relative `2**-24` (one fp32 unit roundoff) per element
-**after every step**, and scores it against the unperturbed same side. Both sides run the same
+`ulp` perturbs one side's ACCUMULATED GRADIENT by a relative `2**-24` per element before
+every step, and scores it against the unperturbed same side.
+
+**Amended before the run, and the reason is arithmetic rather than a result.** The first draft
+of this file put the perturbation on the master weight. That does not work: `2**-24` relative
+is one fp32 unit roundoff, which is exactly half an ulp, so `theta*(1 + 2**-24*eta)` rounds
+back to `theta` for every `|eta| < 1` and the control would have injected nothing and read a
+floor of zero. The perturbation is therefore formed in float64 and rounded back to float32,
+which is precisely the form a differently-associated fp32 expression takes -- it lands on the
+same value about half the time and one ulp away the rest. The gradient is the right place for
+it because that is where the two stacks demonstrably differ: our clip coefficient is
+`min(1, 10/gnorm)` against their `10/max(gnorm, 10)`, computed by different reduction code, and
+that coefficient multiplies every gradient in every sample of every step. Both sides run the same
 code, so the only thing it measures is how far the closed loop carries a rounding-sized
 difference over 20 steps. It is a **lower bound** on the rounding-explained residual and is
 reported as one: real arithmetic injects rounding at every operation of every step, not once
