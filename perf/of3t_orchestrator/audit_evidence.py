@@ -903,7 +903,8 @@ if ORCH.is_file():
     _words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
               7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
               13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one"}
+              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
+              22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
     if DEF.is_file():
         _dt = DEF.read_text()
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
@@ -956,10 +957,12 @@ if ORCH.is_file():
         n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
         words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
                  14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-                 18: "eighteen", 19: "nineteen", 20: "twenty"}
+                 18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
+                 22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
         w = words.get(n_am)
         if w and _re.search(r"\b(nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
-                            r"seventeen|eighteen|nineteen|twenty) amendments\b", both):
+                            r"seventeen|eighteen|nineteen|twenty|twenty-one|twenty-two|"
+                            r"twenty-three|twenty-four) amendments\b", both):
             if f"{w} amendments" in both:
                 ok.append(f"PROVES states the amendment count correctly ({w}, {n_am})")
             else:
