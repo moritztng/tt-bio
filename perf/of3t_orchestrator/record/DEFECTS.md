@@ -5274,7 +5274,7 @@ concluded, so this is a question for whoever next touches that arithmetic. Recor
 silently replaced with my own number, which is the temptation when the difference does not change
 the answer.
 
-### D90. the shipped OF3 trunk forward is 46.67x upstream's own bf16 — but the reference is the 0.5.0 step and our flag encodes PREVIEW2's convention, so this may be a revision mismatch rather than a defect. UNFIXED, escalation QUALIFIED, flip held.
+### D90. the 46.67x trunk disagreement is a REFERENCE-REVISION MISMATCH, not a product defect — our flag is correct for our checkpoint. Escalation WITHDRAWN. The real gap with conventions matched is 8.31x.
 
 **HEADING CORRECTED within the pass.** I first filed this as "PRODUCT DEFECT" and led a report
 with it. Checking the named site in the shipped source before that framing could travel further,
@@ -5315,6 +5315,38 @@ this is settled.
 **Held, and nothing shipped.** The flip remains release-gated and unapplied; `of3t-pairbias` owns
 the flag. If the checkpoint is preview2-trained, our current setting is **correct** and the 46.67x
 is measuring the wrong thing.
+
+**RESOLVED by reading, same pass — the escalation is WITHDRAWN, not merely qualified.** I answered
+`of3t-foldab`'s Deliverable 0 myself from the two release trees already unpacked on pc:
+
+    0.4.3  core/model/layers/triangular_attention.py  forward() has NO transpose_bias parameter
+           core/model/latent/base_blocks.py           self.tri_att_end(z, mask=..., chunk_size=...)
+           -> one fixed orientation, permute_final_dims(self.linear_z(x), (2, 0, 1))
+
+    0.5.0  forward(..., transpose_bias: bool = False)  -> (2, 1, 0) when True, else (2, 0, 1)
+           base_blocks.py                              self.tri_att_end(z, mask=...,
+                                                          transpose_bias=True, ...)
+           -> the CALLER passes True, so 0.5.0 uses (2, 1, 0)
+
+**The two revisions genuinely differ in the ending-node bias orientation**, and 0.5.0's *default*
+is 0.4.3's behaviour — the change is entirely in what the caller passes. Our port targets **0.4.3**
+(D22 measured our vendor **3.8x closer** to 0.4.3 than to 0.5.0), our checkpoint is
+**`of3-p2-155k`** — preview2 — and tt-bio's shipped `transpose_bias=True` is, by its own comment,
+the pre-0.5.0 orientation. **So the shipped setting is CORRECT for the checkpoint we run, and
+`of3t-trunkfwd` scored it against a 0.5.0 reference.** The 46.67x conflates a known
+revision-convention difference with whatever real gap exists.
+
+**What the real gap is, after accounting for it.** Flipping to the 0.5.0 convention takes the pair
+track to **4.971863e-02**, which is **8.31x** upstream's own bf16 and sits on the 5.0e-02 bar. So
+with conventions matched the trunk forward is still out — by **8.31x, not 46.67x**. That is a real
+disagreement and a much smaller one, and it is the number any further work should start from.
+
+**Note what D22 did and did not cover.** D22 confirmed the 0.4.3/0.5.0 skew and argued it cannot
+explain the **diffusion transformer**, for three reasons — the vendor holds no model layers, the
+operands read 0.000e+00, and every **DiT-path** file is functionally inert between the revisions.
+That argument is sound and is about the DiT path. **The trunk's triangle attention was not in it**,
+and it is precisely a file that is *not* inert between those revisions. The campaign carried D22's
+conclusion further than D22's evidence reached, and I am the one who did that here.
 
 **What I got wrong, plainly**: I escalated "every OF3 fold JapanFold serves is 46.67x out" before
 reading the twelve lines of comment at the site I was naming. The row stated the open question
@@ -5371,4 +5403,47 @@ A/B is dispatched as `of3t-foldab`.
 **not** void on instrument grounds — this row reproduced its forward **exactly** from a different
 script (2.796859780956208e-01 against its published 2.796859e-01) — so **the retraction of "the
 failure is one module" stands and hardens**: the trunk's error is real, reaches users, and is a
-port defect rather than an instrument artefact. Owner: `of3t-orchestrator`. **UNFIXED.**
+port defect rather than an instrument artefact. **That sentence is superseded by the RESOLVED
+block above**: the trunk reading scores our 0.4.3-convention port against a 0.5.0-convention
+reference, so it is not evidence that the trunk is a port defect, and D91 withdraws the "one
+module" refutation it supported. Owner: `of3t-orchestrator`. **FIXED** — resolved by reading the
+two release trees; what remains open is re-measuring the trunk at the 0.4.3 convention, which is
+D91.
+
+### D91. the "one module" refutation is WITHDRAWN — a withdrawal of a withdrawal, as pre-registered. UNFIXED, the trunk returns to UNMEASURED.
+
+At pass 175 I pre-registered, **before** `of3t-trunkfwd` reported, what each of its outcomes would
+cost my retraction of *"the failure is one module"*. The third branch read:
+
+> per-block agrees, only the composition fails → **the retraction must be revisited.** The
+> 1.061553e+01 would measure the instrument, the trunk's true error mass would be **unknown**, and
+> "one module" returns to **unmeasured** — neither confirmed nor refuted. I would have to withdraw
+> a withdrawal, say so plainly, and coverage drops 5.5301 % back to unread.
+
+The mechanism is not the one I guessed — it is **D90's reference-revision mismatch**, not the
+instrument's block composition — but **the consequence is the branch-3 consequence**, and I am
+honouring what I wrote.
+
+**Why the refutation does not stand.** It rested on the trunk carrying **18.89 %** of measured
+error mass, computed from `of3t-pairformer`'s **1.061553e+01** gradient reading. That reading
+scores our **0.4.3-convention** port against a **0.5.0-convention** reference on a bias
+orientation the two revisions genuinely differ in. It is not a measurement of our port's error, so
+**the trunk's error-mass share is unknown** and *"the failure is one module"* returns to
+**neither confirmed nor refuted**.
+
+**What survives, and it is not nothing.** With the conventions matched the trunk forward still
+reads **4.971863e-02**, **8.31x** upstream's own bf16 and on the 5.0e-02 bar — so there *is* a real
+trunk disagreement, just an order of magnitude smaller than the 46.67x the refutation was built
+on, and its gradient consequence is unmeasured. The refutation might well be re-established at the
+corrected convention; it is not established **now**.
+
+**And the accounting moves back.** `pairformer_stack`'s 5.5301 % returns from *measured-and-void*
+to *no direct reading*: survives 0.2666 / fails 89.0554 / void **2.8431** (aux_heads alone) /
+unread **7.8349**. Direct coverage falls from 97.6952 % to **92.1651 %**.
+
+**Said plainly, because a withdrawal of a withdrawal is exactly where a record goes soft**: I
+retracted the campaign's headline, then reinstated the question. The headline is **not** restored
+— *"one module"* is not re-confirmed, it is **unmeasured** again — and the only reason this reads
+as discipline rather than drift is that the cost was written down before the answer arrived.
+Owner: `of3t-orchestrator`. **UNFIXED** — it needs the trunk re-measured at the 0.4.3 convention
+against a 0.4.3 reference.

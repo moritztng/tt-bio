@@ -824,7 +824,7 @@ tensors were scored as dW against their own transposes — median rel **1.4137**
 — and under the softmax bound they were **56.22 % of the arm's squared error on 0.2035 % of its
 mass**. Recurrence of D59. Every published figure on that arm is contaminated *after* the dominant
 error is removed; the shipped reading barely moves (7.426217 corrected against 7.426742
-published), because the softmax swamps it. **D90 (UNFIXED — escalation QUALIFIED)**: `of3t-trunkfwd` established that the OF3 trunk forward disagreement is in **SHIPPED INFERENCE**, not the tape and not the instrument. Untaped `tt_bio` reads **2.793661e-01** on the masked pair track — **46.67x** upstream's own bf16 (5.985395e-03) and 5.6x A19's mis-wired-operand threshold — with upstream's **float64** re-composition of the same 48 blocks reading **exactly 0.000000e+00**, so the harness contributes nothing and the whole figure is ours. Taped-vs-shipped is 5.00 % of it, so the tape is not the mechanism. The site is named: **`transpose_bias`** at `tt_bio/openfold3_trunk.py`, shipped `True` for every non-OpenBind checkpoint; flipped it falls to 4.971863e-02 (5.62x) with the accumulation exponent 0.925 → 0.584, but does not close the gap. **The flip is release-gated and held unflipped; nothing is shipped or merged.** Every OF3 fold JapanFold serves runs this stack. The Angstrom consequence is unmeasured and decides urgency — `of3t-foldab` dispatched for a seeded A/B against the 0.60 A kill bar with the 1.84 A seed floor. **QUALIFIED within the pass**: the site's own source says the flag names read OPPOSITE — tt-bio's shipped `True` is **preview2's** orientation, our checkpoint is `of3-p2-155k` (*p2 = preview2*), and the reference is the **0.5.0** step, which upstream changed. So this may be a **reference-revision mismatch rather than a defect**, and the 5.62x that flipping buys is what a convention difference predicts. The deciding question — which orientation `of3-p2-155k` was trained with — is answerable by **reading** upstream's preview2 source, and `of3t-foldab` owes that as Deliverable 0 before it folds anything. I converted the row's open question into a settled verdict; the measurements stand, my framing did not. **D89 (UNFIXED, mine)**: I cannot reproduce one sub-figure in the arithmetic carrying my own
+published), because the softmax swamps it. **D91 (UNFIXED)**: the *"one module"* refutation is **WITHDRAWN** — the trunk's 18.89 % error-mass share came from a reading against the wrong upstream revision, so the claim returns to **unmeasured**, and `pairformer_stack` moves back from void to unread. Honoured from a branch I pre-registered before the answer arrived. **D90 (UNFIXED — escalation WITHDRAWN)**: `of3t-trunkfwd` established that the OF3 trunk forward disagreement is in **SHIPPED INFERENCE**, not the tape and not the instrument. Untaped `tt_bio` reads **2.793661e-01** on the masked pair track — **46.67x** upstream's own bf16 (5.985395e-03) and 5.6x A19's mis-wired-operand threshold — with upstream's **float64** re-composition of the same 48 blocks reading **exactly 0.000000e+00**, so the harness contributes nothing and the whole figure is ours. Taped-vs-shipped is 5.00 % of it, so the tape is not the mechanism. The site is named: **`transpose_bias`** at `tt_bio/openfold3_trunk.py`, shipped `True` for every non-OpenBind checkpoint; flipped it falls to 4.971863e-02 (5.62x) with the accumulation exponent 0.925 → 0.584, but does not close the gap. **The flip is release-gated and held unflipped; nothing is shipped or merged.** Every OF3 fold JapanFold serves runs this stack. The Angstrom consequence is unmeasured and decides urgency — `of3t-foldab` dispatched for a seeded A/B against the 0.60 A kill bar with the 1.84 A seed floor. **QUALIFIED within the pass**: the site's own source says the flag names read OPPOSITE — tt-bio's shipped `True` is **preview2's** orientation, our checkpoint is `of3-p2-155k` (*p2 = preview2*), and the reference is the **0.5.0** step, which upstream changed. So this may be a **reference-revision mismatch rather than a defect**, and the 5.62x that flipping buys is what a convention difference predicts. The deciding question — which orientation `of3-p2-155k` was trained with — is answerable by **reading** upstream's preview2 source, and `of3t-foldab` owes that as Deliverable 0 before it folds anything. I converted the row's open question into a settled verdict; the measurements stand, my framing did not. **D89 (UNFIXED, mine)**: I cannot reproduce one sub-figure in the arithmetic carrying my own
 retraction — the row publishes **0.1118** for the other five diffusion sections' error mass and I
 get **0.0035** from its own published inputs, 32x apart, with four plausible forms tried and none
 landing on it. It does not change the conclusion (the trunk is ~19 % on every reading against the
@@ -853,10 +853,12 @@ also unfilled placeholders, which the DONE_CHECK guard refuses.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Scored against upstream OpenFold3's
 OWN bf16 training step rather than a float64 ideal it never computes: 0.2666 % of the gradient
-mass survives the direct comparison, 97.4286 % is measured and fails or is void under A18, and
-2.3048 % has no direct reading (0.74055 % of that never can).** Of the failing share,
-**8.3732 % is VOID rather than failing** — `aux_heads` and the pairformer trunk, whose forwards
-disagree, so A18 invalidates their gradients.** But that split is against the
+mass survives the direct comparison, 91.8985 % is measured and fails or is void under A18, and
+7.8349 % has no direct reading (0.74055 % of that never can).** Of the failing share, **2.8431 %
+(`aux_heads`) is VOID rather than failing** — its forward disagrees, so A18 invalidates its
+gradient. **The pairformer trunk moved back to UNREAD this pass**: its reading scored our
+0.4.3-convention port against a 0.5.0-convention reference (D90/D91), so it measures the wrong
+thing.** But that split is against the
 "equals float64" threshold, which **no bf16 port can reach**. Against the bar one actually can —
 `sqrt(2) x threshold`, what two independent bf16 implementations of equal accuracy read (A26) —
 **38.1862 % of the model is ALREADY inside it on the SHIPPED path, with no precision change**
@@ -883,7 +885,7 @@ module"**, which is retracted everywhere: in measured error mass the diffusion t
 80.79 % and the **trunk is 18.89 %**, against the 0.4 % that framing allotted to everything
 outside the transformer. And **`aux_heads`** (2.8431 %) is void under A18 for the same reason.
 
-Twenty-eight concluded rows, one live; ninety defects on the record, thirty-eight of them
+Twenty-eight concluded rows, one live; ninety-one defects on the record, thirty-eight of them
 UNFIXED. The composition `wk/of3t` carries 24 of 26 rows at 959 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
@@ -8284,6 +8286,15 @@ unmeasured with `of3t-pairformer` live on it, and `aux_heads` (2.8431 %) is void
 
 ## Pass 175 (cont.) — "the failure is one module" is REFUTED, and the trunk's forward is broken
 
+> **SUPERSEDED later in this same pass by D91. Read that first.** The refutation below rests on
+> the trunk carrying 18.89 % of error mass, computed from a reading that scored our
+> **0.4.3-convention** port against a **0.5.0-convention** reference (D90). It is not a
+> measurement of our port, so *"one module"* is **withdrawn back to UNMEASURED** — neither
+> confirmed nor refuted — and `pairformer_stack` returned from *void* to *unread*. What survives
+> is that with conventions matched the trunk forward still reads 4.971863e-02, **8.31x**
+> upstream's own bf16: a real disagreement, an order of magnitude smaller, gradient consequence
+> unmeasured.
+
 `of3t-pairformer` measured the trunk — **5.8282 %** of the model, never read before — and returned
 the outcome the row existed to be able to find. Over **2,496 of 2,736** tensors placed **by value**
 into the bundle's naming (98.659 % of the driven boundary's reference mass; nothing filled with
@@ -8688,3 +8699,45 @@ part of the measurement — and a cousin of D88**, where a correctly-digested re
 gradient of a different *step*. Here the digest and the step are right and the **convention**
 differs inside one function, which A24's same-function clause does not catch. That gap is worth
 an amendment once this is settled, and I am not writing one before knowing the answer.
+
+## Pass 175 (cont.) — the escalation is WITHDRAWN: it was a reference-revision mismatch, and I read the source to find out
+
+I answered `of3t-foldab`'s **Deliverable 0** myself, from the two release trees D22 already had
+unpacked on pc. It took two greps:
+
+    0.4.3  triangular_attention.py  forward() has NO transpose_bias parameter
+           base_blocks.py           self.tri_att_end(z, mask=..., chunk_size=...)
+           -> one fixed orientation, permute_final_dims(self.linear_z(x), (2, 0, 1))
+
+    0.5.0  forward(..., transpose_bias: bool = False)   -> (2, 1, 0) when True
+           base_blocks.py           self.tri_att_end(z, mask=..., transpose_bias=True, ...)
+           -> the CALLER passes True, so 0.5.0 uses (2, 1, 0)
+
+**The two revisions genuinely differ**, and 0.5.0's *default* is 0.4.3's behaviour — the change is
+entirely in what the caller passes. Our port targets **0.4.3** (D22: our vendor is **3.8x closer**
+to 0.4.3), the checkpoint is **`of3-p2-155k`** — preview2 — and tt-bio's shipped
+`transpose_bias=True` is the pre-0.5.0 orientation. **So the shipped setting is correct for the
+checkpoint we run, and `of3t-trunkfwd` scored it against a 0.5.0 reference.** My product-defect
+escalation is **withdrawn**, not merely qualified.
+
+**With conventions matched the trunk still reads 4.971863e-02 — 8.31x upstream's own bf16, on the
+5.0e-02 bar.** So there is a real disagreement, an order of magnitude smaller than the 46.67x I
+escalated, and that 8.31x is where any further work starts.
+
+**D22's argument was sound and I carried it further than its evidence reached.** It showed the
+0.4.3/0.5.0 skew cannot explain the **diffusion transformer** — no vendored model layers, operands
+exact at 0.000e+00, every **DiT-path** file functionally inert. The trunk's triangle attention was
+never in that list, and it is precisely a file that is **not** inert between those revisions.
+
+**D91 — and I am honouring a branch I pre-registered before the answer arrived.** The refutation of
+*"the failure is one module"* rested on the trunk carrying 18.89 % of error mass, computed from a
+reading against the wrong revision. So it is **withdrawn**: the claim returns to **unmeasured**,
+neither confirmed nor refuted, and `pairformer_stack`'s 5.5301 % moves back from *void* to *no
+direct reading*. The split is now **0.2666 survives / 89.0554 fails / 2.8431 void (`aux_heads`
+alone) / 7.8349 unread**, and direct coverage falls **97.6952 % → 92.1651 %**.
+
+**The headline is not restored.** *"One module"* is not re-confirmed — it is unmeasured again —
+and a withdrawal of a withdrawal is exactly where a record goes soft. The only thing that makes
+this discipline rather than drift is that the cost was written down **before** the answer arrived,
+in `WHAT_TRUNKFWD_DOES_TO_THE_RETRACTION.json`, and the branch it landed on is the one that cost
+me the most.
