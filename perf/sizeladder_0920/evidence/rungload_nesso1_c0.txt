@@ -1,0 +1,10 @@
+232 samples, 1789904520..1789911757
+====================================================================================
+nesso1
+    256  folds  6  load med   4.2 min   3.2 max   7.1   non-idle aiclk ['1350']
+    512  folds  6  load med   2.8 min   2.5 max   3.2   non-idle aiclk ['1325', '1337', '1350']
+    640  folds  2  load med   3.1 min   3.0 max   3.1   non-idle aiclk ['1350']
+    768  folds  2  load med   5.9 min   3.1 max   6.8   non-idle aiclk ['1350']
+    896  folds  2  load med  10.2 min   9.0 max  10.6   non-idle aiclk ['1337', '1350']
+   1024  folds  2  load med   7.2 min   5.8 max   9.0   non-idle aiclk ['1343', '1350']
+  gated rungs 256/512/768 load spread 2.07x (UNUSABLE -- re-record; bar 1.25x)
