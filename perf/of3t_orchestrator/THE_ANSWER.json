@@ -59,7 +59,7 @@
   {
    "a18_forward": "n/a -- no device gradient exists for the never-readable part",
    "mass_pct": 2.0067,
-   "note": "added at pass 176 so this table SUMS TO ITS OWN TOTAL. It previously summed to 97.9933 % against an arithmetic_check claiming 100.0, because the no_reading_pct bucket (7.8349) was only partly enumerated -- pairformer_stack's 5.8282 had a row and the rest did not. 0.74055 % sits on a weight the shipped path applies on the HOST, so no device gradient for it exists at any effort; the remaining ~1.266 % is the trunk's 240 unplaced fused-qkv leaves and small embedders. A reader who adds the column up now gets 100.0000 and can therefore CHECK it, which is the point.",
+   "note": "added at pass 176 so this table SUMS TO ITS OWN TOTAL. It previously summed to 97.9933 % against an arithmetic_check claiming 100.0, because the no_reading_pct bucket (7.8349) was only partly enumerated -- pairformer_stack's 5.8282 had a row and the rest did not. 0.74055 % sits on a weight the shipped path applies on the HOST, so no device gradient for it exists at any effort; the remaining ~1.266 % is 603 upstream leaves the bijection does not place across six sections (pairformer_stack 240, diffusion_module 190, input_embedder 93, msa_module 32, template_embedder 28, aux_heads 20). The counts are exact; calling the trunk's 240 'fused-qkv' was a characterisation the census cannot support and it is withdrawn. A reader who adds the column up now gets 100.0000 and can therefore CHECK it, which is the point.",
    "scope": "unenumerated remainder (never-readable weight + unplaced leaves/embedders)",
    "verdict": "NO READING, and 0.74055 % of it never can"
   }
