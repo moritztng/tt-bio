@@ -33,7 +33,6 @@ TT_BIO_LEASE_HOLDER=worker:cov-ladder-p150a-p2 PYTHONPATH="$WT" \
     "$WT/perf/size512/fixtures/cdk2x2_$RUNG.yaml" --model "$MODEL" --single_sequence \
     --sampling_steps 6 --diffusion_samples 1 --seed 0 \
     --out_dir "$BASE.out" 2>&1 \
-  | stdbuf -oL awk '{ "date -u +%FT%TZ" | getline t; close("date -u +%FT%TZ"); print t"\t"$0; fflush() }' \
   | tee -a "$BASE.log"
 RC=${PIPESTATUS[0]}
 echo "probe rc=$RC wall=$(( $(date +%s) - START ))s end $(date -u +%FT%TZ)" | tee -a "$BASE.log"
