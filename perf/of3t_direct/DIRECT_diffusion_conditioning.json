@@ -49,6 +49,7 @@
  "diffcap_is_the_bundles_float64": {
   "what": "the capture's grad_f64 against the bundle's float64 gradient, over the device scope",
   "capture": "/home/ttuser/of3t_cond_cap/cond_boundary.pt",
+  "capture_key": "grad_f64",
   "key_prefix_stripped": "diffusion_module.diffusion_conditioning.",
   "max_abs_diff": 0.0,
   "at": null,

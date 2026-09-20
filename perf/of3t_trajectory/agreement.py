@@ -78,7 +78,8 @@ def pair_rows(ref, arm, names, mass, sections):
             # An arm with no gradient where the reference has one is not unmeasurable: its
             # value there IS zero. Scoring it as a missing row would drop its mass from the
             # numerator and leave it in the denominator.
-            if b is not None and rb >= REF_NORM_FLOOR:
+            f64n = 0.0 if m is None else float(torch.linalg.vector_norm(m))
+            if b is not None and rb >= REF_NORM_FLOOR and f64n >= REF_NORM_FLOOR:
                 row.update(arm_norm=0.0, diff_norm=rb, dot=0.0, rel_l2=1.0, r=0.0, cos=0.0,
                            unmeasurable="absent from the arm, scored as zero")
             else:
@@ -89,9 +90,23 @@ def pair_rows(ref, arm, names, mass, sections):
         ra = float(torch.linalg.vector_norm(a))
         d = float(torch.linalg.vector_norm(a - b))
         row.update(arm_norm=ra, diff_norm=d, dot=float(torch.dot(a, b)))
-        if rb < REF_NORM_FLOOR:
+        # A14 is applied against the FLOAT64 gradient, the same tensor the mass weights come
+        # from, and not against each pair's own reference. Applied per-pair it excluded a
+        # tensor in one row of the table and scored it in another: on aux_heads,
+        # ...blocks.3.attn_pair_bias.layer_norm_z.bias has a float64 norm below the floor and a
+        # bf16 norm of 1.13e-12 just above it, so DEVICE_vs_UPSTREAM_BF16 divided by that and
+        # reported rel 1.11e+05 as the scope's WORST TENSOR while the thing holds 1.3e-40 % of
+        # the model's mass. A `worst` that is an artefact of which pair is being read gets
+        # quoted as a location.
+        f64n = 0.0 if m is None else float(torch.linalg.vector_norm(m))
+        if f64n < REF_NORM_FLOOR:
             row.update(rel_l2=None, r=None, cos=None,
-                       unmeasurable=f"ref_norm {rb:.3e} < {REF_NORM_FLOOR:.0e} (A14)")
+                       unmeasurable=f"float64 norm {f64n:.3e} < {REF_NORM_FLOOR:.0e} (A14, "
+                                    f"applied on the float64 gradient for every pair)")
+        elif rb < REF_NORM_FLOOR:
+            row.update(rel_l2=None, r=None, cos=None,
+                       unmeasurable=f"ref_norm {rb:.3e} < {REF_NORM_FLOOR:.0e} "
+                                    f"(divide-by-zero guard on this pair's reference)")
         else:
             row.update(rel_l2=d / rb, r=ra / rb,
                        cos=(row["dot"] / (ra * rb)) if ra > 0 else 0.0)
@@ -137,6 +152,11 @@ def main():
                     help="the capture whose grad_f64 the device arm was scored against; "
                          "checked against the bundle's own float64 gradient, because that "
                          "identity is what makes a device-vs-arm4 comparison legitimate")
+    ap.add_argument("--cap-key", default="grad_f64", dest="cap_key",
+                    help="the dict key under which the capture stores its float64 parameter "
+                         "gradients. The diffusion captures call it `grad_f64` and the "
+                         "aux_heads / msa_module captures call it `param_grads`, so it is a "
+                         "property of the capture and not of this script.")
     ap.add_argument("--cap-prefix", default="diffusion_module.", dest="cap_prefix",
                     help="the capture keys its grad_f64 by name RELATIVE to the module it "
                          "hooked, so the prefix to strip is a property of the capture and not "
@@ -200,7 +220,10 @@ def main():
     cap_check = None
     if args.diffcap:
         S = torch.load(args.diffcap, map_location="cpu", weights_only=False)
-        g = S["grad_f64"]
+        if args.cap_key not in S:
+            raise SystemExit(f"STOP: the capture has no {args.cap_key!r}; its keys are "
+                             f"{sorted(k for k in S)[:20]}")
+        g = S[args.cap_key]
         worst, worst_n, checked = 0.0, None, 0
         for n in names:
             if not n.startswith(args.cap_prefix):
@@ -216,7 +239,8 @@ def main():
         # is the vacuous-check shape this campaign has now shipped three times.
         cap_check = {"what": "the capture's grad_f64 against the bundle's float64 gradient, "
                              "over the device scope",
-                     "capture": str(args.diffcap), "key_prefix_stripped": args.cap_prefix,
+                     "capture": str(args.diffcap), "capture_key": args.cap_key,
+                     "key_prefix_stripped": args.cap_prefix,
                      "max_abs_diff": worst, "at": worst_n, "n_scope": len(names),
                      "n_compared": checked,
                      "identical": (checked > 0 and worst == 0.0)}
