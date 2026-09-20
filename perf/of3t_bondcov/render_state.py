@@ -29,6 +29,8 @@ def main() -> int:
                     help="bond_coverage.py reports; the first is the headline target")
     ap.add_argument("--baseline", required=True, type=Path,
                     help="of3t-auxheads' zero reading on the 8-structure corpus")
+    ap.add_argument("--evidence", required=True, type=Path,
+                    help="the evidence directory the coverage table reads")
     ap.add_argument("--template", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
@@ -105,6 +107,10 @@ def main() -> int:
         "BASE_PARAMS": f"{bc['n_params']:,}",
         "MASK_CROP": str(mask["crop"]),
         "MASK_SEED": str(mask["seed"]),
+        # counted from the directory, so the doc cannot claim a term with no record
+        "DEMONSTRATED": str(sum(
+            1 for f in sorted(a.evidence.glob("*.json"))
+            if float(json.loads(f.read_text())["value"]) > 0)),
     }
     if mask2 is not None:
         r2 = mask2["rows"]

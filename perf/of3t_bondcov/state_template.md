@@ -86,13 +86,23 @@ result here.
 term covered when some (stage, dataset) pair gave it a non-zero weight, and by that rule `bond`
 read 8 of 8 from the day the yamls were parsed while contributing exactly nothing — ten of the
 sixteen pairs handing it 4.0 for no effect. The script separates **WEIGHTED** (8 of 8, off the
-yamls) from **DEMONSTRATED** (read off measurement records naming the term, the triple and the
-share). A record with share 0 is refused with a note rather than counted, because §6's own rule
-is that a term firing with a zero gradient contribution has been skipped with extra steps; a
-malformed record raises. Checked against all three cases before the real record existed: share 0
-gives 0 of 8 with the note, share 1 gives 1 of 8 naming the triple, a record missing fields exits
-listing them. `make_evidence.py` derives the record from the measurement json, so no share is
-ever typed into the table.
+yamls) from **DEMONSTRATED** (read off measurement records naming the term, the triple, the
+quantity measured and its value). A record with value 0 is refused with a note rather than
+counted, because §6's own rule is that a term firing with a zero gradient contribution has been
+skipped with extra steps; a malformed record raises. Checked against all three cases before the
+real record existed: value 0 gives 0 of 8 with the note, a positive value gives 1 of 8 naming
+the triple, a record missing fields exits listing them.
+
+The other seven terms are not asserted here either. `census_evidence.py` converts
+`of3t-gradients`' §6 runtime census into the same records, and the table then reads **7 of 8 with
+`bond` as the only hole** — the campaign's own recorded figure, re-derived from
+`perf/of3t_gradients/coverage_census.json` rather than quoted. Adding this row's record makes it
+**{{DEMONSTRATED}} of 8**. The record carries the quantity's name because the two rows measure
+different things: that census reads the norm of the gradient each term seeds into the model
+outputs on the frozen 5nw3 batch, this row reads a share of the squared parameter-gradient norm.
+Both are evidence that the term contributes; neither is the other, so the table prints the
+quantity instead of adding them together. `make_evidence.py` derives this row's record from the
+measurement json, so no value is typed into the table anywhere.
 
 PROVES: that OpenFold3's featuriser turns a polymer–ligand `covale` into a `token_bonds` entry
 whose partners carry `is_ligand` and `is_polymer`, that the resulting `bond_mask` is non-zero,
@@ -141,8 +151,12 @@ which is why it survived `of3t-auxheads`.
         --cache-file <D>/training_cache_with_templates_subset_2.json \
         --checkpoint of3-p2-155k.pt --stage finetune_1 --crop {{HEAD_CROP}} --index 12 \
         --rank-template batch_step003.pt --out bond_gradient.json
-    python perf/of3t_bondcov/make_evidence.py --report bond_gradient.json --out ev/bond.json
-    python scripts/of3_port/stage_loss_coverage.py --yamls <training_yamls> --demonstrated ev/
+    python perf/of3t_bondcov/census_evidence.py \
+        --census perf/of3t_gradients/coverage_census.json --out-dir perf/of3t_bondcov/evidence
+    python perf/of3t_bondcov/make_evidence.py --report bond_gradient.json \
+        --out perf/of3t_bondcov/evidence/bond.json
+    python scripts/of3_port/stage_loss_coverage.py --yamls <training_yamls> \
+        --demonstrated perf/of3t_bondcov/evidence
 
 openfold3 0.4.3, torch 2.13.0+cpu, host pc. `--index 12` is 4G5J chain 1; the index-to-target map
 is the dataset's own `datapoint_cache` and both scripts print it.
