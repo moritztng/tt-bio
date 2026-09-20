@@ -55,6 +55,18 @@ def main() -> int:
                         "a best/worst 10, which cannot be grouped by DiT block or by track -- "
                         "the breakdown the trunk ladder relies on was simply not available at "
                         "diffusion scope.")
+    p.add_argument("--dump-grads", default="", dest="dump_grads",
+                   help="write the compared device gradient tensors themselves to this .pt, "
+                        "keyed by full checkpoint name. Without it this instrument publishes "
+                        "only rel_l2/norm_ratio/cos against the one reference it was run "
+                        "against, so the gradient cannot afterwards be compared to anything "
+                        "else -- including upstream's own bf16 training gradient.")
+    p.add_argument("--permute-cot", action="store_true", dest="permute_cot",
+                   help="negative control: seed structure k's backward with structure k+1's "
+                        "cotangent, so every sample is paired with the wrong one while the "
+                        "forward, the weights and the arithmetic are untouched. A comparison "
+                        "that cannot tell this apart from the real run is not measuring "
+                        "agreement with anything.")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -308,7 +320,8 @@ def main() -> int:
             plm0=ag.Tensor(aux["plm0_d"], requires_grad=True),
             rl_noisy=ag.Tensor(ft(rl_pad.unsqueeze(0)), requires_grad=True),
             xl_noisy=ag.Tensor(ft(xl_k.unsqueeze(0)), requires_grad=True))
-        seed = ft(cot[0, k].float().unsqueeze(0))
+        cot_k = (which[(which.index(k) + 1) % len(which)]) if a.permute_cot else k
+        seed = ft(cot[0, cot_k].float().unsqueeze(0))
         tk0 = time.perf_counter()
         try:
             with device_dtype_override(act), ag.tape():
@@ -372,6 +385,16 @@ def main() -> int:
             gt = gt.t().contiguous()
         rows[nm] = gt
 
+    if a.dump_grads:
+        d = os.path.dirname(a.dump_grads)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        # Full checkpoint names, so the file drops straight into any comparison that uses the
+        # upstream naming; `rows` is keyed relative to the `diffusion_module` sub-dict.
+        torch.save({f"diffusion_module.{nm}": g.cpu() for nm, g in rows.items()}, a.dump_grads)
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(rows)} device gradient tensors to "
+              f"{a.dump_grads}", flush=True)
+
     tot_ref_sq = sum(float(v.double().pow(2).sum()) for v in ref_grad.values() if v is not None)
     cmp_rows, worst, worst_n = [], -1.0, None
     sq_cmp = 0.0
@@ -417,6 +440,8 @@ def main() -> int:
            "over_5e-2": sum(1 for d, _, _ in cmp_rows if d > 5.0e-2),
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
+           "cotangent_permuted": bool(a.permute_cot),
+           "grads_dumped_to": a.dump_grads or None,
            "per_tensor_dumped": bool(a.dump_per_tensor),
            "best10": [(n, d) for d, n, _ in cmp_rows[:10]],
            "worst10": [(n, d) for d, n, _ in cmp_rows[-10:]],
