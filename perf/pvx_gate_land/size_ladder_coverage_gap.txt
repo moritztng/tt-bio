@@ -1,0 +1,20 @@
+size-ladder coverage gap, checked 2026-09-20 at 8bede8dfd on tt-quietbox2.
+
+WHY THIS FILE EXISTS. The size-ladder arm is being scored one model at a time
+(--size-ladder-models <m>) so that a host reset costs the ladder in flight instead of all nine;
+qb2 hard-reset three times in two days and killed this arm three times, most recently at
+07:29:28Z roughly 2h49m in. A subset run skips exactly one check that a full run performs,
+release_gate._size_ladder_coverage_gap(), by explicit design ("--size-ladder-models is for a
+debug or single-model record and must not be blocked by a gap it is not trying to close").
+It costs no device time, so it is run here rather than lost.
+
+RESULT
+  coverage gap   : []   every foldable model is on the ladder or carries a written exemption
+  ladder (9)     : boltz2 esmfold2 protenix-v1 protenix-v2 openfold3 opendde rf3 nesso1 openbind
+  exempt (8)     : esmc-300m esmc-600m esmc-6b esmfold2-fast opendde-abag saprot-1.3b saprot-35m
+                   saprot-650m
+  design (3)     : boltzgen pxdesign rfd3
+
+NEGATIVE CONTROL, because a check that cannot fail proves nothing. Dropping rf3 from
+SIZE_LADDER_MODELS makes the same call return ['rf3'], and restoring it returns [] again. So the
+[] above is the function reading the registry, not the function declining to look.
