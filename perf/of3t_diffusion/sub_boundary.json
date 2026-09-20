@@ -1,0 +1,57 @@
+{
+ "backward_seconds": 111.95102286338806,
+ "cond_out_kind": "<class 'tuple'>",
+ "cond_out_shapes": [
+  [
+   1,
+   48,
+   384,
+   384
+  ],
+  [
+   1,
+   1,
+   384,
+   384,
+   128
+  ]
+ ],
+ "dec_in_kwargs": [
+  "ai",
+  "batch",
+  "cl",
+  "plm",
+  "ql",
+  "use_high_precision_attention"
+ ],
+ "dit_in_kwargs": [
+  "_mask_trans",
+  "a",
+  "mask",
+  "s",
+  "use_cueq_triangle_kernels",
+  "use_deepspeed_evo_attention",
+  "use_high_precision_attention",
+  "use_lma",
+  "use_triton_triangle_kernels",
+  "z"
+ ],
+ "enc_in_kwargs": [
+  "batch",
+  "rl",
+  "si_trunk",
+  "use_high_precision_attention",
+  "zij_trunk"
+ ],
+ "forward_seconds": 36.91732978820801,
+ "reproduces_capture": {
+  "n": 738,
+  "what": "the re-run against the gradients the original capture saved; this is the same function or the sub-boundary is not the bundle's",
+  "worst_rel": 0.0,
+  "worst_tensor": "diffusion_conditioning.layer_norm_z.weight"
+ },
+ "saved": {
+  "bytes": 3170880959,
+  "file": "/home/ttuser/of3t_diffusion_cap/sub_boundary.pt"
+ }
+}
