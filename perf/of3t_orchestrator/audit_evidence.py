@@ -1144,6 +1144,45 @@ if _dtg:
         if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
             ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
 
+# --- a subset's error mass must not exceed its superset's (D84) --------------------------------
+# Pass 175. I cross-compared two columns of a table whose DEVICE column was supplied by other
+# rows on differently-scoped sets, and published "pairformer is 2.09x more accurate" from it. The
+# arithmetic that caught it is three multiplications: for mass-weighted rel_l2 on one reference,
+# error mass = rel^2 * mass, and a subset's cannot exceed its superset's. The bf16 column passed
+# the same test, which is what localised the defect to the device column rather than the masses.
+#
+# So it is a check now, run over any artifact that declares nested scopes. A pair is declared by
+# a "subset_of" key naming another entry in the same list.
+for _f in sorted(Path("perf/of3t_orchestrator").glob("*.json")):
+    _a = j(str(_f))
+    if not isinstance(_a, dict):
+        continue
+    for _sec, _val in _a.items():
+        _rows = _val.get("rows") if isinstance(_val, dict) else (
+            _val if isinstance(_val, list) else None)
+        if not isinstance(_rows, list):
+            continue
+        _by = {r.get("scope"): r for r in _rows if isinstance(r, dict) and r.get("scope")}
+        for _r in _rows:
+            if not isinstance(_r, dict):
+                continue
+            _sup = _by.get(_r.get("subset_of"))
+            if not _sup:
+                continue
+            try:
+                _em = float(_r["rel"]) ** 2 * float(_r["mass_frac"])
+                _es = float(_sup["rel"]) ** 2 * float(_sup["mass_frac"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if _em > _es * 1.000001:
+                bad.append(f"{_f.name} {_sec}: {_r['scope']!r} is declared a subset of "
+                           f"{_sup['scope']!r} but carries {_em / _es:.3f}x its error mass -- "
+                           f"impossible for mass-weighted rel_l2 on one reference, so the two "
+                           f"figures are not on the sets they are labelled with (D84)")
+            else:
+                ok.append(f"{_f.name}: {_r['scope']!r} error mass is within its superset's "
+                          f"({_em / _es:.3f}x)")
+
 # --- a summary field must stay readable, which is a LENGTH property no content check sees -----
 # Pass 166. VERDICT had grown to 177,928 characters over 2,371 lines, because every pass appends
 # after the last field and VERDICT is the last field, so the whole narrative landed inside the one
