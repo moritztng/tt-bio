@@ -1,0 +1,48 @@
+consistency: 274.877 GFLOP / 123.65 TFLOP/s = 2.2230 ms against the quoted 2.223 ms  (0.00 % apart)
+
+THE MODULE'S OWN ACHIEVED RATE, implied by the decomposition it is scored against:
+  the call sites deliver 274.877 GFLOP in 5.714 ms = 48.11 TFLOP/s, weighted over all three matmul classes.
+  (the per-class rates quoted separately are 54.97 / 42.20 / 43.34.)
+
+CANDIDATE ROOFS, each checked against that:
+  123.65  trix-floor, measured square 4096^3 pipelined, pinned 1350 MHz
+        2.223 ms for the arithmetic -- leaves 3.491 ms of deficit, 30.3 % of the 11.519 ms module, headroom 2.57x
+  118.24  perfwar-trimul-kernel S7.0, measured at K=1024, same K-curve
+        2.325 ms for the arithmetic -- leaves 3.389 ms of deficit, 29.4 % of the 11.519 ms module, headroom 2.46x
+   43.9   c13-matmul-rate, implied by 101.1 FLOP/byte vs a 276.8 crossover
+        6.261 ms for the arithmetic -- IMPOSSIBLE as the binding roof -- the shipped module already runs at 48.11, which is 1.10x this figure
+   35.20  perfwar-trimul-kernel S7.0, measured at K=256 on trimul's own shape
+        7.809 ms for the arithmetic -- IMPOSSIBLE as the binding roof -- the shipped module already runs at 48.11, which is 1.37x this figure
+
+WHAT THIS SETTLES AND WHAT IT DOES NOT
+  Settles: 43.9 and 35.20 cannot both be the trimul module's binding roof AND be below the
+  rate the module already achieves. Whatever they measure, it is not a ceiling this module
+  is sitting under -- the shipped code is already faster than both.
+  Does not settle: the roof could still be well below 123.65 without being below 48.11.
+  Any roof R in (48.11, 123.65) leaves a real but smaller prize, and that interval is
+  exactly what tmk-assumptions has to close with an arithmetic-intensity check at the
+  SHIPPED Kt, at a pinned and during-sampled clock.
+
+THE PRIZE ACROSS THAT INTERVAL, so the decision is mechanical when the number arrives:
+      roof   arith ms   deficit ms    module     fold
+     50.00      5.498        0.216   1.0192x  1.0049x
+     60.00      4.581        1.133   1.1091x  1.0263x
+     70.00      3.927        1.787   1.1836x  1.0422x
+     85.00      3.234        2.480   1.2744x  1.0595x
+    100.00      2.749        2.965   1.3467x  1.0720x
+    123.65      2.223        3.491   1.4348x  1.0859x
+
+READ AGAINST THE 1.05x WORTH-BUILDING BAR FOR A NEW BUILD
+  A PERFECT rate route -- every matmul class lifted from today's 48.11 TFLOP/s
+  all the way to the roof -- crosses 1.05x on the fold at a roof of 76.10 TFLOP/s.
+  So the bar is clearable in principle, but only by a route that reaches the roof exactly,
+  and the best rate anyone in this lineage has ever measured on a trimul shape is 47.15,
+  which is BELOW today's weighted 48.11. At the highest rate ever achieved here
+  the deficit does not shrink at all.
+  What a REAL lever buys, priced from rates that exist rather than from the roof:
+    lever 1.135x ->  54.60 TFLOP/s -> fold 1.0156x  misses 1.05x
+    lever 1.300x ->  62.54 TFLOP/s -> fold 1.0308x  misses 1.05x
+    lever 1.500x ->  72.16 TFLOP/s -> fold 1.0451x  misses 1.05x
+    lever 2.000x ->  96.21 TFLOP/s -> fold 1.0692x  clears 1.05x
+  the rate lever that clears 1.05x on the fold is 1.582x, i.e. 76.10 TFLOP/s sustained across every matmul class in the module.
+  That is the number a rate route has to beat, and it is the honest form of K-B.
