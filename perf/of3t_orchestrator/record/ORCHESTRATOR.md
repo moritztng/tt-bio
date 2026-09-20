@@ -3445,3 +3445,41 @@ provenance: `of3t-confhead` records which qb2 chips its folds ran on and that th
 on that host. Its own seed-1 control already shows chip identity does not move the structure —
 **3.4e-08 A** against `of3t-pairbias`'s published row on a different card of the same class — so
 that is a provenance note, not a caveat on the result.
+
+PASS 101. **The continuation directive's first item is answered: D1 does not ship, D10 does, and
+neither is an accuracy claim.** `of3t-confhead` measured all four arms end to end — 1UBQ,
+production CLI, the same searched MSA `of3t-pairbias` used, 5 samples, 200 sampling steps, arms
+interleaved, p300c, AICLK 1350 sampled during, six seeds with both arms complete:
+
+| arm | rank 0 (served) | best of 5 | seed floor, 15 pairs |
+|---|---|---|---|
+| shipped | **0.775 A** | 0.663 A | **0.275 A** |
+| D1 alone | **1.068 A** | 0.634 A | 1.243 A |
+| D10 alone | **0.755 A** | 0.663 A | 0.336 A |
+| D1 + D10 | **0.945 A** | 0.634 A | 0.761 A |
+
+**D1 does not ship and the selector fix did not rescue it.** D1+D10 serves 0.170 A worse than
+shipped, and the best rule in the whole candidate set still serves 0.086 A worse. The corrected
+trunk keeps doing what it did at pass 92 — **samples better, serves worse**, best-of-5 0.634 A
+against 0.663 A.
+
+**The row got the hard part right without being asked, which is worth recording as much as the
+result.** It states that both gaps sit *inside* the shipped arm's own 0.275 A seed floor, so
+neither the regression nor D10's 0.020–0.066 A gain is separable from another seed draw. So D10
+ships as a **correctness** fix — a rule that gave 0.8 of its weight to a term that is identically
+zero (D24), now fixed, served structure no worse — and explicitly **not** as an accuracy win.
+`plddt` alone would have served 0.709 A, better than the chosen rule's 0.755 A, and was refused
+on the grounds that a rule picked for the best number on one target is fitted to one target.
+
+**I checked one claim and it needed narrowing, which the row is fixing.** Its DECISION called the
+shipped selector "selecting worse than random" unqualified. From its own `ordering.py`: on the
+shipped sample distribution the head serves **0.782 A against random's 0.815 A** — mildly
+*better*; on the D1 distribution it serves **1.245 A against random's 1.079 A** — worse. The
+selector only goes worse-than-random once the corrected trunk makes the distribution bimodal,
+which is a sharper story than the flat version and is the row's own pass-1 finding.
+
+So the directive's *"two inference defects users get today"* now reads: the end-node and
+diffusion-transformer readings were **withdrawn** as reference artifacts (D23), **D24** is a real
+shipped defect on every monomer fold with a fix that ships, **D1** is measured and **held**, and
+**D10** is closed as correctness. None of it is a claimed accuracy improvement, and that is the
+honest shape.

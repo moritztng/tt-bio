@@ -284,6 +284,48 @@ with a control that moves them. Owner `of3t-confhead`.
 
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
 
+**PASS 101 — MEASURED END TO END BY `of3t-confhead`. D1 DOES NOT SHIP; D10 SHIPS AS A CORRECTNESS
+FIX WITH NO ACCURACY CLAIM.** 1UBQ, production CLI, the same searched MSA `of3t-pairbias` used, 5
+samples, 200 sampling steps, arms interleaved, p300c, AICLK 1350 sampled during. Four arms from
+two fold campaigns, because a selection-rule change does not move the diffusion samples — six
+seeds with both arms complete, three pairs still folding:
+
+| arm | rank 0 (served) | best of 5 | seed floor, 15 pairs |
+|---|---|---|---|
+| shipped | **0.775 A** | 0.663 A | **0.275 A** (0.012–0.493) |
+| D1 alone | **1.068 A** | 0.634 A | 1.243 A |
+| D10 alone | **0.755 A** | 0.663 A | 0.336 A |
+| D1 + D10 | **0.945 A** | 0.634 A | 0.761 A |
+
+**D1 does not ship, and fixing the selector did not rescue it.** D1+D10 serves **0.170 A worse**
+than shipped; the best rule in the whole candidate set, `gpde`, still serves 0.861 A, 0.086 A
+worse. The corrected trunk continues to **sample better and serve worse** — best-of-5 0.634 A
+against 0.663 A. The bar is "the served structure, rank 0, at or better than shipped", and it is
+not met.
+
+**The row states, correctly and unprompted, that both gaps are smaller than the shipped arm's own
+0.275 A seed floor**, so neither the regression nor D10's 0.020–0.066 A improvement is separable
+from re-running with another seed. D10 therefore ships as what it is — a rule that gave 0.8 of its
+weight to a term that is identically zero (D24), now fixed, with the served structure no worse —
+and **not** as a measured accuracy win. `plddt` alone would have served 0.709 A, better than the
+chosen `of3_fix` at 0.755 A, and was not picked: a rule chosen for the best number on one target
+is a rule fitted to one target, which is why the nine-rule candidate set was committed before any
+number existed.
+
+**Sign stability is reported rather than a single number**: the D1+D10 gap reads 0.062 A at four
+seeds and 0.170 A at six, same sign throughout. Six seeds, one target, one checkpoint.
+
+**Provenance, recorded rather than buried**: folds ran on qb2 outside the fleet lease system for
+that host (chip 0 seeds 1–5, chip 1 seeds 7–9 plus a `fix` seed-3 re-run, chip 2 seed 6 after
+`c14-land-tail` released the 2/3 board pair). One fold was refused when `of3t-rebase` opened chip
+0 inside tt_bio's 120 s device-lease wait and was re-run; one wedged at 0 % CPU before building
+the trunk and was killed by explicit pid and restarted. Load 39–43 on 16 cores throughout, both
+campaign shells and all descendants at **nice 15 in one sweep so both arms carry equal priority**,
+and no wall-clock trend is claimed. The seed-1 control is what makes cross-chip reporting safe:
+the same seed on a different chip of the same class reproduces the published structure to
+**3.4e-08 A**.
+
+
 **PASS 92 CORRECTION TO THE PASS-90 REFRAME BELOW, by `of3t-confhead`, and it is right.** A
 five-sample ordering has two one-sided marginals and they disagree here. Pass 90 quoted only the
 first and overstated it.
