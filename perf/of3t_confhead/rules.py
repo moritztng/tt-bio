@@ -49,6 +49,11 @@ RULES = {
     "plddt": lambda r: r["plddt"],
     "boltz": lambda r: (4 * r["plddt"] + (r["iptm"] or r["ptm"])) / 5,
     "plddt_ptm": lambda r: 0.5 * r["plddt"] + 0.5 * r["ptm"],
+    # The rule this row actually ships (openfold3_fold.sample_ranking_score): ipTM's weight
+    # goes to pLDDT when there is no interface. Scored here beside its eight rivals, because
+    # shipping a formula that was never on the table would be choosing by taste.
+    "of3_fix": lambda r: (0.8 * (r["iptm"] or r["plddt"]) + 0.2 * r["ptm"]
+                          + 0.5 * r["disorder"] - 100.0 * r["has_clash"]),
     "gpde": lambda r: -r["gpde"],
     "pae": lambda r: -r["pae_offdiag_mean"],
 }
@@ -113,37 +118,46 @@ def _selftest():
                gpde=5.0, pae_offdiag_mean=6.0)
     s = score([[good, bad]])
     fooled = [n for n in RULES if s[n]["chosen"] == [1]]
-    assert fooled == ["shipped", "family"], f"expected shipped and family fooled, got {fooled}"
+    # `of3_fix` is in this list ON PURPOSE and it is a scope statement about the shipped rule:
+    # it replaces the DEAD ipTM term, and it leaves AF3's 0.5*disorder alone. Where disorder is
+    # zero -- every sample of every seed on 1UBQ -- that is the whole defect; where it is not,
+    # a 0.30 disorder gap still outweighs the 0.8*pLDDT + 0.2*pTM edge this case gives it.
+    assert fooled == ["shipped", "family", "of3_fix"], f"unexpected fooled set: {fooled}"
     for name in ("no_disorder", "ptm", "plddt", "boltz", "plddt_ptm", "gpde", "pae"):
         assert s[name]["chosen"] == [0], f"{name} should pick the good sample"
     assert brackets([[good, bad]])["perfect"] == 0.5
     # the flip threshold each rule commits to, as a pTM gap per unit of disorder gap
     for name, need in (("shipped", 2.5), ("family", 0.5), ("no_disorder", 0.0)):
         print(f"  {name:12s} a better sample needs pTM higher by {need} x the disorder gap")
-    print("selftest: on a 0.05 pTM gap against a 0.30 disorder gap the shipped rule AND the "
-          "family fallback both serve the 1.6 A sample over the 0.5 A one; the seven rules "
-          "that do not reward RASA serve the 0.5 A one.")
+    print("selftest: on a 0.05 pTM gap against a 0.30 disorder gap the shipped rule, the "
+          "family fallback AND this row's of3_fix all serve the 1.6 A sample over the 0.5 A "
+          "one -- of3_fix replaces the dead ipTM term and leaves AF3's disorder weight alone. "
+          "The seven rules that do not read RASA at all serve the 0.5 A one. On 1UBQ disorder "
+          "is 0.0 on every sample, so this case is a bound on the fix, not a reading of it.")
 
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--root", default="/tmp/of3t/of3t-confhead/fold")
-ap.add_argument("--out", default="perf/of3t_confhead/rules.json")
-ap.add_argument("--selftest", action="store_true")
-a = ap.parse_args()
+# The CLI lives under a main guard because analyze.py imports RULES from here; a
+# module-level parse_args() would run on ITS argv and refuse ITS flags.
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default="/tmp/of3t/of3t-confhead/fold")
+    ap.add_argument("--out", default="perf/of3t_confhead/rules.json")
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args()
 
-if a.selftest:
-    _selftest()
-    raise SystemExit(0)
+    if a.selftest:
+        _selftest()
+        raise SystemExit(0)
 
-rep = {"root": a.root, "candidates": sorted(RULES), "arms": {}}
-for arm in ("ship", "fix"):
-    paths = sorted(glob.glob(os.path.join(a.root, f"{arm}_s*", "samples.json")))
-    runs = [json.load(open(p))["per_sample"] for p in paths]
-    if not runs:
-        print(f"{arm}: no runs under {a.root}")
-        continue
-    rep["arms"][arm] = report(arm, runs)
-    rep["arms"][arm]["n_runs"] = len(runs)
-os.makedirs(os.path.dirname(a.out), exist_ok=True)
-json.dump(rep, open(a.out, "w"), indent=1)
-print("\nwrote", a.out)
+    rep = {"root": a.root, "candidates": sorted(RULES), "arms": {}}
+    for arm in ("ship", "fix"):
+        paths = sorted(glob.glob(os.path.join(a.root, f"{arm}_s*", "samples.json")))
+        runs = [json.load(open(p))["per_sample"] for p in paths]
+        if not runs:
+            print(f"{arm}: no runs under {a.root}")
+            continue
+        rep["arms"][arm] = report(arm, runs)
+        rep["arms"][arm]["n_runs"] = len(runs)
+    os.makedirs(os.path.dirname(a.out), exist_ok=True)
+    json.dump(rep, open(a.out, "w"), indent=1)
+    print("\nwrote", a.out)
