@@ -6100,3 +6100,37 @@ shape as the campaign's own "silent clean-fail misread as broken check".
 `total_pct = 7.8349` beside the `pct_total = 2.0067` I added, and `_share` preferred the stale
 key — so the split summed to 105.8282 % and said so. That is the guard working: it caught a
 number I had moved in one place and not another. Owner: `of3t-orchestrator`. **FIXED.**
+
+### D104. a tool whose own docstring said "so it can gate a compose" ran ONCE and was never wired in. FIXED — 90.9251 % of the gradient mass now re-derives on every compose.
+
+`recompute_from_sidecar.py` was written at pass 175 to re-derive any published mass-weighted
+headline from a row's per-tensor `diff_norm`/`ref_norm`, on CPU, with no device and no trust in
+that row's arithmetic. Its docstring ends: *"Exits non-zero if any `--expect` disagrees by more
+than 1e-4 relative, **so it can gate a compose**."* It then verified five headlines once, in
+`EVERY_HEADLINE_RECOMPUTES.json`, and **was never added to `compose_verify.sh`** — `grep -c`
+returned 0.
+
+**A check that ran once is not a guard.** Three headlines changed after pass 175 (aux_heads'
+gradient was re-taken, the trunk's was measured, the trunk's forward was re-scored) and nothing
+re-derived any of them. The campaign's whole reason for demanding per-tensor sidecars instead of
+summary statistics — *"a result file keeping only extremes cannot be re-analysed"* — was being
+banked once rather than drawn on.
+
+**Now gated**, four headlines covering **90.9251 %** of the model's squared gradient norm, all
+verified re-deriving at pass 181 before wiring:
+
+    diffusion_conditioning   6.463839e-02   36.9462 %
+    aux_heads (direct arm)   2.360143e-01    2.8431 %
+    diffusion arm, shipped   7.426217e+00   51.1358 %
+    diffusion arm, f64 smax  7.777580e-02   (same 547 tensors)
+
+Controls: a wrong expected value exits 1, and a **missing section** exits 1 — so the gate cannot
+pass by failing to find what it was asked to check. A missing sidecar file is reported and fails
+rather than being skipped.
+
+**Two of my own traps, hit while doing this, both self-inflicted and both caught.** I read
+`rc=0` from `python3 ... | head -8; echo $?` and concluded the tool exits 0 on an unreadable
+sidecar — it exits 1; `$?` after a pipeline is `head`'s status, which is my own standing note. I
+nearly "fixed" a non-bug. And my compose wait-loops had been timing out at 600 s because
+`pgrep -f compose_verify.sh` matches the wrapper containing that string; `[c]ompose_verify.sh`
+fixes it. Owner: `of3t-orchestrator`. **FIXED.**
