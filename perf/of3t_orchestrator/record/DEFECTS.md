@@ -4804,10 +4804,19 @@ directly against upstream's own bf16 training gradient, each against **its own**
 ratio (they span 6.253168e-02 to 2.393700e-01, a **3.8x** spread, so the whole-model 5.852018e-02
 could not be borrowed):
 
-    scope                    floor          r          floor/r        headline / (floor/r)
-    diffusion_conditioning   6.253168e-02   1.007414   6.207150e-02   1.0414   DOES NOT SURVIVE
-    msa_module               1.787604e-01   1.059736   1.686838e-01   1.3398   DOES NOT SURVIVE
-    aux_heads                2.393700e-01   1.013635   2.361502e-01   0.9994   "survives" by 0.06 %
+    scope                    floor          r          floor/r    x thresh   x REACHABLE (A26)
+    diffusion_conditioning   6.253168e-02   1.007414   6.207150e-02   1.0414   0.7363  PASSES
+    msa_module               1.787604e-01   1.059736   1.686838e-01   1.3398   0.9474  PASSES
+    aux_heads                2.393700e-01   1.013635   2.361502e-01   0.9994   VOID under A18
+
+**A26 QUALIFIER added pass 175.** The "DOES NOT SURVIVE" verdicts this entry originally carried
+for the first two rows are against the *"equals float64"* threshold, which **no bf16 port can
+reach**. Against the reachable bar (`sqrt(2) x threshold`) both **pass** — conditioning at
+**0.7363x** and `msa_module` at **0.9474x**. The entry's finding is unchanged and is what A26 was
+built from: these scopes' float64-scored passes were hiding a disagreement, and conditioning fails
+the *unreachable* bar only because its error is anti-aligned with upstream's. What changed is which
+bar the verdict is stated against, which A25 clause 3 requires be said. `aux_heads` is unaffected:
+it is void under A18 regardless of bar.
 
 **And the one that survives carries nothing.** `aux_heads.distogram.linear.weight` is
 **100.0000 %** of that section's mass, so its mass-weighted headline *is one tensor*. The median
@@ -5264,3 +5273,102 @@ Owner: `of3t-orchestrator`. **UNFIXED** — needs the row's derivation of 0.1118
 concluded, so this is a question for whoever next touches that arithmetic. Recorded rather than
 silently replaced with my own number, which is the temptation when the difference does not change
 the answer.
+
+### D90. the shipped OF3 trunk forward is 46.67x upstream's own bf16 — but the reference is the 0.5.0 step and our flag encodes PREVIEW2's convention, so this may be a revision mismatch rather than a defect. UNFIXED, escalation QUALIFIED, flip held.
+
+**HEADING CORRECTED within the pass.** I first filed this as "PRODUCT DEFECT" and led a report
+with it. Checking the named site in the shipped source before that framing could travel further,
+it does not hold as stated, and the correction is the more important half of this entry.
+
+`tt_bio/openfold3_trunk.py` carries this at the site, in the code's own words:
+
+> preview2 builds the bias from the TRANSPOSED pair, which indexes it off z_ji where AF3
+> Algorithm 15 wants z_ij; v0.5.0 added `transpose_bias=True` to PairBlock.tri_att_end to put it
+> back on z_ij. That is tt-bio's `transpose_bias=False` — **the flag names read opposite** …
+> **No weights change, so the checkpoint has to select it.**
+
+So tt-bio's shipped `transpose_bias=True` **is preview2's orientation**, our checkpoint is
+**`of3-p2-155k`** — *p2 = preview2* — and `of3t-trunkfwd`'s reference is the **0.5.0 step** (its
+own SAMEFUNCTION field: loss 1.6591175475821072). **We are scoring a preview2-orientation port
+against a 0.5.0-orientation reference.** That flipping our flag toward 0.5.0 buys **5.62x** is
+exactly what a convention difference between two upstream revisions predicts, and is *not* on its
+own evidence that our port is wrong.
+
+**What is and is not established.** Established: the disagreement is in **shipped inference**, not
+the tape (taped-vs-shipped is 5.00 % of it) and not the instrument (upstream's float64
+re-composition of the same 48 blocks reads **exactly 0.000000e+00**, and the row reproduced
+`of3t-pairformer`'s forward to every digit from a different script). **Not** established: that it
+is a defect. The deciding question is the one `of3t-trunkfwd` itself named — **which orientation
+`of3-p2-155k` was trained with** — and nobody has answered it.
+
+**It is answerable by READING, not measuring**, and that is the cheapest decisive test available:
+upstream's own preview2/0.4.3 source states which way `tri_att_end` indexes its bias. `of3t-foldab`
+is amended to settle that first.
+
+**This is the `reference-checkpoint-version-binding-strict-false` trap** — a reference's code
+revision is part of the measurement — and it is a cousin of **D88**, where a correctly-digested
+reference was the gradient of a different *step*. Here the digests and the step are right and the
+**convention** differs. A24's same-function clause caught the step; nothing in the protocol yet
+catches a *semantic* convention change inside one function, which is worth its own amendment once
+this is settled.
+
+**Held, and nothing shipped.** The flip remains release-gated and unapplied; `of3t-pairbias` owns
+the flag. If the checkpoint is preview2-trained, our current setting is **correct** and the 46.67x
+is measuring the wrong thing.
+
+**What I got wrong, plainly**: I escalated "every OF3 fold JapanFold serves is 46.67x out" before
+reading the twelve lines of comment at the site I was naming. The row stated the open question
+correctly; I converted its open question into a settled verdict. The measurements below stand —
+only the framing was wrong.
+
+`of3t-trunkfwd` ran the pre-registered separation and it landed on **branch (1)**.
+
+    arm                                   masked pair      masked single
+    SHIPPED (ordinary tt_bio, untaped)   2.793661e-01     1.012900e-01
+    same at N=384, no crop at all        2.784332e-01     1.008628e-01
+    TAPED (same inputs, ag.tape())       2.796860e-01     1.011269e-01
+    upstream's own bf16 autocast         5.985395e-03     2.830522e-03
+    upstream's own float32               5.272987e-07     4.320585e-07
+    upstream's own FLOAT64 re-composition  0.000000e+00     0.000000e+00
+
+**Shipped inference is 46.67x upstream's own bf16 on the pair track** and 35.78x on the single
+track. A19 puts anything at or above 1e-1 in the **mis-wired-operand** branch, and 2.79e-01 is
+**5.6x** that threshold and 5.6x §3d's per-tensor bar.
+
+**The controls are what make this unarguable.** Upstream's float64 re-composition of the same 48
+blocks from the same captured input reads **exactly 0.000000e+00** on both masked tracks — so the
+crop convention, the replay and the 48-block re-composition contribute **nothing**, and the entire
+2.79e-01 is ours. The N=384 uncropped repeat rules out the 64-token window. And the configuration
+was not assumed: `trunk_forward.py` replaces `Pairformer` with a **spy** and records what the
+shipped site actually passes.
+
+**The tape is innocent, so this is not a training-only defect.** Taped against shipped directly is
+**1.397303e-02** — **5.00 %** of the disagreement — attributable to `ops.checkpoint_segment`
+reassociating bf16 arithmetic. Shipped and taped differ by **20x less** than either differs from
+upstream. Pre-registered reading (2) is refuted.
+
+**The site is named.** `transpose_bias`, the ending-node triangle-attention bias orientation,
+shipped **`True`** for every non-OpenBind checkpoint at `tt_bio/openfold3_trunk.py`. Flipped, with
+nothing else moved: composed pair track **2.793661e-01 → 4.971863e-02** (5.62x), per-block median
+1.201709e-02 → 4.192245e-03 (2.87x), and the accumulation exponent **0.925 → 0.584**, from
+near-coherent to near-random-walk — the signature of removing a **systematic per-block bias**. It
+does **not** close the gap: 4.97e-02 is still 8.31x upstream's bf16 and sits on the 5.0e-02 bar, so
+a residual remains behind it.
+
+**Held, correctly.** The flip is **release-gated and is NOT applied** — it changes accuracy on a
+model users get today, `of3t-pairbias` owns the flag, and the decision it needs is *which
+orientation `of3-p2-155k` was trained with*, which is a question about the checkpoint and not about
+whether our kernel is self-consistent. Nothing has been shipped or merged.
+
+**What it means for served folds, unsoftened**: every OF3 fold JapanFold serves runs this stack,
+and its pair output is **46.67x further from upstream's own bf16 than upstream's own bf16 is from
+float64**. The **structural** consequence in Angstrom is not measured here and is what decides
+urgency — it needs a seeded fold A/B against the **0.60 A** kill bar with the **1.84 A** seed floor
+beside it, the shape `of3t-pairbias` used for the other flag where the answer was 0.463 A. That
+A/B is dispatched as `of3t-foldab`.
+
+**And it resolves my pass-175 pre-registration.** `of3t-pairformer`'s trunk gradient figure is
+**not** void on instrument grounds — this row reproduced its forward **exactly** from a different
+script (2.796859780956208e-01 against its published 2.796859e-01) — so **the retraction of "the
+failure is one module" stands and hardens**: the trunk's error is real, reaches users, and is a
+port defect rather than an instrument artefact. Owner: `of3t-orchestrator`. **UNFIXED.**

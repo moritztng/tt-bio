@@ -1098,6 +1098,26 @@ upstream's, not merely misdirected — is a third kind. D72's optimistic reading
 a shared-subtrahend pass as agreement; it does not follow that agreement is the only thing worth
 measuring.
 
+**A25 ADDENDUM — 2026-09-20, same pass, forced by A26. The worked example above says
+`diffusion_conditioning` "FAILED the bar at 1.0414x". Read A26 before you carry that verdict
+anywhere.** The 1.0414x is against the *"equals float64"* threshold, and **A26 shows no bf16 port
+can reach that threshold**: two independent error vectors of equal size subtract to **sqrt(2)**
+times it. Against the bar a bf16 port can actually reach, **the same measurement passes at
+0.7363x**.
+
+A25's substance is unchanged and still required — agreement with an imprecise reference is a
+stricter test than accuracy; report three distances and the cosine; say which bar. What changes is
+**the verdict on its own example**, and clause 3's model sentence should now read: *"passes the
+reachable bar at 0.7363x while being 8x more accurate than the step it reproduces"* rather than
+*"fails agreement at 1.0414x while being 8x more accurate"*. Both describe one measurement; the
+second scores it against a bar nothing can meet.
+
+This addendum exists because **an amendment that supersedes another's conclusion has to say so
+inside it.** A row reads PROTOCOL top to bottom and stops when it has what it needs; leaving the
+correction only in A26 means A25 goes on teaching a failure the campaign no longer stands behind.
+Same rule as "a superseded stamp does not stop a number being read", applied to protocol rather
+than to artifacts.
+
 Record: `of3t-direct` (`f2d29c403`), D72, D76, `of3t-trajectory`'s
 `perf/of3t_trajectory/NOTES.md`.
 

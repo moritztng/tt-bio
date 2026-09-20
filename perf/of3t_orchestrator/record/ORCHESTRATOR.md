@@ -824,7 +824,7 @@ tensors were scored as dW against their own transposes — median rel **1.4137**
 — and under the softmax bound they were **56.22 % of the arm's squared error on 0.2035 % of its
 mass**. Recurrence of D59. Every published figure on that arm is contaminated *after* the dominant
 error is removed; the shipped reading barely moves (7.426217 corrected against 7.426742
-published), because the softmax swamps it. **D89 (UNFIXED, mine)**: I cannot reproduce one sub-figure in the arithmetic carrying my own
+published), because the softmax swamps it. **D90 (UNFIXED — escalation QUALIFIED)**: `of3t-trunkfwd` established that the OF3 trunk forward disagreement is in **SHIPPED INFERENCE**, not the tape and not the instrument. Untaped `tt_bio` reads **2.793661e-01** on the masked pair track — **46.67x** upstream's own bf16 (5.985395e-03) and 5.6x A19's mis-wired-operand threshold — with upstream's **float64** re-composition of the same 48 blocks reading **exactly 0.000000e+00**, so the harness contributes nothing and the whole figure is ours. Taped-vs-shipped is 5.00 % of it, so the tape is not the mechanism. The site is named: **`transpose_bias`** at `tt_bio/openfold3_trunk.py`, shipped `True` for every non-OpenBind checkpoint; flipped it falls to 4.971863e-02 (5.62x) with the accumulation exponent 0.925 → 0.584, but does not close the gap. **The flip is release-gated and held unflipped; nothing is shipped or merged.** Every OF3 fold JapanFold serves runs this stack. The Angstrom consequence is unmeasured and decides urgency — `of3t-foldab` dispatched for a seeded A/B against the 0.60 A kill bar with the 1.84 A seed floor. **QUALIFIED within the pass**: the site's own source says the flag names read OPPOSITE — tt-bio's shipped `True` is **preview2's** orientation, our checkpoint is `of3-p2-155k` (*p2 = preview2*), and the reference is the **0.5.0** step, which upstream changed. So this may be a **reference-revision mismatch rather than a defect**, and the 5.62x that flipping buys is what a convention difference predicts. The deciding question — which orientation `of3-p2-155k` was trained with — is answerable by **reading** upstream's preview2 source, and `of3t-foldab` owes that as Deliverable 0 before it folds anything. I converted the row's open question into a settled verdict; the measurements stand, my framing did not. **D89 (UNFIXED, mine)**: I cannot reproduce one sub-figure in the arithmetic carrying my own
 retraction — the row publishes **0.1118** for the other five diffusion sections' error mass and I
 get **0.0035** from its own published inputs, 32x apart, with four plausible forms tried and none
 landing on it. It does not change the conclusion (the trunk is ~19 % on every reading against the
@@ -859,7 +859,9 @@ mass survives the direct comparison, 97.4286 % is measured and fails or is void 
 disagree, so A18 invalidates their gradients.** But that split is against the
 "equals float64" threshold, which **no bf16 port can reach**. Against the bar one actually can —
 `sqrt(2) x threshold`, what two independent bf16 implementations of equal accuracy read (A26) —
-and **with every softmax computed accurately, 89.3220 % of the model is INSIDE it**: the diffusion
+**38.1862 % of the model is ALREADY inside it on the SHIPPED path, with no precision change**
+(`diffusion_conditioning` 0.7363x, `msa_module` 0.9474x), and **with every softmax computed
+accurately that reaches 89.3220 %**: the diffusion
 arm at **0.9563x**, `diffusion_conditioning` at **0.7363x** (passing because our error there is
 **8x smaller than upstream's own**, where an independent port of their accuracy would fail), and
 `msa_module` at **0.947x**. **Those three are exactly the scopes whose FORWARD is verified to
@@ -881,7 +883,7 @@ module"**, which is retracted everywhere: in measured error mass the diffusion t
 80.79 % and the **trunk is 18.89 %**, against the 0.4 % that framing allotted to everything
 outside the transformer. And **`aux_heads`** (2.8431 %) is void under A18 for the same reason.
 
-Twenty-seven concluded rows, none live; eighty-nine defects on the record, thirty-seven of them
+Twenty-eight concluded rows, one live; ninety defects on the record, thirty-eight of them
 UNFIXED. The composition `wk/of3t` carries 24 of 26 rows at 959 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
@@ -8515,3 +8517,174 @@ The row's own caveat already covers the spread — the diffusion rows are at the
 trunk at the 0.5.0 boundary, so it was offered as an order-of-magnitude statement rather than a
 partition of one number. That caveat is right, and it is why this is a defect in the record rather
 than in the finding.
+
+## Pass 175 (cont.) — the shipped path is not uniform, and I had been understating it
+
+I had been quoting the shipped path as a single failure at 129x. Checking which figures were
+measured **with** the softmax bound and which **without**, that is wrong: `of3t-direct` measured
+conditioning and `msa_module` on the **shipped** device gradient, no bound applied.
+
+    scope (SHIPPED)                 mass      x thresh   x reachable   verdict
+    diffusion_conditioning       36.9462 %      1.041       0.7363     PASS
+    msa_module                    1.2400 %      1.340       0.9474     PASS
+    diffusion device arm         51.1358 %    129.130      91.3090     FAIL
+
+**So 38.1862 % of the model already agrees with upstream's own training step as well as an
+independent bf16 reimplementation could — today, on the shipped path, with no precision change
+at all.** The increment to 89.3220 % is *exactly* the diffusion arm; nothing else differs between
+the two figures.
+
+**This does not contradict `of3t-direct`**, which reported conditioning as *"DOES NOT SURVIVE"* at
+1.0414x. That is correct against the threshold it was scored on — what a port reads if it **equals
+float64**. A26 established that threshold is unreachable for any bf16 port and that the reachable
+bar is √2 times it. Both statements are true of one measurement, which is precisely why **A25
+requires a verdict to say which bar it is against**, and I should have applied that to the shipped
+path the first time rather than carrying "129x" as though it described the whole of it.
+
+Nothing here rescues the diffusion arm — 51.1358 % failing by **91.31x** on accuracy, entirely the
+softmax, with no shipped lever reaching the bar. Nor does it touch the 8.3732 % void under A18 or
+the 2.3048 % unread. Record: `perf/of3t_orchestrator/THE_SHIPPED_PATH_IS_NOT_UNIFORM.json`.
+
+**Traceability check on VERDICT itself.** Every precise figure in the campaign's answer should be
+re-derivable by a reader from a committed artifact, so I checked: of the **17** distinct
+multi-digit numbers in VERDICT, **16** appear in an orchestrator artifact and one did not —
+**97.4286 %**, the fails-or-void total, which existed only as a sum I had done in prose. A
+headline figure no artifact carries cannot be re-derived by a reader or re-checked by a guard,
+which is the same failure as a result file that keeps only summary statistics. Derived totals now
+live in the artifact that owns their components, and the re-check reports **none unbacked**.
+
+Small, and worth doing because the campaign's whole claim to being *proof* rather than *assertion*
+is that each number has somewhere to be checked. One in seventeen was not, and it was the one
+describing how much of the model fails.
+
+**`THE_ANSWER.json` — the campaign's answer in one place.** It had become spread across a dozen
+artifacts, several of them partly retracted this pass, and a reader would have had to know which
+were superseded. One current statement, naming what it supersedes:
+
+    38.1862 %   already agrees with upstream's own training step as well as an independent
+                bf16 reimplementation could -- on the SHIPPED path, today
+    51.1358 %   gets there only with an accurate softmax: a measurement bound, not a
+                shippable lever; shipped it fails 91.31x and the whole factor is the softmax
+     8.3732 %   VOID rather than measured -- forward disagrees, A18 invalidates the gradient.
+                A port correctness defect, not precision
+     2.3048 %   no reading at all (0.74055 % of it never can have one)
+    100.0000 %
+
+Arithmetic checked before committing: it sums, and it reconciles with the other partition, which
+scores the **same** measurements against the unreachable threshold (0.2666 / 89.0554 / 8.3732 /
+2.3048) — `89.0554 + 0.2666 = 89.3220 = 38.1862 + 51.1358`. Two partitions of one set of numbers
+differing only in **which bar**, which is exactly what A25 says a verdict must make explicit. The
+diffusion arm's 51.1358 % includes `layer_norm_a`'s 0.2666 % and is not double counted anywhere.
+
+**Propagating A26 backwards through the record.** A26 changed which bar a verdict is scored
+against, so every earlier "DOES NOT SURVIVE" in the campaign now reads as a stronger claim than
+the evidence supports. Swept and qualified:
+
+- **PROTOCOL A25** carried the worked example *"conditioning FAILED the bar at 1.0414x"*. Its
+  substance is unchanged and still required, but its **verdict** is superseded — against the
+  reachable bar the same measurement **passes at 0.7363x** — so A25 now carries an addendum
+  saying so *inside itself*. A row reads PROTOCOL top to bottom and stops when it has what it
+  needs; leaving the correction only in A26 means A25 goes on teaching a failure the campaign no
+  longer stands behind.
+- **D82's table** gains the reachable-bar column: conditioning **0.7363x PASSES**, `msa_module`
+  **0.9474x PASSES**, `aux_heads` void under A18 regardless of bar. Its finding is untouched —
+  those scopes' float64-scored passes *were* hiding a disagreement — only the bar is now named.
+- **`MORE_ACCURATE_AND_STILL_FAILS.json`**, whose *filename* asserts a failure that A26 reverses,
+  gains a `FILENAME_IS_NOW_MISLEADING` field. Kept, because commits and briefs cite it.
+- **`SCOREBOARD_PASS_175.json`** is bannered SUPERSEDED. Qualifying it surfaced that its bounded
+  row still carries the **pre-D86** 2.04x, so its own A26 qualifier computes "still FAILS" from a
+  contaminated number when the corrected arm **passes at 0.9563x**. That is two stale layers deep
+  and is exactly why a superseding artifact has to say so in the file rather than only in the
+  file that replaces it.
+
+The rule this pass keeps re-learning: **an amendment that supersedes a conclusion has to be
+written into the thing it supersedes.** Same as "a superseded stamp does not stop a number being
+read", applied to protocol text and to verdict strings rather than to numbers.
+
+## Pass 175 (cont.) — the shipped OF3 trunk forward is 46.67x upstream's own bf16 (and my "PRODUCT DEFECT" framing is qualified below)
+
+`of3t-trunkfwd` ran the pre-registered separation and landed on **branch (1)**, the escalation
+case. Filed as **D90**.
+
+    arm                                     masked pair      masked single
+    SHIPPED (ordinary tt_bio, UNTAPED)     2.793661e-01     1.012900e-01
+    same at N=384, no crop at all          2.784332e-01     1.008628e-01
+    TAPED (same inputs, ag.tape())         2.796860e-01     1.011269e-01
+    upstream's own bf16 autocast           5.985395e-03     2.830522e-03
+    upstream's own float32                 5.272987e-07     4.320585e-07
+    upstream's own FLOAT64 re-composition  0.000000e+00     0.000000e+00
+
+**Shipped inference is 46.67x upstream's own bf16** on the pair track, 35.78x on the single track.
+A19 puts anything ≥1e-1 in the **mis-wired-operand** branch and this is **5.6x** that.
+
+**The controls are what make it unarguable.** Upstream's float64 re-composition of the same 48
+blocks from the same captured input reads **exactly 0.000000e+00** — so the crop convention, the
+replay and the re-composition contribute **nothing** and the entire 2.79e-01 is ours. The N=384
+uncropped repeat rules out the window. The configuration was recorded by a **spy** on the shipped
+site rather than assumed. And taped-vs-shipped is **1.397303e-02 — 5.00 %** of the disagreement,
+so the tape is not the mechanism and reading (2), training-only, is refuted: shipped and taped
+differ by **20x less** than either differs from upstream.
+
+**The site is named**: `transpose_bias`, the ending-node triangle-attention bias orientation,
+shipped **`True`** for every non-OpenBind checkpoint at `tt_bio/openfold3_trunk.py`. Flipped with
+nothing else moved, the pair track falls **2.793661e-01 → 4.971863e-02** (5.62x) and the
+accumulation exponent **0.925 → 0.584**, near-coherent to near-random-walk — the signature of
+removing a **systematic per-block bias**. It does not close the gap (4.97e-02 is still 8.31x
+upstream's bf16), so a residual sits behind it.
+
+**Held correctly and nothing shipped.** The flip is **release-gated and NOT applied**;
+`of3t-pairbias` owns the flag; the open question is *which orientation `of3-p2-155k` was trained
+with* — a question about the checkpoint, not about whether our kernel is self-consistent.
+
+**My pre-registration resolves to branch (1), so the retraction stands and hardens.** I had
+written that if the trunk turned out to be an instrument artefact I would have to withdraw my
+withdrawal of *"the failure is one module"*. It is not: this row **reproduced `of3t-pairformer`'s
+forward exactly from a different script** — 2.796859780956208e-01 against its published
+2.796859e-01. The trunk's error is real, reaches users, and is a port defect.
+
+**Dispatched `of3t-foldab`**, because the one thing not known is the only thing that decides
+urgency: **how many Angstrom this is on a fold a user gets.** A large relative error on an
+intermediate pair representation can be nearly invisible in final coordinates or decisive, and
+that is to be measured, not reasoned about. Seeded A/B in the shape `of3t-pairbias` used for the
+other flag (answer then: 0.463 Å), against the **0.60 Å kill bar with the 1.84 Å seed floor beside
+it**, plus pLDDT and ranking deltas since a small coordinate move can still reorder samples. The
+brief forbids touching any shipped default and requires the **reassuring** branch —
+indistinguishable from the seed floor, meaning my product-defect framing was too strong — be
+reported as prominently as the alarming one.
+
+**And I have to correct the escalation I just made.** I filed D90 as a **PRODUCT DEFECT** and led
+a report with "every OF3 fold JapanFold serves is 46.67x out". Before that framing could travel
+further I read the named site in the shipped source, and it does not hold as stated.
+`tt_bio/openfold3_trunk.py` says, at the exact flag:
+
+> preview2 builds the bias from the TRANSPOSED pair, which indexes it off z_ji where AF3
+> Algorithm 15 wants z_ij; v0.5.0 added `transpose_bias=True` to PairBlock.tri_att_end to put it
+> back on z_ij. That is tt-bio's `transpose_bias=False` — **the flag names read opposite** …
+> **No weights change, so the checkpoint has to select it.**
+
+So tt-bio's shipped `True` **is preview2's orientation**, our checkpoint is **`of3-p2-155k`** —
+*p2 = preview2* — and `of3t-trunkfwd`'s reference is the **0.5.0 step**. **We may be scoring a
+preview2-orientation port against a 0.5.0-orientation reference**, in which case our setting is
+*correct* and the 46.67x measures the wrong thing. The 5.62x that flipping buys is precisely what
+a convention difference between two upstream revisions predicts.
+
+**What survives is everything the row measured**: the disagreement is in **shipped inference**,
+not the tape (5.00 % of it) and not the instrument (upstream's float64 re-composition reads
+**exactly 0.000000e+00**, and the row reproduced `of3t-pairformer`'s forward to every digit from a
+different script). **What does not survive is my verdict on it.** `of3t-trunkfwd` stated the open
+question correctly — *which orientation was `of3-p2-155k` trained with* — and **I converted its
+open question into a settled one.**
+
+**It is answerable by reading rather than measuring**, which makes the error worse and the fix
+cheap: `of3t-foldab` now owes **Deliverable 0** before it folds anything — quote upstream's
+preview2/0.4.3 source on which way `tri_att_end` indexes its bias — with `CONVENTION:` a required
+DONE_CHECK field, and the branch where my framing is withdrawn required to be reported as
+prominently as a defect would have been. The brief also names a one-arm measured control:
+upstream's own **0.4.3** `PairFormerBlock` against the same boundary should disagree with the
+0.5.0 reference by about what our port does, if this is a convention difference.
+
+**This is `reference-checkpoint-version-binding-strict-false` — a reference's code revision is
+part of the measurement — and a cousin of D88**, where a correctly-digested reference was the
+gradient of a different *step*. Here the digest and the step are right and the **convention**
+differs inside one function, which A24's same-function clause does not catch. That gap is worth
+an amendment once this is settled, and I am not writing one before knowing the answer.
