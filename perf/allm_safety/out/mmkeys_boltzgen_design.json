@@ -1,0 +1,15 @@
+{
+  "label": "boltzgen-design-c0",
+  "note": "2 of 1000 designs; run stopped with SIGINT once the key SET was decided -- the counts scale with designs, the key set does not",
+  "grid": "11x10",
+  "keys": {
+    "tenstorrent|2,12|served": 96,
+    "tenstorrent|2,16|declined": 48,
+    "tenstorrent|2,17|declined": 48,
+    "tenstorrent|2,4|declined": 96,
+    "tenstorrent|4,17|served": 3264,
+    "tenstorrent|4,4|served": 4896,
+    "trimul_tail|2,2|declined": 48,
+    "trimul_tail|4,4|declined": 1632
+  }
+}
