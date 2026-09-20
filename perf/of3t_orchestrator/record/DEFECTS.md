@@ -4367,3 +4367,468 @@ notice it is not committed. It is in the row's own instructions, so the row is h
 am I.
 
 Owner: `of3t-trajectory`. **UNFIXED.** Brief `workstreams/of3t-trajectory.txt`.
+
+### D74. the composition's row list was a comment, not code, and it had been false for four rows
+
+`perf/of3t_orchestrator/compose_verify.sh` carried a hand-maintained `ROWS` string, above a
+comment asserting the property that string was supposed to have:
+
+> A row is listed here from the moment it is dispatched, not from its first push, so a new row
+> cannot be silently left out of the composition.
+
+Checked at pass 175, that was **false**. `ROWS` stopped at `auxheads` — 18 rows — while
+**23** of3t briefs carried a `#DISPATCH:` line. The five absent rows were `conditioning`,
+`adaln`, `softmax`, `refprec` and `trajectory`, and **four of the five had already pushed
+branches to origin**. So every composition this campaign has published omitted:
+
+- `wk/of3t-softmax` — the inference NO-GO (0.3237 Å against a 0.6250 Å seed floor, +46 % per op);
+- `wk/of3t-adaln` — the row that **refuted D55's mechanism** and ran the float64-softmax A/B
+  that localised the error (block 8's leaf 8.060854e-01 → 1.459256e-02);
+- `wk/of3t-conditioning` — the 36.9462 %-of-mass section arm at 7.865385e-03;
+- `wk/of3t-refprec` — the arms behind "the bar is achievable" and D72.
+
+**What made it invisible.** The compose printed `ancestry:18 of 18 rows` and
+`carrying 18 of 18 rows`. The denominator was `$ROWS` — **the same stale string as the
+numerator** — so a row missing from the list could not show up as missing from the count. A
+completeness check whose denominator is the thing being checked reports 100 % by construction.
+This is the [hardcoded list] / [guard goes quiet past its word list] class again, and the third
+time this campaign has shipped a guard that reads its own assumption.
+
+**Fixed.** `ROWS` is now derived from the briefs — every `workstreams/of3t-*.txt` carrying a
+`#DISPATCH:` line, minus the orchestrator — union'd with `ROWS_FLOOR`, which is kept as a
+**ratchet** so a renamed or retired brief cannot shrink the composition. Both asymmetries are
+announced: a dispatched row absent from the floor, and a floor row whose brief no longer
+dispatches. Negative-controlled in both directions against a synthetic `WS` directory.
+
+First composition to carry the campaign: `2b1e1a7ed`, **22 of 23 rows, 893 commits ahead of
+main**, audit 153 confirmed / 0 drifted, merge gate clean and fast-forwardable. The one absent
+row is `trajectory`, which has no branch yet — announced, not silent.
+
+**Standing lesson.** A completeness count must have an *independent* denominator. Owner:
+`of3t-orchestrator`. **FIXED** at pass 175.
+
+**Second site, found pre-emptively (same pass).** Looking for the same shape elsewhere turned up
+the amendment-count guard in `audit_evidence.py`: **three** hand-written number-word lists, all
+capped at `"twenty-four"`, and `w = _words.get(n_am)` guarding every branch under `if w:`. At the
+twenty-**fifth** amendment `w` becomes `None` and all three checks — the `n amendments` count, the
+`amended n times on the record` phrasing in PROVES, and the same phrase in VERDICT — skip in
+silence. The protocol stood at 23. It was **one amendment** from going quiet, and pass 175 added
+A24. Now generated for 1..99 from the same list the defect-count check uses, out-of-range is a
+failure rather than a skip, and the alternation is built from that list longest-first so it cannot
+fall behind the counter again. Negative-controlled on `twenty-three`/`twenty-four`/`thirty-seven`/
+`ninety-nine`, on the compound-vs-simple discrimination A22 was filed for, and on the hard-wrapped
+`times on\nthe record` form.
+
+This is the **fourth** sighting of "a guard goes quiet when its subject outgrows the list it
+matches" (the amendment word list at twenty-one, the defect-count list at twenty-four, the
+placeholder regex at pass 160, and the compose's row list here). The first three were found after
+they had already gone quiet. This one was not, which is the only thing about it that is new.
+
+### D75. the closing measurement's reference was being overwritten underneath it
+
+`of3t-trajectory` was dispatched at 10:46 to compare our device gradient against
+`/home/ttuser/of3t_refprec/run/arm4_bf16_autocast/grads_f64.pt`. At 10:52 `of3t-refprec`'s it2
+was found **re-running all four arms into that same directory** — its it1 had been killed at the
+3000 s turn cap with no JSON, so it restarted the arms. The 2.95 GB reference was 28 minutes from
+being overwritten in place; `torch.save` truncates the path it opens, with no atomic rename.
+
+Had the two rows overlapped, the campaign's **closing measurement** would have been computed
+against a partially written file — and the failure is not guaranteed to be loud. A short read
+raises; a read that happens to complete against a stale tail does not.
+
+Two distinct defects, and the second is the general one:
+
+1. **Concurrent rows sharing an output namespace with no interlock.** `of3t-refprec` owns
+   `/home/ttuser/of3t_refprec/run/` and `of3t-trajectory` was told to *read* it. Nothing in
+   either brief said the other existed. Dispatching a reader against a live writer's namespace
+   is a hazard the dispatcher — me — introduced.
+2. **The brief named the reference by PATH.** A path is not an identity. An artifact's identity
+   is its digest plus its recorded inputs, so a brief that cites a path has not pinned anything.
+
+**Fixed.** The 08:24Z references were copied to `/home/ttuser/of3t_refprec/pinned_p175/`
+(arm2 and arm4, with their `draws.pt` and `grad_presence.json`; 2.9 TB free, cost 6 GB), and
+AMENDMENT 1 to `workstreams/of3t-trajectory.txt` re-points the row at the pinned copies **with
+both sha256 digests written into the brief**, requires the row to verify the digest before
+loading and record it in its result, and requires it to STOP and report rather than measure on a
+mismatch. Cross-check: the pinned arm2 digests to `09f1217c8ea254d0...`, the same value D69
+identified as byte-identical to arm3, so the pin is provably the run this campaign has read.
+
+The amendment also asks the row to report both digests side by side if refprec's it2 lands a
+*different* arm4 — these runs replay fixed draws and are supposed to be reproducible, so a
+divergence there would be a finding and not a nuisance.
+
+**Standing lesson.** When a brief tells one row to read another row's output, pin the input by
+digest and check whether the writer is still alive. Owner: `of3t-orchestrator`.
+**FIXED** at pass 175.
+
+### D76. the pre-registered third branch was arithmetically unreachable
+
+`workstreams/of3t-trajectory.txt` pre-registered three readings for the campaign's closing
+measurement. The third was:
+
+> **at or above 7.5692** → our error is roughly orthogonal to theirs, "no further from float64
+> than they are" was hiding a disagreement, and **D72's optimistic reading is refuted** — to be
+> reported as prominently as the favourable branch.
+
+**7.5692 is above the maximum attainable value.** The measured quantity is
+`rel(device, bf16) = ||d - b|| / ||b||`, normalised by **‖bf16‖**, while 7.5692 is
+`||d - f|| / ||f||`, normalised by **‖float64‖** — and the row's own table gives
+‖bf16‖ = 1.0176 ‖float64‖. With e = d − f and t = b − f, the triangle inequality caps the
+reading at `(7.569163 + 0.05852018) / 1.0176 = ` **7.4958**. No gradient, on any hardware, with
+any error geometry, could have produced a value at or above 7.5692. The branch was vacuous — it
+could not fire, so it could not refute anything, and had the row taken it literally the honest
+conclusion would have been suppressed by arithmetic.
+
+**Third sighting of a vacuous arm** in this campaign, after the power-of-two scale invariance test
+(2^n changes no mantissa, so it cannot fail) and arm2-vs-arm3 (byte-identical by construction,
+D69). All three share one shape: **an arm whose outcome is fixed before the machine runs**. The
+check for it is cheap and I did not do it — compute the attainable range of the quantity you are
+thresholding, and confirm your threshold is inside it.
+
+**How I got it wrong.** I compared two `rel` figures with different denominators as though they
+shared one. Same normalisation-scope mistake already on the record from comparing a 1-of-N
+gradient against an N-accumulated one, which read ~1.0 by construction.
+
+**What the correct threshold is, and what it says.** Orthogonality predicts
+`sqrt(7.569163² + 0.05852018²) / 1.0176 = ` **7.4385**, not 7.5692. The measurement is
+**7.426742**, which is **0.16 % below** that — so the errors are *weakly aligned*, not exactly
+perpendicular: `cos(e, t) ≈ 0.20` (0.1975–0.2102 across the norm ratio's 4-dp rounding), so
+**cos² ≈ 0.04** — about 4 % shared variance — with our error **129× larger in magnitude**.
+
+So **the third branch's substance holds**: our error is essentially orthogonal to upstream's, which
+is exactly why moving the reference from the float64 ideal to their actual training step moved the
+headline by only 1.9 %. **D72's optimistic reading is refuted**, as that branch required to be
+reported as prominently as the favourable one — and `of3t-trajectory` independently established the
+same thing per-section, where `layer_norm_s` reads AT OR BETTER against float64 (2.3809e-02) but
+**5.2797e-02 against their actual gradient**, 1.70× its own floor and larger than either distance.
+
+The row is not at fault: it reported that it sat 1.9 % below the third branch's threshold and
+carried that branch's substance, which was the correct thing to do with a threshold it could not
+reach. Record: `perf/of3t_orchestrator/OUR_ERROR_IS_ORTHOGONAL_TO_THEIRS.json`.
+Owner: `of3t-orchestrator`. **FIXED** at pass 175 — the branch is corrected in place and the
+reading it gates is published.
+
+### D77. two rows edited the same instrument outside either's namespace, and the composition conflicted. FIXED.
+
+`perf/of3t_diffusion/device_gradient.py` is the model-scope device gradient instrument. It lives in
+**`of3t-diffusion`'s** namespace, and it has been edited by **`of3t-conditioning`** (which the
+pass-175 COMPOSITION table flagged as the file's only cross-namespace reach) and now by
+**`of3t-trajectory`**, which added `--dump-grads` and `--permute-cot` for the closing measurement.
+
+The pass-175b compose failed:
+
+    CONFLICT (content): Merge conflict in perf/of3t_diffusion/device_gradient.py
+    CONFLICT merging of3t-trajectory
+
+**The conflict is real but narrow, and the loudness is luck.** It is confined to the help string of
+`--dump-per-tensor`: `of3t-conditioning` changed the flag's behaviour so the per-tensor sidecar is
+written **unconditionally** and the flag now controls only the duplicate inline copy, and rewrote
+the help to match. `of3t-trajectory` branched before that and carries the old text. Everything
+else — including both new arguments and all the code — auto-merged.
+
+So the resolution is: keep **conditioning's** help text, because it is the one that describes the
+merged code (the merged file's own comment at line 466 reads *"The sidecar is UNCONDITIONAL, and
+that is the whole point of it"*), and keep **trajectory's two new arguments**. Verified by
+execution, not by syntax: `--help` on the resolved file lists `--dump-per-tensor`, `--dump-grads`
+and `--permute-cot`. A hand-resolved merge that only parses has not been checked.
+
+**Why this is a defect rather than a chore.** Had the two rows touched *adjacent* lines instead of
+the same one, git would have merged them silently and the composition would have carried a help
+string that **misdescribes the flag's behaviour** — or, in the bad version of this, an instrument
+whose two halves came from different generations. Two rows editing one file outside both their
+namespaces is a silent-divergence generator; this instance announced itself, and that is not a
+property of the situation.
+
+**Not resolved in the composition.** The composition is not the place to own a semantic merge
+neither row can see — that would diverge the branches from the thing built out of them.
+`of3t-trajectory` is live and owns the newer change, so AMENDMENT 4 asks it to merge `wk/of3t` and
+resolve on **its own branch**, where it can verify by running the instrument it just used.
+`of3t-direct`'s brief points at this same file and is warned.
+
+Until then the published composition is **`2b1e1a7ed`, 22 of 23 rows — it does NOT carry
+`of3t-trajectory`**, which is to say it does not carry the campaign's closing measurement. Said
+plainly rather than papered over.
+
+**Standing lesson.** A file edited by a row that does not own its namespace needs a declared owner
+before the second row touches it. The compose's per-row "files reachable ONLY from this row"
+column is the detector — it named this file one pass before the conflict, and I read it as a
+curiosity. Owner: `of3t-orchestrator`.
+
+**RESOLVED at pass 175, by me, because both rows concluded before their amendments reached them.**
+`of3t-trajectory` did resolve its own side (`MERGE_RESOLUTION_VERIFIED.json`), but `of3t-direct`
+concluded first and the conflict moved onto its branch (D81). With no live owner, the composition's
+mergeability is the orchestrator's. Both conflicts turned out to be **additive, not competing**:
+
+- `agreement.py`: trajectory added `BOUND_READING` (the model-scope softmax bound and its
+  pre-registered branch); direct added `ERROR_GEOMETRY`, which measures cos(our error, their error)
+  **directly** where D76 had to infer it from three norms. **Both kept.** But trajectory's block
+  rebound `r` and `perfect` from the `BF16_OWN_FLOOR` constant, which would have clobbered direct's
+  **per-scope** threshold used by the trailing print — and direct replaced that constant precisely
+  because section floors span 3.1012e-02 to 2.393700e-01, so one scope's floor is not another's
+  bar. Trajectory's branch logic is therefore kept with **local** names (`r_b`, `perfect_b`) and
+  fed the measured per-scope floor: numerically identical on the diffusion scope, where
+  `floor == BF16_OWN_FLOOR`, and correct on any other. The constant survives only as a labelled
+  cross-reference, never again as a threshold.
+- `device_gradient.py`: one side was **empty**. Git flagged it only because the two rows' additions
+  land on adjacent lines. Kept the side with content (`--softmax-f64`), under an assertion that
+  exactly one side is non-empty — so the same script cannot silently collapse a real two-sided
+  conflict, which is the failure mode that makes a clean merge worse than a conflict.
+
+**Verified by execution, not by parsing**, which is the standing rule for a hand-resolved merge:
+`device_gradient.py --help` lists all five flags, `agreement.py --help` runs, and a static pass
+reports no undefined names in either file. Pushed to `wk/of3t-direct` as **`7517fe116`**, whose
+commit message states that the resolution is the orchestrator's and why. **FIXED** at pass 175.
+
+### D78. the campaign's shared denominator is an order-dependent sum, and an instrument asserts it exactly. UNFIXED, amended to the live rows.
+
+The model's squared gradient norm is the denominator under **every** mass share this campaign
+publishes (A15/D17: the denominator must be written down). It appears on the record in **two**
+spellings:
+
+    10.279642678524985   14 occurrences (state docs and artifacts)
+    10.279642678524986    3 occurrences (BLOCK_MASS_PROFILE.json, record/EVIDENCE.md, EVIDENCE.md)
+
+These are **different doubles**, and the obvious reading — one is a transcription slip — is wrong.
+`BLOCK_MASS_PROFILE.json` says its total was *"summed directly from
+bundle_min_043/grads_f64_043.pt on qb2 (4,170 tensors)"*, and `of3t-trajectory`'s `agreement.py`
+asserts the same file's norm **is** `...985` and that assertion **passes**. Two honest summations
+of one file, differing in the last bit.
+
+**Verified rather than asserted.** Summing the 72 float leaves of `BLOCK_MASS_PROFILE.json` in 8
+random orders gives **5 distinct results** — 49.721809999999984 through 49.721810000000005, a
+spread of ~4e-16 relative, the same magnitude as the gap between the two published spellings. With
+4,170 terms the spread is at least comparable. Floating-point addition is not associative; a sum
+over thousands of terms has no single correct last bit, only a correct value to within the
+accumulated rounding.
+
+**So neither spelling is wrong and no artifact needs correcting** — but the *instrument* does.
+`agreement.py` gates every number it produces on `norm == 10.279642678524985` exactly. That passes
+today because it happens to accumulate in the same order. Any reordering — a different tensor
+iteration order, a dtype change in the accumulator, a torch version that vectorises the reduction
+differently — makes it fail, and it will fail **looking like a corrupted reference** rather than
+like a rounding difference. An exact-equality guard on an order-dependent quantity is a false
+alarm waiting to happen, and this one sits in front of the campaign's closing measurement.
+
+**Amended, not silently changed.** `of3t-trajectory` and `of3t-direct` are told to make it a
+**relative tolerance** (1e-12 is ~4,000x the observed spread and still 1e4 tighter than anything
+that could indicate a real problem) and to print the measured value beside the expected one so a
+drift is readable rather than binary. The check itself is right and worth keeping: it is what
+guarantees no share is quoted in a different denominator than D72's.
+
+**Standing lesson.** A constant that is a *sum* is not a constant to compare exactly, however
+many digits you have of it. Pin it with a tolerance, and record which spelling your run produced.
+Owner: `of3t-orchestrator`. **UNFIXED** — pending the rows' tolerance change.
+
+### D79. the remote DONE_CHECK could never find its input, because the path was not a string anywhere. FIXED.
+
+`of3t-trajectory` was refused **three times** — it1, it2, it3, about **$15.70** of iterations —
+with:
+
+    DONE_CHECK: NOT concluded
+      - missing /home/moritz/.coworker/state/of3t-trajectory.md (runs on the DISPATCH host)
+
+while the **same command on pc printed `concluded`**, and the row's own run of it printed
+`concluded` too, which it reported each time. The row's work was complete and correct from it1; it
+was being refused for something no amount of work on its side could fix.
+
+**Root cause.** `worker.sh` ssh's the DONE_CHECK to the task's host and stages the files it
+references first, by grepping the DONE_CHECK line and then the referenced script's **source** for
+`/home/moritz/.coworker/(workstreams|state)/...`. That finds `_of3t_donecheck.py` itself. It cannot
+find the state doc, because the path is **composed at runtime**:
+
+    doc = D / "state" / f"{slug}.md"
+
+There is no such string in the file. So the doc was never copied, and on qb2 it is absent under
+both `/home/moritz/.coworker` and `/home/ttuser/.coworker` — verified. `worker.sh`'s own comment
+above that staging block records this class as having recurred **7+, then 9 times**. This is the
+next sighting, in the one disguise the fix did not anticipate: not a path in a different place, a
+path **that is not a literal anywhere**.
+
+**Fixed in the file I own**, using the existing mechanism rather than touching shared infra:
+`_STAGE_HINTS` lists every gated row's doc path **literally**, so `worker.sh`'s indirection grep
+stages them. Simulating that exact regex confirms `of3t-trajectory.md` is now staged (and the two
+rows with no doc yet are skipped by its `[ -f ]`, correctly).
+
+The list is **asserted against `EXTRA` at runtime**, so it cannot go stale when a row is added —
+which is the failure mode of every hand-maintained list this campaign has filed, D74 included. The
+assertion is a **warning on stderr, not a failure**, because another row's missing hint must not
+refuse the row being checked; it is loud because the consequence is remote and silent. Selftest
+still passes 11 must-fire / 5 must-stay-quiet.
+
+**What is NOT fixed, and is not mine.** Staging happens at **launch**, so the ssh'd check reads the
+doc as it was *before* the turn that writes it. For trajectory's next relaunch the staged copy is
+the complete one, so it will pass — but a row that creates its doc for the first time inside a turn
+is still refused once by construction, and that is the part of this that lives in `worker.sh`. I
+have deliberately not edited shared fleet infrastructure for it. **ESCALATE-worthy**, and noted
+here so the next sighting is the tenth-and-known rather than the tenth-and-fresh.
+
+**Standing lesson.** A guard that stages "the files a check references" can only see references
+that are **strings**. If a tool composes its own inputs, it must publish them as literals and
+assert the literals against what it composes. Owner: `of3t-orchestrator`. **FIXED** at pass 175.
+
+### D80. the reference gradient digest is a function of OMP_NUM_THREADS, so a byte-identity determinism control needs the thread count pinned too. FIXED.
+
+`of3t-refprec`'s it2 re-ran all four arms with the same seed, the same replayed draws and the same
+code. Hashing the results against the pass-175 pins:
+
+    arm                     pinned (08:21-08:24Z)   relaunched (09:06-09:18Z)
+    arm4_bf16_autocast      ff78d7bc...             ff78d7bc...   IDENTICAL
+    arm2_f32_upstream       09f1217c...             0343f86c...   DIFFERENT
+    arm3_f32_removed        09f1217c...             0343f86c...   DIFFERENT
+    negctl_f32_permuted     (not pinned)            a5cbbf40...
+
+**The bf16 arm reproduces byte-for-byte across launches. The fp32 arms do not.** The most likely
+mechanism is the one D78 is about, one level down: an order-dependent reduction inside an fp32
+kernel, where the two launches differed in thread count and machine load (the relaunch ran four
+arms concurrently at ~1400 % of 16 cores). bf16 presumably escapes it by rounding the difference
+away. **That is a hypothesis with a decisive test, not a finding**, and the test is below.
+
+**Two things this changes.**
+
+1. **`of3t-trajectory` over-generalised, carefully but still over-generalised.** It wrote *"the
+   seeded fixed-draw arms give the same file across launches"* from **arm4 alone**, and said so —
+   it noted explicitly that *"at the time of the check it2's arm2 had not landed"*. The scoped
+   claim (arm4 reproduces) stands and is verified twice. The general one is now **refuted by
+   counter-example**, and every number the campaign scored against arm4 is unaffected.
+
+2. **`3.117006e-05` — "upstream's own fp32 reproduces its float64 gradient, so the bar is
+   achievable and the 7.5692 is ours" — was computed against `09f1217c`, which the live path no
+   longer holds.** The measurement is not wrong and the conclusion almost certainly survives: the
+   run-to-run variation of an fp32 sum is far below 3.1e-05. But **"almost certainly" is not this
+   campaign's standard**, and the figure's own reproducibility is now unmeasured. It is also the
+   figure the entire "the gap is ours" framing rests on.
+
+**A24 is vindicated beyond its own argument.** The pin was taken to stop a truncated read. What it
+actually did was **preserve the only remaining copy of the reference the campaign's numbers came
+from** — the live arm2 changed underneath, exactly as D75 warned, and without
+`pinned_p175/arm2_f32_upstream/grads_f64.pt` the provenance of 3.117006e-05 would simply be gone.
+A path is not an identity, and this is what that costs when it is ignored.
+
+**D69 survives and is strengthened.** arm2 and arm3 are byte-identical to each other **again** on
+a fresh run (both `0343f86c`), so "the arm I specified cannot differ" holds on independent
+evidence rather than on one observation.
+
+**RESOLVED at pass 175 by `of3t-refprec`, and my hypothesis was wrong in its attribution.** The
+mechanism is order-dependent reduction, as offered — but **not because of the dtype**. The cause is
+measured: arms 2 and 3 ran their first launch at **`OMP_NUM_THREADS=7`** and the relaunch at **3**,
+while arm 4 and the negative control were at **3 both times**. So arm 4 did not reproduce because
+bf16 rounds the difference away; it reproduced because **nothing about its execution changed**. I
+read a thread-count confound as a dtype property, on a sample of one arm per dtype.
+
+**The corrected finding is more useful than the one I filed.** The arms *are* bit-reproducible at a
+fixed thread count, and the gradient digest is a **function of that thread count** — so **a
+byte-identity determinism control is only valid if the thread count is pinned alongside the seed
+and the draws.** That is a reusable rule; "fp32 is non-deterministic and bf16 is not" would have
+been a false one.
+
+**And the load-bearing figure survives with a measured bound.** The relaunched arm2 scores
+**8.158418e-05** whole-model against its own float64 gradient where the campaign had published
+**8.107441e-05** — a **0.63 %** change in the figure, not a change in its order of magnitude. The
+bar sits **245x** above it. So *"upstream's own fp32 reproduces its float64 gradient, therefore the
+device's 7.5692 is the device's own"* **stands**, and is now bounded by a measured run-to-run
+spread instead of an assumed one. **D69 is reconfirmed a third time**: arms 2 and 3 agree to every
+digit printed (8.158418e-05, median 2.325119e-05, r 0.999998, cos 1.000000).
+
+**A24 still earns its keep**, for a smaller reason than I claimed: the pin did not rescue a lost
+reference, because the difference is reproducible from the thread count. What it did was make the
+difference *visible at all* — without two digests to compare, an 0.63 % shift in a published figure
+would have looked like a transcription error.
+
+**The decisive test, dispatched to `of3t-refprec` as its AMENDMENT.** Score relaunched arm2
+against pinned arm2 directly, over the 547-tensor scope and whole-model, mass-weighted under A23.
+That number *is* the fp32 arm's run-to-run floor, and every fp32 figure this campaign quotes needs
+to be read against it. If it is far below 3.117006e-05 the conclusion stands and is now *measured*
+rather than assumed; if it is comparable, **"upstream's own fp32 reproduces its float64 gradient"
+is a statement about one run and must be restated.** That test RAN and is reported above: the cause is the thread count, the corrected rule is that a byte-identity determinism control needs `OMP_NUM_THREADS` pinned alongside the seed and the draws, and the load-bearing figure survives with a measured 0.63 % run-to-run bound. Owner: `of3t-orchestrator`. **FIXED** at pass 175.
+
+### D81. the composition conflicts because I told one row to base on another's branch. FIXED.
+
+**CORRECTED DIAGNOSIS.** This entry first blamed D74's fix for `sort -u`-ing the row list into
+alphabetical order and so reordering the merges. That was wrong, and the fix disproved it: after
+restoring the curated order the conflict **persisted**, and `refprec` sat before `trajectory` in
+*both* orderings, so the relative order of the rows involved never changed. Diagnosis published
+before it was tested; the order change was a real improvement for other reasons and is kept, but
+it was not this.
+
+**The actual cause is my own brief.** `of3t-direct`'s AMENDMENT 1 told it: *"If `wk/of3t` still
+conflicts there, build on `wk/of3t-trajectory` directly and say which base you used."* It did. So
+`of3t-direct`'s branch carries `perf/of3t_trajectory/agreement.py` at trajectory's **then-current**
+revision — and `direct` merges before `trajectory`, which has since moved on (`702c49637`, the
+model-norm tolerance from D78). The older copy lands first and the owner's newer one conflicts.
+That is why the conflict appeared in a file inside `of3t-trajectory`'s **own** namespace, which a
+row cannot do to itself.
+
+**Fixed** by adding `trajectory` to `ROWS_FLOOR` now that it has concluded — which is exactly what
+the derivation's own NOTE instructs (*"Add it to the floor once the row concludes"*) — so it merges
+in curated position **before** the appended `direct` and `refprec`. The general rule the
+composition needs: **a row merges before any row that was told to base on it.**
+
+**Worth keeping as the shape of the mistake.** When D77 left the composition unmergeable I routed
+around it by telling the next row to base on an unmerged branch. That unblocked the row and bought
+a second conflict, one step further from the cause. Routing around an unresolved merge propagates
+it. Owner: `of3t-orchestrator`. **FIXED** at pass 175.
+
+
+D74's fix derived the composition's row list from the briefs and took the union with the old
+hand-written floor via `sort -u`. Deterministic — and **alphabetical**, which threw away
+information the hand-written string carried: **the order rows were chartered**, so that an earlier
+row's version of a shared file lands before a later row's.
+
+The consequence, on the fourth compose of pass 175:
+
+    CONFLICT (content): Merge conflict in perf/of3t_diffusion/device_gradient.py
+    CONFLICT (content): Merge conflict in perf/of3t_trajectory/agreement.py
+    CONFLICT merging of3t-trajectory
+
+The second file is in **`of3t-trajectory`'s own namespace**. Alphabetical order put `refprec`
+ahead of `trajectory`, and refprec's branch carries an older copy of `agreement.py` picked up
+through a `wk/of3t` merge, so the older copy landed first and the owner's newer one conflicted with
+it. A row cannot conflict with itself over its own file unless the merge order is wrong.
+
+**Fixed**: `ROWS_FLOOR` keeps its curated order and rows known only from a brief are appended
+after it, sorted among themselves only for determinism. `of3t-trajectory` now merges **last**,
+which is what a newest row should do.
+
+**Worth keeping, because it is the shape of the mistake and not the mistake.** D74 was a real
+defect and the fix was right in substance: derive the list, ratchet it, announce both asymmetries.
+But "deterministic" is not "correct" — `sort -u` replaced a hand-maintained list that was *stale*
+with a generated list that was *misordered*, and traded a silent omission for a loud conflict in a
+place that made no sense. **When you replace a hand-written constant with a derived one, ask what
+the hand-written version encoded besides its contents.** Order, here. Owner:
+`of3t-orchestrator`. **FIXED** at pass 175.
+
+### D82. zero of D72's three AT-OR-BETTER scopes survive the direct test, and the one that "passes" is void under A18. UNFIXED.
+
+`of3t-direct` measured all three of D72's AT-OR-BETTER scopes — **41.0210 %** of the model —
+directly against upstream's own bf16 training gradient, each against **its own** floor and norm
+ratio (they span 6.253168e-02 to 2.393700e-01, a **3.8x** spread, so the whole-model 5.852018e-02
+could not be borrowed):
+
+    scope                    floor          r          floor/r        headline / (floor/r)
+    diffusion_conditioning   6.253168e-02   1.007414   6.207150e-02   1.0414   DOES NOT SURVIVE
+    msa_module               1.787604e-01   1.059736   1.686838e-01   1.3398   DOES NOT SURVIVE
+    aux_heads                2.393700e-01   1.013635   2.361502e-01   0.9994   "survives" by 0.06 %
+
+**And the one that survives carries nothing.** `aux_heads.distogram.linear.weight` is
+**100.0000 %** of that section's mass, so its mass-weighted headline *is one tensor*. The median
+over tensors is **1.461326e+00**, **176 of 176** measurable tensors are past the 5.0e-02 per-tensor
+bar, and — decisively — **A18's forward discriminator FAILS at 3.6515e-01 on `plddt_logits`**
+against a 5.0e-02 bar. **A18's first clause is that a disagreeing forward invalidates the
+gradient.** So the pass is void on the campaign's own protocol, not merely thin.
+
+**So D72's optimistic reading is now fully retracted**, not partially: every scope it read as AT OR
+BETTER fails the direct test, and the only scope on the whole record that genuinely survives is
+`diffusion_module.layer_norm_a` at **0.2666 %** of the model (0.95x, `of3t-trajectory`).
+
+**The 0.06 % margin is also a lesson about thresholds.** `aux_heads` sits 0.06 % under its
+threshold, and the division by `r` — which `of3t-direct` had to add because `agreement.py` used one
+scope's constant for all scopes — **is 5.6 % on `msa_module` and decides the branch on
+`aux_heads`**. A threshold correction smaller than a percent changing a verdict is the signature of
+a scope that has no margin, and A23 already says why: when one tensor is a section's entire mass,
+that section has one measurement, not 244.
+
+**Read under A25**, these are not the same kind of failure. `conditioning` is **7.95x MORE
+accurate** than upstream's own step and fails by direction (cos -0.273). `msa_module` at 1.3398x is
+*larger than either distance from float64*. `aux_heads` has a broken forward, so no gradient
+statement about it means anything. Owner: `of3t-orchestrator`. **UNFIXED** — the retraction is
+recorded; what closes it is a port fix, not a measurement.
