@@ -5935,3 +5935,13 @@ rel.** `r ≈ 19.5, cos ≈ 1` is a scale; `r ≈ 1, cos ≈ 0` is a wrong trans
 them apart, which is a lesson this campaign has already paid for twice. Brief amendment 2 went to
 `of3t-conditioning` with the eliminations, so the row does not repeat the search.
 `perf/of3t_orchestrator/ADALN_BACKWARD_ELIMINATIONS.json`.
+
+**A dispatch I deliberately did not make, and why.** DiT block 8 is the largest unowned target
+(9.84053 % of the model) and it now carries the campaign's worst disagreement, so the reflex is
+to charter a row for it. I did not, for two reasons. First, the per-tensor dump already asked of
+`of3t-conditioning` answers block 8's question — scale or transform — **for all 24 blocks at
+once**, so a block-8 row chartered now would duplicate work that is about to arrive more cheaply.
+Second, qb2's four cards sit as two board pairs and both are half-occupied (`of3t-auxheads` on
+card 0, `of3t-conditioning` on card 2), so a third row would queue rather than run. The right
+sequence is dump first, then charter the block-scope row against whichever family the dump names.
+Recording it here so the next pass reads "not yet" rather than "overlooked".
