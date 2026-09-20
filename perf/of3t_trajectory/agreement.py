@@ -238,11 +238,15 @@ def main():
                 sets.append(stat(sub, f"section {sec}"))
         head = sets[0]
         rec = {"arm": arm_k, "reference": ref_k, "why": why, "sets": sets}
+        def f(x, spec=".6e"):
+            return "n/a" if x is None else format(x, spec)
+
         rec["headline"] = (
-            f"mass-weighted rel_l2 {head['mass_weighted_rel_l2']:.6e} over {head['n']} tensors "
-            f"holding {head['pct_of_model_mass']:.4f} % of the model's squared gradient norm; "
-            f"median over tensors {head['median_rel_l2_over_tensors']:.6e}, norm ratio "
-            f"{head['mass_weighted_norm_ratio']:.6f}, cos {head['mass_weighted_cos']:.6f}")
+            f"mass-weighted rel_l2 {f(head['mass_weighted_rel_l2'])} over {head['n']} tensors "
+            f"holding {f(head['pct_of_model_mass'], '.4f')} % of the model's squared gradient "
+            f"norm; median over tensors {f(head['median_rel_l2_over_tensors'])}, norm ratio "
+            f"{f(head['mass_weighted_norm_ratio'], '.6f')}, cos "
+            f"{f(head['mass_weighted_cos'], '.6f')}")
         out["pairs"][label] = rec
         side = args.sidecar_dir / f"per_tensor_{label}.json"
         side.write_text(json.dumps(
@@ -257,18 +261,26 @@ def main():
     h = out["pairs"]["DEVICE_vs_UPSTREAM_BF16"]["sets"][0]["mass_weighted_rel_l2"]
     ours_f64 = out["pairs"]["DEVICE_vs_FLOAT64"]["sets"][0]["mass_weighted_rel_l2"]
     if h < BF16_OWN_FLOOR:
-        branch = ("we reproduce upstream's actual training gradient to within its own distance "
-                  "from the ideal")
-    elif h < ours_f64:
-        branch = ("we do not reproduce it, and the number is the honest size of the gap in the "
-                  "only units that matter")
+        branch = ("mass-weighted below 5.852018e-02: we reproduce upstream's actual training "
+                  "gradient to within its own distance from the ideal")
+    elif h < 1.0:
+        branch = ("between the bar and ~1.0: we do not reproduce it, and the number is the "
+                  "honest size of the gap in the only units that matter")
+    elif h >= ours_f64:
+        branch = ("at or above the 7.5692 we read against float64: our error is roughly "
+                  "orthogonal to theirs, so being no further from float64 than they are was "
+                  "hiding a disagreement")
     else:
-        branch = ("our error is roughly orthogonal to theirs, so being no further from float64 "
-                  "than they are was hiding a disagreement")
+        branch = ("above ~1.0 but below our own distance from float64: we do not reproduce "
+                  "upstream's training gradient, and the number is the honest size of the gap "
+                  "in the only units that matter")
     out["PRE_REGISTERED_READING"] = {
         "headline_mass_weighted_rel_l2": h,
-        "bar": BF16_OWN_FLOOR,
+        "bar_upstreams_own_distance_from_float64": BF16_OWN_FLOOR,
         "our_distance_from_float64_on_this_scope": ours_f64,
+        "multiples_of_the_bar": h / BF16_OWN_FLOOR,
+        "what_moving_the_reference_from_float64_to_their_bf16_did_to_our_headline":
+            h / ours_f64,
         "branch": branch,
     }
     args.out.write_text(json.dumps(out, indent=1) + "\n")
