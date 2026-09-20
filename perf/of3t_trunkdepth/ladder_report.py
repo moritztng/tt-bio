@@ -80,7 +80,7 @@ def main() -> int:
         auto = sc.get("UPSTREAM_BF16AUTO", {})
         e = ours["mass_weighted"]["rel_l2"]
         f = floor["mass_weighted"]["rel_l2"]
-        ms = sum(l["share_of_compared_ref_mass"] for l in ours["by_leaf"]
+        ms = sum(l["share_of_compared_ref_mass"] for l in ours.get("by_leaf", [])
                  if l["leaf"] in SINGLE_TRACK_LEAVES)
         n = norms[str(k)]
         g = ig[f"b{k}"]
@@ -126,8 +126,10 @@ def main() -> int:
         per = {}
         for ck, clabel in CAND:
             cv = [float(r[ck]) for r in rows]
+            #: the depth index starts at 0 and a log-log fit needs positives. Shifting the
+            #: whole column so its minimum is 1 keeps the ranking, and therefore rho, exact.
             if min(cv) <= 0:
-                cv = [v - min(cv) + 1e-12 for v in cv]
+                cv = [v - min(cv) + 1.0 for v in cv]
             rho = spearman(cv, dv)
             span = max(cv) / min(cv) if min(cv) > 0 else float("inf")
             lcv = [math.log10(v) for v in cv]

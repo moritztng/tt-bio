@@ -29,9 +29,9 @@ one() {  # block tag [extra...]
 
 for x in "$@"; do
   case "$x" in
-    b*)     one "${x#b}" "DEV_${x}" ;;
-    break0) one 0  DEV_BREAK_b0  --permute-cot 20260920 ;;
+    break0)  one 0  DEV_BREAK_b0  --permute-cot 20260920 ;;
     break47) one 47 DEV_BREAK_b47 --permute-cot 20260920 ;;
+    b*)      one "${x#b}" "DEV_${x}" ;;
     *) echo "unknown arm $x"; exit 2 ;;
   esac
 done
