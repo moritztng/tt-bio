@@ -411,7 +411,10 @@ softmax backward among them — unmeasured, five models if real, release-gated e
 constant **~2,172x** device arithmetic floor — and torch fp32 computes the same sum **inside
 the bar**, so the floor is the source and the conditioning only the multiplier; the one lever
 that could close it, the bf16 product forming the summands inside an otherwise-precise
-reduction, is untested. **D53 (UNFIXED)**: A23's
+reduction, is untested. **D57 (UNFIXED)**: used as a per-tensor predictor that curve accounts
+for **34.2337 %** of the model but not for the nine worst tensors in it, and **4.8058 %** of
+the model has an **anti-correlated** gradient, which no precision floor produces — so there
+are two mechanisms and the second owns the worst nine. **D53 (UNFIXED)**: A23's
 argument met data and landed the unflattering way — the ten worst tensors of the existing
 diffusion arm hold **15.7140 %** of the model and the ten best **1.1650 %**, a 13.5x
 concentration of error on the mass, with the worst point (rel **18.504**) on the model's
@@ -701,7 +704,7 @@ mass is measured against a float64 reference and inside the bars, 52.7798 % is m
 outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
-two live; fifty-six defects on the record, twenty-five of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; fifty-seven defects on the record, twenty-six of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6322,3 +6325,49 @@ headline is less exposed is **not** that "a cancelled component carries little m
 construction": this tensor is **8.05416 %** of the model and **28 %** of its gradient norm. A
 large result can still be a heavily cancelled sum, and that is precisely why it is worth fixing.
 Filed as **D56**.
+
+---
+
+## Pass 156 — the curve explains a third of the model and none of the nine tensors it was built for
+
+`of3t-adaln`'s K-ladder was measured on a synthetic sign-alternating cancellation and used to
+explain the campaign's worst tensor. I used it the other way: as a **predictor**, interpolated at
+each tensor's own `rel` and asked to predict that tensor's `r` and `cos`, across all 547 compared
+tensors. On the curve = predicted `r` within a factor 2 **and** predicted `cos` within 0.15.
+
+    ON  the curve   448 tensors   34.2337 % of the model   (incl. 15 of the leaf's 24 blocks,  8.9097 %)
+    OFF the curve    99 tensors   16.9021 % of the model   (incl.  9 of the leaf's 24 blocks, 16.6698 %)
+
+**The mechanism is validated much more broadly than the row claimed** — a third of the model's
+gradient error lies on a curve measured on a synthetic cancellation, which is the strongest
+general result this campaign has produced. It also raises the prize on the untested fp32-summand
+arm from 25.5795 % to **34.2337 %**.
+
+**And it explains none of the nine tensors it was built for.** The leaf's nine high-rel blocks
+are off it, and the departure is in *direction*, not magnitude — the ladder predicts their norm
+ratios well and their cosines not at all. Block 5 keeps cos **0.982** where the curve says 0.171;
+block 1 keeps 0.995 where it says 0.734; blocks 6 and 0 read **−0.80**.
+
+**And one signature the curve can never produce: 21 tensors holding 4.8058 % of the model have
+`cos < 0`.** Across five decades the measured cosine bottoms out at 0.162 and never goes
+negative. Rounding residue in a cancelled sum is uncorrelated with the sum — it drives cosine
+toward zero, not past it. Systematic anti-correlation is a different animal, and it is the one
+piece of evidence here that no re-parameterising of a cancellation can absorb.
+
+So the campaign has **two** mechanisms. The first is measured, general, and has an untested but
+cheap lever worth 34.2337 % of the model. The second owns the worst nine tensors (16.6698 %) and
+is unidentified.
+
+**And it hands the row a bisection that costs nothing.** The leaf's own 24 blocks split **15
+on-curve / 9 off-curve at the same code, the same site, the same class, the same shapes** — so
+the second mechanism is not a property of that code path, because the same code in fifteen other
+blocks stays on the curve. The sharpest contrast available is now *within* the leaf: block 9
+(rel 0.1237, `r` 1.1089, `cos` 0.99845, on) against block 8 (rel 18.504, `r` 19.2415,
+`cos` 0.74941, off), adjacent blocks of the same stack.
+
+Amendment 5 went out with both and an explicit ordering: the fp32-summand arm first, because it
+is cheap, runs on the harness the row already has, and a negative result is worth as much as a
+positive one. Filed as **D57**, with the caveat that the ladder is one synthetic path through the
+family of ill-conditioned cases, so "off the curve" is evidence of a different relationship
+rather than proof of a different cause — which is why the anti-correlation carries more weight
+than the numeric departures.

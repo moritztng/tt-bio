@@ -3420,3 +3420,78 @@ Owner: `of3t-adaln` (brief amendment 4, sent while the row is live). **UNFIXED.*
 either way; the path is shared by four of the six AdaLN-constructing modules and is
 release-gated. Artifacts: `state/of3t-adaln.md`, `perf/of3t_adaln/`,
 `perf/of3t_orchestrator/CONDITIONING_AMPLIFIES_A_FLOOR_WE_CAN_MOVE.json`.
+
+---
+
+### D57. There are two mechanisms, not one: the measured conditioning curve accounts for 34.2337 % of the model but not for the nine worst tensors in it, and 4.8058 % of the model has an *anti-correlated* gradient, which a precision floor cannot produce. FOUND by `of3t-orchestrator`, pass 156. **UNFIXED.**
+
+`of3t-adaln`'s K-ladder was measured on a synthetic sign-alternating cancellation and used to
+explain the campaign's worst tensor. Used as a **predictor** instead — interpolated at each
+tensor's own `rel` and asked to predict that tensor's `r` and `cos`, across all 547 compared
+tensors — it splits the diffusion arm cleanly. (On the curve = predicted `r` within a factor 2
+**and** predicted `cos` within 0.15.)
+
+| | tensors | % of model | of which the failing leaf |
+|---|---|---|---|
+| **on** the curve | 448 | **34.2337** | 15 blocks, 8.9097 % |
+| **off** the curve | 99 | **16.9021** | 9 blocks, 16.6698 % |
+
+**Two things follow.**
+
+**The mechanism is validated far more broadly than it was claimed.** A third of the model's
+gradient error lies on a curve measured on a synthetic cancellation — the strongest general
+result this campaign has. It also raises the prize on the untested fp32-summand arm (D56) from
+25.5795 % to **34.2337 %**: closing the ~2,172x floor scales every on-curve tensor down by that
+factor at fixed K, moving a median rel near 0.17 to near 8e-05.
+
+**And it does not explain the tensors the campaign has been chasing.** Nine of the leaf's 24
+blocks are off the curve and they are the nine that matter. The departure is in **direction**,
+not magnitude — the ladder predicts the norm ratios well:
+
+| blk | rel | `r` (pred) | `cos` (pred) |
+|---|---|---|---|
+| 8 | 18.504 | 19.24 (22.26) | **0.749** (0.164) |
+| 7 | 5.307 | 5.20 (7.16) | **−0.014** (0.171) |
+| 5 | 4.542 | 5.52 (5.28) | **0.982** (0.171) |
+| 6 | 2.841 | 1.97 (3.63) | **−0.805** (0.305) |
+| 1 | 0.833 | 1.82 (1.72) | **0.995** (0.734) |
+
+Block 5 keeps cos 0.982 where the curve says 0.171; block 1 keeps 0.995 where it says 0.734;
+blocks 6 and 0 read −0.80. A cancellation floor produces a characteristic amount of direction
+loss for a given magnitude error. These do not have that relationship.
+
+**The signature the curve can never produce.** **21 tensors holding 4.8058 % of the model have
+`cos < 0`** — a gradient pointing *away* from the reference. Across five decades the measured
+cosine bottoms out at **0.162** and never goes negative. Rounding residue accumulated into a
+cancelled sum is uncorrelated with the sum; it drives cosine toward zero, not past it.
+Systematic anti-correlation is not a precision floor.
+
+**The bisection this creates, and it is free.** The leaf's own 24 blocks split **15 on-curve /
+9 off-curve at the same code, the same site, the same class and the same shapes**, so the second
+mechanism is not a property of that code path — the same code in fifteen other blocks stays on
+the curve. The sharpest available contrast is now *within* the leaf: block 9 (rel 0.1237,
+`r` 1.1089, `cos` 0.99845, **on**) against block 8 (rel 18.504, `r` 19.2415, `cos` 0.74941,
+**off**) — adjacent blocks of the same stack. Measuring K at both settles in one arm whether
+block 8 is simply higher-K or something else.
+
+**Caveat on the instrument.** The ladder was measured on one synthetic path through the family
+of ill-conditioned cases, so it need not be quantitative for every real one, and "off the curve"
+is evidence of a different relationship rather than proof of a different cause. That is part of
+why the off-curve group is interesting rather than damning — and it is why the anti-correlation,
+which no amount of re-parameterising a cancellation produces, carries more weight than the
+numeric departures.
+
+**Status of the two-mechanism reading: STILL OPEN.** The *split* is a measurement — 448 on, 99
+off, at a stated criterion — and it stands. The *inference* that the off-curve group has a
+different cause is a hypothesis, neither confirmed nor refuted, and it must not be quoted as
+either. **What would settle it:** measuring K directly at blocks 8 and 9's real inputs. If block
+8's K is ~1.3e+06 and block 9's is ~7e+02 and both then land on the curve when plotted against
+their own measured K rather than against their rel, one mechanism explains everything and this
+entry is **refuted**. If block 8's measured K does not account for its departure, the second
+mechanism is **confirmed**. The anti-correlation is the part that survives either way: a
+cancellation floor has no way to produce cos = −0.80.
+
+Owner: `of3t-adaln` (brief amendment 5, sent while the row is live), which now has two things to
+do and an explicit ordering: the fp32-summand arm first because it is cheap and on an existing
+harness and a negative result is as valuable as a positive one, then the within-leaf 15-vs-9
+contrast. **UNFIXED.** Artifact: `perf/of3t_orchestrator/TWO_MECHANISMS_NOT_ONE.json`.
