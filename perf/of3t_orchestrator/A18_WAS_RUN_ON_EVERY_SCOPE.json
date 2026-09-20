@@ -1,0 +1,42 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "A18 was run on all four scopes, not skipped on any. It PASSES on the two that carry the campaign's 88.0820 % result -- the diffusion arm at 8.34e-03 and diffusion_conditioning at 2.6e-03 against a 5.0e-02 bar -- and FAILS on the two that are void, aux_heads at 3.6515e-01 and the pairformer trunk at 2.796859e-01. The guard did its job; it did not go unconsulted.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Each figure read from the row that measured it: of3t-diffusion (D30), of3t-conditioning, of3t-direct, of3t-pairformer. No new measurement.",
+ "scopes": [
+  {
+   "a18": "PASS",
+   "forward": "8.34e-03 per structure (0.85 %), against the 5.0e-02 bar",
+   "mass_pct": 51.1358,
+   "note": "and D30 is exactly the observation that a passing forward does not predict a passing gradient: the forward agreed to 0.85 % while the gradient was 1.6588e-01 out, a 19.6x backward cost over the forward it is taken at.",
+   "scope": "diffusion device arm",
+   "source": "D30, of3t-diffusion"
+  },
+  {
+   "a18": "PASS",
+   "forward": "fp32 (the arm the gradient is taken at): si 2.641455e-03, zij 2.629445e-03; worst of 48 noise levels 3.432350e-03. bf16 (shipped inference): si 2.542290e-03, zij 2.522024e-03, worst sample 4.979349e-03. Conditioned arm: fp32 si 2.674416e-03, zij 3.778416e-03.",
+   "mass_pct": 36.9462,
+   "note": "four readings, all inside A19's < 5.0e-02 branch. The row states the limit itself: this clears a NECESSARY condition and nothing more -- D9 measured a 3.2x gradient shift under a 12 % forward shift, so 2.6e-03 on the forward is not a prediction of 2.6e-03 on the gradient.",
+   "scope": "diffusion_module.diffusion_conditioning",
+   "source": "of3t-conditioning, run BEFORE any gradient"
+  },
+  {
+   "a18": "FAIL",
+   "forward": "3.6515e-01 on plddt_logits against the 5.0e-02 bar",
+   "mass_pct": 2.8431,
+   "note": "its gradient reading of 0.9994x threshold is therefore VOID, not a 0.06 % pass (D82). One tensor is also 100.0000 % of the section's mass.",
+   "scope": "aux_heads",
+   "source": "of3t-direct"
+  },
+  {
+   "a18": "FAIL",
+   "forward": "2.796859e-01 masked pair, 3.185052e-02 masked single over 48 composed blocks; unmasked 3.934466e-01 and 2.585252e-01",
+   "mass_pct": 5.8282,
+   "note": "its gradient reading of 1.061553e+01 is a forward-composition defect inheriting into the gradient, not an independent backward defect (D87). of3t-trunkfwd is live on whether this reaches shipped inference.",
+   "scope": "pairformer_stack",
+   "source": "of3t-pairformer"
+  }
+ ],
+ "the_honest_pattern": "not 'A18 was skipped' but 'A18 failing is how a scope gets voided, and two of six measured scopes were voided that way'. 8.6713 % of the model is void for a failing forward. That is a real and large number, and it belongs in the campaign's accounting as void rather than as measured -- which is how DISTANCE_TO_GO_AGAINST_THEIR_STEP.json already carries aux_heads.",
+ "what": "A18's status on every scope that carries a campaign result. A18: a disagreeing forward invalidates the gradient. I claimed at pass 175 that 'the campaign has been scoring gradients on scopes whose forwards were never checked to agree'. That claim is WRONG and this artifact is the check that refutes it.",
+ "what_i_got_wrong": "I wrote that the campaign 'has been measuring gradients on scopes whose forwards were never checked to agree' after seeing two A18 failures in one pass. Two failures is not evidence that the check was skipped -- it is evidence that the check RAN. Both scopes carrying the campaign's result had their forwards measured before their gradients, one of them across 48 noise levels and in both dtypes. Generalising a methodological failure from two failing results, without checking the passing ones, is the same error as reading a defect's blast radius off which scripts share a code path instead of measuring it (D86's sweep)."
+}
