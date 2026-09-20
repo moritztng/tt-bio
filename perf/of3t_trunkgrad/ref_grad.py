@@ -108,6 +108,7 @@ def main() -> int:
                          "cotangent back. `--first 23 --blocks 1` is block 23's backward ALONE, "
                          "with no chaining at all, which is what separates a wrong leaf-op "
                          "backward from an error the chain accumulates over 48 of them.")
+    ap.add_argument("--zero-pad", action="store_true", help="D28, quantitatively. Zero the PAD token positions of the captured input on BOTH sides instead of poisoning them. At this crop-64 boundary 99.76 %% of the pair input's squared mass sits on padded positions at block 0, so a LayerNorm weight gradient -- which sums over every position -- is formed almost entirely out of pad. The NaN discriminator cannot separate the sides because both propagate it; this can, because it changes the function identically on both sides and asks whether the DISAGREEMENT survives.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator, reference side. Poison the PAD token positions of "
                          "the captured input with NaN and count how many parameter gradients "
@@ -120,7 +121,7 @@ def main() -> int:
                          "sides are driven by the SAME captured cotangent, so this is the error "
                          "that block's backward hands to the block before it -- the per-block "
                          "chain error, which is the quantity a 48-deep stack compounds.")
-    ap.add_argument("--policy", default="f64", choices=("f64", "f32", "bf16auto"))
+    ap.add_argument("--policy", default="f64", choices=("f64", "f32", "bf16auto", "bf16pure"))
     ap.add_argument("--tb", default="keep", choices=("keep", "off", "on"))
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--boundary-check", default="",
@@ -162,6 +163,17 @@ def main() -> int:
 
     N = int(z_in.shape[1])
     real = int(single_mask.sum())
+    zero_pad_rep = None
+    if a.zero_pad:
+        pad = (single_mask.reshape(-1) <= 0)
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] = 0.0
+        z_in[:, pad, :] = 0.0
+        z_in[:, :, pad] = 0.0
+        zero_pad_rep = {"pad_rows": int(pad.sum()), "real_rows": real,
+                        "s_in_norm": float(s_in.norm()), "z_in_norm": float(z_in.norm())}
+        print(f"[{time.perf_counter()-t0:.0f}s] zero-pad: {int(pad.sum())} pad rows cleared, "
+              f"|s_in| {float(s_in.norm()):.6e} |z_in| {float(z_in.norm()):.6e}", flush=True)
     if a.nan_pad:
         pad = (single_mask.reshape(-1) <= 0)
         if not bool(pad.any()):
@@ -190,8 +202,15 @@ def main() -> int:
                "f32": "parameters and activations float32, no autocast",
                "bf16auto": "float32 parameters under torch.autocast('cpu', bfloat16) -- "
                            "upstream's own training recipe",
+               "bf16pure": "every parameter and every activation bfloat16, NO autocast. "
+                           "autocast keeps layer norms, softmaxes and reductions in float32 "
+                           "off its own op list; this arm takes that away and is therefore "
+                           "the upstream-side control for a stack whose arithmetic really is "
+                           "bf16 all the way down. The difference between this and bf16auto "
+                           "is exactly what autocast's float32 list is worth on this scope.",
            }[a.policy]}
 
+    rep["zero_pad"] = zero_pad_rep
     if a.boundary_check and (a.first, a.blocks) != (0, 48):
         raise SystemExit("--boundary-check pins the 0..47 crop-64 boundary; it does not "
                          "describe a single-block window")
@@ -211,7 +230,8 @@ def main() -> int:
         print(f"[{time.perf_counter()-t0:.0f}s] boundary bit-identical to {a.boundary_check}",
               flush=True)
 
-    dt = torch.float32 if a.policy in ("f32", "bf16auto") else torch.float64
+    dt = {"f32": torch.float32, "bf16auto": torch.float32,
+          "bf16pure": torch.bfloat16}.get(a.policy, torch.float64)
     sd = torch.load(CKPT, map_location="cpu", weights_only=False, mmap=True)
     if isinstance(sd, dict) and "state_dict" in sd and isinstance(sd["state_dict"], dict):
         sd = sd["state_dict"]

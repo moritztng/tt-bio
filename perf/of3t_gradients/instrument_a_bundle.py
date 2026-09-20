@@ -165,6 +165,7 @@ def main() -> int:
                          "padded rows the mask then kills, which breaks the run by emptying it "
                          "rather than by mispairing it. A comparison that cannot tell this "
                          "apart from the real run is not measuring agreement with anything.")
+    ap.add_argument("--zero-pad", action="store_true", help="D28, quantitatively. Zero the PAD token positions of the captured input on BOTH sides instead of poisoning them. At this crop-64 boundary 99.76 %% of the pair input's squared mass sits on padded positions at block 0, so a LayerNorm weight gradient -- which sums over every position -- is formed almost entirely out of pad. The NaN discriminator cannot separate the sides because both propagate it; this can, because it changes the function identically on both sides and asks whether the DISAGREEMENT survives.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator. Poison the PAD token positions of the captured "
                          "input with NaN and report how many parameter gradients come back NaN "
@@ -319,6 +320,18 @@ def main() -> int:
     else:
         perm_rep = None
 
+    if a.zero_pad:
+        if single_mask is None:
+            raise SystemExit("--zero-pad needs the single mask to know which rows are pad")
+        pad = (single_mask.reshape(-1) <= 0)
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] = 0.0
+        z_in[:, pad, :] = 0.0
+        z_in[:, :, pad] = 0.0
+        rep["zero_pad"] = {"pad_rows": int(pad.sum()), "real_rows": int((~pad).sum()),
+                           "s_in_norm": float(s_in.norm()), "z_in_norm": float(z_in.norm())}
+        print(f"[{time.perf_counter()-t0:.0f}s] zero-pad: {int(pad.sum())} pad rows cleared",
+              flush=True)
     if a.nan_pad:
         if single_mask is None:
             raise SystemExit("--nan-pad needs the single mask to know which rows are pad")
