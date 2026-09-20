@@ -1,0 +1,19 @@
+scored blocks [0, 1, 2, 3]   9.23 ms of fold time per MHz
+
+arm     folds   mean MHz   median    min    max
+base       96    1341.13   1341.1 1337.2 1343.9
+on         48    1341.18   1341.2 1338.7 1343.1
+
+mean AICLK gap (on - base) : +0.045 MHz
+  worth, at 9.23 ms/MHz : +0.0004 s of fold time
+  measured APB effect        : +0.0551 s
+  fraction attributable to clock : +0.8 %
+
+ block   base MHz    on MHz      gap  s explained
+     0    1340.79   1341.52   +0.729      +0.0067
+     1    1341.62   1341.68   +0.058      +0.0005
+     2    1341.22   1340.70   -0.517      -0.0048
+     3    1340.91   1340.82   -0.092      -0.0008
+
+VERDICT: CLOCK-CLEAN
+  the arms saw statistically the same clock, so the delta is the lever and not the governor. The effect stands as measured.
