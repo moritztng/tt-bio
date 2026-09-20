@@ -25,7 +25,7 @@ for run in A B; do
 done
 
 echo "=== PROTOCOL A13: is it reproduced? $(date -u +%FT%TZ) ==="
-"$PY" /home/ttuser/of3t-reopen-wt/perf/of3t_reference/compare_grads.py \
+"$PY" perf/of3t_reference/compare_grads.py \
     run/out_043_A/grads_f64.pt run/out_043_B/grads_f64.pt \
     --json-out run/reproduction_A13_043.json
 echo "=== A13 exit $? ==="
