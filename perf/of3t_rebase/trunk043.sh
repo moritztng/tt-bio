@@ -13,8 +13,12 @@ CARD=${CARD:-0}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-rebase
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 B=/home/ttuser/of3t_rebase/bundle_min_043
+# --scale-pair-bias on, explicitly. wk/of3t flipped the OF3 trunk default from True to False
+# during this row's passes (openfold3_trunk.py:154, of3t-pairbias' "land the mechanism, do not
+# flip the default"), and the arms being replaced were taken at True. `shipped` no longer means
+# what it meant when they were recorded, so the convention is pinned rather than inherited.
 COMMON=(--bundle "$B" --manifest-json "$B/MANIFEST.json" --cap /home/ttuser/of3t_rebase/cap043
-        --out-dir perf/of3t_rebase
+        --out-dir perf/of3t_rebase --scale-pair-bias on
         --capture-report perf/of3t_rebase/capture_trunk_boundary_043.json)
 
 for blk in 0 23 47; do
