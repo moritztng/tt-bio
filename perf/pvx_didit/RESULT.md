@@ -12,10 +12,10 @@ Arms folded on **qb1 card 1**, artifacts `perf/pvx_didit/` (mine alone).
 
 VERDICT: NO-GO on the premise. **The optimizations did not transfer.** Over the same 33-day window
 in which Boltz-2's 512 aa fold fell from 26.770 s to 17.839 s (**1.5006x**), Protenix-v2's fell from
-53.935 s to 51.188 s (**1.0537x**). Same card, same pinned clock, same instrument, same timed
-region, four clean sessions. Protenix kept 95 % of the time it had on 2026-08-15. The `78ed5a1e`
+53.894 s to 51.207 s (**1.0525x**). Same card, same pinned clock, same instrument, same timed
+region, seven clean sessions, two per Protenix arm. Protenix kept 95 % of the time it had on 2026-08-15. The `78ed5a1e`
 accurate-softmax fix that landed inside the window is not hiding a transfer either: it costs
-0.268 % of the fold, so the window's gross Protenix gain is 1.0565x instead of 1.0537x and the
+0.268 % of the fold, so the window's gross Protenix gain is 1.0557x instead of 1.0525x and the
 answer does not move.
 
 This is a NO-GO on the campaign's *opening premise* ("maybe we already transferred the
@@ -47,7 +47,9 @@ box verified idle before the first fold (loadavg 0.09, no other logged-in user).
 | arm | tree | commit | date | n | median | A/A floor | digest | plDDT |
 |---|---|---|---|---:|---:|---:|---|---:|
 | `ptx_old_s1` | Protenix at the published cell | `61d05cc5` | 2026-08-15 | 3 | **53.935 s** | 0.130 s (0.24 %) | `7cea4db45445d1f1` | 0.82857 |
+| `ptx_old_s2` | the same tree, second session | `61d05cc5` | 2026-08-15 | 3 | **53.853 s** | 0.054 s (0.10 %) | `7cea4db45445d1f1` | 0.82857 |
 | `ptx_new_s1` | Protenix on `origin/main` | `ec4b66412` | 2026-09-19 | 3 | **51.188 s** | 0.065 s (0.13 %) | `22bc3eaafd886c17` | 0.810638 |
+| `ptx_new_s2` | the same tree, second session | `ec4b66412` | 2026-09-19 | 3 | **51.227 s** | 0.054 s (0.11 %) | `22bc3eaafd886c17` | 0.810638 |
 | `b2_old_s1` | Boltz-2 at the published cell | `0d69dc1de` | 2026-08-17 | 3 | **26.770 s** | 0.185 s (0.69 %) | `a8f25b20002032a9` | n/a |
 | `b2_new_s1` | Boltz-2 on `origin/main` | `ec4b66412` | 2026-09-19 | 3 | **17.839 s** | 0.227 s (1.27 %) | `57995ebbbe68ff1a` | 0.844645 |
 
@@ -88,25 +90,35 @@ is **1.50-1.53x**. I take that row's 1.5326x as the better estimate, because thr
 beat one, and I record my 1.5006x beside it rather than averaging them into a new number nobody
 measured.
 
-PROTENIX-RATIO: **53.935 / 51.188 = 1.0537x. This is the answer, and it is a no.** Protenix-v2 took
-**2.747 s** out of its fold in the window that took **8.931 s** out of Boltz-2's. In proportion:
-Boltz-2 kept 66.6 % of its time, Protenix kept 94.9 %.
+PROTENIX-RATIO: **53.894 / 51.207 = 1.0525x. This is the answer, and it is a no.** Both Protenix
+arms carry two sessions, so the ratio is read across sessions rather than out of one:
 
-    if the window's Boltz-2 rate had reached Protenix:  53.935 / 1.5006 = 35.94 s
-    Protenix actually reads                                               51.19 s
-    unreached                                                             15.25 s
+| arm | session medians | mean of medians | cross-session spread |
+|---|---|---:|---:|
+| `61d05cc5` | 53.935 / 53.853 s | **53.894 s** | 0.082 s (0.152 %) |
+| `ec4b66412` | 51.188 / 51.227 s | **51.207 s** | 0.039 s (0.076 %) |
 
-The A/A floors make this unambiguous rather than marginal: the Protenix arms' floors are 0.13 %
-and 0.24 %, and the effect is **5.4 %**, twenty times the larger floor. A cross-session floor is
-weaker evidence than a within-session one, so `ptx_old_s2` and `ptx_new_s2` are queued as
-replicates; for the verdict to flip, both would have to move by twenty times anything either arm
-has shown.
+    53.894 / 51.207 = 1.0525x     pooled over all 12 folds: 53.879 / 51.227 = 1.0518x
+
+Protenix-v2 took **2.687 s** out of its fold in the window that took **8.931 s** out of Boltz-2's.
+In proportion: Boltz-2 kept 66.6 % of its time, Protenix kept 95.0 %.
+
+    if the window's Boltz-2 rate had reached Protenix:  53.894 / 1.5006 = 35.91 s
+    Protenix actually reads                                               51.21 s
+    unreached                                                             15.29 s
+
+The floors make this unambiguous rather than marginal. Within-session A/A is 0.10-0.24 % on the
+four Protenix sessions, and the cross-session floors are 0.152 % and 0.076 %; the effect is
+**5.25 %**, more than thirty times the larger of the two. For the verdict to flip, one arm would
+have to move by thirty times anything four sessions have shown. Both trees also returned **one
+digest across their six folds** (`7cea4db45445d1f1` and `22bc3eaafd886c17`), so neither drifted
+between its two sessions.
 
 **Why this was worth measuring even though `pvx-inventory` already screened it.** That row priced
 3 of 7 blocked levers bottom-up and bounded the lot at 1.056x. This row enumerates nothing: it
 folds the two trees. The two numbers are close, and the coincidence is worth stating carefully
 because it is easy to misread. **They are different quantities.** 1.056x is what Protenix *would*
-gain if every blocked shared lever fired; 1.0537x is what Protenix *did* gain in the window. They
+gain if every blocked shared lever fired; 1.0525x is what Protenix *did* gain in the window. They
 are not the same measurement and the closeness is not confirmation of either. What the top-down
 number does establish, and the screen could not, is that **no unenumerated lever is hiding in the
 window**: whatever the shared stack gave Boltz-2, 94.9 % of Protenix's fold did not receive it,
@@ -133,7 +145,8 @@ sites put back in their pre-`78ed5a1e` state:
 | `ptx_nosm_s1` | `ec4b66412` | forced off at both sites | 3 | **51.051 s** | 0.045 s (0.09 %) | `50f474e0aaf62e0f` | 0.810921 |
 
     accurate softmax costs   51.188 - 51.051 = 0.137 s = 0.268 % of the fold
-    window gain without it   53.935 / 51.051 = 1.0565x   against 1.0537x with it
+                             against the two-session mean 51.207 s it is 0.156 s = 0.306 %
+    window gain without it   53.894 / 51.051 = 1.0557x   against 1.0525x with it
 
 **The lever is counted, not read off a gate.** `TT_BIO_ACCURATE_SOFTMAX_AB=-protenix.trunk,-protenix.confidence`
 was verified in two independent ways. In the tree under test,
@@ -147,7 +160,7 @@ have reproduced `22bc3eaafd886c17`.
 
 0.268 % also agrees with what `78ed5a1e` measured for itself at 512 aa (+0.508 %), same order, and
 the two readings differ by less than the difference between the harnesses. **So the fix accounts
-for 0.137 s of the 15.25 s Protenix did not gain — 0.9 % of it.** The hypothesis that a
+for 0.137 s of the 15.29 s Protenix did not gain, 0.9 % of it.** The hypothesis that a
 correctness-driven slowdown masked a transfer is refuted, and refuted on the arm designed to
 support it.
 
@@ -170,4 +183,4 @@ than by shortfall. No merge, nothing flipped on `origin/main`, nothing to gate. 
 3. **`ec4b66412` is 1.86 % faster than `bd643929a` on Protenix, bit-exact.** That is
    `pvx-eligibility`'s landed lever showing up on a fold, which is the only thing this campaign
    has actually put on `origin/main` so far. `pvx-land` owns whether more of that exists.
-4. The window gave Protenix **2.747 s**. It is not nothing, and it is not a transfer.
+4. The window gave Protenix **2.687 s**. It is not nothing, and it is not a transfer.
