@@ -1,0 +1,573 @@
+{
+ "model": "openfold3",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "chip": "2",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-20T22:23:44Z",
+ "loadavg": [
+  3.69384765625,
+  2.43798828125,
+  1.3447265625
+ ],
+ "folds": [
+  {
+   "i": 0,
+   "fold_s": 35.104,
+   "plddt": 0.549222,
+   "n_tokens": 512,
+   "aiclk": {
+    "0": {
+     "min": 1312,
+     "max": 1350,
+     "median": 1350,
+     "n": 27
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1312 / median 1350 / max 1350 MHz over 27 samples, polled DURING the work",
+   "counters": {
+    "mm_dualnoc.STATS": [
+     440,
+     0
+    ],
+    "reblock_permute.STATS_BACK": [
+     440,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     880,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     192
+    ],
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "l1_blocks": 17160,
+     "blocks": 17600,
+     "l1": 440,
+     "fused": 17600,
+     "calls": 440,
+     "blocked": 440
+    },
+    "tenstorrent.LATCH_STATS": {
+     "bmm_cfg": {
+      "served": 95180,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "narrow_l1_out": {
+      "served": 408,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "transpose_l1": {
+      "served": 880,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "l1_out": {
+      "served": 912,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     }
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     12,
+     0
+    ],
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 12
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     428,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     232,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     440,
+     0
+    ],
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 440
+    },
+    "triatt_qkv.QKVGB_STATS": [
+     424,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     424,
+     0
+    ],
+    "triatt_qkv.REJECTS": {
+     "('head_dim_or_width', (512, 512, 64))": 16
+    },
+    "triatt_qkv.STATS": [
+     424,
+     16
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     424,
+     0
+    ],
+    "triatt_sdpa.FUSE_REJECTS": {
+     "site": 16,
+     "qkv_already_fused_with_gate": 424
+    }
+   },
+   "mm_keys": {
+    "mm_block_for kt=2 nt=12 tenstorrent.py:7157 hit": 32,
+    "mm_block_for kt=2 nt=2 tenstorrent.py:7157 hit": 16,
+    "mm_block_for kt=4 nt=17 tenstorrent.py:7157 hit": 424,
+    "mm_block_for kt=4 nt=17 triatt_qkv.py:396 hit": 424,
+    "mm_block_for kt=4 nt=4 triatt_qkv.py:330 hit": 424,
+    "mm_block_for kt=4 nt=4 triatt_qkv.py:403 hit": 848,
+    "qkv_mm_config kt=2 nt=12 mt=8192 served": 32,
+    "qkv_mm_config kt=2 nt=2 mt=8192 served": 16,
+    "qkv_mm_config kt=4 nt=17 mt=8192 served": 424
+   }
+  },
+  {
+   "i": 1,
+   "fold_s": 35.338,
+   "plddt": 0.549222,
+   "n_tokens": 512,
+   "aiclk": {
+    "0": {
+     "min": 1337,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1337 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "counters": {
+    "mm_dualnoc.STATS": [
+     440,
+     0
+    ],
+    "reblock_permute.STATS_BACK": [
+     440,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     880,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     192
+    ],
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "l1_blocks": 17160,
+     "blocks": 17600,
+     "l1": 440,
+     "fused": 17600,
+     "calls": 440,
+     "blocked": 440
+    },
+    "tenstorrent.LATCH_STATS": {
+     "bmm_cfg": {
+      "served": 142770,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "narrow_l1_out": {
+      "served": 612,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "transpose_l1": {
+      "served": 1320,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     },
+     "l1_out": {
+      "served": 1368,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+     }
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     12,
+     0
+    ],
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 12
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     428,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     232,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     440,
+     0
+    ],
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 440
+    },
+    "triatt_qkv.QKVGB_STATS": [
+     424,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     424,
+     0
+    ],
+    "triatt_qkv.REJECTS": {
+     "('head_dim_or_width', (512, 512, 64))": 16
+    },
+    "triatt_qkv.STATS": [
+     424,
+     16
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     424,
+     0
+    ],
+    "triatt_sdpa.FUSE_REJECTS": {
+     "site": 16,
+     "qkv_already_fused_with_gate": 424
+    }
+   },
+   "mm_keys": {
+    "mm_block_for kt=2 nt=12 tenstorrent.py:7157 hit": 32,
+    "mm_block_for kt=2 nt=2 tenstorrent.py:7157 hit": 16,
+    "mm_block_for kt=4 nt=17 tenstorrent.py:7157 hit": 424,
+    "mm_block_for kt=4 nt=17 triatt_qkv.py:396 hit": 424,
+    "mm_block_for kt=4 nt=4 triatt_qkv.py:330 hit": 424,
+    "mm_block_for kt=4 nt=4 triatt_qkv.py:403 hit": 848,
+    "qkv_mm_config kt=2 nt=12 mt=8192 served": 32,
+    "qkv_mm_config kt=2 nt=2 mt=8192 served": 16,
+    "qkv_mm_config kt=4 nt=17 mt=8192 served": 424
+   }
+  }
+ ],
+ "ttnn": "0.68.0",
+ "flags": {
+  "tenstorrent.TRIANGLE_MULT_CHUNK_SIZE": 32,
+  "tenstorrent.TRIANGLE_ATT_CHUNK_SIZE_FAST": 1024,
+  "tenstorrent.TRIANGLE_ATT_CHUNK_SIZE": 512,
+  "tenstorrent.OPM_CHUNK_SIZE": 256,
+  "tenstorrent.MSA_CHUNK_SIZE": 512,
+  "tenstorrent.OPM_ROW_CHUNK_BUDGET_BYTES": 1073741824,
+  "tenstorrent.PWA_SINGLE_SHOT_BYTES_BASE": 1395032064,
+  "tenstorrent.PWA_DEPTH_BUDGET_BYTES": 268435456,
+  "tenstorrent.OPM_Z_BUDGET_BYTES": 268435456,
+  "tenstorrent.SINGLE_SHOT_DRAM_NUM": 3,
+  "tenstorrent.SINGLE_SHOT_DRAM_DEN": 32,
+  "tenstorrent._OPM_SMALL_DEPTH": false,
+  "tenstorrent.OPM_SMALL_DEPTH_MAX": 8,
+  "tenstorrent.CONCAT_HOST_BYTES_BASE": 1610612736,
+  "tenstorrent.ATOM_PAIR_BUDGET_FRACTION": 4,
+  "tenstorrent.L1_TOTAL_BYTES_WORMHOLE": 100470528,
+  "tenstorrent.TRANSITION_W_CHUNK_SIZE": 1024,
+  "tenstorrent.SEQ_LEN_MORE_CHUNKING": 1536,
+  "tenstorrent.PAIR_ROW_BLOCK": 128,
+  "tenstorrent.TRIMUL_IN_NORM_ROWBLOCK_BYTES": 3221225472,
+  "tenstorrent.TRANSITION_BATCH_CHUNKING_THRESHOLD": 1024,
+  "tenstorrent.TRANSITION_W_CHUNKING_THRESHOLD": 1024,
+  "tenstorrent.SMALL_GRID_TRANSITION_ELEMS": 1179648,
+  "tenstorrent.SMALL_GRID_TRANSITION_MAX_C": 384,
+  "tenstorrent.TRANSITION_H_CHUNK_SIZE_FAST": 32,
+  "tenstorrent.TRANSITION_H_CHUNK_SIZE": 16,
+  "tenstorrent.TRANSITION_H_CHUNK_SIZE_BIG": 32,
+  "tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W": 384,
+  "tenstorrent._TRANSITION_L1_CHUNK_BYTES_BASE": 393216,
+  "tenstorrent._WH_MEASURED_L1_PER_CORE": 1466080,
+  "tenstorrent._BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE": 514756,
+  "tenstorrent._BH_TRANSITION_CHUNK_ELEMS": 3145728,
+  "tenstorrent._BH_TRANSITION_L1_ROWS_MAX_C": 128,
+  "tenstorrent.TRANSITION_L1_CHUNK_BYTES_PER_CORE": 514756,
+  "tenstorrent._TRANSITION_L1_ROWS": true,
+  "tenstorrent._UNFUSED_SILU": false,
+  "tenstorrent._FAST_MODE": false,
+  "tenstorrent._DIFFUSION_FP32_DEVICE": false,
+  "tenstorrent._FP32_SOFTMAX": false,
+  "tenstorrent._TRIMUL_RAW_CHANNEL_MOVES": false,
+  "tenstorrent._TRIMUL_MM_OUT": false,
+  "tenstorrent._TRIMUL_INPROJ_GROUP": 12,
+  "tenstorrent._TRIMUL_INPROJ_FUSED_BYTES": 1073741824,
+  "tenstorrent._PAIR_PROJ_BW": 16,
+  "tenstorrent._NARROW_PROJ_BW": 1,
+  "tenstorrent._PAIR_PROJ_L1_OUT": true,
+  "tenstorrent._TRIMUL_MASK_L1": true,
+  "tenstorrent._RESIDUAL_L1": true,
+  "tenstorrent._PAIR_PROJ_L1_BW": 16,
+  "tenstorrent._PAIR_BIAS_L1_NORM": true,
+  "tenstorrent._PWA_L1_NORM": true,
+  "tenstorrent._PWA_BATCH_HEAD_WEIGHTS": true,
+  "tenstorrent._PAIR_L1_CONSUMER_RESERVE": 655360,
+  "tenstorrent._TEMPLATE_L1_NORM": true,
+  "tenstorrent._TRIMUL_OUT_MOVE_DRAM": false,
+  "tenstorrent.TRIMUL_BACK_ONE_PASS_L1": true,
+  "tenstorrent._TRIMUL_BACK_ONE_PASS_L1": true,
+  "tenstorrent.TRIMUL_GATED_MOVE_L1": true,
+  "tenstorrent._TRIMUL_GATED_MOVE_L1": true,
+  "tenstorrent._TRIMUL_TAIL_L1": false,
+  "tenstorrent._TRIMUL_TAIL_L1_LIVE": 3,
+  "tenstorrent._TRIMUL_OUT_L1": false,
+  "tenstorrent.TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+  "tenstorrent.TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10": 704,
+  "tenstorrent.TRIANGLE_MULT_L1_MAX_SEQ": 352,
+  "tenstorrent.TRIANGLE_MULT_L1_CHUNK_BUDGET": 6553600,
+  "tenstorrent._IS_SMALL_GRID": false,
+  "tenstorrent._SUB_TILE_SLICE_WEDGES": true,
+  "tenstorrent._TRIMUL_CHUNK_CAP": 0,
+  "tenstorrent._TRIMUL_MIN_CHUNK": 32,
+  "tenstorrent.SMALL_GRID_TRIMUL_L1_MAX_SEQ": 0,
+  "tenstorrent.SDPA_CHUNK_TILE": 32,
+  "tenstorrent.SDPA_CHUNK_MAX": 256,
+  "tenstorrent.SMALL_GRID_SEQ_TILE": 0,
+  "tenstorrent.SMALL_GRID_PAIR_TILE_AREA": 0,
+  "tenstorrent.SMALL_GRID_MSA_TILE_AREA": 0,
+  "tenstorrent._WH_FULL_L1_PER_CORE": 1572864,
+  "tenstorrent.PAIRFORMER_PAD_MULTIPLE": 32,
+  "tenstorrent.MSA_PAD_MULTIPLE": 1024,
+  "tenstorrent.MAX_ATOMS_PER_TOKEN": 14,
+  "tenstorrent.ATOM_WINDOW": 32,
+  "tenstorrent.ATOM_DIM": 128,
+  "tenstorrent.ATOM_N_HEADS": 4,
+  "tenstorrent.ATOM_N_LAYERS": 3,
+  "tenstorrent.ATOM_KEY_SHIFT": 48,
+  "tenstorrent.TOKEN_DIM": 768,
+  "tenstorrent.TOKEN_N_HEADS": 16,
+  "tenstorrent.TOKEN_N_LAYERS": 24,
+  "tenstorrent.ATOM_BUCKET": 448,
+  "tenstorrent.COMPUTE_GRID_X_11": 11,
+  "tenstorrent.COMPUTE_GRID_X_13": 13,
+  "tenstorrent.COMPUTE_GRID_Y": 10,
+  "tenstorrent.COMPUTE_GRID_MEASURED": true,
+  "tenstorrent.ADALN_S_HOIST": true,
+  "tenstorrent._TEMPLATE_NOOP_GATE": true,
+  "tenstorrent._SDPA_GRID_Q_CHUNK": true,
+  "tenstorrent.SDPA_GRID_Q_CHUNK_CENSUS": false,
+  "tenstorrent._SDPA_DIV_K": true,
+  "tenstorrent._SDPA_BAND_DIV_K": false,
+  "tenstorrent._SDPA_WIDE_Q": true,
+  "tenstorrent._ATOM_PAD_IN_TILE": true,
+  "tenstorrent._ATOM_SHIFT_GATHER_OFF": false,
+  "tenstorrent._ATOM_AXIS_BUCKET": true,
+  "tenstorrent._B2_BIAS_SLICE_HOIST": true,
+  "tenstorrent._B2_ADALN_S_MEMO": true,
+  "tenstorrent._B2_DIT_COND_HOIST": true,
+  "tenstorrent._B2_TOKEN_DIT_SDPA": true,
+  "tenstorrent._APB_CONCAT_HEADS": false,
+  "tenstorrent._TRIATT_BIAS_B8": false,
+  "tenstorrent._TRIATT_B8": false,
+  "tenstorrent._SDPA_NARROW_Q_FALLBACK": false,
+  "tenstorrent._SDPA_RAGGED_PAD": true,
+  "tenstorrent._TRIATT_HIFI_MIN_S_PADDED": false,
+  "tenstorrent._SDPA_WIDE_K_DEFAULT": true,
+  "tenstorrent.SDPA_WIDE_K": true,
+  "tenstorrent._SDPA_WIDE_K_UP": false,
+  "tenstorrent._SDPA_FUSED_LARGE_S": true,
+  "tenstorrent._TRIATT_FUSED_HIFI": false,
+  "tenstorrent._TRIATT_FUSED_HIFI_MIN_S": 128,
+  "tenstorrent._TRIATT_DUALPROBE": false,
+  "tenstorrent._BATCHED_MATMUL_ON": true,
+  "tenstorrent._BATCHED_MATMUL_SATURATION_BLOCKS": 32,
+  "tenstorrent._FP32_ACC_TILE": 4096,
+  "tenstorrent._MATMUL_CB_SLACK": 131072,
+  "tenstorrent._FP32_SOFTMAX_BLOCK_BYTES": 8589934592,
+  "tenstorrent._NARROW_COMPACT": false,
+  "tenstorrent._FP32_SOFTMAX_FUSED_ADD": true,
+  "tenstorrent._SOFTMAX_CKC": false,
+  "tenstorrent._FP32_SOFTMAX_L1_BYTES_PER_CORE": 786432,
+  "tenstorrent._FP32_SOFTMAX_L1_LIVE_GRID": true,
+  "tenstorrent._FP32_SOFTMAX_FREE_REFUSAL_CAP": 2,
+  "tenstorrent.FP32_SOFTMAX_BIAS_HOIST": true,
+  "tenstorrent._FP32_SOFTMAX_L1_ANY_CORES": true,
+  "tenstorrent._FP32_SOFTMAX_L1_CORE_CAP": 110,
+  "tenstorrent._FP32_SOFTMAX_L1_FLOAT_CORES": true,
+  "tenstorrent._FP32_SOFTMAX_L1_PADDED": false,
+  "tenstorrent.PAIR_TRANSPOSE_VIA_ROW_MAJOR": true,
+  "tenstorrent._PT_ROW_MAJOR": true,
+  "tenstorrent.TRANSPOSE_L1_RESERVE_PER_CORE": 131072,
+  "tenstorrent._TRANSPOSE_L1_RESERVE_PER_CORE": 131072,
+  "tenstorrent.PAIR_BIAS_LN_CONSUMER_RESERVE": 393216,
+  "tenstorrent._PAIR_BIAS_LN_CONSUMER_RESERVE": 393216,
+  "tenstorrent._PAIR_BIAS_LN_CAP": true,
+  "tenstorrent._PAIR_BIAS_LN_RETRY": true,
+  "tenstorrent._PAIR_BIAS_TRACE": false,
+  "tenstorrent._TRIMUL_IN0_BLOCK_W_BAND": 10,
+  "tenstorrent.TRIMUL_MM_TRANSPOSE": true,
+  "tenstorrent._TRIMUL_MM_TRANSPOSE": true,
+  "tenstorrent.PAIR_PROJ_MINIMAL_MATMUL": true,
+  "tenstorrent._PAIR_PROJ_MM": true,
+  "tenstorrent._PAIR_FFN_FC1_BW": 1,
+  "tenstorrent._PAIR_FFN_FC1_BLOCK_W": 16,
+  "tenstorrent.WORMHOLE_MSA_AREA": 5242880,
+  "tenstorrent.BH_PAIR_SINGLE_PASS_MAX": 1024,
+  "tenstorrent.BH_PAIR_TILE_AREA": 524288,
+  "tenstorrent._TRIATT_CHUNK_L1_SPILL_BASE": 524288,
+  "tenstorrent.TRIATT_CHUNK_L1_SPILL_BYTES": 524288,
+  "tenstorrent.TRIMUL_TAIL_F1": true,
+  "tenstorrent._TRIMUL_TAIL_F1": true,
+  "tenstorrent.TRIMUL_TAIL_F1_L1_OUT": true,
+  "tenstorrent._TRIMUL_TAIL_F1_L1_OUT": true,
+  "tenstorrent.TRIMUL_FUSED_GOUT": true,
+  "tenstorrent._TRIMUL_FUSED_GOUT": true,
+  "tenstorrent.TRIMUL_MASK_AFTER_MOVE": true,
+  "tenstorrent._TRIMUL_MASK_AFTER_MOVE": true,
+  "tenstorrent.TRIMUL_INPROJ_ROWBLOCK": false,
+  "tenstorrent._TRIMUL_INPROJ_ROWBLOCK": false,
+  "tenstorrent._TRIMUL_INPROJ_ROWBLOCK_R": 128,
+  "tenstorrent.TRIMUL_GP_BANK_SPLIT": true,
+  "tenstorrent._TRIMUL_GP_BANK_SPLIT": true,
+  "tenstorrent.QKV_MM_CONFIG": true,
+  "tenstorrent._MM_CFG": true,
+  "reblock_permute.TILE_H": 32,
+  "reblock_permute.TILE_W": 32,
+  "reblock_permute.FACE_H": 16,
+  "reblock_permute.FACE_W": 16,
+  "reblock_permute.GROUP_TILES": 32,
+  "reblock_permute.IN_CB": 0,
+  "reblock_permute.OUT_CB": 16,
+  "reblock_permute.STAGE_CB": 24,
+  "reblock_permute.REBLOCK_CORES": 0,
+  "reblock_permute._NO_WRAP": 4294967295,
+  "reblock_permute.L1_N_MIN": 288,
+  "reblock_permute.L1_N_MAX": 352,
+  "reblock_permute.REBLOCK_PERMUTE": true,
+  "reblock_permute._ENABLED": true,
+  "reblock_permute.REBLOCK_PERMUTE_BACK": true,
+  "reblock_permute._ENABLED_BACK": true,
+  "reblock_permute.GATE_GRANULARITY": 2,
+  "reblock_permute.P_CB": 0,
+  "reblock_permute.G_CB": 1,
+  "reblock_permute.SIG_CB": 2,
+  "reblock_permute.MUL_CB": 3,
+  "reblock_permute.GATE_FP32_ACC": false,
+  "reblock_permute.GATE_SKIP_SIGMOID": false,
+  "reblock_permute.REBLOCK_PERMUTE_GATED": true,
+  "reblock_permute._ENABLED_GATED": true,
+  "triatt_qkv.TILE": 32,
+  "triatt_qkv.TRIATT_HEAD_MAJOR_QKV": true,
+  "triatt_qkv._ENABLED": true,
+  "triatt_qkv.TRIATT_HEAD_MAJOR_TAIL": true,
+  "triatt_qkv._TAIL_ENABLED": true,
+  "triatt_qkv.TRIATT_TAIL_OVER_L1": true,
+  "triatt_qkv._TAIL_OVER_L1": true,
+  "triatt_qkv.TRIATT_FUSED_QKVG": true,
+  "triatt_qkv._QKVG_ENABLED": true,
+  "triatt_qkv.TRIATT_FUSED_QKVGB": true,
+  "triatt_qkv._QKVGB_ENABLED": true,
+  "triatt_sdpa.TRIATT_PERSISTENT_MASK": true,
+  "triatt_sdpa._ENABLED": true,
+  "triatt_sdpa._Q_SPLIT": true,
+  "triatt_sdpa._Q_SPLIT_MAX_S": 1024,
+  "triatt_sdpa.TRIATT_GATE_EPILOGUE": false,
+  "triatt_sdpa._GATE_EPILOGUE": false,
+  "triatt_sdpa._FUSE_QKV": false,
+  "trimul_tail.TILE": 32,
+  "trimul_tail.PASSES": 2,
+  "trimul_tail.ROUND": 2,
+  "trimul_tail.SKIP_SIGMOID": 0,
+  "esmfold2._STEP_CACHE": true,
+  "esmfold2.C_Z": 256,
+  "esmfold2.PAD_MULTIPLE": 32,
+  "esmfold2._TRANSITION_FALLBACK_ROWS": 384
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "counter_modules": [
+  "tt_bio.align",
+  "tt_bio.boltzgen",
+  "tt_bio.boltzgen.model",
+  "tt_bio.boltzgen.model.geometry",
+  "tt_bio.cache",
+  "tt_bio.capabilities",
+  "tt_bio.core_split",
+  "tt_bio.data",
+  "tt_bio.data.const",
+  "tt_bio.data.mol",
+  "tt_bio.data.msa",
+  "tt_bio.data.pad",
+  "tt_bio.data.parse",
+  "tt_bio.data.pdb",
+  "tt_bio.data.types",
+  "tt_bio.data.write",
+  "tt_bio.data.yaml_input",
+  "tt_bio.device_lease",
+  "tt_bio.dispatch",
+  "tt_bio.distributed",
+  "tt_bio.eltwise_fusion",
+  "tt_bio.energy",
+  "tt_bio.envflags",
+  "tt_bio.esmc",
+  "tt_bio.esmfold2",
+  "tt_bio.main",
+  "tt_bio.mm_generic",
+  "tt_bio.openfold3",
+  "tt_bio.openfold3_atom_transformer",
+  "tt_bio.openfold3_confidence",
+  "tt_bio.openfold3_diffusion",
+  "tt_bio.openfold3_diffusion_decoder",
+  "tt_bio.openfold3_diffusion_module",
+  "tt_bio.openfold3_diffusion_transformer",
+  "tt_bio.openfold3_fold",
+  "tt_bio.openfold3_msa_embedder",
+  "tt_bio.openfold3_sample_diffusion",
+  "tt_bio.openfold3_template",
+  "tt_bio.openfold3_trunk",
+  "tt_bio.openfold3_weights",
+  "tt_bio.ops",
+  "tt_bio.progress",
+  "tt_bio.protenix_weights",
+  "tt_bio.reblock_permute",
+  "tt_bio.runtime",
+  "tt_bio.sdpa_generic",
+  "tt_bio.size_limits",
+  "tt_bio.tenstorrent",
+  "tt_bio.token_axis",
+  "tt_bio.triatt_qkv",
+  "tt_bio.triatt_sdpa",
+  "tt_bio.trimul_tail",
+  "tt_bio.weights",
+  "tt_bio.worker"
+ ],
+ "load_s": 1.72,
+ "cold_s": 38.178,
+ "n_tokens": 512
+}
