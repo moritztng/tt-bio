@@ -1846,22 +1846,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-17",
+      "recorded": "2026-09-20",
       "host": "tt-quietbox2",
-      "commit": "679b9ab4c",
+      "commit": "0451345c8",
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-09-17",
+          "recorded": "2026-09-20",
           "host": "tt-quietbox2",
-          "commit": "679b9ab4c",
+          "commit": "0451345c8",
           "runtime_s": {
-            "256": 4.64,
-            "512": 7.4,
-            "640": 9.45,
-            "768": 12.58,
-            "896": 17.28,
-            "1024": 22.9
+            "256": 5.0,
+            "512": 8.23,
+            "640": 9.8,
+            "768": 13.53,
+            "896": 17.61,
+            "1024": 24.47
           },
           "levers": {
             "256": {
@@ -1917,13 +1917,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2308,
+                "declined": 2114,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 2308
+                  "memory": 2114
                 },
-                "reason": "declines all 2308 calls on memory x2308: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
+                "reason": "declines all 2114 calls on memory x2114: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -1996,37 +1996,37 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 770,
-                "declined": 3842,
-                "frac": 0.16695576756287944,
+                "served": 0,
+                "declined": 7684,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
-                }
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
+                },
+                "reason": "declines all 7684 calls on window_BufferType.L1 x3842, gated_window_BufferType.L1 x1921, back_l1_src_narrow x1921: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 192,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: _channel_move_back is only called on the large-L DRAM path, and at 276 tokens the chunk is L1-resident and keeps the single permute. It serves all 96 calls from 512 up"
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 3842 calls on exactly that clause. It serves 192 per fold from 512 aa up."
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2296,11 +2296,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3842,
+                "declined": 7684,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
                 },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
@@ -2596,11 +2598,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3842,
+                "declined": 7684,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
                 },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
@@ -2894,11 +2898,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3842,
+                "declined": 7684,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
                 },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
@@ -3192,11 +3198,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3842,
+                "declined": 7684,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
                 },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung."
               },
@@ -3491,11 +3499,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3842,
+                "declined": 7684,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 3842
+                  "gated_window_BufferType.L1": 1921,
+                  "window_BufferType.L1": 3842,
+                  "back_l1_src_narrow": 1921
                 },
                 "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung."
               },
@@ -3659,23 +3669,27 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0028,
+          "sigma_runtime_512": 0.0252,
           "exponents": {
             "256->512": {
-              "k": 0.673,
+              "k": 0.719,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.309,
+              "k": 1.226,
               "tol": 0.5
             }
           },
+          "sigma_runtime": {
+            "256": 0.0882,
+            "512": 0.0252
+          },
           "exponents_measured": {
-            "256->512": 0.673,
-            "512->640": 1.096,
-            "640->768": 1.569,
-            "768->896": 2.059,
-            "896->1024": 2.109
+            "256->512": 0.719,
+            "512->640": 0.782,
+            "640->768": 1.769,
+            "768->896": 1.71,
+            "896->1024": 2.464
           }
         }
       }
