@@ -101,6 +101,14 @@ def main() -> int:
                         "bounds MORE than the transition and is therefore an upper bound on "
                         "what the transition can contribute. Each verb's intercept count is "
                         "published and a zero is a hard failure.")
+    p.add_argument("--softmax-site-f64", action="store_true", dest="softmax_site_f64",
+                   help="the SUPPORTED host float64 softmax path, selected the way a model "
+                        "selects it: `TT_BIO_HOST_F64_SOFTMAX_AB=all`, resolved per construction "
+                        "site by `tenstorrent.host_f64_softmax_site`. Unlike --softmax-f64 this "
+                        "patches nothing -- the arm runs the shipped call sites with the site "
+                        "flag on, so what it measures is the code path rather than a rule "
+                        "installed over the tape verb. `HOST_F64_SOFTMAX_STATS` is published and "
+                        "a zero served count is a hard failure.")
     p.add_argument("--verb-census", action="store_true", dest="verb_census",
                    help="count every tape verb without changing any arithmetic, so the cost "
                         "of a bound is known before it is paid")
@@ -109,6 +117,13 @@ def main() -> int:
                         "which localises a forward gap instead of reporting it")
     a = p.parse_args()
     t0 = time.perf_counter()
+
+    # Before the first tt_bio import: `host_f64_softmax_site` is resolved at module CONSTRUCTION,
+    # so an environment set after the modules are built decides nothing. The arm names the env
+    # var the models read rather than reaching into the selector, because a flag that only this
+    # harness can set is not the code path.
+    if a.softmax_site_f64:
+        os.environ["TT_BIO_HOST_F64_SOFTMAX_AB"] = "all"
 
     import torch
     import ttnn
@@ -753,6 +768,9 @@ def main() -> int:
                 for i, (v, ok, s) in enumerate(trace) if not ok),
                ("ALL FINITE" if trace else None)),
            "softmax_calls_intercepted": softmax_calls[0],
+           "softmax_site_f64": bool(a.softmax_site_f64),
+           "host_f64_softmax_stats": dict(T.HOST_F64_SOFTMAX_STATS),
+           "host_f64_softmax_ab": os.environ.get("TT_BIO_HOST_F64_SOFTMAX_AB") or None,
            "host_f64_verbs": hf64_verbs or None,
            "host_f64_calls_intercepted": (
                {v: __import__("host_f64").CALLS.get(v, 0) for v in hf64_verbs}
@@ -802,6 +820,10 @@ def main() -> int:
     if a.ckc_census and softmax_calls[0] == 0:
         print("FAILED: --ckc-census saw 0 softmax calls, so the census is empty rather than "
               "informative", flush=True)
+        return 3
+    if a.softmax_site_f64 and T.HOST_F64_SOFTMAX_STATS["served"] == 0:
+        print("FAILED: --softmax-site-f64 served 0 softmax calls, so this arm is the shipped arm "
+              "under another name", flush=True)
         return 3
     if (a.softmax_f64 or a.softmax_lever) and softmax_calls[0] == 0:
         print(f"FAILED: {'--softmax-f64' if a.softmax_f64 else '--softmax-lever'} intercepted "
