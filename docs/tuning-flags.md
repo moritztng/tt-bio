@@ -17,10 +17,13 @@ output projections then run 1024 wide instead of 768. Those extra channels are z
 nothing, so the result is the same in exact arithmetic, but the projections round differently and
 the structure moves a little.
 
-Enabling it is worth roughly **+0.1 s a fold at 512 residues** on a p300c at a pinned 1350 MHz.
-That is a band rather than a figure: two interleaved sessions of 180 folds each read +0.1068 s and
-+0.1427 s, both positive, and neither separated the win from its own control's spread. **It is off
-because the win has not been resolved, not because anything is wrong with it.**
+Enabling it is worth roughly **+0.05 to +0.08 s a fold at 512 residues** on a p300c at a pinned
+1350 MHz. The win is real but small: across the two interleaved sessions that ran on a tree matching
+the arm they claimed, 12 of 14 paired blocks came out positive, while the same folds' base-against-base
+control split 5 of 14. The tightest session, the only one whose chip had an idle board-pair sibling for
+every fold, reads +0.0551 s against a control spread of 0.0314 s. **It is off because no single session
+has separated the win from its own control to the campaign's bar, not because anything is wrong with
+it.**
 
 It reaches Boltz-2 and Protenix-v2, and accuracy is measured on both. Boltz-2 moves 0.2244 Å
 all-atom against a 0.35 Å bar, on a fixture whose seed-to-seed scatter is 0.7998 Å. Protenix-v2
@@ -29,7 +32,8 @@ either way. The output does not depend on the core grid: the release gate's `l1-
 one digest across the native, 8x8 and narrow grids in both arms.
 
 `TT_BIO_APB_CONCAT_HEADS=0` is the default and the way back. The measurements are in
-`perf/c14_land/apb_grid_independence.md` and the session files beside it.
+`perf/c14_land/apb_grid_independence.md`, `perf/c14_land/apb_cross_session.json` and the session
+files beside them.
 
 ## `TT_BIO_ATOM_SHIFT_GATHER` — on
 
