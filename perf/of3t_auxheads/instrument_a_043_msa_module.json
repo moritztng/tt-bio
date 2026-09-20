@@ -1,0 +1,1580 @@
+{
+ "instrument": "instrument A at msa_module scope, 0.4.3 boundary",
+ "boundary": {
+  "file": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+  "n_tokens": 384,
+  "n_msa_rows": 2,
+  "transpose_bias": true
+ },
+ "bars": {
+  "per_tensor": 0.05,
+  "median": 0.02
+ },
+ "bijection": {
+  "n_device_weights": 195,
+  "n_named": 164,
+  "n_unnamed": 31,
+  "unnamed": [
+   [
+    "blocks.0.pair_stack.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.0.pair_stack.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.1.pair_stack.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.2.pair_stack.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ]
+   ],
+   [
+    "blocks.3.pair_stack.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ]
+   ]
+  ]
+ },
+ "forward": {
+  "stage": "z_out",
+  "rel_l2": 0.9709359978245834,
+  "rel_l2_real_block": 0.008176476213472778,
+  "ref_norm": 16157800.913600853,
+  "our_norm": 3327700.6036767457
+ },
+ "gradient": {
+  "n_scored": 151,
+  "n_a14_excluded": 3,
+  "n_skipped": 10,
+  "mass_weighted_rel_l2": 0.16211265740946065,
+  "median_rel_l2": 0.0801893082554809,
+  "mass_inside_per_tensor_bar": 0.2522863116690145,
+  "n_over_bar": 130,
+  "worst": {
+   "name": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight",
+   "path": "blocks.3.pair_stack.triangle_attention_start.layer_norm_weight",
+   "rel_l2": 1.6438564440075256,
+   "ref_norm": 0.020647525620953257,
+   "our_norm": 0.052675150727954576,
+   "ref_sq": 0.00042632031426792136
+  },
+  "heaviest": [
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+    "path": "blocks.0.pair_stack.transition_z.norm_bias",
+    "rel_l2": 0.09758230273302576,
+    "ref_norm": 0.19799605777300222,
+    "our_norm": 0.19518721754290602,
+    "ref_sq": 0.039202438893650035
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.layer_norm.bias",
+    "path": "blocks.0.opm.norm_bias",
+    "rel_l2": 0.10152773987618464,
+    "ref_norm": 0.12975910576841304,
+    "our_norm": 0.12902505440837467,
+    "ref_sq": 0.0168374255298182
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.0.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.0411097771091538,
+    "ref_norm": 0.10894638396672134,
+    "our_norm": 0.10791849593252338,
+    "ref_sq": 0.011869314579424275
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.3.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.0074746646460353335,
+    "ref_norm": 0.09425127226752462,
+    "our_norm": 0.09475826337188058,
+    "ref_sq": 0.008883302324047056
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.layer_norm.bias",
+    "path": "blocks.1.opm.norm_bias",
+    "rel_l2": 0.05732508236776217,
+    "ref_norm": 0.08843011526981819,
+    "our_norm": 0.0884100948115067,
+    "ref_sq": 0.007819885286633334
+   }
+  ],
+  "a14_excluded": [
+   {
+    "name": "msa_module.blocks.0.msa_att_row.layer_norm_z.bias",
+    "ref_norm": 6.431879656934261e-18
+   },
+   {
+    "name": "msa_module.blocks.1.msa_att_row.layer_norm_z.bias",
+    "ref_norm": 2.6940978646200568e-18
+   },
+   {
+    "name": "msa_module.blocks.2.msa_att_row.layer_norm_z.bias",
+    "ref_norm": 4.746058473406854e-18
+   }
+  ],
+  "rows": [
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_start.layer_norm_weight",
+    "rel_l2": 1.6438564440075256,
+    "ref_norm": 0.020647525620953257,
+    "our_norm": 0.052675150727954576,
+    "ref_sq": 0.00042632031426792136
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.linear_g.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.g_out_weight",
+    "rel_l2": 1.4158580578974926,
+    "ref_norm": 0.00486451960192705,
+    "our_norm": 0.004858722768407289,
+    "ref_sq": 2.3663550957532517e-05
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.linear_z.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.out_p_weight",
+    "rel_l2": 1.4151762951423266,
+    "ref_norm": 0.005876705922594196,
+    "our_norm": 0.005907689177726294,
+    "ref_sq": 3.453567250065367e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.linear_g.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.g_out_weight",
+    "rel_l2": 1.4137476594608778,
+    "ref_norm": 0.002587874886947463,
+    "our_norm": 0.002607583229251464,
+    "ref_sq": 6.697096430493343e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_start.mha.linear_o.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_start.o_weight",
+    "rel_l2": 1.4134913360539465,
+    "ref_norm": 0.003252298767031493,
+    "our_norm": 0.0032278482767675244,
+    "ref_sq": 1.0577447270034561e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.linear_g.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.g_out_weight",
+    "rel_l2": 1.4126958541731054,
+    "ref_norm": 0.0018766239445047743,
+    "our_norm": 0.0018581370302123519,
+    "ref_sq": 3.5217174290886574e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.linear_z.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.out_p_weight",
+    "rel_l2": 1.4118648655402932,
+    "ref_norm": 0.0036031860108583003,
+    "our_norm": 0.003578620830677742,
+    "ref_sq": 1.2982949428844961e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_end.mha.linear_g.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_end.g_weight",
+    "rel_l2": 1.4111566186538453,
+    "ref_norm": 0.005419330391283963,
+    "our_norm": 0.005414625624817394,
+    "ref_sq": 2.936914188989403e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_end.mha.linear_o.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_end.o_weight",
+    "rel_l2": 1.4103616158058907,
+    "ref_norm": 0.002045688247920548,
+    "our_norm": 0.002025577956856094,
+    "ref_sq": 4.184840407680245e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.linear_z.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.out_p_weight",
+    "rel_l2": 1.4091394240550958,
+    "ref_norm": 0.005103905288175436,
+    "our_norm": 0.005104447297210079,
+    "ref_sq": 2.604984919066516e-05
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_end.mha.linear_g.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_end.g_weight",
+    "rel_l2": 1.4090767228548875,
+    "ref_norm": 0.0025948135309074257,
+    "our_norm": 0.0025563542387991725,
+    "ref_sq": 6.7330572601802684e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.linear_g.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.g_out_weight",
+    "rel_l2": 1.4077323304126157,
+    "ref_norm": 0.0035935967628029555,
+    "our_norm": 0.003573651796300467,
+    "ref_sq": 1.2913937693627882e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.linear_g.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.g_out_weight",
+    "rel_l2": 1.406985679672851,
+    "ref_norm": 0.0028724143634006765,
+    "our_norm": 0.002878418141294083,
+    "ref_sq": 8.250764275070513e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.linear_g.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.g_out_weight",
+    "rel_l2": 1.4059896709595954,
+    "ref_norm": 0.004118908191308899,
+    "our_norm": 0.00410315046692942,
+    "ref_sq": 1.6965404688431526e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.linear_z.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.out_p_weight",
+    "rel_l2": 1.4052882432370526,
+    "ref_norm": 0.0019401939805526625,
+    "our_norm": 0.001919838486698055,
+    "ref_sq": 3.764352682172781e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.linear_z.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.out_p_weight",
+    "rel_l2": 1.4052705791382958,
+    "ref_norm": 0.003122324204536428,
+    "our_norm": 0.003117713986674835,
+    "ref_sq": 9.748908438234031e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_end.mha.linear_o.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_end.o_weight",
+    "rel_l2": 1.4052039975334436,
+    "ref_norm": 0.0022029306281906498,
+    "our_norm": 0.00217427867235121,
+    "ref_sq": 4.8529033526204584e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.linear_z.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.out_p_weight",
+    "rel_l2": 1.404242613028239,
+    "ref_norm": 0.0057822533043225335,
+    "our_norm": 0.005758856943772442,
+    "ref_sq": 3.343445327534885e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.linear_g.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.g_out_weight",
+    "rel_l2": 1.4022355099919004,
+    "ref_norm": 0.006214145993690817,
+    "our_norm": 0.006177143497527919,
+    "ref_sq": 3.8615610430903615e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.linear_z.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.out_p_weight",
+    "rel_l2": 1.4013211806615955,
+    "ref_norm": 0.004452738347000305,
+    "our_norm": 0.004396637836681362,
+    "ref_sq": 1.9826878786847023e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_end.mha.linear_g.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_end.g_weight",
+    "rel_l2": 1.3995964801520306,
+    "ref_norm": 0.0023048801470191165,
+    "our_norm": 0.00226630926434109,
+    "ref_sq": 5.312472492122865e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_start.mha.linear_g.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_start.g_weight",
+    "rel_l2": 1.3989238645267088,
+    "ref_norm": 0.002174911253229112,
+    "our_norm": 0.002152630792536798,
+    "ref_sq": 4.73023895942263e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_start.mha.linear_g.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_start.g_weight",
+    "rel_l2": 1.3988211129371613,
+    "ref_norm": 0.003095665222621919,
+    "our_norm": 0.003019282164308616,
+    "ref_sq": 9.583143170550818e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.linear_g.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.g_out_weight",
+    "rel_l2": 1.398520832026812,
+    "ref_norm": 0.002747645487270898,
+    "our_norm": 0.0027514789703808372,
+    "ref_sq": 7.5495557237201255e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_start.mha.linear_o.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_start.o_weight",
+    "rel_l2": 1.3982814245705721,
+    "ref_norm": 0.0042877300696501025,
+    "our_norm": 0.0041718782931171195,
+    "ref_sq": 1.838462915018168e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_start.mha.linear_g.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_start.g_weight",
+    "rel_l2": 1.3980948515205647,
+    "ref_norm": 0.00240860166452776,
+    "our_norm": 0.002385894732254382,
+    "ref_sq": 5.8013619783659e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_end.mha.linear_o.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_end.o_weight",
+    "rel_l2": 1.3975867689324277,
+    "ref_norm": 0.0036990862658338127,
+    "our_norm": 0.0036157285695594676,
+    "ref_sq": 1.368323920208033e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_end.mha.linear_g.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_end.g_weight",
+    "rel_l2": 1.3941169205469275,
+    "ref_norm": 0.004156688169366147,
+    "our_norm": 0.004058849716901411,
+    "ref_sq": 1.7278056537348482e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.linear_z.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.out_p_weight",
+    "rel_l2": 1.3936556859903115,
+    "ref_norm": 0.0024265911528941675,
+    "our_norm": 0.002411314787606694,
+    "ref_sq": 5.888344623304244e-06
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_start.mha.linear_g.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_start.g_weight",
+    "rel_l2": 1.392865566806595,
+    "ref_norm": 0.007965219972713584,
+    "our_norm": 0.007726683979477669,
+    "ref_sq": 6.344472921371544e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_end.mha.linear_o.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_end.o_weight",
+    "rel_l2": 1.3922654832605301,
+    "ref_norm": 0.003320783264607555,
+    "our_norm": 0.00326671420067357,
+    "ref_sq": 1.1027601490497585e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_start.mha.linear_o.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_start.o_weight",
+    "rel_l2": 1.3915965186956427,
+    "ref_norm": 0.003403475176283598,
+    "our_norm": 0.0033124715093603993,
+    "ref_sq": 1.158364327557866e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_start.mha.linear_o.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_start.o_weight",
+    "rel_l2": 1.391534131938343,
+    "ref_norm": 0.002344137587411352,
+    "our_norm": 0.0023224422699004766,
+    "ref_sq": 5.494981028714712e-06
+   },
+   {
+    "name": "msa_module.blocks.0.msa_att_row.layer_norm_z.weight",
+    "path": "blocks.0.pwa.z_norm_weight",
+    "rel_l2": 1.0343086766449925,
+    "ref_norm": 0.0013043336897862069,
+    "our_norm": 0.001903753242917774,
+    "ref_sq": 1.7012863743113007e-06
+   },
+   {
+    "name": "msa_module.blocks.0.msa_att_row.linear_z.weight",
+    "path": "blocks.0.pwa.z_weight",
+    "rel_l2": 0.9484065964779729,
+    "ref_norm": 0.0034122045961979307,
+    "our_norm": 0.00487475186460688,
+    "ref_sq": 1.1643140206314276e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_start.layer_norm.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_start.layer_norm_weight",
+    "rel_l2": 0.570822477556625,
+    "ref_norm": 0.019835097277090864,
+    "our_norm": 0.010069692158601902,
+    "ref_sq": 0.00039343108399165735
+   },
+   {
+    "name": "msa_module.blocks.1.msa_att_row.linear_z.weight",
+    "path": "blocks.1.pwa.z_weight",
+    "rel_l2": 0.5596998556545398,
+    "ref_norm": 0.0023645267265595764,
+    "our_norm": 0.0027224432560349694,
+    "ref_sq": 5.590986640614548e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.bias",
+    "path": "blocks.3.pair_stack.triangle_attention_start.layer_norm_bias",
+    "rel_l2": 0.5216638480921216,
+    "ref_norm": 0.02685782074828665,
+    "our_norm": 0.02863608718664069,
+    "ref_sq": 0.0007213425353470968
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_end.layer_norm.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_end.layer_norm_weight",
+    "rel_l2": 0.39989424432349374,
+    "ref_norm": 0.015126214386846618,
+    "our_norm": 0.018076405648806044,
+    "ref_sq": 0.0002288023616768456
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_end.layer_norm.bias",
+    "path": "blocks.2.pair_stack.triangle_attention_end.layer_norm_bias",
+    "rel_l2": 0.32286557226899315,
+    "ref_norm": 0.026263724488741765,
+    "our_norm": 0.026333167752106895,
+    "ref_sq": 0.000689783224020534
+   },
+   {
+    "name": "msa_module.blocks.2.msa_att_row.linear_z.weight",
+    "path": "blocks.2.pwa.z_weight",
+    "rel_l2": 0.24365828637540943,
+    "ref_norm": 0.0014830807472884313,
+    "our_norm": 0.0015629089032796891,
+    "ref_sq": 2.1995285029776125e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.in_norm_weight",
+    "rel_l2": 0.23960030924323028,
+    "ref_norm": 0.005738314316046719,
+    "our_norm": 0.004816011131917808,
+    "ref_sq": 3.2928251189746724e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_end.layer_norm.weight",
+    "path": "blocks.0.pair_stack.triangle_attention_end.layer_norm_weight",
+    "rel_l2": 0.2275895512490097,
+    "ref_norm": 0.00806136072073854,
+    "our_norm": 0.007908925163654665,
+    "ref_sq": 6.498553666986618e-05
+   },
+   {
+    "name": "msa_module.blocks.1.msa_att_row.layer_norm_z.weight",
+    "path": "blocks.1.pwa.z_norm_weight",
+    "rel_l2": 0.20928174344382716,
+    "ref_norm": 0.002388153975759893,
+    "our_norm": 0.0024438078103128404,
+    "ref_sq": 5.703279411937784e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.in_norm_weight",
+    "rel_l2": 0.20427228879314482,
+    "ref_norm": 0.0065612364961908495,
+    "our_norm": 0.006897022991285974,
+    "ref_sq": 4.3049824358946774e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_start.layer_norm.bias",
+    "path": "blocks.0.pair_stack.triangle_attention_start.layer_norm_bias",
+    "rel_l2": 0.1608417479963326,
+    "ref_norm": 0.026537917290308428,
+    "our_norm": 0.02494008815308768,
+    "ref_sq": 0.000704261054107251
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.in_norm_weight",
+    "rel_l2": 0.1358719651511376,
+    "ref_norm": 0.005353380258030496,
+    "our_norm": 0.004843343144181874,
+    "ref_sq": 2.8658680187070654e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.pair_transition.linear_out.weight",
+    "path": "blocks.1.pair_stack.transition_z.fc3_weight",
+    "rel_l2": 0.10928854974964566,
+    "ref_norm": 0.006800304782598086,
+    "our_norm": 0.006667086221475758,
+    "ref_sq": 4.624414513622633e-05
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.layer_norm.weight",
+    "path": "blocks.0.opm.norm_weight",
+    "rel_l2": 0.10663851796147898,
+    "ref_norm": 0.035346308773550314,
+    "our_norm": 0.03358588153349945,
+    "ref_sq": 0.00124936154391516
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.1.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.10401449328545906,
+    "ref_norm": 0.021744157987803332,
+    "our_norm": 0.021195767844739633,
+    "ref_sq": 0.00047280840659855145
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.layer_norm.weight",
+    "path": "blocks.3.opm.norm_weight",
+    "rel_l2": 0.1019918955383972,
+    "ref_norm": 0.0072125484785403645,
+    "our_norm": 0.007563512039591853,
+    "ref_sq": 5.202085555529491e-05
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.layer_norm.bias",
+    "path": "blocks.0.opm.norm_bias",
+    "rel_l2": 0.10152773987618464,
+    "ref_norm": 0.12975910576841304,
+    "our_norm": 0.12902505440837467,
+    "ref_sq": 0.0168374255298182
+   },
+   {
+    "name": "msa_module.blocks.2.msa_transition.layer_norm.bias",
+    "path": "blocks.2.msa_transition.norm_bias",
+    "rel_l2": 0.10124763688030007,
+    "ref_norm": 0.008661128874750918,
+    "our_norm": 0.008689255119007862,
+    "ref_sq": 7.501515338504411e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "path": "blocks.0.pair_stack.transition_z.fc1_weight",
+    "rel_l2": 0.1011466937534486,
+    "ref_norm": 0.011354096207261102,
+    "our_norm": 0.011365974334855559,
+    "ref_sq": 0.000128915500683741
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "path": "blocks.0.pair_stack.transition_z.fc2_weight",
+    "rel_l2": 0.10063241498196127,
+    "ref_norm": 0.010298228226045964,
+    "our_norm": 0.01029692652942662,
+    "ref_sq": 0.00010605350459572972
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.linear_2.weight",
+    "path": "blocks.0.opm.b_weight",
+    "rel_l2": 0.10062062503016513,
+    "ref_norm": 0.014822420058673945,
+    "our_norm": 0.014819277081921534,
+    "ref_sq": 0.00021970413639577966
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_end.layer_norm.bias",
+    "path": "blocks.1.pair_stack.triangle_attention_end.layer_norm_bias",
+    "rel_l2": 0.09831804683567716,
+    "ref_norm": 0.019091580326135713,
+    "our_norm": 0.019597318202400186,
+    "ref_sq": 0.0003644884393492922
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+    "path": "blocks.0.pair_stack.transition_z.norm_bias",
+    "rel_l2": 0.09758230273302576,
+    "ref_norm": 0.19799605777300222,
+    "our_norm": 0.19518721754290602,
+    "ref_sq": 0.039202438893650035
+   },
+   {
+    "name": "msa_module.blocks.0.msa_transition.layer_norm.weight",
+    "path": "blocks.0.msa_transition.norm_weight",
+    "rel_l2": 0.09720215831715882,
+    "ref_norm": 0.014671523959001781,
+    "our_norm": 0.015599985703929944,
+    "ref_sq": 0.0002152536152795633
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_end.layer_norm.weight",
+    "path": "blocks.3.pair_stack.triangle_attention_end.layer_norm_weight",
+    "rel_l2": 0.09682732638234438,
+    "ref_norm": 0.010212870132429282,
+    "our_norm": 0.009713220591258665,
+    "ref_sq": 0.00010430271634186608
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_start.layer_norm.bias",
+    "path": "blocks.1.pair_stack.triangle_attention_start.layer_norm_bias",
+    "rel_l2": 0.09651096887951775,
+    "ref_norm": 0.01862157524781009,
+    "our_norm": 0.01851858892001793,
+    "ref_sq": 0.0003467630647098534
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.linear_out.weight",
+    "path": "blocks.0.opm.o_weight",
+    "rel_l2": 0.09562440074246129,
+    "ref_norm": 0.011411280063725496,
+    "our_norm": 0.011468799369063143,
+    "ref_sq": 0.000130217312692779
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.linear_out.bias",
+    "path": "blocks.0.opm.o_bias",
+    "rel_l2": 0.09430968767245172,
+    "ref_norm": 0.001643657673019979,
+    "our_norm": 0.0016326972242580377,
+    "ref_sq": 2.701610546077452e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "path": "blocks.1.pair_stack.transition_z.fc2_weight",
+    "rel_l2": 0.0929873351449871,
+    "ref_norm": 0.004327757641053873,
+    "our_norm": 0.004355793187531266,
+    "ref_sq": 1.8729486199700173e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "path": "blocks.1.pair_stack.transition_z.fc1_weight",
+    "rel_l2": 0.09162004706911489,
+    "ref_norm": 0.0038905599606319915,
+    "our_norm": 0.0038893789990491587,
+    "ref_sq": 1.5136456807272795e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.in_norm_weight",
+    "rel_l2": 0.09149348628689316,
+    "ref_norm": 0.0024224797171879626,
+    "our_norm": 0.0024453207561114226,
+    "ref_sq": 5.868407980187072e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_end.layer_norm.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_end.layer_norm_weight",
+    "rel_l2": 0.08920696384157827,
+    "ref_norm": 0.007851073060654596,
+    "our_norm": 0.008116816387832735,
+    "ref_sq": 6.163934820373632e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.2.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.08900501625894247,
+    "ref_norm": 0.02126474051356499,
+    "our_norm": 0.021374398043386995,
+    "ref_sq": 0.0004521891891092522
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.pair_transition.layer_norm.bias",
+    "path": "blocks.1.pair_stack.transition_z.norm_bias",
+    "rel_l2": 0.0865346279638784,
+    "ref_norm": 0.056443167989351485,
+    "our_norm": 0.0570920353743917,
+    "ref_sq": 0.0031858312126741527
+   },
+   {
+    "name": "msa_module.blocks.2.msa_transition.swiglu.linear_b.weight",
+    "path": "blocks.2.msa_transition.fc2_weight",
+    "rel_l2": 0.08647016251371285,
+    "ref_norm": 0.003117883761900429,
+    "our_norm": 0.003154808581629849,
+    "ref_sq": 9.721199152722404e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_start.layer_norm.bias",
+    "path": "blocks.2.pair_stack.triangle_attention_start.layer_norm_bias",
+    "rel_l2": 0.0857874463680306,
+    "ref_norm": 0.018355396128743564,
+    "our_norm": 0.018206493298553658,
+    "ref_sq": 0.0003369205670430942
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.out_norm_bias",
+    "rel_l2": 0.08567037545489774,
+    "ref_norm": 0.0028358940192642545,
+    "our_norm": 0.002810128306229989,
+    "ref_sq": 8.04229488849877e-06
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.linear_out.weight",
+    "path": "blocks.0.pair_stack.transition_z.fc3_weight",
+    "rel_l2": 0.08255525095372718,
+    "ref_norm": 0.019882173281797744,
+    "our_norm": 0.019839673250230803,
+    "ref_sq": 0.00039530081440743126
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.out_norm_bias",
+    "rel_l2": 0.08226434829245133,
+    "ref_norm": 0.00530239397785664,
+    "our_norm": 0.005418101065172303,
+    "ref_sq": 2.8115381896410363e-05
+   },
+   {
+    "name": "msa_module.blocks.2.msa_att_row.layer_norm_m.bias",
+    "path": "blocks.2.pwa.m_norm_bias",
+    "rel_l2": 0.0813933937726176,
+    "ref_norm": 0.009637383932840861,
+    "our_norm": 0.010079597192878318,
+    "ref_sq": 9.28791690689792e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.in_norm_bias",
+    "rel_l2": 0.0801893082554809,
+    "ref_norm": 0.013048435436982794,
+    "our_norm": 0.013206777027736708,
+    "ref_sq": 0.00017026166735310835
+   },
+   {
+    "name": "msa_module.blocks.2.msa_transition.swiglu.linear_a.weight",
+    "path": "blocks.2.msa_transition.fc1_weight",
+    "rel_l2": 0.0784501245016418,
+    "ref_norm": 0.0039200272466849515,
+    "our_norm": 0.003997236017927593,
+    "ref_sq": 1.5366613614752425e-05
+   },
+   {
+    "name": "msa_module.blocks.2.msa_att_row.layer_norm_z.weight",
+    "path": "blocks.2.pwa.z_norm_weight",
+    "rel_l2": 0.07780747893240336,
+    "ref_norm": 0.0013849825497874832,
+    "our_norm": 0.0014217019307312645,
+    "ref_sq": 1.9181766632158387e-06
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.out_norm_bias",
+    "rel_l2": 0.07766058377473221,
+    "ref_norm": 0.00615476660806142,
+    "our_norm": 0.006027830599572528,
+    "ref_sq": 3.7881151999707876e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.out_norm_weight",
+    "rel_l2": 0.07421320543485535,
+    "ref_norm": 0.0026267850340528126,
+    "our_norm": 0.0026021641185756026,
+    "ref_sq": 6.899999615123836e-06
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_att_end.layer_norm.bias",
+    "path": "blocks.0.pair_stack.triangle_attention_end.layer_norm_bias",
+    "rel_l2": 0.07380987808590977,
+    "ref_norm": 0.024896502077528596,
+    "our_norm": 0.025060236445149573,
+    "ref_sq": 0.0006198358156963857
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.linear_2.weight",
+    "path": "blocks.2.opm.b_weight",
+    "rel_l2": 0.07257101329798264,
+    "ref_norm": 0.007288914364138894,
+    "our_norm": 0.007356844768285564,
+    "ref_sq": 5.312827260775031e-05
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.linear_2.weight",
+    "path": "blocks.3.opm.b_weight",
+    "rel_l2": 0.07098830473244608,
+    "ref_norm": 0.002347813135480392,
+    "our_norm": 0.0023939783352038874,
+    "ref_sq": 5.512226519134268e-06
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.layer_norm.weight",
+    "path": "blocks.2.opm.norm_weight",
+    "rel_l2": 0.07057788496739663,
+    "ref_norm": 0.023720939159076793,
+    "our_norm": 0.023064306004789103,
+    "ref_sq": 0.0005626829545886229
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.in_norm_bias",
+    "rel_l2": 0.0692374707191956,
+    "ref_norm": 0.01634371488464756,
+    "our_norm": 0.01625256991800525,
+    "ref_sq": 0.00026711701623065016
+   },
+   {
+    "name": "msa_module.blocks.1.msa_att_row.layer_norm_m.bias",
+    "path": "blocks.1.pwa.m_norm_bias",
+    "rel_l2": 0.06897397782322472,
+    "ref_norm": 0.01264848770888421,
+    "our_norm": 0.012608369857727154,
+    "ref_sq": 0.00015998424132179494
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.in_norm_bias",
+    "rel_l2": 0.06846845623995336,
+    "ref_norm": 0.019015700906529234,
+    "our_norm": 0.019114376832958472,
+    "ref_sq": 0.00036159688096657665
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_end.out_norm_weight",
+    "rel_l2": 0.06813944012007506,
+    "ref_norm": 0.002952113426170035,
+    "our_norm": 0.002968223833398119,
+    "ref_sq": 8.714973680973385e-06
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.layer_norm.bias",
+    "path": "blocks.2.opm.norm_bias",
+    "rel_l2": 0.06752551802069487,
+    "ref_norm": 0.05351064150135484,
+    "our_norm": 0.052968980962136744,
+    "ref_sq": 0.002863388753886519
+   },
+   {
+    "name": "msa_module.blocks.0.outer_product_mean.linear_1.weight",
+    "path": "blocks.0.opm.a_weight",
+    "rel_l2": 0.06744624792494507,
+    "ref_norm": 0.02071333842231554,
+    "our_norm": 0.020910646721980335,
+    "ref_sq": 0.0004290423885973732
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_start.out_norm_weight",
+    "rel_l2": 0.06726413492314026,
+    "ref_norm": 0.0017744301170575744,
+    "our_norm": 0.0017518772473475842,
+    "ref_sq": 3.148602240320957e-06
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.linear_out.weight",
+    "path": "blocks.1.opm.o_weight",
+    "rel_l2": 0.0671432168333712,
+    "ref_norm": 0.0091554006270639,
+    "our_norm": 0.009113401393264508,
+    "ref_sq": 8.38213606420422e-05
+   },
+   {
+    "name": "msa_module.blocks.1.msa_transition.swiglu.linear_b.weight",
+    "path": "blocks.1.msa_transition.fc2_weight",
+    "rel_l2": 0.06525429826195041,
+    "ref_norm": 0.002994148347472263,
+    "our_norm": 0.00301445242295616,
+    "ref_sq": 8.964924326670882e-06
+   },
+   {
+    "name": "msa_module.blocks.0.msa_att_row.layer_norm_m.bias",
+    "path": "blocks.0.pwa.m_norm_bias",
+    "rel_l2": 0.06466486650315512,
+    "ref_norm": 0.020448398186014526,
+    "our_norm": 0.020382809833038636,
+    "ref_sq": 0.0004181369883738022
+   },
+   {
+    "name": "msa_module.blocks.0.msa_transition.swiglu.linear_a.weight",
+    "path": "blocks.0.msa_transition.fc1_weight",
+    "rel_l2": 0.062444490982210686,
+    "ref_norm": 0.0067759367800925875,
+    "our_norm": 0.006845530448018778,
+    "ref_sq": 4.591331924781154e-05
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.linear_out.weight",
+    "path": "blocks.2.opm.o_weight",
+    "rel_l2": 0.061480609772959084,
+    "ref_norm": 0.006155084511395073,
+    "our_norm": 0.0061309385310142715,
+    "ref_sq": 3.788506534241562e-05
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.linear_out.bias",
+    "path": "blocks.2.opm.o_bias",
+    "rel_l2": 0.0609807743174189,
+    "ref_norm": 0.00064489232946687,
+    "our_norm": 0.0006443708635495359,
+    "ref_sq": 4.1588611660520604e-07
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.linear_out.bias",
+    "path": "blocks.1.opm.o_bias",
+    "rel_l2": 0.06061631051861097,
+    "ref_norm": 0.0007026749293972653,
+    "our_norm": 0.0007019735305258389,
+    "ref_sq": 4.937520564034517e-07
+   },
+   {
+    "name": "msa_module.blocks.1.msa_transition.swiglu.linear_a.weight",
+    "path": "blocks.1.msa_transition.fc1_weight",
+    "rel_l2": 0.06045307668827288,
+    "ref_norm": 0.0029923724834109186,
+    "our_norm": 0.003018186564884296,
+    "ref_sq": 8.95429307947483e-06
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.in_norm_bias",
+    "rel_l2": 0.05979267930985585,
+    "ref_norm": 0.007457921871095054,
+    "our_norm": 0.007218882771178781,
+    "ref_sq": 5.5620598635357945e-05
+   },
+   {
+    "name": "msa_module.blocks.0.msa_transition.linear_out.weight",
+    "path": "blocks.0.msa_transition.fc3_weight",
+    "rel_l2": 0.05921152063539279,
+    "ref_norm": 0.012257929380985274,
+    "our_norm": 0.012345711092899624,
+    "ref_sq": 0.00015025683270922192
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.linear_2.weight",
+    "path": "blocks.1.opm.b_weight",
+    "rel_l2": 0.05867002882222968,
+    "ref_norm": 0.014067540215858387,
+    "our_norm": 0.014079915110123962,
+    "ref_sq": 0.00019789568772479304
+   },
+   {
+    "name": "msa_module.blocks.0.msa_transition.swiglu.linear_b.weight",
+    "path": "blocks.0.msa_transition.fc2_weight",
+    "rel_l2": 0.058524128120755546,
+    "ref_norm": 0.007095133656253426,
+    "our_norm": 0.00716031359003483,
+    "ref_sq": 5.03409216001001e-05
+   },
+   {
+    "name": "msa_module.blocks.2.msa_transition.layer_norm.weight",
+    "path": "blocks.2.msa_transition.norm_weight",
+    "rel_l2": 0.057570670515754895,
+    "ref_norm": 0.007864685133578572,
+    "our_norm": 0.007775411417529375,
+    "ref_sq": 6.18532722503318e-05
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.layer_norm.bias",
+    "path": "blocks.1.opm.norm_bias",
+    "rel_l2": 0.05732508236776217,
+    "ref_norm": 0.08843011526981819,
+    "our_norm": 0.0884100948115067,
+    "ref_sq": 0.007819885286633334
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_att_start.layer_norm.weight",
+    "path": "blocks.1.pair_stack.triangle_attention_start.layer_norm_weight",
+    "rel_l2": 0.05726057576167481,
+    "ref_norm": 0.01494240018625039,
+    "our_norm": 0.01550346033951753,
+    "ref_sq": 0.00022327532332605567
+   },
+   {
+    "name": "msa_module.blocks.1.msa_transition.layer_norm.bias",
+    "path": "blocks.1.msa_transition.norm_bias",
+    "rel_l2": 0.05723730000173354,
+    "ref_norm": 0.034536950078134655,
+    "our_norm": 0.034454402249166,
+    "ref_sq": 0.0011928009206995656
+   },
+   {
+    "name": "msa_module.blocks.1.msa_transition.linear_out.weight",
+    "path": "blocks.1.msa_transition.fc3_weight",
+    "rel_l2": 0.05674911167166795,
+    "ref_norm": 0.008304801443726795,
+    "our_norm": 0.008251753854929574,
+    "ref_sq": 6.896972701972658e-05
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.layer_norm.weight",
+    "path": "blocks.1.opm.norm_weight",
+    "rel_l2": 0.05618888506393538,
+    "ref_norm": 0.025627728886517404,
+    "our_norm": 0.025385430581624985,
+    "ref_sq": 0.0006567804878808386
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.out_norm_bias",
+    "rel_l2": 0.05565886151258489,
+    "ref_norm": 0.005755025251259675,
+    "our_norm": 0.005620685502929107,
+    "ref_sq": 3.312031564263648e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "path": "blocks.2.pair_stack.transition_z.fc1_weight",
+    "rel_l2": 0.055528195034531595,
+    "ref_norm": 0.004833707105651678,
+    "our_norm": 0.004817134229490285,
+    "ref_sq": 2.336472438322748e-05
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.layer_norm.bias",
+    "path": "blocks.3.opm.norm_bias",
+    "rel_l2": 0.055501241856881746,
+    "ref_norm": 0.054604524651193684,
+    "our_norm": 0.05606847705694565,
+    "ref_sq": 0.0029816541123828194
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.out_norm_bias",
+    "rel_l2": 0.05467299839286435,
+    "ref_norm": 0.006380003696707094,
+    "our_norm": 0.006275964757986186,
+    "ref_sq": 4.070444716999619e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.in_norm_weight",
+    "rel_l2": 0.05418045872491499,
+    "ref_norm": 0.016635382103344427,
+    "our_norm": 0.016240470298975532,
+    "ref_sq": 0.0002767359377242721
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.in_norm_bias",
+    "rel_l2": 0.05416152587025416,
+    "ref_norm": 0.013559024751797603,
+    "our_norm": 0.013527145532730872,
+    "ref_sq": 0.00018384715221986007
+   },
+   {
+    "name": "msa_module.blocks.1.msa_att_row.layer_norm_m.weight",
+    "path": "blocks.1.pwa.m_norm_weight",
+    "rel_l2": 0.05353842039217957,
+    "ref_norm": 0.007809456691175197,
+    "our_norm": 0.007813301867674092,
+    "ref_sq": 6.0987613811341074e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "path": "blocks.2.pair_stack.triangle_multiplication_end.out_norm_bias",
+    "rel_l2": 0.05342615183111979,
+    "ref_norm": 0.004307130106468556,
+    "our_norm": 0.0042506829996174665,
+    "ref_sq": 1.8551369754047834e-05
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.linear_out.bias",
+    "path": "blocks.3.opm.o_bias",
+    "rel_l2": 0.05307922699723693,
+    "ref_norm": 0.0006019151602097554,
+    "our_norm": 0.0006056185942574405,
+    "ref_sq": 3.623018600903354e-07
+   },
+   {
+    "name": "msa_module.blocks.1.outer_product_mean.linear_1.weight",
+    "path": "blocks.1.opm.a_weight",
+    "rel_l2": 0.05264338353313589,
+    "ref_norm": 0.014032172915291472,
+    "our_norm": 0.014090997870386316,
+    "ref_sq": 0.00019690187672463956
+   },
+   {
+    "name": "msa_module.blocks.2.msa_transition.linear_out.weight",
+    "path": "blocks.2.msa_transition.fc3_weight",
+    "rel_l2": 0.0523657700267766,
+    "ref_norm": 0.025717641122809973,
+    "our_norm": 0.026345082989569692,
+    "ref_sq": 0.0006613970649216463
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.out_norm_weight",
+    "rel_l2": 0.05230349955978436,
+    "ref_norm": 0.0034718581653606353,
+    "our_norm": 0.0032992519450057937,
+    "ref_sq": 1.2053799120381314e-05
+   },
+   {
+    "name": "msa_module.blocks.2.outer_product_mean.linear_1.weight",
+    "path": "blocks.2.opm.a_weight",
+    "rel_l2": 0.05226959741314426,
+    "ref_norm": 0.009151357306271497,
+    "our_norm": 0.00914851565067456,
+    "ref_sq": 8.374734054704873e-05
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.linear_1.weight",
+    "path": "blocks.3.opm.a_weight",
+    "rel_l2": 0.05215282071002848,
+    "ref_norm": 0.0030580411687059507,
+    "our_norm": 0.0031006120069266285,
+    "ref_sq": 9.351615789500458e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.out_norm_weight",
+    "rel_l2": 0.052042335154437604,
+    "ref_norm": 0.003088599828013288,
+    "our_norm": 0.0031429230120570964,
+    "ref_sq": 9.539448897603715e-06
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "path": "blocks.2.pair_stack.transition_z.fc2_weight",
+    "rel_l2": 0.05092093859667755,
+    "ref_norm": 0.005847720953316345,
+    "our_norm": 0.005824364738404135,
+    "ref_sq": 3.4195840347854996e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.out_norm_bias",
+    "rel_l2": 0.050750402693873715,
+    "ref_norm": 0.0036183691676853805,
+    "our_norm": 0.00355391808362272,
+    "ref_sq": 1.3092595433656195e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_att_start.layer_norm.weight",
+    "path": "blocks.2.pair_stack.triangle_attention_start.layer_norm_weight",
+    "rel_l2": 0.05054574968682329,
+    "ref_norm": 0.017155298799885484,
+    "our_norm": 0.01724671813896654,
+    "ref_sq": 0.00029430427691335234
+   },
+   {
+    "name": "msa_module.blocks.0.msa_transition.layer_norm.bias",
+    "path": "blocks.0.msa_transition.norm_bias",
+    "rel_l2": 0.05033930704760008,
+    "ref_norm": 0.06935363671775308,
+    "our_norm": 0.07016923134685113,
+    "ref_sq": 0.0048099269259780685
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_att_end.layer_norm.bias",
+    "path": "blocks.3.pair_stack.triangle_attention_end.layer_norm_bias",
+    "rel_l2": 0.050283219460274926,
+    "ref_norm": 0.01551243764268219,
+    "our_norm": 0.015355276378595071,
+    "ref_sq": 0.00024063572161810333
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.out_norm_bias",
+    "rel_l2": 0.050168338470524085,
+    "ref_norm": 0.0055124725561234746,
+    "our_norm": 0.005573957217649567,
+    "ref_sq": 3.0387353682014478e-05
+   },
+   {
+    "name": "msa_module.blocks.2.msa_att_row.layer_norm_m.weight",
+    "path": "blocks.2.pwa.m_norm_weight",
+    "rel_l2": 0.049598159374403566,
+    "ref_norm": 0.004129709816227292,
+    "our_norm": 0.004276631074345302,
+    "ref_sq": 1.7054503166244052e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.pair_transition.layer_norm.bias",
+    "path": "blocks.2.pair_stack.transition_z.norm_bias",
+    "rel_l2": 0.049389472009746624,
+    "ref_norm": 0.05896860238260321,
+    "our_norm": 0.05965539195487825,
+    "ref_sq": 0.003477296066957557
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.pair_transition.linear_out.weight",
+    "path": "blocks.2.pair_stack.transition_z.fc3_weight",
+    "rel_l2": 0.04934384711099664,
+    "ref_norm": 0.006796451216103461,
+    "our_norm": 0.006767623473302621,
+    "ref_sq": 4.619174913287434e-05
+   },
+   {
+    "name": "msa_module.blocks.3.outer_product_mean.linear_out.weight",
+    "path": "blocks.3.opm.o_weight",
+    "rel_l2": 0.048807545158593556,
+    "ref_norm": 0.0028140112777379697,
+    "our_norm": 0.0028049849015409634,
+    "ref_sq": 7.918659471236486e-06
+   },
+   {
+    "name": "msa_module.blocks.1.msa_transition.layer_norm.weight",
+    "path": "blocks.1.msa_transition.norm_weight",
+    "rel_l2": 0.04851853423995505,
+    "ref_norm": 0.03486672878016986,
+    "our_norm": 0.0362841052800282,
+    "ref_sq": 0.0012156887758299245
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.out_norm_weight",
+    "rel_l2": 0.0478443587045192,
+    "ref_norm": 0.0028035663872607464,
+    "our_norm": 0.002764420211921187,
+    "ref_sq": 7.859984487778272e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.in_norm_weight",
+    "rel_l2": 0.04762513784195556,
+    "ref_norm": 0.004967780186883949,
+    "our_norm": 0.0048687703702600185,
+    "ref_sq": 2.4678839985196728e-05
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.in_norm_bias",
+    "rel_l2": 0.04757746539247092,
+    "ref_norm": 0.0120169245803033,
+    "our_norm": 0.011806028156412013,
+    "ref_sq": 0.00014440647636869766
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "path": "blocks.1.pair_stack.triangle_multiplication_end.out_norm_weight",
+    "rel_l2": 0.04650976776026244,
+    "ref_norm": 0.001987008191436514,
+    "our_norm": 0.0019705778362685156,
+    "ref_sq": 3.948201552835806e-06
+   },
+   {
+    "name": "msa_module.blocks.1.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "path": "blocks.1.pair_stack.triangle_multiplication_start.in_norm_bias",
+    "rel_l2": 0.045824439793178004,
+    "ref_norm": 0.013375267522546528,
+    "our_norm": 0.013269448942398263,
+    "ref_sq": 0.0001788977812996879
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "path": "blocks.3.pair_stack.triangle_multiplication_start.in_norm_weight",
+    "rel_l2": 0.043987441962286995,
+    "ref_norm": 0.007170129886156493,
+    "our_norm": 0.007020852468516062,
+    "ref_sq": 5.141076258435451e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.in_norm_bias",
+    "rel_l2": 0.04250609590053819,
+    "ref_norm": 0.008608860684432987,
+    "our_norm": 0.008740256009834524,
+    "ref_sq": 7.4112482283976e-05
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.0.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.0411097771091538,
+    "ref_norm": 0.10894638396672134,
+    "our_norm": 0.10791849593252338,
+    "ref_sq": 0.011869314579424275
+   },
+   {
+    "name": "msa_module.blocks.0.msa_att_row.layer_norm_m.weight",
+    "path": "blocks.0.pwa.m_norm_weight",
+    "rel_l2": 0.039917623048168344,
+    "ref_norm": 0.027364433860898728,
+    "our_norm": 0.02839558855286168,
+    "ref_sq": 0.0007488122405275008
+   },
+   {
+    "name": "msa_module.blocks.0.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "path": "blocks.0.pair_stack.triangle_multiplication_end.in_norm_weight",
+    "rel_l2": 0.03855609106125342,
+    "ref_norm": 0.0038190563113770313,
+    "our_norm": 0.003712034106018488,
+    "ref_sq": 1.4585191109468737e-05
+   },
+   {
+    "name": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "path": "blocks.2.pair_stack.triangle_multiplication_start.out_norm_weight",
+    "rel_l2": 0.03491424961591741,
+    "ref_norm": 0.002175772665648669,
+    "our_norm": 0.0021448100901691703,
+    "ref_sq": 4.7339866925839135e-06
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "path": "blocks.3.pair_stack.transition_z.fc1_weight",
+    "rel_l2": 0.020309785575601428,
+    "ref_norm": 0.005967858568009489,
+    "our_norm": 0.005933387965985024,
+    "ref_sq": 3.561533588776437e-05
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "path": "blocks.3.pair_stack.transition_z.fc2_weight",
+    "rel_l2": 0.02001058820134783,
+    "ref_norm": 0.005695716789032664,
+    "our_norm": 0.005659321231984753,
+    "ref_sq": 3.244118974086847e-05
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.linear_out.weight",
+    "path": "blocks.3.pair_stack.transition_z.fc3_weight",
+    "rel_l2": 0.018403977131825167,
+    "ref_norm": 0.005938576356543665,
+    "our_norm": 0.005912254180704823,
+    "ref_sq": 3.526668914249941e-05
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.layer_norm.bias",
+    "path": "blocks.3.pair_stack.transition_z.norm_bias",
+    "rel_l2": 0.01100327754206551,
+    "ref_norm": 0.07120837429774575,
+    "our_norm": 0.0711262237960731,
+    "ref_sq": 0.005070632570127857
+   },
+   {
+    "name": "msa_module.blocks.3.pair_stack.pair_transition.layer_norm.weight",
+    "path": "blocks.3.pair_stack.transition_z.norm_weight",
+    "rel_l2": 0.0074746646460353335,
+    "ref_norm": 0.09425127226752462,
+    "our_norm": 0.09475826337188058,
+    "ref_sq": 0.008883302324047056
+   }
+  ],
+  "skipped": [
+   {
+    "path": "blocks.0.pwa.m_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.0.pwa.g_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.0.pwa.o_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.1.pwa.m_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.1.pwa.g_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.1.pwa.o_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.2.pwa.m_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.2.pwa.g_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.2.pwa.o_weight",
+    "skip": "no gradient reached this leaf"
+   },
+   {
+    "path": "blocks.3.pair_stack.triangle_attention_end.qkvgb_weight",
+    "skip": "no gradient reached this leaf"
+   }
+  ],
+  "reach": {
+   "msa_module_squared_norm": 0.1274640255091987,
+   "model_squared_norm": 10.279642678524985,
+   "msa_module_share_of_model": 0.012399655269679897,
+   "compared_squared_norm": 0.1266187141842606,
+   "share_of_msa_module_own_norm": 0.9933682360841719,
+   "share_of_model_squared_norm": 0.012317423683293726,
+   "n_msa_module_tensors": 227
+  },
+  "zero_model_arm": false,
+  "perturbation": null
+ }
+}
