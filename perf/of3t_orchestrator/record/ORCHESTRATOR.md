@@ -3876,3 +3876,19 @@ increase I predicted at pass 91 when I asked for the re-derivation.
 Three rows in a row have now corrected this desk on substance, each with the arithmetic in hand.
 That is the campaign's §3e discipline working in the direction it is hardest to apply, and the
 record is better for it every time.
+
+**Pass 111, dispatch consequence.** The unowned 2.041 % is folded into `of3t-auxheads` rather
+than given a third row. Its scope widens from one section to three — `aux_heads` 2.843 %,
+`msa_module` 1.240 %, `input_embedder` 0.801 %, **4.884 % together** — reported separately and
+never pooled, largest first so a short pass still lands the biggest piece. Deliverable 3, the
+`bond` coverage hole, is unchanged and remains its alone.
+
+A separate row would have contended for a box already running the campaign's critical path, and
+the scope is contiguous: same reference, same instrument, same bars, same capture machinery. One
+launch covering three sections beats two launches covering one each.
+
+**What it is worth, stated in the brief so the row knows:** the campaign has a passing
+per-parameter gradient reading on roughly **0.32 %** of the squared norm today. Those three
+sections are **15x that**, and together with the diffusion module and the pairformer they complete
+the section-by-section picture at **99.923 %**, leaving only `msa_module_embedder` and friends at
+0.077 %.
