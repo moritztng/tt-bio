@@ -1,0 +1,79 @@
+{
+ "model": "boltz2",
+ "fixture": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "flag": "TT_BIO_MM_SHORT_M_BW",
+ "wrap": "tt_bio.tenstorrent:_short_m_proj_config",
+ "msa_dir": "/home/ttuser/.coworker/wt/c14-land-tail/perf/c14_land/gi_work/msa",
+ "grids": [
+  [
+   11,
+   10
+  ],
+  [
+   8,
+   8
+  ]
+ ],
+ "steps": 6,
+ "card": 3,
+ "git_head": "4286a00ea15114e848603f49ad7561ca0fb791cd",
+ "started_utc": "2026-09-20T01:26:16Z",
+ "note": "digest + call count only; no wall-clock claim, so a loud host and a busy board-pair sibling do not invalidate it. MSA pinned to the fixture's cached a3m, so all four legs fold the same input.",
+ "legs": [
+  {
+   "md5": "4f3fcbb8ed766121362885cd6a98583d",
+   "firing_calls": 720,
+   "rc": 0,
+   "log": "perf/c14_land/gi_mmshort_boltz2_logs/TT_BIO_MM_SHORT_M_BW_1_11x10.log",
+   "flag_on": true,
+   "grid": [
+    11,
+    10
+   ]
+  },
+  {
+   "md5": "9c801f753643caea7de973dfd3ced8aa",
+   "firing_calls": 720,
+   "rc": 0,
+   "log": "perf/c14_land/gi_mmshort_boltz2_logs/TT_BIO_MM_SHORT_M_BW_1_8x8.log",
+   "flag_on": true,
+   "grid": [
+    8,
+    8
+   ]
+  },
+  {
+   "md5": "4318e68a0975491fe4b11022259186af",
+   "firing_calls": 720,
+   "rc": 0,
+   "log": "perf/c14_land/gi_mmshort_boltz2_logs/TT_BIO_MM_SHORT_M_BW_0_11x10.log",
+   "flag_on": false,
+   "grid": [
+    11,
+    10
+   ]
+  },
+  {
+   "md5": "4318e68a0975491fe4b11022259186af",
+   "firing_calls": 720,
+   "rc": 0,
+   "log": "perf/c14_land/gi_mmshort_boltz2_logs/TT_BIO_MM_SHORT_M_BW_0_8x8.log",
+   "flag_on": false,
+   "grid": [
+    8,
+    8
+   ]
+  }
+ ],
+ "all_legs_produced_a_structure": true,
+ "on_md5s": [
+  "4f3fcbb8ed766121362885cd6a98583d",
+  "9c801f753643caea7de973dfd3ced8aa"
+ ],
+ "off_md5s": [
+  "4318e68a0975491fe4b11022259186af"
+ ],
+ "firing_on": 1440,
+ "firing_off": 1440,
+ "verdict": "GRID-DEPENDENT -- TT_BIO_MM_SHORT_M_BW makes boltz2's output depend on the core grid (['4f3fcbb8ed766121362885cd6a98583d', '9c801f753643caea7de973dfd3ced8aa']) while the flag-off control is stable. Standing hard stop: NO-GO as a shipped default whatever its seconds. It may still ship opt-in, default off."
+}
