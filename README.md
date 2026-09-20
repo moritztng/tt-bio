@@ -167,15 +167,25 @@ residues against a 31.9 GiB card. `saprot-35m` gets one rung further than the re
 weights are the smallest and leave more room for it. Everything else is unmeasured on Blackhole
 and refused nothing, including `boltzgen`, which designs against a 16948-atom target there.
 
-Blackhole structure-model ladders have also been walked, and nothing enforces them (an oversized
-request is accepted rather than refused there). `rf3` folds 768 residues on a p300c in 102 s and
-does not return at 896, though on a p150a it reaches 1088 -- root-caused (not an external kill)
-but not yet fixed. `protenix-v2` folds to 1024 on both Blackhole boards. `esmfold2` also folded
-to 1024 until a row-block fix landed and raised its p150a ceiling to at least 1536 tokens (the
-row-block retry path no longer assumes a module it doesn't have, and the diffusion pair
-transition now uses the same refuse/halve/retry mechanism); its failure point past 1536, and its
-p300c ceiling, have not been re-walked since. So on a p300c, treat `rf3` over 768 residues as a
-known gap rather than something tt-bio will refuse for you.
+The Blackhole ladders have been walked separately. This is the largest rung each structure model
+is on record folding, from `docs/size_ladder_baseline.d/`:
+
+| model | p150a | p300c |
+|---|---:|---:|
+| `boltz2` | 1536 | 1024 |
+| `esmfold2` | 1536 | 1024 |
+| `nesso1` | 1536 | 1024 |
+| `openbind` | 1536 | 1024 |
+| `opendde` | 1024 | 1024 |
+| `openfold3` | 1536 | 1024 |
+| `protenix-v1` | 1536 | 1024 |
+| `protenix-v2` | 1536 | 1024 |
+| `rf3` | 1536 | 1088 |
+
+Only `opendde` and `opendde-abag` are enforced on Blackhole, at 1024; every other model here
+accepts an oversized request rather than refusing it, so the table is what you have and not a
+guard. A blank rung above a model's top is unwalked, not a measured failure -- 1536 is the top of
+the ladder itself, so the models sitting there have no failure on record at all.
 
 The limits were measured with an MSA, which is the default for the models that take one, and at the
 deepest alignment the MSA pipeline actually produces. Folding single-sequence is roomier, so if you
