@@ -78,3 +78,57 @@ then `perf/of3t_refprec/report.py REFPREC.json` for the figures, and bank `REFPR
 sidecars under `perf/of3t_refprec/`. The comparison takes a few minutes and no card.
 
 An arm that died leaves no `manifest.json`; re-launch just that one with `run_arm.sh`.
+
+## Pass 2 (2026-09-20, from 08:37Z) — the arms had finished and the manifest step killed them
+
+The first launch of arms 2, 3 and 4 completed the forward, the backward and the RNG-replay
+forward, wrote `grads_f64.pt`, and then died on `NameError: name 'openfold3' is not defined`
+while composing the manifest. D42 moved the provenance read into a module-level
+`_openfold3_version()` that looks up `openfold3` as a global, and the only `import openfold3` in
+`bundle_min.py` was local to `main`. The float64 reference predates D42, so the defect had never
+been reached. Fixed as D43 (import inside the function, `"unknown"` if it fails), and the
+function was CALLED before it was believed: it reads
+`0.4.3 (from PKG-INFO beside the imported tree)`.
+
+`bundle_ref/MANIFEST.json` records D42 with `"payload_rebuilt": false` — the field was corrected
+by hand and the generator that was supposed to produce it had never run. After D43 the generator
+produces that exact string.
+
+**The crashed runs' gradients were hashed before anything was relaunched**
+(`PRIOR_GRAD_SHA.txt`), so the relaunch has a determinism control it did not have before:
+
+    arm2_f32_upstream    09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548
+    arm3_f32_removed     09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548
+    arm4_bf16_autocast   ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb
+    negctl_f32_permuted  a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0
+
+Arms 2 and 3 are **byte-identical**, which is the pass-1 prediction from the autocast-site
+census turned into a measurement: all nine `torch.amp.autocast` sites in 0.4.3 name
+`device_type="cuda"`, torch disables every one of them on a CPU box, and `Tensor.float()` is
+identity at float32, so `no_autocast` has nothing to remove. Arm 3 is an arithmetic control, not
+a second measurement, and the arm-2-minus-arm-3 separation the brief asks for is only observable
+on CUDA.
+
+## The instrument, after pass 2
+
+Three additions, all recalibrated afterwards (A/A still exactly 0.0 at r 1.0 cos 1.0, zero model
+still exactly 1.0):
+
+  * the one leaf `blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight` as its own set
+    (24 tensors, 25.5795 % of the model, device reads mass-weighted 10.6980), and the device-arm
+    scope minus it (device reads 0.2929);
+  * `blocks.8` of that leaf — 8.05416 % of the model alone, device rel 18.504 — emitted with this
+    row's rel, r and cos beside the device figure, provenance per entry;
+  * the denominator asserted against the campaign's published 10.279642678524985 instead of
+    assumed. It reads 10.279642678524981 over 4,170 tensors.
+
+A reference tensor with no counterpart in an arm used to score as unmeasurable, which drops its
+mass from the numerator and leaves it in the denominator. It is now scored exactly the way the
+zero model is scored, and still named.
+
+## Reference facts the arms are compared against
+
+`bundle_ref/MANIFEST.json`, `validated_gradient`: loss `1.267624369070698`, gradient global norm
+`3.206188185139011`, 4,170 parameters, 0 absent, 4,161 non-zero, draws `draws_recycles0.pt` with
+0 mismatches, forward 340.7 s and backward 1043.2 s at float64. `determinism_A13` already shows
+two float64 runs bit-identical on 4,170 of 4,170.
