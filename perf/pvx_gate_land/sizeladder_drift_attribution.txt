@@ -1,0 +1,89 @@
+affected padded lengths (computed from tt_bio at this commit): [288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088, 1184, 1216, 1248, 1312, 1376, 1472, 1504]
+ladder rungs that appear in findings: [256, 512, 640, 768, 896, 1024]
+of those, affected by the flag: []
+
+model        rung      lever                         verdict
+protenix-v1  256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+protenix-v1  256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v1  512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v1  640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v1  768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v1  896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v1  1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+boltz2       256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       768       ADALN_S_HOIST                 main: the flip changes no bytes at this rung
+boltz2       768       PAIR_TRANSPOSE_VIA_ROW_MAJOR  main: the flip changes no bytes at this rung
+boltz2       768       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+boltz2       768       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+boltz2       768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       768       B2_BIAS_SLICE_HOIST           main: the flip changes no bytes at this rung
+boltz2       768       B2_ADALN_S_MEMO               main: the flip changes no bytes at this rung
+boltz2       896       ADALN_S_HOIST                 main: the flip changes no bytes at this rung
+boltz2       896       PAIR_TRANSPOSE_VIA_ROW_MAJOR  main: the flip changes no bytes at this rung
+boltz2       896       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+boltz2       896       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+boltz2       896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       896       B2_BIAS_SLICE_HOIST           main: the flip changes no bytes at this rung
+boltz2       896       B2_ADALN_S_MEMO               main: the flip changes no bytes at this rung
+boltz2       1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+boltz2       256->512  exponent                      main: the flip changes no bytes at this rung
+boltz2       512->768  exponent                      main: the flip changes no bytes at this rung
+boltz2       256,512,640,768,896,1024runtime                       main: the flip changes no bytes at this rung
+protenix-v2  256       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  256       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+protenix-v2  256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  256       TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+protenix-v2  512       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  512       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  512       TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+protenix-v2  640       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  640       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  640       TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+protenix-v2  768       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  768       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  768       TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+protenix-v2  896       PAIR_TRANSPOSE_VIA_ROW_MAJOR  main: the flip changes no bytes at this rung
+protenix-v2  896       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  896       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  896       TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+protenix-v2  1024      PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+protenix-v2  1024      QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+protenix-v2  1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+protenix-v2  1024      TRIATT_HEAD_MAJOR_QKV         main: the flip changes no bytes at this rung
+esmfold2     256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+esmfold2     256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+esmfold2     512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+esmfold2     640       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+esmfold2     640       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+esmfold2     640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+esmfold2     768       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+esmfold2     768       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+esmfold2     768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+esmfold2     896       PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+esmfold2     896       QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+esmfold2     896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+esmfold2     1024      PAIR_PROJ_MINIMAL_MATMUL      main: the flip changes no bytes at this rung
+esmfold2     1024      QKV_MM_CONFIG                 main: the flip changes no bytes at this rung
+esmfold2     1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     256       REBLOCK_PERMUTE               main: the flip changes no bytes at this rung
+openbind     256       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     512       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     640       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     768       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     896       SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+openbind     1024      SDPA_WIDE_K                   flip: resolved-value only, bit-identical at this rung
+
+  47  main: the flip changes no bytes at this rung
+  30  flip: resolved-value only, bit-identical at this rung
+
+NEGATIVE CONTROL: treating protenix-v1/256 REBLOCK_PERMUTE as a firing rung MOVES its verdict ('main: the flip changes no bytes at this rung' -> 'AMBIGUOUS: other lever at a rung the flip can reach')
+
+findings this flag could have caused: 0
