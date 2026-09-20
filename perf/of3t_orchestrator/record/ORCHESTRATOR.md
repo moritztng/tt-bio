@@ -3638,3 +3638,37 @@ in question.
 **Owed and explicitly carried forward by the row**: the five-model digest run against a detached
 `origin/main` with the `--tri 0` control (confirmatory only — the change is post-forward, so it
 cannot move a forward output) and the seed-3 `fix` re-run.
+
+PASS 106. **Two block-0 crop-64 arms differ in one flag and the one with D1's correction ON died
+on an L1 clash.** Read from `of3t-rebase`'s live logs:
+
+| log | arm | outcome |
+|---|---|---|
+| `trunk043.log` | block 0, crop 64, tb-shipped, **spb ON** | reached *"51/51 registered, 45/51 with a gradient"*, then **`TT_THROW`** — static CBs in program 549 clash with L1 buffers over core range (0,0)–(10,9), L1 buffer at 221184 against a CB region ending 303616 — followed by **`TT_FATAL` L1 OOM**, 49,545,216 B across 84 banks, largest free block 577,024 B |
+| `trunk043b.log` | block 0, crop 64, tb-shipped, **spb OFF** | progressing |
+
+Same block, same crop, same `transpose_bias`. **The only difference is `--scale-pair-bias`.** If
+that reproduces, **D1's correction has an L1 cost as well as an accuracy cost** — not merely worse
+on the served structure but possibly unrunnable at some configurations. That is a fact about D1
+that appears nowhere in the record, and I have asked the row to run the spb-on arm once more to
+settle it and to report **both** logs in `TRUNK:`, because an arm that could not run is a result.
+
+**It resembles D14 and is not D14.** D14's ladder is 128 / 256 / 384 and its original wall sat
+"between 76 and 128". This is crop **64**, below that wall, on a flag combination D14 never
+covered. A closed defect is not recurring; a new clash has appeared on a configuration nobody had
+run.
+
+**A correction I owe, and it is mine.** Pass 104 told the row run B was *"~98 % done, ~2 min
+remaining"*. It is now 91 minutes in and still going. That estimate divided measured CPU-seconds
+by a run-A budget I **guessed** at ~1000 % and never measured — run A had the box with
+`OMP_NUM_THREADS=14` and may have averaged up to ~1400 %, which puts run B nearer 78 % and the
+remainder nearer 25 minutes. The honest form is a **range**: run A averaged somewhere between
+~1000 % and ~1400 %, so run B is **78–98 %** through. The qualitative claim — not wedged, only
+sharing cores — stands and is now visibly true: the 0.5.0 box control and the capture have both
+finished and the box is **23 % idle**.
+
+**Progress worth recording.** `cap043.log` reads *"[4986 s] wrote
+capture_trunk_boundary_043.json"* with **exit 0 at 01:03:58Z**, so the 0.4.3 block boundary is
+captured — the artifact TRUNK was waiting on. The row took **chip 2** for its second arm as asked;
+chips 0 and 2 are in use, 1 and 3 free, no collision. And the two processes sitting at 0 % CPU are
+`stat=S`, `wchan=anon_pipe_read` — spawn parents blocked on their child's pipe, not wedged.
