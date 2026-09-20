@@ -194,6 +194,83 @@ every report and sidecar now records its `--cap`, its checkpoint and its argv. T
 which boundary either had read. Validated by execution, not by reading: the one-structure run
 above wrote both files with 547 per-tensor entries and the provenance block populated.
 
+---
+
+# Amendment 2 (orchestrator pass 151) — scale or wrong transform, per block
+
+SCALE-OR-TRANSFORM: **neither branch, and not the same branch in every block.** Writing
+`g_dev = alpha * g_ref + e` with `e` orthogonal to `g_ref`, so `alpha = r * cos` is how much of
+the reference we reproduce and `|e|/|g_ref| = r * sin` is the spurious part, the six blocks of
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight` read:
+
+  blk    rel        r        cos      alpha    perp(rel)  perp(abs)   reading
+    0   2.7329   1.8691   -0.79583   -1.4875     1.1318     0.15452   sign-flipped
+    5   4.5419   5.5205    0.98243    5.4235     1.0302     0.51521   scale, 5.4x
+    6   2.8408   1.9735   -0.80457   -1.5878     1.1720     0.44321   sign-flipped
+    7   5.3071   5.1979   -0.01417   -0.0736     5.1973     2.81834   orthogonal
+    8  18.5040  19.2415    0.74941   14.4199    12.7399    11.59214   scale 14.4x + spurious
+   12   5.6459   6.0755    0.49668    3.0176     5.2731     1.47860   scale 3.0x + spurious
+
+Two of the six have a **negative** alpha — our gradient points the other way with roughly the
+right magnitude — one is essentially orthogonal, and three are large positive scales with a
+spurious component of the same order. A single wrong factor cannot produce that set, and
+neither can a single wrong transform. r and cos are now emitted for **every** compared tensor,
+not just the worst: `perf/of3t_conditioning/ADALN_SCALE_OR_TRANSFORM.json` and the
+`_per_tensor.json` sidecar `device_gradient.py` now always writes.
+
+ELIMINATED: three more branches close, two of them by measurement rather than by source.
+
+  (i) **Double counting is refuted arithmetically, with no run.** Block 8's orthogonal residual
+  has absolute norm **11.592**. The whole 24-block leaf family's reference gradient norm is
+  **1.622** and the whole model's is **3.206**, so the spurious component is **7.15x** the
+  family and **3.62x** the entire model's gradient. No sum of reference-gradient pieces with
+  bounded coefficients can produce it. Whatever is being computed is amplified, not
+  miscounted.
+
+  (ii) **The AdaLN op is right, on the operands it fails on.** `perf/of3t_conditioning/
+  adaln_unit_gradcheck.py` builds one `tt_bio.tenstorrent.AdaLN` from the real checkpoint at
+  DiT blocks 8, 0 and 12, hands it the real conditioned `s` captured at the 0.4.3 boundary,
+  seeds a **random** cotangent at the AdaLN's own output — a random seed tests the linear map
+  the backward implements rather than one vector through it — and compares all four parameter
+  gradients against the same AdaLN in torch float64. Over 18 arms (2 sites x 3 blocks x `a`
+  scaled 1/10/100) the worst parameter reads **2.552e-02** and `s_norm.weight` itself reads
+  **6.5e-04 to 2.6e-02** with cosines at or above **0.99988**. Zero arms over the 5.0e-02 bar.
+
+  (iii) **The attention tail's data movement is right.** `perf/of3t_conditioning/
+  dit_tail_gradcheck.py` gradchecks `o[:, :, :, :48]` (a sub-tile last-axis slice from the
+  padded 64, whose taped backward pads back with a non-tile-aligned `ttnn.concat`, a known
+  hazard class on this fleet), the two permutes and the head-merging reshape against float64.
+  Slice and reshape are **0.000e+00** forward and backward. The permutes carry **4.15e-04**,
+  and the same 4.15e-04 is present in their **forward**, so it is a representation floor and
+  not a backward defect; every cosine is 1.000000. Composed tail 4.150e-04.
+
+CROSS-LEAF: the localisation that makes the op elimination unnecessary to trust on its own.
+Per block, `rel` for the AdaLN sites of the same 24 DiT blocks:
+
+  attention_pair_bias.layer_norm_a.layer_norm_s.weight   0.087 .. 18.504   (block 8: 18.504)
+  attention_pair_bias.layer_norm_a.linear_g.weight       0.082 ..  4.546   (block 8:  4.546)
+  attention_pair_bias.layer_norm_a.linear_g.bias         0.081 ..  5.936   (block 8:  5.936)
+  attention_pair_bias.layer_norm_a.linear_s.weight       0.066 ..  0.817   (block 8:  0.817)
+  conditioned_transition.layer_norm.layer_norm_s.weight  0.014 ..  0.744   (block 8:  0.103)
+  conditioned_transition.layer_norm.linear_g.weight      0.013 ..  0.250   (block 8:  0.073)
+  conditioned_transition.layer_norm.linear_s.weight      0.036 ..  0.269   (block 8:  0.108)
+  attention_pair_bias.linear_z.weight                    0.032 ..  0.532   (block 8:  0.103)
+
+The sister AdaLN is the same class on the same `s` in the same blocks and is clean in every
+one of them, block 8 included, and so is block 8's `linear_z`. **Block 8 is not a broken
+block; one AdaLN site inside it is.** And the site splits into two different failures wearing
+one name: at blocks 0/5/6/7/12 `linear_g` reads 0.19 to 0.72 while `layer_norm_s.weight` reads
+2.73 to 5.65, so the cotangent arriving at the gate is roughly right and the damage appears in
+the gain; at block 8 the whole gate track fails together at 4.546 / 5.936 / 18.504 while the
+shift branch `linear_s` stays at 0.817.
+
+HANDOFF: with the AdaLN op, the attention tail and double counting all closed, the 18.504 is
+made between `adaln_a`'s output and the DiT block's output, in the part of the attention path
+the transition path does not have (`openfold3_diffusion_transformer.py:184-228`): the fused
+qkv linear and `nlp_create_qkv_heads`, the two `batched_matmul`s with `scale_add` and the
+fp32-cast softmax between them, the `a_ln` fan-out (it feeds both the qkv projection and the
+query gate `w_g`), and the two sigmoid-gated multiplies. That is the list, and it is short.
+
 PROVES: our device `OF3DiffusionConditioning` computes the same function and the same parameter
 gradients as OpenFold3's `DiffusionConditioning` at BUNDLE-MIN-043's r = 0 boundary, to
 7.865e-03 mass-weighted over 36.9462 % of the model's squared gradient norm, with every one of
@@ -207,9 +284,16 @@ nothing absent, and it is demonstrated to fail when the reference's own seed is 
 Separately (Amendment 1): the diffusion arm's mass-weighted rel_l2 at the 0.4.3 boundary is
 7.569 against a zero-model 1.0, 99.925 % of its squared error sits in one leaf,
 `attention_pair_bias.layer_norm_a.layer_norm_s.weight`, across all 24 DiT blocks, and D53's
-magnitude hypothesis for that leaf is refuted on the full family at r² = 0.094.
+magnitude hypothesis for that leaf is refuted on the full family at r² = 0.094. Amendment 2 closes three more branches: double
+counting is refuted arithmetically (block 8's spurious component is 3.62x the whole model's
+gradient norm), the AdaLN op gradchecks against float64 at 2.552e-02 worst over 18 arms on the
+real operands, and the attention tail's slice and reshape backwards are 0.000e+00.
 
-DOESNOT: Amendment 1's numbers are a re-analysis of a run taken by `of3t-rebase`, not a new
+DOESNOT: Amendment 2's unit gradchecks use a random cotangent and a random `a`, so they test the
+backward's linear map over three magnitudes and not the real activation distribution at block 8;
+they exonerate the AdaLN rule and do not prove the block correct. Naming the remaining suspect
+list is a narrowing, not a diagnosis, and no fix is proposed or made here.
+Amendment 1's numbers are a re-analysis of a run taken by `of3t-rebase`, not a new
 measurement, so they inherit that run's scope exactly and add nothing to it; naming the leaf
 locates the disagreement and does not diagnose its cause, and no fix is proposed or made
 here. The conditioning arm proper: this is one gradient at one boundary of one step, so it proves the update rule's
