@@ -5692,7 +5692,7 @@ rule never spelled out.
 **What closes it**: every activation-space reading in the campaign records its padding fraction
 and whether padded positions were excluded; any that were not are recomputed on the real block.
 Cheap for a row that still has its tensors, impossible from the write-ups alone.
-Owner: `of3t-orchestrator`. **UNFIXED.**
+Owner: `of3t-orchestrator`. **Status: see the closure at the end of this entry — FIXED at pass 176. This line read UNFIXED until then.**
 
 **D95, continued — the consequence for A18, added the same pass.** `THE_ANSWER.json`'s
 `honest_limits` records the campaign's scope as *"one batch (batch_step003, 5nw3, 56 real tokens,
