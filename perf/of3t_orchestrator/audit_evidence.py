@@ -824,9 +824,24 @@ if DEF.is_file() and ORCH.is_file():
         bad.append("defect(s) declare UNFIXED in the BODY but not on the heading, where this "
                    "audit and GAP's coverage check read it, so they are invisible to both: "
                    + ", ".join(_bodyonly) + " -- put the status on the heading line")
-    unfixed = [m.group(1) for m in
-               _re.finditer(r"^### (D\d+)\..*$", _dt_u, _re.M)
-               if "UNFIXED" in m.group(0)]
+    # A defect's status is its LATEST heading: the campaign's convention since D111's UPDATE is
+    # that a later "### Dn UPDATE (pass k)." entry supersedes the original, and pass 196 closed
+    # D19, D87 and D99 that way. Reading every heading instead counted those three as still
+    # UNFIXED, so this check reported 45 while the campaign's own count said 42 -- and the
+    # contradiction check added in the same pass used the latest heading, so two checks in one
+    # audit disagreed about what a status is.
+    #
+    # The conservative clause matters: if a later heading carries NO status word at all, the
+    # defect keeps the last status that had one. Otherwise "### D8 UPDATE (pass N). More data."
+    # would silently drop a live defect out of the set this check protects.
+    _STATUS_RE = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+    _last = {}
+    for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
+        _t = _STATUS_RE.findall(_m.group(2).upper())
+        if _t:
+            _last[_m.group(1)] = _t[-1]
+    unfixed = sorted((n for n, st in _last.items() if st == "UNFIXED"),
+                     key=lambda d: int(d[1:]))
     o = ORCH.read_text()
     g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
     gap = g.group(1) if g else ""
@@ -851,12 +866,7 @@ if DEF.is_file() and ORCH.is_file():
     # fires only when GAP's own parenthetical says UNFIXED and does NOT also name the status
     # DEFECTS.md gives it. Nuance passes; an unreconciled contradiction does not.
     _DEAD = ("FIXED", "WITHDRAWN", "REFUTED", "CLOSED", "RESOLVED", "ROOT-CAUSED")
-    _st = {}
-    for _m in _re.finditer(r"^### (D\d+)(?: UPDATE[^\n]*)?\.(.*)$", _dt_u, _re.M):
-        _toks = _re.findall(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b",
-                            _m.group(2))
-        if _toks:
-            _st[_m.group(1)] = _toks[-1].upper()          # a later UPDATE heading wins
+    _st = _last          # one definition of "a defect's status", shared with the check above
 
     def _gap_contradictions(gap_text, statuses):
         """Defects whose GAP label says UNFIXED while DEFECTS.md says the opposite."""
