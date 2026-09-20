@@ -720,14 +720,19 @@ curve. The conditioning mechanism explains the ladder, not the model; the softma
 untouched, but HOW it produces these magnitudes is unexplained again. **D63 (UNFIXED as a convention)**: five of five shipped models CONSTRUCT a site the softmax
 lever patches and only three of five REACH one at runtime — Boltz-2 and RF3 come back
 byte-identical at 5.64e-15 Å and 2.44e-15 Å with negative controls that move — so blast
-radius must be measured by digest, never counted from constructors.
+radius must be measured by digest, never counted from constructors. **D64 (UNFIXED, dispatched)**: every gradient figure here is against a **float64**
+reference and the campaign has never measured what OpenFold3's **own training precision**
+scores against it — upstream is not float64-clean (their own `autocast(float32)` and a
+forced `.float()` had to be removed to build the reference), so the bar's achievability by
+any implementation is unestablished. `bundle_min.py` already carries `--dtype float32` and
+no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live; sixty-three defects on the record, twenty-nine of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+one live, one newly dispatched; sixty-four defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6770,3 +6775,53 @@ reason: **the narrative advances and the summary keeps yesterday's number.**
 Amendment 3's warning turned out to be unnecessary — I checked, and the row's document contains
 zero instances of the dead "not computable / unfixable / property of the arithmetic" framing. It
 never wrote it. Preventive, and I told the row it could ignore that amendment.
+
+---
+
+## Pass 163 — the denominator under every number I have reported, and it has never been measured
+
+Every gradient figure on this record is against a **float64** reference. The device arm reads
+mass-weighted **7.5692** against a **2.0e-02** bar. I have reported that shape of number to
+Moritz for dozens of passes.
+
+**Nobody trains in float64.** And `perf/of3t_reference/bundle_min.py` says so in its own
+docstring: upstream OpenFold3 is *not float64-clean* — their modules wrap work in
+`torch.amp.autocast(dtype=torch.float32)` and a `.float()` forces float32 into the diffusion
+conditioning whatever dtype the model is in. The reference build had to install a `no_autocast`
+context to **remove upstream's own casts** before a genuine float64 reference was possible.
+
+So the campaign has never established **the precision floor of the training recipe itself** —
+and it sits under everything:
+
+- if upstream's own fp32 gradient reads ~5e-03 mass-weighted against its float64 self, the bar
+  is fair and the 7.5692 is entirely ours;
+- if it reads near 1, the bar compares single precision against float64 and we have been
+  holding ourselves to something **upstream never meets either**, which reframes "reproduce
+  training" as matching *their trajectory* rather than a float64 ideal.
+
+Both answers are useful and neither is speculation. It is an unmeasured denominator.
+
+**And the capability has been sitting there.** `bundle_min.py` already carries
+`--dtype {float64,float32}`; a search of qb2 for `grads_f32*` / `*f32*.pt` returns nothing. That
+is the **third** time this campaign has found a needed measurement one flag away — D52
+(`cond_out_cot` already captured), D54 (the per-tensor array already written), and now this. The
+standing rule keeps earning its place: **check what exists before concluding it does not.**
+
+Row **`of3t-refprec`** dispatched, **CPU-only, `card=cpu`, no device**. Four arms on identical
+weights, batch, draws and step: the existing float64 reference **verified by digest and not
+rebuilt**; **fp32 as upstream actually runs**, casts left in; fp32 with `no_autocast` applied,
+which isolates how much of the floor is upstream's own casting rather than single precision
+itself; and bf16 autocast with fp32 parameters if that is a small change, skipped with a
+statement if not. Reported under A23 — mass-weighted headline with the median beside it, per
+tensor rel + `r` + cos, a per-tensor sidecar so it can be re-scored under a later denominator,
+and the attention/non-attention split so the numbers compare directly to 27.2441 % and
+23.8917 %. Controls: A16's measured zero baseline, each arm reproducing the reference loss
+`1.267624369070698` to the precision its dtype allows, and a permuted-batch control that must
+move the headline by orders of magnitude.
+
+**The single most informative number it can produce**: what upstream's own fp32 reads on
+`blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — 8.05416 % of the model, the
+tensor our device reads at **18.504**.
+
+Filed as **D64**. This is the question I should have asked before the campaign's fortieth pass,
+not its hundred-and-sixty-third.

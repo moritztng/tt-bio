@@ -3819,3 +3819,53 @@ Owner: `of3t-orchestrator`. **UNFIXED as a convention** — nothing in the relea
 currently distinguishes "constructs the op" from "executes it", and the only thing that
 separates them is a digest with a negative control beside it. The rule: **blast radius is
 measured by digest, never counted from constructors.**
+
+---
+
+### D64. The campaign has measured everything against a float64 reference and never measured what OpenFold3's *own* training precision scores against it — so the bar's achievability by any implementation is unestablished. FOUND by `of3t-orchestrator`, pass 163. **UNFIXED; dispatched.**
+
+Every gradient figure on this record is against a **float64** reference. The device arm reads
+mass-weighted **7.5692** over 547 tensors against a **2.0e-02** bar.
+
+**Nobody trains in float64**, and `perf/of3t_reference/bundle_min.py` says so in its own
+docstring: upstream is *not float64-clean* — their modules wrap work in
+`torch.amp.autocast(dtype=torch.float32)`, and a `.float()` forces float32 into the diffusion
+conditioning regardless of the model's dtype. The reference build had to install a `no_autocast`
+context to **remove** upstream's own casts before a genuine float64 reference was possible.
+
+So the campaign has never established **the precision floor of the training recipe itself**.
+Two readings, both useful:
+
+- if upstream's own fp32 gradient reads ~5e-03 mass-weighted against its float64 self, the bar
+  is fair and the 7.5692 is entirely ours;
+- if it reads near 1, the bar is comparing single precision against float64, and the campaign
+  has been holding itself to something **upstream never meets either** — which would reframe
+  "reproduce training" as matching *their trajectory* rather than a float64 ideal.
+
+This is not a hypothesis. It is an **unmeasured denominator** sitting under every number the
+campaign has produced, including every one I have reported to Moritz.
+
+**And the capability already exists.** `bundle_min.py` carries `--dtype {float64,float32}`. A
+search of qb2 for `grads_f32*` / `*f32*.pt` returns **nothing** — it has never been run. That is
+the third time this campaign has found a needed measurement one flag away (D52, D54, now this),
+and the standing rule applies: **check what exists before concluding it does not.**
+
+Row `of3t-refprec` dispatched, CPU-only. Four arms on identical weights, batch, draws and step:
+the existing float64 reference verified by digest and **not rebuilt**; **fp32 as upstream
+actually runs** with its casts left in; fp32 with `no_autocast` applied, which isolates how much
+of the floor is upstream's own casting rather than single precision; and bf16 autocast with fp32
+parameters if that is a small change. Reported under A23 with a per-tensor sidecar, the
+attention/non-attention split for direct comparison to 27.2441 % and 23.8917 %, and the named
+heavy tensors individually — **what upstream's own fp32 reads on
+`blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight`, the tensor our device reads at
+18.504, is the single most informative number available.**
+
+**Status: STILL OPEN**, and deliberately framed so it cannot be answered by argument. **What
+would settle it**: arm 2's mass-weighted `rel_l2` against the float64 reference. Below ~5e-02
+and the bar is fair — upstream's own single precision meets it and our 7.5692 is ours, which
+**confirms** the campaign's framing. Near or above 1 and the bar is comparing single
+precision to float64, which **refutes** it and means the parity question has to be restated
+against upstream's own trajectory. Anything between is the interesting case and the row
+reports it as such rather than rounding to one of the two.
+
+Owner: `of3t-refprec`. **UNFIXED.** Brief `workstreams/of3t-refprec.txt`.
