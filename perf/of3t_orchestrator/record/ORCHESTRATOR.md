@@ -934,21 +934,19 @@ boundary pad rows leaves both the reference's and our own parameter gradients **
 One oddity to carry rather than smooth: SHIPPED reads **5.506930e+00**, LOWER than the flipped arm,
 but its forward fails A18 at 1.064843e-01, so it is not the scope's reading.
 
-**So PARTIAL, and what it now rests on is a located defect rather than a missing
-measurement.** Four LayerNorm affine leaves carrying 92.68 % of the trunk's error mass, in a
-backward whose error grows as it propagates toward block 0. That is a lead of exactly the kind the
-gate says must be worked rather than concluded on.
+**So PARTIAL, and the mechanism question is already answered.** `of3t-bwdaccum` ran the
+pre-registered discriminator first: the single-track **cotangent degrades monotonically** from a
+correct seed (rung 48, rel 0.0016 at cos 1.0) to **~10x too large and cos ≈ 0.000** through rungs
+5-22 — orthogonal to the reference, so carrying no correct signal — with the sharpest single step
+at rung 40 → 39 (norm ratio 2.415 → 6.465, cos 0.329 → 0.026). **The four LayerNorm leaves are
+where the error lands, not where it is made.** The pair track stays within ~1.0-1.3 norm ratio the
+whole way down. The row is live and owns the fix; the mechanism is no longer the open question.
 
 PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, never run until pass
 181 — **PASSES its shape bar**, exponent +0.194 at r2 0.093 against the four-fix arm's +1.267,
 `d_1` exactly 0 both sides, 4,147 of 4,147 bit-identical, upstream-vs-upstream exactly 0.0 at all
 twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
 gradient it consumes is not.**
-
-**Nothing ships.** All five SS7 recipe fixes and every softmax arm are release-gated on their
-branches and unmerged. The SS7 fixes cannot reach a shipped path at all — three gates: `train_loop`
-has no production callers, `AdamW` is constructed in exactly one non-test place (inside it), and
-both optimizer changes are dead code unless `self.accum` is filled, which only that loop does.
 
 Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `96125b21`**, 42 of 44 rows, 1240 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
@@ -958,6 +956,11 @@ distance-to-go shares in its first 2,000: they had been pushed to offsets 2016-2
 check reported them MISSING when they were present. D66 recurring against me, with the twist
 that the field did not just get long, it buried its own numbers under narrative added later.
 What was removed, verbatim:
+
+**Nothing ships.** All five SS7 recipe fixes and every softmax arm are release-gated on their
+branches and unmerged. The SS7 fixes cannot reach a shipped path at all — three gates: `train_loop`
+has no production callers, `AdamW` is constructed in exactly one non-test place (inside it), and
+both optimizer changes are dead code unless `self.accum` is filled, which only that loop does.
 
 **From GAP at pass 201, a RESOLVED entry (D80) whose narrative no longer belongs in a field about what is NOT done:**
 

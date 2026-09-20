@@ -6922,3 +6922,48 @@ wrong leaf backward (a per-op defect) while one degrading with depth means somet
 block and the leaves are a symptom. `dW = sum(g*xhat)` and `db = sum(g)` are bf16 reductions over a
 long axis, which is where **D55** (precision withheld from a reduction inside a cancellation) and
 **D111** (silent bf16 rounding on a reduce) both bite.
+
+### D116 UPDATE (pass 201). UNFIXED. The pre-registered discriminator fired and it is mechanism (A): the cotangent DEGRADES with depth, so the four LayerNorm leaves are a symptom, not the cause. From `of3t-bwdaccum`, still live.
+
+The brief pre-registered the cheap discriminator — *score the cotangent ENTERING each block against
+the reference's; flat at the bf16 floor means a wrong leaf backward, degrading with depth means
+something injects it per block and the leaves are a symptom.* `of3t-bwdaccum` ran it first, before
+proposing anything, and the answer is unambiguous.
+
+**The single-track cotangent degrades monotonically from the seed down** (rung k enters block k;
+rung 48 is the captured seed, the backward runs 48 → 0), masked to the 56 real tokens, FLIPPED arm:
+
+| rung | 48 | 47 | 45 | 44 | 40 | **39** | 38 | 5-15 | 0 |
+|---|---|---|---|---|---|---|---|---|---|
+| ds rel_l2 | 0.0016 | 0.895 | 0.644 | 1.369 | 2.290 | **6.517** | 7.052 | ~10.0-10.5 | 7.151 |
+| norm ratio | 1.0000 | 1.479 | 0.848 | 1.517 | 2.415 | **6.465** | 6.957 | ~10.0-10.4 | 7.624 |
+| cos | 1.0000 | 0.807 | 0.769 | 0.470 | 0.329 | **0.026** | −0.024 | **~0.000** | 0.524 |
+
+The seed is correct to 1.6e-03 at cos 1.0, as it must be. **By the middle of the stack our
+single-track cotangent is ~10x too large and essentially ORTHOGONAL to the reference** — cos 0.000
+to −0.04 across rungs 5 through 22. A vector at cos 0 carries no correct signal; this is not a
+precision loss, it is a different vector.
+
+**The sharpest single localisation is the rung 40 → 39 step**: norm ratio 2.415 → 6.465 (**2.7x in
+one block**) and cos 0.329 → 0.026. One block boundary roughly triples the error and destroys what
+alignment remained.
+
+**The pair track is a different story and it is healthy by comparison**: dz norm ratio stays within
+~1.0-1.3 the whole way down and its rel_l2 sits at 3-5x upstream's own bf16 floor, against the
+single track's 6-11x.
+
+**So the four LayerNorm affine leaves are where the error LANDS, not where it is made.** D116's
+"92.68 % of the error mass on four leaves holding 2.121 % of the gradient mass" stands as a
+description of the parameter gradients; the cause is upstream of them in the chain.
+
+**Instrument discipline worth recording, because it is what makes the above usable.** The row ran an
+A/A first: with its lever off, its rewritten layer-norm backward reproduces `of3t-trunkg043`'s
+published FLIPPED gradient **bit-identically on 2736 of 2736 tensors**, and the forward too
+(s_norm 2280898.385672419, z_norm 1040949.4944040732). So every lever reading is attributable to the
+lever. And one control moved: upstream's own bf16 arm, rebuilt by that row's own script in this
+environment, reads **3.739355e-01** against the published **4.007237e-01** — **6.7 % apart** — while
+the float64 arm reproduces to 15 digits and FLIPPED reproduces exactly at 9.025172e+00. **The bf16
+floor is environment-sensitive at that level**, so every ratio must name which arm it used.
+
+`of3t-bwdaccum` is still live and owns the final reading; this entry records the discriminator's
+answer because it settles the mechanism question D116 was filed on.
