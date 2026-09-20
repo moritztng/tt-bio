@@ -754,14 +754,19 @@ reader taking `_PERMUTED` at face value will over-rate it. **D72 (STILL OPEN)**:
 **43.8936 %** is far past it — all of that the diffusion transformer at **141.6x**. The
 campaign's "54 % outside the bar" was largely an artefact of a float64 yardstick upstream
 never meets. Limited by the shared-subtrahend rule: two distances from one reference do not
-order each other, so this is not yet a trajectory claim.
+order each other, so this is not yet a trajectory claim. **D73 (UNFIXED, dispatched)**: after 174 passes nothing has measured our gradient against
+**upstream's own gradient** — every figure is a distance from a float64 construction upstream
+never runs, and distances from a shared reference do not order each other. Row
+`of3t-trajectory` launched on qb2-card0 to compare our device tensors directly against arm4's
+bf16, with the reading pre-registered in its brief: inside **5.852018e-02** is the strongest
+claim the campaign can make, at or above 7.5692 refutes D72's optimistic reading.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; seventy-two defects on the record, thirty-one of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; seventy-three defects on the record, thirty-two of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7280,3 +7285,42 @@ but **not the gradients**. One re-run of `device_gradient.py` writing them close
 the *keep the per-item array* lesson arriving a third time.
 
 Filed as **D72**, still open, with the closing measurement named.
+
+---
+
+## Pass 174 — after 174 passes, nothing has compared our gradient to theirs
+
+D72's re-scoring is real and limited by construction. Both its columns are distances from the
+**same** float64 reference, and two deviations from a shared reference do not order each other:
+our 7.865e-03 beside bf16's 6.2532e-02 does not establish that we agree *with bf16* to 6e-02,
+because the errors may point different ways and our distance from bf16 could exceed both.
+
+**"Reproduce OpenFold3 training" strictly means agreement with what their step computes** — and
+no measurement in this campaign has asked that. Every number on the record is a distance from a
+float64 construction **upstream never runs**. That is the gap D72 left and it is the campaign's
+closing measurement.
+
+Row **`of3t-trajectory`** dispatched, launched on qb2-card0 with all four qb2 cards free:
+
+- **write the device gradient tensors.** `device_gradient.py` publishes rel, `r` and cos per
+  tensor and not the gradients, so its output cannot be compared against anything except the
+  reference it ran against. **Third time** a summary-only result file has blocked this campaign.
+- **compare directly against `arm4_bf16_autocast/grads_f64.pt`** over the 547 tensors, under
+  A23, with the per-section split so it sits beside D72's table row by row, and against float64
+  as well so the record stays continuous.
+- **the reading pre-registered in the brief itself, before the run** — bar is our distance from
+  their bf16 step being no larger than that step's own distance from float64, **5.852018e-02**:
+  inside it is the strongest claim this campaign can make; between it and ~1.0 is the honest gap
+  in the only units that matter; **at or above 7.5692 means our error is roughly orthogonal to
+  theirs, "no further from float64 than they are" was hiding a disagreement, and D72's
+  optimistic reading is refuted** — to be reported as prominently as the favourable branch.
+- **controls**: A16's zero-model baseline; the recipe's **own internal spread** (arm4 against
+  arm2, both on disk) as the scale without which the headline is unreadable; and a control that
+  breaks the comparison.
+
+**The pre-registration is in the row's brief, not only in my record, and that is deliberate.**
+D67 caught me withdrawing figures in my own record while the briefs went on publishing them. A
+reading committed only where I notice it is not committed. Putting it in the instructions holds
+the row to it and holds me to it.
+
+Filed as **D73**.
