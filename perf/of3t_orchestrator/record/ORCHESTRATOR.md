@@ -406,8 +406,12 @@ sat on qb2 — row `of3t-conditioning` dispatched, and it returned **GO**. **D54
 per-tensor array I told a live row to produce had been on disk three hours, D52's lesson
 recurring against me. **D55 (UNFIXED)**: the tape gives `precise_config()` to the reductions
 feeding weight gradients and withholds it from the four inside near-cancellations — the
-softmax backward among them — which is the best remaining candidate for the 25.5795 % and is
-unmeasured; it is five models if real, and release-gated either way. **D53 (UNFIXED)**: A23's
+softmax backward among them — unmeasured, five models if real, release-gated either way.
+**D56 (UNFIXED)**: the 25.5795 % is an ill-conditioned reduction (`K ≈ 1.3e+06`) amplifying a
+constant **~2,172x** device arithmetic floor — and torch fp32 computes the same sum **inside
+the bar**, so the floor is the source and the conditioning only the multiplier; the one lever
+that could close it, the bf16 product forming the summands inside an otherwise-precise
+reduction, is untested. **D53 (UNFIXED)**: A23's
 argument met data and landed the unflattering way — the ten worst tensors of the existing
 diffusion arm hold **15.7140 %** of the model and the ten best **1.1650 %**, a 13.5x
 concentration of error on the mass, with the worst point (rel **18.504**) on the model's
@@ -697,7 +701,7 @@ mass is measured against a float64 reference and inside the bars, 52.7798 % is m
 outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
-two live; fifty-five defects on the record, twenty-four of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; fifty-six defects on the record, twenty-five of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6257,3 +6261,64 @@ re-run the diffusion arm **interleaved A/B/A**, watch the leaf's 10.6980 — and
 needs: a precision fix that changes nothing is indistinguishable from one that never reached the
 kernel, so a third arm with a deliberately wrong config must make the number **worse**. If neither
 direction moves, the lead is refuted and that is a result.
+
+---
+
+## Pass 155 — the mechanism arrives, and its own ladder says the thing it is read as denying
+
+`of3t-adaln` returned **GO** with the best-controlled arm this campaign has produced, and it
+found the mechanism nobody had. The AdaLN backward is **correct**: 4 of 4 parameter gradients at
+**8.7e-04 to 2.2e-03**, norm ratios inside [0.99877, 1.00087], cosines above **0.9999981**,
+against a float64 autograd reference from upstream's own class at block 8's real weights. The
+fused sigmoid multiply is **bit-identical** to the unfused form in fp32 *and* bf16 — so my
+pass-152 elimination-by-reading now has a measurement under it. Input magnitude over 270x, the
+sample axis over 48x and six different blocks' weights together move the headline **under 7 %**,
+so none of them is the block-to-block variable.
+
+What does move it is conditioning. The gain gradient is a sum over 18,432 terms and its relative
+error tracks `K = Σ‖term_i‖/‖Σ term_i‖`, measured per rung:
+
+    K          device        host fp32      device/host
+    3.009e+01  2.059085e-03  4.027367e-07      5113
+    2.112e+02  7.351748e-03  2.671127e-06      2752
+    2.100e+03  5.864179e-02  2.747817e-05      2134
+    2.100e+04  5.744067e-01  2.598909e-04      2210
+    2.100e+05  4.161453e+00  2.595698e-03      1603
+    2.100e+06  2.635289e+01  3.324537e-02       793
+
+`rel` is linear in K over five decades, and the high-K signature — `r` rising while `cos`
+collapses — is exactly what the real tensor shows (`r` 19.2415, `cos` 0.74941, measured by that
+row and not previously on the record anywhere). The real tensor interpolates to **K ≈ 1.3e+06**.
+That excludes a wrong transform and a wrong constant at once, which is what four passes of
+hypotheses could not do.
+
+**The third column is mine and it changes the conclusion.** `device / host_fp32` is **793 to
+5113, median 2172, roughly constant across all five decades**, and both columns are linear in K.
+The conditioning multiplies *both* equally. What separates us from torch fp32 is a **constant
+arithmetic floor**. And at the top rung, **torch float32 on a CPU reads 3.324537e-02 — inside
+the 5.0e-02 bar** — where our device reads 26.35.
+
+**So the ill-conditioned sum is computable to bar in single precision, and we are ~2,000x above
+single precision on it.** Closing that gap puts 18.504 at **0.0085**, inside the *median* bar.
+The row's `DOESNOT` is careful and never claims unfixability; its `MECHANISM` paragraph reads as
+if it does, and a reader takes the second. Getting that wrong would retire **25.5795 % of the
+model** as a property of arithmetic on a premise nobody tested.
+
+It priced **one** lever — AdaLN's weight dtype, pinned to literal `ttnn.bfloat16` at
+`tenstorrent.py:9791-9794`, worth 2.4x at K = 20 and **1.0x at K = 2.1e+06** — and that
+elimination is sound. It is also the argument that the floor at high K is in the **arithmetic**,
+not the storage. The arithmetic was not priced. Amendment 4 names a specific untested lever:
+`autograd.py:683`/`:1611` form the gain gradient as `_sum_leading(ttnn.multiply(g, norm), …)`,
+where the **reduction is precise and the product that builds its 18,432 summands is not** —
+bf16 in, summed exactly. Summing bf16 numbers in fp32 does not recover the bits lost in making
+them, and this is the one lever that survives a "we made the reduction precise" fix. It runs on
+the row's existing 6-second harness, with a deliberately-worse arm as the control that the flag
+reached the kernel, and **if it does not move at high K it is refuted and that is a result.**
+
+One correction to the row's protocol note, which is otherwise right. A relative bar genuinely is
+unreadable on a cancelled component — at K = 2.1e+06 a *correct* implementation reads 26.4 — and
+the 474-of-547 over-bar count must be read with that in mind. But the reason the mass-weighted
+headline is less exposed is **not** that "a cancelled component carries little mass by
+construction": this tensor is **8.05416 %** of the model and **28 %** of its gradient norm. A
+large result can still be a heavily cancelled sum, and that is precisely why it is worth fixing.
+Filed as **D56**.

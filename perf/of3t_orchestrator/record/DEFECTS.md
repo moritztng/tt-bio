@@ -3338,3 +3338,85 @@ Owner: `of3t-adaln` (brief amendment 3, sent while the row is live). **UNFIXED.*
 merged even if it works: a precision change to a training backward on a path five models share is
 release-gated. Artifact:
 `perf/of3t_orchestrator/CANCELLATION_REDUCTIONS_UNCONFIGURED.json`.
+
+---
+
+### D56. The campaign's worst gradient component is an ill-conditioned reduction — and its own ladder shows torch fp32 computes that same reduction *inside the bar*, so the conditioning is the amplifier and a ~2,000x device arithmetic floor is the source. FOUND by `of3t-adaln` (mechanism) and `of3t-orchestrator` pass 155 (the ratio). **UNFIXED**, one lever untested.
+
+`of3t-adaln` found the mechanism the campaign had been missing, with a measured ladder rather
+than an argument. The gain gradient is `g_γ = Σ_i (dL/d ln_out)_i · ŝ_i`, a sum over 18,432
+(token, sample) terms, and its relative error is set by the cancellation condition number
+`K = Σ‖term_i‖ / ‖Σ term_i‖`, measured on each rung rather than assumed:
+
+| K | device | host fp32 | **device/host** | gain `r` | `cos` |
+|---|---|---|---|---|---|
+| 3.009e+01 | 2.059085e-03 | 4.027367e-07 | **5113** | 1.00053 | 0.999998 |
+| 2.112e+02 | 7.351748e-03 | 2.671127e-06 | **2752** | 1.00111 | 0.999974 |
+| 2.100e+03 | 5.864179e-02 | 2.747817e-05 | **2134** | 0.99426 | 0.998285 |
+| 2.100e+04 | 5.744067e-01 | 2.598909e-04 | **2210** | 1.13783 | 0.863185 |
+| 2.100e+05 | 4.161453e+00 | 2.595698e-03 | **1603** | 4.21914 | 0.171778 |
+| 2.100e+06 | 2.635289e+01 | 3.324537e-02 | **793** | 26.52932 | 0.162413 |
+
+`rel` is linear in K over five decades and the high-K signature — `r` rising while `cos`
+collapses — is exactly what the real tensor shows (`r` 19.2415, `cos` 0.74941, produced by that
+row and not previously on the record). Interpolating, the real tensor sits near **K ≈ 1.3e+06**.
+That excludes both a wrong transform (`r ≈ 1`, `cos ≈ 0`) and a wrong constant (`r ≈ 19`,
+`cos ≈ 1`), and it is consistent with everything else: the AdaLN backward itself measures **4 of
+4 at 8.7e-04 to 2.2e-03 with cosines above 0.9999981**, the fused sigmoid is **bit-identical** to
+the unfused form in fp32 and bf16, and input magnitude over 270x, the sample axis over 48x and
+six different blocks' weights together move the headline **under 7 %**.
+
+**The column the row did not compute.** `device / host_fp32` is **793 to 5113, median 2172, and
+roughly constant across all five decades.** Both columns are linear in K. So the conditioning is
+a multiplier applied **equally to both**, and what separates us from torch fp32 is a **constant
+arithmetic floor**. Read the top rung directly: at K = 2.1e+06 torch float32 on a CPU reads
+**3.324537e-02 — inside the 5.0e-02 per-tensor bar** — while our device reads 26.35.
+
+**So the ill-conditioned sum is computable to bar in single precision, and we are ~2,000x above
+single precision on it.** Closing that gap would put the real tensor's 18.504 at **0.0085** —
+inside the 2.0e-02 *median* bar. This is the difference between a fixable port gap and a
+property of the arithmetic, and it decides whether **25.5795 % of the model** is retired as
+unfixable. The row's `DOESNOT` is careful and does not claim unfixability; its `MECHANISM`
+paragraph reads as if it does, and a reader will take the second.
+
+**What was priced and what was not.** The row priced AdaLN's **weight dtype** —
+`tenstorrent.py:9791-9794` hands `torch_to_tt` the literal `ttnn.bfloat16` instead of routing
+through `_dtype`, so all four weights stay bf16 even under an fp32 activation override — and
+measured it worth 2.4x at K = 20, 1.2x at K = 2.1e+04 and **1.0x at K = 2.1e+06**. That is a
+sound elimination, and it is itself the argument that the floor at high K lives in the
+**arithmetic**, not in the operands' storage. The arithmetic was not priced.
+
+**One specific untested lever, distinct from D55.** At `autograd.py:683` and `:1611`:
+
+```
+gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+```
+
+`_sum_leading` **does** pass `precise_config()` — it is the one reduction in the tape carrying
+its own recorded measurement (cosine 0.379 → 0.999995). But the **elementwise product that forms
+its 18,432 summands** has no kernel config and no dtype, so the summands are built and stored at
+activation dtype (bf16) and then summed precisely. **Summing bf16 numbers in fp32 does not
+recover the bits lost in making them.** This is a lever that survives a "we made the reduction
+precise" fix and it sits on the gain gradient — the exact quantity that reads 18.504. bf16 unit
+roundoff (~3.9e-03) against fp32's (~6e-08) is 6.5e+04; the measured gap is ~2.2e+03, the same
+quantity after partial cancellation of independent rounding errors. Compatible magnitudes;
+suggestive, not a derivation.
+
+**The test** runs on the row's existing K-ladder harness at 6 s per arm: a device arm with the
+product formed in fp32, patched from outside `tt_bio/` exactly as the weight arm was, watched at
+the **high-K rungs** where the weight lever died. **The control**: a deliberately-worse arm
+(LoFi, `fp32_dest_acc_en` off) must make the same rung worse, or the flag never reached the
+kernel. **If it does not move at high K, this is refuted** and that is equally worth knowing.
+
+**And a protocol consequence the row raised, which stands.** A per-tensor *relative* bar is not a
+readable instrument on a gradient component whose reference has cancelled: at K = 2.1e+06 a
+correct implementation reads rel 26.4, and at K = 20 the same implementation reads 2.1e-03. The
+474-of-547 over-bar count at diffusion scope must be read with that in mind. The mass-weighted
+headline is less exposed — but **not** by the row's reasoning that "a cancelled component carries
+little mass by construction", which is false here: this tensor is 8.05416 % of the model and
+28 % of its gradient *norm*. A large result can still be a heavily cancelled sum.
+
+Owner: `of3t-adaln` (brief amendment 4, sent while the row is live). **UNFIXED.** Nothing merges
+either way; the path is shared by four of the six AdaLN-constructing modules and is
+release-gated. Artifacts: `state/of3t-adaln.md`, `perf/of3t_adaln/`,
+`perf/of3t_orchestrator/CONDITIONING_AMPLIFIES_A_FLOOR_WE_CAN_MOVE.json`.
