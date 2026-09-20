@@ -837,6 +837,60 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+    # --- and the REVERSE direction, which the check above never had -------------------------
+    # The coverage check is one-way: every UNFIXED defect must be NAMED in GAP. It says nothing
+    # about the label GAP attaches, so a defect can be FIXED in DEFECTS.md while GAP keeps
+    # calling it UNFIXED, forever, silently. Pass 196 found SIX in that state -- D77 for
+    # nineteen passes, and D80 and D95 whose own GAP bodies said "RESOLVED" and "CLOSED" three
+    # lines under a label that said UNFIXED. This is the same shape as D74 and D76 one more
+    # time: the guard read a narrower question than the document could get wrong.
+    #
+    # What counts as a contradiction is deliberately narrow. GAP is allowed to reconcile a
+    # status in words -- "UNFIXED in effect, fixed in code" and "UNFIXED -- escalation
+    # WITHDRAWN" are honest and carry more information than either word alone. So a mismatch
+    # fires only when GAP's own parenthetical says UNFIXED and does NOT also name the status
+    # DEFECTS.md gives it. Nuance passes; an unreconciled contradiction does not.
+    _DEAD = ("FIXED", "WITHDRAWN", "REFUTED", "CLOSED", "RESOLVED", "ROOT-CAUSED")
+    _st = {}
+    for _m in _re.finditer(r"^### (D\d+)(?: UPDATE[^\n]*)?\.(.*)$", _dt_u, _re.M):
+        _toks = _re.findall(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b",
+                            _m.group(2))
+        if _toks:
+            _st[_m.group(1)] = _toks[-1].upper()          # a later UPDATE heading wins
+
+    def _gap_contradictions(gap_text, statuses):
+        """Defects whose GAP label says UNFIXED while DEFECTS.md says the opposite."""
+        out = []
+        for m in _re.finditer(r"\*\*(D\d+)\s*\n?\(([^)]*)\)", gap_text):
+            n, label = m.group(1), m.group(2).upper()
+            st = statuses.get(n)
+            # "FIXED" is a SUBSTRING of "UNFIXED", so a naive `st not in label` reconciles every
+            # FIXED defect against a label that says the exact opposite -- and FIXED is the
+            # commonest status, so the check would have been born unable to fire on the six
+            # cases that motivated it. The break control below is what caught that. Strip the
+            # UNFIXED occurrences before asking whether the label also names the real status.
+            rest = label.replace("UNFIXED", "")
+            if st in _DEAD and "UNFIXED" in label and st not in rest:
+                out.append(f"{n} (GAP says UNFIXED, DEFECTS.md says {st})")
+        return out
+
+    # Break control, run before the real one: the check must FAIL on a document that contradicts
+    # itself, or its silence on the real input means nothing. A17 -- a negative control has to
+    # break exactly what the check reads, which here is the pairing, not the presence.
+    _probe = _gap_contradictions("**D1 (UNFIXED)**: synthetic.", {"D1": "FIXED"})
+    if len(_probe) != 1:
+        bad.append("the GAP-vs-DEFECTS contradiction check does not fire on a known "
+                   "contradiction, so its silence on the real document is uninformative")
+    else:
+        _contra = _gap_contradictions(gap, _st)
+        if _contra:
+            bad.append("GAP contradicts DEFECTS.md on: " + ", ".join(_contra)
+                       + " -- relabel in GAP, or reconcile the two words in GAP's own "
+                         "parenthetical if the nuance is real")
+        else:
+            ok.append(f"GAP's {len(_st)} defect labels do not contradict DEFECTS.md "
+                      f"(contradiction probe fired)")
+
 # --- an UNFIXED defect must not leave a hypothesis hanging ------------------------------------
 # Pass 82's own finding, and I am the case that motivates it. D19 carried a paragraph headed
 # "A hypothesis with a decisive test, offered rather than asserted" for twenty passes. The test
