@@ -253,6 +253,15 @@ Recomputed from the artifacts on every compose (153 checks, 0 drifted):
 - **`diffusion_conditioning` was never blocked**, and proving that is most of the jump above. Its
   reference side — inputs, the cotangent at its output, and float64 gradients for all 26 tensors
   — had been complete on qb2 since 01:43; only our side was missing (D52).
+- **The bar is achievable in single precision, so every remaining gap is ours** (pass 169,
+  D69). Upstream OpenFold3 0.4.3 at **float32 with its own autocast and `.float()` calls left
+  in** — the precision the recipe actually runs — reproduces its own float64 gradient at
+  **8.107441e-05 mass-weighted**, **247x inside the 2.0e-02 bar**, median over tensors
+  2.215005e-05, on the same weights, batch, draws and step. On the model's fourth-heaviest
+  tensor (8.05416 %) it reads **rel 1.178860e-05, r 1.000004, cos 1.000000** where our device
+  reads 18.504 / 19.2415 / 0.74941 — **1.57 million times worse**. The reading was fixed in
+  writing before the arm produced output. This ends every "may not be computable" argument the
+  campaign has entertained.
 
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
@@ -734,7 +743,7 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; sixty-eight defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; sixty-nine defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7047,3 +7056,52 @@ which is the whole point.
 
 Filed as **D68**. Four withdrawals cost more passes than every pre-registration this campaign
 will ever write.
+
+---
+
+## Pass 169 — the bar is achievable, and the gap is entirely ours
+
+`of3t-refprec`'s arm2 landed while the other two were still running, and the pre-registration
+from pass 168 was already committed.
+
+**Upstream OpenFold3 0.4.3 at float32, with its own autocast and `.float()` calls left in — the
+precision the recipe actually runs — reproduces its own float64 gradient at 8.107441e-05
+mass-weighted.** That is **247× inside the 2.0e-02 bar**, with a median over tensors of
+2.215005e-05, on identical weights, batch, draws and step.
+
+**Pre-registered branch: arm2 below 5.0e-02 → the bar is achievable in single precision, our
+7.5692 is entirely ours, framing CONFIRMED.** The 54.0115 % of the model outside the bar is a
+port gap and there is no excuse left in the arithmetic.
+
+**The named tensor finishes the conditioning defence.** On
+`blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight`, 8.05416 % of the model:
+
+    upstream fp32   rel 1.178860e-05   r 1.000004   cos 1.000000
+    our device      rel 18.504         r 19.2415    cos 0.74941
+
+**1.57 million times worse** on the tensor whose supposed difficulty underwrote every "this may
+simply not be computable" reading — including one I wrote. Single precision reproduces the
+float64 value to five decimal places at a cosine of exactly 1.000000.
+
+The 298 tensors over the per-tensor bar hold **0.000001 %** of the model between all of them —
+confidence-head tensors at reference norms ~5e-05, because `initial_training` weights those
+terms at 1e-4. A14's 1e-12 cut catches only 59; the rest are nonzero-but-massless, which is
+exactly the A14 gap D51 named.
+
+**And an arm I specified cannot differ.** arm2 and arm3 are byte-identical (`09f1217c…`, both
+distinct from the reference). That is correct by construction: `no_autocast` exists to stop
+upstream downcasting a *float64* graph, and at float32 `autocast(float32)` is a no-op and
+`.float()` is already identity, so arm3 **is** arm2. I wrote that contrast into the brief and
+into my own pre-registration as isolating upstream's casting from single precision, and it
+isolates nothing — the power-of-two scale arm again, in a new costume. Isolating those casts
+needs the **bf16** arm with and without `no_autocast`.
+
+**What I am not claiming.** arm4 (bf16 with fp32 parameters) — what an AF3-style step actually
+runs, and the honest floor — was still executing; fp32 clearing the bar 247× licenses nothing
+about bf16. The permuted control was still executing and must move the headline by orders of
+magnitude before any of this is believable. A16's zero baseline and the row's own reported
+result with its own controls are owed. This is one orchestrator computation off the landed
+tensors, and it says so.
+
+Filed as **D69**, and it answers **D64**, the question I posed at pass 163 and should have posed
+before pass 40.

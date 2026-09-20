@@ -1,0 +1,45 @@
+{
+ "what": "an independent orchestrator read of of3t-refprec's arm2 the moment it landed, against the pre-registration committed at pass 168 before any arm produced output. The row's own reported result, with its full controls, is still owed and this does not replace it.",
+
+ "THE_RESULT": {
+  "arm": "arm2_f32_upstream -- upstream OpenFold3 0.4.3 at float32 with its OWN autocast and .float() calls left in, same weights, same batch (batch_step003), same draws (draws_recycles0), num_recycles 0, r = 0.",
+  "mass_weighted_rel_l2_vs_float64": 8.107441e-05,
+  "bar": 2.0e-02,
+  "inside_the_bar_by": "247x",
+  "median_over_tensors": 2.215005e-05,
+  "verdict_per_the_preregistration": "arm2 < 5.0e-02 -> THE BAR IS ACHIEVABLE IN SINGLE PRECISION. Our device arm's 7.5692 is entirely OURS. The campaign's framing is CONFIRMED and the 54.0115 % of the model outside the bar is a port gap with no excuse available."
+ },
+
+ "the_named_tensor_settles_the_conditioning_defence": {
+  "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "share_of_model": 8.05416,
+  "upstream_fp32": {"rel": 1.178860e-05, "r": 1.000004, "cos": 1.000000},
+  "our_device":    {"rel": 18.504,       "r": 19.2415,  "cos": 0.74941},
+  "ratio": "we are 1.57 MILLION times worse on the model's fourth-heaviest tensor.",
+  "what_it_kills": "every remaining form of 'this sum may simply not be computable'. Single precision reproduces the float64 value to five decimal places with a cosine of exactly 1.000000. The reduction is not ill-conditioned in any way that constrains an implementation."
+ },
+
+ "the_over_bar_count_and_why_it_is_not_a_qualification": {
+  "count": "298 of 4,161 tensors over the 5.0e-02 per-tensor bar",
+  "mass_they_hold": "0.000001 % of the model, between all of them",
+  "A14": "A14's ref_norm < 1e-12 cut removes only 59 of the 298, holding 9.382e-32 % of the model. The other 239 are nonzero-but-massless -- reference norms around 5e-05 -- which is exactly the A14 gap D51 documented: the threshold that matters is MASS, not norm.",
+  "what_they_are": "confidence-head and pairformer-embedding tensors inside aux_heads, whose reference gradients are ~1e-05 because initial_training weights those terms at 1e-4. A relative bar on a component with no mass is not a readable instrument, which is A23 from the other side.",
+  "reference_zero_tensors": 9
+ },
+
+ "an_arm_of_my_own_design_that_cannot_differ": {
+  "observed": "arm2_f32_upstream and arm3_f32_removed are BYTE-IDENTICAL (sha256 09f1217c8ea254d0..., both differing from the reference's 1d4ea922...).",
+  "why_that_is_correct_and_not_a_bug": "`no_autocast` exists to stop upstream downcasting a FLOAT64 graph: it neutralises `torch.amp.autocast` and makes `Tensor.float()` identity ONLY on float64 tensors. At float32 there is nothing to protect -- autocast(float32) is a no-op and .float() is already identity -- so arm3 is the same computation as arm2 by construction.",
+  "whose_error": "mine. I specified the arm3 - arm2 contrast in the brief and pre-registered it as isolating 'upstream's own casting from single precision itself'. It cannot differ at fp32, so it isolates nothing. Same family as the power-of-two scale-invariance arm: a contrast built so that it cannot move.",
+  "what_would_actually_isolate_it": "the comparison must be at a dtype where upstream's casts bite -- i.e. the bf16 arm with and without no_autocast, not the fp32 pair."
+ },
+
+ "what_is_still_owed_and_not_claimed_here": [
+  "arm4_bf16_autocast -- bf16 with fp32 parameters, which is what an AF3-style training step ACTUALLY runs, and the honest floor. It was still executing when this was computed. fp32 meeting the bar 247x over does not license any claim about bf16.",
+  "the permuted negative control, which must move the headline by orders of magnitude before any of this is believable. It was still executing.",
+  "A16's measured zero-model baseline on this comparison.",
+  "the row's own reported numbers with its own controls. This file is one orchestrator computation off the landed tensors and is not a substitute for the row's result."
+ ],
+
+ "provenance": "computed 2026-09-20 pass 169 by of3t-orchestrator on qb2 via ssh, CPU only, no device opened, torch.load of arm2's grads_f64.pt (2,947,844,653 bytes, sha256 09f1217c...) against bundle_min_043/grads_f64_043.pt (sha256 1d4ea922...). Both arms verified to load `4935 tensors, 1 missing, 0 unexpected` -- the same version_tensor state as the reference build -- before the numbers were computed. Reading fixed in REFPREC_READING_PREREGISTERED.json at pass 168, before any arm produced output."
+}

@@ -3867,7 +3867,15 @@ heavy tensors individually — **what upstream's own fp32 reads on
 `blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight`, the tensor our device reads at
 18.504, is the single most informative number available.**
 
-**Status: STILL OPEN**, and deliberately framed so it cannot be answered by argument. **What
+**ANSWERED AT PASS 169, and the pre-registered branch is the confirming one.** Upstream's own
+fp32 — run as upstream actually runs it, casts left in, same weights, batch, draws and step —
+reads **8.107441e-05 mass-weighted** against its own float64 reference. That is **247x inside
+the 2.0e-02 bar**. Per the pre-registration: *the bar is achievable in single precision, our
+device arm's 7.5692 is entirely ours, and the campaign's framing is CONFIRMED.* The 54.0115 %
+outside the bar is a port gap with no excuse available. Details and the caveats still owed:
+`perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`.
+
+**Status: originally framed so it could not be answered by argument.** **What
 would settle it**: arm 2's mass-weighted `rel_l2` against the float64 reference. Below ~5e-02
 and the bar is fair — upstream's own single precision meets it and our 7.5692 is ours, which
 **confirms** the campaign's framing. Near or above 1 and the bar is comparing single
@@ -4067,3 +4075,66 @@ block-arm results, which is precisely the extrapolation this campaign has watche
 
 Owner: `of3t-orchestrator`. **FIXED as a practice** — pre-registration is cheap, and the four
 withdrawals cost more passes than every pre-registration this campaign will ever write.
+
+---
+
+### D69. The bar is achievable: upstream's own single precision reproduces its float64 gradient to 8.107441e-05, 247× inside the bar — so the 54.0115 % our device fails is a port gap, not a bar problem. And one arm I specified cannot differ. FOUND by `of3t-orchestrator`, pass 169, against a reading fixed before the arm produced output.
+
+`of3t-refprec`'s arm2 landed: upstream OpenFold3 0.4.3 at **float32 with its own autocast and
+`.float()` calls left in** — the precision the recipe actually runs — on the same weights, the
+same frozen batch, the same draws, `num_recycles` 0, r = 0.
+
+| | value |
+|---|---|
+| mass-weighted `rel_l2` vs float64 | **8.107441e-05** |
+| the bar | 2.0e-02 |
+| **inside the bar by** | **247×** |
+| median over tensors | 2.215005e-05 |
+
+**Per the pre-registration written at pass 168 before any arm produced output** (arm2 below
+5.0e-02 → confirm): **the bar is achievable in single precision, our device arm's 7.5692 is
+entirely ours, and the campaign's framing is CONFIRMED.** The 54.0115 % of the model outside the
+bar is a port gap with no excuse available.
+
+**And the named tensor ends the conditioning defence.** On
+`blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — 8.05416 % of the model, the
+fourth-heaviest tensor:
+
+| | rel | `r` | `cos` |
+|---|---|---|---|
+| upstream fp32 | **1.178860e-05** | 1.000004 | **1.000000** |
+| our device | 18.504 | 19.2415 | 0.74941 |
+
+**1.57 million times worse**, on the tensor whose difficulty was the basis of every "this may
+not be computable" reading. Single precision reproduces the float64 value to five decimal places
+at a cosine of exactly 1.000000. The reduction is not ill-conditioned in any way that constrains
+an implementation.
+
+**The over-bar count is not a qualification.** 298 of 4,161 tensors exceed the 5.0e-02
+per-tensor bar and hold **0.000001 %** of the model *between all of them* — confidence-head and
+pairformer-embedding tensors with reference norms around 5e-05, because `initial_training`
+weights those terms at 1e-4. A14's 1e-12 cut removes only 59 of the 298; the other 239 are
+nonzero-but-massless, which is the A14 gap D51 named: **the threshold that matters is mass, not
+norm.** Nine tensors have an exactly-zero reference gradient.
+
+**An arm of my own design cannot differ.** arm2 and arm3 are **byte-identical** (sha256
+`09f1217c…`, both distinct from the reference's `1d4ea922…`). That is correct, not a bug:
+`no_autocast` exists to stop upstream downcasting a **float64** graph — it neutralises
+`torch.amp.autocast` and makes `Tensor.float()` identity *only on float64 tensors*. At float32
+there is nothing to protect, so arm3 **is** arm2 by construction. I specified that contrast in
+the brief and pre-registered it as isolating upstream's casting from single precision, and it
+isolates nothing — the same family as the power-of-two scale arm: **a contrast built so it
+cannot move.** Isolating upstream's casts requires the *bf16* arm with and without
+`no_autocast`, not the fp32 pair.
+
+**Not claimed here.** `arm4_bf16_autocast` — bf16 with fp32 parameters, which is what an
+AF3-style training step actually runs and the honest floor — was still executing, and fp32
+clearing the bar 247× licenses **nothing** about bf16. The permuted negative control was also
+still executing and must move the headline by orders of magnitude before any of this is
+believable. A16's zero-model baseline on this comparison, and the row's own reported result with
+its own controls, are both still owed; this is one orchestrator computation off the landed
+tensors, not a substitute for the row.
+
+Owner: `of3t-refprec` for the full result. Artifacts:
+`perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`,
+`perf/of3t_orchestrator/REFPREC_READING_PREREGISTERED.json`.
