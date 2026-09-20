@@ -436,7 +436,17 @@ RFdiffusion3 cannot train.
 
 **Instrument A has still never run at model scope.** The reference is fixed — trained weights
 take it from 6 to **4,140 of 4,147** — and correctly unpublished until its own finite-difference
-validation is sound (median 0.353 at h = 1e-5 is truncation; an h-sweep is choosing h).
+validation is sound. **The parenthetical that stood here — *"median 0.353 at h = 1e-5 is
+truncation; an h-sweep is choosing h"* — is WRONG and was superseded by the campaign's own R65
+long before I kept re-copying it.** The h-sweep ran, 1e-3 to 1e-7 in float64 at trained weights,
+and the fd/analytic ratios are **stable across three decades**: spreads of 2.0e-02, 8.4e-02,
+**exactly 0**, and 5.5e-06. A spread of exactly zero over three decades of h is not truncation
+behaving badly, it is **a different function being measured exactly** — FD takes the total
+derivative across all recycling cycles while the tape gives the partial through the last (A11).
+R65's positive control is what makes that more than a story: a parameter whose earlier-cycle
+contribution is negligible must then read ≈ 1, and one reads **1.013**. **At `num_recycles = 0`
+the distinction cannot arise**, which is why the r = 0 captures validate cleanly at
+**fd_max_rel 2.18e-03** (trunk) and **1.17e-03** (diffusion). The instability was never h.
 `of3t-gradients` is held behind it and releases on the first tick after its marker appears.
 **§6 coverage** is measured at 7 of 8 terms with `bond` firing nowhere. **No s/step exists on
 either side**: the GPU baseline's method is pre-registered and nothing is measured, so the
@@ -3483,3 +3493,34 @@ diffusion-transformer readings were **withdrawn** as reference artifacts (D23), 
 shipped defect on every monomer fold with a fix that ships, **D1** is measured and **held**, and
 **D10** is closed as correctness. None of it is a claimed accuracy improvement, and that is the
 honest shape.
+
+PASS 102. **A wrong parenthetical I had been re-copying for passes, corrected against the
+campaign's own ledger.** My summary carried *"median 0.353 at h = 1e-5 is truncation; an h-sweep
+is choosing h"* as the reason the reference's finite-difference validation was unsound. **R65
+refuted that and I kept quoting the superseded version.**
+
+The h-sweep did run, 1e-3 to 1e-7, float64, trained weights. The fd/analytic ratios are **stable
+across three decades** — spreads of 2.0e-02, 8.4e-02, **exactly 0**, and 5.5e-06. A spread of
+exactly zero over three decades of h is not truncation behaving badly; it is **a different
+function measured exactly**. A11 names it: FD takes the **total** derivative across all recycling
+cycles, the tape gives the **partial** through the last. R65's positive control is what lifts that
+from a story to a finding — a parameter whose earlier-cycle contribution is negligible must then
+read ≈ 1, and one reads **1.013**, exactly where the theory predicts no anomaly.
+
+**And it bears directly on what is running right now.** `of3t-rebase`'s `rebuild_043.sh` — which I
+read rather than assumed — does A13 properly (run A and run B as two fresh processes of the
+identical command, then `compare_grads.py`), and schedules the finite-difference validation as
+**run C, `--fd-samples 8 --fd-h 1e-4`**. Run A exited 0 at 23:38:52Z with a manifest sha256. My
+first reading of run A's `fd max rel err: None` looked like a missing validation and was not: it
+is `--fd-samples 0` on runs A and B by design, with the validation deliberately separated into
+run C.
+
+Since run C is at **`num_recycles = 0`**, the total-versus-partial distinction **cannot arise**,
+so A11's anomaly is absent by construction — which is why the r = 0 captures already validate
+cleanly at **fd_max_rel 2.18e-03** (trunk) and **1.17e-03** (diffusion). Those are the comparison
+points I sent the row, with the discriminator stated in advance: land in that few-times-1e-3 band
+and the reference is validated on a single h, because the instability was never h; come back near
+a ratio of 5 or 6, or with a visible spread, and at r = 0 that means something **new** and should
+stop the gradient work rather than be absorbed as a known wart. I also asked which eight of the
+4,170 parameters it samples and whether they span sections — a validation that touches only the
+trunk says nothing about the **91.21 %** of the squared norm living in the diffusion module.
