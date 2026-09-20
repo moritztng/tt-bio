@@ -1,0 +1,4187 @@
+{
+ "started_utc": "2026-09-19T19:45:39Z",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: loadavg1 1.17 -> 0.43 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 60.0,
+    "loadavg1": 0.43
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.307,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 60,
+       "power_w_mean": 70.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.58
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.353,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 56,
+       "power_w_mean": 75.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.45
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.365,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 61,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.43
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.281,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1337.2,
+       "aiclk_n": 61,
+       "power_w_mean": 80.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.33
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.335,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.0,
+       "aiclk_n": 60,
+       "power_w_mean": 81.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.26
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.303,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.4,
+       "aiclk_n": 61,
+       "power_w_mean": 71.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.2
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.283,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 61,
+       "power_w_mean": 71.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.15
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.272,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.6,
+       "aiclk_n": 61,
+       "power_w_mean": 72.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.69
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.21,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.0,
+       "aiclk_n": 61,
+       "power_w_mean": 81.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.68
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.484,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 61,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.09
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.27,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 60,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.09
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.282,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 60,
+       "power_w_mean": 76.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.41
+     }
+    ],
+    "model_load_s": 2.687,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "59e2adced7d6c40b53e7afb8f0823d2d3345e072",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.64,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.7,
+      "aiclk_n": 65,
+      "power_w_mean": 70.5
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.03,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 0.14 -> 0.05 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 3580.2,
+    "loadavg1": 0.05
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.236,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 60,
+       "power_w_mean": 70.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.47
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.317,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 61,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.44
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.816,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 60,
+       "power_w_mean": 68.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.81
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.939,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 61,
+       "power_w_mean": 69.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 3.42
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.363,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 61,
+       "power_w_mean": 78.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 3.6
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.293,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.4,
+       "aiclk_n": 58,
+       "power_w_mean": 81.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 3.03
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.208,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 61,
+       "power_w_mean": 71.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.58
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.149,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 60,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.3
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.25,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 62,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.01
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.341,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 62,
+       "power_w_mean": 69.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.79
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.271,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 62,
+       "power_w_mean": 76.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.67
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.249,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 60,
+       "power_w_mean": 70.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.55
+     }
+    ],
+    "model_load_s": 2.733,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "59e2adced7d6c40b53e7afb8f0823d2d3345e072",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.667,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.1,
+      "aiclk_n": 64,
+      "power_w_mean": 77.2
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.843404,
+     "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+     "loadavg1": 0.88,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 2.43 -> 1.02 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 1.02
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.379,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 61,
+       "power_w_mean": 71.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.93
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.313,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1337.2,
+       "aiclk_n": 62,
+       "power_w_mean": 82.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.95
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.34,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 62,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.96
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.309,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 60,
+       "power_w_mean": 75.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.51
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.322,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 60,
+       "power_w_mean": 78.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.11
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.237,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 60,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.01
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.367,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.2,
+       "aiclk_n": 61,
+       "power_w_mean": 81.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.79
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.23,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 60,
+       "power_w_mean": 72.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.61
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.332,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.5,
+       "aiclk_n": 61,
+       "power_w_mean": 70.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.04
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.492,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.1,
+       "aiclk_n": 60,
+       "power_w_mean": 76.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.6
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.303,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 60,
+       "power_w_mean": 71.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.24
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.284,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.3,
+       "aiclk_n": 60,
+       "power_w_mean": 72.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.97
+     }
+    ],
+    "model_load_s": 2.794,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "59e2adced7d6c40b53e7afb8f0823d2d3345e072",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.758,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1339.7,
+      "aiclk_n": 63,
+      "power_w_mean": 75.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.01,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.81 -> 0.72 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.72
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.327,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.7,
+       "aiclk_n": 60,
+       "power_w_mean": 77.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.95
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.273,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 60,
+       "power_w_mean": 70.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.96
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.31,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.3,
+       "aiclk_n": 60,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.04
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.24,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 60,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.1
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.364,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.9,
+       "aiclk_n": 61,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.08
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.303,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 60,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.06
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.28,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.9,
+       "aiclk_n": 61,
+       "power_w_mean": 74.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.05
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.317,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.6,
+       "aiclk_n": 59,
+       "power_w_mean": 77.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.04
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.334,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 60,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.1
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.268,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 61,
+       "power_w_mean": 71.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.69
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.368,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.3,
+       "aiclk_n": 61,
+       "power_w_mean": 76.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.54
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.261,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.8,
+       "aiclk_n": 57,
+       "power_w_mean": 72.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.42
+     }
+    ],
+    "model_load_s": 2.784,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.749,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 63,
+      "power_w_mean": 69.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 0.94,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 1,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.30 -> 0.55 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.55
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.312,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 61,
+       "power_w_mean": 75.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.73
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.142,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 61,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.56
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.252,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 60,
+       "power_w_mean": 75.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.44
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.192,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 61,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.34
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.164,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 61,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.83
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.247,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 61,
+       "power_w_mean": 74.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.72
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.176,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 61,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.61
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.209,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 61,
+       "power_w_mean": 69.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.48
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.228,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 61,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.37
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.428,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.0,
+       "aiclk_n": 62,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.29
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.243,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 61,
+       "power_w_mean": 74.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.22
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.126,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 61,
+       "power_w_mean": 74.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.17
+     }
+    ],
+    "model_load_s": 2.8,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.689,
+     "clock": {
+      "aiclk_min": 1281,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.6,
+      "aiclk_n": 64,
+      "power_w_mean": 73.5
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.843404,
+     "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+     "loadavg1": 1.21,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.17 -> 0.67 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.67
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.39,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 56,
+       "power_w_mean": 73.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.82
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.348,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.9,
+       "aiclk_n": 61,
+       "power_w_mean": 68.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.86
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.323,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 58,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.89
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.337,
+      "clock": {
+       "aiclk_min": 1325,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.7,
+       "aiclk_n": 59,
+       "power_w_mean": 68.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.92
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.335,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 61,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.93
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.273,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 61,
+       "power_w_mean": 73.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.27
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.334,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 60,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.13
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.374,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 58,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.66
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.315,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.6,
+       "aiclk_n": 60,
+       "power_w_mean": 70.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.07
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.545,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 62,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.9
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.367,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 58,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.7
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.35,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 59,
+       "power_w_mean": 74.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.82
+     }
+    ],
+    "model_load_s": 2.882,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.783,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.7,
+      "aiclk_n": 63,
+      "power_w_mean": 70.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 0.76,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.82 -> 0.67 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.67
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.355,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.1,
+       "aiclk_n": 60,
+       "power_w_mean": 77.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.25
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.332,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 61,
+       "power_w_mean": 78.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.67
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.352,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.9,
+       "aiclk_n": 61,
+       "power_w_mean": 71.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.52
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.295,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 61,
+       "power_w_mean": 77.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.49
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.347,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 61,
+       "power_w_mean": 74.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.41
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.283,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 60,
+       "power_w_mean": 71.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.32
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.322,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.4,
+       "aiclk_n": 60,
+       "power_w_mean": 81.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.25
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.324,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 60,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.19
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.263,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.7,
+       "aiclk_n": 60,
+       "power_w_mean": 76.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.15
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.507,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.6,
+       "aiclk_n": 60,
+       "power_w_mean": 66.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.12
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.243,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 59,
+       "power_w_mean": 76.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.09
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.27,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.5,
+       "aiclk_n": 60,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.64
+     }
+    ],
+    "model_load_s": 2.767,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.731,
+     "clock": {
+      "aiclk_min": 1287,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.0,
+      "aiclk_n": 64,
+      "power_w_mean": 80.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.32,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 2,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.58 -> 0.58 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.58
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.26,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.6,
+       "aiclk_n": 59,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 0.77
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.258,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.6,
+       "aiclk_n": 62,
+       "power_w_mean": 70.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.38
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.317,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 56,
+       "power_w_mean": 71.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.45
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.242,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 61,
+       "power_w_mean": 71.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.78
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.278,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.7,
+       "aiclk_n": 61,
+       "power_w_mean": 79.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.54
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.211,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 57,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.28
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.231,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 59,
+       "power_w_mean": 71.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.99
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.264,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 59,
+       "power_w_mean": 69.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.77
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.269,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 59,
+       "power_w_mean": 77.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.68
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.389,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 62,
+       "power_w_mean": 75.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.14
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.236,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.5,
+       "aiclk_n": 61,
+       "power_w_mean": 77.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.88
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.336,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 62,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.69
+     }
+    ],
+    "model_load_s": 2.788,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.687,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1339.8,
+      "aiclk_n": 64,
+      "power_w_mean": 76.7
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.843404,
+     "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+     "loadavg1": 0.7,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.55 -> 0.62 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.62
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.363,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 61,
+       "power_w_mean": 75.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.56
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.297,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 60,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.47
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.294,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 60,
+       "power_w_mean": 74.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.37
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.336,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 60,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.85
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.23,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 60,
+       "power_w_mean": 74.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.81
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.321,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 60,
+       "power_w_mean": 72.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.19
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.279,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 60,
+       "power_w_mean": 78.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.49
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.299,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.3,
+       "aiclk_n": 59,
+       "power_w_mean": 77.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.16
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.294,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.5,
+       "aiclk_n": 60,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.98
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.295,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 58,
+       "power_w_mean": 73.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.76
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.325,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 60,
+       "power_w_mean": 76.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.59
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.247,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 60,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.46
+     }
+    ],
+    "model_load_s": 2.812,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "a28ace13ffa0bfcf308af8a1d368aafd80761209",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.741,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 63,
+      "power_w_mean": 69.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.72,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.34 -> 0.49 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.49
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.309,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.9,
+       "aiclk_n": 61,
+       "power_w_mean": 79.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.69
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.279,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.9,
+       "aiclk_n": 60,
+       "power_w_mean": 69.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.61
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.314,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 60,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.47
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.289,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 60,
+       "power_w_mean": 74.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.37
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.275,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 61,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.77
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.279,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 59,
+       "power_w_mean": 73.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.6
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.321,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 61,
+       "power_w_mean": 71.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.5
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.27,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 60,
+       "power_w_mean": 76.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.39
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.309,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.5,
+       "aiclk_n": 60,
+       "power_w_mean": 69.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.38
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.483,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 61,
+       "power_w_mean": 75.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.29
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.292,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 60,
+       "power_w_mean": 76.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.79
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.266,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 60,
+       "power_w_mean": 72.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.61
+     }
+    ],
+    "model_load_s": 2.76,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.698,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.0,
+      "aiclk_n": 63,
+      "power_w_mean": 75.0
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.17,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 3,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.61 -> 0.59 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.59
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.278,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.9,
+       "aiclk_n": 56,
+       "power_w_mean": 81.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.56
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.288,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 62,
+       "power_w_mean": 71.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.0
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.252,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 61,
+       "power_w_mean": 70.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.78
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.287,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 61,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.6
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.294,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 61,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.61
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.278,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 61,
+       "power_w_mean": 74.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.08
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.213,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.9,
+       "aiclk_n": 57,
+       "power_w_mean": 79.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.31
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.287,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.1,
+       "aiclk_n": 61,
+       "power_w_mean": 80.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.02
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.233,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.0,
+       "aiclk_n": 61,
+       "power_w_mean": 77.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.79
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.258,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 61,
+       "power_w_mean": 75.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.18
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.246,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 61,
+       "power_w_mean": 75.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.48
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.242,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 61,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.15
+     }
+    ],
+    "model_load_s": 2.929,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.672,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1339.7,
+      "aiclk_n": 64,
+      "power_w_mean": 79.8
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.843404,
+     "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+     "loadavg1": 1.72,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 2.15 -> 0.79 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.79
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.408,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 61,
+       "power_w_mean": 75.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.95
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.327,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.5,
+       "aiclk_n": 61,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.96
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.347,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.4,
+       "aiclk_n": 62,
+       "power_w_mean": 81.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 0.97
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.285,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 61,
+       "power_w_mean": 71.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.57
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.406,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.4,
+       "aiclk_n": 61,
+       "power_w_mean": 80.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.04
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.338,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 61,
+       "power_w_mean": 75.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.81
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.314,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 60,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.19
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.32,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.5,
+       "aiclk_n": 61,
+       "power_w_mean": 74.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.93
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.261,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 60,
+       "power_w_mean": 75.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.72
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.367,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.0,
+       "aiclk_n": 60,
+       "power_w_mean": 80.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.56
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.322,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 59,
+       "power_w_mean": 73.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.08
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.367,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.1,
+       "aiclk_n": 60,
+       "power_w_mean": 78.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.47
+     }
+    ],
+    "model_load_s": 2.922,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.804,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.0,
+      "aiclk_n": 63,
+      "power_w_mean": 70.9
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 0.85,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 4,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 2.35 -> 0.86 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.86
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.349,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.3,
+       "aiclk_n": 60,
+       "power_w_mean": 68.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.43
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.278,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 61,
+       "power_w_mean": 74.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.89
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.308,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 60,
+       "power_w_mean": 72.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.85
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.279,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 61,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.57
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.346,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1337.9,
+       "aiclk_n": 57,
+       "power_w_mean": 81.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.22
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.292,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 61,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.51
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.276,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 61,
+       "power_w_mean": 73.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.17
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.228,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.5,
+       "aiclk_n": 60,
+       "power_w_mean": 79.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.98
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.301,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 58,
+       "power_w_mean": 77.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.76
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.426,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 61,
+       "power_w_mean": 71.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.67
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.237,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 61,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.41
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.282,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 61,
+       "power_w_mean": 76.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 2.1
+     }
+    ],
+    "model_load_s": 2.71,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.72,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.7,
+      "aiclk_n": 64,
+      "power_w_mean": 73.7
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.46,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 4,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 2.01 -> 0.85 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.85
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.269,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.6,
+       "aiclk_n": 60,
+       "power_w_mean": 68.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 0.92
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.129,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 57,
+       "power_w_mean": 74.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.49
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.255,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 61,
+       "power_w_mean": 72.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 2.13
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.169,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 59,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.95
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.257,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.6,
+       "aiclk_n": 61,
+       "power_w_mean": 77.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.74
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.178,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 61,
+       "power_w_mean": 76.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.58
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.207,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 61,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.52
+     },
+     {
+      "tag": "7",
+      "fold_s": 14.201,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 61,
+       "power_w_mean": 71.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.44
+     },
+     {
+      "tag": "8",
+      "fold_s": 14.205,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.4,
+       "aiclk_n": 61,
+       "power_w_mean": 79.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.34
+     },
+     {
+      "tag": "9",
+      "fold_s": 14.153,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 61,
+       "power_w_mean": 70.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.27
+     },
+     {
+      "tag": "10",
+      "fold_s": 14.193,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 61,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.21
+     },
+     {
+      "tag": "11",
+      "fold_s": 14.156,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 61,
+       "power_w_mean": 70.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.843404,
+      "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+      "loadavg1": 1.16
+     }
+    ],
+    "model_load_s": 2.834,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.691,
+     "clock": {
+      "aiclk_min": 1325,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.9,
+      "aiclk_n": 59,
+      "power_w_mean": 71.9
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.843404,
+     "cif_sha256": "a8d55323ba6e0e92991232cfbf12750461cdfb83b2b447b44d7ba8cac2c32161",
+     "loadavg1": 0.89,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 4,
+   "pos": 2,
+   "returncode": -9,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: release_gate pid 37787 present but IDLE (owner pvx-land): no device fd in its tree, 0 ticks in 2 s. Blocked in the benchlock queue, not folding -- not a blocker.",
+     "pair_channel: HOST: loadavg1 1.16 -> 0.47 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 0.47
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.354,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 62,
+       "power_w_mean": 70.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.43
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.331,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 61,
+       "power_w_mean": 73.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.34
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.323,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 60,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.26
+     },
+     {
+      "tag": "3",
+      "fold_s": 14.261,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 61,
+       "power_w_mean": 78.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.2
+     },
+     {
+      "tag": "4",
+      "fold_s": 14.356,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 60,
+       "power_w_mean": 74.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.72
+     },
+     {
+      "tag": "5",
+      "fold_s": 14.23,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 60,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.61
+     },
+     {
+      "tag": "6",
+      "fold_s": 14.309,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 60,
+       "power_w_mean": 78.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.844645,
+      "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+      "loadavg1": 1.47
+     }
+    ],
+    "model_load_s": 2.806,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "60b4b929f16b65269ec1be45576a97fb2fe13790",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.777,
+     "clock": {
+      "aiclk_min": 1293,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.0,
+      "aiclk_n": 63,
+      "power_w_mean": 74.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.844645,
+     "cif_sha256": "3fcdf07f23ea72abc24c36237a8cb492c5f535f13775c47f77effaddb3459307",
+     "loadavg1": 1.56,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 5,
+   "pos": 0,
+   "returncode": -9,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: loadavg1 7.81 -> 7.14 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 242.4,
+    "loadavg1": 7.14
+   }
+  }
+ ],
+ "preflight": {
+  "admissible": true,
+  "checks": [
+   "pair_channel: BOARD PAIR: sibling 3 has no fd -- the power-budget channel is clear",
+   "pair_channel: HOST: loadavg1 1.93 -> 1.17 over 60s, under ceiling 8.00 and stationary within 1.50",
+   "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+  ]
+ }
+}
