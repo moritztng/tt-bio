@@ -260,10 +260,14 @@ class OF3ConfidenceHead:
         # aux_heads' A18 failure (perf/of3t_auxfind/). Both default to None, so the shipped
         # default is unchanged and every existing caller computes the same function.
         #
-        # This does NOT reach the two transitions. Upstream's _mask_trans=True zeroes
-        # transition_z and transition_s on padded positions (base_blocks.py:453) and the shipped
-        # PairformerLayer applies the mask to neither, so a padded crop keeps that residual here
-        # even with both masks passed. Sized in perf/of3t_auxfind/arm_p.json.
+        # These two masks are the whole repair, which is not obvious: upstream also zeroes both
+        # transitions' output on padded positions (_mask_trans, base_blocks.py:453) and the
+        # shipped PairformerLayer masks neither. It does not matter. Both transitions are
+        # pointwise over the token axis, so that write only ever lands on padded positions, and
+        # every op that mixes tokens is masked here. Measured, not argued: upstream 0.4.3 in
+        # float64 with _mask_trans=False against the same tree with it True differs by 7.4e+02
+        # on the padded rows of z and EXACTLY 0.0 on the real block, on all five heads
+        # (perf/of3t_auxfind/arm_p.json, arm P).
         s, z = self.pf(si_trunk_d, z, pair_mask_d, attn_mask_d, attn_mask_d)
 
         dlog = self._lin(zij_trunk_d, "distogram.linear.weight")
