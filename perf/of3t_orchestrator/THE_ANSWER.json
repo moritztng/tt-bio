@@ -122,5 +122,46 @@
   "why_no_rho_could_have_settled_it": "||s_in|| is monotone in depth over these boundaries, so depth and norm are RANK-IDENTICAL and a rank test cannot separate them at any rho. And ||s_in|| jumps 239x between block 0 and block 8 then moves 1.57x over the whole of blocks 8..47 while the deficit moves 1165x -- block 0 is the only low-norm point on the ladder, so the apparent norm relationship rests on n=1 at that end. The instrument I specified could not have answered the question whichever way the number fell; that is a defect in my brief, not in the row's execution.",
   "what_it_corrects_of_mine": "my pass-182 reading -- that the 136x spread is intrinsic to the block at that depth, so what differs must be the conditioning of the activations there -- is refuted. The spread is real and larger than I measured; the attribution is wrong. Corrected at source in THE_PER_BLOCK_BACKWARD_ERROR_GROWS_136X_WITH_DEPTH.json.",
   "where_the_trunk_now_stands": "5.8282 % of the gradient mass, MEASURED and FAILING at 5.367727e+00 against a 2.0e-02 mass-weighted float64 bar. Re-scored against upstream's own all-bf16 run over the same 48 blocks that is 13.0x, which is the honest size of the defect. The locus is known (the single-track cotangent chain over depth), the forward is explained and is a held product decision (D1, 0.463 A at rank 0), and the backward mechanism is now known NOT to be a scale-dependent amplifier. No further row is dispatched on it: the campaign has no candidate left that the evidence supports."
+ },
+ "THE_51_PCT_SCOPE_IS_SETTLED_pass_193": {
+  "row_verdict": "of3t-softgrad: NO-GO, its third pre-registered band. The row states explicitly that this is its verdict on its own question, not the campaign's.",
+  "the_four_arms_at_full_scope": "48 structures, 547 tensors holding 51.1358 % of the model's squared gradient norm, same rebuilt boundary, same card. Softmax intercept counts published per arm with zero a hard failure: shipped 0 (no rule), precise 1,440, accurate 1,440, host_f64 1,440, break control 1,440.",
+  "table": [
+   {
+    "arm": "shipped",
+    "vs_their_step": 7.426217,
+    "vs_float64": 7.568637,
+    "r": 7.7814,
+    "cos": 0.411379,
+    "x_threshold": 129.1304
+   },
+   {
+    "arm": "softmax_precise",
+    "vs_their_step": 0.2566369,
+    "vs_float64": 0.2742371,
+    "r": 1.0681,
+    "cos": 0.97134,
+    "x_threshold": 4.4625
+   },
+   {
+    "arm": "softmax_accurate",
+    "vs_their_step": 0.1076374,
+    "vs_float64": 0.0819772,
+    "r": 0.9523,
+    "cos": 0.995112,
+    "x_threshold": 1.8716
+   },
+   {
+    "arm": "softmax_host_f64 (control)",
+    "vs_their_step": 0.0777758,
+    "note": "reproduced to every published digit"
+   }
+  ],
+  "the_answer_for_this_scope": "NOT REACHABLE ON DEVICE. The best SHIPPABLE lever reads 1.076374e-01 against upstream's own bf16 step -- 5.38x the 2.0e-02 mass-weighted bar and 1.38x the non-shippable host bound, i.e. the device levers do not even reach the host bound at scope. The block-8 ladder was optimistic: accurate read 3.58x its bar there and 5.38x here.",
+  "what_the_levers_DO_buy_and_it_is_large": "7.426217e+00 to 1.076374e-01 is 69.0x of the gap, on a lever that ships, at 1.661x the arm's cost. And precise -- which was INERT until the ttnn.max repair -- now buys 28.9x of the gap at 1.002x cost, i.e. free. Neither reaches the bar; both are worth far more than nothing.",
+  "the_cost_figures_that_replace_the_micro_bench": "measured on the real arm with AICLK sampled DURING each window. Seconds per structure over 48: shipped 1.23 at 1300 MHz, precise 1.23 (1.002x) at 1316, host_f64 1.77 (1.441x) at 1325, accurate 2.04 (1.661x) at 1329. of3t-softmax's per-op factors (precise 1.46x, accurate 4.71x) do NOT survive contact with the scope, because the softmax is a small share of what 48 structures run.",
+  "A28_floor": "upstream's own bf16 step on this scope is 5.852018e-02 from float64, with 441 of its own 547 tensors over the 5.0e-02 per-tensor bar carrying 41.6989 % of the mass. Against that floor softmax_accurate (8.197720e-02 from float64) is 1.40x, and the host bound is 1.01x. So a faithful bf16 implementation is essentially AT the host bound and our best device lever is 1.4x off it.",
+  "the_forward_is_not_merely_blind_it_is_MISORDERING": "forward_rel_median across the four arms spans 1.35x while the gradient spans 95.5x -- and the forward does not even RANK them: softmax_accurate has the BEST forward and the second-best gradient, host_f64 the third-best forward and the best gradient. Block 8 read 1.56x against 52.75x, so the blindness is confirmed at scope and is wider. No forward reading can select among these levers.",
+  "my_fifth_arm_was_withdrawn_as_moot": "AMENDMENT 1 required a TT_BIO_SOFTMAX_CKC=1 arm because precise_config() could not be injected over the explicit None. The ttnn.max repair put the config on the op by another route and softmax_precise measured it at 2.566369e-01, so the question was answered and I retired my own requirement (AMENDMENT 2) rather than spend a device arm proving it twice."
  }
 }
