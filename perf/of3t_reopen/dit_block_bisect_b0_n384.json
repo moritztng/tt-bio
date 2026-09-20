@@ -1,0 +1,49 @@
+{
+ "instrument": "one DiT block opened at its two residual boundaries",
+ "block": 0,
+ "n": 384,
+ "struct": 0,
+ "inputs": "their captured dit_in activations, byte-identical to both sides",
+ "dtype_device": "DataType.FLOAT32",
+ "dtype_reference": "float64",
+ "rows": {
+  "adaln_a_out": {
+   "rel": 0.0016530714891563778,
+   "rel_real": 0.0060270173943606465,
+   "our_norm": 119.74371257861782,
+   "their_norm": 119.66285645929747
+  },
+  "adaln_t_out": {
+   "rel": 0.01483028307930961,
+   "rel_real": 0.06850359482799198,
+   "our_norm": 37.973862236869806,
+   "their_norm": 37.97549197873365
+  },
+  "a1_running": {
+   "rel": 0.006518087835365727,
+   "rel_real": 0.021804630230594556
+  },
+  "d_attention_pair_bias": {
+   "rel": 0.007311156326442088,
+   "rel_real": 0.05522195802872744,
+   "our_norm": 17696.284622135583,
+   "their_norm": 17773.129355959016
+  },
+  "d_conditioned_transition": {
+   "rel": 0.05326769263064791,
+   "rel_real": 0.05326769263064791,
+   "our_norm": 531.5021636247232,
+   "their_norm": 532.5589632818807
+  },
+  "block_out": {
+   "rel": 0.006534956667707106,
+   "rel_real": 0.020715505918644506
+  }
+ },
+ "scale_convention": {
+  "upstream": "primitives/attention.py:321 q /= sqrt(c_hidden), then line 161 scores += bias -- bias added OUTSIDE the scale",
+  "ours": "scale_add(sc, HEAD_DIM ** -0.5, zb) == x * scale + bias (eltwise_fusion.py:55) -- the same order",
+  "D1_twin": "refuted; a wrong convention here would show as a ~0.144 = 1/sqrt(48) error on d_attention_pair_bias"
+ },
+ "tenancy": "3"
+}
