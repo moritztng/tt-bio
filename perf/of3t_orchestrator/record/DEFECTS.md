@@ -3179,8 +3179,96 @@ equally wrong *relatively*; they are not (2.73 at block 0, 18.50 at block 8), so
 rel. `r ≈ 19.5` with `cos ≈ 1` is a scale and the search is over a factor; `r ≈ 1` with `cos ≈ 0`
 is a wrong transform. rel alone cannot distinguish them.
 
-Owner: `of3t-orchestrator`. **UNFIXED.** The per-tensor dump is requested of the live
-`of3t-conditioning` row (brief amendments 1 and 2), now specifying `r` and `cos` for every
-tensor rather than rel alone. Artifacts:
+**RESOLVED AT PASS 153, AND THE HYPOTHESIS IN IT IS REFUTED.** The per-tensor array this entry
+said did not exist had existed since **05:18:47 UTC the same morning**, in
+`device_gradient_043pt.json` on qb2 — `rel_l2`, `norm_ratio`, `cos`, `ref_norm`, `device_norm`
+for all 547 compared tensors (filed separately as D54). Cross-referenced against the per-tensor
+reference mass, it settles every question this entry left open:
+
+- **The mass-weighted headline.** The diffusion arm reads **7.5692** mass-weighted against the
+  **0.1659** median-over-tensors the campaign was quoting — **45.6x**. A23's argument at the
+  largest scale available, and again in the unflattering direction.
+- **Magnitude or direction.** Mass-weighted norm ratio **4.4420**, cos **0.8159**; across the
+  twenty heaviest tensors (41.3530 % of the model) **5.2268** and **0.8058**. Dominantly
+  magnitude — our diffusion gradient is ~4.4x too large where the mass is — with direction wrong
+  on 15.0269 % of the model and **anti-correlated (cos < 0) on 4.8058 %**.
+- **The rel-rises-with-mass hypothesis: REFUTED.** Over all 24 blocks of the family, log-log
+  slope **0.1657**, Pearson **0.3067**. The six points that suggested it were the six worst of
+  24 — a selected tail, exactly the failure mode this entry predicted for itself.
+
+**And it localises the defect to one leaf.**
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — **24
+tensors, 25.5795 % of the model** — reads mass-weighted **10.6980** at norm ratio **7.8658**.
+The other **523** compared tensors hold almost exactly the same mass (**25.5563 %**) and read
+**0.2929**. Strip that one leaf and the arm goes from 7.5692 to 0.2929.
+
+**The control came free, inside the model.** There are **two** instances of `tenstorrent.AdaLN`
+per DiT block, same class, same code, same tape, driven with the same `(a, s)`:
+
+| instance | n | % of model | mass-wtd rel | mass-wtd r | mass-wtd cos |
+|---|---|---|---|---|---|
+| `attention_pair_bias.layer_norm_a.layer_norm_s.weight` | 24 | 25.5795 | **10.6980** | 7.8658 | 0.6530 |
+| `conditioned_transition.layer_norm.layer_norm_s.weight` | 24 | 15.5130 | **0.1828** | 0.9988 | 0.9894 |
+
+**59x apart.** A defect in the AdaLN class's backward — including the sigmoid-gated multiply
+that pass 152 called the last surviving candidate — would hit both. It hits one. **The class is
+exonerated and the gate hypothesis is dead.** The defect is in what the block does around
+`adaln_a`.
+
+Two leads, marked as leads: `layer_norm_a.linear_s.weight` reads norm ratio **1.0980** while
+`linear_g` reads ~5 and the gain 7.87 — since `d/d s_bias = g_out` directly while
+`d/d s_scale = g_out · a_norm · σ'`, the cotangent *arriving* at the AdaLN output is essentially
+correct and the error is in the `a_norm · σ'` factor, or in `a_norm`, which the tape
+**recomputes** in the backward. And `a_ln` alone feeds the **fused padded QKV projection**
+(head_dim 48 → 64) and the slice `o[:, :, :, :HEAD_DIM]` that undoes it; `a_t` has no padded
+head dim. Neither lead is measured.
+
+Owner: `of3t-orchestrator`. **UNFIXED** — the locus is named, the cause is not. Row
+`of3t-adaln` redirected mid-run (amendment 1) from the synthetic micro-arm onto the natural A/B:
+build both AdaLNs from one block, same inputs, same cotangent, and see whether they differ.
+Artifacts: `perf/of3t_orchestrator/ONE_LEAF_IS_THE_DEFECT.json`,
+`perf/of3t_orchestrator/pt/device_gradient_043pt.json` (the array, now in the branch),
 `perf/of3t_orchestrator/ERRORS_CONCENTRATE_ON_MASS.json`,
 `perf/of3t_orchestrator/ADALN_BACKWARD_ELIMINATIONS.json`.
+
+---
+
+### D54. I told a live row to produce an artifact that had been on disk for three hours. Second sighting in three passes of declaring something missing without listing the directory. FOUND by `of3t-orchestrator`, pass 153. **FIXED** — the rule is now mechanical.
+
+At pass 151 I filed D53 saying the diffusion arm "kept only `worst10`/`best10` and **no
+per-tensor array**", concluded that the mass-weighted headline, the per-block error profile and
+the rel-vs-mass test were therefore "all underivable from what exists", and sent two brief
+amendments asking the live `of3t-conditioning` row to produce the dump as a secondary
+deliverable.
+
+`device_gradient_043pt.json` — 158,067 bytes, `per_tensor_dumped: true`, 547 entries carrying
+`rel_l2`, `norm_ratio`, `cos`, `ref_norm` and `device_norm` — was written at **05:18:47 UTC**.
+My amendment went out at **08:0x**. The file is in the same directory as the artifact I *did*
+read (`device_gradient_043all.json`), and its name ends in `pt`.
+
+Everything D53 called blocked fell out of it in one pass of arithmetic, with no card: the
+mass-weighted 7.5692, the 4.4420 norm ratio, the refutation of D53's own hypothesis, and the
+localisation of 25.5795 % of the model to a single leaf.
+
+**This is D52's lesson recurring against me, three passes after I wrote it down.** D52 was
+`diffusion_conditioning` recorded as blocked for eleven passes while `sub_boundary.pt` already
+held `cond_out_cot`. Both times the pattern is identical: I read **one** artifact, formed a
+belief about what exists, and wrote that belief into a brief without listing the directory. Both
+times the missing thing was a by-product some other row had produced for its own reasons and
+described by purpose rather than by contents.
+
+**Cost this time.** Two brief amendments of a live row's attention, one of them directing it to
+re-run a device job, and a `DOESNOT` line in the campaign summary asserting a measurement was
+impossible while the file sat on the host. Cost last time: eleven passes on the largest scope in
+the model.
+
+**The rule, and it is cheap enough that there is no excuse.** Before writing "X does not exist"
+or asking a row to produce X: **`ls` the directory and `grep` the keys.** A JSON result file is
+a dictionary — printing `list(d.keys())` costs one second and is how both of these were finally
+caught. Corollary for whoever writes a result file: name the by-products in the write-up, because
+the next reader's blocker may already be in your output.
+
+Owner: `of3t-orchestrator`. **FIXED** — `of3t-adaln` amendment 1 carries the correction and the
+row is redirected onto a better experiment than the one the stale belief produced. The general
+lesson is saved as a standing memory
+(`blocked-scope-must-be-rechecked-against-artifacts-not-prose`), now with its second sighting.

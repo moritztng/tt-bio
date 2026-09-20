@@ -236,8 +236,8 @@ Recomputed from the artifacts on every compose (152 checks, 0 drifted):
   **22.9369 %** of the model's squared gradient norm and includes the **#2 and #3 heaviest
   tensors**. Its worst point, rel **5.088e-03**, falls on the #2 tensor — the reference's own
   validation is loosest exactly at the mass peak, still ~10x inside the bar.
-- **40.0559 % of OpenFold3's gradient mass is measured against a float64 reference and inside
-  the bars** (pass 152). Two section-scope arms with their own controls carry 39.7893 % of it:
+- **39.7893 % of OpenFold3's gradient mass is measured against a float64 reference and inside
+  the bars** (pass 152). Two section-scope arms with their own controls carry all of it:
   `diffusion_conditioning` — **36.9462 % of the model over 26 tensors** — at **7.865e-03**
   mass-weighted against the 2.0e-02 bar, 26 of 26 inside the per-tensor bar, the four tensors
   holding 33.9354 % of the model at cos > 0.9999 with norm ratios bracketing unity, a measured
@@ -245,7 +245,11 @@ Recomputed from the artifacts on every compose (152 checks, 0 drifted):
   reference's own cotangent and moves the headline to 2.161892e-01; and `aux_heads` —
   **2.8431 %** — at **2.2678e-03** on the one tensor that is 99.9999943 % of its section, at a
   forward that also passes (2.8277e-03). A single-tensor section, `diffusion_module.layer_norm_a`
-  (0.2666 %), adds the rest at rel 0.00947. `perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json`.
+  `perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json`. Pass 153 stopped promoting a
+  single passing tensor (`diffusion_module.layer_norm_a`, 0.2666 %) out of the failing
+  diffusion arm: 2.7940 % of the model passes the per-tensor bar inside that arm and none of it
+  is counted here, because cherry-picking the passing tensors out of a failing set is the same
+  denominator error A23 exists to stop.
 - **`diffusion_conditioning` was never blocked**, and proving that is most of the jump above. Its
   reference side — inputs, the cotangent at its output, and float64 gradients for all 26 tensors
   — had been complete on qb2 since 01:43; only our side was missing (D52).
@@ -366,13 +370,19 @@ merely large.**
   worst tensors hold **15.7140 %** of the model, ten best **1.1650 %**; `median_rel` 0.16588
   understates the damage and the mass-weighted number **has not been computed**, because the
   run kept only the extremes.
-- **51.0965 % of the model's gradient mass is measured and OUTSIDE the bars, and 8.8476 % has no
-  reading at its own scope at all.** The failing share is `diffusion_transformer` 43.8936 %,
-  `atom_attn_enc` 5.5589 % (median 7.11e-01, cos 0.7757) and the seven measured pairformer
-  blocks 1.64401 % (mass-weighted 0.14053). The unmeasured share is the other 41 pairformer
-  blocks (4.18419 %), `atom_attn_dec` (1.3173 %), `msa_module` (1.2400 %, capture in flight),
-  `diffusion_module.layer_norm_s` (0.9835 %), `input_embedder` (0.8007 %, in flight) and eight
-  smaller sections. **A majority of the model's gradient is still wrong or unmeasured.**
+- **52.7798 % of the model's gradient mass is measured and OUTSIDE the bars, and 7.4309 % has no
+  reading at its own scope at all.** The failing share is the diffusion device arm (**51.1358 %** over 547 tensors, mass-weighted
+  **7.5692**) plus the seven measured pairformer blocks (1.64401 %, mass-weighted 0.14053). The
+  unmeasured share is the other 41 pairformer blocks (4.18419 %), `msa_module` (1.2400 %,
+  capture in flight), the 1.1286 % the diffusion arm does not reach, `input_embedder`
+  (0.8007 %, in flight) and four smaller sections. **A majority of the model's gradient is
+  still wrong.**
+- **And it is one leaf.** `diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight`
+  — 24 tensors, **25.5795 %** of the model — reads mass-weighted **10.6980** at norm ratio
+  **7.8658**; the other 523 compared tensors hold **25.5563 %** and read **0.2929**. The cause
+  is unknown. What is now excluded is the AdaLN class itself: its sibling instance in the same
+  blocks (`conditioned_transition.layer_norm.layer_norm_s.weight`, 15.5130 % of the model)
+  reads **0.1828** — same class, same code, same tape, same `(a, s)`, **59x apart**.
 - **Four of OpenFold3's five confidence heads fail A18's forward by an order of magnitude** —
   `pde` 8.7897e-02, `pae` 1.8199e-01, `experimentally_resolved` 3.3315e-01, `plddt` 3.6515e-01
   against a 5.0e-02 bar — so every gradient taken at that boundary is void for them. Padding is
@@ -677,10 +687,12 @@ and, per **D32**, the TT number must be taken **with the tape open**, since 21 s
 decline their fused path there. The existing 870.75 s already was taped, so it is D32-compliant;
 any successor must be too.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **40.0559 % of OpenFold3's gradient
-mass is now measured against a float64 reference and inside the bars, 51.0965 % is measured and
-outside them, and 8.8476 % has no reading at its own scope.** Eighteen concluded rows, two live,
-one newly dispatched; fifty-three defects on the record, twenty-three of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
+mass is measured against a float64 reference and inside the bars, 52.7798 % is measured and
+outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
+leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
+compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
+two live; fifty-four defects on the record, twenty-three of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6051,3 +6063,130 @@ two variables the defect must scale with (dirty-mantissa magnitudes per A22, and
 samples), and runs the gate **unfused** as the control that decides whether a fix would even go
 in the fused path. If both arms disagree identically the gate is cleared and the row says so.
 `perf/of3t_orchestrator/ADALN_GATE_IS_WHAT_IS_LEFT.json`.
+
+---
+
+## Pass 153 — the defect is one leaf, 25.58 % of the model, and the class it lives in is innocent
+
+I spent pass 151 writing that the diffusion arm "kept only `worst10`/`best10` and no per-tensor
+array", concluded three things were therefore underivable, and sent two amendments asking a live
+row to produce the dump. **The file had been on qb2 since 05:18:47 UTC** — `device_gradient_043pt.json`,
+`per_tensor_dumped: true`, 547 entries with `rel_l2`, `norm_ratio`, `cos`, `ref_norm`,
+`device_norm`, in the same directory as the artifact I did read, with `pt` in its name. Filed as
+**D54**: D52's lesson recurring against me three passes after I wrote it down. The rule is now
+blunt — before writing "X does not exist", `ls` the directory and print the JSON's keys.
+
+Everything fell out of it in one pass of arithmetic, no card.
+
+### The statistic the campaign has been quoting understates its own arm 45.6x
+
+| | value |
+|---|---|
+| mass-weighted `rel_l2` over the compared set | **7.5692** |
+| median over tensors (the quoted figure) | 0.1659 |
+| mass-weighted norm ratio | **4.4420** |
+| mass-weighted cosine | 0.8159 |
+
+Across the twenty heaviest tensors — 41.3530 % of the model — norm ratio **5.2268**, cos
+**0.8058**. So the failure is dominantly **magnitude**: our diffusion gradient is about 4.4x too
+large where the mass is. But not only: direction is wrong on **15.0269 %** of the model and
+outright **anti-correlated (cos < 0) on 4.8058 %**. Of the 51.1358 % compared, **2.7940 %** is
+inside the 5.0e-02 per-tensor bar.
+
+### And it is one leaf
+
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — **24
+tensors, 25.5795 % of the model** — reads mass-weighted **10.6980** at norm ratio **7.8658**.
+The other **523** compared tensors hold almost exactly the same mass, **25.5563 %**, and read
+**0.2929**. Strip the leaf and the arm goes 7.5692 → 0.2929.
+
+**The control was already in the data and I had not looked for it.** There are *two* instances
+of `tenstorrent.AdaLN` per DiT block — `adaln_a` from `attention_pair_bias.layer_norm_a` and
+`adaln_t` from `conditioned_transition.layer_norm` — same class, same code, same tape, both
+driven with the same `(a, s)`:
+
+    attention_pair_bias.layer_norm_a.layer_norm_s.weight     25.5795 %   rel 10.6980   r 7.8658   cos 0.6530
+    conditioned_transition.layer_norm.layer_norm_s.weight    15.5130 %   rel  0.1828   r 0.9988   cos 0.9894
+
+**59x apart.** A defect in the class's backward — including the sigmoid-gated multiply that pass
+152 called the last surviving candidate, on elimination — would hit both. It hits one. **The
+gate hypothesis is dead and the AdaLN class is exonerated by the model's own natural A/B.**
+
+### My own hypothesis, refuted by its own falsification condition
+
+D53 filed, explicitly open and with its refutation condition written down, that `rel` rises with
+mass inside the failing family. Over all 24 blocks: log-log slope **0.1657**, Pearson **0.3067**.
+**Refuted.** The six points that suggested it were the six worst of 24 — the selected tail D53
+predicted would manufacture exactly this trend.
+
+What the 24 blocks actually show is not a gradient of severity but a qualitative split: norm
+ratio from **0.71 to 19.24**, cosine from **−0.80 to +0.998**, four blocks anti-correlated
+(0, 3, 6, 7) and nine essentially fine. Some blocks' gradients point the wrong way, in the same
+leaf, on the same code.
+
+### Two leads, and the row is redirected
+
+`layer_norm_a.linear_s.weight` reads norm ratio **1.0980** while `linear_g` reads ~5 and the gain
+7.87. Since `d/d s_bias = g_out` directly while `d/d s_scale = g_out · a_norm · σ'`, **the
+cotangent arriving at the AdaLN output is essentially correct** and the error is in the
+`a_norm · σ'` factor — or in `a_norm` itself, which the tape *recomputes* in the backward rather
+than retaining. Separately, `a_ln` alone feeds the **fused padded QKV projection** (head_dim
+48 → 64) and the slice `o[:, :, :, :HEAD_DIM]` that undoes it; `a_t` has no padded head dim.
+Neither lead is measured and both are labelled as leads.
+
+`of3t-adaln` was ten minutes into building the synthetic micro-arm its brief describes.
+Amendment 1 redirected it: the gate is cleared, so build **both** AdaLNs from one block, drive
+them with the same inputs and the same cotangent, and see whether they differ. Same cost, and it
+tests the thing the model itself says is the discriminator.
+`perf/of3t_orchestrator/ONE_LEAF_IS_THE_DEFECT.json`; the array is archived in the branch at
+`perf/of3t_orchestrator/pt/device_gradient_043pt.json` so it cannot go missing again.
+
+### Pass 153, continued — the row closed three branches while I was writing, and one of my two leads is refuted
+
+`of3t-conditioning` concluded at 08:33 having acted on both amendments, and it went well past
+its charter. Three branches closed, two by measurement:
+
+- **The AdaLN op is right on the operands it fails on.** One real `tenstorrent.AdaLN` at DiT
+  blocks 8, 0 and 12, fed the real conditioned `s`, seeded with a **random** cotangent — which
+  tests the linear map the backward implements rather than one vector through it — against the
+  same AdaLN in torch float64. **18 arms**, worst **2.552e-02**, `s_norm.weight` 6.5e-04 to
+  2.6e-02, every cosine ≥ **0.99988**, zero arms over bar. My pass-152 gate hypothesis and my
+  pass-153 A/B both land the same way, and now by direct measurement rather than by contrast.
+- **The attention tail's data movement is right.** Slice `o[:,:,:,:48]` and the head-merging
+  reshape are **0.000e+00** forward *and* backward; the permutes carry 4.15e-04 which is also
+  present in their forward, so it is a representation floor. **My "padded head dim and the slice
+  that undoes it" lead is refuted** — I had marked it a lead rather than a finding, which is the
+  only reason it cost nothing.
+- **Double counting is refuted arithmetically, with no run.** Block 8's orthogonal residual has
+  absolute norm **11.592**; the whole 24-block family's reference gradient norm is 1.622 and the
+  **whole model's is 3.206**. The spurious component is **3.62x the entire model's gradient**.
+  No sum of reference-gradient pieces with bounded coefficients produces that. **It is
+  amplified, not miscounted** — the single most constraining sentence on the record.
+
+And it replaced "scale or wrong transform" with a decomposition that is neither. Writing
+`g_dev = α·g_ref + e` with `e ⟂ g_ref`:
+
+    blk    rel       r        cos       alpha    perp/|g_ref|   reading
+      0   2.733    1.869   -0.7958    -1.4875       1.132       SIGN-FLIPPED
+      5   4.542    5.521    0.9824     5.4235       1.030       scale 5.4x
+      6   2.841    1.974   -0.8046    -1.5878       1.172       SIGN-FLIPPED
+      7   5.307    5.198   -0.0142    -0.0736       5.197       ORTHOGONAL
+      8  18.504   19.242    0.7494    14.4199      12.740       scale 14.4x + large spurious
+     12   5.646    6.076    0.4967     3.0176       5.273       scale 3.0x + spurious
+
+Two sign flips, one orthogonal, three scales — one factor cannot make that set and neither can
+one wrong transform. And the site splits into two failures under one name: at blocks 0/5/6/7/12
+`linear_g` reads 0.19–0.72 while the gain reads 2.73–5.65, so the cotangent reaching the gate is
+roughly right and the damage is in the gain; at block 8 the whole gate track fails together
+(4.546 / 5.936 / 18.504) while the shift branch holds at 0.817. **Any explanation owes both
+patterns.** Its cross-leaf table also settles that **block 8 is not a broken block** — the
+sister AdaLN and block 8's own `linear_z` are clean in every block including 8.
+
+So the defect is made **between `adaln_a`'s output and the DiT block's output, in what the
+attention path has and the transition path does not** (`openfold3_diffusion_transformer.py:184-228`).
+`of3t-adaln` was still mid-run and about to repeat the A/B this row had already done; amendment 2
+redirected it onto that list, ordered cheapest-and-most-suspicious first. My own ranking puts the
+**fp32-cast softmax sandwich** at the top, because its backward `y·(g − Σ g·y)` is a
+near-cancellation — the one construct on the list that *amplifies*, that varies per block with
+how sharp the attention is, and that can flip sign — and because D49's `fp32_softmax` lever is
+already the campaign's only gradient-parity lever.
