@@ -26,7 +26,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-PROBE = {"calls": 0, "bound": 0, "worst_dmin": 0.0, "worst_overshoot": -1e30, "nonfinite_out": 0}
+PROBE = {"calls": 0, "rows": 0, "bound": 0, "rows_floor_binds": 0,
+         "rows_overshot": 0, "rows_fully_masked": 0, "worst_row_overshoot": -1e30,
+         "worst_dmin": 0.0, "nonfinite_out": 0}
 
 
 def sha_dir(d):
@@ -83,12 +85,21 @@ def main():
               if fp32 and x.dtype != ttnn.float32 else x)
         m = ttnn.max(xf, dim=-1, keepdim=True)
         d = ttnn.subtract(xf, m)
-        dmin = float(ttnn.to_torch(ttnn.min(d, dim=-1, keepdim=True)).min())
-        dmax = float(ttnn.to_torch(ttnn.max(d, dim=-1, keepdim=True)).max())
+        # PER ROW. A row whose max ttnn.max read too high has max_j d_ij < 0, and a single such
+        # row is invisible in a global maximum over the tensor because every healthy row pins it
+        # to 0. So reduce along the softmax axis and take the WORST row.
+        rowmax = ttnn.to_torch(ttnn.max(d, dim=-1, keepdim=True)).float()
+        rowmin = ttnn.to_torch(ttnn.min(d, dim=-1, keepdim=True)).float()
+        m_h = ttnn.to_torch(m).float()
         PROBE["calls"] += 1
-        PROBE["bound"] += int(dmin < -60.0)
-        PROBE["worst_dmin"] = min(PROBE["worst_dmin"], dmin)
-        PROBE["worst_overshoot"] = max(PROBE["worst_overshoot"], -dmax)
+        PROBE["rows"] += int(rowmax.numel())
+        PROBE["rows_overshot"] += int((rowmax < 0).sum())
+        PROBE["worst_row_overshoot"] = max(PROBE["worst_row_overshoot"],
+                                           float(-rowmax.min()))
+        PROBE["rows_fully_masked"] += int((m_h < -1e6).sum())
+        PROBE["bound"] += int(float(rowmin.min()) < -60.0)
+        PROBE["rows_floor_binds"] += int((rowmin < -60.0).sum())
+        PROBE["worst_dmin"] = min(PROBE["worst_dmin"], float(rowmin.min()))
         ttnn.deallocate(m)
         ttnn.deallocate(d)
         if xf is not x:
@@ -118,8 +129,7 @@ def main():
         T._accurate_softmax = {"floored": shipped_fn, "floored2": shipped_fn,
                                "unfloored": unfloored, "probe": probed}[arm]
         for k in PROBE:
-            PROBE[k] = 0 if k not in ("worst_dmin", "worst_overshoot") else (
-                0.0 if k == "worst_dmin" else -1e30)
+            PROBE[k] = {"worst_dmin": 0.0, "worst_row_overshoot": -1e30}.get(k, 0)
         t0 = time.perf_counter()
         try:
             fold_s, m = one_fold()
@@ -139,7 +149,7 @@ def main():
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  {arm} {fold_s:.1f}s plddt={m.get('plddt')} err={err}", flush=True)
         print(f"    sha {json.dumps(rec['sha256'])}", flush=True)
-        if rec["probe"]:
+        if arm == "probe":
             print(f"    probe {json.dumps(rec['probe'])}", flush=True)
 
     T._accurate_softmax = shipped_fn
