@@ -140,8 +140,12 @@ conflict where the trial merge produced three, because a three-dot diff is compu
 branch's own merge base; check the bases first, and prefer a trial merge when it matters.
 
 PROVES: the **state-free half of OpenFold3's update rule, exactly and against upstream's own
-objects** — and, for the model-dependent half, that **the machinery to measure it now exists
-and what it currently reports is a ceiling**.
+objects** — and, for the model-dependent half, **four scopes now MEASURED rather than a
+machinery claim**: 38.1862 % passes on the shipped path, `aux_heads`' 2.8431 % passes at
+2.271382e-03 once a dropped-mask call site was fixed, the trunk's 5.8282 % FAILS at
+5.367727e+00 with its mechanism located in the single-track cotangent chain, and the diffusion
+arm's 51.1358 % is bounded by a softmax ceiling no device lever reaches. Only the last of those
+four is still a ceiling rather than a reading.
 
 Recomputed from the artifacts on every compose (161 checks, 0 drifted):
 
