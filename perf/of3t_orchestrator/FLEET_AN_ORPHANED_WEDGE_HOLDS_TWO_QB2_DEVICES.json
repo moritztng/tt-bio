@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20 ~18:5x CEST, found by of3t-orchestrator at pass 182",
+ "NOT_AN_OF3T_FINDING": "this is a FLEET-HEALTH report about another campaign's process, filed here because this row found it and has nowhere else to write. It is NOT acted on: the process is not mine and I did not kill it.",
+
+ "headline": "An orphaned, wedged `tt_bio.main predict` is holding TWO Tenstorrent device fds on qb2 with no lease and no live owner. It has been spinning at 100 % CPU in futex_do_wait for ~2 h and has written nothing for 4.5 h. Because it holds no lease, the fleet's card accounting cannot see it -- pick_card reads lease files only.",
+
+ "the_evidence": {
+  "pid": 265319, "parent": 265284,
+  "parent_cmd": "python3 -m tt_bio.main predict /home/ttuser/tt-bio-dev/perf/size512/...",
+  "cwd": "/home/ttuser/tt-bio-dev -- the SHARED dev checkout, not any row's worktree",
+  "elapsed": "01:59:16", "pcpu": "100 %", "wchan": "futex_do_wait (parent: hrtimer_nanosleep, 0.3 %)",
+  "tenstorrent_fds_held": 2,
+  "output_written_in_the_last_30_min": "none",
+  "newest_file_in_its_output_dir": "2026-09-20 14:06:42 -- about 4.5 h before this reading",
+  "lease": "NONE. The only held qb2 lease is qb2-card0, holder worker:of3t-wirefix, which is this campaign's and is genuinely running.",
+  "owner": "no `worker.sh sizeladder*` process is alive, and sizeladder-p300c-refresh-0920 has no concluded marker"
+ },
+
+ "why_it_matters_to_everyone": "the fleet allocates cards from lease files (pick_card reads state/leases/ and nothing else). A process holding devices WITHOUT a lease is invisible to that accounting, so the fleet will happily hand the same silicon to another row. This is the same blind spot as the recorded 'pick_card blind to remote fanout', arrived at from the other direction: there, per-op leases live remotely; here, there is no lease at all because the owner died between acquiring and releasing.",
+
+ "and_it_may_explain_something_I_could_not_reproduce": "at pass 176 two of this campaign's rows were refused with 'no free card on any of [qb2]' while every lease read clear and I could not reproduce the refusal in isolation. I recorded that honestly as unexplained rather than filing a defect. An unleased device holder is exactly the shape that produces it. I am NOT claiming that is what happened -- the timestamps are hours apart and I did not check then -- only that the mechanism now has a live example.",
+
+ "what_I_did_and_did_not_do": "Reported. NOT killed. The process belongs to another campaign, this row has no authority over it, and a kill is destructive and outward-facing; the campaign's own record has an incident where a batch kill by PID list hit the wrong process. The judgement is Moritz's or the top-level orchestrator's. If it is to be cleared: the parent is 265284 and killing the child alone would leave the documented orphan-engine pattern.",
+
+ "provenance": "of3t-orchestrator pass 182 on pc, read-only over ssh to qb2: ps, /proc/<pid>/fd, /proc/<pid>/cwd, find -newermt, and this campaign's own state/leases/."
+}
