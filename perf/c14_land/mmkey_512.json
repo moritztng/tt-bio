@@ -1,0 +1,101 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_bio_file": "/home/ttuser/.coworker/wt/c14-land-tail/tt_bio/__init__.py",
+  "git_head": "1dd2ef8871b40eb36214cb3e4020d37e7dfe5691",
+  "started_utc": "2026-09-20T00:52:12Z",
+  "size_aa": "512",
+  "recycles": 3,
+  "note": "KEY census. No wall-clock claim, so a contended board-pair sibling and a loud host do not invalidate it."
+ },
+ "watched_keys": [
+  [
+   8,
+   32
+  ],
+  [
+   8,
+   33
+  ],
+  [
+   2,
+   6
+  ],
+  [
+   2,
+   8
+  ],
+  [
+   2,
+   9
+  ]
+ ],
+ "gated_readers": {
+  "SWIGLU_BLOCK_KEYS": [
+   [
+    4,
+    16
+   ]
+  ],
+  "F1_BLOCK_KEYS": [
+   [
+    8,
+    8
+   ]
+  ]
+ },
+ "gated_readers_overlap_watched": [],
+ "runs": [
+  {
+   "sampling_steps": 6,
+   "error": null,
+   "keys_requested": {
+    "[4, 17]": [
+     1120,
+     0
+    ],
+    "[4, 4]": [
+     1680,
+     0
+    ]
+   },
+   "watched_requested": {}
+  },
+  {
+   "sampling_steps": 14,
+   "error": null,
+   "keys_requested": {
+    "[4, 17]": [
+     1120,
+     0
+    ],
+    "[4, 4]": [
+     1680,
+     0
+    ]
+   },
+   "watched_requested": {}
+  }
+ ],
+ "key_set_stable_across_steps": true,
+ "key_set": [
+  "[4, 17]",
+  "[4, 4]"
+ ],
+ "watched_requested_any": [],
+ "negative_control": {
+  "key": "[4, 17]",
+  "counts": [
+   1120,
+   0
+  ],
+  "checker_fires_on_it": true,
+  "why": "a served key from this same fold, run through the same lookup the watched keys are checked with. If this does not fire the instrument is blind and the watched result means nothing."
+ },
+ "verdict": "CLEAR: none of origin/main's five added _MM_BLOCK keys is requested by this fold"
+}
