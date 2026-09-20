@@ -52,10 +52,17 @@ def collate1(x, ref=None):
         return x.unsqueeze(0) if x.dim() + 1 == ref.dim() else x
     if isinstance(x, dict):
         r = ref if isinstance(ref, dict) else {}
-        return {k: collate1(v, r.get(k)) for k, v in x.items()}
-    # Same rule for the non-tensor features. `ref_space_uid_to_perm` is already a
-    # per-sample list in the emitted sample, so wrapping it again gives upstream a list of
-    # one list and its `[ref_space_uid.item()]` indexes a length-1 object with a uid.
+        # `ref_space_uid_to_perm` is a per-sample MAPPING {ref-space uid -> [n_perm, n_atom]}
+        # and its batch axis is a plain python list, not a tensor dimension: upstream's
+        # `expand_batch_to_per_sample` does `ref_space_uid_to_perm[i]` over the batch
+        # (permutation_alignment.py:1693-1702). Recursing into it instead unsqueezes every
+        # permutation tensor and hands `single_batch["ref_space_uid_to_perm"]` the entry for
+        # uid 0 rather than the mapping, so the first uid above 0 raises IndexError, upstream
+        # catches it and silently falls back to NAIVE alignment. Found on 4G5J, whose crop has
+        # 199 ref spaces; a crop with one would never have shown it.
+        return {k: ([v] if k == "ref_space_uid_to_perm" else collate1(v, r.get(k)))
+                for k, v in x.items()}
+    # Same rule for the non-tensor features.
     if isinstance(ref, list) and isinstance(x, list):
         return x
     return [x]
