@@ -664,7 +664,7 @@ the owed revision arm ran: the trunk's orientation flag is worth **8.62x** upstr
 measured on upstream's own two trees, control exactly 0.0 — real, but **not** the 46.67x, so
 pre-registered branch B fired and the trunk's magnitude is REOPENED (D93 is the live candidate).
 
-Twenty-nine concluded rows, none live; ninety-nine defects on the record, forty-three of them
+Thirty concluded rows, one live; ninety-nine defects on the record, forty-three of them
 UNFIXED. The composition `wk/of3t` carries 24 of 26 rows at 959 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted

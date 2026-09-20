@@ -5894,3 +5894,28 @@ ratio is 0.8085 against the masked 1.1843, so the pad does not merely dilute, it
 rule is **"mask, always"**, not "mask when the padding fraction is large". This also means D95 is
 no longer resting on my own 56-of-384 arm: it reproduces on another row's data, another shape,
 another device, and a much smaller padding fraction, and it is stronger there.
+
+**D94's aux_heads hypothesis REFUTED by measurement, pass 176.** `of3t-auxheads043` returned
+**NO-GO**: the reference `of3t-auxheads` measured against **was already upstream 0.4.3** — pinned
+by whole-tree digest, and the rebuild reproduces it bit for bit. So the 3.6515e-01 A18 failure is
+**not** a revision artefact, and my D94 sentence that *"`aux_heads` … cannot be attributed to our
+port"* was wrong. It can. `aux_heads` **stays A18-void**, and the cause is ours.
+
+Its per-head forward against that 0.4.3 reference — one head of five passes:
+
+    distogram_logits                 2.8277e-03   PASS
+    pde_logits                       8.7897e-02   FAIL
+    pae_logits                       1.8199e-01   FAIL
+    experimentally_resolved_logits   3.3315e-01   FAIL
+    plddt_logits                     3.6515e-01   FAIL
+
+**And it answered D95 for its own scope instead of assuming it**, from the boundary's own masks:
+the token axis is 56 real of 384 (14.583 %) and carries `distogram`, `pae`, `pde`; the **atom**
+axis is **422 of 422, zero padding**, and carries `plddt` and `experimentally_resolved`. **The two
+worst failures sit on an UNPADDED axis**, so 3.6515e-01 and 3.3315e-01 are already real-token
+readings and D95's mechanism cannot be what produced them. 2.8431 % of the model's squared
+gradient norm rests on the one tensor whose forward passes.
+
+The reading that survives from D94 is the **other** half — `msa_module` is inert and the positive
+result is safe. The half that reached for an excuse for a failure did not survive contact with
+the measurement, which is the right way round for it to go.
