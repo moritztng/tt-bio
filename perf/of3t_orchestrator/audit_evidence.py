@@ -951,13 +951,22 @@ if ORCH.is_file():
              "ninety"]
 
     def _word(n):
+        # Pass 176, FIFTH sighting of this class: the campaign reached 100 defects and this
+        # returned None, so the check announced it could not run. That announcement is the
+        # pass-138 fix working -- but a generator that stops at 99 is still a word list with
+        # extra steps. Hundreds are now generated too, and the range below is 10x the subject's
+        # current size rather than one step ahead of it.
         if n < 20:
             return _ONES[n]
         if n < 100:
             return _TENS[n // 10] + ("-" + _ONES[n % 10] if n % 10 else "")
+        if n < 1000:
+            head = _ONES[n // 100] + " hundred"
+            rest = n % 100
+            return head if not rest else head + " " + _word(rest)
         return None
 
-    _words = {n: _word(n) for n in range(1, 100)}
+    _words = {n: _word(n) for n in range(1, 1000)}
     if DEF.is_file():
         _dt = DEF.read_text()
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
