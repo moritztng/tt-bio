@@ -26,6 +26,13 @@ VALIDATION. The f64 arm is checked against central finite differences along one 
 direction through the whole 2,736-tensor parameter set (PROTOCOL SS3c). A reference that
 differentiates a plausible neighbour of the function agrees with a wrong gradient.
 
+PAD INVARIANCE. `--pad-scale K` multiplies the boundary's PAD rows (and, in z, the pad rows and
+columns) by K and changes nothing else. Under correct masking a real output cannot depend on a
+pad position and the captured output cotangent is exactly zero on the pads, so every parameter
+gradient must be invariant to K. It is a control on both sides: a reference that moves means the
+pads genuinely participate, and an arm that moves while the reference does not has a masking
+leak feeding its weight gradients.
+
 usage: ref_grad.py --tree <dir containing openfold3/> --boundary B.pt --cap-last C.pt --out O.pt
 """
 from __future__ import annotations
@@ -96,6 +103,8 @@ def main() -> int:
                     help="validate against central finite differences along one random unit "
                          "direction through the whole parameter set (SS3c)")
     ap.add_argument("--fd-eps", type=float, default=1e-5)
+    ap.add_argument("--pad-scale", type=float, default=1.0, metavar="K",
+                    help="multiply the boundary's pad rows/columns by K, nothing else")
     ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED",
                     help="BREAK control: permute the cotangent over the REAL token positions "
                          "only. Everything else -- weights, masks, boundary -- is untouched.")
@@ -124,6 +133,16 @@ def main() -> int:
     z0 = b["z_in"].to(dt).contiguous()
     sm = b["single_mask"].to(dt)
     pm = b["pair_mask"].to(dt)
+    pad_rep = None
+    if a.pad_scale != 1.0:
+        pad = (sm.reshape(-1) <= 0)
+        s0 = s0.clone(); z0 = z0.clone()
+        s0[:, pad] *= a.pad_scale
+        z0[:, pad, :] *= a.pad_scale
+        z0[:, :, pad] *= a.pad_scale
+        pad_rep = {"pad_scale": a.pad_scale, "pad_rows": int(pad.sum()),
+                   "real_rows": int((~pad).sum()),
+                   "s_in_norm_after": float(s0.norm()), "z_in_norm_after": float(z0.norm())}
 
     cap = torch.load(a.cap_last, map_location="cpu", weights_only=False)
     cot_s, cot_z = cap["cot"][0], cap["cot"][1]
@@ -184,6 +203,7 @@ def main() -> int:
                 "dz_in": (z_in.grad.detach().to(torch.float64)
                           if z_in.grad is not None else None),
                 "policy": a.policy, "tree": a.tree, "permute_cot": a.permute_cot,
+                "pad_scale": a.pad_scale,
                 "loss": float(loss)}, a.out)
 
     sq = {k: float(torch.linalg.vector_norm(v)) ** 2 for k, v in grads.items() if v is not None}
@@ -199,7 +219,7 @@ def main() -> int:
            }[a.policy],
            "boundary": a.boundary, "boundary_sha256": sha256_file(a.boundary),
            "cotangent_from": a.cap_last, "cotangent_sha256": sha256_file(a.cap_last),
-           "permuted_cotangent": perm_rep,
+           "permuted_cotangent": perm_rep, "pad_perturbation": pad_rep,
            "probe": {"s_in_norm": float(s0.norm()), "z_in_norm": float(z0.norm()),
                      "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
                      "real_tokens": int(sm.sum()), "tokens": int(sm.shape[-1])},

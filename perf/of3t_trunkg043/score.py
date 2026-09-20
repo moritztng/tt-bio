@@ -73,6 +73,36 @@ def score(ours, ref, keys):
     }
 
 
+def by_leaf(rows):
+    """Error mass by LEAF NAME, which is what says whether a reading is one op or the whole block.
+
+    error mass of t = mass_t * rel_t^2, the campaign's own formula. Reported as a share of the
+    total, so 'the LayerNorm biases carry it' is a number and not an impression.
+    """
+    tot = sum(x["mass"] * x["rel_l2"] ** 2 for x in rows) or 1.0
+    agg = {}
+    for x in rows:
+        leaf = x["tensor"].split(".", 3)[3]
+        a = agg.setdefault(leaf, {"n": 0, "mass": 0.0, "error_mass": 0.0})
+        a["n"] += 1
+        a["mass"] += x["mass"]
+        a["error_mass"] += x["mass"] * x["rel_l2"] ** 2
+    for a in agg.values():
+        a["share_of_the_error_mass"] = a["error_mass"] / tot
+        a["mass_weighted_rel_l2"] = float(np.sqrt(a["error_mass"] / a["mass"])) if a["mass"] else 0.0
+    return dict(sorted(agg.items(), key=lambda kv: -kv[1]["error_mass"])[:20])
+
+
+def by_block_errormass(rows, nb):
+    tot = sum(x["mass"] * x["rel_l2"] ** 2 for x in rows) or 1.0
+    out = {}
+    for i in range(nb):
+        p = f"pairformer_stack.blocks.{i}."
+        em = sum(x["mass"] * x["rel_l2"] ** 2 for x in rows if x["tensor"].startswith(p))
+        out[i] = em / tot
+    return out
+
+
 def per_block(rows, nb):
     out = {}
     tot = sum(x["ref_sq"] for x in rows)
@@ -96,6 +126,9 @@ def main() -> int:
     ap.add_argument("--arm", action="append", required=True, metavar="NAME=PATH")
     ap.add_argument("--blocks", type=int, default=48)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--dump-rows", default="",
+                    help="write the full per-tensor table per arm, so the result file can be "
+                         "reanalysed without re-running anything")
     a = ap.parse_args()
 
     f64 = torch.load(a.ref_f64, map_location="cpu", weights_only=False)
@@ -135,6 +168,10 @@ def main() -> int:
     rows_floor = floor.pop("_rows")
     rep["floor_their_bf16_vs_float64"] = floor
     rep["floor_per_block"] = per_block(rows_floor, a.blocks)
+    rep["floor_by_leaf_error_mass"] = by_leaf(rows_floor)
+    if a.dump_rows:
+        with open(f"{a.dump_rows}.FLOOR.json", "w") as fh:
+            json.dump(rows_floor, fh)
 
     if a.ref_f32:
         f32 = torch.load(a.ref_f32, map_location="cpu", weights_only=False)
@@ -175,8 +212,13 @@ def main() -> int:
             "worse_than_2p5x_their_bf16":
                 v64["mass_weighted_rel_l2"] > 2.5 * floor["mass_weighted_rel_l2"],
             "per_block": per_block(rows, a.blocks),
+            "by_leaf_error_mass": by_leaf(rows),
+            "block_share_of_the_error_mass": by_block_errormass(rows, a.blocks),
             "forward": {"s_norm": float(d["s"].norm()), "z_norm": float(d["z"].norm())},
         }
+        if a.dump_rows:
+            with open(f"{a.dump_rows}.{name}.json", "w") as fh:
+                json.dump(rows, fh)
 
     with open(a.out, "w") as fh:
         json.dump(rep, fh, indent=2)

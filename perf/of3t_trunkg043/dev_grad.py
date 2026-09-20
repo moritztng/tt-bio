@@ -21,6 +21,13 @@ DERIVED instead, from the construction in `tenstorrent.AttentionPairBias.__init_
 derived placement is verified by rebuilding THEIR weight out of the device weight and comparing
 it to the checkpoint. A placement that cannot reproduce the weight does not get to carry the
 gradient.
+
+PAD INVARIANCE. `--pad-scale K` multiplies the boundary's PAD rows (and, in z, the pad rows and
+columns) by K and changes nothing else. Under correct masking a real output cannot depend on a
+pad position and the captured output cotangent is exactly zero on the pads, so every parameter
+gradient must be invariant to K. It is a control on both sides: a reference that moves means the
+pads genuinely participate, and an arm that moves while the reference does not has a masking
+leak feeding its weight gradients.
 """
 from __future__ import annotations
 
@@ -75,6 +82,8 @@ def main() -> int:
     ap.add_argument("--arm", default="shipped", choices=("shipped", "flipped"))
     ap.add_argument("--blocks", type=int, default=48)
     ap.add_argument("--crop", type=int, default=64)
+    ap.add_argument("--pad-scale", type=float, default=1.0, metavar="K",
+                    help="multiply the boundary's pad rows/columns by K, nothing else")
     ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED")
     a = ap.parse_args()
     t0 = time.perf_counter()
@@ -144,6 +153,17 @@ def main() -> int:
     s_in, z_in = b["s_in"], b["z_in"]
     sm, pm = b["single_mask"], b["pair_mask"]
     N = int(z_in.shape[1])
+    pad_rep = None
+    if a.pad_scale != 1.0:
+        pad = (sm.reshape(-1) <= 0)
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] *= a.pad_scale
+        z_in[:, pad, :] *= a.pad_scale
+        z_in[:, :, pad] *= a.pad_scale
+        pad_rep = {"pad_scale": a.pad_scale, "pad_rows": int(pad.sum()),
+                   "real_rows": int((~pad).sum()),
+                   "s_in_norm_after": float(s_in.norm()),
+                   "z_in_norm_after": float(z_in.norm())}
 
     cap = torch.load(a.cap_last, map_location="cpu", weights_only=False)
     cot_s, cot_z = cap["cot"][0], cap["cot"][1]
@@ -183,7 +203,7 @@ def main() -> int:
            "tokens": N, "real_tokens": int(sm.sum()),
            "boundary": a.boundary, "boundary_sha256": sha256_file(a.boundary),
            "cotangent_from": a.cap_last, "cotangent_sha256": sha256_file(a.cap_last),
-           "permuted_cotangent": perm_rep,
+           "permuted_cotangent": perm_rep, "pad_perturbation": pad_rep,
            "shipped_config": {"source": "tt_bio/openfold3_trunk.py OF3Trunk.__init__, read by "
                                         "spying on the Pairformer constructor",
                               "kwargs": shipped_kw},
@@ -393,7 +413,7 @@ def main() -> int:
           f"tensors carry one, {len(absent)} absent", flush=True)
 
     torch.save({"grads": out, "s": s_ours, "z": z_ours, "arm": a.arm, "config": kw,
-                "permute_cot": a.permute_cot}, a.out)
+                "permute_cot": a.permute_cot, "pad_scale": a.pad_scale}, a.out)
     rep["out"] = a.out
     rep["seconds"] = time.perf_counter() - t0
     with open(a.report, "w") as fh:
