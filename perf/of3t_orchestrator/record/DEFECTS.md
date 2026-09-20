@@ -6007,7 +6007,7 @@ every row still working. **A row's progress is its BRANCH** —
 `git -C <remote-worktree> log --oneline origin/main..HEAD`, over ssh. Recorded as memory
 `a-rows-progress-is-its-branch-not-its-process-or-state-doc`.
 
-### D101. the composition I verify and report is LOCAL; `origin/wk/of3t` is 134 commits behind it, and I have been naming it to rows as a base. UNFIXED (deliberately, mid-flight).
+### D101. the composition I verify and report is LOCAL; `origin/wk/of3t` is 134 commits behind it, and I have been naming it to rows as a base. FIXED at pass 183 — published.
 
 `compose_verify.sh` rebuilds `wk/of3t` from scratch each run (`git branch -f wk/of3t
 origin/main`, then merge every row) and **does not push it** — correctly, since a force-push of a
@@ -6034,13 +6034,30 @@ off-by-one fix that §7 exists partly to re-check end to end. The seven absent r
 pass-176+ trunk/aux_heads work that §7 does not touch. `of3t-trunkback` is unaffected — it was
 pointed at `wk/of3t-trunkgrad`, a row branch, which is current.
 
-**Why this stays UNFIXED for now rather than being force-pushed**: two rows are live off these
+**Why this stayed open rather than being force-pushed** (the reasoning at the time; the hold lapsed at pass 183): two rows were live off these
 refs. Rewriting a shared branch under them buys nothing §7 or the backward hunt needs, and the
 campaign's own record has a defect class for exactly this (`routing-around-an-unresolved-merge`).
 The fix belongs at a quiet moment: either publish the composition deliberately, or stop naming
 `wk/of3t` as a base and name the specific row branch a new row actually depends on — which is
 what I did for `of3t-trunkback` and should have done for `of3t-traj20`.
-Owner: `of3t-orchestrator`. **UNFIXED.**
+Owner: `of3t-orchestrator`. **CLOSED at pass 183 -- see the addendum below.**
+
+
+**D101 CLOSED at pass 183.** `origin/wk/of3t` is published: `6a98aec4f..b8630dd73`, **39 of 40
+rows, 1179 commits ahead of main**. The deliberate hold was "not force-pushed while two rows are
+live off these refs", and that condition lapsed — the two live rows (`of3t-softgrad`,
+`of3t-trunkdepth`) base on `wk/of3t-residual` and `wk/of3t-trunkback`, not on `wk/of3t`.
+
+**Checked before pushing, not after:** `git log origin/wk/of3t --not <every row branch> main`
+returned **empty**, so no commit existed only on the published ref and nothing could be lost.
+In the event the lease was not even exercised — git reported `6a98aec4f..b8630dd73`, a plain
+**fast-forward**, because the rebuilt composition is a descendant of the old one. The
+force-with-lease was correct to arm and turned out to be unnecessary.
+
+The composition it publishes is the pass-183 verified one: **162 confirmed, 0 warnings, 0
+drifted**, merge gate clean, a descendant of `origin/main` and fast-forwardable. The 40th row is
+`of3t-softgrad`, dispatched this pass and not yet pushing a branch, which the compose skips with
+an explicit note rather than silently.
 
 ### D102. seven superseded artifacts were STAMPED but not NULLED — the numbers stayed readable for up to twenty passes. FIXED and guarded.
 
@@ -6328,3 +6345,46 @@ number and this one has only been read. It is counted when an arm makes it fire.
 one parameter group, run the same `fixed5` path against upstream, and report `d_k`. If upstream
 moves the parameter and we do not, the defect is measured and the fix is one branch in
 `AdamW.step()` — assign and step rather than skip. Release-gated like the other five.
+
+### D108. The campaign called the diffusion transformer "revision-inert" and it is not — 0.4.3 has a learned `layer_norm_z` per DiT block where 0.5.0 has one shared. FIXED as a wording correction; no measurement moves.
+
+The module carries **51.1358 %** of the gradient mass. `THE_POSITIVE_RESULT_SURVIVES_THE_AUDIT.json`
+was scrupulous enough to flag its own gap — *"does not re-verify the DIFFUSION TRANSFORMER, which
+D22 read and judged inert ... still D22's reading rather than mine"* — and that gap sat open for
+eight passes while the word "inert" was repeated. Read from both trees at pass 184:
+
+| | 0.4.3 | 0.5.0 |
+|---|---|---|
+| caller (`DiffusionTransformer`) | builds `layer_norm_z` **only** `if use_cross_attention` (:254) and applies it under the same guard (:313) — the main DiT path has `n_query=None`, so it is **off** | builds and applies it **unconditionally** (:246, :303) |
+| block (`AttentionPairBias` / `DiffusionAttentionPairBias`) | builds `layer_norm_z` **unconditionally** (:73, not gated on the AdaLN flag); `_prep_bias` does `z = layer_norm_z(z)` then `linear_z(z)` | the new class has **no** `layer_norm_z`; `_prep_bias` goes straight to `linear_z(z)` |
+| net | `z` normalised **inside every block by that block's own learned norm** | `z` normalised **once before the stack by one shared norm** |
+
+`z` is fixed across DiT blocks, so those two coincide **only if all the per-block norms were
+identical** — they are independently learned parameters. It is a structural difference and the
+only weight-key difference between the two checkpoints.
+
+**The class split that rode along with it IS inert, which is why this was easy to miss.**
+0.5.0's `DiffusionAttentionPairBias.forward` equals 0.4.3's `AttentionPairBias.forward` at
+`use_ada_layer_norm=True`: the conditional `layer_norm_a(a, s) if self.use_ada_layer_norm else
+layer_norm_a(a)` loses its branch, the guarded `sigmoid(linear_ada_out(s)) * a` loses its guard,
+and `s: torch.Tensor | None = None` tightens to `s: torch.Tensor`. A bool hoisted into the type
+system. Reading the split and stopping there is exactly what "judged inert" looks like.
+
+**Consequence: none, twice over.** Every figure on this scope is against **0.4.3** —
+`of3t-residual`'s `device_grads_043all_shipped.pt`, `of3t-adaln`'s `of3pkg043` — which is the
+revision `of3-p2-155k` binds to. And `tt_bio/openfold3_diffusion_transformer.py` already serves
+both variants, selecting on the state dict with no flag threaded in, and documents the trade in
+its own docstring: *"48 per-block `layer_norm_z` keys traded for 1 shared one."*
+
+**So the fix is the word.** Wherever the record says revision-**INERT** for this module it now
+says revision-**DIFFERENT-BUT-HANDLED**. The distinction is not pedantry: "inert" licenses
+building a 0.5.0 reference for this scope, and a 0.4.3 checkpoint loaded into 0.5.0 under
+`strict=False` would drop the per-block keys **in silence** — the recorded
+`reference-checkpoint-version-binding-strict-false` trap, on the campaign's largest scope.
+
+**Third instance this week of the same failure mode.** The evidence audit runs 162 checks and
+reads 0 drifted, and every one of them is numeric. In one week the prose inside those green
+documents produced: an inference fold cost quoted as the price of training parity (nearly
+escalated to Moritz as a decision), "fused-qkv" for 240 unplaced leaves with nothing establishing
+it, and "inert" for a module that is not. A number can be recomputed from an artifact, so a guard
+can own it. A word has only an author.

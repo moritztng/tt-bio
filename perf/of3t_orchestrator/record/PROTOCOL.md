@@ -1315,3 +1315,39 @@ bar by `sqrt(2)` when it does. A28 asks a different question — whether the BAR
 training precision — and never widens anything. A scope can be scored against float64 with no
 `sqrt(2)` (A26-SCOPE) and still owe a floor under A28. Both are stated; neither substitutes for
 the other.
+
+---
+
+**A29 — 2026-09-20, forced by D108 (pass 184), mine. AN EQUIVALENCE CLAIM NAMES THE TWO THINGS IT
+COMPARED.** "Revision-inert", "cosmetic", "functionally identical" — these are the highest-stakes
+words this campaign uses, because inertness is what licenses scoring a scope against either
+upstream tree. Any artifact asserting one must name, in the same artifact, the **source files it
+read in both trees** and the **specific construct** it checked. A citation of another artifact
+does not discharge it.
+
+**This is A27 one level up.** A27 says a ratio names how its denominator arm was built. A29 says
+an *equivalence* names what was set equal to what. Both exist because the reader cannot
+reconstruct the comparison from the conclusion.
+
+**What forced it.** D108: the diffusion transformer, **51.1358 %** of the gradient mass, was on
+the record as revision-inert on a reading that had never been re-checked — and it is not inert.
+0.4.3 gives every DiT block its own learned `layer_norm_z`; 0.5.0 deletes all of them for one
+shared pre-stack norm. The reason it was easy to miss is instructive: the *class split* that rode
+along with the change (`AttentionPairBias` → `DiffusionAttentionPairBias`) **is** inert, so
+reading the split and stopping there looks exactly like having checked.
+
+**Enforced mechanically, and the weak form was rejected after testing.** `audit_evidence.py` now
+fails any `perf/of3t_orchestrator/*.json` that uses the word *inert* without a source path in the
+same artifact. Both forms were run against all eight artifacts that use the word: requiring *a
+path or a citation* passed all eight, **including one that propagated "verified revision-inert"
+with nothing behind it** — a vacuous guard. Requiring a path fired on exactly that one. The weak
+form was discarded for being green, which is the thing a guard is supposed to make impossible.
+
+**The general lesson, recorded because it is bigger than this amendment.** The evidence audit runs
+162 checks and reads 0 drifted, and **every one of them is numeric**. In one week the prose inside
+those green documents produced three defects: an inference fold cost quoted as the price of
+training parity (nearly escalated to Moritz as a decision), "fused-qkv" for 240 unplaced leaves
+with nothing establishing it, and "inert" for a module that is not. **A number can be recomputed
+from an artifact, so a guard can own it; a word has only an author.** Green-on-numbers had been
+licensing the prose. A29 mechanises the one characterisation that was worth the most; the rest
+still need re-reading by hand.

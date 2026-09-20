@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-eight amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-nine amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty dispatched, thirty-eight concluded, two live** (pass 182: this row, and `of3t-trunkdepth` on qb2 hunting the trunk backward's depth-dependent amplifier; `of3t-wirefix` concluded GO). 40 briefs = 38 concluded + those two. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-one dispatched, thirty-eight concluded, three live** (pass 183: this row, `of3t-trunkdepth` on qb2 hunting the trunk backward's depth-dependent amplifier, and `of3t-softgrad` scoring the two shippable softmax levers on the 51 % scope's gradient at full scope). 41 briefs = 38 concluded + those three. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -154,7 +154,7 @@ machinery claim**: 38.1862 % passes on the shipped path, `aux_heads`' 2.8431 % p
 arm's 51.1358 % is bounded by a softmax ceiling no device lever reaches. Only the last of those
 four is still a ceiling rather than a reading.
 
-Recomputed from the artifacts on every compose (162 checks, 0 drifted):
+Recomputed from the artifacts on every compose (163 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -225,7 +225,7 @@ Recomputed from the artifacts on every compose (162 checks, 0 drifted):
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **twenty-eight amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **twenty-nine amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -673,8 +673,8 @@ entirely on accuracy, and all of it inside the diffusion arm is the softmax — 
 returned NO-GO on every shipped lever (+46 %/op), so closing it is a **release-gated precision
 decision, not a measurement**. **PASS 176-177, the trunk.** Scored against **0.5.0** while `of3-p2-155k` binds to **0.4.3**; rebuilt at 0.4.3 the shipped **pair** track reads **4.947045e-02**, under the bar, and **92.08 %** of the old figure was the reference revision. **D95 closed**, no A18 verdict changed. **`aux_heads`** (2.8431 %) is **DONE** — a call site was dropping two masks; handed over, all five heads read **exactly 0.0** and the re-taken gradient **2.271382e-03**, 8.81x inside the bar, reaching no user. The trunk's single track is **EXPLAINED**: `AttentionPairBias` folds the bias inside its score scale, and pre-scaled it matches upstream to **4.2e-16** — a flip held as **D1** because it costs **0.463 A** on a served structure, so that gap is a **decision, not a defect**. **Its GRADIENT is now MEASURED and FAILS** at 5.367727e+00 — though re-scored against upstream's own all-bf16 over the same 48 blocks that is **13.0x**, not 268x, and single-block error spans **136x over depth on identical code**, which `of3t-trunkdepth` is dispatched on. **PASS 182 — PROTOCOL SS7 PASSES ITS SHAPE BAR**, the instrument SS8 requires and that had never been run. It found four divergences; closing them exposed a **fifth** — `betas` never passed, so AdamW's `(0.9,0.999)` shipped where OF3 runs `(0.9,0.95)`. With all five closed: `d_1` **exactly 0 both sides**, 4,147 of 4,147 bit-identical, `d_20` **8.2071e-06** at 2.815x the fp32 floor, exponent **+0.194** (flat, r2 0.093) against the four-fix arm's +1.267. Upstream-vs-upstream is **exactly 0.0 at all twenty rungs** and the mis-wired control **still fails**. **The UPDATE RULE is reproduced — on a BRANCH**: all five are release-gated and unmerged, so the shipped path still carries every one, and SS7 does not test the gradient the rule consumes. **Nine of nine** functional defects are CALL SITES.
 
-Thirty-nine concluded markers, one this live row's own and stale, so thirty-eight others; two live (this row, `of3t-trunkdepth`); one hundred seven defects on the record,
-forty-four of them UNFIXED. The composition `wk/of3t` carries 38 of 38 rows at 1161 commits ahead of main.
+Thirty-nine concluded markers, one this live row's own and stale, so thirty-eight others; two live (this row, `of3t-trunkdepth`); one hundred eight defects on the record,
+forty-three of them UNFIXED. The composition `wk/of3t` carries 38 of 38 rows at 1161 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
 there because every pass appended after the last field, so the field a reader treats as the
@@ -791,7 +791,7 @@ than in the model. D18's fix is in flight and its own detector passes; **D20**'s
 closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
 open bounds, and **D21** as the live instrument defect on the device arm.
 
-A protocol whose bars were fixed before any number existed and **amended twenty-eight times on the
+A protocol whose bars were fixed before any number existed and **amended twenty-nine times on the
 record**, each amendment marked for whether a number already existed — including two written
 this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
 instrument whose completeness you can assert, and its addendum, that gating a gradient
@@ -832,7 +832,7 @@ that already exists, and each has a number to beat:
 **What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
 instruments** rather than in the model, including one near-miss in which the central claim
 would have passed with our trunk deleted. The bars were fixed before any number existed and
-amended twenty-eight times on the record, each amendment marked for whether a number already
+amended twenty-nine times on the record, each amendment marked for whether a number already
 existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
 on every compose. *A verification campaign that cannot catch itself is not a verification
 campaign*, and the record is the evidence that this one could.
