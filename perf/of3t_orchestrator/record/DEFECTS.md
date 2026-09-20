@@ -7166,3 +7166,63 @@ tensor**.
 
 **So PROTOCOL §6 is satisfied: 8 of 8 loss terms fire with a non-zero gradient contribution**, with
 the union-over-stages carrier named for each. That is one of the protocol's four pillars complete.
+
+### D116 UPDATE 3 (pass 207). FIXED, measured, release-gated. `of3t-apbgrad` returned GO: one expression takes the trunk's gradient to **1.0251x upstream's own bf16 recipe**.
+
+**The repair: divide `inner` by the row sum.** The softmax backward rule `dx = y*(g - Σ g·y)` is
+correct *only when the row sums to one*. Ours does not — `ttnn.softmax` returns rows summing to
+**0.9769**, which this campaign has known since `_accurate_softmax`'s docstring was written and
+never asked what it does to the **backward's** algebra. `inner = Σ(g·y)/Σ(y)` is the same
+expression when the row sums to one and makes the row sums of `d_logits` vanish identically when it
+does not: **1.903e-05 → 5.398e-21** at block 15, and 2.405e-06…6.195e-05 → 5.4e-21…1.9e-19 over six
+blocks. One extra reduction and one divide, in the backward only.
+
+**At scope, all arms in the row's own processes, 2,736 of 2,736 tensors (100 % of the squared
+gradient norm):**
+
+| arm | mass-weighted | median | norm ratio | cos | × floor |
+|---|---|---|---|---|---|
+| shipped control (lever off) | 9.025172e+00 | 0.99949 | 1.5989 | 0.8187 | 24.136 |
+| **REPAIRED** | **3.833066e-01** | 0.40179 | 0.8988 | 0.9519 | **1.025** |
+| upstream's own bf16 (the floor) | 3.739355e-01 | 0.30353 | 1.0037 | 0.9695 | 1.000 |
+| break control (permuted cotangent) | 8.261372e+00 | 4.37026 | 2.4145 | 0.2987 | 22.093 |
+| A16 zero gradient | 1.000000e+00 | 1.00000 | 0.0000 | — | — |
+
+**So after the repair the trunk's gradient is as close to float64 as upstream's own bf16 training
+recipe is** — which is the campaign's stated defensible target, not the float64 bar no bf16 port
+reaches.
+
+**The diagnosis that got there**: no single op's backward is wrong; **the operand one of them is
+handed is**. All 30 ops of the token-level `AttentionPairBias.__call__` were recorded on
+`taped_ttnn._taped_verb` and scored in float64 from the operands the card actually had. Shape ops
+exact to the last bit; four projections and both attention matmuls at bf16 unit roundoff; only
+`softmax(logits)` at 5.821e-02 and the SIGMOID gate multiply at 3.589e-02 outside the innocent band.
+
+**The sibling control holds**: `single_transition.layer_norm` is bit-for-bit unmoved (r 0.998-0.999,
+cos 1.0000) while `attn_pair_bias.layer_norm_a` is repaired — block 15 goes r **33.298 → 1.028**,
+cos **0.0189 → 0.7964**.
+
+**Nothing ships.** Behind `TT_BIO_SOFTMAX_BW_RENORM`, default off, entirely inside a backward
+closure so no forward and no shipped inference result can move; 19 added lines in
+`tt_bio/taped_ttnn.py`; `compose_verify.sh`'s named assertion holds. Pre-registered at `f706261c8`
+before the first arm ran.
+
+**One sub-finding worth keeping**: `ttnn.multiply_` truncates a python float's mantissa to bf16 on a
+bf16 tensor — the scalar score multiply applied **0.204032258** where the source says
+**0.204124145**, and the op only reads 1.437e-03 once scored against the scalar the card applied.
+
+### D119. UNFIXED (`project.py` still carries the unit error). The observational floor I built for the crop ladder is close to vacuous: 34.215 GB is the CARD, not a property of 640. FOUND by `of3t-crop512`, and it corrects my own method.
+
+I introduced "the 640 run reached 34.215 GB and still died, so any model predicting less is refuted"
+as a control on every crop projection, and leaned on it three passes running. `of3t-crop512` shows
+what it actually tests: **640 died at 34,215,730,688 B and 512 died at 34,218,562,560 B.** Both are
+the card. **The floor tests that a projection exceeds the card, and cannot separate two projections
+that both do** — which is nearly every projection of a run that OOMs.
+
+**And a unit error underneath it**: the card is **34,225,520,128 B** (8 banks × 4,278,190,016 B, read
+off the allocator at the refusal) = **34.2255 decimal GB = 31.875 GiB**. `project.py` divides by
+2**30 and compares to 34.22, **pricing levers against a card 7.34 % larger than the one in the box**.
+
+**What it decides**: structural N² puts 512 at 31,865,141,476 B, below the card — and **512 filled
+the card**, so the N² arm is refuted by measurement. 512's own peak is a lower bound, and a lower
+bound that excludes 768 excludes it. **768 is closed.**
