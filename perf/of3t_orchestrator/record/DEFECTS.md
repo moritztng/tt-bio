@@ -4190,9 +4190,13 @@ one.
 carrying 33.9354 % of the model — marginally over a 5.0e-02 bar with cosines near 1. That is
 what a bf16 floor looks like.
 
-**STILL PROVISIONAL.** The permuted negative control had **not** landed when this was computed.
-Until it moves the headline by orders of magnitude the comparison has not been shown capable of
-failing, and none of these numbers is established. Recorded now rather than discovered later.
+**NO LONGER PROVISIONAL (pass 172).** The control landed and moves the whole-model headline
+from **8.107441e-05** to **3.639337e-01** — a factor of **4,489×**. And control-vs-arm2 reads
+**3.639335e-01**, agreeing with control-vs-reference to seven figures: the two differ only in
+the draws, so that equality shows the perturbation dominates completely and the fp32 floor is
+negligible beside it. **The comparison is shown capable of failing**, and these figures are
+established on that axis. A16's zero-model baseline and the row's own reported result are still
+owed.
 
 Owner: `of3t-refprec` for the reported result. Artifact:
 `perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`.
@@ -4246,4 +4250,22 @@ precisely why it needs fixing rather than explaining away. Until it is fixed, **
 reference-precision figure on this record stays provisional**, and both defect entries already
 say so.
 
-Owner: `of3t-refprec`, told while live (brief amendment 3). **UNFIXED.**
+**OUTCOME (pass 172): the naming defect stands, its feared consequence did not occur.** The
+control landed and moved the headline **4,489×** (8.107441e-05 → 3.639337e-01). So one draw of
+forty-five *is* enough, the comparison is shown capable of failing, and D69/D70 are no longer
+provisional. What D71 warned of — a small movement misread as "the comparison cannot fail" —
+did not materialise.
+
+**Checking the input before the output was still correct.** The two failure modes are
+indistinguishable from the output alone, so the check was the only thing that could have told
+them apart, and **being lucky is not the same as being sound**. Had the movement come back at
+2×, this entry is the difference between indicting the instrument and indicting the control.
+
+The file is still misnamed and that part is unfixed: it is not a permutation, and a reader who
+takes `_PERMUTED` at face value will over-rate it. Worth noting what the 4,489× also says —
+the gradient at this step is strongly draw-dependent, which is what a diffusion objective over
+48 sampled noise levels should look like, and it is why pinning and replaying the draws is
+load-bearing for this campaign rather than a convenience.
+
+Owner: `of3t-refprec`, told while live (brief amendment 3). **UNFIXED as a naming defect;
+harmless in its effect this time.**

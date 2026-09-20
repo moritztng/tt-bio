@@ -267,8 +267,10 @@ Recomputed from the artifacts on every compose (153 checks, 0 drifted):
   **bf16 5.852018e-02** — its actual training dtype, **2.9x OUTSIDE** — and our device
   **7.5692**. So our port is **129x worse than what the recipe itself achieves**, and a 2.0e-02
   bar against float64 asks for better than upstream does. The defensible target for a
-  training-reproduction claim is parity with upstream's own bf16 floor. **Provisional**: the
-  permuted control had not landed when this was computed.
+  training-reproduction claim is parity with upstream's own bf16 floor. **Established** (pass
+  172): the control moves the headline **4,489x**, from 8.107441e-05 to 3.639337e-01, and
+  control-vs-arm2 agrees with control-vs-reference to seven figures, so the comparison is shown
+  capable of failing.
 
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
@@ -743,11 +745,11 @@ reference and the campaign has never measured what OpenFold3's **own training pr
 scores against it — upstream is not float64-clean (their own `autocast(float32)` and a
 forced `.float()` had to be removed to build the reference), so the bar's achievability by
 any implementation is unestablished. `bundle_min.py` already carries `--dtype float32` and
-no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only. **D71 (UNFIXED)**: the negative control every reference-precision figure rests on is **not
-a permutation** — 44 of its 45 replayed draws are byte-identical in place and the multiset
-differs, so one draw's content was replaced. Caught while it was still running. Until it is
-rebuilt, D69's and D70's numbers stay provisional: a small movement from it would mean the
-perturbation was small, not that the comparison cannot fail.
+no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only. **D71 (UNFIXED as a naming defect, harmless in effect)**: the negative control is **not a
+permutation** — 44 of its 45 replayed draws are byte-identical in place, one draw's content
+replaced. Caught before its output existed. It nonetheless moves the headline **4,489x**, so
+D69's and D70's figures are **established**, not provisional; the file stays misnamed and a
+reader taking `_PERMUTED` at face value will over-rate it.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
@@ -7192,3 +7194,38 @@ fp32-with-upstream-casts differing only in draws.
 D69's and D70's arithmetic is untouched. arm2 and arm4 do not depend on this control for their
 *values*, only for their *credibility* — which is exactly why it gets fixed rather than
 explained away, and why both entries keep saying provisional until it is. Filed as **D71**.
+
+---
+
+## Pass 172 — the control is misnamed and sufficient, and the result is established
+
+The control landed at 08:33 with the weak perturbation D71 found — one draw of forty-five
+replaced, nothing reordered. I computed it both ways, including the one I told the row to add:
+
+    whole model, 4,170 tensors, mass-weighted rel_l2
+      arm2    vs reference   8.107441e-05     the result
+      CONTROL vs reference   3.639337e-01     how it will be reported
+      CONTROL vs arm2        3.639335e-01     isolates the perturbation
+
+**The control moves the headline 4,489×.** And control-vs-arm2 agrees with control-vs-reference
+to **seven figures** — those two runs are the same dtype with the same upstream casts and differ
+**only in the draws**, so the equality says the perturbation dominates completely and the fp32
+floor of 8.1e-05 is negligible beside it. The comparison is shown capable of failing.
+
+**So D69 and D70 are established, not provisional.** One draw of forty-five is enough. What D71
+warned about — a small movement misread as "the comparison cannot fail" — did not happen.
+
+**And checking the input first was still right.** The two failure modes are indistinguishable
+from the output alone, so that check was the only thing that could have separated them, and
+**being lucky is not the same as being sound**. Had the movement come back at 2×, D71 is the
+difference between indicting the instrument and indicting the control. The file stays misnamed
+and that part is unfixed.
+
+Worth keeping what the 4,489× also says: the gradient at this step is **strongly
+draw-dependent**, which is what a diffusion objective over 48 sampled noise levels should look
+like — and it is why pinning and replaying the draws is load-bearing for this campaign rather
+than a convenience.
+
+Still owed on this result: A16's measured zero-model baseline, and `of3t-refprec`'s own reported
+numbers with its own controls. Everything I have published from these arms is an orchestrator
+computation off the landed tensors and says so.

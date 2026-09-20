@@ -89,5 +89,21 @@
   },
   "where_bf16s_own_misses_sit": "the heaviest tensors over bf16's per-tensor bar are the diffusion_conditioning LayerNorm vectors at rel 5.3e-02 to 7.9e-02 -- the same four tensors that carry 33.9354 % of the model. They are marginally over a 5.0e-02 bar with cosines near 1, which is what a bf16 floor looks like, and is a different phenomenon from our 18.504.",
   "STILL_PROVISIONAL": "the permuted negative control had NOT landed when this was computed. Until it moves the headline by orders of magnitude, none of these numbers is established -- the comparison has not been shown capable of failing. Stated here rather than discovered later."
+ },
+ "CONTROL_LANDED_PASS_172_AND_THE_RESULT_IS_NO_LONGER_PROVISIONAL": {
+  "whole_model_mass_weighted_rel_l2": {
+   "arm2 vs reference": 8.107441e-05,
+   "CONTROL vs reference": 0.3639337,
+   "CONTROL vs arm2": 0.3639335
+  },
+  "the_control_moves_the_headline_by": "4,489x (8.107441e-05 -> 3.639337e-01)",
+  "verdict": "the comparison IS shown capable of failing. D69's and D70's figures are no longer provisional on this axis.",
+  "the_isolation_that_makes_it_airtight": "control-vs-arm2 (3.639335e-01) and control-vs-reference (3.639337e-01) agree to seven figures. arm2 and the control are the SAME dtype with the SAME upstream casts and differ ONLY in the draws, so that equality says the perturbation dominates completely and the fp32 floor of 8.1e-05 is negligible beside it. The control is measuring what it is supposed to measure.",
+  "D71_stands_as_a_naming_defect_and_its_feared_consequence_did_not_occur": "the file is still not a permutation -- 44 of 45 draws byte-identical in place, multiset not preserved, one draw's content replaced. That finding is unchanged. What D71 warned about was a SMALL movement being misread as 'the comparison cannot fail'. The movement is 4,489x, so the risk did not materialise. Checking the input before the output was still right: the two failure modes are indistinguishable from the output alone, and being lucky is not the same as being sound.",
+  "what_one_draw_of_45_moving_the_headline_4489x_also_says": "the gradient at this step is strongly draw-dependent, which is what a diffusion objective over 48 sampled noise levels should look like. It is also why the campaign's whole method -- pinning the draws and replaying them -- is load-bearing rather than a convenience.",
+  "still_owed": [
+   "A16's measured zero-model baseline on this comparison",
+   "of3t-refprec's own reported result with its own controls; this remains an orchestrator computation off the landed tensors"
+  ]
  }
 }
