@@ -1,0 +1,347 @@
+{
+  "instrument": "R2 -- OF3 loss weight table, rebuilt from upstream configs",
+  "their_defaults": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.03,
+    "experimentally_resolved": 0.0001,
+    "plddt": 0.0001,
+    "pae": 0.0001,
+    "pde": 0.0001
+  },
+  "source": "/home/ttuser/of3t_up/venv/lib/python3.10/site-packages/openfold3/projects/of3_all_atom/config/dataset_config_components.py",
+  "stages": {
+    "finetune_1": {
+      "weighted-pdb": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0001,
+          "plddt": 0.0001,
+          "pae": 0.0001,
+          "pde": 0.0001
+        },
+        "token_budget": 640,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0
+        }
+      },
+      "long-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 640,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "short-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 640,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "disordered-pdb": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 640,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "RNA-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 640,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      }
+    },
+    "finetune_2": {
+      "weighted-pdb": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0001,
+          "plddt": 0.0001,
+          "pae": 0.0001,
+          "pde": 0.0001
+        },
+        "token_budget": 768,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0
+        }
+      },
+      "long-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 768,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "short-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 768,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "disordered-pdb": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 768,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "RNA-monomer-distillation": {
+        "weights": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 768,
+        "overrides": {
+          "bond": 4.0,
+          "smooth_lddt": 0.0,
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      }
+    },
+    "finetune_3": {
+      "weighted-pdb": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 0.0,
+          "mse": 0.0,
+          "distogram": 0.0,
+          "resolved": 0.0001,
+          "plddt": 0.0001,
+          "pae": 0.0001,
+          "pde": 0.0001
+        },
+        "token_budget": 768,
+        "overrides": {
+          "mse": 0.0,
+          "smooth_lddt": 0.0,
+          "distogram": 0.0,
+          "pae": 0.0001
+        }
+      }
+    },
+    "initial_training": {
+      "weighted-pdb": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 4.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0001,
+          "plddt": 0.0001,
+          "pae": 0.0001,
+          "pde": 0.0001
+        },
+        "token_budget": 384,
+        "overrides": {}
+      },
+      "long-monomer-distillation": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 4.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 384,
+        "overrides": {
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "short-monomer-distillation": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 4.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 384,
+        "overrides": {
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "disordered-pdb": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 4.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 384,
+        "overrides": {
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      },
+      "RNA-monomer-distillation": {
+        "weights": {
+          "bond": 0.0,
+          "smooth_lddt": 4.0,
+          "mse": 4.0,
+          "distogram": 0.03,
+          "resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        },
+        "token_budget": 384,
+        "overrides": {
+          "experimentally_resolved": 0.0,
+          "plddt": 0.0,
+          "pae": 0.0,
+          "pde": 0.0
+        }
+      }
+    }
+  },
+  "entries_checked": 16,
+  "mismatches": [],
+  "protenix_stages_intact": true,
+  "negative_control": {
+    "stage": "finetune_1",
+    "dataset": "RNA-monomer-distillation",
+    "term": "bond",
+    "perturbation": "+1e-3 on the expected value",
+    "detected": true,
+    "pass": true
+  },
+  "verdict": "PASS"
+}
