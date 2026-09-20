@@ -1535,6 +1535,56 @@ with missing 0 and unexpected 0. Pair it with an explicit assertion that the ins
 sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
 `of3t-rebase`'s brief is amended accordingly and the live session was told directly.
 
+**PASS 108 — D23's TRUNK HALF IS CONFIRMED TOO, and it survives its own pre-registered
+falsifier.** `of3t-rebase` ran six crop-64 arms against the rebuilt 0.4.3 reference, scored with
+`of3t-orchestrator`'s `revision/d8_vs_endnode.py` **unchanged** — same 5.0e-02 / 2.0e-02 bars,
+same A14 floor, same norm-share definition, 53 compared and 52 kept on both sides so the columns
+are the same tensors. **Recomputed independently by the orchestrator from the row's own artifacts
+and reproducing exactly:**
+
+| arm | median vs 0.5.0 | median vs 0.4.3 | over bar | norm share | |
+|---|---|---|---|---|---|
+| block 0 shipped | 6.481e-02 | **1.2136e-02** | 9/52 | 5.1 % | 5.34x better, **PASS** |
+| block 0 tb-off | 1.148e-02 | 7.3978e-02 | 37/52 | 24.1 % | 6.4x worse, FAIL |
+| block 23 shipped | 9.304e-02 | **1.9191e-02** | 15/52 | 25.0 % | 4.85x better, **PASS** |
+| block 23 tb-off | 1.743e-02 | 1.008e-01 | 46/52 | 70.0 % | 5.8x worse, FAIL |
+| block 47 shipped | 4.270e-01 | **2.0129e-01** | 52/52 | 100 % | 2.12x better, FAIL |
+| block 47 tb-off | 4.004e-01 | 2.386e-01 | 52/52 | 100 % | 1.68x better, FAIL |
+
+**The falsifier was "both arms moving the same direction refutes D23's trunk half."** At blocks 0
+and 23 they move in **opposite** directions — shipped improves, `tb-off` degrades — which is what a
+convention mismatch looks like and nothing else does. Both blocks cross **FAIL → PASS** on the
+median bar. Against the prediction written before the rebuild existed (≈0.0115, ≈0.0174, ≈0.40),
+the measurements land **within 6 % and 10 %** on the first two, and block 47 comes out twice as
+good as predicted.
+
+**Block 47 is a separate animal and D23 does not explain it.** Both arms improve *together*,
+2.12x and 1.68x, and both still fail at 2.013e-01 and 2.386e-01 with 52 of 52 tensors and 100 % of
+the compared norm over bar. **The depth-graded residual stands as its own open finding**, now with
+the reference-side term removed from it.
+
+**These arms are readable because the floor under them is bit-exact** — A13 on the rebuilt
+reference reads worst **0.000e+00** on all 171 tensors — so what they measure is our port's error
+with no reference-side term to share or subtract.
+
+**A mis-pin the row caught and handled exactly right.** The ladder first ran with
+`--scale-pair-bias on`; audited against the arms' own `shipped_config`, that is true of the three
+48-block *stack* arms and **false** of all six crop-64 arms, so the first run moved the bias
+convention and the revision together. The row **moved** those results to
+`perf/of3t_rebase/mispinned_spb_on/` rather than labelling them in place, citing that a label
+beside a wrong number does not stop it being quoted. It kept them as evidence about the flag, and
+they say something new: **the bias scale is worth 4.7x at depth 47** (9.439e-01 mis-pinned against
+2.013e-01 matched) **and nothing at depth 0** (1.207e-02 against 1.214e-02) — **depth-dependent**,
+which no entry records. The mis-pin also dropped `attn_pair_bias.linear_z.weight` out of the
+bijection, 52 instead of 53, which is how it was caught.
+
+**Orchestrator correction:** pass 106 hypothesised from the logs that "D1's correction has an L1
+cost". The arm that hit the circular-buffer clash was the **mis-pinned** `spb on` run, and crop-64
+arms ship with `spb=false`, so the clash was on a configuration that is not shipped. The narrow
+true statement is that `spb=on` clashed at crop 64 where `spb=off` ran; whether that is inherent
+is a lower-priority open question, and the 4.7x-at-depth-47 result is the more interesting fact
+about that flag.
+
 **PASS 91 — D23's DIFFUSION HALF IS CONFIRMED AND CLOSED AT BLOCK 0, against the prediction
 written before the rebuild existed.** `of3t-rebase` built the reference at 0.4.3 and re-ran the
 one-block bisection on the same captured `dit_in`, block 0, n=384, device arm float32 HiFi4 on

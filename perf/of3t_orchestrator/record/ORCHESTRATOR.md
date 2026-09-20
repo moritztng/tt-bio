@@ -3716,3 +3716,56 @@ rather than another row's, and to make A13's non-zero exit refuse to start run C
 **The reusable shape:** a script that references a *concluded* row's worktree is a time bomb, and
 combining it with no failure stop means the most load-bearing check in the sequence can disappear
 while every surrounding step reports success.
+
+PASS 108. **D23 is confirmed on BOTH tracks. The trunk half survives its own pre-registered
+falsifier, and I recomputed the row's table from its artifacts rather than accepting it.**
+
+Six crop-64 arms against the rebuilt 0.4.3 reference, scored with this row's
+`revision/d8_vs_endnode.py` **unchanged** — same bars, same A14 floor, same norm-share definition,
+same 52 tensors on both sides. My independent recomputation reproduces the row's numbers exactly:
+
+| arm | vs 0.5.0 | vs 0.4.3 | over bar | norm share | |
+|---|---|---|---|---|---|
+| block 0 shipped | 6.481e-02 | **1.2136e-02** | 9/52 | 5.1 % | 5.34x better, **PASS** |
+| block 0 tb-off | 1.148e-02 | 7.3978e-02 | 37/52 | 24.1 % | 6.4x worse, FAIL |
+| block 23 shipped | 9.304e-02 | **1.9191e-02** | 15/52 | 25.0 % | 4.85x better, **PASS** |
+| block 23 tb-off | 1.743e-02 | 1.008e-01 | 46/52 | 70.0 % | 5.8x worse, FAIL |
+| block 47 shipped | 4.270e-01 | **2.0129e-01** | 52/52 | 100 % | 2.12x better, FAIL |
+| block 47 tb-off | 4.004e-01 | 2.386e-01 | 52/52 | 100 % | 1.68x better, FAIL |
+
+**The falsifier I registered was "both arms moving the same direction refutes D23's trunk half."**
+At blocks 0 and 23 they move in **opposite** directions, and both cross **FAIL → PASS** on the
+median bar. Against the prediction written before the rebuild existed — ≈0.0115, ≈0.0174, ≈0.40 —
+the measurements land **within 6 % and 10 %**, with block 47 twice as good as predicted.
+
+**Block 47 is not D23.** Both arms improve *together* and both still fail, 52 of 52 tensors and
+100 % of the norm over bar. The depth-graded residual is its own open finding, now with the
+reference-side term stripped out of it.
+
+**These arms are readable only because the floor under them is bit-exact** — the A13 result I ran
+last pass, worst **0.000e+00** across all 171 tensors. That is the pass-107 work feeding straight
+into whether pass-108's numbers mean anything: without it, every figure above would carry an
+unmeasured reference term.
+
+**The row caught its own mis-pin and handled it better than the campaign's own standard.** The
+ladder first ran `--scale-pair-bias on`; audited against the arms' own `shipped_config`, that is
+right for the three 48-block stack arms and **wrong for all six crop-64 arms**, so the first run
+moved bias convention and revision together. It **moved** the results to
+`perf/of3t_rebase/mispinned_spb_on/` rather than labelling them in place — citing the reason
+directly, that a label beside a wrong number does not stop it being quoted — and kept them as
+evidence, which yields something new: **the bias scale is worth 4.7x at depth 47 and nothing at
+depth 0**. Depth-dependent, recorded nowhere before. The mis-pin also dropped
+`attn_pair_bias.linear_z.weight` from the bijection, 52 instead of 53, which is how it was caught.
+
+**And a correction I owe.** Pass 106 read the logs and hypothesised that **D1's correction has an
+L1 cost**. The arm that hit the circular-buffer clash was the **mis-pinned** `spb on` run, and
+crop-64 arms ship with `spb=false` — so the clash was on a configuration that is not shipped. The
+narrow true statement is that `spb=on` clashed at crop 64 where `spb=off` ran. Whether that is
+inherent is now a low-priority open question, and the row's 4.7x-at-depth-47 result is the more
+interesting fact about that flag.
+
+**Hardware, flagged rather than acted on:** the row reports **card 2 would not initialise
+firmware**, and its board-pair partner was in service so a `tt-smi -r` was unavailable. With one
+working chip and two jobs it ran the ladder and stopped the two 48-block stack arms — correctly,
+since amendment 2a already established the stack is saturated and cannot separate our stack from a
+deleted one. `perf/of3t_rebase/trunk043.sh` runs them unchanged when a chip frees.
