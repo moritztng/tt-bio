@@ -316,6 +316,16 @@ def main() -> int:
         probe = os.environ.get("OF3T_SOFTGRAD_PROBE") == "1"
         bad = []
         shipped_softmax_rule = TT._VERBS["softmax"]
+        # of3t-nanfloor: the config on the CHAIN's forward reduction, made A/B-able instead of
+        # assumed. This row was dispatched on the premise that the published
+        # `softmax_accurate` arm ran that reduction at the op default; it has passed
+        # `_SOFTMAX_PRECISE_CKC` since the arm was written, so the only way to say what that
+        # argument is worth at scope is to run the counterfactual. The default is the shipped
+        # arm unchanged, and the census records what reached the op rather than what the
+        # source says (D110).
+        _sum_ckc = (None if os.environ.get("OF3T_NANFLOOR_SUM_CKC") == "none"
+                    else _SOFTMAX_PRECISE_CKC)
+        sum_ckc_census = {"fwd_precise": 0, "fwd_none": 0, "bw_precise": 0}
 
         def precise_forward_rule(shipped, args, kwargs):
             """precise_config() on the FORWARD softmax call, backward untouched.
@@ -364,8 +374,8 @@ def main() -> int:
             ttnn.deallocate(_m)
             _d = ttnn.maximum(_d, -60.0)
             ttnn.exp(_d, output_tensor=_d)
-            _s = ttnn.sum(_d, dim=-1, keepdim=True,
-                          compute_kernel_config=_SOFTMAX_PRECISE_CKC)
+            _s = ttnn.sum(_d, dim=-1, keepdim=True, compute_kernel_config=_sum_ckc)
+            sum_ckc_census["fwd_precise" if _sum_ckc is not None else "fwd_none"] += 1
             y0 = ttnn.divide(_d, _s)
             ttnn.deallocate(_d)
             ttnn.deallocate(_s)
@@ -387,6 +397,7 @@ def main() -> int:
                     y = box[0]
                     inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True,
                                      compute_kernel_config=_SOFTMAX_PRECISE_CKC)
+                    sum_ckc_census["bw_precise"] += 1
                     d = ttnn.multiply(y, ttnn.subtract(g, inner))
                     if probe:
                         gf = torch.isfinite(ttnn.to_torch(g)).all().item()
@@ -729,6 +740,9 @@ def main() -> int:
                                      and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
            "softmax_lever": a.softmax_lever or None,
+           "chain_sum_ckc": ("none" if os.environ.get("OF3T_NANFLOOR_SUM_CKC") == "none"
+                             else "precise") if a.softmax_lever == "accurate" else None,
+           "chain_sum_ckc_census": (sum_ckc_census if a.softmax_lever == "accurate" else None),
            "ckc_census": (ckc_seen or None),
            "tt_bio_softmax_ckc_flag": (
                __import__("tt_bio.tenstorrent", fromlist=["x"])._SOFTMAX_CKC
