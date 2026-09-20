@@ -793,6 +793,9 @@ record its own.
 
 **D119 (UNFIXED, mine)**: the observational floor I built for the crop ladder is close to vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so the control tests only that a projection exceeds the card and cannot separate two that both do. Plus a unit error under it: the card is 34,225,520,128 B (**34.2255 decimal GB = 31.875 GiB**) and `project.py` compares against 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; it does not change 640's GO, and it is why 768 is closed on a measured lower bound rather than on a projection.
 
+**Both pass-207 repairs are guarded off (pass 209).** `TT_BIO_SOFTMAX_BW_RENORM` and the host float64 softmax are real fixes that would change numbers a user gets, and both now ride in the composition. `assert_new_levers_default_off.py` reads the composed tree on every compose and checks **both halves per lever** — the default exists as off, AND no construction site overrides it to `True` — because a selector defaulting `False` says nothing when a site passes `default=True`, which is exactly how `opendde.refiner` ships the accurate-softmax chain ON. Break control fires on a known-on tree and an end-to-end positive control catches both flips. The two branches also **coexist cleanly**: both levers are present in the published composition and the trunk's
+`scale_pair_bias=False, tri_att_scale_pair_bias=False` assertion still holds, so the D77-class hazard of two rows editing `taped_ttnn.py` did not materialise.
+
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
 document was still quoting the superseded reading. Each line says who closed it, or what is left.
@@ -917,7 +920,9 @@ tensors the trunk goes **9.025172e+00 → 3.833066e-01**, which is **1.0251x ups
 (3.739355e-01 rebuilt in the same environment), with the break control at 8.261372e+00 and the A16
 zero model at 1.0. The `single_transition` sibling is bit-for-bit unmoved while
 `attn_pair_bias.layer_norm_a` goes r **33.298 → 1.028** at block 15. **Nothing ships**: behind
-`TT_BIO_SOFTMAX_BW_RENORM`, default off, entirely inside a backward closure, 19 added lines.
+`TT_BIO_SOFTMAX_BW_RENORM`, default off, entirely inside a backward closure, 19 added lines — and
+that default is now **asserted from the composed tree on every compose**, alongside the host float64
+softmax's, because off-by-default is a property of the branch and not of a row's write-up.
 
 **So PARTIAL rests on less than it has all campaign.** The trunk's 5.8282 % has a measured repair at
 upstream's own bf16 parity; the 51.1358 % has an approved fix being built (`of3t-f64softmax`); §6
