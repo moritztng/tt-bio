@@ -3,6 +3,11 @@
  "and_the_accuracy_picture_is_the_opposite_RETIRED": "on ACCURACY against the float64 ideal, the port beats upstream's own bf16 training step everywhere both were measured EXCEPT the diffusion transformer: conditioning 7.95x better, pairformer's 7 blocks 2.09x, block 47 1.15x, msa_module 1.10x. Read ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json beside this file; a verdict that quotes one column without the other misleads, in opposite directions.",
  "arithmetic": "0.2666 survives + 89.0554 fails + 8.3732 measured-and-VOID + 2.3048 unread = 100.0000 %. Direct coverage 97.6952 %. An earlier pass-175 cut said 97.9933 % by counting the whole pairformer stack as measured; only 94.886 % of its mass was placed, so 0.2981 % of the model moved back to unread.",
  "as_of": "2026-09-20, orchestrator pass 175, under PROTOCOL A25",
+ "derived_totals": {
+  "direct_coverage_pct": 97.6952,
+  "measured_and_fails_or_void_pct": 97.4286,
+  "why_these_are_here": "VERDICT quotes the fails-or-void total (97.4286 %) as one figure, and a traceability check at pass 175 found it in no artifact -- it existed only as a sum I did in prose. A headline figure that no artifact carries cannot be re-derived by a reader or re-checked by a guard, which is the same failure as a result file that keeps only summary statistics. Derived quantities belong in the artifact that owns their components."
+ },
  "headline": "0.2666 % of OpenFold3's gradient mass survives a direct comparison against upstream's own training step. 89.0554 % is measured and fails, 8.3732 % is measured and VOID under A18 (aux_heads and the placed part of the pairformer trunk, whose forwards disagree), and 2.3048 % has no direct reading.",
  "measured_and_fails": {
   "items": [
