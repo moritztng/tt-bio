@@ -3137,6 +3137,50 @@ from what exists — and all three come free from one re-run that writes the per
 the tensor name. **A result file that keeps only the extremes cannot be re-analysed under a
 denominator discovered later**, and this campaign has now changed its denominator twice.
 
+**LOCALISED BY SOURCE AUDIT, same pass, no card.** Every one of the ten worst tensors is a
+`layer_norm*.weight` gain or a `linear_g.{weight,bias}` — the **sigmoid-gated branch of AdaLN**.
+**Not one is a `linear_s`.** Six are the same leaf,
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight`, across DiT blocks 0/5/6/7/8/12; two more
+are `linear_g` inside `atom_attn_enc`'s atom transformer. **One sub-module, reached from two
+different stacks.**
+
+The forward is not the problem: upstream 0.4.3's `AdaLN`
+(`core/model/primitives/normalization.py:88`) is `a = LN_a(a); s = LN_s(s); g = σ(linear_g(s));
+a = g*a + linear_s(s)` with LN_a scale- and offset-free and LN_s scale-only at eps 1e-5, and ours
+(`tenstorrent.AdaLN` via `remap_of3_adaln`) is the same transform. `forward_rel_median` is
+**8.4748e-03**. The defect is in the **backward**.
+
+Three hypotheses read against the source and settled:
+
+- **The fused-sigmoid derivative — REFUTED.** Our forward fuses σ into `ttnn.multiply_` as an
+  operand-B activation; had the tape treated it as a plain multiply, the cotangent to `s_scale`
+  would miss σ(1−σ) — a factor ≥ 4 and unbounded, corrupting `linear_g` and the s-norm gain,
+  sparing `linear_s`, leaving the forward untouched. It fits the pattern and the 4.5–18.5 range
+  exactly. It is wrong: `taped_ttnn.py:444-515` evaluates the product rule on the **activated**
+  operands and then applies σ(1−σ), and `d/da` correctly uses the activated `eb`.
+- **The LayerNorm gain formula — REFUTED.** `autograd.py:1566-1622` computes `g · x̂` summed over
+  the leading dims with a two-pass variance under `precise_config()`. Textbook correct.
+- **A bf16 reduction in the gain and bias sums — WEAKENED, not eliminated.** `_taped_linear`'s
+  dW rule documents that `fp32_dest_acc_en` is *not* enough — `packer_l1_acc` accumulates
+  per-K-block partials at the **output** dtype — and passes `dtype=ttnn.float32`. The gain and
+  bias gradients both go through `_sum_leading`, which passes `precise_config()` but **no output
+  dtype**. That would hit exactly the two rules whose tensors fail and spare bias-free
+  `linear_s`. But the class measured **6.5e-02 at K=4096** and scales as √K, projecting to
+  ~1.4e-01 at the DiT's 18,432 terms.
+
+**And the magnitude says none of these is the whole story.** `‖g_ref‖` for the worst tensor is
+`sqrt(0.0805416 × 10.279642678524985)` = **0.9099**, so at rel 18.504 the error vector has norm
+**~16.8**. That is not a precision signature — it is a wrong scale, a wrong transform, or double
+counting. A single structural factor shared by the code path would also make all 24 blocks
+equally wrong *relatively*; they are not (2.73 at block 0, 18.50 at block 8), so whatever it is
+**scales with something that varies by block**.
+
+**What settles it in one run:** the norm ratio `r = ‖g_dev‖/‖g_ref‖` and the cosine beside each
+rel. `r ≈ 19.5` with `cos ≈ 1` is a scale and the search is over a factor; `r ≈ 1` with `cos ≈ 0`
+is a wrong transform. rel alone cannot distinguish them.
+
 Owner: `of3t-orchestrator`. **UNFIXED.** The per-tensor dump is requested of the live
-`of3t-conditioning` row as an explicitly secondary deliverable (amendment 1 to its brief).
-Artifact: `perf/of3t_orchestrator/ERRORS_CONCENTRATE_ON_MASS.json`.
+`of3t-conditioning` row (brief amendments 1 and 2), now specifying `r` and `cos` for every
+tensor rather than rel alone. Artifacts:
+`perf/of3t_orchestrator/ERRORS_CONCENTRATE_ON_MASS.json`,
+`perf/of3t_orchestrator/ADALN_BACKWARD_ELIMINATIONS.json`.

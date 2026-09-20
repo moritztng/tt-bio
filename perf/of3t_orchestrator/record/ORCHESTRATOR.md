@@ -5899,3 +5899,39 @@ Three times this pass the denominator changed the reading and never once in the 
 direction: the diffusion arm's errors sit on its heaviest tensors (D53), the trunk's headline
 understates it 6.5x, and the campaign's best lever is 2.5 % rather than 2–6x by the measure that
 matters. `perf/of3t_orchestrator/smoff/FP32_SOFTMAX_UNDER_A23.json`.
+
+### Pass 151, fourth finding — the worst errors are one sub-module, and three explanations for it are dead
+
+D53 named the tensors. This pass asked what they have in common, by reading source rather than
+running anything: **every one of the ten worst is a LayerNorm gain or a `linear_g` — the
+sigmoid-gated branch of AdaLN — and not one is a `linear_s`.** Six are the same leaf across DiT
+blocks 0/5/6/7/8/12, two more are `linear_g` inside `atom_attn_enc`'s atom transformer. One
+sub-module, reached from two stacks.
+
+The forward matches upstream 0.4.3's `AdaLN` term for term, and `forward_rel_median` is
+**8.4748e-03**, so this is a backward defect. Three candidates, read and settled:
+
+- **the fused-sigmoid derivative** — the best-fitting hypothesis I have had in this campaign: our
+  forward folds σ into `ttnn.multiply_` as an operand-B activation, and dropping σ(1−σ) would be
+  a factor ≥ 4 and unbounded, would hit `linear_g` and the gain, would spare `linear_s`, and
+  would leave the forward alone. **Refuted** — `taped_ttnn.py:444-515` evaluates the product rule
+  on the activated operands and applies the unary derivative after.
+- **the LayerNorm gain formula** — **refuted**, `g · x̂` over the leading dims with a two-pass
+  variance under `precise_config()`.
+- **a bf16 reduction in the gain and bias sums** — **weakened**. `_sum_leading` passes
+  `precise_config()` but not the `dtype=ttnn.float32` that `_taped_linear`'s dW rule documents as
+  the actual fix. It would hit exactly the failing rules and spare bias-free `linear_s`. But the
+  class measures 6.5e-02 at K=4096 and scales as √K — ~1.4e-01 at the DiT's 18,432 terms.
+
+**The magnitude is the argument against all three.** `‖g_ref‖` for the worst tensor is
+**0.9099**, so rel 18.504 means an error vector of norm **~16.8**. Not precision — a wrong scale,
+a wrong transform, or double counting. And a uniform structural factor would make all 24 blocks
+equally wrong relatively; they are not (2.73 at block 0, 18.50 at block 8), so it scales with
+something that varies by block.
+
+I stopped there rather than pushing a fourth hypothesis, because one measurement separates the
+remaining families and it is already requested: **the norm ratio `r` and the cosine beside each
+rel.** `r ≈ 19.5, cos ≈ 1` is a scale; `r ≈ 1, cos ≈ 0` is a wrong transform. rel cannot tell
+them apart, which is a lesson this campaign has already paid for twice. Brief amendment 2 went to
+`of3t-conditioning` with the eliminations, so the row does not repeat the search.
+`perf/of3t_orchestrator/ADALN_BACKWARD_ELIMINATIONS.json`.
