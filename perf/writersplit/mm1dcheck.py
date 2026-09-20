@@ -108,6 +108,28 @@ def main() -> int:
         x, w, _, pc, _, out_s = arms[kt]
         return generic_mm1d(device, x, w, out_s, pc, CKC, writer_on_in0=True)
 
+    def perturb_in0_writer(kt, delta):
+        """Shift the tile id the IN0-side writer starts at, and nothing else.
+
+        The negative control for the split.  Bit-exactness cannot prove the write moved RISCs:
+        the shipped in1 writer produces the same bytes, so an inert WRITER_ON_IN0 arm reads
+        identical.  This moves an arg only the relocated writer reads.  If the output shifts, the
+        in0 RISC is the thing writing it; if it does not, the split is inert and the in1 kernel is
+        still doing the work.  It touches no CB accounting, so it cannot deadlock the way
+        compiling one writer out without the other would.
+        """
+        import tt_bio.mm1d_generic as G
+        x, w, _, pc, _, out_s = arms[kt]
+        key = G._key(x, w, out_s, pc, CKC, None, (), True, True)
+        entry = G._CACHE[key]
+        idx = 8 + 2            # 8 shipped in0 sender args, then enabled, out_addr, start_tile_id
+        for _, a in entry["rt"]["in0_sender"]:
+            a[idx] += delta
+        for k, name in zip(entry["kernels"], ("in0_sender", "in1_sender", "in1_receiver")):
+            k.runtime_args = entry["rt"][name]
+        entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
+
     # ---- correctness -----------------------------------------------------------------------
     for kt in CASES:
         ref = native(kt)
@@ -133,10 +155,26 @@ def main() -> int:
               flush=True)
         ttnn.deallocate(ref)
 
+    # ---- the split actually fires ----------------------------------------------------------
+    for kt in CASES:
+        perturb_in0_writer(kt, 1)
+        moved = ttnn.to_torch(split(kt))
+        ttnn.synchronize_device(device)
+        perturb_in0_writer(kt, -1)
+        back = ttnn.to_torch(split(kt))
+        ttnn.synchronize_device(device)
+        ref = ttnn.to_torch(native(kt))
+        fired = not bool(torch.equal(moved, ref))
+        restored = bool(torch.equal(back, ref))
+        R["cases"]["kt%d" % kt].update({"in0_writer_fires": fired,
+                                        "restores_after_control": restored})
+        print("kt=%-3d negative control: +1 tile on the in0 writer changes the output %s, "
+              "and -1 restores it %s" % (kt, fired, restored), flush=True)
+
     if not a.time:
         Path(a.out).write_text(json.dumps(R, indent=1))
-        return 0 if all(c["torch_equal"] and c["split_torch_equal"]
-                        for c in R["cases"].values()) else 1
+        return 0 if all(c["torch_equal"] and c["split_torch_equal"] and c["in0_writer_fires"]
+                        and c["restores_after_control"] for c in R["cases"].values()) else 1
 
     # ---- timing, arms interleaved in one process -------------------------------------------
     def fit(xs, ys):
