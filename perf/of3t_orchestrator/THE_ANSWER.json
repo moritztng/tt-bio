@@ -1,6 +1,7 @@
 {
  "D95_is_closed_and_aux_heads_restates_upward": "of3t-maskaudit returned GO at pass 176: D95's exposure is enumerated per reading and NO A18 verdict in the campaign changes -- the reassuring branch, reported as such. But aux_heads' failures get WORSE on real tokens: pae_logits 1.819913e-01 -> 5.177082e-01, pde 8.789745e-02 -> 3.000855e-01, distogram 2.827727e-03 -> 3.479065e-03. The scope's headline is now 5.177082e-01 on pae_logits, not plddt's 3.6515e-01. And D95's own statement needed two corrections: the dilution is not proportional to the padding fraction (23.4 % padding hid 82 % of an effect), and it is NOT one-directional -- padding inflated adaln's block-0 gate 1.30x. Padding does not bias a reading in a knowable direction; it makes it not a reading of the model.",
  "arithmetic_check": {
+  "by_scope_sums_to": 100.0,
   "needs_an_accurate_softmax_pct": 51.1358,
   "no_double_counting": "the diffusion arm's 51.1358 % INCLUDES layer_norm_a's 0.2666 %, the one scope that survives even the unreachable threshold. Not added separately anywhere.",
   "no_reading_pct": 7.8349,
@@ -49,6 +50,13 @@
    "mass_pct": 2.8431,
    "scope": "aux_heads",
    "verdict": "VOID under A18"
+  },
+  {
+   "a18_forward": "n/a -- no device gradient exists for the never-readable part",
+   "mass_pct": 2.0067,
+   "note": "added at pass 176 so this table SUMS TO ITS OWN TOTAL. It previously summed to 97.9933 % against an arithmetic_check claiming 100.0, because the no_reading_pct bucket (7.8349) was only partly enumerated -- pairformer_stack's 5.8282 had a row and the rest did not. 0.74055 % sits on a weight the shipped path applies on the HOST, so no device gradient for it exists at any effort; the remaining ~1.266 % is the trunk's 240 unplaced fused-qkv leaves and small embedders. A reader who adds the column up now gets 100.0000 and can therefore CHECK it, which is the point.",
+   "scope": "unenumerated remainder (never-readable weight + unplaced leaves/embedders)",
+   "verdict": "NO READING, and 0.74055 % of it never can"
   }
  ],
  "honest_limits": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures, num_recycles 0. Nothing establishes these figures hold at another batch or with recycling. Reference gradients are bit-reproducible only at a FIXED OMP_NUM_THREADS. Every published headline recomputes from its own per-tensor sidecar to <= 1.19e-07, and the D86 orientation fix is confirmed from outside the code that claims it (0 of 547 signature tensors on the corrected arm against 80 on the pre-fix one).",
