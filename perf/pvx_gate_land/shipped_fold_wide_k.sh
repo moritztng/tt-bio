@@ -36,6 +36,7 @@ WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY=${PY:-/home/ttuser/tt-bio-dev/env/bin/python3}
 BL=/home/ttuser/.coworker/scripts/benchlock.sh
 CARD=${CARD:-1}
+HOLDER=${HOLDER:-worker:land-standing}
 RUNGS=${RUNGS:-352,1088}
 REPS=${REPS:-2}
 OUT="$WT/perf/pvx_gate_land/shipped_fold_wide_k.json"
@@ -92,9 +93,9 @@ $PY "$WT/perf/pvx_gate_land/sample_contention.py" > "$CONT" 2>/dev/null &
 SAMPLER=$!
 trap 'kill '"$SAMPLER"' 2>/dev/null' EXIT
 
-TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:pvx-gate-land \
+TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=$HOLDER \
 TT_BIO_AICLK=1350 PYTHONPATH="$WT" \
-  bash "$BL" pvx-gate-land -- "$PY" perf/xmsoftmax/fold_ab_flip.py \
+  bash "$BL" land-standing -- "$PY" perf/xmsoftmax/fold_ab_flip.py \
     --models protenix-v2 --rungs "$RUNGS" --reps "$REPS" \
     --flag TT_BIO_SDPA_WIDE_K --off-value 0 \
     --workdir /tmp/widek_shipped --out "$OUT" 2>&1 | tee "$LOG"
