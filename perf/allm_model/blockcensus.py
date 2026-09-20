@@ -189,7 +189,31 @@ def driver_predict(a):
     return one_fold, meta
 
 
-DRIVERS = {"predict": driver_predict}
+def driver_rfd3(a):
+    """RFdiffusion3, through `tt_bio.rfd3.design.run_design` -- the same call the CLI makes."""
+    import json as _json
+    from tt_bio.rfd3 import design as rfd3_design
+    weights = Path.home() / ".boltz" / "rfd3" / "weights"
+    spec_path = Path(a.target) if a.target else ROOT / "examples" / "rfd3_binder.json"
+    specs = _json.loads(spec_path.read_text())
+    steps = a.steps or 4
+    n = {"i": 0}
+
+    def one():
+        n["i"] += 1
+        out = Path(f"/tmp/allm_rfd3_{os.getpid()}_{n['i']}")
+        t0 = time.perf_counter()
+        res = rfd3_design.run_design(specs, out, checkpoint_dir=str(weights), from_pdb=True,
+                                     num_timesteps=steps, seed=42, num_designs=1,
+                                     batch_size=1, verbose=False)
+        return time.perf_counter() - t0, {"plddt": None, "n_designs": len(res)}
+
+    return one, {"spec": str(spec_path), "weights": str(weights),
+                 "protocol": {"num_timesteps": steps, "num_designs": 1, "batch_size": 1},
+                 "timed_region": "run_design (featurise + sample + CIF write)"}
+
+
+DRIVERS = {"predict": driver_predict, "rfd3": driver_rfd3}
 
 
 # --------------------------------------------------------------------------- main
@@ -200,6 +224,7 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--target")
     ap.add_argument("--a3m")
+    ap.add_argument("--steps", type=int, default=0)
     ap.add_argument("--card", type=int, required=True)
     ap.add_argument("--depth", type=int, default=1)
     ap.add_argument("--folds", default="cold,A,B,C")
