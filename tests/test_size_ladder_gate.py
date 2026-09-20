@@ -1292,3 +1292,91 @@ def test_no_recorded_refusal_reason_is_an_empty_cell():
                     if not any(c.isalpha() for c in str(why)):
                         bad.append((f.name, card, model, rung, why))
     assert not bad, f"refused rungs recorded without a reason: {bad!r}"
+
+
+# --- what a cell carries beside its runtime ---------------------------------------------
+#
+# Every cell recorded before 2026-09-20 was a runtime and nothing else: no clock, no reps,
+# no evidence the fold had folded anything. On Blackhole the AICLK SETS the fold time (800
+# MHz reads 21.90 s at 512 aa where the 1350 burst reads 14.69 s), so an unclocked runtime
+# cannot be compared across passes at all, and a median of one hides its own spread. These
+# tests pin the three fields to the recorder so they cannot be dropped by a later edit.
+
+
+def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, monkeypatch,
+                                                                    tmp_path):
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        return {"levers": {"FLAG": dict(FIRING)}, "runtime_s": 90.0 if tag == "warmup" else 40.0,
+                "wall": 60.0, "census_json": tmp_path / "c.json", "grid": "11x10",
+                "aiclk": {"card": "2", "min": 800, "median": 1350, "max": 1350, "n": 9},
+                "structure": {"file": "pred.cif", "n_ca": 512, "clash_frac": 0.0,
+                              "geometry_ok": True, "geometry_fail": []}}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    out = rg_fresh._size_ladder_measure_model("boltz2", (512,), tmp_path, 2, 2)
+
+    assert out["runtime_s"]["512"] == 40.0
+    # the array, not just the median: two draws of 40.0 are a spread of zero, and the cell
+    # has to be able to say so
+    assert out["runtime_reps_s"]["512"] == [40.0, 40.0]
+    assert out["aiclk"]["512"] == {"card": "2", "min": 800, "max": 1350,
+                                   "rep_median": [1350, 1350], "n": 18}
+    assert out["structure"]["512"]["n_ca"] == 512
+
+
+def test_the_clock_is_not_attributed_to_a_card_that_was_not_pinned(rg_fresh, monkeypatch):
+    """tt-smi index 0 is the granted chip only when exactly one chip is granted. Unpinned,
+    index 0 is whatever UMD enumerated first, and a runtime beside a clock read off a
+    neighbour is worse than a runtime with no clock."""
+    class Clk:
+        clocks = {0: [1350, 1349, 1350]}
+
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "3")
+    assert rg_fresh._aiclk_cell(Clk()) == {"card": "3", "min": 1349, "median": 1350,
+                                           "max": 1350, "n": 3}
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "0,1,2,3")
+    assert rg_fresh._aiclk_cell(Clk()) is None
+    monkeypatch.delenv("TT_VISIBLE_DEVICES")
+    assert rg_fresh._aiclk_cell(Clk()) is None
+    # sampled nothing is also no clock, never a default
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "3")
+    assert rg_fresh._aiclk_cell(type("E", (), {"clocks": {}})()) is None
+
+
+def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
+    """A carried cell that keeps only its runtime is an unclocked number again."""
+    stamp = {"recorded": "2026-09-20", "host": "tt-quietbox", "commit": "abc1234"}
+    prev = {**stamp, "grid": "11x10",
+            "runtime_s": {"256": 16.1, "512": 36.8},
+            "levers": {"256": {"X": dict(FIRING)}, "512": {"X": dict(FIRING)}},
+            "runtime_reps_s": {"256": [16.1], "512": [36.8, 37.0]},
+            "aiclk": {"256": {"card": "0", "min": 1350, "max": 1350,
+                              "rep_median": [1350], "n": 4}},
+            "structure": {"512": {"n_ca": 512, "clash_frac": 0.0}}}
+    meas = {"runtime_s": {"1536": 528.0}, "levers": {"1536": {"X": dict(FIRING)}},
+            "grid": "11x10", "sigma": 0.04}
+
+    assert rg_fresh._size_ladder_carry_rungs(meas, prev, stamp) == ["256", "512"]
+    assert meas["runtime_reps_s"] == {"256": [16.1], "512": [36.8, 37.0]}
+    assert meas["aiclk"]["256"]["rep_median"] == [1350]
+    assert meas["structure"]["512"]["n_ca"] == 512
+    # 512 had no clock recorded, and carrying must not invent one
+    assert "512" not in meas["aiclk"]
+
+
+def test_the_clash_metric_is_calibrated_on_deposited_structures(rg_fresh):
+    """CLASH_CUT/CLASH_FRAC_MAX are measured off examples/ground_truth_structures, not
+    asserted: the first cut tried, 4.0 A, called 6 % of 21tw a clash because real tertiary
+    contacts do reach 3.5-4.0 A. This test is the calibration, so a later widening of the
+    cut has to face the same 38 structures."""
+    mod = rg_fresh._load_by_path("scripts/gpu_vs_tt/gpu5_accuracy_gate.py")
+    gt = sorted((REPO_ROOT / "examples" / "ground_truth_structures").glob("*.cif"))
+    assert len(gt) >= 30
+
+    worst = max((mod.gate(f, None, None).get("clash_frac") or 0.0, f.name) for f in gt)
+    assert worst[0] <= mod.CLASH_FRAC_MAX / 2, f"{worst[1]} reads {worst[0]}"
+
+    # and it fires on the two ways a fold stops being one
+    cas = mod._parse_cif(gt[0].read_text())
+    half = [(c, r, x / 2, y / 2, z / 2, b) for c, r, x, y, z, b in cas]
+    assert len(mod.clashing_atoms(half)) / len(half) > 0.5
