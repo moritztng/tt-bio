@@ -1,4 +1,4 @@
-# §6's last uncovered loss term: fired
+# §6's last uncovered loss term: fired, and it moves the gradient
 
 `bond` is the one OpenFold3 loss term the campaign never saw contribute anything. Two rows
 narrowed why. `of3t-auxheads` read the predicate off the loss itself — `bond_mask =
@@ -46,5 +46,22 @@ reading the non-zero the same way that row read the zero is the point. It gained
 
 `--index 12` is 4G5J chain 1. The index-to-target map is the dataset's own `datapoint_cache`
 and both scripts print it.
+
+## Result
+
+finetune_1 / weighted-pdb, 4G5J chain 1, crop 256, float32, seed 20260920, openfold3 0.4.3:
+
+| | |
+|---|---|
+| `bond_mask` nnz | 1 |
+| `bond_loss` | 0.0012424831511452794 |
+| `‖g(bond=4) − g(bond=0)‖²` | 0.213765 |
+| `‖g(bond=4)‖²` | 1.45515 |
+| share of the squared gradient norm | 0.146902 |
+| tensors moved | 3,924 of 4,170 |
+
+`of3t-auxheads` read the same instrument on 5nw3 and got 0.0 exactly with 0 of 4,170 moved. What
+differs is the corpus. `diffusion_module` holds 0.212684 of the 0.213765 and `aux_heads` reads
+0.000000e+00, which is where a structure loss should land.
 
 No bond is synthesised anywhere. A zero would have been the finding.
