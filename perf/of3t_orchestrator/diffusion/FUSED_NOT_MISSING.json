@@ -1,0 +1,42 @@
+{
+ "correction_to_D46": "D46 said 38.07 %% of the model's gradient mass \"sits in diffusion tensors our port does not build -- a PORT gap, missing parameters\". That is WRONG for the 96 diffusion_transformer tensors, and they are the regular half of the set. They are BUILT, FUSED. The bijection cannot place them because one device tensor carries three.",
+ "the_96_are_exactly_four_leaf_names_x_24_blocks": {
+  "attention_pair_bias.mha.linear_k.weight": 24,
+  "attention_pair_bias.mha.linear_q.bias": 24,
+  "attention_pair_bias.mha.linear_q.weight": 24,
+  "attention_pair_bias.mha.linear_v.weight": 24
+ },
+ "the_code": "openfold3_diffusion_transformer.py:122-131 -- \"Fused padded qkv: cat([linear_q, linear_k, linear_v]) with head_dim 48->64\". It READS all four reference tensors (mha.linear_q.weight, mha.linear_q.bias, mha.linear_k.weight, mha.linear_v.weight) and concatenates them into one padded device tensor self.qkv_w. tenstorrent.py:7422-7436 does the same for the shared AttentionPairBias. The parameters are ON DEVICE.",
+ "so_the_fix_is_an_INSTRUMENT_change": "unfuse the device qkv gradient back into its q / k / v slices and compare each against its own reference tensor. The layout is already derived -- taped_ttnn notes the head packing was measured from the device with an index-valued tensor (perf/ptx_fastpath/heads.py), not read off a docstring -- and the head_dim 48->64 zero padding has to be dropped on the way out.",
+ "what_is_NOT_explained_by_fusion": {
+  "atom_attn_enc": 50,
+  "atom_attn_dec": 42,
+  "leaf_names": [
+   "attention_pair_bias.linear_ada_out.bias",
+   "attention_pair_bias.linear_ada_out.weight",
+   "attention_pair_bias.linear_z.weight",
+   "attention_pair_bias.mha.linear_g.weight",
+   "attention_pair_bias.mha.linear_k.weight",
+   "attention_pair_bias.mha.linear_o.weight",
+   "attention_pair_bias.mha.linear_q.bias",
+   "attention_pair_bias.mha.linear_q.weight",
+   "attention_pair_bias.mha.linear_v.weight",
+   "conditioned_transition.linear_g.bias",
+   "conditioned_transition.linear_g.weight",
+   "conditioned_transition.linear_out.weight",
+   "conditioned_transition.swiglu.linear_a.weight",
+   "conditioned_transition.swiglu.linear_b.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+  ],
+  "note": "these 92 span eight leaf names over three blocks each, including linear_ada_out, linear_z, linear_o and linear_g -- more than QKV. Whether the atom transformers are also fused, or genuinely absent, is NOT established here and is the open half."
+ },
+ "the_number_that_is_still_unknown": "the MASS split between the 96 fused-QKV tensors and the 92 atom-transformer ones. D46's 38.07 %% is the diffusion module's uncompared share and is measured; what fraction of it is recoverable by unfusing versus genuinely missing is NOT. That single number decides whether the ceiling is an instrument fix or a port rewrite, and it is one pass over the reference gradients to compute.",
+ "what_D46_should_now_say": "38.07 %% of the model's gradient mass is in diffusion tensors the instrument cannot currently compare. At least the 96 diffusion_transformer ones are fused rather than missing and are recoverable by unfusing the device qkv gradient. The status of the 92 atom-transformer ones is open. The ceiling is real but its NATURE is now in question, and calling it a port gap was my overclaim."
+}

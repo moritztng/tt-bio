@@ -1,0 +1,9 @@
+{
+ "tag": "0.4.3",
+ "model_params": 4936,
+ "ckpt_tensors": 4935,
+ "missing": [
+  "version_tensor"
+ ],
+ "unexpected": []
+}
