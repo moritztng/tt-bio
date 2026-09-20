@@ -129,10 +129,31 @@ def silent(cell):
     return bool(cell) and (cell.get("served") or 0) == 0 and (cell.get("declined") or 0) == 0
 
 
+def registry_change(flag, base_commit):
+    """Merged commits that add or remove this lever's ROW in the census registry.
+
+    Unlike a pickaxe on the lever inside tt_bio/, this one works: a lever appearing in or
+    vanishing from the census is literally a line edited in scripts/lever_census.py, so the
+    pickaxe finds the commit that did it.
+    """
+    raw = sh("git", "log", "--format=%h|%s", f"{base_commit}..HEAD", f"-S{flag}",
+             "--", "scripts/lever_census.py")
+    return [(h, subj) for h, _, subj in (l.partition("|") for l in raw.splitlines()) if h]
+
+
 def classify(flag, detail, new_cell, base_commit, rt_ratio):
     """Verdict + the commits behind it. `rt_ratio` is new/old seconds at this rung, or None."""
     if "observed NO calls" in detail:
         return UNOBSERVED, []
+    # A lever the baseline has no row for, or has a row the census no longer emits, is a
+    # REGISTRY change rather than a behaviour change, and the commit that made it is findable.
+    if detail.startswith(("new lever not in the baseline", "in baseline but missing")):
+        hits = registry_change(flag, base_commit)
+        if hits:
+            return ("REGISTRY: the census row itself was added or removed after the baseline "
+                    "was recorded -- pure staleness"), hits
+        return ("NEEDS-REVIEW: the census row appeared or vanished with no commit editing "
+                "lever_census.py in the range"), []
     if "went dark" in detail and " on " not in detail and silent(new_cell):
         return NO_CLAUSE, []
     hits = touching(flag, base_commit)
@@ -186,15 +207,24 @@ def self_test(card, model):
     v_silent, _ = classify(flag, "frac 1.000 -> 0.000 (went dark)",
                            {"served": 0, "declined": 0, "frac": 0.0}, base, 1.00)
     v_unknown, _ = classify("NOT_A_REAL_LEVER", dark, cell, base, 1.00)
+    # Both directions of the registry arm. 7fb08268f is the commit that gave TRANSITION_H_CHUNK
+    # its census row, so a baseline recorded BEFORE it traces and one recorded after does not.
+    newrow = "new lever not in the baseline (re-record with --size-ladder-record)"
+    v_new, _ = classify("TRANSITION_H_CHUNK", newrow, cell, "7fb08268f~1", 1.00)
+    v_new_after, _ = classify("TRANSITION_H_CHUNK", newrow, cell, "679b9ab4c", 1.00)
     print("SELF-TEST")
     print(f"  same lever, rung flat  1.00x -> {v_flat[:70]}")
     print(f"  same lever, rung +40 % 1.40x -> {v_slow[:70]}")
     print(f"  same lever, census silent    -> {v_silent[:70]}")
     print(f"  lever not in the registry    -> {v_unknown[:70]}")
+    print(f"  census row added since       -> {v_new[:70]}")
+    print(f"  same row, baseline after it  -> {v_new_after[:70]}")
     assert v_flat.startswith("MAIN-DRIFT"), v_flat
     assert v_slow.startswith("SUSPECT"), v_slow
     assert v_silent.startswith("NEEDS-CENSUS"), v_silent
     assert v_unknown.startswith("NEEDS-REVIEW"), v_unknown
+    assert v_new.startswith("REGISTRY"), v_new
+    assert v_new_after.startswith("NEEDS-REVIEW"), v_new_after
     assert new is not None
     print("  PASS: the verdict follows the runtime and the census, not the lever's name\n")
 

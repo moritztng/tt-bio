@@ -35,12 +35,27 @@ while :; do
   sleep 30; waited=$((waited+30))
 done
 
-echo "$(stamp) start record $model card $card loadavg $(load1) (waited ${waited}s)"
+t0=$(stamp)
+echo "$t0 start record $model card $card loadavg $(load1) (waited ${waited}s)"
 CEILING="${CEILING:-0.8}" bash "$WT/perf/sizeladder_0920/rec.sh" "$card" "$model" \
   > "$log/rec_${model}_c${card}.log" 2>&1
 rc=$?
-echo "$(stamp) record $model rc=$rc loadavg $(load1)"
+t1=$(stamp)
+echo "$t1 record $model rc=$rc loadavg $(load1)"
 [ "$rc" -ne 0 ] && exit "$rc"
+
+# A record that STARTED quiet can still be unusable. Load falling during the ladder times the
+# small rungs under contention and the large ones on an empty box, which bends the exponents the
+# arm scores without touching a single lever row. protenix-v1 came out that way on 2026-09-20.
+# Judged here, from the sampler, before anything is attributed or committed. The window matters:
+# the check below rewrites these same fold logs, so this has to run between the two.
+python3 "$WT/perf/sizeladder_0920/rung_load.py" --window "$t0" "$t1" "$model" \
+  > "$log/rungload_${model}_c${card}.txt" 2>&1
+if grep -q UNUSABLE "$log/rungload_${model}_c${card}.txt"; then
+  echo "$(stamp) $model RECORD UNUSABLE: $(grep spread "$log/rungload_${model}_c${card}.txt")"
+else
+  echo "$(stamp) $model record load-stable: $(grep spread "$log/rungload_${model}_c${card}.txt")"
+fi
 
 echo "$(stamp) start check $model card $card loadavg $(load1)"
 CEILING="${CEILING:-0.8}" bash "$WT/perf/sizeladder_0920/chk.sh" "$card" "$model" \
