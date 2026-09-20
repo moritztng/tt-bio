@@ -21,7 +21,10 @@ def fmt(x, n=6):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mask", required=True, type=Path)
+    ap.add_argument("--mask", required=True, type=Path,
+                    help="the headline mask sweep")
+    ap.add_argument("--mask2", type=Path,
+                    help="a second sweep at another crop, to show the crop is a draw")
     ap.add_argument("--grad", required=True, type=Path, nargs="+",
                     help="bond_coverage.py reports; the first is the headline target")
     ap.add_argument("--baseline", required=True, type=Path,
@@ -31,6 +34,7 @@ def main() -> int:
     a = ap.parse_args()
 
     mask = json.loads(a.mask.read_text())
+    mask2 = json.loads(a.mask2.read_text()) if a.mask2 else None
     grads = [json.loads(p.read_text()) for p in a.grad]
     base = json.loads(a.baseline.read_text())
 
@@ -99,7 +103,22 @@ def main() -> int:
         "HEAD_DTYPE": head["dtype"],
         "BASE_MOVED": f"{bc['n_params_moved']:,}",
         "BASE_PARAMS": f"{bc['n_params']:,}",
+        "MASK_CROP": str(mask["crop"]),
+        "MASK_SEED": str(mask["seed"]),
     }
+    if mask2 is not None:
+        r2 = mask2["rows"]
+        b2: dict[str, list] = {}
+        for r in r2:
+            b2.setdefault(r["pdb_id"], []).append(r)
+        sub.update({
+            "MASK2_CROP": str(mask2["crop"]),
+            "MASK2_SEED": str(mask2["seed"]),
+            "MASK2_FIRED": str(mask2["n_with_nonzero_bond_mask"]),
+            "MASK2_WALKED": str(mask2["n_walked"]),
+            "MASK2_4G5J_FIRED": str(sum(1 for r in b2.get("4g5j", []) if r["bond_mask_nnz"])),
+            "MASK2_4G5J": str(len(b2.get("4g5j", []))),
+        })
     text = a.template.read_text()
     for k, v in sub.items():
         text = text.replace("{{" + k + "}}", v)

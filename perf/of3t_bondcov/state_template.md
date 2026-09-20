@@ -20,7 +20,8 @@ ASN–NAG and CYS–ligand may travel differently through the featuriser and a s
 not have told us. No bond is synthesised anywhere; a zero would have been the finding.
 
 MASK: the featuriser **does** express the predicate. `finetune_1` / `weighted-pdb`, crop
-{{HEAD_CROP}}, 19 datapoints walked, 0 silent sample substitutions: **{{N_FIRED}} of
+{{MASK_CROP}}, seed {{MASK_SEED}}, 19 datapoints walked, 0 silent sample substitutions:
+**{{N_FIRED}} of
 {{N_WALKED}}** carry a non-zero `bond_mask`, computed with the loss's own expression
 (`core/loss/diffusion.py:205-210`, `token_bonds * (is_polymer[..., None, :] * is_ligand[...,
 None])`). 4G5J fires on **{{N_4G5J_FIRED}} of {{N_4G5J}}** of its datapoints, 4BYH on
@@ -34,11 +35,18 @@ the bond counts:
 |---|---|---|---|---|---|---|---|
 {{MASK_TABLE}}
 
-The six 4BYH datapoints that read 0 are the useful half: they carry 248–364 `token_bonds` each
+The 4BYH datapoints that read 0 are the useful half: they carry hundreds of `token_bonds` each
 and **no** polymer–ligand pair, which is the shape all 8 corpus targets have and is exactly why
-`of3t-auxheads` measured a zero. They are the negative control, on the same corpus, the same
-instrument and the same crop as the positive.
-Artifact `perf/of3t_bondcov/bond_mask_4g5j_4byh.json`, instrument
+`of3t-auxheads` measured a zero. They are the negative control at mask level, on the same corpus,
+the same instrument and the same crop as the positive.
+
+**The crop is a draw and the mask count is a property of it.** A second sweep at crop
+{{MASK2_CROP}}, seed {{MASK2_SEED}}, reads {{MASK2_FIRED}} of {{MASK2_WALKED}}, with 4G5J firing
+on {{MASK2_4G5J_FIRED}} of {{MASK2_4G5J}} instead of {{N_4G5J_FIRED}} of {{N_4G5J}}: at
+{{MASK_CROP}} tokens the single covalent bond survives every draw, at {{MASK2_CROP}} it does not.
+That is why the gradient run records the `bond_mask` of its own batch rather than inheriting a
+count from this table, and why the two are read at different crops (see GAP).
+Artifacts `perf/of3t_bondcov/bond_mask_4g5j_4byh.json` and `..._crop256.json`, instrument
 `perf/of3t_bondcov/bond_mask_probe.py`.
 
 GRADIENT: **{{HEAD_DELTA}}**, non-zero. One forward, two losses differing only in
@@ -101,11 +109,27 @@ the rows that own model-scope gradients. It does not establish that the 8-struct
 cover `bond`: it cannot, which is why the corpus was extended with structures upstream already
 ships in its own cache.
 
-GAP: the glycoprotein arm's gradient is read at the mask level only for the 4BYH datapoints that
-carry no polymer–ligand pair; the two-link 4BYH positives are in the mask table with their counts
-and one of them is in the gradient table above. `of3t-orchestrator/bondcov`'s three high-count
-targets (6VXX 48 links, 7KJ2 38, 5T3X 19) are deliberately excluded — they are the same predicate
-at higher count and 4G5J answers the question with one cause instead of 48.
+GAP: the two crops differ because crop {{MASK_CROP}} does not fit in this host's memory for the
+backward. The first attempt at crop {{MASK_CROP}} finished its forward in 269 s and was
+OOM-killed during the backward at 22 GB RSS with 30 GB of RAM on the box, so the gradient is read
+at crop {{HEAD_CROP}} and the mask table at {{MASK_CROP}}. Both crops carry the bond on the batch
+they were read on and both are recorded. A crop-{{MASK_CROP}} gradient wants a bigger host and is
+left to whichever row next has one.
+
+4BYH's gradient is read at mask level only. `of3t-orchestrator/bondcov`'s three high-count targets
+(6VXX 48 links, 7KJ2 38, 5T3X 19) are deliberately excluded: they are the same predicate at higher
+count, and 4G5J answers the question with one cause instead of 48.
+
+**A defect found on the way, fixed here.** `collate1` in `bond_coverage.py` recursed into
+`ref_space_uid_to_perm`, which is a per-sample mapping `{ref-space uid -> [n_perm, n_atom]}` whose
+batch axis is a plain python list, not a tensor dimension. Recursing unsqueezed every permutation
+tensor and handed `single_batch["ref_space_uid_to_perm"]` the entry for uid 0 rather than the
+mapping, so the first uid above 0 raised `IndexError`, upstream's `safe_multi_chain_permutation_
+alignment` caught it, and the run continued on **naive alignment** with one warning line.
+Measured: `ds[12]` on 4G5J emits a dict of 199 ref spaces, and the rank template that upstream's
+own collator produced is a list of length 1 holding that dict. The fix is one branch; with it the
+run logs zero alignment fallbacks. It needs a crop with more than one ref space to fire at all,
+which is why it survived `of3t-auxheads`.
 
 ## Reproducing
 
