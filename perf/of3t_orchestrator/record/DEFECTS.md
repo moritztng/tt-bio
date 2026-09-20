@@ -5722,3 +5722,45 @@ matters most and it is the one where the reading is least trustworthy.
 **Minimum fix**: A18 is re-run with numerator and denominator restricted to real tokens, and the
 padding fraction is recorded beside every forward figure. Until then no A18 pass in the campaign
 should be quoted as evidence that a transform is right — only that it is not grossly imprecise.
+
+### D96. I compared two ratios whose denominators were different constructions of "bf16", and called the wrong pre-registered branch on a 4.08x unit error. FIXED same pass.
+
+The revision arm measured the pure 0.4.3-vs-0.5.0 trunk difference and I expressed it as **8.62x
+upstream's own bf16**, then set it against `of3t-trunkfwd`'s **46.67x upstream's own bf16** and
+concluded pre-registered branch **B** — *the flag cannot account for the observed disagreement,
+2.8x is missing, REOPEN*. That conclusion was wrong and I published it.
+
+**The error.** The two "upstream's own bf16" arms are not the same construction. Mine casts the
+whole stack to bf16. `of3t-trunkfwd`'s is upstream's **autocast** bf16, which keeps LayerNorm and
+softmax in fp32. Mine reads 0.02441 and theirs 0.005985 — **4.08x apart**. Dividing by one and
+comparing against a ratio formed with the other is a unit error, and it is 4.08x of the 5.4x
+shortfall I reported.
+
+**The corrected reading**, in absolute masked pair-track relative L2 on the same 56 real tokens:
+
+    pure revision difference (0.4.3 vs 0.5.0, mine)      0.2104
+    port vs 0.4.3 convention (trunkfwd)                  0.0497
+    port vs 0.5.0 reference (trunkfwd, observed)         0.2794  -> 0.2459 in units of ||0.4.3||
+    triangle bound from the first two                   [0.1607, 0.2601]   INSIDE
+
+So the three measurements are **mutually consistent**, and the flag accounts for **85.6 %** of the
+trunk's disagreement. **Branch A, not B.** There is no missing 2.8x; it was the unit error.
+
+**Why it is worth a number of its own.** `x upstream's own bf16` reads like a unit and is not
+one — it is a ratio against an arm whose construction has to be stated. The campaign has quoted
+figures in it for dozens of passes. This is the same failure as scoring against a reference whose
+revision is unstated, one level down: **a normaliser is an input, and A24 identifies inputs by
+digest.** The two arms here differ not in precision but in *which ops are exempted from it*.
+
+**Fix applied**: `THE_REVISION_ARM_RAN.json` carries a `CORRECTED_SAME_PASS` field, the headline
+now reads branch A, and the withdrawn arithmetic is kept rather than deleted. **PROTOCOL should
+gain**: any figure quoted as `Nx <reference>` names how that reference arm was built — full-cast
+or autocast, and at which ops. Owner: `of3t-orchestrator`. **FIXED** (the reading), with the
+protocol amendment owed.
+
+**D95, scoped down the same pass.** `of3t-trunkfwd`'s figures are **masked** — its artifacts name
+every tensor `*_masked` and `UPSTREAM_FLOOR.json` records `tokens 64, real_tokens 56`. So the
+trunk readings, including the 46.67x, are **not** exposed to this. D95 stands as a property of
+the instrument and as a live risk for any reading that did not mask, but the scope claim must be
+per-reading and the one reading I could check had already done the right thing. Which readings
+remain exposed is still unestablished, and that is what the fix has to enumerate.

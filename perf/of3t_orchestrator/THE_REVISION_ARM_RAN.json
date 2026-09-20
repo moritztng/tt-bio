@@ -1,30 +1,48 @@
 {
+ "CORRECTED_SAME_PASS": "The branch call below is WRONG and branch A, not B, is the right reading. I computed R by dividing my revision distance by MY bf16 arm (full bf16, 0.02441) and compared it against of3t-trunkfwd's 46.67x, which was taken against ITS bf16 arm -- upstream's AUTOCAST bf16, 0.005985. Autocast keeps LayerNorm and softmax in fp32, so the two 'bf16' denominators are different constructions and differ by 4.08x. 'x upstream's own bf16' is not a unit unless both sides build bf16 the same way, and I had a memory saying exactly this about denominators.",
+ "THE_CORRECTED_READING": {
+  "compared_in_a_common_unit": "absolute masked pair-track relative L2, all three on the same 56 real tokens",
+  "inside_the_bound": true,
+  "observed_re_expressed_in_units_of_norm_0_4_3": 0.245933,
+  "port_vs_0_4_3_convention_trunkfwd": 0.0497186,
+  "port_vs_0_5_0_reference_trunkfwd_observed": 0.2793661,
+  "pure_revision_difference_mine": 0.2104,
+  "share_the_flag_accounts_for": "85.6 %",
+  "so": "the orientation flag accounts for the OVERWHELMING MAJORITY of of3t-trunkfwd's trunk disagreement, and the three measurements are mutually consistent under the triangle inequality. Branch A fired. There is no 2.8x gap to explain -- that number was an artefact of the unit error.",
+  "triangle_bound_from_the_other_two": [
+   0.1607,
+   0.2601
+  ]
+ },
  "as_of": "2026-09-20, orchestrator pass 176",
- "headline": "BRANCH B. The transpose_bias orientation flag alone does NOT account for of3t-trunkfwd's 46.67x. Measured on upstream's own two release trees, same p2 weights, same real captured boundary: the pure revision difference on the pair track is 8.62x upstream's own bf16 -- the same order as the port's own matched-convention 8.31x, not the ~46x that would have explained the reading. The control read EXACTLY 0.0, so the arm is clean.",
-
- "the_branch_that_fired": "B (R < 10), pre-registered in REVISION_ARM_PREREGISTERED.json before the arm ran. B says: D90's source reading stands -- the revisions DO differ and our setting IS correct for our checkpoint -- but the MAGNITUDE is unexplained, and D93's unquantified use_high_precision_attention change becomes the leading candidate. REOPEN.",
-
- "the_numbers_real_tokens": {
-  "scope": "56 real tokens of 384 padded; padded rows excluded from numerator AND denominator",
-  "pair_track_z": {"revision_050_vs_043": 0.2104, "upstream_own_bf16": 0.02441, "R": 8.620,
-                   "norm_ratio": 0.8803, "error_cosine": -0.6400},
-  "single_track_s": {"revision_050_vs_043": 0.03215, "upstream_own_bf16": 0.01288, "R": 2.496,
-                     "norm_ratio": 0.9885, "error_cosine": -0.3707}
- },
-
- "the_control": "0.5.0's stack with tri_att_end forced back to transpose_bias=False vs 0.4.3's stack: abs_l2 EXACTLY 0.0 on both tracks, norm ratio exactly 1.0. base_blocks.py differs between the revisions by exactly one added line and this measures that -- nothing else on the CPU path is live, so the 8.62x is the flag and only the flag.",
-
+ "headline": "BRANCH A (after correcting a unit error the same pass). The trunk's transpose_bias orientation flag accounts for 85.6 % of of3t-trunkfwd's trunk disagreement: measured on upstream's own two release trees with identical p2 weights on the real captured boundary, the pure revision difference is 0.2104 masked pair-track relative L2 against an observed 0.2794, inside the triangle bound the port's own 0.0497 sets. The control read EXACTLY 0.0.",
+ "provenance": "of3t-orchestrator pass 176 on pc, CPU only, no device, no card lease used. Boundary captured by revision/capture_trunk_entry.py from upstream 0.4.3's own full-model forward on bundle_min_043/batch_step003.pt (5nw3). Arms by revision/run_stack.py, one release tree per process. Scored by revision/score_masked.py. Weights of3-p2-155k.pt sha256 af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4, 2736 tensors, strict=True into both stacks.",
  "the_arithmetic_that_does_not_close": "our port at the MATCHED (0.4.3) convention reads 8.31x upstream's own bf16. The pure revision difference is 8.62x. Even if those added in the worst case -- perfectly aligned -- our port scored against a 0.5.0 reference should read at most 16.9x, and orthogonally 11.97x. of3t-trunkfwd read 46.67x. At least 2.8x of it is still unaccounted for.",
-
- "what_this_does_NOT_overturn": "D90's withdrawal of the product-defect escalation was a CORRECTNESS argument from source -- our transpose_bias setting matches our preview2 checkpoint -- and it was never a magnitude argument. It stands. What this refutes is the sentence in THE_TRUNK_BIAS_IS_A_REVISION_DIFFERENCE that the 46.67x 'conflates a known revision difference': the revision difference is real and substantial but it is not that big.",
-
+ "the_branch_that_fired": "A, once compared in a common unit. I first read B by dividing by the wrong bf16 arm -- see CORRECTED_SAME_PASS.",
  "the_caveats_registered_in_advance": {
-  "size_and_device": "56 real tokens, CPU, fp32. of3t-trunkfwd measured on device at its own size. The transpose is over the token axis, so the effect plausibly grows with N and this arm may understate it. Branch B fired at THIS size; it is not proof that the flag cannot reach 46.67x at 512.",
   "D93_invisible": "this arm cannot see the trunk's SECOND revision difference (0.5.0's trunk passes use_high_precision_attention=True, 0.4.3's does not). Both it and the moved score-value einsum act through torch.amp.autocast('cuda', ...), and CPU torch prints 'CUDA is not available ... Disabling autocast.' So the remaining 2.8x has an unmeasured candidate, not no candidate.",
-  "a_flaw_in_my_own_preregistration": "the branches left 10 <= R < 20 unassigned. R came out 8.62, cleanly inside B, so nothing turns on it -- but the gap was mine and it is recorded rather than quietly closed."
+  "a_flaw_in_my_own_preregistration": "the branches left 10 <= R < 20 unassigned. R came out 8.62, cleanly inside B, so nothing turns on it -- but the gap was mine and it is recorded rather than quietly closed.",
+  "size_and_device": "56 real tokens, CPU, fp32. of3t-trunkfwd measured on device at its own size. The transpose is over the token axis, so the effect plausibly grows with N and this arm may understate it. Branch B fired at THIS size; it is not proof that the flag cannot reach 46.67x at 512."
  },
-
+ "the_control": "0.5.0's stack with tri_att_end forced back to transpose_bias=False vs 0.4.3's stack: abs_l2 EXACTLY 0.0 on both tracks, norm ratio exactly 1.0. base_blocks.py differs between the revisions by exactly one added line and this measures that -- nothing else on the CPU path is live, so the 8.62x is the flag and only the flag.",
  "the_finding_that_matters_more_than_the_branch": "WHICH REVISION YOU SCORE AGAINST OUTWEIGHS BF16 PRECISION BY 8.6x ON THE TRUNK'S PAIR TRACK. The campaign has spent most of its effort on numerical precision -- softmax accumulation, fp32 reductions, dtype per operand. One unflagged line at one call site in the reference is worth 8.6 times the entire bf16 error budget of the thing being measured. Reference provenance is not a footnote to a parity campaign; at this scope it is the larger term.",
-
- "provenance": "of3t-orchestrator pass 176 on pc, CPU only, no device, no card lease used. Boundary captured by revision/capture_trunk_entry.py from upstream 0.4.3's own full-model forward on bundle_min_043/batch_step003.pt (5nw3). Arms by revision/run_stack.py, one release tree per process. Scored by revision/score_masked.py. Weights of3-p2-155k.pt sha256 af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4, 2736 tensors, strict=True into both stacks."
+ "the_numbers_real_tokens": {
+  "pair_track_z": {
+   "R": 8.62,
+   "error_cosine": -0.64,
+   "norm_ratio": 0.8803,
+   "revision_050_vs_043": 0.2104,
+   "upstream_own_bf16": 0.02441
+  },
+  "scope": "56 real tokens of 384 padded; padded rows excluded from numerator AND denominator",
+  "single_track_s": {
+   "R": 2.496,
+   "error_cosine": -0.3707,
+   "norm_ratio": 0.9885,
+   "revision_050_vs_043": 0.03215,
+   "upstream_own_bf16": 0.01288
+  }
+ },
+ "what_changes_for_D93": "D93 -- 0.5.0's trunk running use_high_precision_attention=True where 0.4.3 does not -- is still real, still unquantified, and still needs a CUDA autocast run. What changes is that it is no longer NEEDED to explain a residual, because there is barely a residual left. It drops from 'the leading candidate for a missing 2.8x' to 'an unmeasured second-order term'.",
+ "what_this_does_NOT_overturn": "D90's withdrawal of the product-defect escalation was a CORRECTNESS argument from source -- our transpose_bias setting matches our preview2 checkpoint -- and it was never a magnitude argument. It stands. What this refutes is the sentence in THE_TRUNK_BIAS_IS_A_REVISION_DIFFERENCE that the 46.67x 'conflates a known revision difference': the revision difference is real and substantial but it is not that big."
 }
