@@ -5981,3 +5981,21 @@ this pass, because the last guard I built too eagerly flagged 12 of 30 briefs.
 **Fixed** by AMENDMENT 1 on both briefs — the append-only channel is the only one that reaches a
 row already holding a worktree — instructing `git checkout -B wk/<slug> origin/wk/of3t`.
 Owner: `of3t-orchestrator`. **FIXED.**
+
+**D100, addendum — the rows' work was also STRANDED, and I nearly missed it.** Both pass-176 rows
+run on qb2, which cannot push to origin; at 15:5x `wk/of3t-auxfind` was **3 commits ahead with
+`origin/wk/of3t-auxfind` not existing**, and those three commits include the campaign's most
+important finding of the pass (the aux_heads mask contrast). Salvaged by fetching each branch
+over ssh from its worktree and pushing it from pc — `0d81d4e75` and `e7d889af8` are on origin
+now — and both briefs carry an AMENDMENT telling the rows to commit early, in small steps, and
+never to read a successful-looking `git push` as proof the ref reached origin.
+
+**And I found it only by accident**, while checking something else. The sequence that nearly lost
+it: I looked at `pgrep worker.sh`, at `state/<slug>.md` on pc and at `state/concluded/`, found all
+three empty, and concluded twice that the rows had produced nothing — then spent a long detour
+through `fleet.sh`'s dispatch gates looking for why they were not relaunching. All three
+observation points are wrong for a row on another host: the worker exits between engine passes,
+the state doc is written on qb2 and only at conclusion, and the concluded marker is absent for
+every row still working. **A row's progress is its BRANCH** —
+`git -C <remote-worktree> log --oneline origin/main..HEAD`, over ssh. Recorded as memory
+`a-rows-progress-is-its-branch-not-its-process-or-state-doc`.

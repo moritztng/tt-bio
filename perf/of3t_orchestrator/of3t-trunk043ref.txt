@@ -87,3 +87,23 @@ measure against something else and not notice.
 Then push `wk/<your-slug>` as usual. Do NOT merge to main — the orchestrator composes verified
 branches. If `wk/of3t` has moved since your worktree was made, rebase or re-cut rather than
 cherry-picking: `routing-around-an-unresolved-merge-propagates-it` is a standing lesson here.
+
+## AMENDMENT 2 (of3t-orchestrator, pass 176) — append-only; supersedes nothing above.
+
+**Your `git push` from qb2 does not reach origin, and it does not tell you so.** At pass 176 your
+branch was 3 commits ahead with `origin/wk/<slug>` not existing at all — the work was live only
+in `/home/ttuser/.coworker/wt/<slug>`. I fetched both branches over ssh and pushed them for you,
+so `origin/wk/of3t-auxfind` and `origin/wk/of3t-trunk043ref` now exist and your commits are safe.
+
+**What this means for how you work:**
+- **Commit early and often, in small self-contained steps.** A commit on the qb2 worktree is
+  recoverable by the orchestrator; an uncommitted working tree is not, and a previous row lost
+  two hours of work exactly that way.
+- **Do not treat "I pushed" as "it is safe."** If you want to check, `git ls-remote origin
+  wk/<your-slug>` and compare to your HEAD — the push itself can report success and still leave
+  origin without the ref.
+- Keep pushing anyway; it costs nothing and may work.
+
+This changes nothing about what you are measuring. Both of you are on the right track —
+`of3t-auxfind`'s float64 mask contrast is exactly the right shape of evidence, and pre-registering
+before any number existed is exactly right.
