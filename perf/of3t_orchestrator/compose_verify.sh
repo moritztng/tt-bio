@@ -403,6 +403,32 @@ for f in perf/of3t_equivalence/instrument_b_lr.py \
     { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
 
+# (3d) EVERY PUBLISHED HEADLINE RE-DERIVED FROM ITS OWN PER-TENSOR SIDECAR.
+# recompute_from_sidecar.py was written at pass 175 with "exits non-zero if any --expect
+# disagrees, so it can gate a compose" in its own docstring -- and was never wired in. It ran
+# once, verified five headlines, and became a historical artifact. A check that ran once is not
+# a guard: three headlines have changed since. This gates the four that cover 90.9251 % of the
+# model's gradient mass, on CPU, with no device and no trust in any row's arithmetic -- only in
+# its per-tensor diff_norm/ref_norm, which is why the campaign requires those instead of
+# summary statistics. Controls run at pass 181: a wrong value and a missing section both exit 1.
+echo "--- headlines re-derived from sidecars"
+_RS="$HERE/recompute_from_sidecar.py"
+_sc_fail=0
+_sc() {  # <sidecar-path-in-CO> <section=value>
+  [ -f "$CO/$1" ] || { echo "  SIDECAR MISSING: $1"; _sc_fail=1; return; }
+  "$PY" "$_RS" "$CO/$1" --expect "$2" >/dev/null 2>&1 \
+    || { echo "  HEADLINE DOES NOT RE-DERIVE: $1 expected $2"; _sc_fail=1; }
+}
+_sc perf/of3t_direct/sidecar_diffusion_conditioning/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "diffusion_module.diffusion_conditioning=0.06463839"
+_sc perf/of3t_direct/sidecar_aux_heads/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "aux_heads=0.2360143"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_vs_UPSTREAM_BF16.json "ALL=7.426217"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16.json \
+    "ALL=0.0777758"
+[ "$_sc_fail" = 0 ] || { echo "COMPOSE: a published headline no longer re-derives from its sidecar"; exit 1; }
+echo "  4 headlines re-derive from their per-tensor sidecars (90.9251 % of the gradient mass)"
+
 # (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
