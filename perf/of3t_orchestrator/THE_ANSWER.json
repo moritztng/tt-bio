@@ -1,4 +1,5 @@
 {
+ "D95_is_closed_and_aux_heads_restates_upward": "of3t-maskaudit returned GO at pass 176: D95's exposure is enumerated per reading and NO A18 verdict in the campaign changes -- the reassuring branch, reported as such. But aux_heads' failures get WORSE on real tokens: pae_logits 1.819913e-01 -> 5.177082e-01, pde 8.789745e-02 -> 3.000855e-01, distogram 2.827727e-03 -> 3.479065e-03. The scope's headline is now 5.177082e-01 on pae_logits, not plddt's 3.6515e-01. And D95's own statement needed two corrections: the dilution is not proportional to the padding fraction (23.4 % padding hid 82 % of an effect), and it is NOT one-directional -- padding inflated adaln's block-0 gate 1.30x. Padding does not bias a reading in a knowable direction; it makes it not a reading of the model.",
  "arithmetic_check": {
   "needs_an_accurate_softmax_pct": 51.1358,
   "no_double_counting": "the diffusion arm's 51.1358 % INCLUDES layer_norm_a's 0.2666 %, the one scope that survives even the unreachable threshold. Not added separately anywhere.",

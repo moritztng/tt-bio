@@ -5919,3 +5919,36 @@ gradient norm rests on the one tensor whose forward passes.
 The reading that survives from D94 is the **other** half — `msa_module` is inert and the positive
 result is safe. The half that reached for an excuse for a failure did not survive contact with
 the measurement, which is the right way round for it to go.
+
+### D95 CLOSED at pass 176 — measured, no A18 verdict affected — and my characterisation of it was wrong TWICE.
+
+`of3t-maskaudit` returned **GO**. It enumerated every activation-space reading from its producing
+script, recorded each one's padding fraction, recomputed the padded ones where a tensor survived
+and **bounded** the rest exactly by `rel_real = ||d_real||/||ref_real|| <= rel_padded/sqrt(q)`.
+**No A18 verdict in the campaign changes.** That is the reassuring branch and it is the result.
+
+**But the aux_heads headline restates upward**, because the failures get worse on real tokens:
+
+    pae_logits        1.819913e-01 -> 5.177082e-01   (2.84x)
+    pde_logits        8.789745e-02 -> 3.000855e-01   (3.41x)
+    distogram_logits  2.827727e-03 -> 3.479065e-03   (1.23x)
+
+so the scope's worst reading is **5.177082e-01 on `pae_logits`**, not plddt's 3.6515e-01, and
+every artifact quoting the latter as the aux_heads headline is now understating it.
+
+**Correction 1 (already filed at D99): the dilution is not proportional to the padding fraction.**
+23.4 % padding hid 82 % of a real effect in `of3t-trunkfwd`'s arms.
+
+**Correction 2, and this one is mine to own plainly: the sign is not fixed.** I wrote in D95 that
+the error *"is one-directional and comforting: it always makes a real difference look like
+precision noise"*. **False.** `of3t-adaln`'s block-0 gate reads 4.484941e-03 padded and
+3.447861e-03 on real tokens — padding **inflated** it 1.30x. So does the single track of my own
+revision arm (0.0387806 padded against 0.0321491 masked) while the pair track of that same arm
+deflated 39.15x. The row's phrasing is the one to keep: **"anyone reading D95 as 'padded figures
+are too small' has half of it."** Padding does not bias a reading in a known direction; it makes
+it *not a reading of the model*, which is a different and worse property, because you cannot
+correct for it by argument.
+
+**What lands**: D95 closes as *measured, no verdict affected*; A18 is amended to require the
+padding fraction and the scoring scope beside every forward figure; the aux_heads headline
+becomes 5.177082e-01. Owner: `of3t-orchestrator`. **FIXED.**
