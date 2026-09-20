@@ -1,0 +1,28 @@
+trimul is 26.10 % of the fold (12.6881 s of 48.62 s).
+
+THE HARD CEILING -- no kernel can exceed this, whatever it does
+  trimul costs literally nothing                           module 11519000000.0000x   fold 1.3531x
+
+EVERY ROUTE THE CAMPAIGN FOUND, each priced at ITS OWN BEST CASE
+  A  rate, all of tmk-assumptions' recoverable deficit     module 1.1820x   fold 1.0419x
+  A  rate, its plausible same-mix case                     module 1.0854x   fold 1.0210x
+  B  exchange, against ttnn.permute, 63.3 GB/s (disputed baseline) module 1.1795x   fold 1.0414x
+  B  exchange, against trix-radical's 158 GB/s             module 1.1165x   fold 1.0280x
+  B  exchange, against our own kernel, perfwar's 221 GB/s  module 1.0782x   fold 1.0193x
+  A' tmk-kernel's sub-grid design, 1.82x on the contraction module 1.0680x   fold 1.0169x
+     (the contraction is 14.14 % of the module = 1.629 ms/call; tmk-kernel's own p150a-on-p300c figure was 1.0183x)
+
+STACKED, both routes, perfectly built
+  A best + B at the generous disputed baseline             module 1.4413x   fold 1.0868x
+  A best + B against our own kernel                        module 1.2929x   fold 1.0628x
+  A plausible + B against our own kernel                   module 1.1781x   fold 1.0411x
+
+AGAINST THE CHARTER
+  Moritz, 2026-09-21: "i want to get a big speedup ... make a big breakthrough."
+  The largest number in this document is 1.3531x, and it requires the operation
+  to cost nothing. Every route that can actually be built lands between 1.02x and 1.09x.
+  K-C, pre-registered: a new build below 1.05x on the fold stops the campaign.
+    A best                       1.0419x  FIRES K-C
+    A' tmk-kernel's design       1.0169x  FIRES K-C
+    B against our own kernel     1.0193x  FIRES K-C
+    B at the generous baseline   1.0414x  FIRES K-C
