@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 178 -- WRITTEN AND COMMITTED BEFORE of3t-trunkgrad REPORTS",
+ "what": "The campaign is one measurement from being able to state a verdict. This fixes, in advance, what each outcome of that measurement means -- so the verdict is read off a criterion written before the number existed, which is the whole point of having had a protocol since pass 1.",
+
+ "the_criterion_is_not_mine_to_choose_now": "PROTOCOL §8, written before any number existed: the honest claim is \"our training step is their training step, verified per-parameter with full path coverage\" -- per-parameter gradient equivalence in their parameter space against a finite-difference-validated float64 reference, with full loss-term and conditional-path coverage, plus the schedule, clipping, optimizer and EMA under controlled drive and the 20-step trajectory. §8 also forbids the stronger sentence: no artifact may be described as a training run.",
+
+ "where_the_mass_stands_today": {
+  "38.1862 %": "PASSES on the SHIPPED path at the reachable bar, and the two modules behind it are verified revision-inert",
+  "51.1358 %": "passes only with an ACCURATE SOFTMAX (diffusion arm 0.9563x). Shipped it fails 91.31x, entirely the softmax. of3t-softmax returned NO-GO on every shipped lever at +46 %/op",
+  "2.8431 %": "aux_heads -- MEASURED and passing, mass-weighted 2.271382e-03, 8.81x inside the 2.0e-02 bar",
+  "5.8282 %": "the trunk -- forward fully explained; pair track passes shipped at 4.947045e-02, single track passes at 1.655263e-02 only with the pair bias pre-scaled, which is D1 and is HELD because it costs 0.463 A on a served structure. GRADIENT IN FLIGHT (of3t-trunkgrad)",
+  "2.0067 %": "no reading; 0.74055 % of that never can, because it sits on a weight the shipped path applies on the host"
+ },
+
+ "the_thing_worth_saying_before_the_number_arrives": "BOTH of the two gaps are REACHABLE and DECIDED, not unsolved. The softmax is a measured bound declined on performance (+46 %/op); the trunk convention is a measured fix declined on accuracy (0.463 A at rank 0). Neither is a porting problem anyone still has to solve. That means the campaign's answer is very likely to be a statement about a PARITY CONFIGURATION that differs from the shipped default in exactly two places, each with a measurement behind the choice -- not a claim about the shipped default, and not a confession of an unlocated defect.",
+
+ "branches_fixed_in_advance": {
+  "GO": "of3t-trunkgrad's PRE-SCALED arm clears the mass-weighted 2.0e-02 bar for the trunk's 5.8282 %, AND its shipped arm is reported beside it. Then every scope is measured, and §8's sentence holds OF THE PARITY CONFIGURATION: accurate softmax + pre-scaled trunk bias. The verdict must state the configuration in the same breath as the claim, and must state that the SHIPPED default differs in two measured, deliberate ways. Anything less specific is the stronger sentence §8 forbids.",
+  "NOT_YET": "the pre-scaled arm does NOT clear the bar. Then the trunk's forward explanation is incomplete -- a forward matching to 4.2e-16 whose gradient still fails would mean the gradient error is somewhere the convention never touches -- and the campaign has a new, located question rather than a verdict. PARTIAL, and dispatch it.",
+  "VOID": "the arm cannot be taken (the 0.4.3 reference will not build, the instrument control does not reproduce of3t-pairformer's configuration). Then nothing is learned and the row re-runs; a failed instrument is not a result."
+ },
+
+ "what_I_must_NOT_do_when_it_lands": "round the parity configuration into 'we reproduce OpenFold3 training'. The shipped path fails 91.31x on 51.1358 % of the mass and that sentence would be false about it. Nor may I present the two declined fixes as defects -- both were declined against measurements, one of which protects served structures. The verdict has to carry the configuration, the two decisions, and §8's DOES-NOT-PROVE list, or it is not the honest claim the protocol was written to produce.",
+
+ "provenance": "of3t-orchestrator pass 178 on pc, CPU only. Criterion quoted from state/of3t/PROTOCOL.md §1 and §8, unchanged since pass 1. Mass figures from THE_ANSWER.json, each from the row that measured it."
+}
