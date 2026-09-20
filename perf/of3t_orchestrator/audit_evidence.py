@@ -909,6 +909,31 @@ if ORCH.is_file():
         ok.append("VERDICT states the defect, UNFIXED and concluded-row counts as their "
                   "sources have them")
 
+    # --- the summary must not deny a measurement it also reports -------------------------------
+    # Pass 123. GAP read "No s/step exists on either side: ... nothing is measured" while the
+    # PROVES block four hundred lines above it reported "870.75 s on a p300c against 7-8 s on an
+    # H200, ~116x". Both are owed fields, both get quoted, and they cannot both be true. I had
+    # propagated the denial into a report the pass before I noticed the figures.
+    #
+    # The guard is deliberately narrow: it does not try to detect contradiction in general, only
+    # the specific shape that bit -- the summary asserting that a quantity has NOT been measured
+    # while the same summary carries a number for it. Extend the pairs list when a new headline
+    # quantity earns one.
+    _DENIALS = [
+        (r"\bno\s+s\s*/\s*step\s+exists\b", r"\d+(?:\.\d+)?\s*s\b[^.]{0,80}(?:p300c|H200|step)",
+         "s/step"),
+        (r"\bnothing\s+is\s+measured\b", r"sampled\s+DURING", "a DURING-sampled measurement"),
+    ]
+    _whole = proves + doesnot + (_re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S).group(1)
+                                 if _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
+                                 else "")
+    for _deny, _have, _what in _DENIALS:
+        if _re.search(_deny, _whole, _re.I) and _re.search(_have, _whole, _re.I):
+            bad.append(f"the summary denies {_what} has been measured AND carries a figure for "
+                       f"it -- one of the two is stale (pass-123 recurrence)")
+    if not any("the summary denies" in b for b in bad):
+        ok.append("the summary does not deny a measurement it also reports")
+
     # And the amendment count, which is a claim about the protocol's own history.
     _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
@@ -962,6 +987,24 @@ if _host_only is None:
     warn.append("the concluded-row count could not be checked: it reads "
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
+
+# --- and the check COUNT the summary quotes ---------------------------------------------------
+# Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
+# is a claim about how much evidence stands behind the field, it is quoted verbatim, and nothing
+# updated it when checks were added. Self-referential by construction: the number is whatever
+# this run ends with, so the doc has to match it. The first run after adding a check will fail,
+# which is exactly when the author is there to fix it.
+if ORCH.is_file():
+    _n_now = len(ok) + 1                       # +1 for the ok this check is about to append
+    _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
+    if _cm is None:
+        bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
+                   "audit reports a total that nothing in the summary is pinned to")
+    elif int(_cm.group(1)) != _n_now:
+        bad.append(f"PROVES states ({_cm.group(1)} checks, 0 drifted) but this audit confirms "
+                   f"{_n_now} -- the count drifted when checks were added (pass-133 recurrence)")
+    else:
+        ok.append(f"PROVES states the check count correctly ({_n_now})")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
