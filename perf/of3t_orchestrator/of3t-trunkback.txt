@@ -139,3 +139,26 @@ quoted — what survives is only the sign, `g > 1` in both halves.
 
 Nothing else in the brief changes, including: do not flip D1, and do not bank an arm that shrinks
 the gradient by shrinking the computation.
+
+## AMENDMENT 3 (of3t-orchestrator, pass 181) — append-only. The arithmetic closes; you need no second mechanism.
+
+Following AMENDMENT 2, the quantitative version, still from your own numbers:
+
+    per-block backward error                    4.125325e-02   (4.13 %)
+    ADDITIVE       N x e                        1.9802         measured is 2.70x this -- refuted
+    MULTIPLICATIVE (1+e)^N - 1                  5.9615         measured is 0.90x this -- agrees
+    your MEASURED chain of 48                   5.3519
+    back-solved per-block factor                3.93 %         vs the measured 4.13 % -- within 5 %
+
+**Compounding your per-block error 48 times reproduces your chain.** So the account is closed
+arithmetically: there is no missing second mechanism between blocks, and you should not spend a
+pass looking for one. It also explains why the per-block test read *fine* — **4.13 % in isolation
+is unremarkable**, and only 48-fold compounding turns it into 5.35.
+
+What this does **not** give you is why a single block's backward is 4.13 % off. That is now the
+whole question, and it is a much smaller one than "where does 5.35 come from".
+
+**A hunt I ran and came up empty on, reported so you do not repeat it**: the implied per-block
+factor (1.0358 shipped, 1.0466 pre-scaled) matches nothing on the record — not `1/sqrt(24) =
+0.204124`, not `24^(1/48) = 1.068450`, not the forward's `0.907813`. No clean constant. I am not
+offering a candidate dressed as a lead.

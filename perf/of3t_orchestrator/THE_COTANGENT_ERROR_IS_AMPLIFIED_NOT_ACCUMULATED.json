@@ -1,29 +1,53 @@
 {
  "as_of": "2026-09-20, orchestrator pass 181 -- arithmetic over of3t-trunkback's published figures, no new measurement",
- "headline": "The trunk's backward error is AMPLIFIED, not accumulated. Chaining 48 blocks whose individual backwards read 4.125325e-02 gives 5.351880e+00 -- 18.73x what 48 INDEPENDENT errors of that size would give, and 2.70x what 48 PERFECTLY COHERENT ones would. Being worse than perfect coherence rules out both rounding noise and a constant per-block bias: the error is multiplied as it propagates, which is the signature of a systematically wrong Jacobian rather than a leaf that computes a wrong gradient from correct inputs.",
-
+ "headline": "The trunk's backward error is AMPLIFIED, not accumulated, and the arithmetic now CLOSES: compounding the measured per-block error of 4.125325e-02 over 48 blocks predicts 5.9615 against a measured 5.351880 -- within 10 % -- while additive accumulation predicts 1.9802 and is off by 2.70x. So no mechanism beyond the per-block error compounding is required, and a 4.13 % per-block error is exactly the kind that looks benign in isolation.",
+ "provenance": "of3t-orchestrator pass 181 on pc, CPU only. Inputs: of3t-trunkback's per-block backward (block 0 = 4.125325e-02), its 48-block chain (5.351880e+00), and its single-track input-gradient cosines (0.999988 / 0.137306 / 0.015239 at 1 / 24 / 48 blocks), all from origin/wk/of3t-trunkback at 9c7b6f183.",
+ "the_arithmetic_CLOSES_pass181": {
+  "MEASURED": 5.35188,
+  "additive_prediction_N_times_e": 1.9802,
+  "additive_vs_measured": "measured is 2.70x the prediction -- additive accumulation is refuted",
+  "back_solved_per_block_factor": "3.93 %, against the directly measured per-block 4.13 % -- the two agree to within 5 %",
+  "multiplicative_prediction_1_plus_e_to_the_N_minus_1": 5.9615,
+  "multiplicative_vs_measured": "measured is 0.90x the prediction -- agrees within 10 %",
+  "per_block_measured": 0.04125325,
+  "reading": "compounding the measured per-block error 48 times reproduces the measured chain. That is a closed account: nothing additional is happening between blocks, and the search does not need a second mechanism. It also explains why the per-block test read 'fine' -- 4.13 % in isolation is unremarkable, and it is only 48-fold compounding that turns it into 5.35.",
+  "what": "the chain is quantitatively PREDICTED by compounding the per-block error, so no extra mechanism is needed.",
+  "what_it_still_does_not_say": "why the per-block backward is 4.13 % off in the first place. The arithmetic closes; the cause does not. And a clean per-block CONSTANT was hunted for and NOT found -- the implied factor (1.0358 shipped, 1.0466 pre-scaled) matches no quantity on the record: not 1/sqrt(24) = 0.204124, not 24^(1/48) = 1.068450, not the forward's 0.907813. That hunt is reported as empty rather than fitted to something."
+ },
+ "the_growth_law_from_the_cosines_which_does_assume_something": {
+  "and_it_is_NOT_a_clean_exponential": "g is 1.3732 early and 1.0964 late, so a single growth constant does not describe the curve and none is quoted as if it did. What survives the sloppiness is the SIGN: g > 1 throughout, in both halves, so the error-to-signal ratio grows multiplicatively rather than additively.",
+  "conversion": "cos = 1/sqrt(1+r^2) with r = ||error||/||signal||, which assumes the error is roughly orthogonal to the signal -- approximately true here and stated because it is an assumption",
+  "implied_error_to_signal": [
+   {
+    "blocks": 1,
+    "cos": 0.999988,
+    "r": 0.0049
+   },
+   {
+    "blocks": 24,
+    "cos": 0.137306,
+    "r": 7.214
+   },
+   {
+    "blocks": 48,
+    "cos": 0.015239,
+    "r": 65.6135
+   }
+  ],
+  "multiplicative_growth_per_block": {
+   "blocks_1_to_24": 1.3732,
+   "blocks_24_to_48": 1.0964
+  }
+ },
  "the_robust_statement_needs_no_model": {
-  "per_block_backward_alone": 4.125325e-02,
+  "MEASURED_chain_of_48": 5.35188,
   "if_48_independent_errors_sqrt_N": 0.285811,
   "if_48_perfectly_coherent_linear_N": 1.980156,
-  "MEASURED_chain_of_48": 5.351880,
-  "measured_over_sqrt_N": "18.73x",
   "measured_over_linear_N": "2.70x",
+  "measured_over_sqrt_N": "18.73x",
+  "per_block_backward_alone": 0.04125325,
   "why_this_is_the_load_bearing_line": "it is a ratio of relative-L2 figures of3t-trunkback already published, with no conversion and no assumption about the error's direction. Exceeding the COHERENT bound is the whole argument: adding up 48 copies of the per-block error, all pointing the same way, still does not reach what was measured. Something multiplies."
  },
-
- "the_growth_law_from_the_cosines_which_does_assume_something": {
-  "conversion": "cos = 1/sqrt(1+r^2) with r = ||error||/||signal||, which assumes the error is roughly orthogonal to the signal -- approximately true here and stated because it is an assumption",
-  "implied_error_to_signal": [{"blocks": 1, "cos": 0.999988, "r": 0.0049},
-                              {"blocks": 24, "cos": 0.137306, "r": 7.2140},
-                              {"blocks": 48, "cos": 0.015239, "r": 65.6135}],
-  "multiplicative_growth_per_block": {"blocks_1_to_24": 1.3732, "blocks_24_to_48": 1.0964},
-  "and_it_is_NOT_a_clean_exponential": "g is 1.3732 early and 1.0964 late, so a single growth constant does not describe the curve and none is quoted as if it did. What survives the sloppiness is the SIGN: g > 1 throughout, in both halves, so the error-to-signal ratio grows multiplicatively rather than additively."
- },
-
  "what_it_tells_the_running_row": "the per-block test already excluded 'a leaf computes a wrong gradient from correct inputs' -- one block alone is 10x-130x better than the chain. This adds the complementary exclusion: it is also not 'each block adds its own small error'. What is left is an operator that MULTIPLIES the incoming cotangent by something the reference does not -- so the search is for a Jacobian applied to the arriving gradient, not for a leaf's own output. A block handed a correct cotangent behaves; handed a wrong one it makes it worse.",
-
- "what_this_is_not": "not a cause, and not a located op. It narrows the class of mechanism and says where NOT to look. It is arithmetic over two published numbers plus a stated conversion, produced on CPU while of3t-trunkback is still running, and it should be checked against whatever that row measures next rather than assumed into its conclusion.",
-
- "provenance": "of3t-orchestrator pass 181 on pc, CPU only. Inputs: of3t-trunkback's per-block backward (block 0 = 4.125325e-02), its 48-block chain (5.351880e+00), and its single-track input-gradient cosines (0.999988 / 0.137306 / 0.015239 at 1 / 24 / 48 blocks), all from origin/wk/of3t-trunkback at 9c7b6f183."
+ "what_this_is_not": "not a cause, and not a located op. It narrows the class of mechanism and says where NOT to look. It is arithmetic over two published numbers plus a stated conversion, produced on CPU while of3t-trunkback is still running, and it should be checked against whatever that row measures next rather than assumed into its conclusion."
 }
