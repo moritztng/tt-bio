@@ -993,6 +993,40 @@ if ORCH.is_file():
         return None
 
     _words = {n: _word(n) for n in range(1, 1000)}
+
+    # --- ROWS must match the briefs on disk -------------------------------------------------
+    # Pass 182: ROWS read "twenty-four dispatched, twenty-one concluded" for SEVEN passes while
+    # the campaign ran 39 rows. Nothing caught it because ROWS is the one census field with no
+    # check. It gets the same treatment as every other transcribed summary here: checked against
+    # its source. The source for "dispatched" is the brief files; for "concluded" it is the
+    # markers MINUS this row's own, because of3t-orchestrator leaves a marker from an earlier
+    # pass that is stale the moment it is relaunched -- counting markers alone overstates by one,
+    # which is exactly the error this check first found in its own subject.
+    _WS  = Path("/home/moritz/.coworker/workstreams")
+    _CON = Path("/home/moritz/.coworker/state/concluded")
+    if not (_WS.is_dir() and _CON.is_dir()):
+        warn.append("ROWS census not checked -- the fleet's workstreams/ or state/concluded/ is "
+                    "not reachable from this host, so the count has no source to be checked "
+                    "against here")
+    elif ORCH.is_file():
+        _n_disp = len(list(_WS.glob("of3t-*.txt")))
+        _n_conc = len([d for d in _CON.iterdir()
+                       if "of3t" in d.name and "of3t-orchestrator" not in d.name])
+        _rm = _re.search(r"^ROWS:\s*\*\*([a-z-]+) dispatched, ([a-z-]+) concluded",
+                         ORCH.read_text(), _re.M)
+        if _rm is None:
+            bad.append("ROWS does not open with '**<word> dispatched, <word> concluded**', so "
+                       "the census cannot be checked against the briefs on disk")
+        else:
+            _wd, _wc = _words.get(_n_disp), _words.get(_n_conc)
+            if _wd is None or _wc is None:
+                bad.append(f"ROWS check cannot run: no number-word for {_n_disp}/{_n_conc}")
+            elif _rm.group(1) != _wd or _rm.group(2) != _wc:
+                bad.append(f"ROWS says '{_rm.group(1)} dispatched, {_rm.group(2)} concluded' but "
+                           f"disk has {_n_disp} of3t briefs and {_n_conc} concluded markers "
+                           f"(excluding this row's own) -- i.e. '{_wd}' and '{_wc}'")
+            else:
+                ok.append(f"ROWS matches the briefs on disk ({_wd} dispatched, {_wc} concluded)")
     if DEF.is_file():
         _dt = DEF.read_text()
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
