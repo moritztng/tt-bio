@@ -1,0 +1,59 @@
+{
+ "node": 1,
+ "clock_target": 1350,
+ "cmd": [
+  "/home/ttuser/tt-bio-dev/env/bin/python3",
+  "-u",
+  "/home/ttuser/allm_audit/trees/old_boltzgen/perf/allm_audit/bg_page.py"
+ ],
+ "started_utc": "2026-09-20T23:21:11Z",
+ "foreign_at_start": [],
+ "loadavg_start": [
+  "1.21",
+  "1.36",
+  "1.56"
+ ],
+ "clock_after_force": {
+  "1": 1350
+ },
+ "per_node": {
+  "0": {
+   "aiclk_mean": 993.4,
+   "aiclk_min": 800,
+   "aiclk_max": 1350,
+   "power_w_mean": 32.7
+  },
+  "1": {
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "power_w_mean": 62.7
+  },
+  "2": {
+   "aiclk_mean": 800.0,
+   "aiclk_min": 800,
+   "aiclk_max": 800,
+   "power_w_mean": 25.0
+  },
+  "3": {
+   "aiclk_mean": 800.0,
+   "aiclk_min": 800,
+   "aiclk_max": 800,
+   "power_w_mean": 27.9
+  }
+ },
+ "aiclk_mean": 1350.0,
+ "aiclk_min": 1350,
+ "aiclk_max": 1350,
+ "aiclk_n": 1265,
+ "power_w_mean": 62.7,
+ "rc": 0,
+ "ended_utc": "2026-09-20T23:26:28Z",
+ "loadavg_end": [
+  "3.55",
+  "2.49",
+  "1.97"
+ ],
+ "foreign_at_end": [],
+ "clock_reasserts": 0
+}
