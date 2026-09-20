@@ -244,6 +244,13 @@ WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
              "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
              "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO", "TRANSPOSE_L1_RESIDENT")
 WRAP_COUNTS = {k: [0, 0] for k in WRAP_KEYS}
+#: False until `_install_wraps` has installed every wrapper in THIS process. A wrap
+#: lever counts 0/0 both when the fold never reached it and when nothing was ever
+#: counting, and the comparator reads 0/0 as "dark" -- so the two have to be told
+#: apart at the source. Unmeasured emits None, which reads as not-measured all the
+#: way through `frac` and is skipped by the drift check rather than recorded as a
+#: lever that went dark.
+WRAPS_INSTALLED = False
 
 
 # ----------------------------------------------------------------- child-side hook
@@ -251,14 +258,31 @@ WRAP_COUNTS = {k: [0, 0] for k in WRAP_KEYS}
 def _install_wraps():
     """Counters for the four levers whose guard keeps no `*_STATS` of its own.
 
-    Called repeatedly from the hook thread: it is a no-op until `tt_bio.tenstorrent` and
-    `ttnn` are imported, and marks the module so a second call cannot double-wrap.
+    Called repeatedly from the hook thread: it is a no-op until `tt_bio.tenstorrent` has
+    finished importing, and marks the module so a second call cannot double-wrap.
+
+    `_initializing` is the guard, not "is it in sys.modules". CPython puts a module into
+    sys.modules before it runs the body, and `tt_bio.tenstorrent` imports ttnn on line 6 of
+    13238 and does not define AdaLN until line 9619. For the whole second-odd it takes to
+    execute the lines in between, the old guard (`T is not None and ttnn is not None`) was
+    already satisfied: the tick latched `_census_wrapped = True`, then raised AttributeError
+    on `T.AdaLN`, which `tick()` swallows. The flag is latched, so no later tick retries, and
+    all seven wrap levers count zero for the entire fold while the counter-read levers are
+    unaffected -- they need no patching. Against a 3 s poll that landed on roughly one fold
+    in ten: openfold3/1152, nesso1/1408 rep1 and protenix-v2/512 rep4 all lost the same lever
+    group on the p150a re-record, two of them voiding a whole model's baseline.
+
+    The latch also moved to the END, so an attribute that goes missing for any other reason
+    leaves the flag clear and the next tick retries instead of silently giving up.
     """
+    global WRAPS_INSTALLED
     T = sys.modules.get("tt_bio.tenstorrent")
     ttnn = sys.modules.get("ttnn")
     if T is None or ttnn is None or getattr(T, "_census_wrapped", False):
         return
-    T._census_wrapped = True
+    spec = getattr(T, "__spec__", None)
+    if spec is not None and getattr(spec, "_initializing", False):
+        return                       # body still executing: AdaLN et al. do not exist yet
 
     # The hoist is the only caller of AdaLN.s_terms outside the rollout, so a call means
     # the conditioning half was precomputed rather than recomputed per step.
@@ -348,6 +372,11 @@ def _install_wraps():
 
         setattr(T, fname, wrapper)
 
+    # Latch last: until every wrapper above is in place there is nothing to double-wrap, and
+    # a tick that died halfway must be retried rather than remembered as done.
+    T._census_wrapped = True
+    WRAPS_INSTALLED = True
+
 
 def _compute_grid():
     """The main compute grid this process opened, as "13x10", or None before device open.
@@ -412,7 +441,8 @@ def _snapshot_process():
             continue
         served = declined = None
         if how == "wrap":
-            served, declined = WRAP_COUNTS.get(flag, [None, None])
+            served, declined = (WRAP_COUNTS.get(flag, [None, None]) if WRAPS_INSTALLED
+                                else (None, None))
         elif how == "setlen":
             # A set of shapes that overflowed their circular-buffer budget and fell back. It only
             # grows, and every member is a fold silently taking the slow path, so its size is the
