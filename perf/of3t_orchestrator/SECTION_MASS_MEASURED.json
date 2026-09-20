@@ -1,0 +1,30 @@
+{
+ "what": "every section's share of the model's squared gradient norm, summed directly from bundle_min_043/grads_f64_043.pt (4,170 tensors, sha256 1d4ea922...). Not a derived table.",
+ "model_total_sq_norm": 10.27964,
+ "sections_pct_of_model": {
+  "diffusion_module.diffusion_transformer":  {"n": 552,  "pct": 43.8936},
+  "diffusion_module.diffusion_conditioning": {"n": 26,   "pct": 36.9462},
+  "pairformer_stack":                        {"n": 2736, "pct": 5.8282},
+  "diffusion_module.atom_attn_enc":          {"n": 98,   "pct": 5.5589},
+  "aux_heads":                               {"n": 244,  "pct": 2.8431},
+  "diffusion_module.atom_attn_dec":          {"n": 82,   "pct": 1.3173},
+  "msa_module":                              {"n": 227,  "pct": 1.2400},
+  "diffusion_module.layer_norm_s":           {"n": 1,    "pct": 0.9835},
+  "input_embedder":                          {"n": 98,   "pct": 0.8007},
+  "diffusion_module.layer_norm_a":           {"n": 1,    "pct": 0.2666},
+  "diffusion_module.linear_s":               {"n": 1,    "pct": 0.2445},
+  "msa_module_embedder":                     {"n": 2,    "pct": 0.0612},
+  "template_embedder":                       {"n": 96,   "pct": 0.0103},
+  "layer_norm_z":                            {"n": 2,    "pct": 0.0039},
+  "layer_norm_s":                            {"n": 2,    "pct": 0.0015},
+  "linear_z":                                {"n": 1,    "pct": 0.0004},
+  "linear_s":                                {"n": 1,    "pct": 0.0001}
+ },
+ "exhaustive": "17 sections, n sums to 4,170, pct sums to 100.0. The first version of this file listed 14 sections and silently dropped 4 tensors holding 0.002 % -- negligible mass, but a table that does not say it is partial reads as complete. Recomputed and closed at pass 151.",
+ "diffusion_module_total": {"n": 761, "pct": 89.2106,
+   "note": "all seven diffusion_module.* sections. This supersedes the 91.21 % that appears throughout the record: that figure was measured on the 0.5.0 / 4,147-parameter bundle pass 91 disqualified."},
+ "the_live_row_is_running_on_an_inverted_premise": "of3t-auxheads' brief opens: 'aux_heads is 4.27 % of the squared gradient norm -- LARGER than the whole 48-block pairformer stack at 3.16 % -- and this campaign has never measured instrument A at its scope. That is a misallocation the norm shares make visible.' Both figures are the 0.5.0 4,147-parameter basis, corrected at pass 91. MEASURED: aux_heads 2.8431 %, pairformer_stack 5.8282 %. Pairformer is 2.05x LARGER, not smaller. The brief's rationale is exactly backwards and the row holds qb2-card0 right now.",
+ "and_there_is_a_target_twice_its_size_doing_far_worse": "diffusion_module.atom_attn_enc is 5.5589 % of the model -- nearly 2x aux_heads -- and of3t-rebase's concluding measurement puts it at median 7.11e-01 with cos 0.7757, the worst-performing named thing in the model. aux_heads has no comparable measurement.",
+ "the_number_that_reframes_everything": "TWENTY-SIX tensors -- diffusion_conditioning -- are 36.9462 % of the model's gradient mass. That is MORE THAN EVERYTHING OUTSIDE THE DIFFUSION MODULE COMBINED (pairformer 5.83 + aux_heads 2.84 + msa 1.24 + input_embedder 0.80 + the rest = 10.79 %), by a factor of 3.4.",
+ "honest_limit": "this is the reference gradient's mass at one batch (batch_step003, 5nw3, 56 real tokens) and one r = 0 step. Section shares at a different batch or with recycling could differ; nothing here establishes they are stable. It is the right denominator for every comparison this campaign has made against THIS reference, which is what it is used for."
+}
