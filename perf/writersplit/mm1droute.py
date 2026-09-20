@@ -28,11 +28,22 @@ _ORIG = {}
 _STATS = collections.Counter()
 _SHAPES = collections.Counter()
 _SPEC = {}
+_CHECKED = set()
 _WIDE = [False]
+_VERIFY = [0]
+_SEEN = collections.Counter()
+_VERDICT = {}
+_SELFCHECK = [True]
+_DECLINED = {}
 
 
 def stats():
     return dict(_STATS), dict(_SHAPES)
+
+
+def verdicts():
+    """Per-signature routed-vs-native comparison, when install(verify=n) asked for one."""
+    return _VERDICT
 
 
 def _batch(shape):
@@ -166,6 +177,9 @@ def _route(name, device, split, x, w, kw):
 
     key = (tuple(a), tuple(b), str(x.dtype), str(w.dtype), str(out_dtype), grid,
            str(x.memory_config()), str(w.memory_config()), str(kw.get("memory_config")))
+    if key in _DECLINED:
+        _STATS["skip:self_check_declined"] += 1
+        return None
     shape, ref_dtype, ref_mc = _out_spec(name, x, w, kw, key)
     if ref_mc.is_sharded() or ref_dtype != out_dtype:
         _STATS["skip:native_out_spec"] += 1
@@ -180,18 +194,101 @@ def _route(name, device, split, x, w, kw):
         _STATS["skip:build_failed:" + type(e).__name__] += 1
         ttnn.deallocate(out)
         return None
+    if _SELFCHECK[0] and key not in _CHECKED:
+        # The chooser cannot be trusted per call site.  `get_max_l1_space` reads
+        # `lowest_occupied_compute_l1_address`, live L1 occupancy with no Python binding, and a
+        # call site that runs with L1 nearly full gets a SMALLER out_block from the C++ than the
+        # transcription can know to pick.  MEASURED inside the fold on
+        # [1,140,32,128]x[128,128]: running the shipped op with the transcription's own config
+        # did not reproduce the auto result, max abs 6.25e-02, while the same shapes standalone
+        # agreed bit-exactly in all four DRAM/L1 operand-and-output combinations.
+        #
+        # So check rather than assume: on the first call of each signature, compare the routed
+        # result against the native one and decline the signature outright if it differs.  This
+        # is per signature, not per call, so it is a guard and not a proof -- the fold digest
+        # stays the backstop -- but it turns an unverifiable guess into a self-limiting route.
+        _CHECKED.add(key)
+        import torch
+        tg = ttnn.to_torch(r)
+        ttnn.deallocate(r)
+        ref = _ORIG[name](x, w, **kw)
+        ttnn.synchronize_device(device)
+        if tg.shape != ref.shape or not bool(torch.equal(ttnn.to_torch(ref), tg)):
+            _DECLINED[key] = True
+            _STATS["self_check:declined_signature"] += 1
+            return ref
+        _STATS["self_check:accepted_signature"] += 1
+        ttnn.deallocate(ref)
+        out2 = ttnn.allocate_tensor_on_device(
+            ttnn.TensorSpec(ttnn.Shape(shape), ref_dtype, ttnn.TILE_LAYOUT,
+                            ref_mc.buffer_type), device)
+        r = generic_mm1d(device, x, w, out2, pc, (fidelity, approx, fp32, packer),
+                         writer_on_in0=split)
     _STATS["routed"] += 1
-    _SHAPES[(tuple(a), tuple(b), pc[1], pc[6], pc[7])] += 1
+    sig = (tuple(a), tuple(b), pc[1], pc[6], pc[7])
+    _SHAPES[sig] += 1
+    if _VERIFY[0] and _SEEN[key] < _VERIFY[0]:
+        # Compare the routed result against the native one for the first few calls of each
+        # signature, rather than reading a fold digest and guessing which call moved it.  A
+        # to_torch per call is far too expensive for 15k calls and unnecessary for 23 shapes.
+        #
+        # The routed output is read back and FREED before the native reference is issued.  Holding
+        # both at once ran the fold out of L1 at the swiglu call site -- "statically allocated
+        # circular buffers clash with L1 buffers" -- which is the diagnostic perturbing what it
+        # measures, not a defect in the routed path.  Verify mode returns the NATIVE result, so
+        # the fold it runs is the shipped one and the comparison costs it nothing else.
+        _SEEN[key] += 1
+        import torch
+        tg = ttnn.to_torch(r)
+        ttnn.deallocate(r)
+        ref = _ORIG[name](x, w, **kw)
+        ttnn.synchronize_device(device)
+        tr = ttnn.to_torch(ref)
+        r = ref
+        eq = tr.shape == tg.shape and bool(torch.equal(tr, tg))
+        v = _VERDICT.setdefault(sig, {"equal": 0, "differ": 0, "max_abs": 0.0,
+                                      "shape_native": list(tr.shape), "shape_routed": list(tg.shape),
+                                      "mem_a": str(x.memory_config().buffer_type),
+                                      "mem_b": str(w.memory_config().buffer_type),
+                                      "mem_out": str(ref_mc.buffer_type),
+                                      "ckc": [str(fidelity), approx, fp32, packer]})
+        v["equal" if eq else "differ"] += 1
+        if not eq and tr.shape == tg.shape:
+            v["max_abs"] = max(v["max_abs"], float((tr.float() - tg.float()).abs().max()))
+            # Which half is it?  Run the SHIPPED op with MY block config.  If that reproduces the
+            # auto result, the chooser agrees and the gap is in the transcribed program; if it
+            # does not, the chooser disagrees under this call site's live L1 occupancy, which is
+            # the one input `get_max_l1_space` reads and Python cannot.
+            cfg = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=ttnn.CoreCoord(*grid), in0_block_w=pc[1],
+                out_subblock_h=pc[2], out_subblock_w=pc[3], out_block_h=pc[4],
+                out_block_w=pc[5], per_core_M=pc[6], per_core_N=pc[7],
+                fuse_batch=True, mcast_in0=False)
+            kw2 = {k2: v2 for k2, v2 in kw.items() if k2 != "core_grid"}
+            try:
+                exp = _ORIG[name](x, w, program_config=cfg, **kw2)
+                ttnn.synchronize_device(device)
+                v["explicit_equals_auto"] = bool(torch.equal(tr, ttnn.to_torch(exp)))
+                ttnn.deallocate(exp)
+            except Exception as e:
+                v["explicit_equals_auto"] = "err:" + str(e)[:60]
+            v["my_cfg"] = [pc[1], pc[2], pc[3], pc[4], pc[5], pc[6], pc[7]]
     return r
 
 
-def install(device, split, wide=False):
+def install(device, split, wide=False, verify=0, selfcheck=True):
     """Wrap ttnn.matmul and ttnn.linear.  Idempotent; `remove()` puts the originals back."""
     remove()
     _STATS.clear()
     _SHAPES.clear()
     _SPEC.clear()
+    _SEEN.clear()
+    _VERDICT.clear()
+    _CHECKED.clear()
+    _DECLINED.clear()
     _WIDE[0] = bool(wide)
+    _VERIFY[0] = int(verify)
+    _SELFCHECK[0] = bool(selfcheck)
     for name in ("matmul", "linear"):
         _ORIG[name] = getattr(ttnn, name)
 

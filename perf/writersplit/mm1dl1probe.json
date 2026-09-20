@@ -1,0 +1,1304 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "runs": [
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 0,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 0
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 1,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 1
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 2,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 2
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 3,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 3
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 4,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 4
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 5,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 5
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 6,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 6
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 7,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 7
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 8
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "dram",
+   "ballast_step": 8
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "dram",
+   "ballast_step": 8
+  },
+  {
+   "equal": true,
+   "out_block": [
+    2,
+    8
+   ],
+   "per_core": [
+    2,
+    8
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 8
+  },
+  {
+   "equal": true,
+   "out_block": [
+    6,
+    8
+   ],
+   "per_core": [
+    6,
+    8
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "operands": "l1",
+   "ballast_step": 8
+  },
+  {
+   "equal": true,
+   "out_block": [
+    25,
+    4
+   ],
+   "per_core": [
+    75,
+    4
+   ],
+   "ballast_tiles": 8,
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "operands": "l1",
+   "ballast_step": 8
+  }
+ ]
+}

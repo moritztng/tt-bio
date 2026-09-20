@@ -72,6 +72,10 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--model", default="boltz2")
     ap.add_argument("--clock", type=int, default=0, help="0 = correctness run, do not force")
+    ap.add_argument("--no-selfcheck", action="store_true",
+                    help="do not compare the first call of each signature against the native op")
+    ap.add_argument("--verify", type=int, default=0,
+                    help="compare routed against native for the first N calls of each signature")
     ap.add_argument("--wide", action="store_true",
                     help="also route L1-interleaved operands; moves the digest, see mm1droute")
     ap.add_argument("--out", default=str(HERE / "mm1dfold.jsonl"))
@@ -115,7 +119,8 @@ def main() -> int:
            "folds": []}
 
     if a.arm != "ship":
-        mm1droute.install(T.get_device(), split=(a.arm == "split"), wide=a.wide)
+        mm1droute.install(T.get_device(), split=(a.arm == "split"), wide=a.wide,
+                          verify=a.verify, selfcheck=not a.no_selfcheck)
 
     for i in range(a.folds + 1):
         cs = ClockSampler(held) if held else None
@@ -131,6 +136,15 @@ def main() -> int:
               % (a.tag, i, "COLD" if i == 0 else "warm", fold_s, clock, digest), flush=True)
 
     counts, shapes = mm1droute.stats()
+    vd = mm1droute.verdicts()
+    if vd:
+        rec["verify"] = [{"a": list(k[0]), "b": list(k[1]), **v} for k, v in vd.items()]
+        bad = [x for x in rec["verify"] if x["differ"]]
+        print("verify: %d signatures checked, %d differ" % (len(vd), len(bad)), flush=True)
+        for x in bad:
+            print("   DIFFERS a=%s b=%s  mem a/b/out %s/%s/%s  max|diff| %.3e  shapes %s vs %s"
+                  % (x["a"], x["b"], x["mem_a"], x["mem_b"], x["mem_out"], x["max_abs"],
+                     x["shape_native"], x["shape_routed"]), flush=True)
     rec["route"] = counts
     rec["route_shapes"] = [{"a": list(k[0]), "b": list(k[1]), "in0_block_w": k[2],
                             "per_core_M": k[3], "per_core_N": k[4], "n": v}
