@@ -1157,16 +1157,29 @@ if ORCH.is_file():
 # this run ends with, so the doc has to match it. The first run after adding a check will fail,
 # which is exactly when the author is there to fix it.
 if ORCH.is_file():
-    _n_now = len(ok) + 1                       # +1 for the ok this check is about to append
+    # Pass 175: the count is HOST-DEPENDENT and pinning one number guaranteed the very
+    # recurrence this message names. The A12 live-mapping probe needs `torch`; where it imports
+    # it appends an ok, and where it does not it appends a WARNING instead -- so the same
+    # commit legitimately audits 154 on one interpreter and 153 on another, and the third
+    # compose of this pass drifted for no reason but that. A check that cannot run says so
+    # (K60), and a check that said so is not a check that vanished.
+    #
+    # So the total counted here is checks that RAN plus checks that ANNOUNCED they could not,
+    # which is stable across hosts. The stated number must equal that total; a run where a
+    # probe silently disappeared still fails, because it would lower both terms.
+    _n_ran = len(ok) + 1                       # +1 for the ok this check is about to append
+    _n_now = _n_ran + len(warn)
     _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
     if _cm is None:
         bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
                    "audit reports a total that nothing in the summary is pinned to")
     elif int(_cm.group(1)) != _n_now:
-        bad.append(f"PROVES states ({_cm.group(1)} checks, 0 drifted) but this audit confirms "
-                   f"{_n_now} -- the count drifted when checks were added (pass-133 recurrence)")
+        bad.append(f"PROVES states ({_cm.group(1)} checks, 0 drifted) but this audit has "
+                   f"{_n_now} ({_n_ran} confirmed + {len(warn)} that announced they could not "
+                   f"run) -- the count drifted when checks were added (pass-133 recurrence)")
     else:
-        ok.append(f"PROVES states the check count correctly ({_n_now})")
+        ok.append(f"PROVES states the check count correctly ({_n_now} = {_n_ran} confirmed "
+                  f"+ {len(warn)} skipped-and-said-so)")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
