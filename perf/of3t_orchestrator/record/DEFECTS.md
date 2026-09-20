@@ -3641,3 +3641,36 @@ its branch). **UNFIXED in the published artifact** — the 48 entries in
 `perf/of3t_orchestrator/pt/device_gradient_043pt.json` are as the run emitted them and are
 annotated rather than edited, because the file is the run's output and rewriting a result file
 in place is worse than labelling it.
+
+---
+
+### D60. The DONE_CHECK's placeholder guard matched the prose form and missed the token form, so a row concluded with a literal `MODELS_TABLE_PLACEHOLDER` in a `measured` field while its PROVES claimed the table. FOUND by `of3t-orchestrator`, pass 159. **FIXED.**
+
+`of3t-softmax` returned a complete, well-controlled NO-GO — and its `MODELS` field carries the
+literal string `MODELS_TABLE_PLACEHOLDER` where the per-model inference digest table belongs,
+while its `PROVES` says *"with the shipped digests before"*. **The gate passed it.**
+
+The guard is `OWED_HARD`, and the relevant alternative was `\bplaceholder\b`. **`_` is a word
+character**, so there is no word boundary before `PLACEHOLDER` in `MODELS_TABLE_PLACEHOLDER`.
+The regex matched the way a person writes the word *in a sentence* and missed the way a template
+actually leaves it — which is the only form that matters, because prose saying "this is a
+placeholder" is an honest admission and a bare token is not.
+
+`TODO_FILL_ME`, `FIXME:` and `XXX` were all missed for the same reason or for not being listed.
+
+**Fixed:** the alternation now carries `PLACEHOLDER|\bTODO\b|TODO_|\bFIXME\b|\bXXX\b|<fill-in>`
+with no boundary required on the underscore side, and the token form is added to the selftest's
+must-fire list (now 11 must-fire, 5 must-stay-quiet, passing) so the hole cannot silently
+reopen. The check now correctly refuses the row: *"MODELS contains a placeholder
+('PLACEHOLDER')"*. The row was told, with the note that the miss is mine and nothing else in its
+work is in question.
+
+**Fourth member of a family this campaign keeps rediscovering**, after the amendment word list
+stopping at twenty, the defect-count list stopping at twenty-four, and the summary-quote check
+demanding its own rounding. Every one is a guard that matched the shape of the thing it was
+written against rather than the shape of the thing it must catch. The generalisation worth
+keeping: **a guard's test cases must include the machine-generated form, not just the
+human-written one** — templates, tokens, and uppercase identifiers are what actually appear in
+an unfinished document.
+
+Owner: `of3t-orchestrator`. **FIXED.** `workstreams/_of3t_donecheck.py`.

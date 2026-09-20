@@ -706,14 +706,17 @@ diffusion module's — `msa_module` reads 19.8x (forward 0.82 %, gradient 16.2 %
 misses both bars at 1.6211e-01 over 1.2317 % of the model; unowned. **D59 (UNFIXED in the artifact)**: a shape-inferred transpose contaminates 48 entries of the
 published per-tensor array with a perfect `r ≈ 1, cos ≈ 0` reading at rel ≈ √2 — the signature
 the campaign trained itself to read as a wrong transform. Mass-weighted conclusions are
-unaffected (7.5692 → 7.5688) and anything read per tensor is not; annotated, not rewritten.
+unaffected (7.5692 → 7.5688) and anything read per tensor is not; annotated, not rewritten. **D60 (FIXED)**: the DONE_CHECK's placeholder guard matched `\bplaceholder\b` in prose and
+missed the token form, so a row concluded with a literal `MODELS_TABLE_PLACEHOLDER` in a
+measured field while its PROVES claimed the table; token forms and TODO/FIXME/XXX are now
+matched and in the selftest.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live; fifty-nine defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+one live; sixty defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6550,3 +6553,67 @@ mass-weighted conclusion survives; my pass-156 anti-correlated set loses 11 tens
 0.0324 % and keeps 4.7734 %. What it would wreck is anything read *per tensor*: these top any
 worst-list at rel ~1.4. Filed as **D59**, annotated into the artifact rather than edited, because
 rewriting a run's output destroys the thing it is for.
+
+---
+
+## Pass 159 — the softmax lever is closed on both sides, and my own gate let a placeholder through
+
+### `of3t-softmax`: NO-GO on inference, decided in Ångström
+
+The lever moves the delivered OpenFold3 structure **0.3237 Å** where a different seed moves it
+**0.6250 Å**, measured in the same harness on the same card in the same session — **inside the
+floor by 1.93x**. Rank 0 *is* the best-of-N structure here, so the number a user is affected by
+and the number selection produces are the same one. Cost: **+46 %** per op (0.0543 → 0.0789 ms
+at `[1,16,384,384]` fp32, for 12.3x better `rel_rms`), and end to end 103.6 s → 103.9 s against
+the same arm re-running at 102.2 s — **the cost is smaller than one arm's run-to-run spread**,
+so +0.29 % reads as below the noise rather than as a measurement. AICLK 1350 MHz sampled during.
+
+Its cost table also settles something that was not its question. **On a bf16 input both levers
+land on 1.266e-02 and neither goes under it** — bf16 storage is the floor, not the kernel's
+reduction — and only OpenFold3's diffusion transformer typecasts to fp32 before the softmax. So
+the 12.3x is available at **exactly one of the five sites**, and it is worth more to the
+*training* arm (fp32 activations) than to shipped inference. And the docstring correction
+shipped: `_accurate_softmax` claimed a compute kernel config changes nothing; it changes
+2.029e-02 into 1.646e-03.
+
+### The training-parity question, closed properly this time
+
+Pass 157 closed it wrongly (sectional independence), pass 158 withdrew that. Redone as an
+**upper bound** — assume the lever helps *every* tensor in the 547-tensor arm by its full
+measured factor, which no amount of sequential coupling can beat:
+
+    lever               gradient factor   whole-arm rel   x over bar   shippable
+    precise_config()          2.25x            3.3641       168.2x        yes
+    _accurate_softmax         4.39x            1.7242        86.2x        yes
+    float64 softmax          55.24x            0.1370         6.9x        NO (diagnostic)
+    needed to reach the 0.02 bar:  378x
+
+**The best shippable lever leaves the arm 86x over bar, and even an exact softmax leaves it
+6.9x over.** No softmax lever reaches the bar — and because this is a bound in the *generous*
+direction, it survives the assumption that broke pass 157. **Making the softmax more accurate
+is not what fixes the attention-side 27.2441 %.**
+
+The residual that survives a perfect softmax — ~0.1370, 6.9x the bar — is the interesting part.
+It is **not** in any block's arithmetic: `of3t-adaln`'s widened block arm reads 1.489e-02 under
+an exact softmax, inside the bar, over 19 of 19 parameters. The difference between that and the
+arm figure is the row's own reading — block arm uses a *controlled* cotangent, the arm figure is
+547 tensors under the **real** cotangent over 48 samples. So what survives is carried in the
+accumulated cotangent, pointing at the 48-sample accumulation or at something upstream of the
+diffusion module. Unowned and unmeasured.
+
+### And my gate passed a document with an unfilled table in it
+
+`of3t-softmax`'s `MODELS` field contains the literal `MODELS_TABLE_PLACEHOLDER` while its
+`PROVES` says "with the shipped digests before". **The DONE_CHECK passed it.** `OWED_HARD`
+matched `\bplaceholder\b` — and `_` is a word character, so there is no boundary before
+`PLACEHOLDER` in that token. The guard caught the way a person writes the word in a sentence and
+missed the way a template leaves it, which is the only form that matters: prose admitting a
+placeholder is honest, a bare token is not. `TODO_FILL_ME`, `FIXME:` and `XXX` were missed too.
+
+Fixed, with the token form in the selftest (11 must-fire, passing) so it cannot reopen, and the
+check now refuses the row. Filed as **D60** — the fourth member of a family this campaign keeps
+rediscovering, after the amendment word list stopping at twenty, the defect-count list stopping
+at twenty-four, and the summary-quote check demanding its own rounding. Every one is a guard
+written against the shape of the thing it was tested on rather than the shape of the thing it
+must catch. **A guard's test cases must include the machine-generated form, not only the
+human-written one.**

@@ -1,0 +1,38 @@
+{
+ "what": "the pass-157 conclusion re-established on an assumption-free footing after pass 158 withdrew it, plus of3t-softmax's NO-GO. Nothing new was run.",
+ "why_a_second_attempt": "pass 157 concluded no softmax lever reaches the bar by scaling the attention side and HOLDING the rest fixed -- an independence assumption a residual stack does not have, disproved at pass 158 and withdrawn. This redoes it as an UPPER BOUND, which needs no such assumption.",
+
+ "the_bound": {
+  "form": "assume the lever helps EVERY tensor in the 547-tensor arm by its full measured gradient factor. That is the most generous assumption available and cannot be beaten by any amount of sequential coupling, so a conclusion drawn under it is conservative.",
+  "baseline": {"whole_arm_mass_weighted_rel": 7.5692, "bar": 0.02, "factor_needed_to_reach_bar": 378},
+  "rungs": [
+   {"lever": "precise_config()",  "gradient_factor": 2.25,  "whole_arm_rel": 3.3641, "x_over_bar": 168.2, "shippable": true},
+   {"lever": "_accurate_softmax", "gradient_factor": 4.39,  "whole_arm_rel": 1.7242, "x_over_bar":  86.2, "shippable": true},
+   {"lever": "float64 softmax",   "gradient_factor": 55.24, "whole_arm_rel": 0.1370, "x_over_bar":   6.9, "shippable": false}
+  ],
+  "gradient_factors_from": "of3t-adaln, measured on real operands at blocks 8/0/12: 2.25x/2.41x/1.99x, 4.39x/4.11x/3.02x, and 55.24x/56.22x/28.42x. The lowest of each triple is used.",
+  "conclusion": "the best SHIPPABLE softmax lever leaves the arm 86x over bar. Even an EXACT softmax -- a diagnostic, not a lever -- leaves it 6.9x over. No softmax lever reaches the bar, and this time the statement does not rest on sectional independence."
+ },
+
+ "the_residual_that_survives_a_perfect_softmax": {
+  "size": "0.1370 mass-weighted, 6.9x the bar",
+  "where_it_is_not": "not in any single block's arithmetic. of3t-adaln's widened block arm reads 1.489217e-02 under an exact softmax -- INSIDE the bar -- over 19 of 19 parameters.",
+  "where_it_must_be": "the difference between 1.489e-02 at block scope and ~0.137 at arm scope is the row's own reading: the block arm uses a CONTROLLED cotangent, the arm figure is 547 tensors under the REAL cotangent accumulated over 48 samples. So the residual is carried in the real cotangent rather than made in any block -- which points at the 48-sample accumulation, or at something upstream of the diffusion module entirely. Unowned and unmeasured.",
+  "honest_limit": "0.1370 is itself the 55.24x block factor applied arm-wide, so it is an extrapolation too. Its direction is what makes it usable: it OVERSTATES the lever, so the residual it implies is a LOWER bound on what survives."
+ },
+
+ "of3t_softmax_returned_NO_GO_on_inference": {
+  "verdict": "NO-GO for shipping on by default, decided on the Angstrom number and not the rel number.",
+  "cost_per_op_at_[1,16,384,384]_fp32": {"no_config": {"ms": 0.0543, "rel_rms": 2.029e-02},
+   "precise_config()": {"ms": 0.0789, "rel_rms": 1.646e-03, "x_better": 12.3, "x_cost": 1.46},
+   "_accurate_softmax": {"ms": 0.2556, "rel_rms": 5.156e-04, "x_better": 39.4, "x_cost": 4.71}},
+  "the_bf16_ceiling": "on a bf16 input both levers land on 1.266e-02 and neither goes under it -- bf16 storage is then the floor rather than the kernel's reduction. Of the five call sites only OpenFold3's diffusion transformer typecasts to fp32 before the softmax, so it is the ONLY one where the 12.3x is available. That also means the lever is worth more to the TRAINING arm (fp32 activations) than to shipped inference.",
+  "angstrom": {"lever_moves_delivered_structure_A": 0.3237, "seed_floor_same_session_A": 0.6250,
+   "reading": "inside the floor by 1.93x. Rank 0 IS the best-of-N structure here, so the number a user is affected by and the number selection produces are the same."},
+  "whole_fold_cost": "103.6 s off, 103.9 s on, and the same arm re-run at 102.2 s -- the end-to-end cost is smaller than one arm's run-to-run spread, so +0.29 % reads as below the noise rather than as a measurement.",
+  "what_shipped_anyway": "the one-line source correction. `_accurate_softmax`'s docstring claimed a compute kernel config changes nothing; it changes 2.029e-02 into 1.646e-03. Replaced by the measurement."
+ },
+
+ "so_where_the_campaign_is_on_this_defect": "the mechanism is settled (the softmax forward, amplified by the backward's cancellation), the inference case is closed NO-GO with a number, and the training-parity case is closed differently: no available lever reaches the bar, so the attention-side 27.2441 % is not fixable by making the softmax more accurate. What would fix it is not a precision knob.",
+ "provenance": "computed 2026-09-20 pass 159 by of3t-orchestrator on pc, CPU only. Inputs: state/of3t-softmax.md, state/of3t-adaln.md, and the 547-tensor per-tensor array."
+}
