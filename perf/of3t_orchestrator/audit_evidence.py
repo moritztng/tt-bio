@@ -919,11 +919,27 @@ if ORCH.is_file():
     # a VERDICT that said "six remain UNFIXED" in words. Second time a guard of mine has been
     # wrong about a document that was right; both times the guard encoded the shape of the
     # prose it was born against.
-    _words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
-              7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
-              13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
-              22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
+    # Pass 155: GENERATED, not hardcoded. This list stopped at twenty-four, so the UNFIXED
+    # check reported drift against a document that was correct (it fell through to a 'zzz'
+    # sentinel and failed loudly, which is the pass-138 fix working) -- and the DEFECTS-count
+    # check, whose branch is guarded by `if _w`, went SILENTLY VACUOUS at twenty-five and has
+    # not checked anything since the record passed D24. Fourth sighting of a guard outgrowing
+    # its word list in this campaign. A generated list cannot outgrow the subject, and the
+    # assertion below makes a missing word a failure rather than a skip.
+    _ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+             "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+             "seventeen", "eighteen", "nineteen"]
+    _TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+             "ninety"]
+
+    def _word(n):
+        if n < 20:
+            return _ONES[n]
+        if n < 100:
+            return _TENS[n // 10] + ("-" + _ONES[n % 10] if n % 10 else "")
+        return None
+
+    _words = {n: _word(n) for n in range(1, 100)}
     if DEF.is_file():
         _dt = DEF.read_text()
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
@@ -931,7 +947,10 @@ if ORCH.is_file():
                      if "UNFIXED" in m.group(0)])
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
-            if _w and _label == "defects" and f"{_w} defects" not in verdict.lower():
+            if _w is None:
+                bad.append(f"the {_label} count is {_n}, outside this check's word list -- the "
+                           f"check cannot run, which is not a pass (pass-138 class)")
+            elif _label == "defects" and f"{_w} defects" not in verdict.lower():
                 bad.append(f"VERDICT does not say '{_w} defects' -- DEFECTS.md has {_n}")
             if _label == "UNFIXED" and not _re.search(rf"\b(?:{_n}|{_words.get(_n, 'zzz')})\b"
                                                       r"[^.]{0,40}UNFIXED", verdict):
