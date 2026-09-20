@@ -6464,3 +6464,85 @@ means — passing it at the call sites rather than injecting it — and whether 
 `setdefault` shadowing silently disarms the lever anywhere else it is installed. Until that is
 answered, no claim that `precise_config()` improves a *shipped* path survives without an arm
 showing the output changed.
+
+### D111. `ttnn.max` rounds to bf16, so the 5-op accurate softmax divides 0/0 on a fully-masked row. FOUND by `of3t-softgrad` (pass 190); one repair also closes D110.
+
+`_accurate_softmax` opens with a row-max subtraction for numerical stability. `ttnn.max`
+**rounds its result to bf16**. On a row whose keys are all masked at `-1e9` — which the atom
+encoder's block-sparse attention produces for a padded query block — bf16 cannot resolve
+`-1e9` finely enough and the reduction comes back **1.76e6 ABOVE the true row max**. Every
+`exp(x - max)` then underflows to zero, the sum is zero, and the divide is **0/0**.
+
+Measured standalone: **114,688 non-finite entries, exactly the masked rows**. The fused kernel
+is finite on the same input, so this belongs to the 5-op chain and not to softmax as such.
+
+**The fix, and the detail that makes it credible.** Clamping the exponent at **−60** fixes it;
+**−88 does not**, because `exp(-88)` is subnormal in fp32 and flushes to zero. A repair that
+works at one threshold and fails at a larger one, for a stated floating-point reason, is not
+the shape of a guess.
+
+**It also closes D110.** The same change fixes the `precise_config()` lever that `setdefault`
+could not install over the explicit `None` at `tenstorrent.py:3789`. Two defects I filed
+separately — an inert precise lever and a non-finite accurate lever — have **one repair between
+them**, which is worth noting because they presented as unrelated.
+
+**What it cost me.** I had published a hypothesis that the non-finite gradient came from
+`_accurate_softmax` having no taped backward (true: zero hits in `autograd.py`) and therefore
+being mispaired. Refuted. The fault is in the **forward**, on a degenerate input. My error was
+reading "the forward is healthy" — reported on **one structure** — as a property of the forward
+rather than of that structure; a reading that happens not to contain a fully-masked query block
+cannot see this. The row found it without my hypothesis, which had not even been injected yet.
+
+**The part that reaches beyond this campaign, flagged not claimed.** The same 5-op chain ships
+`default=True` at `opendde.refiner`, `protenix <scope>.trunk` and `protenix <scope>.confidence`
+— all Pairformer triangle attention, all in production. Under a pair mask a padded row has every
+`(i,j)` masked, and Protenix pads tokens to a multiple of 32, so padded rows are routine.
+Against that: Protenix-v2 is *served* with this lever on at exactly those sizes and a NaN would
+surface as failed folds, which are not on the record. I have not read what mask those sites
+apply, so this is a question, not a defect —
+`FLAG_THE_NAN_LEVER_SHIPS_ON_IN_TWO_PRODUCTION_MODELS.json` carries the cheap check. Every
+OpenFold3 and ESMFold site is `default=False`, so this campaign's own shipped scope is untouched.
+
+### D112. A concluded row's worktree was pruned and took the campaign's 0.4.3 reference tree with it; **26 scripts across ten other rows** now point at a path that does not exist. UNFIXED — recoverable, and `of3t-softgrad` proved the recipe.
+
+`of3t-softgrad` hit this head-on: `/home/ttuser/of3t_rebase/` is **GONE** from qb2, pruned with
+its row's worktree, and it took `diffcap043` — the captured 0.4.3 diffusion boundary — with it.
+The row could not score anything until it **rebuilt** the boundary.
+
+**The blast radius is larger than the row could see from where it stood.** It reported "five
+other scripts still point at the pruned path". Composition-wide the executable count is **53**:
+
+| owner | scripts | |
+|---|---|---|
+| `of3t_rebase` | 27 | its own tooling — dead with its tree, which is expected |
+| `of3t_auxfind` | 7 | |
+| `of3t_conditioning` | 4 | |
+| `of3t_auxheads` / `of3t_auxgrad` / `of3t_adaln` | 3 each | |
+| `of3t_residual` | 2 | |
+| `of3t_trajectory` / `of3t_softgrad` / `of3t_maskaudit` / `of3t_direct` | 1 each | |
+
+So **26 scripts belonging to TEN other rows** depend on a directory that no longer exists. A
+further ~199 JSON artifacts name the path too, but those are provenance records of where a
+reference lived and are not broken by its removal — only the executables are.
+
+**What it actually costs.** Not the results: every figure those rows published is committed and
+still true. What is lost is the ability to **re-run or re-derive** them without a rebuild — which
+is precisely what a parity campaign trades on, and it is why this is filed rather than shrugged
+at. `of3t-softgrad` is the proof it is recoverable and the proof it is not free: it rebuilt from
+the surviving bundle and validated against four independently recorded numbers — the original
+capture's forward loss **1.2675874205688995**, cotangent norm **0.019426651390714835**,
+`vs_bundle` worst rel **0.0**, and `of3t-conditioning`'s separately published structure-0 forward
+rel **1.104135e-02** — and only then did its two controls reproduce to every published digit.
+That is the recipe; it is in `perf/of3t_softgrad/recap043.sh`.
+
+**Third sighting of this class in the campaign's own record** — `concluded-marker-artifacts-inside-
+a-worktree-get-pruned` and `script-referencing-a-concluded-rows-worktree-fails-silently` are both
+already written down, and it still happened, because nothing enforces them. The structural fault
+is that a captured reference lived **inside a row's worktree** rather than in a campaign-owned
+location, so its lifetime was tied to that row's conclusion rather than to the campaign's.
+
+**Why UNFIXED rather than fixed now.** Repointing 26 scripts at a rebuilt tree is mechanical but
+must not be done while the rebuild is a single row's local artifact — `of3t-softgrad`'s rebuilt
+boundary is on qb2 in its worktree, which is exactly the trap again. The fix is to land the
+rebuilt reference somewhere campaign-owned and repoint the scripts at that, and it should be one
+deliberate act rather than 26 edits scattered across rows that have concluded.

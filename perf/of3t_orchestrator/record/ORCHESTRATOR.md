@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty-one dispatched, thirty-nine concluded, two live** (pass 186: this row, and `of3t-softgrad` scoring the two shippable softmax levers on the 51 % scope's gradient at full scope; `of3t-trunkdepth` concluded NO-GO -- there is no scale-dependent amplifier in the trunk's backward, the raw depth growth is the bf16 FLOOR's depth growth). 41 briefs = 39 concluded + those two. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-one dispatched, forty concluded, one live** (pass 193: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 41 briefs = 40 concluded + this row. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -653,31 +653,68 @@ one fully-enabled sample in four so participation is `>= 1` at every rung (measu
 for the confidence head. Whether such a step actually occurs depends on the sampler and is NOT
 measured. Closable without a card: build a step that disables one group on every sample and
 report `d_k`. Not counted in the nine-of-nine call-site headline, which requires a measurement.
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Against the "equals float64"
-threshold, which no bf16 port can reach: 0.2666 % of the gradient mass survives, a further
-**2.8431 %** (`aux_heads`) is measured and **PASSES**, **94.8836 %** is measured and **FAILS**,
-and only **2.0067 %** has no direct reading (0.74055 % of that never can).** Nothing is void any
-more. Re-scored against upstream's OWN bf16 step, **42.2794 %** is at or better than the recipe's
-own error (D72) and that **changes no verdict**: both failing scopes stay failing, at 141.6x and
-12.75x. Against the bar one actually can —
-`sqrt(2) x threshold`, what two independent bf16 implementations of equal accuracy read (A26) —
-**38.1862 % of the model is ALREADY inside it on the SHIPPED path with no precision change**
-(`diffusion_conditioning` 0.7363x, `msa_module` 0.9474x), and **with every softmax computed
-accurately that reaches 89.3220 %** (the diffusion arm at **0.9563x**). `diffusion_conditioning`
-passes because our error there is **8x smaller than upstream's own** — an independent port of
-their accuracy would fail it. **Those three are exactly the scopes whose FORWARD is verified to agree** (A18: 8.34e-03,
-2.6e-03, 8.1765e-03 against a 5.0e-02 bar), so the positive result and the A18-clean set are the
-same set: **where we have checked that our function agrees, our gradient of it agrees as well as
-an independent bf16 implementation could.** Every measured disagreement is **pure geometry**,
-predicted from the accuracy ratio and error cosine to within **1.26e-05**.
 
-**Not settled.** The **shipped** path: that same 88 % fails at **91.3x** the reachable bar,
-entirely on accuracy, and all of it inside the diffusion arm is the softmax — `of3t-softmax`
-returned NO-GO on every shipped lever (+46 %/op), so closing it is a **release-gated precision
-decision, not a measurement**. **PASS 176-177, the trunk.** Scored against **0.5.0** while `of3-p2-155k` binds to **0.4.3**; rebuilt at 0.4.3 the shipped **pair** track reads **4.947045e-02**, under the bar, and **92.08 %** of the old figure was the reference revision. **D95 closed**, no A18 verdict changed. **`aux_heads`** (2.8431 %) is **DONE** — a call site was dropping two masks; handed over, all five heads read **exactly 0.0** and the re-taken gradient **2.271382e-03**, 8.81x inside the bar, reaching no user. The trunk's single track is **EXPLAINED**: `AttentionPairBias` folds the bias inside its score scale, and pre-scaled it matches upstream to **4.2e-16** — a flip held as **D1** because it costs **0.463 A** on a served structure, so that gap is a **decision, not a defect**. **Its GRADIENT is now MEASURED and FAILS** at 5.367727e+00 — though re-scored against upstream's own all-bf16 over the same 48 blocks that is **13.0x**, not 268x, and single-block error spans **136x over depth on identical code**, which `of3t-trunkdepth` is dispatched on. **PASS 182 — PROTOCOL SS7 PASSES ITS SHAPE BAR**, the instrument SS8 requires and that had never been run. It found four divergences; closing them exposed a **fifth** — `betas` never passed, so AdamW's `(0.9,0.999)` shipped where OF3 runs `(0.9,0.95)`. With all five closed: `d_1` **exactly 0 both sides**, 4,147 of 4,147 bit-identical, `d_20` **8.2071e-06** at 2.815x the fp32 floor, exponent **+0.194** (flat, r2 0.093) against the four-fix arm's +1.267. Upstream-vs-upstream is **exactly 0.0 at all twenty rungs** and the mis-wired control **still fails**. **The UPDATE RULE is reproduced — on a BRANCH**: all five are release-gated and unmerged, so the shipped path still carries every one, and SS7 does not test the gradient the rule consumes. **Nine of nine** functional defects are CALL SITES.
+**D112 (UNFIXED, from `of3t-softgrad` pass 193).** `/home/ttuser/of3t_rebase/` is GONE from qb2,
+pruned with its row's worktree, and it took the captured 0.4.3 diffusion boundary `diffcap043` with
+it. **26 executable scripts across TEN other rows** still point at that path (53 in total; 27 are
+of3t_rebase's own tooling, dead with its tree). No published figure is wrong -- what is lost is the
+ability to RE-RUN them without a rebuild, which is what a parity campaign trades on. Recoverable and
+proven so: of3t-softgrad rebuilt from the surviving bundle, validated against four independently
+recorded numbers (forward loss 1.2675874205688995, cotangent norm 0.019426651390714835, vs_bundle
+worst rel 0.0, of3t-conditioning's structure-0 forward rel 1.104135e-02) and only then did its two
+controls reproduce to every digit; recipe in `perf/of3t_softgrad/recap043.sh`. Third sighting of a
+class already twice in the record. Structural fault: a captured reference lived INSIDE a row's
+worktree, so its lifetime tracked that row's conclusion rather than the campaign's. Left UNFIXED
+deliberately -- repointing 26 scripts at a rebuild that currently lives in another row's worktree
+would repeat the trap; the fix is to land the reference somewhere campaign-owned first, as one
+deliberate act.
+VERDICT: NO-GO — OpenFold3 training is **not** reproduced on Tenstorrent, and every part of the
+distance is now measured rather than estimated. **92.1651 % of the model's squared gradient norm
+is reproduced or reachable**: 41.0293 % agrees on the SHIPPED path today as well as an
+independent bf16 reimplementation could, and a further 51.1358 % reaches the bar with a host
+float64 softmax at **0.956x** the A26 reachable bar for a **measured 1.441x** cost on the real
+gradient arm. **5.8282 %** (the pairformer trunk) is MEASURED AND FAILING at **5.367727e+00** —
+**13.0x** upstream's own all-bf16 run over the same 48 blocks, which is the honest defect size,
+not the 268x a float64 bar implies. **2.0067 %** has no reading and 0.74055 % of that never can. Scored instead against the
+unreachable "equals float64" threshold the same mass splits **0.2666 %** surviving, **2.8431 %**
+(`aux_heads`) measured and passing, **94.8836 %** measured and failing and **2.0067 %** unread —
+a threshold **no bf16 port can reach**, upstream's own included, which is why the reachable-bar
+figures above are the ones that mean anything.
+PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, never run until pass
+181 — **PASSES its shape bar**, exponent +0.194 at r2 0.093 against the four-fix arm's +1.267,
+`d_1` exactly 0 both sides, 4,147 of 4,147 bit-identical, upstream-vs-upstream exactly 0.0 at all
+twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
+gradient it consumes is not.**
 
-Forty concluded markers, one this live row's own and stale, so thirty-nine others; two live (this row, `of3t-softgrad`); one hundred ten defects on the record,
-forty-three of them UNFIXED. The composition `wk/of3t` carries 38 of 38 rows at 1161 commits ahead of main.
+**Why NO-GO and not GO**, against criteria fixed BLIND at pass 184 before either deciding row
+reported: GO required the trunk's 5.8282 % to clear the mass-weighted bar under some
+configuration reachable on device. `of3t-trunkdepth` returned the pre-registered DIFFUSE branch
+on seven depths — the raw 13839.9x growth in the single-track cotangent IS the bf16 floor's own
+growth, and dividing each depth by its own floor removes the depth dependence entirely (1.46,
+218, 74, 32, 28, 99, 103; Spearman +0.32). There is **no scale-dependent amplifier to find**; our
+excess is a roughly constant factor over a quantity that is ill-conditioned in bf16 for upstream
+as much as for us. A direction, not a fix — which the pre-registration named as NO-GO.
+
+**Nothing ships.** All five SS7 recipe fixes and every softmax arm are release-gated on their
+branches and unmerged. The SS7 fixes cannot reach a shipped path at all — three gates: `train_loop`
+has no production callers, `AdamW` is constructed in exactly one non-test place (inside it), and
+both optimizer changes are dead code unless `self.accum` is filled, which only that loop does.
+
+**What would close the 51.1358 %**, and it is engineering rather than research: the host float64
+softmax is a diagnostic construction on a tape verb, not a supported code path. It passes and
+costs 1.441x. **No ON-DEVICE configuration reaches the bar** — four arms settle it: shipped and
+`ckc_on` at 91.31x (`TT_BIO_SOFTMAX_CKC=1` is a no-op, identical to shipped), `softmax_precise`
+3.155x at 1.002x cost, `softmax_accurate` 1.323x at 1.661x. What the shippable levers DO buy is
+69.0x of the gap. **What would close the trunk is unknown** and this campaign did not find it.
+
+**Nine of nine** functional defects found here were CALL SITES, not kernels; four were one
+sentence — a value the reference sets in config that our recipe never passes, so a library
+default ships. Per-parameter gradient checking is structurally blind to five of the nine, which
+is why SS7 existed and why its never having been run was worth catching.
+
+Forty-one dispatched, forty concluded, one live (this row); one hundred twelve defects on the
+record, forty-four of them UNFIXED. The composition `wk/of3t` carries 40 of 40 rows and is
+published, verified at 163 checks with 0 drifted, twenty-nine amendments.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
 there because every pass appended after the last field, so the field a reader treats as the

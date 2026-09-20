@@ -1360,6 +1360,26 @@ pieces of DATA names the number or the digest.** Both are checkable; they are no
 same way. Adding *cosmetic* and *functionally identical* fires on nothing today and closes the
 hole where the identical claim escapes the guard by word choice alone.
 
+**A29 SECOND AMENDMENT, pass 192 — the guard needed a declared exemption, and finding that out
+cost nothing because it fired on me.** Two passes after A29 landed, the campaign documented why a
+*retired-claim* guard cannot be phrase-matched: **the text that retires or discusses a claim must
+quote it**, so the matcher fires hardest on the artifacts doing the right thing. A29's guard has
+the same shape, and it proved it immediately — it fired on
+`A_RETIRED_CLAIM_GUARD_WAS_PROTOTYPED_AND_REJECTED.json`, which asserts nothing and merely
+recounts *"the diffusion transformer called revision-inert when it is not"* as one of the
+recurrences that motivated it.
+
+Two bad resolutions were available: add a source path that proves nothing, or silently skip
+meta-discussion. Both hide the tension. Instead an artifact may now declare **`a29_exempt`** with
+a **non-empty reason**, argued in the artifact itself. The exemption is visible, greppable, and
+costs its author a sentence of justification — which is the right price for opting out of a
+check. Tested three ways: passes with a justified exemption, still fires on a bare claim, and an
+**empty** `a29_exempt` does **not** excuse it, so the escape hatch cannot be taken silently.
+
+The generalisation, for any future guard over prose: a guard whose subject is a *word* will
+eventually fire on the campaign discussing its own history. Build the exemption in at the start,
+make it require a reason, and make the empty reason fail.
+
 **The general lesson, recorded because it is bigger than this amendment.** The evidence audit runs
 162 checks and reads 0 drifted, and **every one of them is numeric**. In one week the prose inside
 those green documents produced three defects: an inference fold cost quoted as the price of
