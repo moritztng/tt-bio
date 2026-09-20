@@ -142,6 +142,29 @@ _RESOLVE
         git add tt_bio/openfold3_trunk.py && git commit --no-edit -q
         echo "  NOTE of3t-$r: openfold3_trunk.py conflict resolved by keeping BOTH inserts"\
              " (pairbias comment + foldab env lever), asserted from the AST, not assumed"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "auxfind" ]; then
+        # Third file where a conflict is not a disagreement: two rows APPEND keyword arguments to
+        # the same signature -- one `s_path`/`dtype`, of3t-auxfind `token_mask`/`single_mask` for
+        # the reference-mask fix behind the aux_heads A18 failure. Both are optional, so the union
+        # is what each side meant and no existing caller changes. Shipped code, so it is ASSERTED
+        # from the AST: all four names present, each still with a default (a merge that dropped
+        # one side would compile and import, and fail only at runtime on a device). Five negative
+        # controls, including one that reorders a parameter into a SyntaxError.
+        python3 - <<'_RESOLVE'
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-auxfind\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+merged = ours[:-2].rstrip().rstrip(",") + ", " + theirs.strip()
+open(p, "w").write(s[:i] + merged + "\n" + s[k + len(">>>>>>> origin/wk/of3t-auxfind\n"):])
+_RESOLVE
+        python3 "$HERE/assert_confidence_forward_signature.py" tt_bio/openfold3_confidence.py \
+          || { echo "CONFLICT merging of3t-$r: openfold3_confidence.py resolution FAILED its assert"; exit 1; }
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: openfold3_confidence.py signature conflict resolved by keeping BOTH"\
+             " parameter sets, asserted from the AST with defaults intact"
       else
         echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
       fi
