@@ -1,0 +1,72 @@
+{
+ "question": "is the per-tensor relative error driven by small reference gradient norms (catastrophic-cancellation / precision signature), or does it hit large-mass tensors too?",
+ "method": "Spearman(ref_norm, rel_l2) WITHIN each arm. Pooling across blocks is confounded by block-level offsets in rel_l2 and is reported only to show the confound.",
+ "per_arm": {
+  "43_block0_crop64_tboff": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": -0.4967420814479638,
+   "spearman_refnorm_vs_abs_err": 0.6490497737556561
+  },
+  "43_block0_crop64_tbshipped": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": -0.29339366515837106,
+   "spearman_refnorm_vs_abs_err": 0.7519457013574661
+  },
+  "43_block23_crop64_tboff": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": -0.04796380090497738,
+   "spearman_refnorm_vs_abs_err": 0.7276018099547511
+  },
+  "43_block23_crop64_tbshipped": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": -0.27918552036199096,
+   "spearman_refnorm_vs_abs_err": 0.7452488687782806
+  },
+  "43_block47_crop64_tboff": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": 0.09873303167420815,
+   "spearman_refnorm_vs_abs_err": 0.810316742081448
+  },
+  "43_block47_crop64_tbshipped": {
+   "n": 51,
+   "spearman_refnorm_vs_rel": 0.14733031674208144,
+   "spearman_refnorm_vs_abs_err": 0.8189140271493213
+  },
+  "43spb_block0_crop64_tbshipped": {
+   "n": 52,
+   "spearman_refnorm_vs_rel": -0.38521301118415435,
+   "spearman_refnorm_vs_abs_err": 0.6456074447195423
+  },
+  "43spb_block23_crop64_tbshipped": {
+   "n": 52,
+   "spearman_refnorm_vs_rel": -0.32801161103047893,
+   "spearman_refnorm_vs_abs_err": 0.7433620763254504
+  },
+  "43spb_block47_crop64_tboff": {
+   "n": 52,
+   "spearman_refnorm_vs_rel": -0.11440280030735081,
+   "spearman_refnorm_vs_abs_err": 0.8782549304191923
+  },
+  "43spb_block47_crop64_tbshipped": {
+   "n": 52,
+   "spearman_refnorm_vs_rel": 0.06428754375480236,
+   "spearman_refnorm_vs_abs_err": 0.8858533253649791
+  }
+ },
+ "within_arm_rank_pooled_spearman": -0.1639792945650995,
+ "by_block": {
+  "block0": {
+   "min": -0.4967420814479638,
+   "max": -0.29339366515837106
+  },
+  "block23": {
+   "min": -0.32801161103047893,
+   "max": -0.04796380090497738
+  },
+  "block47": {
+   "min": -0.11440280030735081,
+   "max": 0.14733031674208144
+  }
+ },
+ "verdict": "Blocks 0 and 23 show a mild NEGATIVE correlation (rho -0.50..-0.29 and -0.33..-0.05): relative error concentrates on small-norm tensors, the precision signature. Block 47 does NOT (rho -0.11..0.15): its failure hits large and small tensors alike. Catastrophic cancellation on small-gradient layer norms is REFUTED as the explanation for block 47, and the campaign cannot retreat to \"imprecise, not wrong\" there."
+}
