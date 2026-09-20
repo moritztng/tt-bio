@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty-five dispatched, forty-two concluded, three live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-six dispatched, forty-two concluded, four live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -593,23 +593,7 @@ typo; summing `BLOCK_MASS_PROFILE.json`'s 72 float leaves in 8 random orders giv
 results spanning the same ~4e-16 relative. The assert passes only because it accumulates in the
 same order, and when it breaks it will look like a corrupted reference rather than like rounding.
 Both live rows amended to a 1e-12 relative tolerance; no published number is affected and no
-artifact needs correcting. **D80 (RESOLVED — relabelled pass 196; the body below already said so and the label did not)**: `of3t-refprec`'s relaunch shows
-upstream's **fp32 arms are not reproducible across launches** — arm4 bf16 hashes `ff78d7bc...`
-both times, while arm2 and arm3 go `09f1217c...` → `0343f86c...` on the same seed, the same
-replayed draws and the same code, most likely an order-dependent fp32 reduction under a different
-thread count and load. So **3.117006e-05** — "upstream's own fp32 reproduces its float64 gradient,
-so the 7.5692 gap is ours", the figure the whole framing rests on — was scored against a file the
-live path **no longer holds**, and its own reproducibility is unmeasured. A24 is vindicated past
-its own argument: the pin was taken against a truncated read and what it actually did was preserve
-the only remaining copy of that reference. D69 is strengthened, arm2 and arm3 being byte-identical
-to each other again on a fresh run. **RESOLVED, and my attribution was wrong**: `of3t-refprec` measured the cause — arms 2 and 3 ran
-their first launch at `OMP_NUM_THREADS=7` and the relaunch at **3**, while arm4 and the negative
-control were at 3 **both times**. arm4 reproduced because nothing about its execution changed, not
-because bf16 is robust; I read a thread-count confound as a dtype property on a sample of one arm
-per dtype. The reusable rule is better than the one I filed: **a byte-identity determinism control
-is only valid if the thread count is pinned alongside the seed and the draws.** The load-bearing
-figure survives with a measured bound — relaunched arm2 reads **8.158418e-05** whole-model against
-the published 8.107441e-05, a **0.63 %** shift, with the bar 245x above it. **D82 (UNFIXED)**:
+artifact needs correcting. **D82 (UNFIXED)**:
 `of3t-direct` retracted D72 in full — all three AT-OR-BETTER scopes fail the direct test
 (conditioning 1.0414x, `msa_module` 1.3398x, `aux_heads` "passes" by 0.06 % but is **void under
 A18**, its forward discriminator failing at 3.6515e-01 on `plddt_logits`). The only scope on the
@@ -803,6 +787,8 @@ keep their UNFIXED headings because their **diffusion** half was not checked thi
 
 **D116 (UNFIXED, dispatched)**: the trunk's gradient reads **9.025172e+00** against 0.4.3 float64 over 2736 of 2736 tensors, **22.52x** upstream's own bf16 and **9.03x worse than a zero-gradient model**, at a forward that PASSES A18 — so it is a **backward** defect, the pre-registered band that fired. It **accumulates**: 0.94-3.81x their bf16 over blocks 44-47 where the backward starts, **4.22-66.88x over blocks 0-11 where it ends**. **92.68 % of the error mass is on four single-track LayerNorm affine leaves holding 2.121 % of the gradient mass.** Padding refuted by a bit-identical pad-zeroed control on both sides. `of3t-bwdaccum` dispatched with the cotangent scan pre-registered as the discriminator between an injected per-block error and a wrong leaf backward.
 
+**§6's last uncovered loss term now has candidate carriers, verified (pass 201).** `bond` is a **polymer–ligand** loss and **0 of 8** corpus targets carry such a bond, so it has never fired — `of3t-auxheads` measured the consequence exactly: `bond_loss` 0.0 and `||g(bond=4)-g(bond=0)||^2` **0.0**, 0 of 4,170 tensors moved. Checked against real mmCIF annotation rather than reputation, **5 of 10** candidates satisfy the predicate: **4G5J** (1 bond, afatinib covalent to EGFR Cys797), 4BYH (2), 5T3X (19), 7KJ2 (38), 6VXX (48). **The two a reputation search would have picked both fail** — 6LU7's N3 inhibitor is modelled as a peptide-like POLYMER entity so its Cys145 link is polymer–polymer, and 1HZH's 16 covale links are all glycan–glycan. This verifies the predicate one step short of the featuriser; `of3t-bondcov` is dispatched CPU-only to run it and say whether coverage moves 7 of 8 → 8 of 8. `perf/of3t_orchestrator/bondcov/`.
+
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
 document was still quoting the superseded reading. Each line says who closed it, or what is left.
@@ -964,7 +950,7 @@ branches and unmerged. The SS7 fixes cannot reach a shipped path at all — thre
 has no production callers, `AdamW` is constructed in exactly one non-test place (inside it), and
 both optimizer changes are dead code unless `self.accum` is filled, which only that loop does.
 
-Forty-five dispatched, forty-two concluded, three live (this row, `of3t-bwdaccum` and `of3t-crop640`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `6364b874`**, 42 of 43 rows, 1238 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `96125b21`**, 42 of 44 rows, 1240 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the
@@ -972,6 +958,26 @@ distance-to-go shares in its first 2,000: they had been pushed to offsets 2016-2
 check reported them MISSING when they were present. D66 recurring against me, with the twist
 that the field did not just get long, it buried its own numbers under narrative added later.
 What was removed, verbatim:
+
+**From GAP at pass 201, a RESOLVED entry (D80) whose narrative no longer belongs in a field about what is NOT done:**
+
+**D80 (RESOLVED — relabelled pass 196; the body below already said so and the label did not)**: `of3t-refprec`'s relaunch shows
+upstream's **fp32 arms are not reproducible across launches** — arm4 bf16 hashes `ff78d7bc...`
+both times, while arm2 and arm3 go `09f1217c...` → `0343f86c...` on the same seed, the same
+replayed draws and the same code, most likely an order-dependent fp32 reduction under a different
+thread count and load. So **3.117006e-05** — "upstream's own fp32 reproduces its float64 gradient,
+so the 7.5692 gap is ours", the figure the whole framing rests on — was scored against a file the
+live path **no longer holds**, and its own reproducibility is unmeasured. A24 is vindicated past
+its own argument: the pin was taken against a truncated read and what it actually did was preserve
+the only remaining copy of that reference. D69 is strengthened, arm2 and arm3 being byte-identical
+to each other again on a fresh run. **RESOLVED, and my attribution was wrong**: `of3t-refprec` measured the cause — arms 2 and 3 ran
+their first launch at `OMP_NUM_THREADS=7` and the relaunch at **3**, while arm4 and the negative
+control were at 3 **both times**. arm4 reproduced because nothing about its execution changed, not
+because bf16 is robust; I read a thread-count confound as a dtype property on a sample of one arm
+per dtype. The reusable rule is better than the one I filed: **a byte-identity determinism control
+is only valid if the thread count is pinned alongside the seed and the draws.** The load-bearing
+figure survives with a measured bound — relaunched arm2 reads **8.158418e-05** whole-model against
+the published 8.107441e-05, a **0.63 %** shift, with the bar 245x above it.
 
 **From GAP at pass 199, a FIXED entry whose narrative no longer belongs in a field about what is NOT done:**
 
