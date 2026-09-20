@@ -221,7 +221,20 @@ done
 #   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
 #   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
 #   of3t-updaterule's brief is amended to re-state that number under the merged code.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
+#   tt_bio/openfold3_trunk.py: of3t-foldab owns the env-gated measurement lever
+#   `TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR`, which forces `tri_att_end_bias_follows_pair` (the
+#   TRANSPOSE_BIAS orientation); of3t-trunkcliff owns the construction-site comment recording
+#   what the PAIR-BIAS SCALE convention costs at the activation level. Two DIFFERENT flags on
+#   adjacent lines, and unlike the entries above the hunks OVERLAP -- both start at line 132
+#   (foldab +7 lines, trunkcliff +27), so disjointness is NOT the argument here.
+#   The argument is that the merged result was CHECKED and carries both, which is asserted
+#   below rather than declared: a silent pick of one side is the exact failure this list could
+#   otherwise wave through (memory: parallel-branches-independently-fix-same-defect).
+#   Semantic coupling, which a reader must not confuse: they are different conventions and they
+#   do not interact -- of3t-trunkcliff measured the pair track BIT-IDENTICAL under its
+#   convention change, and of3t-trunk043ref measured the single track unmoved across foldab's
+#   orientation (0.101290 vs 0.101335). Both must stay; neither may flip a default.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py"
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
@@ -235,6 +248,15 @@ done
 dup=$(printf '%s\n' "$dup" | sed '/^$/d')
 if [ -z "$dup" ]; then
   echo "ownership: no undeclared file is edited by more than one row"
+  # The one co-edited file whose hunks OVERLAP: prove both sides survived, do not assume it.
+  _tf="$CO/tt_bio/openfold3_trunk.py"
+  _miss=""
+  grep -q "TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR" "$_tf" || _miss="$_miss of3t-foldab's env lever"
+  grep -q "folds the bias inside its own score scale" "$_tf" || _miss="$_miss of3t-trunkcliff's pair-bias note"
+  if [ -n "$_miss" ]; then
+    echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
+  fi
+  echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
 else
   echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
   while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
