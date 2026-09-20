@@ -1,0 +1,33 @@
+{
+ "ladder": {
+  "float32_d1": {
+   "ref_dtype": "float32",
+   "blocks": 1,
+   "rel": 0.006534920150380546,
+   "rel_real": 0.02071549356792479
+  },
+  "float32_d24": {
+   "ref_dtype": "float32",
+   "blocks": 24,
+   "rel": 0.07369640089713655,
+   "rel_real": 0.15915133257434547
+  },
+  "float64_d1": {
+   "ref_dtype": "float64",
+   "blocks": 1,
+   "rel": 0.006534956667707106,
+   "rel_real": 0.020715505918644506
+  },
+  "float64_d24": {
+   "ref_dtype": "float64",
+   "blocks": 24,
+   "rel": 0.07369642375530609,
+   "rel_real": 0.15915151761827262
+  }
+ },
+ "struct": 0,
+ "inputs": "real captured activations; reference run at BOTH fp32 and float64",
+ "dtype_device": "DataType.FLOAT32",
+ "dtype_reference": "float64",
+ "tenancy": "3"
+}
