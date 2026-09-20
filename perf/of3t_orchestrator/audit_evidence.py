@@ -1018,14 +1018,24 @@ if ORCH.is_file():
     _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
         n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
-        words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
-                 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-                 18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
-                 22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
-        w = words.get(n_am)
-        if w and _re.search(r"\b(nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
-                            r"seventeen|eighteen|nineteen|twenty|twenty-one|twenty-two|"
-                            r"twenty-three|twenty-four) amendments\b", both):
+        # Pass 175: this guard held THREE hand-written word lists, all capped at
+        # "twenty-four", and `w = words.get(n_am)` under `if w:` meant that at the
+        # twenty-FIFTH amendment `w` would be None and every branch below would be
+        # skipped -- the check would go silently vacuous exactly when the protocol grew.
+        # That is the pass-138 class (a guard that goes quiet when its subject outgrows
+        # its word list), and it was sitting one amendment away. Found pre-emptively while
+        # fixing D74, which is the same defect in the compose's row list. The defect-count
+        # check above already generates its words for 1..99 and FAILS when out of range;
+        # this one now shares that list, and out-of-range is a failure here too.
+        w = _words.get(n_am)
+        if w is None:
+            bad.append(f"the amendment count is {n_am}, outside this check's word list -- "
+                       f"the check cannot run, which is not a pass (pass-138 class)")
+        # Longest-first so "twenty-three" cannot be read as "three"; built from the SAME
+        # generated list, so the alternation can never fall behind the counter again.
+        _AMW = "|".join(sorted((v for v in _words.values() if v),
+                               key=lambda v: (-len(v), v)))
+        if w and _re.search(r"(?<!-)\b(" + _AMW + r") amendments\b", both):
             if f"{w} amendments" in both:
                 ok.append(f"PROVES states the amendment count correctly ({w}, {n_am})")
             else:
@@ -1041,10 +1051,8 @@ if ORCH.is_file():
         # \b matches at the hyphen -- so the check read the document as saying "two" and
         # reported drift against a document that was correct. Longest-first alternation plus
         # a negative lookbehind for "-" fixes both halves.
-        _AMEND = _re.compile(r"(?<!-)\b(twenty-one|twenty-two|twenty-three|twenty-four|"
-                             r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
-                             r"eighteen|nineteen|twenty|one|two|three|four|five|six|seven|"
-                             r"eight|nine|ten)\s+times\s+on\s+the\s+record\b", _re.I)
+        _AMEND = _re.compile(r"(?<!-)\b(" + _AMW + r")\s+times\s+on\s+the\s+record\b",
+                             _re.I)
         # every space is \s+: the phrase is hard-wrapped prose and lands as
         # "times on the\nrecord". The first version used literal spaces, found nothing, and
         # reported a clean pass on a document that said "fifteen" -- a check that cannot match
