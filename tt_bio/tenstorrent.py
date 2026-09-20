@@ -7155,12 +7155,20 @@ def _mm_fused_block(kt: int, nt: int):
     return _MM_BLOCK[(kt, best)]
 
 
-def _mm_block_for(w):
-    """The swept block entry for this weight, or None. The single reader of the (kt, nt) key."""
-    kt = (int(w.shape[-2]) + 31) // 32
-    nt = (int(w.shape[-1]) + 31) // 32
+def _mm_block_at(kt: int, nt: int):
+    """The entry for this key, registered or derived. The single resolver of a (kt, nt) key.
+
+    `swiglu_fused` and `trimul_tail` hold their own allow-lists of keys their descriptors were
+    swept at and then resolve the VALUE here, so a fused key that is derived rather than written
+    down is still a key they can look up.
+    """
     blk = _MM_BLOCK.get((kt, nt))
     return blk if blk is not None else _mm_fused_block(kt, nt)
+
+
+def _mm_block_for(w):
+    """The swept block entry for this weight, or None. The single reader of the (kt, nt) key."""
+    return _mm_block_at((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32)
 
 
 @lru_cache(maxsize=None)

@@ -59,6 +59,8 @@ ROUND = 2
 #: c_z = 128 with hidden 512 -- boltz2, openfold3 -- and `_MM_BLOCK` maps it to (4, 4, 1, 4, 1),
 #: the same block trimul_tail's (4, 4) entry uses: one K block, which is this kernel's whole
 #: precondition, since the two GEMMs must not interact through the cross-block L1 accumulator.
+#: (4, 16) is a FUSED width, so `_MM_BLOCK` no longer writes it down -- `_mm_block_at`
+#: derives it from (4, 12) + (4, 4), the same value the literal carried.
 #: An allow-list and not `_MM_BLOCK` itself, for trimul_tail's reason: a general lookup would hand
 #: models a block these kernels have not been swept at, and (12, 12) is the recorded case where
 #: that returns wrong numbers at N = 32 and then hangs the device.
@@ -82,7 +84,7 @@ def _block(w):
     """This weight's block config, or None when its (kt, nt) key is not allow-listed."""
     from . import tenstorrent as TT      # late: `tenstorrent` imports this module at its import
     key = (_tiles(w.shape[-2]), _tiles(w.shape[-1]))
-    return TT._MM_BLOCK[key] if key in SWIGLU_BLOCK_KEYS else None
+    return TT._mm_block_at(*key) if key in SWIGLU_BLOCK_KEYS else None
 
 
 def eligible(x, w1, w2):

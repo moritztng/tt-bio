@@ -58,6 +58,25 @@ def main() -> int:
         if got != _MM_BLOCK[(12, 36)]:
             bad.append(f"{key}: derived {got}, want {_MM_BLOCK[(12, 36)]}")
 
+    # `swiglu_fused` and `trimul_tail` keep their own allow-lists of keys their descriptors were
+    # swept at and then INDEX the table for the value. swiglu's list is {(4, 16)}, which is a fused
+    # width: deleting the literal without giving them the resolver turns the allow-list into a
+    # KeyError on boltz2's and openfold3's pair Transition.
+    from tt_bio import swiglu_fused as SW
+    from tt_bio import trimul_tail as TT1
+
+    class _W:
+        def __init__(self, kt, nt):
+            self.shape = (kt * 32, nt * 32)
+
+    if SW._block(_W(4, 16)) != (4, 4, 1, 4, 1):
+        bad.append(f"swiglu_fused._block((4, 16)) = {SW._block(_W(4, 16))}, want (4, 4, 1, 4, 1)")
+    if SW._block(_W(4, 12)) is not None:
+        bad.append("swiglu_fused._block served a key outside its allow-list")
+    for key in sorted(TT1.F1_BLOCK_KEYS):
+        if TT1._block_for(*key) is None:
+            bad.append(f"trimul_tail._block_for{key} resolved to None")
+
     for line in bad:
         print(f"FAIL  {line}")
     print(f"{'FAIL' if bad else 'PASS'}  {len(SHIPPED_FUSED)} shipped fused keys reproduced, "
