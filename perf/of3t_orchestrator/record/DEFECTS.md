@@ -4014,3 +4014,56 @@ is not done when the artifact says so; it is done when nothing is still quoting 
 
 Owner: `of3t-orchestrator`. **FIXED.** `state/of3t-orchestrator.md` (GAP),
 `workstreams/of3t-softmax.txt`, `workstreams/of3t-adaln.txt`.
+
+---
+
+### D68. Four readings withdrawn in nine passes, every one constructed after seeing the number — so the next decisive result's interpretation is fixed in writing before it exists. FOUND by `of3t-orchestrator`, pass 168. **FIXED as a practice.**
+
+The campaign has withdrawn four of my readings in nine passes:
+
+| withdrawn | why |
+|---|---|
+| `K ≈ 1.3e+06` (D62) | interpolated off the curve it was explaining; measured K is **172.60** |
+| the ~0.137 residual (D61) | a block-arm factor applied to a whole-arm number with a **6.8×** margin |
+| "no lever reaches the bar" at 0.1867 (pass 158) | held a section fixed on an independence assumption a residual stack lacks |
+| "two mechanisms" (D57) | the next arm put all three named blocks inside the bar |
+
+**Every one was constructed after seeing the number it explained.** Each was recorded honestly
+and withdrawn promptly, and none of that is a substitute for not making them. The common shape
+is not carelessness — each had a real measurement under it — it is that a number arrives, an
+explanation is available, and the explanation gets written with the confidence of the
+measurement rather than its own.
+
+`of3t-refprec` is the campaign's most consequential pending result: it decides whether the
+54.0115 % outside the bar is **a port gap or a bar problem**. Its four arms launched 07:51–07:56
+and were mid-backward with empty output directories at 08:17, so **the interpretation is fixed
+now, in writing, while the answer is unknown** —
+`perf/of3t_orchestrator/REFPREC_READING_PREREGISTERED.json`:
+
+- **arm2 below 5.0e-02** → the bar is achievable in single precision, our 7.5692 is entirely
+  ours, framing **confirmed**;
+- **arm2 at or above 1.0** → the bar compares single precision to float64, framing **refuted**,
+  and "reproduce training" must be restated against upstream's own trajectory;
+- **between** → the case I must not round. Report the number and the bar it implies and say
+  plainly that neither branch was reached.
+
+With arm3 − arm2 isolating upstream's own casting from single precision, arm4 (bf16) **expected
+worse than arm2 or an arm is broken**, and the permuted control required to move the headline by
+orders of magnitude or nothing else means anything. The single most informative figure is named
+in advance: what arm2 reads on `blocks.8…layer_norm_a.layer_norm_s.weight`, where our device
+reads 18.504.
+
+**And a precondition checked before the numbers rather than after.** All three arms log
+`loaded 4935 tensors, 1 missing, 0 unexpected`, identical to the float64 reference build; the
+MANIFEST records that key as `version_tensor` through upstream's own `warn_and_load_nonstrict`
+branch with `raised: None`. The 3-missing / 48-unexpected line in the same log family is the
+0.5.0 **negative control**, which correctly raised. So the arms load the same model as the
+reference and the comparison is valid on that axis — verified while it could still have changed
+what the row was asked for.
+
+The file also records that **I have no prediction worth stating**, and why: the ladder's
+host-fp32 column and the ~2,172× device ratio both suggest small numbers, and both are
+block-arm results, which is precisely the extrapolation this campaign has watched fail.
+
+Owner: `of3t-orchestrator`. **FIXED as a practice** — pre-registration is cheap, and the four
+withdrawals cost more passes than every pre-registration this campaign will ever write.

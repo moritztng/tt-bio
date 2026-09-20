@@ -734,7 +734,7 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; sixty-seven defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; sixty-eight defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7001,3 +7001,49 @@ cost, 39.4× for 4.71×, the bf16 floor at 1.266e-02 putting the 12.3× at exact
 sites, and 0.3237 Å against a 0.6250 Å seed floor — with Protenix-v2 at 2.2151 Å against its own
 4.1346 Å control, reaching the same verdict at 6.8× the magnitude, which is why that figure must
 never be generalised across models.
+
+---
+
+## Pass 168 — the interpretation of the decisive result, fixed before the result exists
+
+`of3t-refprec`'s four arms launched 07:51–07:56 and were still in their backward with empty
+output directories at 08:17. That is the moment to write down how the answer will be read.
+
+**Why now and not when it lands.** Four of my readings have been withdrawn in nine passes —
+`K ≈ 1.3e+06` interpolated off the curve it explained, a residual extrapolated with a 6.8×
+margin, a sectional bound that assumed independence, and a two-mechanism split the next arm
+refuted. Every one was **constructed after seeing the number it explained**. Each had a real
+measurement under it; what went wrong each time is that an explanation arrived with the
+confidence of the measurement rather than its own. Pre-registration is the only cheap guard
+against a fifth, and this is the campaign's most consequential pending result: it decides
+whether the **54.0115 %** outside the bar is a port gap or a bar problem.
+
+`perf/of3t_orchestrator/REFPREC_READING_PREREGISTERED.json` fixes it:
+
+- **arm2 (fp32 as upstream actually runs) below 5.0e-02** → the bar is achievable in single
+  precision, the 7.5692 is entirely ours, framing **confirmed**;
+- **arm2 at or above 1.0** → the bar compares single precision to float64, framing **refuted**,
+  and "reproduce OpenFold3 training" has to be restated against upstream's own trajectory;
+- **between** → the case I must not round. Report the number and the bar it implies, and say
+  plainly that neither branch was reached.
+
+arm3 − arm2 isolates upstream's own casting from single precision itself; arm4 (bf16 autocast)
+is **expected worse than arm2 and a better reading voids the set until explained**; and the
+permuted control must move the headline by orders of magnitude or nothing else means anything.
+The most informative single figure is named in advance — what arm2 reads on
+`blocks.8…layer_norm_a.layer_norm_s.weight`, where our device reads **18.504**.
+
+The file also records that **I have no prediction worth stating**, and why: the ladder's
+host-fp32 column and the ~2,172× device ratio both suggest small numbers, and both are
+block-arm results — exactly the extrapolation this campaign has watched fail at model scope.
+
+**And a precondition verified while it could still matter.** All three arms log `loaded 4935
+tensors, 1 missing, 0 unexpected`, identical to the float64 reference build. The bundle MANIFEST
+records that key as `version_tensor`, taken through upstream's own `warn_and_load_nonstrict`
+branch with `raised: None`; the 3-missing / 48-unexpected line in the same log family is the
+**0.5.0 negative control**, which correctly raised. The arms load the same model as the
+reference, so the comparison is valid on that axis — checked before the numbers, not after them,
+which is the whole point.
+
+Filed as **D68**. Four withdrawals cost more passes than every pre-registration this campaign
+will ever write.
