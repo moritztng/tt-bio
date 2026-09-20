@@ -44,6 +44,11 @@ def main() -> int:
                    help="run the DiT with every token real, against their DiT re-run "
                         "the same way, to separate an 85 %%-padding defect from a "
                         "384-token one")
+    # D23/R126: this instrument scores against S["xl_out"] in the captured boundary, so which
+    # capture it reads is part of the measurement. Defaults are the published 0.5.0 paths.
+    p.add_argument("--cap", default=CAP,
+                   help="captured diffusion boundary to score against")
+    p.add_argument("--out-dir", default=OUT)
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -110,8 +115,8 @@ def main() -> int:
         return v
 
     # ---- the reference boundary ---------------------------------------------------------------
-    B = torch.load(f"{CAP}/diffusion_boundary.pt", map_location="cpu", weights_only=False)
-    S = torch.load(f"{CAP}/sub_boundary.pt", map_location="cpu", weights_only=False)
+    B = torch.load(f"{a.cap}/diffusion_boundary.pt", map_location="cpu", weights_only=False)
+    S = torch.load(f"{a.cap}/sub_boundary.pt", map_location="cpu", weights_only=False)
     kw, cot, ref_grad = B["kwargs"], B["cot"], S["grad_f64"]
     si_all, zij_ref = S["cond_out"][0], S["cond_out"][1]
     batch = kw["batch"]
@@ -274,7 +279,7 @@ def main() -> int:
 
     DIT_REF = S["dit_out"]
     if a.mask_ones:
-        DIT_REF = torch.load(f"{CAP}/dit_out_maskones.pt", map_location="cpu",
+        DIT_REF = torch.load(f"{a.cap}/dit_out_maskones.pt", map_location="cpu",
                              weights_only=False)["dit_out_maskones"]
         token_mask = torch.ones_like(token_mask)
     err = None
@@ -395,7 +400,8 @@ def main() -> int:
            "best10": [(n, d) for d, n, _ in cmp_rows[:10]],
            "worst10": [(n, d) for d, n, _ in cmp_rows[-10:]],
            "error": None if err is None else f"{type(err).__name__}: {err}"}
-    path = os.path.join(OUT, f"device_gradient{a.tag}.json")
+    os.makedirs(a.out_dir, exist_ok=True)
+    path = os.path.join(a.out_dir, f"device_gradient{a.tag}.json")
     json.dump(rep, open(path, "w"), indent=1, sort_keys=True, default=str)
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10")},
                      indent=1, default=str), flush=True)
