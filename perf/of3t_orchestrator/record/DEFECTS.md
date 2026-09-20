@@ -5658,7 +5658,7 @@ What closes it: the aux_heads scope re-measured against a **0.4.3** reference, o
 confidence head run under CUDA autocast bf16 on the same captured boundary.
 Owner: `of3t-orchestrator`. **UNFIXED.**
 
-### D95. relative L2 over a PADDED activation deflates structural disagreements and not numerical ones, so it biases every forward reading toward "it is just precision". Measured: 39x, with a sign flip in the verdict. UNFIXED.
+### D95. relative L2 over a PADDED activation is not a reading of the model: it can deflate a structural difference 39x or inflate another 1.30x, and the distortion is NOT proportional to the padding fraction. FIXED at pass 176 — enumerated per reading, no A18 verdict affected. Both quantitative claims in this entry's original text were later corrected; read the closure at the end before quoting anything from the middle.
 
 Found while scoring D90's revision arm. The captured trunk boundary is 56 real tokens padded to
 384. Scoring the pair track over the whole padded tensor versus over the real 56x56 block only:
@@ -5920,7 +5920,7 @@ The reading that survives from D94 is the **other** half — `msa_module` is ine
 result is safe. The half that reached for an excuse for a failure did not survive contact with
 the measurement, which is the right way round for it to go.
 
-### D95 CLOSED at pass 176 — measured, no A18 verdict affected — and my characterisation of it was wrong TWICE.
+**D95 CLOSED at pass 176 — measured, no A18 verdict affected — and my characterisation of it was wrong TWICE.**
 
 `of3t-maskaudit` returned **GO**. It enumerated every activation-space reading from its producing
 script, recorded each one's padding fraction, recomputed the padded ones where a tensor survived
