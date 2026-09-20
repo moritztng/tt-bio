@@ -825,9 +825,17 @@ document was still quoting the superseded reading. Each line says who closed it,
    fall **43 %** — a different problem, not a bigger one, and no third lever is named.
    `perf/of3t_orchestrator/crop640/` carries the arithmetic and a `budget.py` that re-derives it
    from `of3t-l1`'s artifacts and refuses to run in a tree that lacks them.
-   **What is NOT priced** is the second lever, because nothing splits the 41.45 GB into recompute
-   versus tape — and that measurement can be taken at **384, where the backward completes**, so no
-   640 run is needed to size a 640 lever. **DISPATCHED at pass 200** as `of3t-crop640`, once qb2 came free (loadavg 0.09, zero device
+   **The lever pricing is SUPERSEDED at pass 203 and the deficit sizing is not.** `of3t-crop640`
+   measured the backward's PROFILE and the boundary set **drains**: at the 256 peak the recompute
+   working set is **71.17 %** of 6.81 GB and the retained boundaries are **1.11 %**, because
+   `_retire` clears the pin and deallocates as the backward walks down. `of3t-l1` read it the other
+   way and I inherited that. So "the spill covers 41 % of the deficit" priced a term that is ~1 % of
+   the peak. **The deeper point is the one to keep: the peak and the 640 failure are different
+   moments of the same backward** — 640 died inside the FIRST recompute, when the set was still
+   full, while 384 peaks later, when it has drained — so a single sample at the maximum cannot tell
+   them apart, and the row now keeps the whole profile with boundaries-plus-recompute taken CO-LIVE
+   rather than as two maxima added. The spill may still be the right lever **at the failure
+   moment**; that is a different measurement and neither `of3t-l1` nor I made it. **DISPATCHED at pass 200** as `of3t-crop640`, once qb2 came free (loadavg 0.09, zero device
    holders, all four cards). Held for two passes while qb2 carried `of3t-nanfloor` and
    `of3t-trunkg043` — and the reason I gave then was partly wrong and is corrected here: I wrote
    that "a memory peak read under contention is not a reading", conflating host load with device
@@ -957,7 +965,7 @@ PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, ne
 twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
 gradient it consumes is not.**
 
-Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `08733a69`**, 44 of 45 rows, 1269 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `61be6bf9`**, 44 of 45 rows, 1271 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the
