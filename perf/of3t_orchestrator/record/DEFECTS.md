@@ -5601,3 +5601,124 @@ because it was found second.
 **What closes it**: run 0.4.3's and 0.5.0's `PairFormerBlock` on the same captured boundary under
 CUDA autocast bf16, once with and once without `use_high_precision_attention=True`, and report the
 single-track distance. Owner: `of3t-orchestrator`. **UNFIXED.**
+
+### D94. D92's three unread diffs, read. msa_module is inert and the campaign's positive result is safe; aux_heads' two modules are NOT, and the failing scope cannot be attributed to our port. UNFIXED.
+
+D92 listed three upstream modules backing measured scopes that D22's inertness audit never
+covered, and said explicitly that line count locates but does not diagnose. Reading all three:
+
+**`msa_module.py` (20 lines) — INERT.** Every change is `clear_cache_between_blocks` plumbing and
+`torch.cuda.empty_cache()` becoming `empty_device_cache(device)`, plus a copyright line. No
+arithmetic, no masking, no dtype, no control flow that runs unless the caller opts into cache
+clearing. **`msa_module`'s 0.9474x pass is not contaminated by revision skew** — the campaign's
+positive result survives the audit D92 opened against it. This is the branch D92 warned had to be
+checked precisely because it was good news.
+
+**`head_modules.py` (6 lines) — NOT inert, but inert on the data measured.** 0.5.0 changes the
+single mask handed to the confidence head's pairformer embedding:
+
+    -   repr_x_pred, repr_x_mask = get_token_representative_atoms(...)
+    +   repr_x_pred, _            = get_token_representative_atoms(...)
+    -       single_mask=repr_x_mask,
+    +       single_mask=token_mask,
+
+`repr_x_mask` marks tokens whose representative atom is **resolved**; `token_mask` marks tokens
+that **exist**. They diverge exactly on tokens with a missing representative atom. Measured on the
+bundle's own `batch_step003` (5nw3): `repr_mask_sum = token_mask_sum = 56.0`, **0 differing
+tokens** — identical, so this change contributes nothing to the campaign's aux_heads reading. It
+is still a real behavioural difference and it fires on structures with unresolved atoms, which is
+most of the training set; it just does not fire here. A `pairformer_dtype` parameter is also
+threaded through.
+
+**`prediction_heads.py` (98 lines) — the alarming part is nothing and the real part is precision.**
+The `no_bin` 15 -> 39 and `max_bin` 20.75 -> 50.75 I flagged in D92 are **docstring** lines
+catching up to a config that already reads `min_bin 3.25 / max_bin 50.75 / no_bin 39` in
+**both** revisions. No shape change, no behavioural change, zero. I also described the
+de-indentation as *"a control-flow change, not cosmetics"*. It is neither: it is the removal of an
+`autocast` context manager. What is actually there is **two precision changes in opposite
+directions**:
+
+  - `embed_zij`: 0.4.3 wraps the si->zij projection and the distance-bin embedding in
+    `autocast("cuda", float32)` and casts back on the way out. 0.5.0 **removes** it — that block
+    now runs at ambient dtype. 0.5.0 is **less** precise here.
+  - the confidence `pairformer_stack` call: 0.5.0 **adds** `autocast("cuda", dtype=pairformer_dtype)`
+    (default `float32`) where 0.4.3 had none. 0.5.0 is **more** precise here.
+
+**So `aux_heads` — the scope that FAILS A18 at 3.6515e-01 and is carried as void — is backed by
+two modules that are both non-inert, and the live differences are precision, in both directions.**
+Its failure is not safely attributable to our port. That is the concrete resolution of the
+"cuts both ways" warning: the good news held and the bad news did not.
+
+**Same limit as D93 and it is the binding one.** Every precision difference found here acts
+through `torch.amp.autocast("cuda", ...)`, and CPU torch says so out loud — *"CUDA is not
+available or torch_xla is imported. Disabling autocast."* A CPU arm cannot size any of them. The
+reference bundle was built under CUDA autocast, which is exactly where they are live.
+
+What closes it: the aux_heads scope re-measured against a **0.4.3** reference, or both revisions'
+confidence head run under CUDA autocast bf16 on the same captured boundary.
+Owner: `of3t-orchestrator`. **UNFIXED.**
+
+### D95. relative L2 over a PADDED activation deflates structural disagreements and not numerical ones, so it biases every forward reading toward "it is just precision". Measured: 39x, with a sign flip in the verdict. UNFIXED.
+
+Found while scoring D90's revision arm. The captured trunk boundary is 56 real tokens padded to
+384. Scoring the pair track over the whole padded tensor versus over the real 56x56 block only:
+
+    pair track z            over 384x384 (padded)   over 56x56 (real)   dilution
+    revision 0.4.3 vs 0.5.0        0.005374              0.21040          39.2x
+    upstream's own bf16            0.019607              0.02441           1.2x
+    ratio (revision / bf16)        0.274                 8.620            31.4x
+
+**Read the two dilution figures side by side — that is the whole defect.** The bf16 error is
+diluted 1.2x and the structural difference is diluted 39x, because bf16 noise is generated
+everywhere including the padded rows, while the structural difference is generated only where
+the model does real work. Padding therefore does not scale a reading down uniformly. It scales
+the *numerical* term down barely and the *structural* term down by roughly the padding ratio.
+
+**And it flips the verdict, not just the number.** On the padded tensor the revision difference
+reads **0.27x** upstream's own bf16 — smaller than precision noise, i.e. *"the revisions agree to
+within bf16"*. On the real tokens it reads **8.62x** — nearly an order of magnitude **larger**
+than precision noise. Same tensors, same code, opposite conclusion, and the wrong one is the
+comforting one.
+
+**Scope of the exposure, stated honestly.** This is established on my own arm. The campaign's
+headline gradient readings are in **parameter space** (4,170 parameter tensors), where padded
+tokens contribute almost nothing and this mechanism is weak. The exposure is to
+**activation-space forward readings** — which includes A18, and includes the trunk forward's
+4.971863e-02 / 46.67x. Whether those were computed over padded or masked activations **is not
+recorded in any artifact I can find**, and that is the actual defect: A15/D17 says write the
+denominator down, and *"over which tokens"* turns out to be part of the denominator in a way the
+rule never spelled out.
+
+**What closes it**: every activation-space reading in the campaign records its padding fraction
+and whether padded positions were excluded; any that were not are recomputed on the real block.
+Cheap for a row that still has its tensors, impossible from the write-ups alone.
+Owner: `of3t-orchestrator`. **UNFIXED.**
+
+**D95, continued — the consequence for A18, added the same pass.** `THE_ANSWER.json`'s
+`honest_limits` records the campaign's scope as *"one batch (batch_step003, 5nw3, 56 real tokens,
+crop 384)"*. That is **the same boundary and the same 56/384 padding** this was measured on, so
+this is not a hypothetical transfer.
+
+A18 is the rule that *a disagreeing forward invalidates the gradient*. Its job is to catch a
+**wrong transform** — a structural difference. And the two dilution figures say exactly how well
+it can do that on a padded activation:
+
+    dilution of a NUMERICAL difference (bf16)      1.2x   -- A18 sees this almost undiminished
+    dilution of a STRUCTURAL difference (revision) 39.2x  -- A18 sees ~2.5 % of this
+
+**So A18 is sensitive to the error class it does not need to catch and nearly blind to the one it
+does.** A scope whose forward differs structurally by 10 % on real tokens reads 0.26 % padded and
+passes A18 comfortably; a scope that is merely imprecise reads almost its true value and is
+judged fairly. This does not mean the existing A18 passes are wrong — our port's disagreement with
+the reference is plausibly mostly numerical, and numerical error barely dilutes — but it means
+**an A18 pass on a padded activation is much weaker evidence than it has been treated as**, and
+the weakness is one-directional.
+
+It also reframes `aux_heads`, which **fails** A18 at 3.6515e-01 on a padded reading. If that is
+structural in character it is far worse than 0.365 on the real tokens; D94 has just shown both of
+its backing modules are non-inert between the revisions. The failing scope is the one where this
+matters most and it is the one where the reading is least trustworthy.
+
+**Minimum fix**: A18 is re-run with numerator and denominator restricted to real tokens, and the
+padding fraction is recorded beside every forward figure. Until then no A18 pass in the campaign
+should be quoted as evidence that a transform is right — only that it is not grossly imprecise.

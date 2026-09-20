@@ -8,7 +8,7 @@
   "total_pct": 100.0,
   "void_under_A18_pct": 2.8431
  },
- "as_of": "2026-09-20, orchestrator pass 175 (revised after D90/D91)",
+ "as_of": "2026-09-20, orchestrator pass 176",
  "by_scope": [
   {
    "a18_forward": "2.6e-03, PASS",
@@ -64,6 +64,8 @@
  "the_question": "do we reproduce OpenFold3 training on Tenstorrent? Measured as: does our training step's GRADIENT agree with the gradient upstream's own bf16 training step computes -- not with a float64 ideal neither side runs.",
  "what": "THE CAMPAIGN'S ANSWER, current as of pass 175. One place, superseding the scattered and partly-retracted artifacts listed under `supersedes`. Read this first.",
  "what_changed_at_pass_175": "I escalated the trunk's 46.67x as a PRODUCT DEFECT and withdrew it the same pass: reading the two upstream release trees showed 0.4.3 and 0.5.0 differ in the ending-node bias orientation, at the CALL SITE rather than the layer default, and our port implements the one matching our checkpoint. I then tried to confirm the magnitude by measurement and WITHDREW that too -- the estimate swings 0.81x / 135x / 3083x depending on weights and denominator, so it measures my choices. D90 stands on the source reading, which was never a magnitude argument.",
+ "what_changed_at_pass_176": "Three things, and the third is the one to read. (1) The owed revision arm RAN (THE_REVISION_ARM_RAN.json): the transpose_bias orientation flag, measured on upstream's own two release trees with identical p2 weights on this same boundary, is worth 8.62x upstream's own bf16 on the pair track -- real and substantial, but it does NOT account for the 46.67x. Pre-registered branch B fired: REOPEN. The control read exactly 0.0. (2) D93/D94 read the revision diffs D22 never covered: msa_module is INERT so the campaign's positive result is safe, but aux_heads' two backing modules are NOT, and the trunk carries a SECOND difference -- 0.5.0 runs its trunk attention with use_high_precision_attention=True and 0.4.3 does not. (3) D95: relative L2 over a PADDED activation dilutes a structural difference 39x and bf16 noise only 1.2x, on this exact 56-real/384-padded boundary. That flips the qualitative verdict and it means A18 -- the rule that a disagreeing forward invalidates the gradient -- is nearly blind to the wrong-transform error it exists to catch.",
+ "what_is_now_less_certain_than_it_was": "The GRADIENT headlines are parameter-space and D95 barely touches them; the percentages below stand. What weakens is the FORWARD evidence underneath them. Every A18 figure in this file was computed on a padded activation, so each pass is weaker evidence than stated and the aux_heads failure is less interpretable, not more. And the 7.8349 % with no direct reading -- which includes the trunk -- now has a MEASURED lower bound on how wrong scoring it against the wrong revision would be: 8.62x bf16 from one flag alone, with a second flag unquantified.",
  "what_would_close_it": {
   "the_2_pct": "0.74055 % can never be read -- it sits on a weight the shipped path applies on the host, so no device gradient for it exists. The rest is the trunk's 240 unplaced fused-qkv leaves and small embedders.",
   "the_51_pct": "an accurate softmax in the diffusion transformer. Known, bounded, and release-gated: no shipped precision lever reaches the bar and the float64 bound costs 13 s per structure against 2.5 s.",
