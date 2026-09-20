@@ -89,7 +89,13 @@ if bad:
 print(f"wide-k default on, {len(affected)} affected lengths, every requested rung fires")
 PYEOF
 
-$PY "$WT/perf/pvx_gate_land/sample_contention.py" > "$CONT" 2>/dev/null &
+# sample_contention.py writes its records to the file named by CONTENTION_OUT, NOT to stdout, and
+# its default is a pvx_arms path. Redirecting stdout therefore produced a 0-byte $CONT while the
+# AICLK went somewhere else, and a fold A/B with no during-sampled clock is not a measurement at
+# all on this box. Name the file the sampler actually writes, and keep its stderr.
+rm -f "$CONT"
+CONTENTION_OUT="$CONT" $PY "$WT/perf/pvx_gate_land/sample_contention.py" \
+  > "$CONT.sampler.log" 2>&1 &
 SAMPLER=$!
 trap 'kill '"$SAMPLER"' 2>/dev/null' EXIT
 
@@ -114,5 +120,26 @@ for c in d["cells"]:
           f"A/A {c['aa_spread_pct']:+.3f}%  A/B {c['ab_median_pct']:+.3f}%  "
           f"{'INSIDE THE FLOOR -> 0.0000 s' if c['inside_aa'] else 'outside the floor'}")
 PYEOF
-echo "AICLK during the folds (every card, sampled every 30 s): $CONT"
+kill $SAMPLER 2>/dev/null
+# The clock is not an optional annex to the number. Refuse to present a timing with no clock.
+[ -s "$CONT" ] || { echo "NO CLOCK RECORD at $CONT -- the timings above are unreportable"; \
+  cat "$CONT.sampler.log" 2>/dev/null; exit 1; }
+$PY - "$CONT" "$CARD" <<'PYEOF2'
+import json, sys
+path, card = sys.argv[1], sys.argv[2]
+mine, load = [], []
+for line in open(path):
+    r = json.loads(line)
+    v = (r.get("aiclk") or {}).get(card)
+    if isinstance(v, (int, float)):
+        mine.append(v)
+    load.append(r["loadavg"][0])
+n = len(mine)
+print(f"AICLK on card {card} DURING the folds, {n} samples: "
+      + (f"min {min(mine):.0f} max {max(mine):.0f} MHz" if n else "NONE RECORDED"))
+print(f"loadavg1 during the folds: min {min(load):.2f} max {max(load):.2f}" if load else "no load")
+if n and min(mine) < 1200:
+    print(f"WARNING: card dipped to {min(mine):.0f} MHz. Below ~1200 the clock sets the fold time, "
+          f"so this reads as a regression that is an artifact. Do not report it as a lever.")
+PYEOF2
 exit $rc

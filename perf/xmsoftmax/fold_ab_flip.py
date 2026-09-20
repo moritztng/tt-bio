@@ -30,7 +30,7 @@ Protocol, from the p3 pass that got a 20 aa cell wrong twice:
 
 Run it alone on the box. Every fold here is the measurement.
 """
-import argparse, json, os, statistics as st, subprocess, sys, time
+import argparse, json, os, shutil, statistics as st, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,7 +63,14 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
            "--model", model, "--single_sequence", "--sampling_steps", str(STEPS),
            "--diffusion_samples", "1", "--seed", str(SEED), "--out_dir", str(out_dir)]
     log = workdir / f"{tag}.log"
+    # Clear the output dir first. `tt_bio.main predict` short-circuits on an out_dir that already
+    # holds a finished prediction: it prints "All predictions complete", exits 0 in about 3 s and
+    # folds nothing. one_fold then read the PREVIOUS run's results.json and reported it as this
+    # run's. On 2026-09-20 that replayed a 14:06 cell into a 23:19 artifact, A/A floor and all,
+    # and the only tell was five folds of 25-70 s elapsing in 83 s of wall clock.
+    shutil.rmtree(out_dir, ignore_errors=True)
     t0 = time.monotonic()
+    t0_wall = time.time()
     with open(log, "w") as fp:
         rc = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fp,
                             stderr=subprocess.STDOUT).returncode
@@ -72,6 +79,10 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
         tail = "".join(log.read_text(errors="replace").splitlines(True)[-3:]).strip()
         return {"error": f"fold exited {rc}: {tail}"}
     results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+    # Belt and braces on the same failure: whatever the fold printed, a results.json older than
+    # this call did not come from this call.
+    if results.exists() and results.stat().st_mtime < t0_wall:
+        return {"error": f"stale results.json ({results}) predates this fold; it was not re-run"}
     try:
         rows = json.loads(results.read_text())
         ts = [r["runtime_s"] for r in rows
