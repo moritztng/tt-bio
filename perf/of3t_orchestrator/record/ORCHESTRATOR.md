@@ -167,14 +167,18 @@ Recomputed from the artifacts on every compose (161 checks, 0 drifted):
   exact, `d_1` exactly 0 on both sides. **D12**: the entity weighting agrees with upstream's
   own `mse_loss` to **3.662e-15** in float64. **D16**: that weighting now reaches all five
   models through one derivation, with the two conventions measured from their own featurisers.
-- **The comparison can now reach the gradient.** The device bijection covers **98.69 % of the
-  reference's squared gradient norm** (3,545 of 4,147 tensors), against the tracer's 4.05 % on the same reference.
-  **Pass 91 caveat, and it is on the denominator rather than the work:** 4,147 is
-  `OpenFold3(model_config).parameters()` at **0.5.0**; at 0.4.3, the revision this checkpoint
-  belongs to, it is **4,170** — 24 per-block DiT `layer_norm_z` weights our device model carries,
-  less the 1 hoisted shared norm. So this share is a share of the wrong model's norm and the
-  bijection never had those 23 parameters to map. Re-derivation against 4,170 is owed by
-  `of3t-rebase`.
+- **The comparison can now reach the gradient.** On the CORRECTED 0.4.3 reference the device
+  bijection carries **3,569 of 4,170 tensors (85.6 %)** holding **97.80 % of the squared
+  gradient norm**, against the tracer's **7.07 %** on the same reference; 601 are uncarried.
+  **The pass-91 caveat is CLOSED, and closing it moved the number.** The old share — 98.69 %
+  over 3,545 of 4,147 — was a share of the **0.5.0** model's norm, the wrong revision for this
+  checkpoint. `of3t-rebase` re-derived it on a card against 4,170: carried rises by exactly 24
+  and uncarried falls by exactly 1, the whole parameter-count difference, and **zero of the 24
+  new per-block DiT `layer_norm_z` are uncarried**. The two shares are **not comparable as
+  percentages** — they are shares of two different gradients, totals 3.206188185 against
+  3.707776369 — so 98.69 → 97.80 is a change of DENOMINATOR, not a regression. This field went
+  on quoting the superseded figure, and calling the re-derivation owed, for passes after it
+  was delivered.
 
 - **Two of the three measured trunk blocks are demonstrably right, not merely under a median.**
   With `norm_ratio` and `cos` emitted per tensor (pass 128), block 0 and block 23 have **94 %**
