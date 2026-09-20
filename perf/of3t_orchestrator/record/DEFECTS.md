@@ -6967,3 +6967,67 @@ floor is environment-sensitive at that level**, so every ratio must name which a
 
 `of3t-bwdaccum` is still live and owns the final reading; this entry records the discriminator's
 answer because it settles the mechanism question D116 was filed on.
+
+### §6 COVERAGE UPDATE (pass 203), not headed with a defect number. The `bond` term's mask FIRES on real upstream data, measured by `of3t-bondcov`; the gradient contribution is the remaining step.
+
+Three pieces closed in sequence, each one narrowing the last. `of3t-auxheads` named the predicate —
+`bond` is a **polymer–ligand** term and 0 of 8 corpus targets carry such a bond, so `bond_loss` read
+**0.0** and `‖g(bond=4) − g(bond=0)‖²` was **0.0 exactly** with 0 of 4,170 tensors moved. This row
+(pass 201) found carriers, verified at **mmCIF annotation** level: 5 of 10 candidates, with the two
+that reputation would have picked both failing. `of3t-bondcov` then closed the step between them,
+and named it exactly: **an annotation is not a feature tensor.**
+
+Measured at `finetune_1` / `weighted-pdb`, crop 384, 19 datapoints:
+
+| target | datapoints with a non-zero mask | `bond_mask` nnz | bond |
+|---|---|---|---|
+| **4G5J** | **7 of 7** | 1 | afatinib `0WN` covalently bound to EGFR Cys797 |
+| 4BYH | 6 of 12 | 1–2 | ASN–NAG |
+
+**13 of 19** carry a non-zero `bond_mask`. On 4G5J chain 1 the single entry is
+**(i=321 ligand, j=92 polymer)**, `token_bonds` nnz 212, `loss_weights.bond` **4.0**.
+
+**And the selection is from upstream's own corpus, not an addition to it**: 4G5J and 4BYH are both
+already in OpenFold3's training cache of **180,975 structures**. That matters more than finding
+*any* carrier would have — the term can be fired on data upstream itself trains on, so firing it is
+not a synthetic exercise. No bond was synthesised, no structure committed, corpus digest
+`e20b564af303d16e…`.
+
+**What is still owed** is the pre-registered second half: `‖g(bond=w) − g(bond=0)‖²` and the count
+of tensors moved. The bands are fixed — non-zero mask **and** non-zero gradient delta moves coverage
+to **8 of 8**; a non-zero mask with a **zero** gradient delta is its own finding and explicitly
+**not** a pass, because §6's test is that a term firing with no gradient contribution has been
+skipped with extra steps. `of3t-bondcov` is live and owns it.
+
+### D116 UPDATE 2 (pass 203). UNFIXED, but LOCALISED TO ONE MODULE. `of3t-bwdaccum` concluded NO-GO on a fix and delivered the diagnosis: the error is injected by the **AttentionPairBias backward**, and the four LayerNorm leaves are a symptom.
+
+The row ran the pre-registered cotangent scan first (recorded at pass 201: the single-track
+cotangent degrades from a correct seed to ~10x too large at cos ≈ 0.000 by mid-stack), then chased
+the injection to its source.
+
+**The leaves are exonerated by measurement.** The four LayerNorm affine leaves that hold **92.68 %**
+of the error mass have a backward that is **correct to 1.4e-02 against float64 on the operands it is
+handed**. They are where the error lands.
+
+**The injector is named**: the **AttentionPairBias backward**. Its cotangent to its own LayerNorm'd
+input runs **0.98x to 33.30x** the float64 reference's in norm, at **cos 0.019 to 0.920**, measured
+with the *correct* cotangent fed in at every block — so this is the module's own contribution, not
+inherited error.
+
+**And the control is what makes it stick.** The sibling **Transition** path, on the **same track** at
+the **same blocks**, reads norm ratio **1.00 to 1.04 at cos 1.000**. Same depth, same regime, same
+precision, same tape: one module is wrong by up to 33x and orthogonal, its sibling is exact. That
+rules out depth, the track, and the bf16 regime as the cause in one comparison.
+
+**Nothing shipped and the row proved it rather than asserting it**: every device arm ran the
+spied-off shipped config with only `scale_pair_bias` flipped; `compose_verify.sh`'s named assertion
+(`_want='scale_pair_bias=False, tri_att_scale_pair_bias=False'`, line 478) was run against this
+branch and holds; `git diff --name-only origin/wk/of3t-trunkg043 -- tt_bio/` is **empty**; the whole
+diff against its base is `perf/of3t_bwdaccum/` alone. It also says plainly that the full
+`compose_verify.sh` cannot run to completion inside one row's worktree and names the assertion it
+*is* gated on — a limit stated rather than papered over.
+
+**So the trunk's 5.8282 % is not reproduced and is no longer unexplained.** It has gone, over four
+rows, from "13.0x, cause unknown" to "the AttentionPairBias backward injects it, its sibling on the
+same track is exact, and the leaves carrying the error mass are innocent". `of3t-apbgrad` dispatched
+to fix that backward.
