@@ -102,12 +102,16 @@ class OF3ConfidenceHead:
     def _bw(self, i, name):
         return self._w[(_BLK % i) + name].float()
 
-    def _host_s_block(self, s, z_host, i):
+    def _host_s_block(self, s, z_host, i, s_mask=None):
         """One host-fp32 s-path block: AttentionPairBias + Transition (reference formula).
 
         ``s`` is [N, c_s] fp32; ``z_host`` is the device-computed [N, N, c_z] pair for this
         block (brought host-side for the pair-bias LN+linear, which must match the
         reference's no-sqrt-scaling formula). Returns the updated ``s``.
+
+        ``s_mask`` is the reference's ``single_mask`` as a [N] float, or None. Upstream's
+        AttentionPairBias adds ``inf * (mask - 1)`` to the scores over the key axis and its
+        SwiGLUTransition multiplies its output by the mask; both are reproduced here.
         """
         pfx = "attn_pair_bias."
         a = F.layer_norm(s, (_C_S,), self._bw(i, pfx + "layer_norm_a.weight"),
@@ -124,6 +128,8 @@ class OF3ConfidenceHead:
         k = k.view(N, _APB_HEADS, _APB_HEAD_DIM).permute(1, 0, 2)
         v = v.view(N, _APB_HEADS, _APB_HEAD_DIM).permute(1, 0, 2)
         scores = torch.einsum("hqd,hkd->hqk", q, k) + bias
+        if s_mask is not None:
+            scores = scores + (s_mask.reshape(1, 1, N) - 1.0) * 1e9
         o = torch.einsum("hqk,hkd->hqd", F.softmax(scores, dim=-1), v)
         o = o.permute(1, 0, 2).reshape(N, _APB_HEADS * _APB_HEAD_DIM)
         g = torch.sigmoid(F.linear(a, self._bw(i, pfx + "mha.linear_g.weight")))
@@ -135,11 +141,15 @@ class OF3ConfidenceHead:
                           self._bw(i, tpfx + "layer_norm.bias"))
         t = F.silu(F.linear(xn, self._bw(i, tpfx + "swiglu.linear_a.weight"))) * \
             F.linear(xn, self._bw(i, tpfx + "swiglu.linear_b.weight"))
-        s = s + F.linear(t, self._bw(i, tpfx + "linear_out.weight"))
+        t = F.linear(t, self._bw(i, tpfx + "linear_out.weight"))
+        if s_mask is not None:
+            t = t * s_mask.reshape(-1, 1)
+        s = s + t
         return s
 
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
-                max_atom_per_token_mask, use_zij_trunk_embedding=True):
+                max_atom_per_token_mask, use_zij_trunk_embedding=True,
+                token_mask=None, single_mask=None):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -150,6 +160,11 @@ class OF3ConfidenceHead:
             repr_x_pred: [N_tok, 3]   representative atom coords per token
             max_atom_per_token_mask: [N_tok * 23] broadcast of token_mask to atom slots
             use_zij_trunk_embedding: reference eval-mode flag (True -> keep zij_trunk)
+            token_mask: [N_tok] float/bool, or None. The reference passes
+                ``pair_mask = token_mask outer token_mask`` into the confidence Pairformer;
+                with None this runs unmasked, which is only equal to the reference when every
+                token is real. Pass it whenever the token axis carries padding.
+            single_mask: [N_tok], the reference's ``repr_x_mask``. Defaults to ``token_mask``.
 
         Returns:
             plddt_logits:                [N_atom, 50]
@@ -178,16 +193,32 @@ class OF3ConfidenceHead:
         to_dev = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev,
                                            dtype=ttnn.bfloat16)
         z_d = to_dev(z.unsqueeze(0))
+        # The reference masks the confidence Pairformer; running it unmasked lets padded tokens
+        # into every k-axis reduction and every softmax key axis. pair_mask goes to the two
+        # triangle multiplications and to the pair transition's output, the additive -1e9
+        # companion to the two triangle attentions, and single_mask to the host s-path.
+        pm_d = attn_d = None
+        s_mask = None
+        if token_mask is not None:
+            tm = torch.as_tensor(token_mask).reshape(-1).float()
+            s_mask = (tm if single_mask is None
+                      else torch.as_tensor(single_mask).reshape(-1).float())
+            pm_d = to_dev((tm[:, None] * tm[None, :]).reshape(1, N, N))
+            pm_u = ttnn.unsqueeze(pm_d, -1)
+            attn_d = to_dev(((1.0 - tm) * -1e9).reshape(1, 1, 1, N))
         s = si_trunk.clone()
         zf = z
         for i, blk in enumerate(self.pf.blocks):
-            u = blk.triangle_multiplication_start(z_d, None); z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            u = blk.triangle_multiplication_end(z_d, None);   z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            u = blk.triangle_attention_start(z_d, None);      z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            u = blk.triangle_attention_end(z_d, None);        z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            u = blk.transition_z(z_d);                        z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
+            u = blk.triangle_multiplication_start(z_d, pm_d); z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
+            u = blk.triangle_multiplication_end(z_d, pm_d);   z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
+            u = blk.triangle_attention_start(z_d, attn_d);    z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
+            u = blk.triangle_attention_end(z_d, attn_d);      z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
+            u = blk.transition_z(z_d)
+            if pm_d is not None:
+                u = ttnn.multiply_(u, pm_u)
+            z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
             z_host = torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
-            s = self._host_s_block(s, z_host, i)
+            s = self._host_s_block(s, z_host, i, s_mask)
             zf = z_host
         s_single, zij_conf = s, zf
 
