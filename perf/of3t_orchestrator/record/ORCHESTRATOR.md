@@ -866,8 +866,17 @@ document was still quoting the superseded reading. Each line says who closed it,
    no on-device configuration reaches the bar.** What remains here is a product decision, not a
    measurement.
 4. **The two inference defects — see Directive 1 item 1. Closed.**
-5. **The 2.0067 % with no reading — unchanged, and it is now 7.8349 %** because the trunk's
-   5.8282 % rejoined it when its reading was voided. 0.74055 % of it can never be read.
+5. **The 2.0067 % with no reading — and the trunk's 5.8282 % is back in the failing bucket at
+   pass 199, so this is 2.0067 % again.** Of it, **0.74055 % is blocked by one line, not by
+   nature** (corrected pass 202). It is the single tensor
+   `input_embedder.atom_attn_enc.linear_q.0.weight`: `openfold3_host_prep.py:256` does
+   `ttnn.to_torch(ql_d).float()` and line 259 applies it with `F.linear`, which severs the tape so
+   the weight cannot receive a gradient **however the comparison is set up**. That is real and it is
+   not "never" — `COVERAGE_CEILING_IS_NOT_100.json`'s own remedy is *"porting the op, not fixing a
+   number"*, and this field had widened a scoped claim ("unmeasurable **on device**") into an
+   unscoped one. Worth one further check by whoever ports it: `run_input_atom_encoder` has exactly
+   one caller, `tt_bio/worker.py:1544`, **which is the inference path** — whether the taped training
+   route goes through the same host round-trip is not established here.
 6. **The host float64 softmax as a product trade — ASKED at pass 198 (pin `9562`), pending.**
    Now that `of3t-nanfloor` has settled that **no on-device configuration reaches the bar** — four
    arms, controls bit-identical, shipped reproducing 7.426217e+00 — the trade is final and
@@ -914,7 +923,7 @@ independent bf16 reimplementation could, and a further 51.1358 % reaches the bar
 float64 softmax at **0.956x** for a measured **1.441x** cost — no on-device configuration reaches
 it, settled at pass 198. **94.8836 %** is measured and outside the bar, **2.8431 %** (`aux_heads`)
 measured and passing, **0.2666 %** survives a direct comparison, and **2.0067 %** has no reading at
-all, 0.74055 % of which never can.
+all — 0.74055 % of it blocked by one host round-trip that severs the tape.
 
 **The trunk is measured at last, and it is a BACKWARD defect.** `of3t-trunkg043` read the
 pairformer stack's gradient against the 0.4.3 reference over **2736 of 2736 tensors** — the whole
@@ -948,7 +957,7 @@ PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, ne
 twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
 gradient it consumes is not.**
 
-Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `96125b21`**, 42 of 44 rows, 1240 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Forty-six dispatched, forty-two concluded, four live (this row, `of3t-bwdaccum`, `of3t-crop640` and `of3t-bondcov`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `08733a69`**, 44 of 45 rows, 1269 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the
