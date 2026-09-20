@@ -131,6 +131,69 @@ The fixture PCC gate `tests/test_openfold3_diffusion_conditioning.py` skips on q
 in any case — 2.641e-03 relative L2 against a float64 reference on a real 384-token boundary,
 against that gate's PCC > 0.98 on a 76-token fixture — so the row is not held on it.
 
+---
+
+# Amendment 1 (orchestrator pass 151, D53) — the diffusion arm's mass-weighted number
+
+RERUN: the re-run this amendment asks for was already on disk and did not need a card.
+`perf/of3t_rebase/device_gradient_043pt.json` carries the per-tensor array for all **547 of
+547** compared tensors, with `rel_l2`, `ref_norm`, `device_norm`, `norm_ratio` and `cos`. It is
+the same measurement as the `device_gradient_043all.json` the campaign quotes, checked rather
+than assumed: 26 of 26 aggregate keys equal, all 48 `forward_rel` entries bit-identical
+doubles, the 48-entry accumulation probe bit-identical, `worst10` equal. And the boundary it
+read is now pinned directly rather than by inference — a one-structure re-run against
+`diffcap043` on card 2 reproduces that run's structure-0 forward rel **1.104135e-02** and probe
+norm **1.2509712481726117e-04** to the last digit. Analysis in
+`perf/of3t_conditioning/mass_on_the_diffusion_arm.py`, results in `MASS_ON_THE_DIFFUSION_ARM.json`.
+No number below was re-measured.
+
+DIFFUSION-ARM: the mass-weighted `rel_l2` over the 547 is **7.569**, against the same run's
+median-over-tensors of **0.16588** — the mass-weighted figure is **45.6x worse**, and the
+measured zero-model baseline is 1.0, so by mass this arm is **7.6x worse than a deleted
+model**. D53 predicted the direction and understated the size. The compared set holds
+**51.1358 %** of the model's squared gradient norm; the full reference mass our
+`OF3DiffusionModule` is asked to cover (the captured diffusion module minus the 26
+conditioning tensors, which are a separate class on our side) is **52.2644 %** of the model, so
+reach is **97.84 %** of scope with **1.1286 %** of the model in scope uncompared (A20). The
+bijection named 547 of 870 reachable device weights, and the 323 it did not name are
+1.13 % of the model between them, so incompleteness of the name map does not explain the
+reading. Both statements are true and they are different: by mass one leaf decides the
+number, and by count **474 of 547** tensors are over the 5.0e-02 per-tensor bar at a median
+of 0.166.
+
+LEAF: one leaf is **99.925 %** of the diffusion arm's squared error.
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight`, present in all 24 DiT blocks, holds
+25.579 % of the model and reads mass-weighted **10.698**, median 0.839, worst 18.504, minimum
+cosine **-0.8046** and maximum norm ratio **19.242**. The next leaf down,
+`attention_pair_bias.layer_norm_a.linear_g.bias`, is 0.030 % of the squared error. Grouping by
+leaf before reading the worst tensor is what makes this a locus rather than a tail: block 8
+looked like the location because block 8 is 9.84 % of the model, but the leaf misbehaves in
+every block. The control that makes it specific is one row down the same table —
+`conditioned_transition.layer_norm.layer_norm_s.weight` is the same kind of AdaLN gain on the
+other sub-block of the same 24 blocks, holds a comparable **15.513 %** of the model, and reads
+mass-weighted **0.183** with max norm ratio 1.240 and min cosine 0.800. So this is not AdaLN
+gains in general and not the DiT in general; it is the AdaLN gain inside
+`attention_pair_bias`. Mass-weighted rel inside the DiT is **8.195** and outside it **0.200**.
+
+HYPOTHESIS: D53's magnitude hypothesis is **REFUTED**. Over the full family of **24 of 24**
+blocks, Spearman rank correlation between `rel` and `||g_ref||` is **0.236** and a log-log fit
+gives slope 0.331 with **r² = 0.094** — 9 % of the variance. On the six worst points alone,
+the ones the hypothesis was formed from, the same correlation reads **0.657**. The trend was
+the selected tail, exactly as D53 said it might be. The family's actual signature is not
+magnitude but **direction and scale**: across the whole 547, **21 tensors holding 4.8058 % of
+the model have a NEGATIVE cosine** against the reference — our gradient points the other way —
+and **7 tensors holding 14.1415 % of the model have a norm ratio above 2**, up to 19.2 on
+block 8. Neither is visible in `rel`, which bounds r to [1-rel, 1+rel] and says nothing about
+c. Both were already in the run's own output and had never been read.
+
+The general lesson the amendment names is now enforced rather than argued:
+`perf/of3t_diffusion/device_gradient.py` writes the per-tensor array to a sidecar
+`device_gradient<tag>_per_tensor.json` **unconditionally**, not behind `--dump-per-tensor`, and
+every report and sidecar now records its `--cap`, its checkpoint and its argv. Tying
+`_043pt` back to `_043all` needed 48 bit-identical doubles precisely because no artifact said
+which boundary either had read. Validated by execution, not by reading: the one-structure run
+above wrote both files with 547 per-tensor entries and the provenance block populated.
+
 PROVES: our device `OF3DiffusionConditioning` computes the same function and the same parameter
 gradients as OpenFold3's `DiffusionConditioning` at BUNDLE-MIN-043's r = 0 boundary, to
 7.865e-03 mass-weighted over 36.9462 % of the model's squared gradient norm, with every one of
@@ -141,8 +204,15 @@ two of the four heavy tensors are additionally finite-difference validated, so n
 runs, at 7.911e-03, against a float64 reference recomputed from their code. The comparison is
 gated on a forward that agrees at 2.6e-03, its reach is the full reference mass in scope with
 nothing absent, and it is demonstrated to fail when the reference's own seed is permuted.
+Separately (Amendment 1): the diffusion arm's mass-weighted rel_l2 at the 0.4.3 boundary is
+7.569 against a zero-model 1.0, 99.925 % of its squared error sits in one leaf,
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight`, across all 24 DiT blocks, and D53's
+magnitude hypothesis for that leaf is refuted on the full family at r² = 0.094.
 
-DOESNOT: this is one gradient at one boundary of one step, so it proves the update rule's
+DOESNOT: Amendment 1's numbers are a re-analysis of a run taken by `of3t-rebase`, not a new
+measurement, so they inherit that run's scope exactly and add nothing to it; naming the leaf
+locates the disagreement and does not diagnose its cause, and no fix is proposed or made
+here. The conditioning arm proper: this is one gradient at one boundary of one step, so it proves the update rule's
 input at that point and says nothing about stability over a full run — not over 100k steps,
 not over any drift the optimizer accumulates, and not over the long-horizon behaviour a
 training reproduction would need. It is not a claim about the diffusion transformer (43.8936 %
