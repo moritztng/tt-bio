@@ -743,14 +743,18 @@ reference and the campaign has never measured what OpenFold3's **own training pr
 scores against it — upstream is not float64-clean (their own `autocast(float32)` and a
 forced `.float()` had to be removed to build the reference), so the bar's achievability by
 any implementation is unestablished. `bundle_min.py` already carries `--dtype float32` and
-no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only.
+no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only. **D71 (UNFIXED)**: the negative control every reference-precision figure rests on is **not
+a permutation** — 44 of its 45 replayed draws are byte-identical in place and the multiset
+differs, so one draw's content was replaced. Caught while it was still running. Until it is
+rebuilt, D69's and D70's numbers stay provisional: a small movement from it would mean the
+perturbation was small, not that the comparison cannot fail.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; seventy defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; seventy-one defects on the record, thirty-one of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7153,3 +7157,38 @@ bf16's own heaviest misses are the four `diffusion_conditioning` LayerNorm vecto
 **Still provisional, stated now rather than discovered later**: the permuted negative control
 had not landed when this was computed. Until it moves the headline by orders of magnitude the
 comparison has not been shown capable of failing. Filed as **D70**.
+
+---
+
+## Pass 171 — the control the whole result rests on is not a permutation
+
+D69 and D70 are both explicitly provisional on `of3t-refprec`'s permuted control moving the
+headline by orders of magnitude. The control was still executing — pid 42440, 36 minutes in — so
+I inspected its **input** instead of waiting for its output.
+
+`draws_recycles0_PERMUTED.pt` against `draws_recycles0.pt`, on the `torch_randn` list the replay
+actually consumes: **45 entries both, 44 byte-identical in place, multiset not equal, one
+position changed.** One draw of forty-five had its content replaced. **Nothing was reordered.**
+`noise_level`, `num_recycles` and `python_random` are byte-identical, which is correct — the
+draws are the one thing this control was supposed to disturb, and it disturbed 1/45 of them.
+
+**This had to be caught before the number, not after.** A small movement from this control reads
+naturally as *"the comparison cannot fail"* — and that reading would be wrong. It is evidence
+the **perturbation was small**, which indicts the control, not the instrument. The two are
+indistinguishable from the output alone; you can only separate them by looking at the input, and
+only before anyone has an interpretation to defend.
+
+**The name is the trap.** `_PERMUTED` describes an operation that was not performed. Named for
+its contents — *one draw replaced* — nobody would have read its result as a strong floor. Second
+time this campaign has been misled by a label, after `grads_f64.pt` naming the fp32 arms' output.
+
+Amendment 3 went to the row while live, in order of preference: rebuild it as a real permutation
+with an assertion that the multiset is preserved and **0 of 45** entries stay in place; or keep
+it, rename it, and state its true strength alongside the fraction of the computation one draw
+feeds (~2 % at 48 samples); and either way add the control that cannot be weak — compare the
+control's gradient against **arm2's** rather than the reference's, since both are
+fp32-with-upstream-casts differing only in draws.
+
+D69's and D70's arithmetic is untouched. arm2 and arm4 do not depend on this control for their
+*values*, only for their *credibility* — which is exactly why it gets fixed rather than
+explained away, and why both entries keep saying provisional until it is. Filed as **D71**.

@@ -4196,3 +4196,54 @@ failing, and none of these numbers is established. Recorded now rather than disc
 
 Owner: `of3t-refprec` for the reported result. Artifact:
 `perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`.
+
+---
+
+### D71. The negative control the whole reference-precision result rests on is not a permutation: 44 of its 45 replayed draws are byte-identical in place and the multiset differs, so one draw's content was replaced. Caught while it was still running. FOUND by `of3t-orchestrator`, pass 171. **UNFIXED.**
+
+Every number in D69 and D70 is provisional on `of3t-refprec`'s permuted control moving the
+headline by orders of magnitude — that is what shows the comparison capable of failing. The
+control was still executing (pid 42440, 36 minutes in), so I inspected its input rather than
+waiting for its output.
+
+`bundle_ref/draws_recycles0_PERMUTED.pt` against `draws_recycles0.pt`, on the `torch_randn`
+list the replay actually consumes:
+
+| | |
+|---|---|
+| length | 45 both |
+| entries **byte-identical in place** | **44 of 45** |
+| multiset equal (i.e. an actual permutation) | **False** |
+| positions changed | **1** |
+
+**One draw of forty-five had its content replaced. Nothing was reordered.** `noise_level`
+(1, 48), `num_recycles` and `python_random` are byte-identical — correctly so, since the draws
+are what the control was meant to disturb, and it disturbed 1/45 of them.
+
+**Why this had to be caught before the number rather than after.** If the control returns a
+small movement, the natural reading is *"the comparison cannot fail, so the instrument is
+broken"*. That reading would be wrong: it is evidence the **perturbation was small**, which
+points at the control and not the instrument. A negative control has to break what the check
+reads. The two failure modes are indistinguishable from the output alone — you can only tell
+them apart by looking at the input, and only before someone has an interpretation to defend.
+
+**The file's name is the trap.** `_PERMUTED` describes an operation that was not performed. Had
+it been named for what it contains — one draw replaced — nobody would have treated its result
+as a strong floor. This is the same class as a variable named for its intent rather than its
+content, and it is the second time this campaign has been misled by a label (after
+`grads_f64.pt` naming the fp32 arms' output).
+
+**Fix, given to the row in order of preference:** rebuild it as an actual permutation with an
+assertion that the multiset is preserved and **0 of 45** entries remain in place; or keep it,
+rename it, and state its true strength together with the fraction of the computation that one
+draw feeds (at 48 samples it may be ~2 %); and either way add the control that cannot be weak —
+compare the control's gradient against **arm2's** rather than the reference's, since both are
+fp32-with-upstream-casts differing only in draws, which isolates the perturbation exactly.
+
+**What this does and does not touch.** D69's and D70's arithmetic is unaffected — arm2 and arm4
+do not depend on this control for their *values*, only for their *credibility*, which is
+precisely why it needs fixing rather than explaining away. Until it is fixed, **every
+reference-precision figure on this record stays provisional**, and both defect entries already
+say so.
+
+Owner: `of3t-refprec`, told while live (brief amendment 3). **UNFIXED.**
