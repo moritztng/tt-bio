@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import ttnn
 
+from . import ops
 from .tenstorrent import Module, PairformerLayer, accurate_softmax_site
 from .openfold3_weights import remap_template_pair_stack, _sub
 
@@ -126,7 +127,11 @@ class TemplatePairStack(Module):
         for t in range(nt):
             v = t_embed[t:t + 1]                            # [1, N, N, c_t]
             for blk in self.blocks:
-                v = blk(None, v, pair_mask, attn_mask, attn_mask)[1]
+                # Through the seam. These are `PairformerLayer`s, the same class the trunk
+                # stack checkpoints, and a template is a full N x N pair track: run untaped
+                # here and one template's two blocks retain what the trunk's 48 do not.
+                v = ops.checkpoint_segment(
+                    lambda v_, b=blk: b(None, v_, pair_mask, attn_mask, attn_mask)[1], v)
             v = ttnn.layer_norm(
                 v, weight=self.ln_w, bias=self.ln_b, epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config)
