@@ -63,3 +63,36 @@ is a statement about an unknown, and the honest reading would have been unavaila
 One thing I asked for is still not stated and should be at conclusion: **the tolerance**. "Reads
 7.426217 to every published digit" is a stronger claim than a tolerance and is fine as reported,
 but the row should say what it would have done with a mismatch in the last digit.
+
+---
+
+## Second review point, pass 191: the accurate arm measures a REPAIRED lever, not the shipped one
+
+`8b6963af8` makes the accurate arm runnable by reimplementing the 5-op chain **inside the
+harness** with the clamp inline — `_d = ttnn.maximum(ttnn.minimum(_d, 0.0), -60.0)` in
+`perf/of3t_diffusion/device_gradient.py` — while importing `_accurate_softmax` and
+`_SOFTMAX_PRECISE_CKC` from `tt_bio`. The row is explicit about it in its own comment:
+*"`_accurate_softmax` verbatim returns NaN here."*
+
+**This is the right way round** — no shipped source moved, the whole repair is in `perf/`, and
+`git show --name-only` confirms the commit touches no `tt_bio/` file. It is release-gated
+exactly as the campaign requires.
+
+**But the conclusion has to carry two sentences, not one**, and they say different things:
+
+1. **The SHIPPED `_accurate_softmax` cannot produce a finite gradient on this scope.** That is a
+   property of what exists today and it is the answer to "is this lever available?" — no.
+2. **A one-op repair makes it measurable, and the arm reports what the lever *could* deliver.**
+   That is the useful engineering number and the input to any decision about fixing it.
+
+Reporting only (2) would say the lever reaches some figure when the thing in the tree does not
+run. Reporting only (1) would throw away the measurement that says whether repairing it is
+worth anything. The campaign's headline for the 51.1358 % needs both, and needs them
+distinguishable — this is the same discipline as A27 one level up: a number names the arm that
+produced it, and "the accurate softmax" now denotes two different functions.
+
+**Consequence worth stating in the conclusion too:** if the repaired lever clears the bar, the
+finding is not "an accurate softmax fixes the scope" but "a one-op fix to a shipped helper
+would make an accurate softmax available, and then it fixes the scope" — which is a much more
+actionable sentence, and it is owed to whoever maintains `_accurate_softmax`, since the same
+helper ships `default=True` in two production models.
