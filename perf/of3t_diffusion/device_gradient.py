@@ -247,6 +247,8 @@ def main() -> int:
     # same as the shipped one because nothing fired is not a bound, so the count is published
     # and a zero count is a hard failure.
     softmax_calls = [0]
+    trace = []
+    fwd_trace = []
     if a.softmax_f64:
         from tt_bio import taped_ttnn as TT
 
@@ -284,15 +286,24 @@ def main() -> int:
             return 2
         from tt_bio import taped_ttnn as TT
         from tt_bio.autograd import precise_config
-        from tt_bio.tenstorrent import _accurate_softmax
+        from tt_bio.tenstorrent import _accurate_softmax, _SOFTMAX_PRECISE_CKC
+        probe = os.environ.get("OF3T_SOFTGRAD_PROBE") == "1"
+        bad = []
         shipped_softmax_rule = TT._VERBS["softmax"]
 
         def precise_forward_rule(shipped, args, kwargs):
-            """of3t-adaln's `precise_forward_rule`: the shipped tape rule with
-            precise_config() on the FORWARD softmax call, backward untouched."""
+            """precise_config() on the FORWARD softmax call, backward untouched.
+
+            of3t-adaln's rule wrote this with `kwargs.setdefault(...)`, and every softmax call
+            site in this path passes `compute_kernel_config=self._softmax_ckc` EXPLICITLY
+            (openfold3_diffusion_transformer.py:209, openfold3_atom_transformer.py:184).
+            `softmax_ckc` returns None when the site flag is off, so the key is present with
+            value None and `setdefault` cannot write it: the arm fired 1,440 times and returned
+            all 547 gradient tensors bit-identical to shipped. Assignment, not setdefault, and
+            the config is the shipped `_SOFTMAX_PRECISE_CKC` rather than a second copy of it."""
             softmax_calls[0] += 1
             kwargs = dict(kwargs)
-            kwargs.setdefault("compute_kernel_config", precise_config())
+            kwargs["compute_kernel_config"] = _SOFTMAX_PRECISE_CKC
             return shipped_softmax_rule(shipped, args, kwargs)
 
         def accurate_forward_rule(shipped, args, kwargs):
@@ -308,15 +319,58 @@ def main() -> int:
                 raise AssertionError(
                     f"--softmax-lever accurate got dim={dim} on a rank-{nd} tensor; "
                     f"_accurate_softmax only reduces the last axis")
-            y0 = _accurate_softmax(x.value, compute_kernel_config=precise_config())
+            # `_accurate_softmax` verbatim returns NaN here, and the reason belongs where the
+            # arm is defined. `ttnn.max` rounds its result to bf16, so on a row whose keys are
+            # ALL masked (-1e9, which the atom encoder block-sparse attention produces for a
+            # padded query block) the reduction comes back 1.76e6 ABOVE the true row max. Every
+            # exponent is then -1.76e6, `exp` underflows the whole row to zero, the sum is zero
+            # and the divide is 0/0. Measured standalone in FULLY_MASKED_ROW_OVERFLOW.json:
+            # 114,688 non-finite entries, exactly the masked rows, where the fused kernel on the
+            # same input is finite.
+            # The repair is one op. Clamping the exponent at -60 is a no-op where the max is
+            # right -- exp(-60) is 8.8e-27 against a row sum of 1 -- and turns a fully-masked
+            # row into a uniform distribution, which is masked out downstream anyway. -88 does
+            # NOT work: exp(-88) is subnormal in fp32 and flushes to zero, so the sum is zero
+            # again. This is the chain a shipped version would have to carry.
+            xv = x.value
+            _m = ttnn.max(xv, dim=-1, keepdim=True)
+            _d = ttnn.subtract(xv, _m)
+            ttnn.deallocate(_m)
+            _d = ttnn.maximum(ttnn.minimum(_d, 0.0), -60.0)
+            ttnn.exp(_d, output_tensor=_d)
+            _s = ttnn.sum(_d, dim=-1, keepdim=True,
+                          compute_kernel_config=_SOFTMAX_PRECISE_CKC)
+            y0 = ttnn.divide(_d, _s)
+            ttnn.deallocate(_d)
+            ttnn.deallocate(_s)
+            if y0.dtype != xv.dtype:
+                _q = ttnn.typecast(y0, xv.dtype, memory_config=y0.memory_config())
+                ttnn.deallocate(y0)
+                y0 = _q
+            n = softmax_calls[0]
+            if probe:
+                xf = torch.isfinite(ttnn.to_torch(x.value)).all().item()
+                yf = torch.isfinite(ttnn.to_torch(y0)).all().item()
+                if not (xf and yf):
+                    bad.append(f"fwd call {n} shape {tuple(x.value.shape)} "
+                               f"x_finite={xf} y_finite={yf}")
             box = [y0]
 
             def make():
                 def bw(g):
                     y = box[0]
                     inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True,
-                                     compute_kernel_config=precise_config())
-                    x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+                                     compute_kernel_config=_SOFTMAX_PRECISE_CKC)
+                    d = ttnn.multiply(y, ttnn.subtract(g, inner))
+                    if probe:
+                        gf = torch.isfinite(ttnn.to_torch(g)).all().item()
+                        yf = torch.isfinite(ttnn.to_torch(y)).all().item()
+                        inf_ = torch.isfinite(ttnn.to_torch(inner)).all().item()
+                        df = torch.isfinite(ttnn.to_torch(d)).all().item()
+                        if not (gf and yf and inf_ and df):
+                            bad.append(f"bw call {n} shape {tuple(y.shape)} g={gf} y={yf} "
+                                       f"inner={inf_} out={df}")
+                    x.add_grad(d)
                 return bw
 
             out = TT._tape(y0, [x], make)
@@ -327,6 +381,42 @@ def main() -> int:
         TT._VERBS["softmax"] = {"precise": precise_forward_rule,
                                 "accurate": accurate_forward_rule}[a.softmax_lever]
         TT._SHIM.__dict__.pop("softmax", None)
+
+        if os.environ.get("OF3T_SOFTGRAD_PROBE") in ("2", "3"):
+            # Wrap every verb, softmax included, and record (verb, whether the gradient handed
+            # to its closure was finite) in backward execution order. The first False names the
+            # verb whose CONSUMER produced the infinity, and the entries before it are the last
+            # healthy steps, so the pair localises the creation to one op.
+            fwdprobe = os.environ.get("OF3T_SOFTGRAD_PROBE") == "3"
+
+            def wrap(name, rule):
+                def impl(shipped, args, kwargs):
+                    out = rule(shipped, args, kwargs)
+                    if fwdprobe:
+                        try:
+                            v = getattr(out, "value", out)
+                            shp = tuple(v.shape)
+                            okf = bool(torch.isfinite(ttnn.to_torch(v)).all().item())
+                            fwd_trace.append((name, okf, shp))
+                        except Exception:
+                            pass
+                    nd = getattr(out, "node", None)
+                    if nd is not None and getattr(nd, "fn", None) is not None:
+                        inner_fn = nd.fn
+
+                        def checked(g, _n=name, _f=inner_fn):
+                            ok = bool(torch.isfinite(ttnn.to_torch(g)).all().item())
+                            trace.append((_n, ok, tuple(g.shape)))
+                            return _f(g)
+
+                        nd.fn = checked
+                    return out
+                return impl
+
+            for _nm, _rule in list(TT._VERBS.items()):
+                TT._VERBS[_nm] = wrap(_nm, _rule)
+                TT._SHIM.__dict__.pop(_nm, None)
+            print("PROBE2 armed on", len(TT._VERBS), "verbs", flush=True)
         print(f"[{time.perf_counter()-t0:.0f}s] softmax lever '{a.softmax_lever}' installed on "
               f"the tape verb", flush=True)
 
@@ -613,6 +703,22 @@ def main() -> int:
                                      and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
            "softmax_lever": a.softmax_lever or None,
+           "nonfinite_probe": (bad[:40] if a.softmax_lever == "accurate" else None),
+           "nonfinite_probe_count": (len(bad) if a.softmax_lever == "accurate" else None),
+           "probe2_len": len(trace) or None,
+           "probe3_len": len(fwd_trace) or None,
+           "probe3_first_bad": next(
+               ({"index": i, "verb": v, "shape": list(s),
+                 "previous": [{"verb": pv, "finite": pok, "shape": list(ps)}
+                              for pv, pok, ps in fwd_trace[max(0, i - 8):i]]}
+                for i, (v, ok, s) in enumerate(fwd_trace) if not ok),
+               ("ALL FINITE" if fwd_trace else None)),
+           "probe2_first_bad": next(
+               ({"index": i, "verb": v, "shape": list(s),
+                 "previous": [{"verb": pv, "finite": pok, "shape": list(ps)}
+                              for pv, pok, ps in trace[max(0, i - 8):i]]}
+                for i, (v, ok, s) in enumerate(trace) if not ok),
+               ("ALL FINITE" if trace else None)),
            "softmax_calls_intercepted": softmax_calls[0],
            "host_f64_verbs": hf64_verbs or None,
            "host_f64_calls_intercepted": (
