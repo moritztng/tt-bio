@@ -291,18 +291,21 @@ GAP: the open defects are enumerated in `state/of3t/DEFECTS.md` and every UNFIXE
 named here by number, which the compose audit now checks mechanically so this field cannot
 drift again unnoticed.
 
-**D25: THE PUBLISHED REFERENCE HAS A BOX-TO-BOX FLOOR OF 6.224e-02 WITH NO MODEL OF OURS IN
-IT.** `perf/of3t_gradients/replay_vs_r0.json` compares a qb2-CPU r = 0 replay against the
-republished r = 0 tape produced on a rented A100 — **upstream against upstream**, same revision,
-same batch, same replayed draws, dropout off both sides — and reads median **6.224e-02 over 171
-tensors with 151 over the 5.0e-02 bar** (per block 5.707e-02 / 6.198e-02 / 7.379e-02). D19 records
-a diffusion-scope floor of 6.444e-02 and attributes it to our forward gap; **the causal story D19
-tells cannot produce this one**, because our model is absent from it. So a scope-independent
-~6.2e-02 term exists with no port defect in it, and how the two contributions divide is open. It
-also leaves an inconsistency to settle before any trunk arm is read: at block 0 the floor is
-5.707e-02 while the `tb-off` arm reads **1.15e-02**, *below* the floor under it — either the A14
-rule removes the near-degenerate tensors the floor is concentrated in, or the terms partially
-cancel. UNFIXED. Owner `of3t-rebase`.
+**D25: UPSTREAM REPLAYED AGAINST UPSTREAM ACROSS BOXES READS 6.224e-02 — AND IT IS NOT A FLOOR
+ON OUR ARMS.** `replay_vs_r0.json` compares a qb2-CPU r = 0 replay against the republished r = 0
+A100 tape, same revision, same batch, same replayed draws, dropout off both sides: median
+**6.224e-02** over 171 tensors, **151 over the bar**, none of our code in it. Pass 93 called that
+a floor bounding every comparison taken against the bundle and flagged the `tb-off` arm's
+1.148e-02 as an inconsistency. **`of3t-rebase` refuted both and it is right.** A14 removes three
+tensors, one per block, collapsing the worst case 2.2439 → 0.1744 while moving the median
+6.2244e-02 → 6.2147e-02; the tensor sets match 52 to 52. The actual reason is that the two
+contrasts **share a subtrahend** — floor is `upstream_CPU − ref_A100`, arm is `ours − ref_A100`,
+and two differences against one reference do not order each other. So the framing is withdrawn,
+and the rebuild on qb2 CPU **removes** a box term from the arms rather than adding one. What
+survives is the correction to **D19**, whose 6.444e-02 is the same upstream-against-upstream
+measurement: its attribution to our forward gap is impossible, and its conclusion that *"nothing
+can read below 6.4e-02"* does not follow from a shared-subtrahend contrast either. MEASURED,
+owner `of3t-rebase`.
 
 **D24 IS A SHIPPED-INFERENCE DEFECT ON THE SHIPPED DEFAULT, independent of D1.** On a single
 chain `openfold3_fold.py:277` ranks samples with `0.8*iptm + 0.2*ptm + 0.5*disorder -
@@ -429,7 +432,7 @@ either side**: the GPU baseline's method is pre-registered and nothing is measur
 second half of Moritz's bar is untouched.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows; twenty-five
-defects on the record, eleven of them UNFIXED**, three raised in the last five passes.
+defects on the record, ten of them UNFIXED**, three raised in the last five passes.
 
 **PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
 REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
@@ -3175,3 +3178,44 @@ construction rather than by luck.
 
 `of3t-confhead` is folding on qb2 — the repin took, `queue.tsv` reads `qb2 any`, and it reports
 1 of 18 folds captured across two campaigns.
+
+PASS 94. **`of3t-rebase` refuted my D25 framing within the hour and the refutation is better than
+the finding was.**
+
+Pass 93 measured upstream replayed against upstream across boxes at one revision — median
+6.224e-02 over 171 tensors, 151 over the bar, none of our code in it — and then drew two
+conclusions from it that do not hold: that it bounds every comparison taken against the bundle,
+and that the `tb-off` arm reading 1.148e-02 beneath it was an inconsistency needing explanation.
+I offered two candidate explanations. The row tested both and refuted each, then found the real
+one.
+
+A14 is not it: it removes exactly three tensors, one per block, all
+`attn_pair_bias.layer_norm_z.bias` at reference norms 1.089e-19 / 4.181e-19 / 1.932e-17,
+collapsing the **worst** case 2.2439 → 0.1744 at block 0 while moving the **median** by nothing,
+6.2244e-02 → 6.2147e-02 across all 171. The tensor set is not it: matched 52 to 52, none absent
+either side.
+
+**The two contrasts share a subtrahend.** The floor is `upstream_CPU − reference_A100`; the arm is
+`ours − reference_A100`. Two differences taken against the same reference do not order each other
+— the triangle inequality bounds their difference by the distance between our gradient and
+upstream's and says nothing about which is larger. "A comparison cannot be tighter than the floor
+under it" is true of an *independent* noise floor and false here, and I applied it without
+checking which kind I had.
+
+**It inverts the remedy too.** Building BUNDLE-MIN-043 on qb2 CPU does not add a box confound, it
+removes one: the published arms were ours against upstream-on-A100, the corrected arms are ours
+against upstream-on-qb2. The 0.5.0-on-qb2 control still earns its time — it is what isolates the
+A100-to-CPU term at fixed revision so the revision effect can be stated alone — but it is no
+longer repairing a defect in the rebuild, it is measuring a term.
+
+**What survives is the half that bears on D19, and it is now sharper.** D19's 6.444e-02 comes from
+*"their model against their own bundle entries"* — the same upstream-against-upstream measurement
+at diffusion scope — and D19 attributes it to our forward gap and concludes that *"until D19
+closes nothing compared against the bundle at this scope can read below 6.4e-02."* That is wrong
+twice over: a replay of upstream against upstream cannot contain our forward gap, and a
+shared-subtrahend contrast is not a bound even if it could. D19's floor is a measurement of
+cross-box reproducibility, not a limit on anything.
+
+Two passes running now where a row has corrected me on substance — `of3t-confhead` on the D10
+marginals, `of3t-rebase` here — and in both cases the row was right and had done the arithmetic.
+That is the campaign's §3e discipline working in the direction it is hardest to apply.
