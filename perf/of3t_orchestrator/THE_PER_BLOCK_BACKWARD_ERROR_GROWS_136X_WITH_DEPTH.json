@@ -1,0 +1,37 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 182 -- arithmetic over of3t-trunkback's published ds_in cosines, no new measurement, CPU only",
+
+ "headline": "The trunk's per-block backward error is NOT uniform over depth -- given an equally CLEAN input cotangent, block 47's single-track error is 136x block 0's. It grows about 1.09-1.13 per block. This refines the pass-181 compounding model, which assumed one per-block error compounding 48 times. And upstream's OWN all-bf16 run over the same 48 blocks lands at cos 0.194 (r = 5.05), so the chained 48-block cotangent is an intrinsically brutal quantity in bf16 -- our defect against it is 13.0x, not the 268x the float64 headline implies.",
+
+ "the_conversion_and_its_assumption": "r = ||error perpendicular to reference|| / ||component parallel to reference||, from cos = 1/sqrt(1+r^2). This assumes the usual parallel/perpendicular decomposition against the reference; it is a restatement of of3t-trunkback's published cosines, not a new measurement, and r is relative to the PARALLEL component, not to the reference's norm. Two or three points are not a curve and no constant here is fitted.",
+
+ "single_blocks_each_given_a_clean_captured_cotangent": {
+  "block_0":  {"cos": 0.999988, "r": 0.004899},
+  "block_23": {"cos": 0.999318, "r": 0.036951},
+  "block_47": {"cos": 0.831806, "r": 0.667303},
+  "spread": "136.2x from block 0 to block 47",
+  "per_block_growth": {"b0_to_b23": 1.0918, "b23_to_b47": 1.1281},
+  "why_this_is_not_contamination": "each of these is a COMPLETE single-block problem -- of3t-trunkback captured that block's own input and its own output cotangent, and both sides are driven by the same captured cotangent. No error arrives from above. So the 136x is intrinsic to the block AT THAT DEPTH, and since every block runs the same code, what differs is the conditioning of the activations there."
+ },
+
+ "what_this_corrects": "pass 181 wrote that compounding a measured per-block error of 4.125325e-02 over 48 blocks predicts 5.9615 against a measured 5.351880, and concluded 'no mechanism beyond the per-block error compounding is required'. The closing arithmetic stands, but its premise -- ONE per-block error, applied 48 times -- is now measured to be false: the per-block error spans 136x over depth. The agreement of that calculation is therefore weaker evidence than it looked, because a 48-fold product is insensitive to how the factor is distributed. The conclusion it was used for (amplified, not accumulated) does NOT depend on uniformity and still holds: the chain reads 98.3x the worst single block it contains.",
+
+ "the_chain_still_exceeds_every_block_in_it": {
+  "worst_single_block_r": 0.667303,
+  "chain_of_48_r": 65.613484,
+  "ratio": "98.3x -- so chaining creates error far beyond any block's own contribution, which is the amplification result and is unaffected by the non-uniformity above"
+ },
+
+ "the_sobering_part_and_it_may_move_the_BAR": {
+  "upstream_own_all_bf16_over_the_same_48_blocks": {"cos": 0.194406, "r": 5.046},
+  "ours": {"cos": 0.015239, "r": 65.613},
+  "ours_over_floor": "13.0x",
+  "reading": "upstream's own implementation, every parameter and activation in bfloat16 with no autocast, run over the same 48 blocks against the same float64 reference, ends up at cosine 0.194 -- nearly orthogonal. The 48-block chained single-track cotangent is an ill-conditioned quantity in bf16 for ANYONE. So our real defect is 13.0x upstream's own bf16, not the 268x that 5.367727 against a 2.0e-02 float64 bar implies, and most of that 268x is a floor no bf16 port can beat.",
+  "independent_cross_check": "of3t-trunkback reached 12.75x for the PARAMETER gradients by a different route. This 13.0x is for the cotangent DIRECTION and is derived only from cosines. Two statistics, two derivations, agreeing to 2 %.",
+  "what_it_does_NOT_license": "relaxing the bar. PROTOCOL fixes the bars before measuring and A26-SCOPE already says the reachable bar against a FLOAT64 reference is the threshold itself with no sqrt(2). Whether a scope whose bf16 floor is cos 0.194 should be scored against float64 at all is a PROTOCOL question for a written amendment, argued in front of the numbers -- not something to decide inside a result file. Flagged, not taken."
+ },
+
+ "what_it_tells_a_successor_row": "stop looking for one op that is wrong everywhere. The per-block error tracks DEPTH, the blocks are identical code, and each was measured with a clean input -- so the candidate class is whatever varies with depth in the activations the backward multiplies: growing activation norms, a residual stream that widens, a normalisation whose Jacobian conditioning degrades as its input scale grows. The cheap discriminator is a per-block ladder of single-block backward error at more than three depths, plus the activation norm at each, which of3t-trunkback's captures already support without a new forward.",
+
+ "provenance": "of3t-orchestrator pass 182 on pc, CPU only. Every input is from origin/wk/of3t-trunkback at c38371a89, tables IG_CHAIN.json / IG_LADDER.json as quoted in state/of3t-trunkback.md's VERDICT. No number here is a new measurement and none is mine."
+}
