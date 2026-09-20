@@ -407,11 +407,13 @@ per-tensor array I told a live row to produce had been on disk three hours, D52'
 recurring against me. **D55 (UNFIXED)**: the tape gives `precise_config()` to the reductions
 feeding weight gradients and withholds it from the four inside near-cancellations — the
 softmax backward among them — unmeasured, five models if real, release-gated either way.
-**D56 (UNFIXED)**: the 25.5795 % is an ill-conditioned reduction (`K ≈ 1.3e+06`) amplifying a
-constant **~2,172x** device arithmetic floor — and torch fp32 computes the same sum **inside
-the bar**, so the floor is the source and the conditioning only the multiplier; the one lever
-that could close it, the bf16 product forming the summands inside an otherwise-precise
-reduction, is untested. **D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
+**D56 (UNFIXED, mechanism withdrawn)**: the 25.5795 % sits on a constant **~2,172x** device
+arithmetic floor against torch fp32, which is a port gap and not a property of the
+arithmetic. The conditioning explanation that accompanied it is **withdrawn by D62** — the
+`K ≈ 1.3e+06` it rested on was interpolated off the curve being explained, and the directly
+measured K is **172.60**, at which the ladder's own host-fp32 column reads ~1e-06. What
+produces the observed magnitudes is unexplained.
+**D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
 `of3t-adaln`'s float64-softmax arm puts blocks 8, 0 and 12 all inside the bar, block 0 being
 one of the anti-correlated ones, so there is one mechanism. My ladder assumed a *correct*
 softmax perturbed by rounding residue; the real forward is **biased** by 2.27e-02, and a biased
@@ -732,7 +734,7 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; sixty-six defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; sixty-seven defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6911,3 +6913,91 @@ with its strength stated rather than its story.
 
 Both rows are still running: `of3t-refprec` building the fp32 bundle, `of3t-softmax` finished
 with its NO-GO and its gate passing.
+
+---
+
+## Pass 166 — the field Moritz reads as the answer was 178 KB, and every check said it was fine
+
+I measured the nine owed fields instead of reading them, which I had never done:
+
+    PROVES      9,087 chars    108 lines
+    DOESNOT    11,227 chars    139 lines
+    GAP        28,332 chars    334 lines
+    VERDICT   177,928 chars  2,371 lines
+
+**Every pass appends after the last field, and VERDICT is the last field.** A hundred and
+sixty-five passes of narrative had landed inside the one field a reader treats as the answer.
+The verdict itself — PARTIAL, the three mass shares, the row and defect counts — is its **first
+eight lines**. The other 2,363 are history.
+
+**And the audit was green throughout.** It checks VERDICT's *content* carefully — the
+distance-to-go shares against the artifact, the defect and UNFIXED and concluded-row counts, the
+amendment phrase — and every one of those lives in the first eight lines and passed. **None
+reads its size.** A field can be entirely correct and entirely unusable, and no content check
+can tell the difference.
+
+Fixed with a `PASSLOG:` field placed immediately after the verdict's own statement: the field
+regex terminates VERDICT there, so **VERDICT is 757 characters over 10 lines** and PASSLOG holds
+the history behind a header that says what it is and why it moved. Both readers re-verified
+after the cut — the compose audit reads all nine fields and passes, and the DONE_CHECK still
+parses VERDICT and still refuses on PARTIAL.
+
+And guarded, because a fix without a guard just resets the clock: `audit_evidence.py` now caps
+each owed field (VERDICT 4,000, PROVES and DOESNOT 20,000, GAP 40,000) and fails naming the
+field and its size. GAP at 28,332 is inside its cap and worth watching.
+
+**This is the fifth guard-shaped defect the campaign has found in its own instruments, and the
+first where the guard was not too narrow but measuring the wrong axis.** The others failed on
+vocabulary (word lists stopping at twenty, at twenty-four), on form (prose against token), on
+staleness (a superseded artifact). This one failed on **dimension**: every check asked *is it
+right?* and none asked *is it readable?* A document a human acts on needs a size check as well
+as a content check, and the size check is one line.
+
+Filed as **D66**. Both rows are healthy and mid-work — I checked rather than assumed, after
+finding `of3t-softmax` twenty minutes past a passing gate with 0 % CPU on its outer shell: its
+engine is alive on pc at 1.5 %, resumed, and `of3t-refprec`'s is at 1.9 % building the fp32
+bundle.
+
+---
+
+## Pass 167 — a withdrawal that is not propagated is not a withdrawal
+
+`of3t-softmax` concluded — twenty-two rows — and its DONE line publishes a figure I withdrew
+before it was written.
+
+Over passes 158–161 I withdrew four numbers: `K ≈ 1.3e+06` (D62; the measured value is
+**172.60**), the **0.1867** post-fix floor (it assumed sectional independence), the **6.9×**
+exact-softmax figure (a block-arm factor applied to a whole-arm number with a 6.8× margin), and
+the **two-mechanism** reading (D57, refuted). Each was recorded properly — artifact, DEFECTS,
+pass log. **None reached the places carrying the numbers.** A grep found all four alive in both
+concluded briefs, in **my own GAP field** — where D56 still read *"the 25.5795 % is an
+ill-conditioned reduction (`K ≈ 1.3e+06`)"* as fact, three passes after D62 — and in the row's
+concluding DONE line, which now reads *"an exact softmax 6.9x over"*.
+
+The row did nothing wrong. It quoted its brief, and the brief carried the figure because I never
+amended it after withdrawing it. **A withdrawal recorded only in my own record is a note to
+myself while the wrong number keeps being published.** Filed as **D67**, with the rule: when a
+figure is withdrawn, grep the fleet for it and correct every live occurrence in the same pass —
+the withdrawal is done when nothing is still quoting it, not when the artifact says so.
+
+Fixed: GAP's D56 entry rewritten to state the floor (~2,172× against torch fp32, a port gap)
+without the withdrawn mechanism, and an append-only correction note on both briefs naming all
+four withdrawals and what replaced them. Occurrences inside PASSLOG stay — that is the
+historical record, and D66's whole point in splitting it out was that history keeps its own
+numbers. The note also states **what stands**, because a correction that only subtracts leaves a
+reader with nothing: the softmax as the locus, every per-op and Ångström figure the row
+measured, and the **86×** upper bound — which survives precisely because its margin is two
+orders of magnitude where the 6.9×'s was 6.8.
+
+**And the row handed back a mechanism that strengthens D63.** Boltz-2 and RF3 come back
+byte-identical not merely because "constructing is not executing" but because they take the
+**fused-SDPA branch**, which routes around the configured softmax entirely. That turns an
+observation into a named, checkable code path, and D63's rule now reads: blast radius is
+measured by digest, never counted from constructors — and where a model is exempt, **name the
+branch that exempts it**.
+
+Its other numbers stand as reported: 2.029e-02 shipped against float64, 12.3× for 1.46× the op
+cost, 39.4× for 4.71×, the bf16 floor at 1.266e-02 putting the 12.3× at exactly one of five
+sites, and 0.3237 Å against a 0.6250 Å seed floor — with Protenix-v2 at 2.2151 Å against its own
+4.1346 Å control, reaching the same verdict at 6.8× the magnitude, which is why that figure must
+never be generalised across models.

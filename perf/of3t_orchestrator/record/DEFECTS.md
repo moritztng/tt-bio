@@ -3801,7 +3801,9 @@ fold on 1UBQ at 1 diffusion sample, same card, same seed, sha256 over the writte
 **Constructing an op is not executing it on the shipped path.** Boltz-2 and RF3 both construct
 sites the lever patches and both come back byte-identical with a negative control that moves
 (1.3207 Å and 0.2005 Å), so the arms are live and the instrument works — the lever simply never
-reaches their fold. Anyone assessing this change from the construction count would carry two
+reaches their fold. **And the row found why**: they take the **fused-SDPA branch**, which routes
+around the configured softmax entirely. So this is not a vague "construction is not execution"
+— it is a named alternative code path, and that makes it checkable rather than merely observed. Anyone assessing this change from the construction count would carry two
 models of imagined risk into a release-gate conversation.
 
 **Two further readings from the same table.** Protenix-v2 moves **2.2151 Å** against a 4.1346 Å
@@ -3822,7 +3824,8 @@ place, for the same reason.
 Owner: `of3t-orchestrator`. **UNFIXED as a convention** — nothing in the release-gate process
 currently distinguishes "constructs the op" from "executes it", and the only thing that
 separates them is a digest with a negative control beside it. The rule: **blast radius is
-measured by digest, never counted from constructors.**
+measured by digest, never counted from constructors** — and where a model is exempt, name the
+branch that exempts it, as this row did with fused SDPA.
 
 ---
 
@@ -3966,3 +3969,48 @@ a human acts on needs a size check, not only a content check** — and the check
 
 Owner: `of3t-orchestrator`. **FIXED.** `state/of3t-orchestrator.md`,
 `perf/of3t_orchestrator/audit_evidence.py`.
+
+---
+
+### D67. I withdrew four figures in my own record and left them live in two briefs, one live field of my own, and a row's concluding DONE line — where one of them is now published. FOUND by `of3t-orchestrator`, pass 167. **FIXED.**
+
+Over passes 158–161 I withdrew four numbers: `K ≈ 1.3e+06` (D62, the directly measured value is
+**172.60**), the **0.1867** post-fix floor (pass 158, it assumed sectional independence), the
+**6.9×** exact-softmax figure (pass 160, a block-arm factor applied to a whole-arm number with
+only a 6.8× margin), and the **two-mechanism** reading (D57, refuted). Each withdrawal was
+recorded properly — in the artifact, in DEFECTS, in the pass log.
+
+**None of them reached the places carrying the numbers.** A grep found all four alive in:
+
+- `workstreams/of3t-softmax.txt` and `workstreams/of3t-adaln.txt` — the briefs, which are
+  instructions a re-dispatched row executes;
+- **`state/of3t-orchestrator.md`'s own GAP field**, where the D56 entry still read *"the
+  25.5795 % is an ill-conditioned reduction (`K ≈ 1.3e+06`)"* as a statement of fact, three
+  passes after D62 refuted it;
+- and `of3t-softmax`'s **concluding DONE line**, which now reads *"an exact softmax 6.9x over"* —
+  a figure I withdrew before that row wrote it.
+
+**That last one is the cost.** The row did nothing wrong: it quoted its brief, which carried the
+figure because I never amended it after withdrawing it. **A withdrawal that is not propagated is
+not a withdrawal** — it is a note to myself while the wrong number keeps being published, which
+is the same defect as a superseded value wearing a correction label, arriving through the
+dispatch channel instead of the document.
+
+**Fixed:** GAP's D56 entry rewritten to state the floor (~2,172× against torch fp32, a port gap)
+without the withdrawn mechanism, and an append-only correction note added to both briefs naming
+all four withdrawals with what replaced them. The occurrences inside `PASSLOG` stay — that field
+is the historical record and the whole point of splitting it out at D66 is that history keeps
+its own numbers.
+
+**What stands, and the note says so explicitly**, because a correction that only subtracts leaves
+a reader with nothing: the softmax as the locus (a direct A/B — float64 softmax takes block 8's
+leaf 8.060854e-01 → 1.459256e-02 while the sister AdaLN with no softmax above it moves 1.23×),
+every per-op and Ångström figure `of3t-softmax` measured, and the **86×** upper bound — which
+survives precisely because its margin is two orders of magnitude where the 6.9×'s was 6.8.
+
+**The rule.** When a figure is withdrawn, `grep` the fleet for it — briefs, row state docs, my
+own live fields — and correct or annotate every live occurrence in the same pass. The withdrawal
+is not done when the artifact says so; it is done when nothing is still quoting it.
+
+Owner: `of3t-orchestrator`. **FIXED.** `state/of3t-orchestrator.md` (GAP),
+`workstreams/of3t-softmax.txt`, `workstreams/of3t-adaln.txt`.
