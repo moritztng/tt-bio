@@ -484,7 +484,18 @@ def _openfold3_version() -> str:
         confusion this row exists to undo;
       * when it cannot be determined, return "unknown". NEVER a guess. A default that names a
         version is indistinguishable from a measurement of that version.
+
+    D43. The import belongs HERE, not in `main`. As shipped, D42 read `openfold3` as a global
+    while the only `import openfold3` in the file was local to `main`, so this function raised
+    NameError the first time anything called it: after the forward and the backward, while
+    composing the manifest. Three float32 arms each lost a finished backward to a provenance
+    field. A fix to a field that is only read on the way out is not exercised by the run that
+    introduces it, and the reference this function certifies was built before D42 existed.
     """
+    try:
+        import openfold3
+    except Exception:
+        return "unknown"
     tree = Path(openfold3.__file__).resolve().parent
     for meta in (sorted(tree.glob("*.dist-info/METADATA"))
                  + sorted(tree.parent.glob("*.dist-info/METADATA"))
@@ -783,8 +794,6 @@ def main() -> int:
     # bit for bit, or every finite difference above is noise rather than a derivative.
     set_rng_state(pinned, model)
     loss_again = float(forward_loss(model, loss_fn, batch, rec, cast_ctx=policy)[0])
-
-    import openfold3
 
     manifest = {
         "bundle": "BUNDLE-MIN",
