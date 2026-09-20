@@ -25,7 +25,9 @@ case "${1:-}" in
   accurate)   TAG=_sgaccurate;  PT=_accurate;  EXTRA="--softmax-lever accurate" ;;
   sm64)       TAG=_sgsm64;      PT=_sm64;      EXTRA="--softmax-f64" ;;
   accpermcot) TAG=_sgaccpermcot; PT=_accpermcot; EXTRA="--softmax-lever accurate --permute-cot" ;;
-  *) echo "usage: devgrad_sg.sh {shipped|precise|accurate|sm64|accpermcot}"; exit 2 ;;
+  ckcon)      TAG=_sgckcon;     PT=_ckcon;     EXTRA="--ckc-census"; export TT_BIO_SOFTMAX_CKC=1 ;;
+  ckcoff)     TAG=_sgckcoff;    PT=_ckcoff;    EXTRA="--ckc-census" ;;
+  *) echo "usage: devgrad_sg.sh {shipped|precise|accurate|sm64|accpermcot|ckcon|ckcoff}"; exit 2 ;;
 esac
 S=$(date +%s)
 echo "=== of3t-softgrad arm ${1}, 48 structures, tag $TAG, card $CARD  $(date -u +%FT%TZ) ==="

@@ -72,6 +72,15 @@ def main() -> int:
                         "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
                         "reaches all 24 DiT blocks and both atom transformers. What is left "
                         "after it is what the softmax cannot explain.")
+    p.add_argument("--ckc-census", action="store_true", dest="ckc_census",
+                   help="AMENDMENT 1's ckc_on arm. Wraps the SHIPPED softmax tape rule with a "
+                        "census of the `compute_kernel_config` each call actually passes, and "
+                        "changes no arithmetic. Run it with TT_BIO_SOFTMAX_CKC=1 to answer what "
+                        "that flag routes into this scope: the flag hands the CALLER's config to "
+                        "`ttnn.softmax_in_place` inside `_fp32_softmax_attention`, which is the "
+                        "trunk's triangle-attention path, so whether it reaches the diffusion "
+                        "module at all is a measurement and not a reading of the source. "
+                        "`FP32_SOFTMAX_STATS` is published beside it.")
     p.add_argument("--softmax-lever", default="", dest="softmax_lever",
                    choices=["", "precise", "accurate"],
                    help="a SHIPPABLE softmax lever, unlike --softmax-f64 which is a host "
@@ -249,6 +258,23 @@ def main() -> int:
     softmax_calls = [0]
     trace = []
     fwd_trace = []
+    ckc_seen = {}
+    if a.ckc_census:
+        from tt_bio import taped_ttnn as TT
+        import tt_bio.tenstorrent as _TT
+
+        _shipped_sm = TT._VERBS["softmax"]
+
+        def ckc_census_rule(shipped, args, kwargs):
+            softmax_calls[0] += 1
+            k = repr(kwargs.get("compute_kernel_config"))
+            ckc_seen[k] = ckc_seen.get(k, 0) + 1
+            return _shipped_sm(shipped, args, kwargs)
+
+        TT._VERBS["softmax"] = ckc_census_rule
+        TT._SHIM.__dict__.pop("softmax", None)
+        print(f"[{time.perf_counter()-t0:.0f}s] ckc census installed; "
+              f"_SOFTMAX_CKC={_TT._SOFTMAX_CKC}", flush=True)
     if a.softmax_f64:
         from tt_bio import taped_ttnn as TT
 
@@ -336,7 +362,7 @@ def main() -> int:
             _m = ttnn.max(xv, dim=-1, keepdim=True)
             _d = ttnn.subtract(xv, _m)
             ttnn.deallocate(_m)
-            _d = ttnn.maximum(ttnn.minimum(_d, 0.0), -60.0)
+            _d = ttnn.maximum(_d, -60.0)
             ttnn.exp(_d, output_tensor=_d)
             _s = ttnn.sum(_d, dim=-1, keepdim=True,
                           compute_kernel_config=_SOFTMAX_PRECISE_CKC)
@@ -703,6 +729,13 @@ def main() -> int:
                                      and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
            "softmax_lever": a.softmax_lever or None,
+           "ckc_census": (ckc_seen or None),
+           "tt_bio_softmax_ckc_flag": (
+               __import__("tt_bio.tenstorrent", fromlist=["x"])._SOFTMAX_CKC
+               if a.ckc_census else None),
+           "fp32_softmax_stats": (
+               dict(__import__("tt_bio.tenstorrent", fromlist=["x"]).FP32_SOFTMAX_STATS)
+               if a.ckc_census else None),
            "nonfinite_probe": (bad[:40] if a.softmax_lever == "accurate" else None),
            "nonfinite_probe_count": (len(bad) if a.softmax_lever == "accurate" else None),
            "probe2_len": len(trace) or None,
@@ -766,6 +799,10 @@ def main() -> int:
             print(f"FAILED: --host-f64 intercepted 0 calls for {zero}, so those verbs are the "
                   f"shipped ones under another name", flush=True)
             return 3
+    if a.ckc_census and softmax_calls[0] == 0:
+        print("FAILED: --ckc-census saw 0 softmax calls, so the census is empty rather than "
+              "informative", flush=True)
+        return 3
     if (a.softmax_f64 or a.softmax_lever) and softmax_calls[0] == 0:
         print(f"FAILED: {'--softmax-f64' if a.softmax_f64 else '--softmax-lever'} intercepted "
               f"0 softmax calls, so this arm is the shipped arm under another name", flush=True)

@@ -1,5 +1,23 @@
 {
  "arms": {
+  "accurate_permuted_cot": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1329,
+    "min_mhz": 800,
+    "n": 52
+   },
+   "log": "/home/ttuser/of3t_softgrad/devgrad_accpermcot.log",
+   "seconds_per_structure_max": 2.2,
+   "seconds_per_structure_mean": 2.0187500000000003,
+   "seconds_per_structure_median": 2.0,
+   "seconds_per_structure_min": 1.9,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 104,
+   "window_end_epoch": 1789928762,
+   "window_start_epoch": 1789928658,
+   "x_shipped": 1.6423728813559324
+  },
   "shipped": {
    "aiclk_during_the_window": {
     "max_mhz": 1350,
@@ -17,6 +35,24 @@
    "window_end_epoch": 1789927277,
    "window_start_epoch": 1789927211,
    "x_shipped": 1.0
+  },
+  "softmax_accurate": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1329,
+    "min_mhz": 800,
+    "n": 52
+   },
+   "log": "/home/ttuser/of3t_softgrad/devgrad_accurate.log",
+   "seconds_per_structure_max": 2.2,
+   "seconds_per_structure_mean": 2.0416666666666665,
+   "seconds_per_structure_median": 2.0,
+   "seconds_per_structure_min": 1.9,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 105,
+   "window_end_epoch": 1789928657,
+   "window_start_epoch": 1789928552,
+   "x_shipped": 1.6610169491525422
   },
   "softmax_host_f64": {
    "aiclk_during_the_window": {
@@ -44,15 +80,15 @@
     "n": 32
    },
    "log": "/home/ttuser/of3t_softgrad/devgrad_precise.log",
-   "seconds_per_structure_max": 1.8,
-   "seconds_per_structure_mean": 1.2291666666666667,
+   "seconds_per_structure_max": 1.9,
+   "seconds_per_structure_mean": 1.23125,
    "seconds_per_structure_median": 1.2,
    "seconds_per_structure_min": 1.2,
    "structures_timed": 48,
-   "wall_seconds_whole_arm": 64,
-   "window_end_epoch": 1789927431,
-   "window_start_epoch": 1789927367,
-   "x_shipped": 1.0
+   "wall_seconds_whole_arm": 65,
+   "window_end_epoch": 1789928283,
+   "window_start_epoch": 1789928218,
+   "x_shipped": 1.0016949152542372
   }
  },
  "baseline": "shipped",
