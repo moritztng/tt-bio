@@ -45,7 +45,8 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_trunkg043"))
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_gradients"))
 
-LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dx_fp32", "all", "lofi")
+LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dx_fp32", "all", "lofi",
+          "softmax_fp32")
 
 
 def main() -> int:
@@ -54,6 +55,12 @@ def main() -> int:
     ap.add_argument("--cot-out", default="", help="per-rung cotangent tensors")
     ap.add_argument("--ln-capture", default="", help="comma-separated block indices")
     ap.add_argument("--ln-out", default="")
+    ap.add_argument("--inject-ref", default="",
+                    help="TEACHER FORCING. Before each block's backward fires, replace the "
+                         "cotangent that arrived with the REFERENCE's at that rung. Every "
+                         "block then computes its backward on the right input, so the "
+                         "cotangent this run writes at rung k is block k's OWN injection and "
+                         "not the accumulation of everything below it. One run gives all 48.")
     a, rest = ap.parse_known_args()
     a.passthrough = [x for x in rest if x != "--"]
     t0 = time.perf_counter()
@@ -66,10 +73,15 @@ def main() -> int:
     import tt_bio.tenstorrent as T
 
     cap_blocks = {int(x) for x in a.ln_capture.split(",") if x.strip() != ""}
+    REF = None
+    if a.inject_ref:
+        REF = torch.load(a.inject_ref, map_location="cpu", weights_only=False)["cot"]
 
     # ---- 1. the block boundaries -------------------------------------------------------
     BOUND, REG, GRAD = [], {}, {}
     _real_cs = ops.checkpoint_segment
+
+    TAPED = []
 
     def _cs(fn, *inputs):
         out = _real_cs(fn, *inputs)
@@ -79,6 +91,31 @@ def main() -> int:
             for j, t in enumerate(ts):
                 if isinstance(t, ag.Tensor):
                     REG[id(t)] = (k, nm, "sz"[j])
+        if any(isinstance(t, ag.Tensor) for t in inputs):
+            blk = len(TAPED)
+            TAPED.append(k)
+            if REF is not None:
+                from tt_bio.tenstorrent import get_device
+                dev = get_device()
+                rung = blk + 1
+                # rung 48 is the stack's output, where the reference's quantity includes the
+                # within-block s<-z path our checkpoint boundary cannot see. Block 47 keeps
+                # the real seed, which is correct to its own bf16 rounding anyway.
+                for j, t in enumerate(out):
+                    if not isinstance(t, ag.Tensor) or t.node is None or rung > 47:
+                        continue
+                    r = REF[rung]["ds" if j == 0 else "dz"]
+                    if r is None:
+                        continue
+                    orig = t.node.fn
+
+                    def fn(g, orig=orig, r=r, t=t):
+                        gg = ttnn.from_torch(r.to(torch.float32).reshape(
+                            [int(d) for d in t.value.shape]), layout=ttnn.TILE_LAYOUT,
+                            device=dev, dtype=t.value.dtype)
+                        return orig(gg)
+
+                    t.node.fn = fn
         return out
 
     ops.checkpoint_segment = _cs
@@ -133,9 +170,18 @@ def main() -> int:
 
     def _sum_leading(t, out_shape, fp32_out):
         flat = ag._flat2d(t)
-        kw = {"dtype": ttnn.float32} if fp32_out else {}
         cfg = _lofi() if lev == "lofi" else _precise()
-        summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=cfg, **kw)
+        if fp32_out:
+            try:
+                summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=cfg,
+                                  dtype=ttnn.float32)
+            except TypeError:
+                # no dtype on this build: give it an fp32 INPUT instead, which is the same
+                # request -- `ttnn.sum` keeps the operand's dtype on the way out.
+                summed = ttnn.sum(ttnn.typecast(flat, ttnn.float32), dim=0, keepdim=True,
+                                  compute_kernel_config=cfg)
+        else:
+            summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=cfg)
         return ttnn.reshape(summed, [int(d) for d in out_shape])
 
     def _taped_layer_norm(shipped, args, kwargs):
@@ -184,8 +230,7 @@ def main() -> int:
                 if gamma is not None and gamma.requires_grad:
                     if on("prod_fp32"):
                         prod = ttnn.multiply(ttnn.typecast(g, ttnn.float32),
-                                             ttnn.typecast(norm, ttnn.float32),
-                                             compute_kernel_config=bwcfg)
+                                             ttnn.typecast(norm, ttnn.float32))
                     else:
                         prod = ttnn.multiply(g, norm)
                     dw = _sum_leading(prod, gamma.value.shape,
@@ -213,15 +258,12 @@ def main() -> int:
                         g32 = ttnn.typecast(g, ttnn.float32)
                         n32 = (norm if norm.dtype == ttnn.float32
                                else ttnn.typecast(norm, ttnn.float32))
-                        dnorm = (ttnn.multiply(g32, ttnn.typecast(gamma.value, ttnn.float32),
-                                               compute_kernel_config=bwcfg)
+                        dnorm = (ttnn.multiply(g32, ttnn.typecast(gamma.value, ttnn.float32))
                                  if gamma is not None else g32)
                         dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True,
                                             compute_kernel_config=bwcfg)
-                        dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, n32,
-                                                               compute_kernel_config=bwcfg),
-                                                 dim=-1, keepdim=True,
-                                                 compute_kernel_config=bwcfg)
+                        dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, n32), dim=-1,
+                                                 keepdim=True, compute_kernel_config=bwcfg)
                         dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
                                            ttnn.multiply(n32, dn_norm_mean))
                         r32 = (rstd if rstd.dtype == ttnn.float32
@@ -238,6 +280,41 @@ def main() -> int:
             return bw
 
         return ag._tape(out_v, parents, make)
+
+    # The softmax backward: `inner = sum(g*y)` then `y*(g - inner)`, a near-cancellation whose
+    # reduction is the one D55 names as carrying no kernel config and no dtype. The lever does
+    # it in fp32 and counts its own firings, so "inert" can be told from "never ran".
+    SM = {"fired": 0}
+    _real_sm = tt._VERBS["softmax"]
+
+    def _v_softmax_fp32(shipped, args, kwargs):
+        x = ag._wrap(args[0])
+        dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+        ra, rk = tt._raw(args, kwargs) if hasattr(tt, "_raw") else ag._raw(args, kwargs)
+        y0 = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
+        box = [y0]
+
+        def make():
+            def bw(g):
+                SM["fired"] += 1
+                y = box[0]
+                g32 = ttnn.typecast(g, ttnn.float32)
+                y32 = ttnn.typecast(y, ttnn.float32)
+                inner = ttnn.sum(ttnn.multiply(g32, y32), dim=dim, keepdim=True,
+                                 compute_kernel_config=_precise())
+                x.add_grad(ttnn.typecast(
+                    ttnn.multiply(y32, ttnn.subtract(g32, inner)), x.value.dtype))
+            return bw
+
+        out = ag._tape(y0, [x], make)
+        if out.node is not None:
+            out.box = box
+        return out
+
+    if lev == "softmax_fp32":
+        for v in ("softmax", "softmax_in_place"):
+            if v in tt._VERBS:
+                tt._VERBS[v] = _v_softmax_fp32
 
     ag._taped_layer_norm = _taped_layer_norm
     ag._TAPED["layer_norm"] = _taped_layer_norm
@@ -263,8 +340,7 @@ def main() -> int:
         # fires 96 times for a 48-block stack and only the second half carries taped tensors.
         # Keep the segments that actually taped; a scan indexed off the raw call count would
         # report 48 empty rungs and read as a harness that saw nothing.
-        taped = [k for k, e in enumerate(BOUND)
-                 if any(isinstance(t, ag.Tensor) for t in e["in"])]
+        taped = list(TAPED)
         n = len(taped)
         cot = {}
         for k in range(n + 1):
@@ -272,6 +348,7 @@ def main() -> int:
             cot[k] = {"ds": GRAD.get((src[0], src[1], "s")),
                       "dz": GRAD.get((src[0], src[1], "z"))}
         torch.save({"cot": cot, "lever": lev, "blocks": n,
+                    "inject_ref": a.inject_ref,
                     "segments_seen": len(BOUND), "segments_taped": n}, a.cot_out)
         print(json.dumps({"cot_out": a.cot_out, "rungs": len(cot),
                           "with_ds": sum(1 for v in cot.values() if v["ds"] is not None),
@@ -281,7 +358,8 @@ def main() -> int:
                    a.ln_out)
         print(json.dumps({"ln_out": a.ln_out, "sites": len(CAPTURED),
                           "paths": sorted({c["gamma_path"] for c in CAPTURED})[:8]}))
-    print(json.dumps({"lever": lev, "seconds": round(time.perf_counter() - t0, 1)}))
+    print(json.dumps({"lever": lev, "softmax_backward_firings": SM["fired"],
+                      "seconds": round(time.perf_counter() - t0, 1)}))
     return rc
 
 

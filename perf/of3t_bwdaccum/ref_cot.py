@@ -49,6 +49,22 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=48)
     ap.add_argument("--crop", type=int, default=64)
     ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--site-blocks", default="",
+                    help="blocks at which to retain the cotangent at the two single-track "
+                         "LayerNorm OUTPUTS (attn_pair_bias.layer_norm_a and "
+                         "single_transition.layer_norm). That is the quantity our own capture "
+                         "reads as `g`, so the two are directly comparable and the question "
+                         "'is the 100x amplification ours or the function's' has an answer.")
+    ap.add_argument("--perturb", default="none",
+                    choices=("none", "seed_bf16", "act_bf16", "both", "cot_bf16",
+                             "cot_and_act_bf16"),
+                    help="CONDITION PROBE. Round the seed cotangent and/or the boundary "
+                         "activations to bfloat16 and back, and change NOTHING else -- the "
+                         "whole stack still runs in float64. What the cotangent does at each "
+                         "rung under that perturbation is the function's own sensitivity to "
+                         "the one thing every bf16 port must do, measured without any bf16 "
+                         "arithmetic in it. It bounds below what any implementation in this "
+                         "width can reach.")
     a = ap.parse_args()
     t0 = time.perf_counter()
 
@@ -69,9 +85,15 @@ def main() -> int:
         raise SystemExit(f"strict load did not hold: {load['missing'][:4]} "
                          f"{load['unexpected'][:4]}")
 
+    def rb(t):
+        return t.to(torch.bfloat16).to(t.dtype)
+
     b = torch.load(a.boundary, map_location="cpu", weights_only=False)
     s0 = b["s_in"].to(dt).contiguous()
     z0 = b["z_in"].to(dt).contiguous()
+    if a.perturb in ("act_bf16", "both", "cot_and_act_bf16"):
+        s0 = rb(s0).contiguous()
+        z0 = rb(z0).contiguous()
     sm = b["single_mask"].to(dt)
     pm = b["pair_mask"].to(dt)
 
@@ -82,10 +104,31 @@ def main() -> int:
     c = a.crop
     cot_s = cot_s.to(torch.float64)[:, :c].contiguous() if c else cot_s.to(torch.float64)
     cot_z = (cot_z.to(torch.float64)[:, :c, :c].contiguous() if c else cot_z.to(torch.float64))
+    if a.perturb in ("seed_bf16", "both"):
+        cot_s = rb(cot_s).contiguous()
+        cot_z = rb(cot_z).contiguous()
     cs, cz = cot_s.to(dt), cot_z.to(dt)
 
     ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
            else torch.autocast("cpu", enabled=False))
+
+    site_blocks = {int(x) for x in a.site_blocks.split(",") if x.strip() != ""}
+    SITES = {}
+
+    def _hook(name):
+        def f(mod, inp, out):
+            t = out[0] if isinstance(out, (tuple, list)) else out
+            t.retain_grad()
+            SITES[name] = t
+        return f
+
+    for i in sorted(site_blocks):
+        for attr, nm in (("attn_pair_bias.layer_norm_a", "pre_norm_s"),
+                         ("single_transition.layer_norm", "transition_s.norm")):
+            obj = mods[i]
+            for part in attr.split("."):
+                obj = getattr(obj, part)
+            obj.register_forward_hook(_hook(f"blocks.{i}.{nm}"))
 
     s_in = s0.detach().requires_grad_(True)
     z_in = z0.detach().requires_grad_(True)
@@ -96,6 +139,9 @@ def main() -> int:
             act.append({"rung": i, "s_in_norm": float(s.detach().to(torch.float64).norm()),
                         "z_in_norm": float(z.detach().to(torch.float64).norm())})
             s, z = m(s, z, sm, pm)
+            if a.perturb in ("cot_bf16", "cot_and_act_bf16"):
+                s.register_hook(rb)
+                z.register_hook(rb)
             s.retain_grad()
             z.retain_grad()
             inter.append((s, z))
@@ -114,7 +160,11 @@ def main() -> int:
         cot[k] = {"ds": None if ds is None else ds.detach().to(torch.float64).clone(),
                   "dz": None if dz is None else dz.detach().to(torch.float64).clone()}
 
-    torch.save({"cot": cot, "policy": a.policy, "tree": a.tree, "blocks": a.blocks,
+    site_cot = {k: (None if v.grad is None else v.grad.detach().to(torch.float64).clone())
+                for k, v in SITES.items()}
+    torch.save({"cot": cot, "site_cot": site_cot, "policy": a.policy, "tree": a.tree,
+                "blocks": a.blocks,
+                "perturb": a.perturb,
                 "loss": float(loss), "activations": act,
                 "seed_cot_s": cot_s, "seed_cot_z": cot_z}, a.out)
 
@@ -128,6 +178,7 @@ def main() -> int:
                "bf16auto": "float32 parameters under torch.autocast('cpu', bfloat16), which is "
                            "upstream's own training recipe",
            }[a.policy],
+           "perturb": a.perturb,
            "boundary": a.boundary, "boundary_sha256": ref_grad.sha256_file(a.boundary),
            "cotangent_from": a.cap_last,
            "cotangent_sha256": ref_grad.sha256_file(a.cap_last),
@@ -135,6 +186,8 @@ def main() -> int:
            "rung_definition": "rung k is dL/d(input of block k); rung 0 is the stack input, "
                               "rung N is the captured seed itself",
            "activations": act,
+           "site_cotangent_norms": {k: (None if v is None else float(v.norm()))
+                                    for k, v in site_cot.items()},
            "cotangent_norms": {k: {"ds": (None if cot[k]["ds"] is None
                                           else float(cot[k]["ds"].norm())),
                                    "dz": (None if cot[k]["dz"] is None
