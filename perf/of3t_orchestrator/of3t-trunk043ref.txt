@@ -1,0 +1,73 @@
+# Workstream: of3t-trunk043ref
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-trunk043ref
+
+OF3T row `of3t-trunk043ref` — **the trunk has never been scored against a reference built from
+the revision our port targets.** One arm. It decides whether 5.8282 % of the model is a defect or
+a bookkeeping error, and it is the last arm the trunk is owed.
+
+## What is already established, so you do not re-derive it
+
+`of3t-trunkfwd`'s two arms, masked to 56 real tokens of a 64 crop, our port on device against an
+upstream float64 reference **built on 0.5.0**:
+
+    arm                                     z_masked     s_masked
+    SHIPPED  (tt-bio transpose_bias=True)   0.279366     0.101290
+    LEVER    (tt-bio transpose_bias=False)  0.049719     0.101335
+
+**Read the arm directions carefully — the campaign got them backwards once.** tt-bio's
+`transpose_bias=True` is the **preview2 / 0.4.3** orientation; the flag names read opposite to
+upstream's, as `tt_bio/openfold3_trunk.py`'s own comment states. So **SHIPPED is the convention
+CORRECT for our `of3-p2-155k` checkpoint**, and **LEVER is our port deliberately mis-set to agree
+with a 0.5.0 reference**. The lever arm is not the trunk fixed.
+
+Two facts follow and both are measured, not assumed:
+
+1. **The pair track's failure is the reference.** `of3t-orchestrator` ran upstream's own 0.4.3
+   `PairFormerStack` against upstream's own 0.5.0 one, identical `of3-p2-155k` weights, real
+   captured boundary, control exactly 0.0: the pure revision difference is **0.2104**, and it
+   accounts for **85.6 %** of the shipped 0.279366 inside the triangle bound
+   (`THE_REVISION_ARM_RAN.json`). `of3t-trunkfwd`'s own accumulation exponent agrees — p = 0.925
+   shipped (coherent, the signature of a systematic transform error) against p = 0.584 at the
+   reference's convention (a random walk, the signature of rounding).
+2. **The single track's failure is OURS.** 0.101290 vs 0.101335 — invariant to 0.9996x across
+   the two conventions. **2.026x the 5.0e-02 bar and 1.432x the A26 reachable bar, either way.**
+   No convention change touches it and nothing explains it.
+
+## What to do
+
+**One arm**: rebuild the trunk reference from **upstream 0.4.3** on the same captured boundary
+and the same `of3-p2-155k` weights, and score the **SHIPPED** port against it.
+
+- `perf/of3t_orchestrator/revision/run_stack.py` on `wk/of3t-orchestrator` runs one release tree
+  per process and is a worked example; both trees are on pc at
+  `~/.coworker/scratch/of3t-reference/upstream{,050}`.
+- **BOTH TRACKS, masked and padded side by side.** D99 exists because this arm was quoted on one
+  track for six passes while its other track sat two keys away in the same JSON. The padding
+  fraction goes beside every figure (D95, now closed and amended into A18).
+- **A27**: state the dtype policy of the reference arm you build — full-cast, autocast, or
+  float64, and which ops are exempted. "float64" alone does not identify it.
+- **A24**: pin the reference by digest.
+
+**Controls, all three measured**: the A16 zero-model baseline; a control that breaks the
+comparison; and the convention-matched control — force the reference to the shipped orientation
+and the disagreement must collapse to the instrument floor, or something else is live.
+
+## The branches, and pre-register them before you run
+
+- **pair track clears the bar (~0.05 or below)**: the trunk's pair-track failure was a
+  reference-revision artefact end to end, and 5.8282 % of the model moves from *no reading* to
+  *measured*. Say so in the first sentence.
+- **pair track still fails**: the revision explains 85.6 % of it and something else holds the
+  rest; name what is left and how big.
+- **the single track**: whatever it reads, it is ours. If it clears 5.0e-02 against a 0.4.3
+  reference then the 0.101290 was also the reference and I was wrong to call it ours — **say that
+  plainly, it is the more interesting outcome.**
+
+## Rules
+
+- `PARITY MEANS ACCURACY, NOT BIT-EXACTNESS`. Bars **5.0e-02 per-tensor, 2.0e-02 mass-weighted**;
+  per **A26** the bar an independent bf16 port can reach is **sqrt(2) x threshold**.
+- **CLOCK DISCIPLINE**: any perf number records a DURING-sampled AICLK. This row needs none.
+- Work only in your own worktree on branch `wk/of3t-trunk043ref`. Explicit `git add <paths>` only,
+  never `git add -A`. Push your branch; do NOT merge to main.

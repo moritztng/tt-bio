@@ -1,0 +1,60 @@
+# Workstream: of3t-auxfind
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-auxfind
+
+OF3T row `of3t-auxfind` — **`aux_heads` fails A18 and the cause is ours. Find it.** 2.8431 % of
+the model's squared gradient norm is void behind it, and the excuses are now exhausted.
+
+## Why the excuses are exhausted, so you do not spend the pass re-testing them
+
+- **It is not the reference revision.** `of3t-auxheads043` returned NO-GO: the reference was
+  **already upstream 0.4.3**, pinned by whole-tree digest, and the rebuild reproduces it bit for
+  bit.
+- **It is not padding.** `of3t-maskaudit` returned GO and recomputed the pair heads on real
+  tokens; the two worst heads sit on the **atom** axis, which is **422 of 422, zero padding**.
+  On real tokens the failures get **worse**, not better.
+
+Per-head, against the 0.4.3 reference, real-token figures where they differ from padded:
+
+    distogram_logits                 3.479065e-03   PASS
+    pde_logits                       3.000855e-01   FAIL
+    pae_logits                       5.177082e-01   FAIL   <- the scope's worst, not plddt
+    experimentally_resolved_logits   3.3315e-01     FAIL
+    plddt_logits                     3.6515e-01     FAIL
+
+## What to do
+
+**Start from the head that PASSES.** `distogram_logits` clears the bar by 14x while four siblings
+fail by 6-10x. They share a trunk: the same `pairformer_stack` inside the confidence head, the
+same `embed_zij`, the same inputs. **What do the four failing heads do that distogram does not?**
+That contrast is the whole lead and it is cheaper than instrumenting all five.
+
+**Locate by MEDIAN per leaf op, not by the worst tensor** — the worst tensor names the tail, not
+the locus. Walk the confidence head's leaves and report the median disagreement grouped by leaf
+name, so a single bad op separates from a diffuse one.
+
+**Two specific suspects, both from reading, neither confirmed** — test them, do not assume:
+- `prediction_heads.embed_zij` runs at ambient dtype in 0.4.3 (0.5.0 added an fp32 autocast and
+  0.4.3 wrapped it the other way). If our port runs it in bf16 where the reference runs fp32,
+  that is a precision defect on a path feeding all five heads — but distogram passes, so it
+  cannot be the whole story.
+- the confidence `pairformer_stack` is a **second** Pairformer instance with its own flags.
+  `precision-lever-on-for-one-submodel` is a standing defect class here: `s_fp32_residual` is
+  True for the confidence Pairformer and False for the trunk. Check the shipped flags of the
+  confidence stack against the reference's behaviour, at the call site, not the default.
+
+## Rules
+
+- **Pre-register your branches before you run**, including what reading would mean "the heads are
+  simply imprecise and there is no defect to find". That is a legitimate outcome and it must be
+  reportable without embarrassment; three magnitude claims in this campaign were withdrawn for
+  being published without a pre-registration.
+- Every forward figure carries its **padding fraction and scoring scope** (A18 as amended at pass
+  176), the **norm ratio and error cosine** beside the relative L2, and per **A27** the dtype
+  policy of any arm used as a denominator.
+- Bars **5.0e-02 per-tensor, 2.0e-02 mass-weighted**; per **A26** the reachable bar is
+  **sqrt(2) x threshold**. `BIT-EXACTNESS IS NOT REQUIRED`.
+- A **release-gated** change — anything that could move accuracy, OOM or perf for another model —
+  stays on your branch and is flagged, never merged.
+- Work only in your own worktree on branch `wk/of3t-auxfind`. Explicit `git add <paths>` only,
+  never `git add -A`. Push your branch; do NOT merge to main.
