@@ -733,10 +733,22 @@ if _man:
 # may quote the numbers of its day, but the figures in its HEADING and its current-state
 # paragraph must match the artifacts. So: check the heading line and the D20 body.
 _DEFP = _campaign_doc("DEFECTS")
-if _DEFP.is_file() and _reach_top:
+if _DEFP.is_file() and (_reach_top or j("perf/of3t_orchestrator/SECTION_MASS_MEASURED.json")):
     _dt = _DEFP.read_text()
-    _diff_share = _reach_top.get("diffusion_module", {}).get("share")
-    _aux_share = _reach_top.get("aux_heads", {}).get("share")
+    # Pass 151: the shares that DEFECTS must follow now come from the EXHAUSTIVE 0.4.3 table,
+    # not from reach_by_norm.json, which is the 0.5.0 / 4,147 artifact pass 91 disqualified.
+    # This guard demanded 91.21 % -- a share of a model the campaign does not claim -- so a
+    # green run meant DEFECTS was stale. Fourth sighting of a guard pinned to a superseded
+    # artifact enforcing staleness; the rule is to re-point the guard when the artifact is
+    # superseded, in the same pass.
+    _sm = j("perf/of3t_orchestrator/SECTION_MASS_MEASURED.json") or {}
+    _smsec = _sm.get("sections_pct_of_model", {})
+    if _smsec:
+        _diff_share = _sm.get("diffusion_module_total", {}).get("pct", 0) / 100.0 or None
+        _aux_share = _smsec.get("aux_heads", {}).get("pct", 0) / 100.0 or None
+    else:
+        _diff_share = _reach_top.get("diffusion_module", {}).get("share")
+        _aux_share = _reach_top.get("aux_heads", {}).get("share")
     if _diff_share and _aux_share:
         _want_sum = f"{(_diff_share + _aux_share) * 100:.1f} %"
         _m = re.search(r"^### D20\. .*?(\d+(?:\.\d+)?) % of the gradient", _dt, re.M)
@@ -746,11 +758,18 @@ if _DEFP.is_file() and _reach_top:
             bad.append(f"DEFECTS D20 headlines {_m.group(1)} % where the artifacts give "
                        f"{_want_sum} -- the ceiling is quoted against a reference that has "
                        f"been replaced")
+        # Compare NUMERICALLY, not as a format string. The first version required "89.21 %"
+        # and the document said "89.2106 %" -- a more precise statement of the same number,
+        # rejected. Same defect the pass-37 "3.16 % vs 3.156 %" check had; a matcher that
+        # insists on its own rounding reports drift against a document that is more correct
+        # than the check is.
+        _pcts = [float(m) for m in re.findall(r"(\d+\.\d+)\s*%", _dt)]
         for _name, _sh in (("diffusion_module", _diff_share), ("aux_heads", _aux_share)):
-            _s = f"{_sh * 100:.2f} %"
-            if _s not in _dt:
-                bad.append(f"DEFECTS never quotes {_name}'s current share {_s} -- D20's body "
-                           f"is the campaign's ceiling and it must follow the artifact")
+            _want = _sh * 100
+            if not any(abs(_p - _want) <= 0.005 for _p in _pcts):
+                bad.append(f"DEFECTS never quotes {_name}'s current share {_want:.4f} % -- "
+                           f"D20's body is the campaign's ceiling and it must follow the "
+                           f"artifact")
 
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
 # GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
@@ -900,11 +919,27 @@ if ORCH.is_file():
     # a VERDICT that said "six remain UNFIXED" in words. Second time a guard of mine has been
     # wrong about a document that was right; both times the guard encoded the shape of the
     # prose it was born against.
-    _words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
-              7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
-              13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
-              22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
+    # Pass 155: GENERATED, not hardcoded. This list stopped at twenty-four, so the UNFIXED
+    # check reported drift against a document that was correct (it fell through to a 'zzz'
+    # sentinel and failed loudly, which is the pass-138 fix working) -- and the DEFECTS-count
+    # check, whose branch is guarded by `if _w`, went SILENTLY VACUOUS at twenty-five and has
+    # not checked anything since the record passed D24. Fourth sighting of a guard outgrowing
+    # its word list in this campaign. A generated list cannot outgrow the subject, and the
+    # assertion below makes a missing word a failure rather than a skip.
+    _ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+             "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+             "seventeen", "eighteen", "nineteen"]
+    _TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+             "ninety"]
+
+    def _word(n):
+        if n < 20:
+            return _ONES[n]
+        if n < 100:
+            return _TENS[n // 10] + ("-" + _ONES[n % 10] if n % 10 else "")
+        return None
+
+    _words = {n: _word(n) for n in range(1, 100)}
     if DEF.is_file():
         _dt = DEF.read_text()
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
@@ -912,7 +947,10 @@ if ORCH.is_file():
                      if "UNFIXED" in m.group(0)])
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
-            if _w and _label == "defects" and f"{_w} defects" not in verdict.lower():
+            if _w is None:
+                bad.append(f"the {_label} count is {_n}, outside this check's word list -- the "
+                           f"check cannot run, which is not a pass (pass-138 class)")
+            elif _label == "defects" and f"{_w} defects" not in verdict.lower():
                 bad.append(f"VERDICT does not say '{_w} defects' -- DEFECTS.md has {_n}")
             if _label == "UNFIXED" and not _re.search(rf"\b(?:{_n}|{_words.get(_n, 'zzz')})\b"
                                                       r"[^.]{0,40}UNFIXED", verdict):
@@ -1012,6 +1050,34 @@ if _host_only is None:
     warn.append("the concluded-row count could not be checked: it reads "
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
+
+# --- the distance-to-go arithmetic must sum, and VERDICT must quote it ------------------------
+# Pass 152. The campaign's position is now a three-way split of the model's gradient mass, and
+# it is the number Moritz reads. Two ways it can rot: the three shares stop summing to 100 as
+# readings move between buckets, and VERDICT keeps yesterday's passing share. Both are the
+# campaign's most recurrent defect class, so both are mechanical now.
+_dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
+if _dtg:
+    _p = _dtg["measured_and_inside_bar"]["total_pct"]
+    _f = _dtg["measured_and_outside_bar"]["total_pct"]
+    _u = _dtg["not_measured_at_its_own_scope"]["total_pct"]
+    _tot = _p + _f + _u
+    if abs(_tot - 100.0) > 0.001:
+        bad.append(f"DISTANCE_TO_GO_BY_MASS's three shares sum to {_tot:.4f} %, not 100 -- a "
+                   f"reading moved buckets and the split was not rebalanced")
+    else:
+        ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} in / {_f:.4f} out / "
+                  f"{_u:.4f} unmeasured)")
+    if ORCH.is_file():
+        _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
+        _vt = _verd.group(1) if _verd else ""
+        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
+        for _val, _lbl in ((_p, "passing"), (_f, "failing"), (_u, "unmeasured")):
+            if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
+                bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
+                           f"summary has drifted from DISTANCE_TO_GO_BY_MASS")
+        if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
+            ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
 
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count

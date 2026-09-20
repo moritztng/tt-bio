@@ -1,0 +1,100 @@
+{
+ "what": "the campaign's state of proof stated in the only denominator that means anything for a gradient claim: the share of OpenFold3's squared gradient norm that is measured and inside bar, measured and outside, and not measured at all. Every share is from the exhaustive 0.4.3 table (4,170 tensors, model squared norm 10.279642678524985) and sums to exactly 100.0000 %.",
+ "as_of": "2026-09-20, orchestrator pass 157, after of3t-adaln's softmax finding and of3t-auxheads' conclusion added msa_module's reading.",
+ "headline": "39.7893 % of OpenFold3's gradient mass is measured by a section-scope arm and inside the bars, 54.0115 % is measured and outside, 6.1992 % has no reading. Of the failing share, 27.2441 % is downstream of a no-config attention softmax and is now mechanistically explained; 23.8917 % is not, sits at mass-weighted 0.1855, and no softmax lever touches it.",
+ "measured_and_inside_bar": {
+  "total_pct": 39.7893,
+  "sections": [
+   {
+    "section": "diffusion_module.diffusion_conditioning",
+    "pct": 36.9462,
+    "n": 26,
+    "headline": "mass-weighted rel_l2 7.865385e-03 against the 2.0e-02 mass-weighted bar",
+    "detail": "26 of 26 tensors inside the 5.0e-02 per-tensor bar, worst 1.204672e-02. The four tensors holding 33.9354 % of the model read 6.6e-03..1.2e-02 with cos > 0.9999 and norm ratios bracketing unity (0.9963..1.0037). Forward gated at 2.641e-03 (A18). Zero-model baseline measured at exactly 1.0, a 127.1x separation. A second control permutes the reference's own cotangent across samples and moves the headline to 2.161892e-01, 27.5x the reading. Reach is the FULL reference mass in scope (A20).",
+    "row": "of3t-conditioning, VERDICT GO, branch wk/of3t-conditioning at 5ae68df2d"
+   },
+   {
+    "section": "aux_heads",
+    "pct": 2.8431,
+    "n": 244,
+    "headline": "2.2678e-03 on the one tensor that is 99.9999943 % of the section",
+    "detail": "aux_heads.distogram.linear.weight, forward 2.8277e-03, gradient 2.2678e-03, both inside bar. The other 243 tensors hold 5.66e-08 of the section's norm -- 1.61e-09 of the model -- because initial_training weights distogram at 0.03 and the four confidence heads at 1e-4 each.",
+    "row": "of3t-auxheads, VERDICT PARTIAL (the section reading itself passes)"
+   }
+  ],
+  "note_on_not_promoting_tensors": "diffusion_module.layer_norm_a (0.2666 %) is a one-tensor section that reads rel 0.0095, and pass 152 counted it here. It is measured INSIDE the diffusion arm, which fails, and 2.7940 % of the model passes the per-tensor bar inside that same arm. Promoting individually-passing tensors out of a failing arm is cherry-picking, so none are promoted: the arm is reported whole, below."
+ },
+ "measured_and_outside_bar": {
+  "total_pct": 54.0115,
+  "items": [
+   {
+    "arm": "the diffusion device arm (diffusion_module minus diffusion_conditioning)",
+    "pct": 51.1358,
+    "n": 547,
+    "mass_weighted_rel": 7.5692,
+    "median_over_tensors": 0.1659,
+    "mass_weighted_norm_ratio": 4.442,
+    "mass_weighted_cos": 0.8159,
+    "inside_5e-2_per_tensor_bar_within_it": {
+     "n": 73,
+     "pct_of_model": 2.794
+    },
+    "localisation": "ONE leaf -- blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight, 24 tensors, 25.5795 % of the model -- reads mass-weighted 10.6980 at norm ratio 7.8658. The other 523 tensors hold 25.5563 % and read 0.2929. Its sibling AdaLN in the same blocks (conditioned_transition.layer_norm.layer_norm_s.weight, 15.5130 %) reads 0.1828, so the AdaLN class is exonerated.",
+    "sections_inside_this_arm": "diffusion_transformer 43.8936, atom_attn_enc 5.5589, atom_attn_dec 1.3173, layer_norm_s 0.9835, layer_norm_a 0.2666, linear_s 0.2445 -- 52.2644 % in total, of which 1.1286 % is unreached by the arm and counted as no-reading below"
+   },
+   {
+    "arm": "pairformer_stack, 7 of 48 blocks",
+    "pct": 1.64401,
+    "n": 399,
+    "mass_weighted_rel": 0.14053,
+    "note": "0.13707 with fp32_softmax=False. The median-of-blocks 0.02162 the campaign quoted understates this 6.5x."
+   },
+   {
+    "arm": "msa_module",
+    "pct": 1.2317,
+    "n": 227,
+    "mass_weighted_rel": 0.16211,
+    "note": "of3t-auxheads, concluded. Misses both bars. Reads a 19.8x backward-over-forward factor (forward 0.82 %, gradient 16.2 %) that reproduces D30's 19.6x on the diffusion module -- different module, different ops, different track, same factor to two significant figures."
+   }
+  ]
+ },
+ "not_measured_at_its_own_scope": {
+  "total_pct": 6.1992,
+  "items": [
+   {
+    "section": "pairformer_stack (the other 41 blocks)",
+    "pct": 4.18419
+   },
+   {
+    "section": "unreached inside the diffusion arm",
+    "pct": 1.1286,
+    "note": "52.2644 % in scope, 51.1358 % compared"
+   },
+   {
+    "section": "input_embedder",
+    "pct": 0.8007,
+    "note": "of3t-auxheads answered this as a PORT-COVERAGE gap rather than measuring it: 92.4879 % of the section sits on a weight our shipped path applies on the HOST after a ttnn.to_torch, so there is no device gradient at that scope to compare. Named, not measured."
+   },
+   {
+    "section": "msa_module_embedder",
+    "pct": 0.0612,
+    "note": "a separate section from msa_module; my pass-157 filter matched it by prefix and dropped it for one edit"
+   },
+   {
+    "section": "template_embedder",
+    "pct": 0.0103
+   },
+   {
+    "section": "msa_module (the part its arm did not reach)",
+    "pct": 0.0083,
+    "note": "the section is 1.2400 % and of3t-auxheads measured 1.2317 %"
+   },
+   {
+    "section": "layer_norm_z / layer_norm_s / linear_z / linear_s (top level)",
+    "pct": 0.0059
+   }
+  ]
+ },
+ "what_this_number_is_and_is_not": "it is the share of ONE reference gradient -- BUNDLE-MIN-043's r = 0 step at batch_step003, 5nw3, 56 real tokens, crop 384 -- that our stack reproduces to the pre-registered bars. It is not a statement about stability over a training run, about other batches, about other crops, or about convergence. The campaign has only ever claimed the update rule over N steps, and 40.0559 % is a statement about the INPUT to that rule at one point. Section shares at another batch could differ and their stability is unmeasured.",
+ "provenance": "assembled 2026-09-20 pass 152 by of3t-orchestrator on pc, CPU only. Shares from SECTION_MASS_MEASURED.json and BLOCK_MASS_PROFILE.json; readings from state/of3t-conditioning.md, state/of3t-auxheads.md, device_gradient_043all.json and smoff/FP32_SOFTMAX_UNDER_A23.json."
+}
