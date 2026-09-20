@@ -92,3 +92,52 @@ computed, not to change the forward.
 It is also **not** a claim that the shipped inference is wrong. The forward is the forward
 production ships and its accuracy is measured elsewhere. This is about the **gradient**, which
 only the training-reproduction charter cares about.
+
+## Addendum, pass 122: which kernel, and what else the tape turns off
+
+### The object in D31 is the stock ttnn SDPA, not tt-bio's custom one
+
+`triatt_sdpa.py:340`:
+
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the stock fused SDPA verb is taped
+
+tt-bio's own fused triangle-attention SDPA **declines while a tape is open**. The object the tape
+wraps, and therefore the object carrying the 3.3e-02 deficit in the taped forward, is the **stock
+`ttnn` fused SDPA**. That is the same object the docstring's figure was measured against, so §"Raised"
+above is unchanged in substance — but "the shipped fused SDPA" was the wrong name for it, because
+the custom kernel is precisely the one that is not there.
+
+### Twenty-one sites, nine modules
+
+`ops.taping()` is consulted at 21 branch points in 9 shipped modules, each declining a fused path:
+
+| module | sites | what stops happening |
+|---|---|---|
+| `triatt_qkv.py` | 74, 179, 276, 390 | fused QKV projection |
+| `tenstorrent.py` | 1126, 4129, 4595, 8531 | trimul DRAM route; pair-proj L1 output; **L1 -> DRAM memory config** at 8531 |
+| `eltwise_fusion.py` | 80, 104, 115 | `FUSE_MASK_ADD`, `FUSE_NORM_RESIDUAL` |
+| `reblock_permute.py` | 373, 597, 877 | reblock/permute fusions |
+| `softmax_generic.py` | 369, 514 | fused softmax |
+| `triatt_sdpa.py` | 340, 486 | custom fused SDPA; QKV-from-pre-projection |
+| `trimul_tail.py` | 233 | fused trimul tail |
+| `mm_dualnoc.py` | 87 | dual-NoC matmul |
+| `swiglu_fused.py` | 94 | fused SwiGLU |
+
+One uniform reason, stated in the code: *"generic_op has no backward."*
+
+**A training step is therefore a materially different execution than an inference step.** Every
+gradient figure in this campaign is taken on the unfused path — self-consistent for training, but
+it does not transfer to the inference path production ships, and inference accuracy does not
+transfer here. And **a training s/step cannot be projected from an inference s/step**: when the
+charter's second half is finally measured, the device number has to be taken with the tape open.
+Recorded as D32.
+
+### Refuted here as well
+
+The bias pre-scale at `tenstorrent.py:7647` — `ttnn.multiply(bias, self.scale / self._bias_scale)`,
+which fires only when `scale_pair_bias` is False — looked like it might be untaped, which would
+break the gradient path to `attn_pair_bias.linear_z.weight`, the same tensor D26 shows going absent
+under the opposite setting. It is taped: `taped_ttnn._swap` rebinds the name `ttnn` in **every**
+`tt_bio` module, excluding only itself and `tt_bio.autograd`. No missing gradient path.
