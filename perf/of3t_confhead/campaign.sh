@@ -20,11 +20,20 @@ for s in "${SEEDS[@]}"; do
     if [ -f "$OUT/${arm}_s${s}/samples.json" ]; then
       echo "SKIP ${arm} s${s} (already has samples.json)"; continue
     fi
-    echo "=== START ${arm} s${s} $(date -u +%H:%M:%S)"
-    timeout 3600 "$PY" perf/of3t_confhead/rank_fold.py --arm "$arm" --seed "$s" \
-      --card "$CARD" --msa-dir "$HOME/of3t_confhead_msa" --out-root "$OUT" 2>&1 \
-      | grep -E "^\[|^  sample|^wrote|fold failed|Error|Traceback"
-    echo "=== END   ${arm} s${s} rc=$? $(date -u +%H:%M:%S)"
+    # Retry, because a co-tenant taking the card is transient and silently losing a fold to
+    # it is not: `fix s3` was dropped exactly that way when of3t-rebase opened card 0 for the
+    # two minutes tt_bio's device lease waits before refusing. `${PIPESTATUS[0]}` and not `$?`,
+    # which after a pipeline reports grep's status and so read rc=0 on that very failure.
+    for try in 1 2 3; do
+      echo "=== START ${arm} s${s} try${try} $(date -u +%H:%M:%S)"
+      timeout 3600 "$PY" perf/of3t_confhead/rank_fold.py --arm "$arm" --seed "$s" \
+        --card "$CARD" --msa-dir "$HOME/of3t_confhead_msa" --out-root "$OUT" 2>&1 \
+        | grep -E "^\[|^  sample|^wrote|fold failed|DeviceInUse|Error|Traceback"
+      rc=${PIPESTATUS[0]}
+      echo "=== END   ${arm} s${s} try${try} rc=${rc} $(date -u +%H:%M:%S)"
+      [ "$rc" -eq 0 ] && break
+      [ "$try" -lt 3 ] && sleep 180
+    done
   done
 done
 echo "CAMPAIGN_DONE $(date -u +%H:%M:%S)"
