@@ -1,0 +1,75 @@
+{
+  "what": "One upstream release tree's 48-block pairformer trunk GRADIENT over the captured boundary.",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "f64",
+  "tb": "keep",
+  "blocks": 25,
+  "crop": 64,
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "first_block": 23,
+  "boundary": {
+    "inputs_from_block": 23,
+    "cotangent_from_block": 47,
+    "block_first": "/home/ttuser/of3t_gradients/cap/block23_boundary.pt",
+    "block_last": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+    "tokens": 64,
+    "real_tokens": 56,
+    "padding_fraction_single": 0.125,
+    "padding_fraction_pair": 0.234375,
+    "s_in_norm": 1519044.800594074,
+    "z_in_norm": 1319094.5867365834,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261
+  },
+  "dtype_policy": "every parameter and every activation float64; checkpoint upcast once at load; no cast on the path; upstream's CUDA-autocast contexts are inert on CPU so use_high_precision_attention cannot fire",
+  "their_dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "their_load": {
+    "blocks": 25,
+    "tensors": 1425,
+    "missing": 0,
+    "unexpected": 0
+  },
+  "forward": {
+    "loss": -0.03809360251786435,
+    "s_out_norm": 2180862.2451841948,
+    "z_out_norm": 1287359.746547528,
+    "seconds": 28.25274490999982,
+    "vs_captured_050": {
+      "s": 0.019929662909701957,
+      "z": 0.008268606545094034,
+      "s_masked": 0.019026757328326635,
+      "z_masked": 0.10236659201281252
+    }
+  },
+  "gradient": {
+    "with_grad": 1425,
+    "without_grad": 0,
+    "absent": [],
+    "global_norm": 1.1272259237121698,
+    "squared_norm": 1.2706382830887546
+  },
+  "input_grad": {
+    "file": "/home/ttuser/of3t_trunkback/REF_w23_25_ig.pt",
+    "ds_in_norm": 2.1974358143863138e-05,
+    "dz_in_norm": 0.0010513176593469197
+  },
+  "out": "/home/ttuser/of3t_trunkback/REF_w23_25.pt",
+  "out_sha256": "67f19c8236d3c20df4c46848cb78b7cd28f5c697e34ce2cd6a026746d3cbb9e3",
+  "forward_out": "/home/ttuser/of3t_trunkback/REF_w23_25_fwd.pt",
+  "forward_out_sha256": "e010a7538e6d73b5298766607d829c13cffc8d2f215e269ea25abf40414e1a20",
+  "seconds": 94.5390676829993
+}

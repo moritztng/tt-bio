@@ -1,0 +1,59 @@
+{
+  "what": "A18 for the trunk: both tracks, masked, padding fraction beside each.",
+  "reference": "/home/ttuser/of3t_trunk043ref/ref_043_n384.pt",
+  "reference_dtype_policy": "upstream 0.4.3, every parameter and every activation float64, checkpoint upcast once at load, no cast on the path",
+  "bar": 0.05,
+  "bar_a26_reachable": 0.07071067811865477,
+  "tokens": 384,
+  "real_tokens": 56,
+  "padding_fraction_single": 0.8541666666666666,
+  "padding_fraction_pair": 0.9787326388888888,
+  "arms": {
+    "SHIPPED": {
+      "s_masked": {
+        "rel": 0.1061988978775229,
+        "ratio": 0.9081392794702148,
+        "cos": 0.9984364656400466
+      },
+      "z_masked": {
+        "rel": 0.04853716018979657,
+        "ratio": 1.0319181045385986,
+        "cos": 0.9993521334124941
+      },
+      "config": {
+        "scale_pair_bias": false,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      },
+      "overrides": [],
+      "s_verdict": "FAIL",
+      "z_verdict": "PASS"
+    },
+    "SCALED": {
+      "s_masked": {
+        "rel": 0.01855061965825768,
+        "ratio": 0.990076889919488,
+        "cos": 0.9998759402534597
+      },
+      "z_masked": {
+        "rel": 0.04853716018979657,
+        "ratio": 1.0319181045385986,
+        "cos": 0.9993521334124941
+      },
+      "config": {
+        "scale_pair_bias": true,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      },
+      "overrides": [
+        "scale_pair_bias=true"
+      ],
+      "s_verdict": "PASS",
+      "z_verdict": "PASS"
+    }
+  }
+}
