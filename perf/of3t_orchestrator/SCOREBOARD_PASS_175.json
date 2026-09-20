@@ -1,4 +1,5 @@
 {
+ "SUPERSEDED": "by perf/of3t_orchestrator/THE_ANSWER.json, same pass. Read that first. Two things here are stale: (1) the 'same scope with every softmax in float64' row carries 1.172914e-01 / 2.04x, which is the PRE-D86 figure measured on an arm contaminated by a shape-inferred transpose; on the corrected arm it is 7.777580e-02 = 1.3524x threshold = 0.9563x the reachable bar, which PASSES. (2) the shipped path is treated here as a single 129x failure; it is not uniform -- 38.1862 % of the model passes the reachable bar on the shipped path today. The A26 qualifiers added to the verdict fields below are correct as far as they go, but they are computed from the stale ratios where those are stale.",
  "accuracy_results_both_sides_vs_float64": {
   "reading": "What stands with the pairformer rows withdrawn: the diffusion device-arm scope is 129.343x LESS accurate than upstream's own bf16 step -- of3t-trajectory measured BOTH columns on the SAME 547 tensors (7.569163 vs 5.852018e-02), the only row where one instrument did that; diffusion_conditioning is 7.95x MORE accurate (of3t-direct, same 26 tensors, capture verified bit-identical to the bundle's float64 over all 26); and msa_module is ~1.10x MORE accurate with a 0.7 % scope caveat refprec itself flagged, its bf16 side corroborated to 0.1 % by of3t-direct's independently measured floor 1.787604e-01. The claim that the port beats upstream's bf16 step on PAIRFORMER is NOT established.",
   "reading_RETIRED": "outside the diffusion transformer the port is MORE accurate than upstream's own bf16 training step on every scope where both were measured. The accuracy failure is one module.",
@@ -88,32 +89,33 @@
    "pct": 36.9462,
    "ratio": 1.0414,
    "scope": "diffusion_module.diffusion_conditioning",
-   "verdict": "DOES NOT SURVIVE"
+   "verdict": "DOES NOT SURVIVE [A26 QUALIFIER, pass 175: this verdict is against the 'equals float64' threshold, which NO bf16 port can reach. Against the reachable bar (sqrt(2) x threshold) the same measurement reads 0.7364x and PASSES.]"
   },
   {
    "note": "larger than either side's distance from float64",
    "pct": 1.24,
    "ratio": 1.3398,
    "scope": "msa_module",
-   "verdict": "DOES NOT SURVIVE"
+   "verdict": "DOES NOT SURVIVE [A26 QUALIFIER, pass 175: this verdict is against the 'equals float64' threshold, which NO bf16 port can reach. Against the reachable bar (sqrt(2) x threshold) the same measurement reads 0.9474x and PASSES.]"
   },
   {
    "note": "accuracy 129.343x -- the columns agree, so this is magnitude, not direction",
    "pct": 51.1358,
    "ratio": 129.14,
    "scope": "diffusion device arm AS SHIPPED",
-   "verdict": "DOES NOT SURVIVE"
+   "verdict": "DOES NOT SURVIVE [A26 QUALIFIER, pass 175: this verdict is against the 'equals float64' threshold, which NO bf16 port can reach. Against the reachable bar (sqrt(2) x threshold) the same measurement reads 91.3158x and still FAILS.]"
   },
   {
+   "STALE": "this row is the PRE-D86 arm. Corrected: 7.777580e-02, 1.3524x threshold, 0.9563x the reachable bar -- PASSES. The A26 qualifier on this row's verdict says 'still FAILS' because it is computed from the contaminated 2.04x; it is wrong on the corrected arm.",
    "note": "accuracy 1.823x, residual essentially ORTHOGONAL to upstream's (cos +0.045). A BOUND, not a shippable lever.",
    "pct": 51.1358,
    "ratio": 2.04,
    "scope": "the same scope with every softmax in float64",
-   "verdict": "DOES NOT SURVIVE, but by 2x"
+   "verdict": "DOES NOT SURVIVE, but by 2x [A26 QUALIFIER, pass 175: this verdict is against the 'equals float64' threshold, which NO bf16 port can reach. Against the reachable bar (sqrt(2) x threshold) the same measurement reads 1.4425x and still FAILS.]"
   }
  ],
  "as_of": "2026-09-20, orchestrator pass 175",
- "headline": "we do NOT reproduce OpenFold3's training gradient: of D72's three AT-OR-BETTER scopes, zero survive a direct comparison against upstream's own bf16 training step, and the only scope on the record that does is layer_norm_a at 0.2666 % of the model. The entire ACCURACY failure is the diffusion transformer's softmax -- computing it in float64 takes that scope from 129x less accurate than upstream's own training step to 1.823x -- and on diffusion_conditioning, 36.9462 % of the model, the port is 7.95x MORE accurate than that step and fails agreement anyway, by direction alone. (The retired headline's PAIRFORMER accuracy claim is WITHDRAWN -- see accuracy_results_both_sides_vs_float64.)",
+ "headline": "SUPERSEDED -- see SUPERSEDED and THE_ANSWER.json. we do NOT reproduce OpenFold3's training gradient: of D72's three AT-OR-BETTER scopes, zero survive a direct comparison against upstream's own bf16 training step, and the only scope on the record that does is layer_norm_a at 0.2666 % of the model. The entire ACCURACY failure is the diffusion transformer's softmax -- computing it in float64 takes that scope from 129x less accurate than upstream's own training step to 1.823x -- and on diffusion_conditioning, 36.9462 % of the model, the port is 7.95x MORE accurate than that step and fails agreement anyway, by direction alone. (The retired headline's PAIRFORMER accuracy claim is WITHDRAWN -- see accuracy_results_both_sides_vs_float64.)",
  "headline_RETIRED": "we do NOT reproduce OpenFold3's training gradient: of D72's three AT-OR-BETTER scopes, zero survive a direct comparison against upstream's own bf16 training step, and the only scope on the record that does is layer_norm_a at 0.2666 % of the model. But the entire ACCURACY failure is the diffusion transformer's softmax -- computing it in float64 takes that scope from 129x less accurate than upstream's own training step to 1.823x -- and on every other scope where both were measured the port is MORE accurate than that step, conditioning by 7.95x and pairformer by 2.09x.",
  "honest_limits": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures, num_recycles 0. Nothing here establishes these factors hold at another batch or with recycling. Every arm is seeded and replays fixed draws, and the reference gradients are bit-reproducible only at a FIXED OMP_NUM_THREADS -- the digest is a function of the thread count (D80).",
  "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Assembled from of3t-trajectory, of3t-direct (f2d29c403) and of3t-refprec, each figure from the row that measured it. Every input digest-verified per A24. No file under tt_bio/ changed by any of the three, so inference is byte-identical by construction. No timing figure is quoted: qb2's AICLK was CLAMPED-UNDER-LOAD at 800 through this window.",
