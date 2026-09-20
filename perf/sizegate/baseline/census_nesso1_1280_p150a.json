@@ -1,32 +1,31 @@
 {
-  "label": "opendde-768-rep0",
+  "label": "nesso1-1280-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
-    "predict",
-    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/size512/fixtures/cdk2x2_768.yaml",
+    "affinity",
+    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/nesso1/inputs/ladder/aa1280/cdk2_1280.yaml",
     "--model",
-    "opendde",
-    "--single_sequence",
-    "--sampling_steps",
-    "6",
-    "--diffusion_samples",
-    "1",
-    "--seed",
-    "0",
+    "nesso1",
+    "--trunk",
+    "bf16",
+    "--recycling_steps",
+    "5",
+    "--tokens_budget",
+    "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/sizegate/work-card0/out_opendde-768-rep0"
+    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/sizegate/work-card3/out_nesso1-1280-rep0"
   ],
   "rc": 0,
-  "processes": 2,
+  "processes": 1,
   "rows": [
     {
       "flag": "SPLIT_SWIGLU",
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -34,9 +33,9 @@
       "flag": "SPLIT_SWIGLU_SMALL_GRID",
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -44,9 +43,9 @@
       "flag": "PAIR_FFN_L1_FC1",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_FC1_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -54,9 +53,9 @@
       "flag": "PAIR_FFN_L1_LN",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_LN_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -64,9 +63,9 @@
       "flag": "PAIR_FFN_L1_SLICE",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_SLICE_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -74,9 +73,9 @@
       "flag": "PAIR_FFN_FUSED_RESIDUAL",
       "how": "stats",
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -84,9 +83,9 @@
       "flag": "PAIR_FFN_FILL_ASSEMBLY",
       "how": "stats",
       "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
-      "resolved": "True",
-      "served": 0,
-      "declined": 0,
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
       "rejects": null,
       "gauges": null
     },
@@ -95,9 +94,11 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 2352,
-      "declined": 0,
-      "rejects": null,
+      "served": 192,
+      "declined": 1922,
+      "rejects": {
+        "memory": 1922
+      },
       "gauges": null
     },
     {
@@ -105,7 +106,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 405,
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -135,10 +136,10 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 1056,
-      "declined": 160,
+      "served": 96,
+      "declined": 480,
       "rejects": {
-        "l1_dest_is_faster:768x768x64": 160
+        "l1_dest_is_faster:256x256x128": 480
       },
       "gauges": null
     },
@@ -148,10 +149,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 3168,
+      "declined": 192,
       "rejects": {
-        "k_tiles=12:(12,12)": 2112,
-        "k_tiles=12:(12,1)": 1056
+        "k_tiles=4:(4,4)": 192
       },
       "gauges": null
     },
@@ -161,9 +161,9 @@
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 1056,
+      "declined": 576,
       "rejects": {
-        "k_tiles=12": 1056
+        "k_tiles=4": 576
       },
       "gauges": null
     },
@@ -172,12 +172,9 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 2272,
-      "declined": 2112,
-      "rejects": {
-        "no_mm_block:(12,49)": 1056,
-        "no_mm_block:(12,48)": 1056
-      },
+      "served": 576,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -196,8 +193,12 @@
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 0,
-      "rejects": null,
+      "declined": 7684,
+      "rejects": {
+        "gated_window_BufferType.L1": 1921,
+        "window_BufferType.L1": 3842,
+        "back_l1_src_narrow": 1921
+      },
       "gauges": null
     },
     {
@@ -205,7 +206,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 2352,
+      "served": 192,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -215,7 +216,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 4704,
+      "served": 384,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -225,7 +226,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 4704,
+      "served": 384,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -235,12 +236,10 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 1208,
-      "declined": 1217,
+      "served": 0,
+      "declined": 577,
       "rejects": {
-        "l1_budget": 1,
-        "pm_over_l1": 1207,
-        "fill_preconditions": 9
+        "fill_preconditions": 577
       },
       "gauges": null
     },
@@ -260,7 +259,7 @@
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 8,
+      "declined": 96,
       "rejects": null,
       "gauges": null
     },
@@ -289,7 +288,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 1216,
+      "served": 576,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -299,7 +298,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1216,
+      "served": 576,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -309,7 +308,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1216,
+      "served": 576,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -350,7 +349,7 @@
       "counter": "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS",
       "resolved": "False",
       "served": 0,
-      "declined": 632,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -369,8 +368,8 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 160,
-      "declined": 1056,
+      "served": 480,
+      "declined": 96,
       "rejects": null,
       "gauges": null
     },
@@ -409,11 +408,9 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
-      "served": 122,
-      "declined": 528,
-      "rejects": {
-        "ratio-shrunk": 528
-      },
+      "served": 288,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     }
   ],
