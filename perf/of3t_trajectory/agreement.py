@@ -23,6 +23,7 @@ so a section's weight is the same number in every row of every table here and in
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -33,6 +34,17 @@ REF_NORM_FLOOR = 1e-12          # A14: below this a relative error carries no in
 PER_TENSOR_BAR = 5.0e-02        # PROTOCOL 3d
 MODEL_TOTAL_SQ = 10.279642678524985   # the campaign's published denominator
 BF16_OWN_FLOOR = 5.852018e-02   # arm4's own distance from float64 on the device arm's scope
+
+
+def sha256(path):
+    """A reference whose content can change under you is not a reference. of3t-refprec rewrites
+    its arm files in place with no atomic rename, so the identity of an input here is its digest
+    and not its path."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 23), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def load_subset(path, names):
@@ -128,7 +140,32 @@ def main():
     ap.add_argument("--sections", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
+    ap.add_argument("--expect", action="append", default=[],
+                    help="label=sha256, repeatable. A mismatch stops the run: measuring against "
+                         "a file that is not the one the campaign's figures came from would "
+                         "make every number downstream unattributable.")
     args = ap.parse_args()
+
+    inputs = {}
+    for label, path in (("device", args.device), ("device_permuted", args.device_permuted),
+                        ("float64", args.f64), ("upstream_bf16", args.bf16),
+                        ("upstream_f32", args.f32),
+                        ("upstream_permuted_draws", args.upstream_permuted),
+                        ("diffcap", args.diffcap)):
+        if path is None:
+            continue
+        print(f"hashing {label} {path}", flush=True)
+        inputs[label] = {"path": str(path), "bytes": path.stat().st_size,
+                         "sha256": sha256(path)}
+    for e in args.expect:
+        label, want = e.split("=", 1)
+        got = inputs.get(label, {}).get("sha256")
+        if got != want:
+            raise SystemExit(
+                f"STOP: {label} is {got} and the pin says {want}. The pin was taken against "
+                f"something other than the run these numbers came from; every figure "
+                f"downstream of it would be unattributable.")
+        inputs[label]["matches_pin"] = True
 
     sections = list(json.loads(args.sections.read_text())["sections_pct_of_model"])
 
@@ -217,6 +254,7 @@ def main():
 
     args.sidecar_dir.mkdir(parents=True, exist_ok=True)
     out = {"what": __doc__.strip().splitlines()[0],
+           "inputs": inputs,
            "scope": {"n_tensors": len(names),
                      "source": str(args.device),
                      "pct_of_model_mass": 100.0 * sum(

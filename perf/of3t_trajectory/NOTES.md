@@ -58,8 +58,8 @@ per-tensor JSON here. Then the comparison, a few minutes and no card:
       --device /home/ttuser/of3t_trajectory/device_grads_043all.pt \
       --device-permuted /home/ttuser/of3t_trajectory/device_grads_043all_permcot.pt \
       --f64 /home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt \
-      --bf16 /home/ttuser/of3t_trajectory/ref/arm4_bf16_grads.pt \
-      --f32 /home/ttuser/of3t_trajectory/ref/arm2_f32_grads.pt \
+      --bf16 /home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt \
+      --f32 /home/ttuser/of3t_refprec/pinned_p175/arm2_f32_upstream/grads_f64.pt \
       --upstream-permuted /home/ttuser/of3t_trajectory/ref/negctl_permuted_grads.pt \
       --diffcap /home/ttuser/of3t_rebase/diffcap043/sub_boundary.pt \
       --sections perf/of3t_orchestrator/SECTION_MASS_MEASURED.json \
@@ -73,9 +73,14 @@ per-tensor JSON here. Then the comparison, a few minutes and no card:
 
 ## The upstream arms this reads
 
-See `PROVENANCE.txt`. of3t-refprec was relaunching all four arms while this row ran and writes
-to the same paths, so the three files were copied out and hashed before the relaunch reached
-them. The shas match refprec's own `PRIOR_GRAD_SHA.txt` exactly.
+See `PROVENANCE.txt` for every digest. of3t-refprec was relaunching all four arms into
+`of3t_refprec/run/` while this row ran, and `torch.save` truncates in place, so the live path is
+not a reference. Read `of3t_refprec/pinned_p175/` and verify the digest before loading:
+`ff78d7bc...` for arm4, `09f1217c...` for arm2. The files this row's numbers were computed from
+hash identically to both.
+
+refprec's it2 relaunch landed arm4 at 09:06:48Z byte-identical to the pinned copy, so the
+seeded fixed-draw arms reproduce exactly across launches.
 
 ## Checks the instrument carries
 

@@ -1,5 +1,45 @@
 {
  "what": "Do we reproduce the gradient OpenFold3's own training step computes?",
+ "inputs": {
+  "device": {
+   "path": "/home/ttuser/of3t_trajectory/device_grads_043all.pt",
+   "bytes": 1256230117,
+   "sha256": "ac92887a5c2ab446fed00ac00203776b89b9b532b0af4d0267add9efcf81f530"
+  },
+  "device_permuted": {
+   "path": "/home/ttuser/of3t_trajectory/device_grads_043all_permcot.pt",
+   "bytes": 1256234605,
+   "sha256": "8257b93567afb0f3ff29e80b9790f16597e1c2ee577ead979e847f330987f37a"
+  },
+  "float64": {
+   "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+   "bytes": 2947844653,
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "matches_pin": true
+  },
+  "upstream_bf16": {
+   "path": "/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt",
+   "bytes": 2947844653,
+   "sha256": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "matches_pin": true
+  },
+  "upstream_f32": {
+   "path": "/home/ttuser/of3t_refprec/pinned_p175/arm2_f32_upstream/grads_f64.pt",
+   "bytes": 2947844653,
+   "sha256": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+   "matches_pin": true
+  },
+  "upstream_permuted_draws": {
+   "path": "/home/ttuser/of3t_trajectory/ref/negctl_permuted_grads.pt",
+   "bytes": 2947844653,
+   "sha256": "a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0"
+  },
+  "diffcap": {
+   "path": "/home/ttuser/of3t_rebase/diffcap043/sub_boundary.pt",
+   "bytes": 3170912516,
+   "sha256": "afa891ca862c171e35302321bdef858fded9f4eb34937195065b3bdb5df70938"
+  }
+ },
  "scope": {
   "n_tensors": 547,
   "source": "/home/ttuser/of3t_trajectory/device_grads_043all.pt",

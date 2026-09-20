@@ -1,14 +1,41 @@
-The upstream gradient files this row scores against, copied out of of3t-refprec's run directory
-at 2026-09-20T08:50Z and hashed here. refprec was relaunching all four arms at the time and
-writes to the same paths; these copies are the first launch's output, which is the output the
-published 5.852018e-02 and 3.117006e-05 were computed from.
+The upstream gradient files this row scores against, with every digest verified here rather
+than taken from a path.
+
+of3t-refprec was relaunching all four arms into /home/ttuser/of3t_refprec/run/ while this row
+ran, and torch.save truncates in place with no atomic rename, so the live path is not a
+reference. The 08:24Z outputs were copied aside at 2026-09-20T08:50Z, before the relaunch
+reached them, and hashed:
 
   ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb  arm4_bf16_grads.pt
   09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548  arm2_f32_grads.pt
   a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0  negctl_permuted_grads.pt
 
-All three match of3t_refprec/PRIOR_GRAD_SHA.txt. They live at
-/home/ttuser/of3t_trajectory/ref/ with a SHA256.txt beside them.
+They live at /home/ttuser/of3t_trajectory/ref/ with a SHA256.txt beside them. All three match
+of3t_refprec/PRIOR_GRAD_SHA.txt.
+
+AMENDMENT 1 (pass 175) named pinned copies and asked for the digests to be verified
+independently. Done at 2026-09-20T09:07Z, on the pinned files themselves:
+
+  ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb
+      of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt
+  09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548
+      of3t_refprec/pinned_p175/arm2_f32_upstream/grads_f64.pt
+
+Both match the amendment's digests and both match the copies this row's numbers were actually
+computed from, byte for byte. Every figure here is attributable to the pinned reference.
+
+The arm2 digest is the same one D69 identified as byte-identical to arm3, which is the positive
+cross-check that these are the run this campaign has been reading.
+
+REPRODUCIBILITY OF THE ARMS THEMSELVES. of3t-refprec's it2 relaunch landed arm4 at
+2026-09-20T09:06:48Z, 2,947,844,653 bytes, mtime stable and no open write handle when hashed:
+
+  ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb
+      of3t_refprec/run/arm4_bf16_autocast/grads_f64.pt  (it2, 09:06Z)
+
+Byte-identical to the pinned copy. The seeded, fixed-draw arms reproduce exactly across
+launches, so there are no two arm4s to report side by side. At the time of the check it2's arm2
+had not yet landed: run/arm2_f32_upstream/grads_f64.pt still carried its 08:21Z mtime.
 
 The float64 reference is of3t_refprec/bundle_ref/grads_f64_043.pt,
 1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4, hardlinked from
