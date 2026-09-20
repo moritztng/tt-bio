@@ -159,3 +159,4 @@ perf/pvx_land/*.json
 # pvx-eligibility: the MSA cache its census seeds
 .msa_pvxel_*/
 perf/sizegate/failures/
+perf/sizegate/campaign/card*.lock

@@ -19,6 +19,22 @@ CARD=$1; shift
 cd "$WT" || exit 1
 mkdir -p perf/sizegate/campaign/logs perf/sizegate/campaign/claim-rr
 
+# One runner per card, enforced by the kernel. The per-model mkdir claim below serialises
+# MODELS, not CARDS, so two runners pointed at one card each take a DIFFERENT model and then
+# fold both on that card at once -- which is what the claim looks like it prevents. Two
+# things break at once when it happens: the runtimes are contention, not the model, and both
+# passes share RELEASE_GATE_SIZE_WORKDIR, so whichever finishes first rmtree's the other's
+# scratch out from under it. Hit on 2026-09-20 within four minutes of launching card 2 twice.
+#
+# flock, not a pid file: the lock is held by the fd and released when the process dies, so a
+# killed runner leaves nothing stale behind to unblock by hand.
+LOCK=perf/sizegate/campaign/card$CARD.lock
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  echo "[rr card $CARD] another runner already holds card $CARD, refusing to share it"
+  exit 4
+fi
+
 fresh() {
   "$PY" - "$1" <<'PYEOF'
 import importlib.util, json, pathlib, sys
