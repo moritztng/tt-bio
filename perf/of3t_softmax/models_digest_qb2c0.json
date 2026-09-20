@@ -1,0 +1,67 @@
+{
+  "host": "qb2",
+  "card": 0,
+  "board": "p300c",
+  "samples": 1,
+  "models": {
+    "boltz2": {
+      "off": {
+        "rc": 0,
+        "wall_s": 40.489986384003714,
+        "sha256_structures": "a0db89ee4d8574140662f2d28096c612f0f1de265fb29e6cb6801a9273c1e0e8",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-off/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 30.97383380899555,
+        "sha256_structures": "a0db89ee4d8574140662f2d28096c612f0f1de265fb29e6cb6801a9273c1e0e8",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-on/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "ctl": {
+        "rc": 0,
+        "wall_s": 31.97165367600246,
+        "sha256_structures": "5abca709caf1602a52dda894349f042a14880df2bca805e1ff49b4ef9bdd838c",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-ctl/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 7
+      },
+      "off_vs_on_rank0_ca_rmsd_A": 5.637283968152627e-15,
+      "off_vs_on_digest_moved": false,
+      "off_vs_ctl_rank0_ca_rmsd_A": 1.3207127486479315,
+      "off_vs_ctl_digest_moved": true
+    },
+    "protenix-v2": {
+      "off": {
+        "rc": 1,
+        "wall_s": 5.824226998003724,
+        "sha256_structures": null,
+        "cifs": [],
+        "seed": 0,
+        "stderr_tail": "07:24:01  [tt-quietbox2:tt0] loading model\u2026\n07:24:01  [tt-quietbox2:tt0] \u2717 ubq \u2014 0.0s\n"
+      },
+      "on": {
+        "rc": 1,
+        "wall_s": 5.824337741003546,
+        "sha256_structures": null,
+        "cifs": [],
+        "seed": 0,
+        "stderr_tail": "07:24:07  [tt-quietbox2:tt0] loading model\u2026\n07:24:07  [tt-quietbox2:tt0] \u2717 ubq \u2014 0.0s\n"
+      },
+      "ctl": {
+        "rc": 1,
+        "wall_s": 5.819179951999104,
+        "sha256_structures": null,
+        "cifs": [],
+        "seed": 7,
+        "stderr_tail": "07:24:12  [tt-quietbox2:tt0] loading model\u2026\n07:24:13  [tt-quietbox2:tt0] \u2717 ubq \u2014 0.0s\n"
+      }
+    }
+  }
+}
