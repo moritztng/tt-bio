@@ -1183,3 +1183,104 @@ def test_no_fixture_hands_a_test_the_real_scratch_tree(rg, rg_fresh):
         assert wd != real, f"{name} still points at the real scratch tree: {wd}"
         assert REPO_ROOT not in wd.parents, (
             f"{name} points inside the repo at {wd}; run_size_ladder(keep=False) rmtrees it")
+
+
+def _slugger():
+    """perf_regression's own _slug_board_type, loaded by path (scripts/ is not a package)."""
+    path = REPO_ROOT / "scripts" / "perf_regression.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_perf_regression_slug", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod._slug_board_type
+
+
+def _recorded_card_keys():
+    """(file, card key) for every card block in every baseline the card detector keys."""
+    files = [REPO_ROOT / "docs" / "size_ladder_baseline.json",
+             REPO_ROOT / "docs" / "perf_baselines.json"]
+    files += sorted((REPO_ROOT / "docs" / "size_ladder_baseline.d").glob("*.json"))
+    out = []
+    for f in files:
+        if not f.exists():
+            continue
+        for card in (json.loads(f.read_text()).get("cards") or {}):
+            out.append((f.relative_to(REPO_ROOT), card))
+    return out
+
+
+def test_every_recorded_card_key_is_its_own_slug():
+    """A baseline key the card detector can never produce is a baseline nobody will ever read.
+
+    detect_card_type() slugs tt-smi's board_type, so the key it looks up is
+    _slug_board_type(board_type) and nothing else. When the slugger changed
+    (bce11f7f5, 2026-09-10) the Galaxy's key went from `tt-galaxy-wh l` to
+    `tt-galaxy-wh-l`, and the five wh-galaxy ladders recorded on 09-07/09-08 kept the old
+    key: 37 rungs of measured device time that the arm then reported as NO BASELINE, on the
+    one board the public service actually runs on. Nothing failed — an unreachable row and a
+    row that was never recorded look identical from the lookup side, which is why this is a
+    test and not a comment.
+    """
+    slug = _slugger()
+    wrong = [(str(f), c, slug(c)) for f, c in _recorded_card_keys() if slug(c) != c]
+    assert not wrong, ("baseline card keys the detector will never look up "
+                       "(file, recorded, what detect_card_type returns): " + repr(wrong))
+
+
+def test_the_card_key_check_would_have_caught_the_key_it_was_written_for():
+    """Negative control: the assertion above reads the key, not the file's existence."""
+    slug = _slugger()
+    assert slug("tt-galaxy-wh L") == "tt-galaxy-wh-l"
+    assert slug("tt-galaxy-wh l") != "tt-galaxy-wh l"
+
+
+# The traceback a refused fold actually writes: CPython prints the raising source line as
+# well as the exception line, and `raise SizeTooLargeError(` sorts first. Verbatim shape
+# from the openbind/1024 fold on UF-EV-A13-GWH02, 2026-09-19.
+REFUSED_FOLD_LOG = '''Traceback (most recent call last):
+  File "/x/tt_bio/main.py", line 1, in predict
+    enforce_size_limit(path, model)
+  File "/x/tt_bio/size_limits.py", line 1148, in enforce_size_limit
+    raise SizeTooLargeError(
+tt_bio.size_limits.SizeTooLargeError: cdk2x2_1024.yaml has 1024 tokens, and openbind is \
+measured to handle at most 960 on wormhole_b0 -- the 896 rung is the last one it accepts.
+'''
+
+
+def test_a_refusal_reason_is_the_message_not_the_traceback_source_line(rg):
+    """The refusal cell has to carry the ceiling, not the punctuation of the raise.
+
+    _size_limit_refusal took the FIRST line containing "SizeTooLargeError", which in a real
+    traceback is the raising source line `raise SizeTooLargeError(`. Splitting on the name
+    left the literal string "(", and that is what openbind's 1024 rung recorded as its
+    reason on the Galaxy on 2026-09-19 — the first refusal this baseline ever held. It
+    reads back through the check as `refused ... (was: ()`, so the one number a user wants
+    from a refused rung, the size at which the model stops accepting work, was thrown away
+    while the cell still looked filled in.
+    """
+    got = rg._size_limit_refusal(REFUSED_FOLD_LOG)
+    assert got is not None
+    assert "960" in got and "openbind" in got, got
+    assert got != "(" and not got.startswith("("), got
+
+
+def test_the_refusal_parser_still_reads_a_single_line_exception(rg):
+    """Negative control: the skip is on the raise SOURCE line, not on every early match."""
+    assert rg._size_limit_refusal("nope, no exception here") is None
+    one_line = "tt_bio.size_limits.SizeTooLargeError: 1024 tokens, limit 960"
+    assert rg._size_limit_refusal(one_line) == "1024 tokens, limit 960"
+
+
+def test_no_recorded_refusal_reason_is_an_empty_cell():
+    """A recorded refusal with no words in it is a ceiling nobody can read off the file."""
+    bad = []
+    files = [REPO_ROOT / "docs" / "size_ladder_baseline.json"]
+    files += sorted((REPO_ROOT / "docs" / "size_ladder_baseline.d").glob("*.json"))
+    for f in files:
+        if not f.exists():
+            continue
+        for card, cd in (json.loads(f.read_text()).get("cards") or {}).items():
+            for model, md in (cd.get("models") or {}).items():
+                for rung, why in (md.get("refused") or {}).items():
+                    if not any(c.isalpha() for c in str(why)):
+                        bad.append((f.name, card, model, rung, why))
+    assert not bad, f"refused rungs recorded without a reason: {bad!r}"
