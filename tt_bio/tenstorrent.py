@@ -8783,9 +8783,22 @@ class PairformerLayer(Module):
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
+        # Keep the single track's residual in fp32 while its updates are computed in bf16.
+        # It costs one [B, L, c_s] fp32 tensor and it is the difference between carrying an
+        # update and losing it: a track whose residual is much larger than its per-block
+        # update quantises that update away, because bf16's resolution is relative to what
+        # the accumulator already holds. Measured on OF3's confidence Pairformer, which is
+        # the case this exists for -- it is handed the trunk's raw si_trunk at absmax 2.28e5
+        # with per-block updates of 1.2-6.3 % of it, where bf16's resolution at that
+        # magnitude is ~1024. Fed identical inputs, each of the four blocks then computes
+        # its own update with 3.1e-02 to 2.6e-01 relative error, and pLDDT, which reads the
+        # small channels of LN(s), comes out 2.42e-01 off. Off by default: a track whose
+        # residual and update are the same order of magnitude gains nothing.
+        self.s_fp32_residual = s_fp32_residual
         # Triangle attention is the biggest softmax site in the stack, and the accurate-softmax
         # chain only reaches it on the fp32_softmax route. `None` keeps whatever the layer's
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
@@ -8876,7 +8889,7 @@ class PairformerLayer(Module):
         ttnn.deallocate(z_update)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
-                s,
+                self._s_compute(s),
                 weight=self.pre_norm_s_weight,
                 bias=self.pre_norm_s_bias,
                 epsilon=1e-5,
@@ -8888,13 +8901,32 @@ class PairformerLayer(Module):
                 seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s = self._s_residual(s, s_update)
 
-            s_update = self.transition_s(s)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s_update = self.transition_s(self._s_compute(s))
+            s = self._s_residual(s, s_update)
         return s, z
+
+    def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
+        """The single track as its CONSUMERS want it. Identity unless the residual is fp32.
+
+        Both consumers open with a LayerNorm, so handing them the bf16 copy costs only that
+        norm's own rounding -- measured at 2.4e-03 on LN(s), against the 9.4e-03 the
+        residual quantisation costs -- and keeps every tuned kernel below on its bf16 path.
+        """
+        if not self.s_fp32_residual or s.dtype == ttnn.bfloat16:
+            return s
+        return ttnn.typecast(s, ttnn.bfloat16)
+
+    def _s_residual(self, s: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
+        if not self.s_fp32_residual:
+            s = ttnn.add_(s, update)
+            ttnn.deallocate(update)
+            return s
+        out = ttnn.add(s, update if update.dtype == ttnn.float32
+                       else ttnn.typecast(update, ttnn.float32))
+        ttnn.deallocate(update)
+        return out
 
 
 class Pairformer(Module):
@@ -8918,6 +8950,7 @@ class Pairformer(Module):
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -8939,6 +8972,7 @@ class Pairformer(Module):
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+                s_fp32_residual=s_fp32_residual,
             )
             for i in range(n_blocks)
         ]
