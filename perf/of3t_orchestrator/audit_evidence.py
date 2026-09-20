@@ -909,6 +909,31 @@ if ORCH.is_file():
         ok.append("VERDICT states the defect, UNFIXED and concluded-row counts as their "
                   "sources have them")
 
+    # --- the summary must not deny a measurement it also reports -------------------------------
+    # Pass 123. GAP read "No s/step exists on either side: ... nothing is measured" while the
+    # PROVES block four hundred lines above it reported "870.75 s on a p300c against 7-8 s on an
+    # H200, ~116x". Both are owed fields, both get quoted, and they cannot both be true. I had
+    # propagated the denial into a report the pass before I noticed the figures.
+    #
+    # The guard is deliberately narrow: it does not try to detect contradiction in general, only
+    # the specific shape that bit -- the summary asserting that a quantity has NOT been measured
+    # while the same summary carries a number for it. Extend the pairs list when a new headline
+    # quantity earns one.
+    _DENIALS = [
+        (r"\bno\s+s\s*/\s*step\s+exists\b", r"\d+(?:\.\d+)?\s*s\b[^.]{0,80}(?:p300c|H200|step)",
+         "s/step"),
+        (r"\bnothing\s+is\s+measured\b", r"sampled\s+DURING", "a DURING-sampled measurement"),
+    ]
+    _whole = proves + doesnot + (_re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S).group(1)
+                                 if _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
+                                 else "")
+    for _deny, _have, _what in _DENIALS:
+        if _re.search(_deny, _whole, _re.I) and _re.search(_have, _whole, _re.I):
+            bad.append(f"the summary denies {_what} has been measured AND carries a figure for "
+                       f"it -- one of the two is stale (pass-123 recurrence)")
+    if not any("the summary denies" in b for b in bad):
+        ok.append("the summary does not deny a measurement it also reports")
+
     # And the amendment count, which is a claim about the protocol's own history.
     _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
