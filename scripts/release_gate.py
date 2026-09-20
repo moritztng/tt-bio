@@ -760,6 +760,26 @@ SIZE_LADDER_RUNGS = tuple(int(x) for x in
 # guard, so a shared 1088 rung would add a refusal cell to eight models and, worse, make the
 # check demand a baseline row nobody has recorded yet.
 SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
+# A BOARD's own top rungs, on top of the shared ladder. The shared rungs stop at 1024 because
+# that is what the Wormhole pool advertises and serves; a 32 GiB Blackhole is a different
+# machine (8 banks x 3.984 GiB against Wormhole's 12 x ~1 GiB) and the bar it is held to is
+# 1536 tokens (japanfold/size_evidence.py::TARGET_BAR). A ladder that stops at 1024 on a
+# p150a leaves the whole band where the allocator actually gets tight unmeasured, which is
+# what ~/.coworker/coverage_sweep.py reports as LADDER_BELOW_BAR.
+#
+# Per CARD rather than raised for everyone, for the same reason SIZE_LADDER_EXTRA_RUNGS is
+# per model: a rung in the shared list makes the check demand a baseline cell on every board,
+# and nobody has recorded 1152-1536 on Wormhole or on p300c. The key is the board type
+# _size_ladder_card_type() returns, so a check and a record pass on one board always agree on
+# which ladder they are talking about.
+SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536)}
+# Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
+# ~/.coworker/coverage_sweep.py reads as "the top of the ladder". The union and not this
+# board's own set: a p300c record pass writing 1024 over a p150a pass's 1536 would flip the
+# LADDER_BELOW_BAR deficit on and off with whichever board recorded last. Each card's own
+# cells still say what that board actually walked.
+SIZE_LADDER_CONTRACT_RUNGS = tuple(sorted(
+    set(SIZE_LADDER_RUNGS).union(*(set(r) for r in SIZE_LADDER_CARD_RUNGS.values()))))
 SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
@@ -773,7 +793,14 @@ SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 SIZE_LADDER_EXP_MAX_TOL = 1.40
 # Transient fold/census scratch; deleted after the run unless --keep. Lives under
 # perf/sizegate, never the repo root (the 08-13 run_*.sh lesson).
-SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
+#
+# Overridable because the delete is of the WHOLE directory and the path used to be a
+# constant. Recording several models at once on several cards of one box -- which is the only
+# way a nine-model ladder finishes in an afternoon -- then had the first model to finish
+# rmtree the scratch out from under the two still folding, including the census json a
+# running pass is about to read. Give each card its own.
+SIZE_LADDER_WORKDIR = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR")
+                                   or REPO_ROOT / "perf" / "sizegate" / "work")
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
@@ -2663,6 +2690,9 @@ def _census_pythonpath_args() -> list:
     return ["--pythonpath", p] if p else []
 
 
+_SIZE_REFUSAL_RE = re.compile(r"^(?:[\w.]+\.)?SizeTooLargeError: *(\S.*)$")
+
+
 def _size_limit_refusal(text: str) -> str | None:
     """The size guard's own one-line refusal for this fold, or None.
 
@@ -2678,21 +2708,43 @@ def _size_limit_refusal(text: str) -> str | None:
     next wall and the wrong thing here: this arm measures what a user can actually submit,
     and the guard is what defines that.
     """
+    # Only the traceback's FINAL line carries the message: `tt_bio.size_limits.SizeTooLargeError:
+    # <why>`. The raise site is a multi-line call, so its source line -- `raise
+    # SizeTooLargeError(` -- also contains the name, comes FIRST, and splitting on the name
+    # there yields "(" . That is what opendde's four refused rungs recorded on 2026-09-20:
+    # `"1152": "("`, a refusal whose reason is a bracket. Requiring the colon-and-message form
+    # skips the source line, and taking the last match takes the raised exception rather than a
+    # `raise ... from` cause. No match at all returns None, so the rung is recorded as an error
+    # with the log text rather than as a refusal nobody can read.
+    found = None
     for line in text.splitlines():
-        if "SizeTooLargeError" not in line:
-            continue
-        # A CPython traceback prints the RAISING SOURCE LINE as well as the exception
-        # line, and `raise SizeTooLargeError(` comes first. Matching it recorded the
-        # refusal reason as the literal string "(" — a cell that looks like a reason,
-        # reads back as one in the check's `(was: ...)`, and carries nothing. openbind's
-        # 1024 rung on the Galaxy is the first refusal this file ever recorded and it
-        # landed that way. Skip the source line and require the message to have letters.
-        if line.lstrip().startswith("raise "):
-            continue
-        msg = line.split("SizeTooLargeError", 1)[1].lstrip(": ").strip()
-        if any(c.isalpha() for c in msg):
-            return msg[:400]
-    return None
+        m = _SIZE_REFUSAL_RE.match(line.strip())
+        if m:
+            found = m.group(1).strip()[:400]
+    return found or None
+
+
+def _keep_failed_fold_log(log: Path, label: str) -> str:
+    """Copy a failed fold's log somewhere the next model will not delete, and say where.
+
+    The scratch dir is removed whole per card, so the fold log a failure points at survives
+    only until the runner starts the next model. rf3 failed at its 256 warm-up on two
+    different cards on 2026-09-20 with `SpawnProcess-1 exit 1` -- "any other code prints its
+    own fatal above", and above was gone both times. What reaches the campaign log is
+    `_fold_error`'s 400 characters, which here was the generic worker-exited sentence and not
+    the fatal.
+
+    Never raises: this runs inside a path that is already reporting a failure, and a copy that
+    throws would replace the fold's error with its own (see `_fold_log_text`).
+    """
+    keep = REPO_ROOT / "perf" / "sizegate" / "failures"
+    dest = keep / f"{label}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.log"
+    try:
+        keep.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(log, dest)
+        return f"full log kept at {dest.relative_to(REPO_ROOT)}"
+    except Exception as e:
+        return f"the log could not be kept: {e}"
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
@@ -2759,13 +2811,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     if timed_out:
-        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
+        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     if rc != 0:
         text = _fold_log_text(log)
         refusal = _size_limit_refusal(text)
         if refusal:
             return {"refused": refusal}
-        return {"error": f"census fold exited {rc}: {_fold_error(text)}"}
+        return {"error": f"census fold exited {rc}: {_fold_error(text)}"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
@@ -3117,13 +3171,16 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
     return findings
 
 
-def _size_ladder_model_rungs(model: str, want=None) -> tuple:
+def _size_ladder_model_rungs(model: str, want=None, card: str | None = None) -> tuple:
     """This model's own ladder, ascending, narrowed to ``rungs`` when the caller named them.
 
     A design model is walked on its own axis (SIZE_LADDER_DESIGN), so the fold rungs do not
     apply to it: pxdesign's 768 is 768 TARGET residues against a fold's 768 tokens, and its
     top rung is set by how far its own fixture source can be cut. A fold model whose guard
-    reaches past the shared ladder carries its own extra top rungs (SIZE_LADDER_EXTRA_RUNGS).
+    reaches past the shared ladder carries its own extra top rungs (SIZE_LADDER_EXTRA_RUNGS),
+    and a board held to a higher bar than the shared ladder adds the rungs that reach it
+    (SIZE_LADDER_CARD_RUNGS). ``card`` names that board and defaults to the one this process
+    is running on, so a check reading a cell recorded elsewhere asks about the right ladder.
 
     ``want`` (from --size-ladder-rungs) FILTERS each model's ladder rather than replacing it,
     so a resume pass naming 1088 measures rf3 there and measures nothing for the models whose
@@ -3133,7 +3190,8 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
         ladder = tuple(SIZE_LADDER_DESIGN[model]["rungs"])
     else:
         ladder = tuple(sorted(set(SIZE_LADDER_RUNGS)
-                              | set(SIZE_LADDER_EXTRA_RUNGS.get(model, ()))))
+                              | set(SIZE_LADDER_EXTRA_RUNGS.get(model, ()))
+                              | set(_size_ladder_card_rungs(card))))
     return ladder if want is None else tuple(n for n in ladder if n in want)
 
 
@@ -3370,6 +3428,36 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
     return block, None
 
 
+# What a size-ladder cell is measured AGAINST: the engine and the census hook that reads it.
+# scripts/release_gate.py itself is deliberately absent -- the rung list, the record path and
+# this file's own comments decide which cells exist, not what any of them measures. So is
+# docs/, perf/ and tests/. Wider than japanfold/size_evidence.py::SIZE_AFFECTING_PATHS on
+# purpose: that tuple names the six files that move a CEILING, and a lever census moves with
+# any model code at all.
+SIZE_LADDER_ENGINE_PATHS = ("tt_bio", "scripts/lever_census.py")
+
+
+def _size_ladder_same_engine(old: str | None, new: str | None) -> bool:
+    """True when nothing under SIZE_LADDER_ENGINE_PATHS changed between two commits.
+
+    Unknown or unreachable sha -> False. An entry recorded before this field meant anything,
+    or on a tree this checkout does not have, is one whose engine cannot be compared, and the
+    honest answer there is "re-measure" rather than "probably fine".
+    """
+    if not old or not new or "unknown" in (old, new):
+        return False
+    if old == new:
+        return True
+    try:
+        r = subprocess.run(["git", "diff", "--quiet", old, new, "--"]
+                           + list(SIZE_LADDER_ENGINE_PATHS),
+                           cwd=REPO_ROOT, timeout=30, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:                                                        # noqa: BLE001
+        return False
+    return r.returncode == 0
+
+
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
     """Fold the rungs this pass did not measure back in from ``prev``, in place on
     ``meas``. Returns the rungs carried, so the entry can say which of its cells came
@@ -3380,20 +3468,29 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     recorder's stated policy one level up ("a 6-model record is ~2 h of device time, so
     it has to be resumable a model at a time"); this is the same policy one level down.
 
-    A cell is only carried when the previous entry was recorded on the SAME commit, host
-    and core grid. Commit, because the arm's whole rule is "re-record after any
+    A cell is only carried when the previous entry was recorded on the same ENGINE, host
+    and core grid. Engine, because the arm's whole rule is "re-record after any
     size-affecting change" and a ladder mixing two engines measures neither. Host,
     because absolute runtime does not transfer between machines even of one board type
     (qb1's p150a reads ~30 % slower than pc's). Grid, because a guard sized against the
     core grid flips with it, which is why the check already refuses a cross-grid
     comparison outright.
+
+    "Same engine" is `git diff` over SIZE_LADDER_ENGINE_PATHS and not sha equality, which
+    is what it used to be. Sha equality made the recorder's own stated policy impossible to
+    follow: committing the rungs a pass measured moves HEAD, so the NEXT pass could never
+    carry them and a 10-rung ladder had to be walked in one uninterrupted run per model. It
+    also invalidated a ladder on a README typo. Diffing the paths that decide what is
+    measured keeps the guarantee ("no cell was measured against code that has since moved")
+    and drops the part that was only ever an approximation of it.
     """
     if not prev:
         return []
     if not meas.get("runtime_s"):
         return []
-    same = all(prev.get(k) == stamp[k] for k in ("commit", "host")) \
-        and prev.get("grid") == meas.get("grid")
+    same = prev.get("host") == stamp["host"] \
+        and prev.get("grid") == meas.get("grid") \
+        and _size_ladder_same_engine(prev.get("commit"), stamp["commit"])
     old_rt, old_ref_all = prev.get("runtime_s") or {}, prev.get("refused") or {}
     measured = set(meas["runtime_s"]) | set(meas.get("refused") or {})
     # Refused rungs count as spare too: a pass that re-measures every timing rung but not
@@ -3406,7 +3503,9 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
         print(f"  [size-ladder] not carrying rungs {','.join(sorted(spare, key=int))}: "
               f"recorded on {prev.get('host')}@{prev.get('commit')} grid "
               f"{prev.get('grid')}, this pass is {stamp['host']}@{stamp['commit']} grid "
-              f"{meas.get('grid')} — a ladder mixing two engines measures neither",
+              f"{meas.get('grid')}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
+              f"{'match' if _size_ladder_same_engine(prev.get('commit'), stamp['commit']) else 'differ'} "
+              f"between them — a ladder mixing two engines measures neither",
               flush=True)
         return []
     old_lv = prev.get("levers") or {}
@@ -4008,6 +4107,26 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
     return path
 
 
+def _size_ladder_card_rungs(card: str | None = None) -> tuple:
+    """The rungs ``card`` adds to the shared ladder, or () for a board with none.
+
+    ``card`` defaults to the board this process is running on. Passing it explicitly is what
+    lets a check READ a card it is not running on: the coverage test walks every recorded
+    card in the baseline, and asking a p150a host what rungs the Galaxy's ladder walks is how
+    a per-board ladder turns into a demand for cells nobody owes.
+
+    A board with no entry, and a host where the type cannot be read at all, both get the
+    shared ladder: widening a ladder on a guess would demand baseline cells for a board
+    nobody measured.
+    """
+    if card is None:
+        try:
+            card = _size_ladder_card_type()
+        except Exception:                                                    # noqa: BLE001
+            card = ""
+    return tuple(SIZE_LADDER_CARD_RUNGS.get(card, ()))
+
+
 def _size_ladder_every_rung() -> tuple:
     """Every rung any model on the ladder measures: the shared set, each model's extras, and
     each design model's own axis.
@@ -4018,7 +4137,7 @@ def _size_ladder_every_rung() -> tuple:
     Nothing else widens: the models' own ladders are still taken one at a time from
     _size_ladder_model_rungs, so a fold model never sees an atom rung.
     """
-    every = set(SIZE_LADDER_RUNGS)
+    every = set(SIZE_LADDER_CONTRACT_RUNGS)
     for extra in SIZE_LADDER_EXTRA_RUNGS.values():
         every |= set(extra)
     for d in SIZE_LADDER_DESIGN.values():
@@ -4193,7 +4312,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # The LADDER, not this pass's subset. --size-ladder-rungs records a rung at
                 # a time, and writing the subset here would have the file claim a four-rung
                 # ladder because the last resumed pass measured four of them.
-                "rungs": list(SIZE_LADDER_RUNGS),
+                "rungs": list(SIZE_LADDER_CONTRACT_RUNGS),
                 "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
                          "diffusion_samples": 1, "seed": SEED},
             })

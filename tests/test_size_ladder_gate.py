@@ -804,7 +804,7 @@ def test_a_fragment_RECORD_PASS_does_not_touch_the_shared_baseline(rg_fresh, tmp
     frag_dir = tmp_path / "size_ladder_baseline.d"
     frag_dir.mkdir()
     base.write_text(json.dumps({
-        "format": 1, "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "format": 1, "rungs": list(rg_fresh.SIZE_LADDER_CONTRACT_RUNGS),
         "what": "size-ladder release-gate baseline: per-model lever census and runtime "
                 "scaling exponents at every rung, per card type",
         "rule": "a perf lever may not land default-ON on the strength of one sequence "
@@ -917,15 +917,18 @@ def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
 def test_an_extra_rung_belongs_to_one_model_only(rg_fresh):
     """A per-model top rung must not leak into the shared ladder: every other model would
     gain a rung with no baseline row, and check mode reads a missing row as a finding."""
-    assert 1088 in rg_fresh._size_ladder_model_rungs("rf3")
+    # pinned to a board with no extra rungs of its own, so this asserts the per-MODEL rule
+    # and not whichever board the test is running on
+    wh = "tt-galaxy-wh l"
+    assert 1088 in rg_fresh._size_ladder_model_rungs("rf3", card=wh)
     assert 1088 not in rg_fresh.SIZE_LADDER_RUNGS
     for m in rg_fresh.SIZE_LADDER_MODELS:
         if m != "rf3":
-            assert rg_fresh._size_ladder_model_rungs(m) == rg_fresh.SIZE_LADDER_RUNGS, m
+            assert rg_fresh._size_ladder_model_rungs(m, card=wh) == rg_fresh.SIZE_LADDER_RUNGS, m
     # and --size-ladder-rungs FILTERS each model's ladder rather than selecting from one
     # shared tuple, so a resume pass naming 1088 is a no-op for the models that lack it
-    assert rg_fresh._size_ladder_model_rungs("rf3", (256, 1088)) == (256, 1088)
-    assert rg_fresh._size_ladder_model_rungs("boltz2", (256, 1088)) == (256,)
+    assert rg_fresh._size_ladder_model_rungs("rf3", (256, 1088), card=wh) == (256, 1088)
+    assert rg_fresh._size_ladder_model_rungs("boltz2", (256, 1088), card=wh) == (256,)
     assert rg_fresh._size_ladder_arg_rungs("1088") == (1088,)
 
 
@@ -1007,7 +1010,7 @@ def test_record_then_resume_then_check_round_trips(rg_fresh, monkeypatch, tmp_pa
                 "length; re-record after any size-affecting change",
         "record_with": "python3 scripts/release_gate.py --model size-ladder "
                        "--size-ladder-record",
-        "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "rungs": list(rg_fresh.SIZE_LADDER_CONTRACT_RUNGS),
         "fold": {"single_sequence": True, "sampling_steps": rg_fresh.SIZE_LADDER_STEPS,
                  "diffusion_samples": 1, "seed": rg_fresh.SEED},
         "cards": {"p150a": {"models": {"boltz2": {"runtime_s": {"256": 7.8}}}}},
@@ -1094,6 +1097,11 @@ def test_a_record_pass_writes_its_census_evidence_beside_the_scratch_baseline(rg
 def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     """A rung added to SIZE_LADDER_RUNGS owes every already-recorded card a re-record.
 
+    Each card is asked about ITS OWN ladder (`card=card`), because a board held to a higher
+    bar than the shared one carries extra top rungs (SIZE_LADDER_CARD_RUNGS). Without that
+    argument this walks every recorded card against whatever board the test happens to be
+    running on, and a p150a host demands 1152-1536 cells from the Galaxy, which owes none.
+
     SCOPE, because the count this prints is easy to read as the whole gap and is not: it walks
     the cells that EXIST and checks their rungs. A model with no cell at all on a card is
     invisible to it. Measured 2026-09-18, after the p150a re-record: p150a and p300c both
@@ -1109,7 +1117,7 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
         for model, entry in sorted(blk.get("models", {}).items()):
-            want = {str(r) for r in rg._size_ladder_model_rungs(model)}
+            want = {str(r) for r in rg._size_ladder_model_rungs(model, card=card)}
             # A refused rung IS coverage: the guard declining a size is the information the
             # arm exists to carry, so it counts the same as a timed one.
             have = set(entry.get("runtime_s") or {}) | set(entry.get("refused") or {})
