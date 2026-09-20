@@ -42,3 +42,32 @@ The other open thread is §7b itself. Its shape bar passed the deliberately mis-
 common ceiling near 1e-01 by k = 20 and the exponent measures how far below that ceiling the
 arm started. Any future row quoting a growth exponent from a saturating trajectory owes the
 early rungs beside it.
+
+
+## What `of3t-wirefix` did with this
+
+Both open threads above are answered, and the answer to the first is not either of the two
+candidates this file named.
+
+**The residual was a fifth wiring divergence, not the loop amplifying rounding.** `recipes.py`
+never passed `betas`, so `AdamW`'s class default `(0.9, 0.999)` shipped where OpenFold3 runs
+`(0.9, 0.95)`. Closing it takes k=2 from 8.715e-03 to 4.9873e-06 and k=20 from 9.741e-02 to
+8.2071e-06, and the growth exponent from +1.267 to +0.194.
+
+The discriminator this file proposed, re-running `avg` in float64, was replaced. `AdamW`
+refuses a non-fp32 master at construction for a measured reason, so a float64 arm would have
+meant changing a shipped guard to run an experiment. The `ulp` arm answers the same question
+without touching shipped code: it runs one path on both sides and perturbs one side's
+accumulated gradient by a relative `2**-24` per element per step, formed in float64 and
+rounded back. It reads 3.4668e-06 at k=2 falling to 1.8575e-06 at k=20, exponent **-0.146**,
+so the closed loop **damps** rounding over 20 steps rather than amplifying it. That is what
+ruled the rounding candidate out and pointed at a constant.
+
+**The §7b thread.** The saturation confound is real and it is what made the exponent order the
+arms backwards here. It does not reach the post-fix arm: `fixed5` sits four orders below the
+~1e-01 ceiling at every rung and never approaches it, so its +0.194 is the shape of the curve.
+Its r² of 0.093 is the more honest number, and it says the curve is flat scatter rather than a
+law. Any future row quoting a growth exponent still owes the r² and the early rungs beside it.
+
+    perf/of3t_traj20/wirefix_report.py > perf/of3t_traj20/WIREFIX_RUNGS.txt
+    perf/of3t_traj20/schedule_family_shipped.py    # the schedule family on the shipped default
