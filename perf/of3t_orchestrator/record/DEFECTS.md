@@ -3873,3 +3873,50 @@ against upstream's own trajectory. Anything between is the interesting case and 
 reports it as such rather than rounding to one of the two.
 
 Owner: `of3t-refprec`. **UNFIXED.** Brief `workstreams/of3t-refprec.txt`.
+
+---
+
+### D65. The non-attention half's error falls 3.30× with block depth and the effect survives controlling for mass — consistent with it being inherited through the backward from the attention softmaxes, with a pre-registered test that would refute it. FOUND by `of3t-orchestrator`, pass 165. **STILL OPEN.**
+
+`of3t-adaln` measured the conditioned transition **alone** against upstream's own module at
+**5.468736e-03** — clean — while the model shows its gain at mass-weighted **0.1828**. The error
+is not made inside the transition; it arrives in the cotangent. If it arrives from the attention
+softmaxes, a block's transition gain should be worse the more blocks sit **downstream of it in
+the backward**: block 0 has 23, block 23 has none.
+
+| leaf | median rel blk 0–7 | blk 16–23 | ratio | raw r vs index | **partial, mass held** |
+|---|---|---|---|---|---|
+| `conditioned_transition…layer_norm_s.weight` | 0.1747 | 0.0529 | **3.30×** | −0.5789 | **−0.4301**, t(21) = −2.18 |
+| `attention_pair_bias…layer_norm_s.weight` | 2.0321 | 0.3806 | 5.34× | −0.3444 | −0.1803, t(21) = −0.84 |
+
+**The confound had to be removed first.** Block index and log mass are **76 %** collinear here
+(r = −0.7557) — later DiT blocks carry far less gradient mass — so the raw −0.5789 could have
+been a mass effect entirely. After controlling: **depth −0.4301, mass −0.0150.** Mass explains
+essentially nothing once depth is held. Reporting the raw figure without this step would have
+been the same error as reading a worst-tensor list as a location.
+
+**The transition gain is the cleaner signal and that ordering is itself an argument.** It has no
+softmax inside its own block, so whatever depth dependence it shows is inherited; the attention
+gain sits directly under its own block's softmax, which adds large block-specific variance
+(block 8 alone reads 18.504) and its partial does **not** survive the control. Inheritance plus
+local noise predicts exactly this ordering — the cleaner depth signal on the leaf with no local
+source. That is a weak structural argument in favour, not evidence.
+
+**PRE-REGISTERED TEST, written before the measurement exists.** Re-run `of3t-adaln`'s
+float64-softmax arm across **all 24 blocks** rather than the three it did (8, 0, 12), and
+recompute the transition gain's depth profile.
+
+- **CONFIRMS** if the depth gradient **vanishes** — the partial consistent with zero and the
+  0–7 / 16–23 ratio collapsing toward 1.0 from 3.30.
+- **REFUTES** if a gradient of similar size survives an exact softmax, which would mean
+  something other than the softmax accumulates with depth.
+
+**Honest limits.** n = 24, one partial at t(21) = −2.18, and one outlier (block 7 at rel 0.7439,
+the only transition gain with cos below 0.95). Depth co-varies with more than the count of
+softmaxes below it — activation magnitudes and cotangent norms both change through a residual
+stack. **This is a consistency check that the inheritance reading survives, not a demonstration
+of it**, and it is filed that way.
+
+Owner: `of3t-orchestrator`; the settling measurement belongs to whoever next holds a card with
+the diffusion capture. **STILL OPEN.** Artifact:
+`perf/of3t_orchestrator/TRANSITION_ERROR_FALLS_WITH_DEPTH.json`.

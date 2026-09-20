@@ -732,7 +732,7 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live, one newly dispatched; sixty-four defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; sixty-five defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6862,3 +6862,44 @@ touches, not the first one you think of.**
 
 Both live rows are mid-run: `of3t-refprec` seven minutes into building the fp32 bundle, and
 `of3t-softmax` finished with its NO-GO and its gate passing.
+
+---
+
+## Pass 165 — the non-attention half's error falls with depth, and the confound nearly sold me a mass effect as a depth one
+
+`of3t-adaln` measured the conditioned transition **alone** against upstream's own module at
+**5.468736e-03** — clean — while the model shows its gain at **0.1828**. So its error arrives in
+the cotangent rather than being made locally. If it arrives from the attention softmaxes, a
+block's transition gain should be worse the more blocks sit **downstream of it in the backward**.
+
+| leaf | blk 0–7 | blk 16–23 | ratio | raw r | **partial, mass held** |
+|---|---|---|---|---|---|
+| `conditioned_transition…layer_norm_s.weight` | 0.1747 | 0.0529 | **3.30×** | −0.5789 | **−0.4301**, t(21) = −2.18 |
+| `attention_pair_bias…layer_norm_s.weight` | 2.0321 | 0.3806 | 5.34× | −0.3444 | −0.1803, t(21) = −0.84 |
+
+**The confound had to come out first, and it nearly ate the finding.** Block index and log mass
+are **76 %** collinear in this model — later DiT blocks carry far less gradient mass — so the raw
+−0.5789 could have been a mass effect entirely. After controlling, **depth −0.4301 and mass
+−0.0150**: mass explains essentially nothing once depth is held. Publishing the raw number would
+have been the same error as reading a worst-tensor list as a location, which this campaign has
+already paid for once.
+
+**And the ordering of the two leaves is itself a small argument.** The transition gain has no
+softmax inside its own block, so any depth dependence it shows is inherited — and it is the one
+that survives. The attention gain sits directly under its own softmax, which adds block-specific
+variance (block 8 alone at 18.504), and its partial does **not** survive. Inheritance plus local
+noise predicts exactly that ordering.
+
+**I wrote the falsification down before the measurement exists.** Re-run `of3t-adaln`'s
+float64-softmax arm across **all 24 blocks** instead of the three it did, and recompute the
+profile: the gradient **vanishing** confirms inheritance, a gradient of similar size **surviving
+an exact softmax** refutes it and means something else accumulates with depth.
+
+Filed as **D65**, and filed as a **consistency check rather than a demonstration** — n = 24, one
+partial at t(21) = −2.18, one outlier (block 7, rel 0.7439, the only transition gain with cos
+below 0.95), and depth co-varies with more than the count of softmaxes below it. After the last
+several passes spent withdrawing claims that outran their evidence, this one goes on the record
+with its strength stated rather than its story.
+
+Both rows are still running: `of3t-refprec` building the fp32 bundle, `of3t-softmax` finished
+with its NO-GO and its gate passing.
