@@ -6429,3 +6429,38 @@ uninterpretable number.
 the candidates are rank-ties; if they are, the design must break the tie (hold one fixed, or
 sample off the monotone path) or the test is theatre. And gate dynamic range over the sub-range
 where the dependent varies, not end to end.
+
+### D110. The `precise_config()` softmax lever CANNOT FIRE on the diffusion scope: it installs via `setdefault` and every call site already passes `compute_kernel_config`. It fired 1,440 times and changed nothing. FOUND by `of3t-softgrad`, pass 187.
+
+`of3t-softgrad` ran `softmax_precise` at full scope — 547 tensors, of3t-adaln's
+`precise_forward_rule` **verbatim** — and got **all 547 gradient tensors bit-identical to
+`shipped`**. The rule executed: its intercept counter reads **1,440 fired calls**. It simply had
+no effect, because it injects the precise kernel config with `setdefault` into a kwargs dict
+where **every call site on this path already passes `compute_kernel_config` explicitly**, so the
+key is present and `setdefault` is a no-op.
+
+**The instrumentation that caught it is the point.** "Did the lever fire?" returns YES, 1,440
+times. Only "did the output change?" returns NO. A firing count is not an effect, and this
+campaign already records both halves separately — `eligibility-firing-condition-is-not-a-code-fact`
+and `pcc-gate-can-pass-without-the-op-it-names`. I asked for intercept counts in the brief
+because a lever that never fires can pass as a result; this is the harder case, a lever that
+fires and is inert, and only the bit-identity check separates them.
+
+**It cost me a published number.** `NO_DEVICE_SOFTMAX_REACHES_THE_GRADIENT_BAR.json` (pass 183)
+reports `softmax_precise` at **0.349441**, 6.99x the bar, as one of two *shippable* device
+options — read off `of3t-adaln`'s block-8 ladder, where the same rule DID move the number
+(0.785604 → 0.349441, 2.25x). Same rule, different call sites: on block 8 the harness left the
+key absent so `setdefault` won, and at scope the shipped path fills it so `setdefault` loses.
+**The block-8 row measured a lever the real path cannot exercise.** That is a per-harness
+eligibility difference, not a scope effect, and I published it as the latter.
+
+**Direction of the correction: it makes the campaign's conclusion stronger, not weaker.** The
+claim was "both shippable device levers miss the gradient bar." One of the two turns out not to
+be a lever on this path at all, so the shipped options are `_accurate_softmax` alone plus doing
+nothing. Nothing that was failing now passes.
+
+**Open, and the row owns it**: whether `precise_config()` is reachable on this path by any
+means — passing it at the call sites rather than injecting it — and whether the same
+`setdefault` shadowing silently disarms the lever anywhere else it is installed. Until that is
+answered, no claim that `precise_config()` improves a *shipped* path survives without an arm
+showing the output changed.
