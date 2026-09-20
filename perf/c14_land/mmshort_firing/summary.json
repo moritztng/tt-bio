@@ -1,0 +1,76 @@
+{
+ "question": "does TT_BIO_MM_SHORT_M_BW fire in the fold the gate grid-independence arm runs?",
+ "instrument": "perf/c14_matmul_ceiling/statshim/sitecustomize.py, wraps _short_m_proj_config in EVERY process",
+ "arms": [
+  {
+   "arm": "protenix-v2 (the l1-budget arm fold)",
+   "processes_recorded": 26,
+   "calls": 0,
+   "served": 0,
+   "groups": []
+  },
+  {
+   "arm": "boltz2 512 aa (positive control)",
+   "processes_recorded": 2,
+   "calls": 720,
+   "served": 576,
+   "groups": [
+    {
+     "x": [
+      1,
+      140,
+      32,
+      128
+     ],
+     "w": [
+      128,
+      256
+     ],
+     "calls": 108,
+     "served": 0
+    },
+    {
+     "x": [
+      1,
+      140,
+      32,
+      256
+     ],
+     "w": [
+      256,
+      128
+     ],
+     "calls": 36,
+     "served": 0
+    },
+    {
+     "x": [
+      1,
+      512,
+      768
+     ],
+     "w": [
+      768,
+      1536
+     ],
+     "calls": 432,
+     "served": 432
+    },
+    {
+     "x": [
+      1,
+      512,
+      1536
+     ],
+     "w": [
+      1536,
+      768
+     ],
+     "calls": 144,
+     "served": 144
+    }
+   ]
+  }
+ ],
+ "finding": "The release gate l1-budget arm folds protenix-v2 and protenix-v2 makes ZERO calls to _short_m_proj_config, so its GATE PASS across native/8x8/narrow is not evidence about TT_BIO_MM_SHORT_M_BW. The same instrument records 576 served calls on a Boltz-2 512 aa fold, so [0, 0] on protenix-v2 is a real zero and not a blind one."
+}

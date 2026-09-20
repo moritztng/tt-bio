@@ -1,0 +1,4 @@
+flag=1 grid=11,10 rc=0 md5=71cab6d6ca5ee97dc9510def07da6dd0
+flag=1 grid=8,8 rc=0 md5=124c4cf98562c27b1502c2c49c8a99d9
+flag=0 grid=11,10 rc=0 md5=6a8d75d9a55a1275947960b681c5816c
+flag=0 grid=8,8 rc=0 md5=6a8d75d9a55a1275947960b681c5816c
