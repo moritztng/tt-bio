@@ -3308,6 +3308,28 @@ we have none — it is off the update path. Add instrument D, upstream's own
 `test_training_full.py`, which had never executed here because it module-skips without CUDA:
 **1 passed in 183.99 s** and **1 passed in 400.61 s** on a rented H200, exit 0 both.
 
+**§7, the N-step trajectory, is done and my pass-96 map omitted it — so here it is, with what its
+PASS does and does not buy.** Two artifacts, both **verdict PASS**: `instrument_t_traj.json` at
+module scope (`TriangleMultiplicationIncoming`, block 0, N=20) and `trajectory_stack.json` at
+pairformer-stack scope (20 steps, 64 tokens, `d_k = w_k − w_0` compared per tensor **in their
+parameter space**, against upstream's own `PairFormerBlock` in float64 validated by central finite
+differences, 53 of 57 tensors placed).
+
+**What it passes is the growth law, which is the only bar §7 sets** — linear or sub-linear in `k`
+passes, super-linear fails at any magnitude. All four arms have *negative* exponents, −0.0154 ±
+0.0017 to −0.5306 ± 0.0513, so there is **no super-linear divergence**: the schedule, the clipping
+and the optimizer state engage in the right order and nothing is fed stale. That is the wiring
+check §7 exists for, and it is green.
+
+**What it explicitly does not buy is magnitude agreement.** In every arm **52 or 53 of 53 tensors
+sit over the §3d 0.05 per-tensor bar**, and the stack's final relative reads **0.4483 against a
+measured zero-model answer of 1.0** — informative rather than saturated, but only 2.2x better than
+a deleted model. §7's own text says so: *"an integration test, not the load-bearing proof"*, whose
+job is to catch wiring. The magnitude is instrument A's and it is the same gap as everything else.
+The `x1.01` control is correctly **expected not to fire** — Adam is invariant to a uniform
+per-tensor gradient scaling (K16) — and its failure to fire is the measurement; the `zeros`
+control fires at 1.0.
+
 **So component 1, the gradient, is the entire remaining gap — and its mass is concentrated, not
 spread.** Re-read from `replay_vs_r0.json` this pass rather than quoted:
 
