@@ -1,0 +1,55 @@
+{
+ "question": "is OF3's Transition the module PTX measured under the tape",
+ "answer": "yes -- the same PairformerLayer class object, not an analogous one",
+ "facts": {
+  "pairformer_layer_class": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8735,
+   "text": "class PairformerLayer(Module):"
+  },
+  "pairformer_builds_layers": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8893,
+   "text": "PairformerLayer("
+  },
+  "of3_trunk_builds_pairformer": {
+   "file": "tt_bio/openfold3_trunk.py",
+   "line": 137,
+   "text": "self.pairformer = Pairformer("
+  },
+  "protenix_builds_layer": {
+   "file": "tt_bio/protenix.py",
+   "line": 2473,
+   "text": "self.TPL = [PairformerLayer(32, 2, None, None, False,"
+  },
+  "transition_z_built": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8797,
+   "text": "self.transition_z = Transition("
+  },
+  "transition_z_called": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8841,
+   "text": "z_update = self.transition_z("
+  },
+  "residual_l1_flag": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 471,
+   "text": "_RESIDUAL_L1 = env_flag(\"TT_BIO_RESIDUAL_L1\", True)"
+  },
+  "residual_l1_at_transition": {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8843,
+   "text": "if _RESIDUAL_L1 else None)"
+  },
+  "tape_evicts_l1": {
+   "file": "tt_bio/autograd.py",
+   "line": 155,
+   "text": "elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:"
+  }
+ },
+ "default": "TT_BIO_RESIDUAL_L1 defaults TRUE, so the taped forward takes the eviction by default and an A/B has a flag to move without touching a line of code",
+ "mechanism": "under a tape an L1-resident activation is EVICTED to DRAM rather than freed (autograd.Tensor.free), so the L1 placement buys the forward nothing and costs the step one DRAM write plus one read per residual",
+ "shape_note": "PTX measured 0.83-0.85x at a [1,256,256,128] pair track. OF3's smallest training crop is 384 tokens, 2.25x the pair elements, so the prior is about a SMALLER tensor than the one this row has to measure",
+ "not_a_proposal": "PROTOCOL sequencing: no lever may be proposed or landed until of3t-equivalence has passed. This records where to look, and the A/B that answers it is a step-level one against an A/A floor."
+}
