@@ -1,0 +1,203 @@
+{
+ "block_ladder_same_inputs": [
+  {
+   "K": 17.829358743502784,
+   "block": 0,
+   "mass_weighted_rel": 0.0018610374173357324,
+   "published_rel_in_the_model": 2.7328662470902616
+  },
+  {
+   "K": 20.963857647464128,
+   "block": 5,
+   "mass_weighted_rel": 0.002135487849649934,
+   "published_rel_in_the_model": 4.5418561851468295
+  },
+  {
+   "K": 19.566666705059394,
+   "block": 6,
+   "mass_weighted_rel": 0.002087537770510113,
+   "published_rel_in_the_model": 2.840834392407766
+  },
+  {
+   "K": 17.819348661628872,
+   "block": 7,
+   "mass_weighted_rel": 0.0020084891169120313,
+   "published_rel_in_the_model": 5.307078050609351
+  },
+  {
+   "K": 20.44424679801088,
+   "block": 8,
+   "mass_weighted_rel": 0.002071013522889777,
+   "published_rel_in_the_model": 18.503974843073646
+  },
+  {
+   "K": 19.543316347551784,
+   "block": 12,
+   "mass_weighted_rel": 0.0021054446839745226,
+   "published_rel_in_the_model": 5.645936592384648
+  }
+ ],
+ "cancellation_ladder": [
+  {
+   "K": 30.089359430529168,
+   "cancel": 1.0,
+   "device_mass_weighted_rel": 0.0020590852074496195,
+   "gain_cos": 0.9999980189776843,
+   "gain_norm_ratio": 1.0005294158449003,
+   "gain_rel": 0.0020601998294967378,
+   "host_fp32_mass_weighted_rel": 4.0273674909719436e-07
+  },
+  {
+   "K": 211.2043050000801,
+   "cancel": 0.1,
+   "device_mass_weighted_rel": 0.007351748090253863,
+   "gain_cos": 0.9999735691247812,
+   "gain_norm_ratio": 1.001105855468325,
+   "gain_rel": 0.0073582011531460965,
+   "host_fp32_mass_weighted_rel": 2.6711269838165274e-06
+  },
+  {
+   "K": 2100.17712952438,
+   "cancel": 0.01,
+   "device_mass_weighted_rel": 0.05864178818068268,
+   "gain_cos": 0.9982846853704964,
+   "gain_norm_ratio": 0.9942621577857897,
+   "gain_rel": 0.05868447565496948,
+   "host_fp32_mass_weighted_rel": 2.747817272374607e-05
+  },
+  {
+   "K": 20999.621991192995,
+   "cancel": 0.001,
+   "device_mass_weighted_rel": 0.5744067205836998,
+   "gain_cos": 0.8631851653519217,
+   "gain_norm_ratio": 1.137834174594952,
+   "gain_rel": 0.5747551205466149,
+   "host_fp32_mass_weighted_rel": 0.0002598909436260373
+  },
+  {
+   "K": 209997.93112979498,
+   "cancel": 0.0001,
+   "device_mass_weighted_rel": 4.161453345982668,
+   "gain_cos": 0.1717780400878119,
+   "gain_norm_ratio": 4.219141702559284,
+   "gain_rel": 4.165530568995752,
+   "host_fp32_mass_weighted_rel": 0.002595697833902842
+  },
+  {
+   "K": 2099710.7224412663,
+   "cancel": 1e-05,
+   "device_mass_weighted_rel": 26.35289241577452,
+   "gain_cos": 0.16241300796758423,
+   "gain_norm_ratio": 26.52931971929624,
+   "gain_rel": 26.385363206496724,
+   "host_fp32_mass_weighted_rel": 0.03324536530510368
+  }
+ ],
+ "fp32_weight_control": [
+  {
+   "K": 20.44424679801088,
+   "cancel": null,
+   "mass_weighted_rel": 0.0008479490548594245
+  },
+  {
+   "K": 20999.621991192995,
+   "cancel": 0.001,
+   "mass_weighted_rel": 0.4980885877566878
+  },
+  {
+   "K": 2099710.7224412663,
+   "cancel": 1e-05,
+   "mass_weighted_rel": 25.74859880823981
+  }
+ ],
+ "fused_vs_unfused_bit_identical": {
+  "bf16": true,
+  "fp32": true
+ },
+ "mechanism": "the disagreement is a device precision floor amplified by the conditioning of the LayerNorm-gain reduction. rel grows LINEARLY in K = sum_i||term_i|| / ||sum_i term_i||, the cancellation ratio of the gain gradient's own sum over tokens. A generic input gives K ~ 20 and rel ~ 2e-03; the published rel 18.504 sits between the K = 2.1e+05 and K = 2.1e+06 rungs of the ladder below.",
+ "micro_arm_base": {
+  "block": 8,
+  "compared": "4 of 4",
+  "forward_worst": 0.0010549775311867577,
+  "gain_cancellation_K": 20.44424679801088,
+  "host_fp32_mass_weighted_rel": 2.9713299224078237e-07,
+  "mass_weighted_rel": 0.002071013522889777,
+  "over_bar": 0,
+  "tensors": {
+   "layer_norm_s.weight": {
+    "cos": 0.9999982313801217,
+    "device_norm": 3433.209058250897,
+    "host_fp32_rel_l2": 2.97340498675195e-07,
+    "norm_ratio": 1.000867872357494,
+    "published_pct_of_model": 8.05416,
+    "ref_norm": 3430.2320546708584,
+    "rel_l2": 0.002072079163065081
+   },
+   "linear_g.bias": {
+    "cos": 0.999999624996214,
+    "device_norm": 128.44252306701546,
+    "host_fp32_rel_l2": 1.3105588530027134e-07,
+    "norm_ratio": 1.0000575800551033,
+    "published_pct_of_model": 0.02472,
+    "ref_norm": 128.43512776528155,
+    "rel_l2": 0.0008679667159948103
+   },
+   "linear_g.weight": {
+    "cos": 0.9999981188588121,
+    "device_norm": 25.925447269338708,
+    "host_fp32_rel_l2": 2.709653387835652e-07,
+    "norm_ratio": 0.9995054753751429,
+    "published_pct_of_model": 0.00413,
+    "ref_norm": 25.938274384748265,
+    "rel_l2": 0.002001243713938054
+   },
+   "linear_s.weight": {
+    "cos": 0.999998352733786,
+    "device_norm": 111.58629340657542,
+    "host_fp32_rel_l2": 2.584230986435415e-07,
+    "norm_ratio": 0.9987652465232257,
+    "published_pct_of_model": 0.05522,
+    "ref_norm": 111.7242453069081,
+    "rel_l2": 0.002194329191480673
+   }
+  },
+  "tokens": 384,
+  "zero_model_mass_weighted": 1.0
+ },
+ "provenance": {
+  "date": "2026-09-20",
+  "host": "qb2 card 3",
+  "instrument": "perf/of3t_adaln/adaln_micro.py",
+  "real_arm": "perf/of3t_diffusion/device_gradient.py --structs all --cap /home/ttuser/of3t_rebase/diffcap043 --dump-per-tensor, unmodified, written into this row's namespace; it reproduces the published worst_rel 18.503974843073646 exactly",
+  "reference": {
+   "class": "openfold3.core.model.primitives.normalization.AdaLN",
+   "dtype": "float64",
+   "engine": "torch autograd",
+   "source": "/home/ttuser/of3t_rebase/of3pkg043/openfold3",
+   "version": "0.4.3"
+  },
+  "weights": {
+   "8": {
+    "layer_norm_s.weight": "2f5e7b9f5943e80e",
+    "linear_g.bias": "3e31578bcb915b67",
+    "linear_g.weight": "0fa0a74552bcfb48",
+    "linear_s.weight": "b9d4b9f3ffcf0252"
+   }
+  }
+ },
+ "the_signature_that_confirms_it": {
+  "measured_on_the_real_tensor": {
+   "cos": 0.7494141255644292,
+   "device_norm": 17.5080992645065,
+   "norm_ratio": 19.241539653061206,
+   "ref_norm": 0.9099115549062142,
+   "rel_l2": 18.503974843073646,
+   "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  },
+  "prediction_from_the_micro_arm": "under cancellation the device norm does NOT shrink with the reference, so r ~ rel and the cosine collapses. A wrong transform would read r ~ 1 with cos ~ 0; a wrong constant would read r ~ 19 with cos ~ 1.",
+  "reading": "r = 19.2415 against rel = 18.5040, cosine 0.74941. r tracks rel, which is the cancellation signature and not a wrong transform."
+ },
+ "verdict": "the sigmoid-gated AdaLN backward is CORRECT. rel 2.071014e-03 mass-weighted at block 8's real weights on generic inputs, norm ratio 1.00087 and cosine 0.99999823 on the leaf that reads 18.504 in the model. The fused-sigmoid rule is BIT-IDENTICAL to an unfused sigmoid + multiply, in fp32 and in bf16.",
+ "what": "the AdaLN backward, measured in isolation against a float64 torch autograd reference built from upstream OpenFold3 0.4.3's own AdaLN class. Four hypotheses had been eliminated from source; this is the measurement that replaces the argument.",
+ "what_this_does_not_establish": "K at the model's own block-8 inputs was not measured -- that needs the real activations and the real upstream cotangent at that AdaLN, which live inside a float64 DiT run this row does not do. What is measured is that the rule is right, that r/cos on the real tensor match the amplification signature the ladder produces, and that they do not match a wrong transform or a wrong constant."
+}
