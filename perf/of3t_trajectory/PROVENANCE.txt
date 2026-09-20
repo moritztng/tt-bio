@@ -1,0 +1,21 @@
+The upstream gradient files this row scores against, copied out of of3t-refprec's run directory
+at 2026-09-20T08:50Z and hashed here. refprec was relaunching all four arms at the time and
+writes to the same paths; these copies are the first launch's output, which is the output the
+published 5.852018e-02 and 3.117006e-05 were computed from.
+
+  ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb  arm4_bf16_grads.pt
+  09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548  arm2_f32_grads.pt
+  a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0  negctl_permuted_grads.pt
+
+All three match of3t_refprec/PRIOR_GRAD_SHA.txt. They live at
+/home/ttuser/of3t_trajectory/ref/ with a SHA256.txt beside them.
+
+The float64 reference is of3t_refprec/bundle_ref/grads_f64_043.pt,
+1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4, hardlinked from
+of3t_rebase/bundle_min_043 and matching that bundle's MANIFEST.json.
+
+Reproduction of the published figures, by this instrument, on these files:
+
+  upstream bf16 vs float64   5.852018e-02   published 5.852018e-02
+  upstream fp32 vs float64   3.117006e-05   published 3.117006e-05
+  our device vs float64      7.569163e+00   published 7.5692
