@@ -149,7 +149,8 @@ Every arm re-ran and reproduced its published figure before anything new was com
 
 ## Re-running
 
-The device arms, on one Blackhole card, 40 to 90 s each:
+The device arms, on one Blackhole card. They take 40 to 90 s of wall clock each; no AICLK was
+sampled, because these are accuracy arms and nothing here is a perf measurement:
 
     perf/of3t_direct/condrun.sh real          # and `revcot` for the break control
     perf/of3t_direct/auxrun.sh aux real       # and `scramble`
