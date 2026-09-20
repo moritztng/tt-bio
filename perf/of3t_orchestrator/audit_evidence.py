@@ -1308,7 +1308,14 @@ if ORCH.is_file():
 # Required evidence is a SOURCE PATH in the same artifact, not a citation of another artifact --
 # tested both ways at pass 184, and accepting citations passed all 8 artifacts including one
 # that propagated the claim with nothing behind it, i.e. it was vacuous.
-_inert = _re.compile(r"\binert\b", _re.I)
+# The word list is the SOURCE-EQUIVALENCE family only. Pass 184 tested widening it to
+# bit-identical / byte-identical and that is a CATEGORY ERROR: those are claims about
+# measured tensor DATA, whose correct evidence is a number or a digest, not a source path.
+# Widening would have fired on nine well-evidenced artifacts -- "max abs diff 0.0",
+# "sha256 d631c39e...", a two-arm forward comparison -- i.e. the fifth time in this campaign
+# a guard was nearly built too wide. Adding `cosmetic` and `functionally identical` fires on
+# nothing today and closes the hole where the same claim evades the guard by word choice.
+_inert = _re.compile(r"\b(inert|cosmetic|functionally identical|identical in both)\b", _re.I)
 _pyp = _re.compile(r"[\w/\.\-~]+\.py\b")
 _bare = []
 for _f in sorted((ROOT / "perf/of3t_orchestrator").glob("*.json")):
