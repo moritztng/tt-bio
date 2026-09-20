@@ -529,11 +529,23 @@ def main() -> int:
                            "ref_norm": ref_n})
             continue
         r, m = ref.numpy(), mine.numpy()
+        # PROTOCOL A16/D35. A single rel_l2 cannot say WHICH WAY we are wrong. With
+        # rel^2 = 1 + r^2 - 2*r*c it only bounds the norm ratio to [1-rel, 1+rel], and a zero
+        # gradient gives r = 0 and rel = 1 exactly, so every rel is scored against a 1.0
+        # ceiling. Two more floats, already in memory and free, separate the cases outright:
+        #   r << 1, c ~ 1 -> a SHRUNK copy (what a quantised-away residual update looks like)
+        #   r  > 1, c ~ 1 -> an inflated copy
+        #   c ~ 0         -> noise, and the gradient carries no signal at all
+        rn, mn = float(np.linalg.norm(r)), float(np.linalg.norm(m))
         rows.append({"their_tensor": full, "key": key,
                      "device": [p["device_path"] for p in placements[key]],
                      "rel_l2": rel_l2(m, r),
                      "max_abs_rel": float(np.max(np.abs(m - r)) / (np.max(np.abs(r)) + 1e-30)),
-                     "ref_norm": float(np.linalg.norm(r)),
+                     "ref_norm": rn,
+                     "device_norm": mn,
+                     "norm_ratio": (mn / rn) if rn else None,
+                     "cos": (float((m * r).sum() / (mn * rn)) if (mn and rn) else None),
+                     "zero_model_rel": 1.0,
                      "ref_is_zero": bool(np.max(np.abs(r)) == 0.0)})
     rows.sort(key=lambda d: -d["rel_l2"])
     rel = [d["rel_l2"] for d in rows]
@@ -569,6 +581,29 @@ def main() -> int:
                        "their_total": len(g_ref), "compared": len(rows), "absent": len(absent),
                        "their_zero_valued": sum(1 for d in rows if d["ref_is_zero"]),
                        "rule": "SS3b: None matches None, zero matches zero. Nothing zero-filled."}
+    # A16: the zero-model answer beside the median, so "how much better than emitting zeros"
+    # can be read off this file instead of derived by a reader.
+    _kept = [d for d in rows if d["ref_norm"] >= 1e-12]
+    _rel = sorted(d["rel_l2"] for d in _kept)
+    _q = lambda f: _rel[min(len(_rel) - 1, int(f * (len(_rel) - 1)))] if _rel else None
+    _med = float(np.median(_rel)) if _rel else None
+    _rat = [d["norm_ratio"] for d in _kept if d["norm_ratio"] is not None]
+    _cos = [d["cos"] for d in _kept if d["cos"] is not None]
+    rep["identifiability"] = {
+        "rule": "PROTOCOL A16/D35: rel alone bounds the norm ratio to [1-rel, 1+rel] and is "
+                "scored against a zero model's 1.0. norm_ratio and cos separate a shrunk copy, "
+                "an inflated copy and noise.",
+        "n_kept_a14": len(_kept),
+        "zero_model_median": 1.0,
+        "median_rel": _med,
+        "better_than_zeros_pct": (100.0 * (1.0 - _med)) if _med is not None else None,
+        "iqr_over_median": ((_q(0.75) - _q(0.25)) / _med) if _med else None,
+        "norm_ratio_bound_from_median_rel": ([1 - _med, 1 + _med] if _med is not None else None),
+        "norm_ratio": {"median": float(np.median(_rat)) if _rat else None,
+                       "min": min(_rat) if _rat else None, "max": max(_rat) if _rat else None},
+        "cos": {"median": float(np.median(_cos)) if _cos else None,
+                "min": min(_cos) if _cos else None, "max": max(_cos) if _cos else None},
+    }
     rep["summary"] = {"compared": len(rows), "absent": len(absent),
                       "worst": rows[0] if rows else None, "best": rows[-1] if rows else None,
                       "median": float(np.median(rel)) if rel else None,
