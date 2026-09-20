@@ -1,15 +1,15 @@
 {
  "and_the_accuracy_picture_is_the_opposite": "on ACCURACY against the float64 ideal the port beats upstream's own bf16 training step on diffusion_conditioning by 7.95x and on msa_module by ~1.10x, and loses on the diffusion transformer by 129.343x. The PAIRFORMER figures in the retired version of this field are WITHDRAWN. WITHDRAWN at pass 175, the same pass it was published. The two pairformer device figures fail a subset-consistency test: block 47 is 64.9 % of the 7-block set's reference mass, so its error mass cannot exceed the set's -- yet 0.20129^2 x 0.010662 = 4.32e-04 against the set's 0.14053^2 x 0.016440 = 3.25e-04, i.e. 1.33x. The bf16 column PASSES the same test (0.399), so the defect is in the DEVICE column. of3t-refprec has no device gradient of its own and quoted those figures from other rows; it annotated the scope mismatch explicitly on the diffusion and msa_module rows ('over its own 547 / 51.1358 %') and not on the pairformer rows. At least one pairformer device figure is therefore not a mass-weighted rel_l2 over the stated set, and neither is comparable across columns until its scope is established. Establishing it needs a device pairformer gradient at MODEL scope, which does not exist: of3t_gradients/cap holds only blocks 0, 23 and 47 as boundaries.",
  "and_the_accuracy_picture_is_the_opposite_RETIRED": "on ACCURACY against the float64 ideal, the port beats upstream's own bf16 training step everywhere both were measured EXCEPT the diffusion transformer: conditioning 7.95x better, pairformer's 7 blocks 2.09x, block 47 1.15x, msa_module 1.10x. Read ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json beside this file; a verdict that quotes one column without the other misleads, in opposite directions.",
- "arithmetic": "0.2666 survives + 2.8431 measured-and-passes + 89.0554 measured-and-fails + 7.8349 unread = 100.0000 %. What moved at pass 198: the pairformer trunk's 5.8282 % went BACK from measured-and-fails to unread, because the pass-180 reading that moved it in is void under A18. That returns the split to its pre-pass-180 shape, and to what this file's own `items` list and `pct_recoverable` never stopped saying.",
+ "arithmetic": "0.2666 survives + 2.8431 measured-and-passes + 94.8836 measured-and-fails + 2.0067 unread = 100.0000 %. What moved at pass 199: the pairformer trunk's 5.8282 % returned to measured-and-fails on of3t-trunkg043's reading, 9.025172e+00 against 0.4.3 float64 and 22.52x upstream's own bf16. It had been moved OUT at pass 198 because the pass-180 reading that put it there was void under A18. Same bucket, different number, and this time the basis holds.",
  "arithmetic_SUPERSEDED_pass198": "0.2666 survives + 2.8431 measured-and-passes + 94.8836 measured-and-fails + 2.0067 unread = 100.0000 %. What moved at pass 180: aux_heads left the VOID bucket -- of3t-auxfind found and fixed the dropped-mask call site that made its forward disagree, and of3t-auxgrad re-took the gradient at the repaired forward -- and the pairformer trunk left the UNREAD bucket into measured-and-fails, at 5.367727e+00 against a 0.4.3 float64 reference (of3t-trunkgrad, NO-GO). So 5.8282 moved from unread to fails and 2.8431 from void to passes.",
- "as_of": "2026-09-20, orchestrator pass 198 (trunk returned to unread; the file's four summary fields brought into line with its own items list)",
+ "as_of": "2026-09-21, orchestrator pass 199 (trunk gradient read at last, against the right revision)",
  "derived_totals": {
-  "direct_coverage_pct": 92.1651,
+  "direct_coverage_pct": 97.9933,
   "direct_coverage_pct_SUPERSEDED_pass198": 97.9933,
-  "measured_and_fails_pct": 89.0554,
+  "measured_and_fails_pct": 94.8836,
   "measured_and_fails_pct_SUPERSEDED_pass198": 94.8836,
-  "measured_pct": 91.8985,
+  "measured_pct": 97.7267,
   "measured_pct_SUPERSEDED_pass198": 97.7267,
   "why_these_are_here": "VERDICT quotes these and a pass-175 traceability check found an earlier such figure existing only as a sum in prose. They live here so the summary can be checked against an artifact rather than against itself."
  },
@@ -25,13 +25,14 @@
   "x_bar": 0.1136
  },
  "measured_and_fails": {
-  "pct": 89.0554,
+  "pct": 94.8836,
   "pct_SUPERSEDED_pass198": 94.8836,
-  "the_rest": "89.0554 %, dominated by the diffusion arm's softmax -- and now the whole of it",
-  "total_pct": 89.0554,
+  "the_rest": "89.0554 %, dominated by the diffusion arm's softmax",
+  "total_pct": 94.8836,
   "total_pct_SUPERSEDED_pass198": 94.8836,
   "what_moved_OUT_at_pass198": "the pairformer trunk's 5.8282 %. Its 5.367727e+00 is void under A18 (see no_direct_reading.note_pass198), so the bucket returns to the diffusion arm's 89.0554 %, dominated by the softmax.",
-  "what_moved_in_SUPERSEDED_pass198": "the pairformer trunk's 5.8282 %, now measured at 5.367727e+00 -- worse than a measured zero model at 1.0 -- with its mechanism located in the single-track cotangent chain (of3t-trunkback: the per-block backward is 10x-130x better than the chain of 48)"
+  "what_moved_in_SUPERSEDED_pass198": "the pairformer trunk's 5.8282 %, now measured at 5.367727e+00 -- worse than a measured zero model at 1.0 -- with its mechanism located in the single-track cotangent chain (of3t-trunkback: the per-block backward is 10x-130x better than the chain of 48)",
+  "what_moved_in_at_pass199": "the pairformer trunk's 5.8282 %, measured at 9.025172e+00 mass-weighted against upstream 0.4.3 float64 in the FLIPPED arm -- 22.52x upstream's OWN bf16 on the same boundary (4.007237e-01), which is the honest defect size. Zero-gradient baseline exactly 1.0, break control 1.844880e+02, upstream f32 3.655681e-05. SHIPPED reads 5.506930e+00, LOWER than the flipped arm, but its forward fails A18 at s_masked 1.064843e-01 so it is not the scope's reading."
  },
  "measured_and_void_under_A18_SUPERSEDED": {
   "pct": 2.8431,
@@ -64,19 +65,15 @@
    {
     "pct": 0.0059,
     "scope": "top-level layer_norm_z / layer_norm_s / linear_z / linear_s"
-   },
-   {
-    "note": "RETURNED here at pass 175 by D91. Its 1.061553e+01 reading scores our 0.4.3-convention port against a 0.5.0-convention reference on a bias orientation the two revisions genuinely differ in (D90), so it is not a measurement of our port and the scope is UNMEASURED rather than void. With conventions matched the forward reads 4.971863e-02, 8.31x upstream's bf16 -- a real but far smaller disagreement whose gradient consequence is unmeasured.",
-    "pct": 5.8282,
-    "scope": "pairformer_stack"
    }
   ],
   "note_pass175": "pairformer_stack (5.8282 %) was moved OUT of this bucket at pass 175: of3t-pairformer measured it, so it is no longer unread -- it is measured and VOID under A18, and now sits in measured_and_void_under_A18.",
   "note_pass180": "was 7.8349 until pass 180. The pairformer trunk's 5.8282 % left this bucket when of3t-trunkgrad measured it; what remains is 2.0067 %, of which 0.74055 % never can be read.",
   "note_pass198": "RESTORED to 7.8349, which is what this bucket's own `items` have summed to all along. The artifact was internally inconsistent: `items` carries pairformer_stack at 5.8282 (RETURNED here at pass 175 by D91) and `pct_recoverable` 7.0944 = 7.8349 - 0.74055, while `total_pct`, `arithmetic`, `derived_totals` and `measured_and_fails` carried the pass-180 move. Three fields said unread, two said fails. Pass 195 settled which: the 5.367727e+00 that moved it was taken against a 0.5.0-convention reference at a forward disagreeing on BOTH tracks, and A18 gates a gradient on its forward, so it is not a reading of our port. of3t-trunk043ref rebuilt at 0.4.3 -- pair track 4.947045e-02, PASSES -- and of3t-trunkcliff root-caused the single track as scale_pair_bias (D1), reproducing upstream to rel ~1e-16 in float64. The trunk's GRADIENT has still never been read against 0.4.3 in either arm; of3t-trunkg043 is running it.",
-  "pct_recoverable": 7.0944,
+  "note_pass199": "pairformer_stack leaves again, and this time on a reading that is not void. of3t-trunkg043 measured the trunk's gradient against the 0.4.3 reference over 2736 of 2736 tensors -- the whole scope, share of the stack's squared gradient norm exactly 1.0 -- in the arm whose forward passes A18 (flipped s_masked 1.691313e-02, z_masked 4.880487e-02, both inside 5.0e-02). So the bucket returns to what it was at pass 180, but the number is new and the basis is sound: right revision, A18 satisfied in the row's own process, padding refuted as a mechanism.",
+  "pct_recoverable": 1.26615,
   "pct_that_never_can": 0.74055,
-  "total_pct": 7.8349,
+  "total_pct": 2.0067,
   "total_pct_SUPERSEDED_pass198": 2.0067,
   "what_left": "the pairformer trunk's 5.8282 % is no longer here -- it is measured and failing."
  },
