@@ -3996,6 +3996,22 @@ pass. Coverage is **547 of 761** with `weights_without_grad = 0`, against D21's 
 reference floor is **bit-exact, 0.000e+00 over all 761**. The instrument is in far better shape
 than at D21; only its **scope** is wrong.
 
+**Stress-tested rather than asserted, because this desk has been wrong four times tonight.** The
+asymmetry is explicit in the comparison code: `fwd_ref = S["xl_out"][0, k]` is indexed **by
+structure**, which is why the forward reads a clean 1.104e-02; `r = ref_grad.get(nm)` is keyed by
+**parameter name only** and is therefore the full 48-structure accumulation. The mismatch is in
+the code, not inferred from the numbers.
+
+**And it does NOT say our diffusion backward is correct.** A wrong `g_0` compared 1-of-48 also
+reads ~0.99. The measurement cannot distinguish the two — which is exactly why it must not be
+published as either a pass or a ceiling.
+
+**Running all 48 is necessary and not sufficient.** The probe's own comment gives the second
+condition: accumulation is exact *"only if `backward` adds into an existing `.grad` across tape
+contexts rather than **replacing** it"*. A run that replaces would measure the **last** structure
+alone and would also read ~0.99. Two failure modes, one number — so the 48-structure arm is valid
+only if the probe is shown **growing**.
+
 **Two ways out, the second far cheaper:** run all 48 structures with the probe growing structure
 over structure as its comment requires; or emit the **per-structure** reference gradient for
 `k = 0` from `bundle_min.py`, which makes the arm already taken valid at no extra device cost.

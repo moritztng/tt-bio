@@ -23,6 +23,34 @@ full training step, which accumulates **all 48**.
 With one structure there is **one** probe value, `1.2510e-04`, and nothing to compare it against.
 The check built for exactly this cannot fire.
 
+## The asymmetry is explicit in the comparison code
+
+Stress-tested rather than assumed, because this desk has been wrong four times this session. The
+two references are selected differently in the same function:
+
+```python
+fwd_ref = S["xl_out"][0, k].double()      # forward: indexed BY STRUCTURE k
+...
+r = ref_grad.get(nm)                       # gradient: keyed by parameter NAME only
+d = ||gt - r|| / ||r||                     # -> the full 48-structure accumulation
+```
+
+So the **forward** is compared per-structure, which is why `forward_rel_median` reads a clean
+**1.104e-02**. The **gradient** is compared against the accumulation while our side ran one
+structure. The asymmetry is in the code, not inferred from the numbers.
+
+**And note what this does NOT say.** It does not say our diffusion backward is correct. A wrong
+`g_0` compared 1-of-48 also reads ~0.99. The measurement cannot distinguish the two, which is
+precisely why it must not be published as either a pass or a ceiling.
+
+## Running all 48 is necessary and not sufficient
+
+The probe's own comment gives the second condition: accumulation across 48 tapes "is exact only if
+`backward` adds into an existing `.grad` across tape contexts rather than **replacing** it." A run
+that replaces would measure the **last** structure alone — and would also read ~0.99. So the
+48-structure arm is only valid if the probe is shown **growing** structure over structure. Two
+failure modes, one number.
+
 ## The arithmetic predicts the observed number
 
 With reference `G = Σ_{k<48} g_k` and the arm computing `g_0`, the `g_k` roughly independent and
