@@ -3386,7 +3386,10 @@ denominator sharpens the point rather than softening it.** Full working in
   plus pairformer blocks 0 and 23 at ~0.32 % — **≈ 89.53 %**.
 - **Per-parameter GRADIENT passing at §3d bars**, which is what instrument A and the charter
   actually require: pairformer block 0 at **1.2136e-02** and block 23 at **1.9191e-02**, and
-  **nothing else** — **≈ 0.32 %**.
+  **nothing else** — **0.201 %, measured** (corrected pass 112; the ≈0.32 % first written here
+  assumed the 48 blocks carry equal mass and they do not — three of 48 hold **21.6 %** of the
+  trunk's gradient mass). And the block that **fails**, block 47, carries **1.057 %** on its own,
+  **5.2x the passing pair**.
 
 So the campaign has verified a great deal about the **forward** and almost nothing yet about the
 **gradient**. The 0.32 % is an estimate — `replay_vs_r0.json` put block 0 at 2.72 % of the trunk,
@@ -3892,3 +3895,36 @@ per-parameter gradient reading on roughly **0.32 %** of the squared norm today. 
 sections are **15x that**, and together with the diffusion module and the pairformer they complete
 the section-by-section picture at **99.923 %**, leaving only `msa_module_embedder` and friends at
 0.077 %.
+
+PASS 112. **Block 47's residual is uniform across the block, is not a denominator artefact, and
+sits on five times the gradient mass that passes.** Full working in
+`perf/of3t_orchestrator/distance/block47_residual.md`, recomputed from `of3t-rebase`'s own arms.
+
+**It is not graded by attention, which retires the standing lead at this depth.**
+
+| sub-module | n | block 0 | block 23 | block 47 | 23 → 47 |
+|---|---|---|---|---|---|
+| `attn_pair_bias` | 6 | 1.2905e-01 | 1.3415e+00 | 8.7819e-01 | **0.65x — falls** |
+| `single_transition` | 5 | 2.1154e-02 | 2.7792e-02 | 3.8253e-01 | **13.8x** |
+| `pair_stack` | 41 | 1.0021e-02 | 1.6658e-02 | 1.9691e-01 | **11.8x** |
+
+**`single_transition` has no attention and no pair coupling and it jumps hardest.** D8's grading —
+*"graded by attention and pair-track involvement, `single_transition` the only passer"* — describes
+blocks 0 and 23. At block 47 it **disappears**, and `attn_pair_bias` actually improves. So block
+47 is not a pair-track mechanism.
+
+**Nor is it the A15/D17 small-denominator trap**, refuted in the strongest direction: block 47's
+median `ref_norm` is **8.467e-03 against block 23's 3.537e-03 — 2.394x LARGER** — and its total
+squared norm is **14x** larger. A bigger denominator should shrink relative error, so block 47's
+**absolute** error is about **25x** block 23's.
+
+**And it corrects my own pass-111 estimate.** Per-block squared norms measured rather than
+assumed: block 0 is **0.126 %** of the model, block 23 **0.075 %**, block 47 **1.057 %**. So the
+passing pair is **0.201 %**, not the ≈0.32 % I wrote by assuming equal blocks — and the failing
+block alone is **5.2x** the passing pair. Three of 48 blocks hold **21.6 %** of the trunk's
+gradient mass, which is the fact the equal-blocks assumption missed.
+
+**What it leaves:** a residual uniform across sub-modules, sharply depth-dependent, carrying
+disproportionate mass, unexplained by D23, and unowned. The block ladder is the instrument — a
+rung or two between 23 and 47 would say whether the jump is smooth or a step, which three points
+cannot distinguish.
