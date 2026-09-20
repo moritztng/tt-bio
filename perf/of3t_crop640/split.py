@@ -213,6 +213,12 @@ def main() -> int:
     ap.add_argument("--walk-step-mb", type=int, default=32,
                     help="advance in the DRAM high-water that earns a fresh attribution walk; "
                          "the gap between the last walk and the peak is reported")
+    ap.add_argument("--walk-from-gb", type=float, default=0.0,
+                    help="do not walk below this DRAM high-water. The ramp up to the peak is "
+                         "not the question; the peak is, and a walk costs wall clock")
+    ap.add_argument("--walk-budget-s", type=float, default=240.0,
+                    help="total wall clock the walks may spend. On overrun the step doubles, so "
+                         "a slow walk costs resolution at the peak rather than the run")
     ap.add_argument("--probe-every", type=int, default=1)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -252,8 +258,8 @@ def main() -> int:
             att = Attrib(ag, ttnn, reports, dev, peak.dram_banks, peak.l1_banks)
             att.param_ids = {id(t) for t in params.values()}
 
-            state = {"last_walk_b": 0, "arm": False, "n": 0}
-            step_b = a.walk_step_mb << 20
+            state = {"last_walk_b": 0, "arm": False, "n": 0, "spent": 0.0,
+                     "step_b": a.walk_step_mb << 20, "floor_b": int(a.walk_from_gb * (1 << 30))}
             _probe = peak.probe
 
             def probe(verb):
@@ -261,12 +267,21 @@ def main() -> int:
                 _probe(verb)
                 if peak.dram_hw != before:
                     peak.stage_at_peak = peak.stage
-                    if state["arm"] and peak.dram_hw >= state["last_walk_b"] + step_b:
+                    if (state["arm"] and peak.dram_hw >= state["floor_b"]
+                            and peak.dram_hw >= state["last_walk_b"] + state["step_b"]):
                         state["last_walk_b"] = peak.dram_hw
                         state["n"] += 1
-                        out["backward"]["walk"] = att.sample(
-                            params, "backward high-water", peak.dram_hw)
+                        w = att.sample(params, "backward high-water", peak.dram_hw)
+                        out["backward"]["walk"] = w
                         out["backward"]["walks"] = state["n"]
+                        state["spent"] += w["walk_s"]
+                        # Resolution at the peak is worth wall clock, but not the run. Doubling
+                        # the step on overrun degrades the former and protects the latter.
+                        if state["spent"] > a.walk_budget_s:
+                            state["step_b"] *= 2
+                            state["spent"] = 0.0
+                            out["backward"]["walk_step_doublings"] = \
+                                out["backward"].get("walk_step_doublings", 0) + 1
             peak.probe = probe
 
             gc.collect()
@@ -367,6 +382,7 @@ def main() -> int:
                 gap = peak.dram_hw - w["dram_now_b"]
                 out["backward"]["walk_gap_to_peak_b"] = gap
                 out["backward"]["walk_gap_to_peak_pct"] = round(100 * gap / peak.dram_hw, 3)
+                out["backward"]["walk_step_b_final"] = state["step_b"]
             ag.release_pins()
             _restore(origs)
         except Exception:                                                   # noqa: BLE001
