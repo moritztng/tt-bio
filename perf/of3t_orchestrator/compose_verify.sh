@@ -412,6 +412,13 @@ done
 # days of deferrals), and 2026-09-20, mine, two rows at once. The memory entry asked twice for
 # a check; this is it. Deliberately narrow -- see the script's SCOPE comment for the wider
 # version that flagged 12 of 30 rows including one that plainly needed its card.
+# (3c) a SUPERSEDED artifact must be NULLED, not merely stamped -- found unapplied to SEVEN of
+# my own artifacts at pass 180, each still exposing structured number fields a reader or a
+# script would consume as current. The stamp is documentation; the suffix is the interlock.
+echo "--- superseded artifacts nulled"
+"$PY" "$HERE/assert_superseded_is_nulled.py" || \
+  { echo "COMPOSE: a superseded artifact still exposes live data fields"; exit 1; }
+
 echo "--- dispatch card tokens"
 "$PY" "$HERE/assert_dispatch_card_token.py" || \
   { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
