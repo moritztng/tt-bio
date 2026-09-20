@@ -1,0 +1,187 @@
+# tt_bio commits on main since each p300c baseline was recorded (HEAD da86ffd1a)
+
+## since 679b9ab4c (2026-09-17) -- esmfold2, nesso1, opendde, openfold3, protenix-v1, protenix-v2, rf3
+a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+ec2bb6f12 pxdesign: raise the Wormhole size guard to the 960 target residues the platform already dispatches
+7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear their A/A floor
+d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulting off
+638187138 Merge wk/c14-stack-land: OuterProductMean output-stage layout, default-on
+3a160119d taped_ttnn: drop dangling citation to a measurement file that was never committed
+9ea039dd6 Protenix v2 trains at the 384-token crop: 316.216 -> 311.888 -> 307.973
+52f874088 per-block checkpointing, and the 384 aa backward fits the card
+57b76e3c7 L1 residency is inference-only, and that settles ptx-fastpath's open question
+28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 finite differences
+4b533182b the composed step trains: 264.772361 -> 258.366744 -> 252.449797 on real protenix-v2 weights
+f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+c3b988c16 the recycling stack differentiates its last cycle, and the denoiser has a device tensor to seed
+69fb43883 Merge remote-tracking branch 'origin/wk/ptx-interface' into wk/ptx-integrate
+61dc741b0 Merge remote-tracking branch 'origin/wk/ptx-unify' into wk/ptx-integrate
+266594c11 Merge remote-tracking branch 'origin/wk/ptx-fastpath' into wk/ptx-integrate
+50b980c8c all five pairformer classes differentiate; the last one needed three lifetime fixes
+af87a73e4 Merge remote-tracking branch 'origin/main' into wk/c14-stack-land
+667611a21 the whole PairformerLayer z-track differentiates, 9.53e-04 against its own forward
+d2ac00e12 a fused activation the tape forwarded but did not differentiate, at 11 sites
+8a8241c7b measured: the fast path survives differentiation on attention, not on the transition
+3b1155aa6 Revert the TT_BIO_TRIATT_B8 default to off: the gate caught grid-dependent output
+4099de770 the fused SDPA has a backward, and the mask goes in before the scale
+b4422d425 autograd: tape the attention head packing, layout derived from the device
+740f95d46 autograd: tape the shipped forward where it computes, not at 380 call sites
+e0d26f022 Flip TT_BIO_TRIATT_B8 on by default: +0.2020 s, 0.37848 A against the 0.60 A bar
+c47ec7bc3 fd_check takes its backward under enable_grad, and the bars get the artifact they cite
+4f086f165 train: the measured OOM outranks the unmeasured tape, and the docs carry the three calls
+a00a9fab3 train: pre-training is one argument away from a fine-tune, not a second recipe
+03842ba9b one copy of the gradcheck arithmetic, and --seed 7 now means one set of inputs
+5d30c48c4 one tape: drop the shadowed helpers the merge left, and gate its 26 float64 references without a card
+121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+b9695db32 Compose region T onto today's main, the arm the +0.1750 s was not measured on
+7bc2afe85 Re-compose the OPM output stage onto main, ten commits later
+9cae09fa4 Merge wk/train-f-no-global-grad
+9761dcc73 Merge wk/train-g-perf-citations
+175bec59d Compose the OuterProductMean output stage onto main for its landing A/B
+15f1ab0ac Merge wk/c13-land-first: hoist the diffusion conditioning blocks by default
+bb8245dac Merge remote-tracking branch 'origin/main' into tmp/regiont-on-main
+0fe5b235a a verb turned off its caller's autograd, process-wide, for good
+f39bd8073 train: three perf citations that pointed at nothing, resolved three different ways
+bd3a5a2df Merge wk/bfp8-l1-chunking: dtype-keyed SDPA L1 refusal memos + fused_pairs bfp8 mispricing fix + opt-in wide-k ladder rung (TT_BIO_SDPA_WIDE_K_UP, default off, 1.1554x/1.1542x on two board pairs)
+5daf58dc8 Merge current origin/main (56278dadb) into the landing branch before re-verifying region T
+4db991f66 train: the launcher cleans up its own /dev/shm, and sweeps a dead driver's
+8d5306ced train: the data-parallel launcher, so a wide Mesh runs instead of raising
+d0649566c Give the SDPA k ladder an upward rung, gated on what fits at the operand dtype
+5af25ddb9 Key the SDPA L1-refusal memos by operand dtype, and price fused_pairs at the real dtype
+700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cache-key fix, onto current main
+3eae39086 Merge wk/train-a1-defork: unify inference dispatch through ops.linear/ops.layer_norm, wire in autograd tape (opt-in, inert)
+e9e667c2c Reattach the LoRA hooks to the generic dispatch protocol
+45a6bca1b Merge wk/train-a1-defork: the generic hook protocol C attached to the retired shape of
+f1c492b14 Merge wk/train-c-interface into the reattach branch
+a953e0c55 unify the dispatch machinery on B2 generic hook signature
+fd76acb3b Merge main into wk/pr15-chain-pair-iptm
+c7db327b3 Merge remote-tracking branch 'origin/main' into wk/train-a1-defork
+62bab8074 train interface: the README and docs/training.md, and the CLI paths they promise
+1b39b18aa train interface: four tiers, an escape hatch with a test, and the five invariants in the API
+caf833482 merge wk/train-a1-defork: the attach point Tier 3 is built on (ops.py dispatch slot, autograd install/backward, per-class gradcheck bars)
+81eaa6a6a retire the twin; production layer-norm forward; multi-root backward; per-class bars
+bb740f8f9 Merge remote-tracking branch 'origin/wk/c14-opm-layout' into wk/c14-opm-fold-ab
+6e9e70be7 Merge remote-tracking branch 'origin/wk/train-b1-instrument'
+54a1972f9 abb3 instrument: recompute their released RMSDs from their released structures
+d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+872f22b1f attach the tape to the shipped ops, and measure R1
+6e851c9af one linear/layer-norm primitive, with a dispatch slot for the tape
+393cf26e1 Hold TT_BIO_UNFUSED_SILU off: Protenix-v2 loses 0.05 CA-lDDT with it on
+0b4de7c78 Merge wk/bfp8-region-t-fold: region T measures +0.6640 s (1.04588x) at 512 aa, default stays off
+ebcc19083 sdpa_generic: the cache-key fix adds no program compiles on any reachable path
+352bb69a9 Region T: the flag, and the one clause that kept it from firing
+d64c1e061 mm_generic: record that the mixed-operand question has now been answered, in a fresh process
+0de90b9e7 sdpa_generic: key the program cache on every operand's format, not just q's
+0e4652296 sdpa_generic: key the program cache on every operand's format, not just q's
+0ec1aa8eb Merge origin/main: fast_dtypes_ok landed there, so my _TILE_BYTES commit is subsumed
+a79b2ce55 bfp8-qkv-matmul: honour the destination dtype in mm_dualnoc, and the float64 gate
+ef84b384b OuterProductMean: fold the mean's scale into the projection, and let proj_o pick its own blocking
+24b693373 Merge remote-tracking branch 'origin/wk/c14-bfp8-fastpath' into wk/bfp8-qkv-matmul
+3aaa9fcac Merge wk/c14-swiglu-kernel: see branch DONE summary (additive, no production default touched)
+bc188070c Merge wk/bfp8-sdpa-unlock: see branch DONE summary (additive, no production default touched)
+d81dc93d1 bfp8-sdpa-unlock: bfp8 serves on both SDPA paths and is the wrong sign on the one that matters
+e6a4ea796 c14 swiglu: the fused kernel works and is 1.38x slower, NO-GO on the kernel family
+0e36f7402 bfp8-sdpa-unlock: both SDPA dtype refusals lift and the kernel serves bfp8, no fallback
+42eebf800 c14 bfp8 fastpath: TT_BIO_TRIATT_B8, the triangle-attention interior in bfp8 with no typecast
+9653ae917 c14 swiglu: fused split-multiply SwiGLU as one generic_op, correct against float64
+44bf24365 mm_generic: give the shared tile-width table its bfp8_b entry
+d9cadb548 c14 bfp8 fastpath: one dtype predicate replaces four hand-written bf16 gates
+31ca245db ptxft: the fine-tune re-measured on the dtype that works, and it barely moved
+4bb37cde0 ptxft: the ATOM block runs and matches upstream to 1.6e-2, and the window path is exonerated
+f72bb8bf0 ptxft: narrow, concat and the local-attention window, the three ops the atom transformer needs
+b82a65b9b ptxft: all four confidence heads pass, and the dtype defect was the overfit plateau
+81d33c9b7 ptxft: it memorises from random init, and two Phase-3 pieces were missing
+50baeb7f0 Ship the silu + cond-hoist stack as the default: +0.4798 s at the 512 aa fold
+a8a9b9148 protenix chain-pair ipTM: the full matrix, both confidence paths, one row builder
+f26a14e50 ptxft: the whole AF3 loss set against Protenix's own code, and a three-way split
+080e96029 Correct the diffusion levers' scope claim: only L7 is boltz-2-exclusive
+022a75b44 L8 cond-hoist: build the conditioning blocks at model load, not in the first fold
+c4f8a40ac ptxft: the whole 48-block trunk is differentiable at 256 aa, and 384 aa is not
+5c0f39b18 ptxft: LoRA adapters, AdamW with fp32 masters, and the weight gradients checked
+39c7b841f hallgrad: the hallucination loop converges, and the tape was leaking every graph it built
+9134d4cf7 hallgrad: the distogram gradient reaches the sequence logits, and bf16 puts a floor under the step
+8a8e39180 hallgrad: the triangle-attention backward needs no new kernel, but it costs 20x
+5c5f8d04e hallgrad: a reverse-mode tape over ttnn tensors, and four gradients proven against float64
+8b224e2de protenix: expose per-chain-pair ipTM (pair_chains_iptm) in confidence output
+
+## since 5264350b0 / f61c33427 (2026-09-18) -- boltz2, openbind
+a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+ec2bb6f12 pxdesign: raise the Wormhole size guard to the 960 target residues the platform already dispatches
+7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear their A/A floor
+d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulting off
+638187138 Merge wk/c14-stack-land: OuterProductMean output-stage layout, default-on
+3a160119d taped_ttnn: drop dangling citation to a measurement file that was never committed
+9ea039dd6 Protenix v2 trains at the 384-token crop: 316.216 -> 311.888 -> 307.973
+52f874088 per-block checkpointing, and the 384 aa backward fits the card
+57b76e3c7 L1 residency is inference-only, and that settles ptx-fastpath's open question
+28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 finite differences
+4b533182b the composed step trains: 264.772361 -> 258.366744 -> 252.449797 on real protenix-v2 weights
+f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+c3b988c16 the recycling stack differentiates its last cycle, and the denoiser has a device tensor to seed
+69fb43883 Merge remote-tracking branch 'origin/wk/ptx-interface' into wk/ptx-integrate
+61dc741b0 Merge remote-tracking branch 'origin/wk/ptx-unify' into wk/ptx-integrate
+266594c11 Merge remote-tracking branch 'origin/wk/ptx-fastpath' into wk/ptx-integrate
+50b980c8c all five pairformer classes differentiate; the last one needed three lifetime fixes
+af87a73e4 Merge remote-tracking branch 'origin/main' into wk/c14-stack-land
+667611a21 the whole PairformerLayer z-track differentiates, 9.53e-04 against its own forward
+d2ac00e12 a fused activation the tape forwarded but did not differentiate, at 11 sites
+8a8241c7b measured: the fast path survives differentiation on attention, not on the transition
+3b1155aa6 Revert the TT_BIO_TRIATT_B8 default to off: the gate caught grid-dependent output
+4099de770 the fused SDPA has a backward, and the mask goes in before the scale
+b4422d425 autograd: tape the attention head packing, layout derived from the device
+740f95d46 autograd: tape the shipped forward where it computes, not at 380 call sites
+e0d26f022 Flip TT_BIO_TRIATT_B8 on by default: +0.2020 s, 0.37848 A against the 0.60 A bar
+c47ec7bc3 fd_check takes its backward under enable_grad, and the bars get the artifact they cite
+4f086f165 train: the measured OOM outranks the unmeasured tape, and the docs carry the three calls
+a00a9fab3 train: pre-training is one argument away from a fine-tune, not a second recipe
+03842ba9b one copy of the gradcheck arithmetic, and --seed 7 now means one set of inputs
+5d30c48c4 one tape: drop the shadowed helpers the merge left, and gate its 26 float64 references without a card
+121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+b9695db32 Compose region T onto today's main, the arm the +0.1750 s was not measured on
+7bc2afe85 Re-compose the OPM output stage onto main, ten commits later
+9cae09fa4 Merge wk/train-f-no-global-grad
+9761dcc73 Merge wk/train-g-perf-citations
+175bec59d Compose the OuterProductMean output stage onto main for its landing A/B
+15f1ab0ac Merge wk/c13-land-first: hoist the diffusion conditioning blocks by default
+bb8245dac Merge remote-tracking branch 'origin/main' into tmp/regiont-on-main
+0fe5b235a a verb turned off its caller's autograd, process-wide, for good
+f39bd8073 train: three perf citations that pointed at nothing, resolved three different ways
+bd3a5a2df Merge wk/bfp8-l1-chunking: dtype-keyed SDPA L1 refusal memos + fused_pairs bfp8 mispricing fix + opt-in wide-k ladder rung (TT_BIO_SDPA_WIDE_K_UP, default off, 1.1554x/1.1542x on two board pairs)
+5daf58dc8 Merge current origin/main (56278dadb) into the landing branch before re-verifying region T
+4db991f66 train: the launcher cleans up its own /dev/shm, and sweeps a dead driver's
+8d5306ced train: the data-parallel launcher, so a wide Mesh runs instead of raising
+d0649566c Give the SDPA k ladder an upward rung, gated on what fits at the operand dtype
+5af25ddb9 Key the SDPA L1-refusal memos by operand dtype, and price fused_pairs at the real dtype
+700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cache-key fix, onto current main
+3eae39086 Merge wk/train-a1-defork: unify inference dispatch through ops.linear/ops.layer_norm, wire in autograd tape (opt-in, inert)
+e9e667c2c Reattach the LoRA hooks to the generic dispatch protocol
+45a6bca1b Merge wk/train-a1-defork: the generic hook protocol C attached to the retired shape of
+f1c492b14 Merge wk/train-c-interface into the reattach branch
+a953e0c55 unify the dispatch machinery on B2 generic hook signature
+fd76acb3b Merge main into wk/pr15-chain-pair-iptm
+c7db327b3 Merge remote-tracking branch 'origin/main' into wk/train-a1-defork
+62bab8074 train interface: the README and docs/training.md, and the CLI paths they promise
+1b39b18aa train interface: four tiers, an escape hatch with a test, and the five invariants in the API
+caf833482 merge wk/train-a1-defork: the attach point Tier 3 is built on (ops.py dispatch slot, autograd install/backward, per-class gradcheck bars)
+81eaa6a6a retire the twin; production layer-norm forward; multi-root backward; per-class bars
+bb740f8f9 Merge remote-tracking branch 'origin/wk/c14-opm-layout' into wk/c14-opm-fold-ab
+872f22b1f attach the tape to the shipped ops, and measure R1
+6e851c9af one linear/layer-norm primitive, with a dispatch slot for the tape
+393cf26e1 Hold TT_BIO_UNFUSED_SILU off: Protenix-v2 loses 0.05 CA-lDDT with it on
+0b4de7c78 Merge wk/bfp8-region-t-fold: region T measures +0.6640 s (1.04588x) at 512 aa, default stays off
+ebcc19083 sdpa_generic: the cache-key fix adds no program compiles on any reachable path
+352bb69a9 Region T: the flag, and the one clause that kept it from firing
+d64c1e061 mm_generic: record that the mixed-operand question has now been answered, in a fresh process
+0de90b9e7 sdpa_generic: key the program cache on every operand's format, not just q's
+0e4652296 sdpa_generic: key the program cache on every operand's format, not just q's
+0ec1aa8eb Merge origin/main: fast_dtypes_ok landed there, so my _TILE_BYTES commit is subsumed
+ef84b384b OuterProductMean: fold the mean's scale into the projection, and let proj_o pick its own blocking
+50baeb7f0 Ship the silu + cond-hoist stack as the default: +0.4798 s at the 512 aa fold
+a8a9b9148 protenix chain-pair ipTM: the full matrix, both confidence paths, one row builder
+080e96029 Correct the diffusion levers' scope claim: only L7 is boltz-2-exclusive
+022a75b44 L8 cond-hoist: build the conditioning blocks at model load, not in the first fold
+8b224e2de protenix: expose per-chain-pair ipTM (pair_chains_iptm) in confidence output
