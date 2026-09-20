@@ -1,0 +1,32 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176",
+ "headline": "The pairformer trunk's bias-orientation flag is now measured end to end and it does NOT reach users. Seeded fold A/B on 1UBQ over 9 matched seeds moves the structure 0.435 A mean / 0.448 A median, UNDER the 0.60 A kill bar. The campaign's product-defect framing was too strong and I said so as prominently as I raised the alarm.",
+
+ "say_the_unalarming_branch_first_because_that_was_the_instruction": "of3t-foldab's brief pre-registered that if the trunk error turned out indistinguishable from the seed floor it be 'reported AS PROMINENTLY as the alarming branch -- it would mean the campaign's product-defect framing was too strong and I should say so plainly.' It did not clear the kill bar. D90's escalation -- 'every OF3 fold JapanFold serves is 46.67x out' -- was mine, it was wrong, and this is the measurement that closes it rather than the reading that withdrew it.",
+
+ "but_it_is_the_middle_branch_not_a_clean_pass": {
+  "lever_mean_A": 0.4347, "lever_median_A": 0.4477, "lever_max_A": 0.6109,
+  "seed_floor_mean_A": 0.2991, "seed_floor_median_A": 0.3142, "seed_floor_max_A": 0.6916,
+  "ratio_to_floor": 1.4533, "kill_bar_A": 0.60,
+  "n_seeds_at_or_over_bar": "2 of 9",
+  "permutation_p_lever_gt_floor": 0.05032,
+  "reading": "1.45x the seed floor with p = 0.050 over 100,000 permutations is ON the significance line, not clear of it, and 2 of 9 individual seeds do reach the bar. The honest statement is 'measurably moves coordinates, does not clear the kill bar', NOT 'harmless'. The floor here is 0.299 A because the target is 1UBQ at 76 aa -- the 1.84 A figure in the standing guidance is the 512 aa floor and does not apply.",
+  "note_on_the_seed_floor": "0.299 A is the SAME-ARM different-seed scatter, so it is the right comparator; the lever arm and the floor arm differ in exactly one boolean."
+ },
+
+ "two_independent_instruments_agree_to_0_28_pct": {
+  "what": "of3t-foldab measured ONE upstream PairBlock, float64, on qb2. I measured the FULL 48-block PairFormerStack, fp32, real tokens, on pc. Neither knew the other's number.",
+  "per_block_foldab": 0.030285417930484133,
+  "sqrt_N_prediction_at_48": 0.20982353033622397,
+  "measured_48_block_orchestrator": 0.21040157247002225,
+  "agreement": "ratio 1.00275 -- 0.28 % apart",
+  "and_the_coherent_model_is_refuted": "a linear (fully correlated) accumulation predicts 1.4537, which is 6.9x the measurement. So the per-block orientation differences accumulate INCOHERENTLY, as a random walk. Per the campaign's own rule that an accumulation probe at sqrt(N) is correlation and not a defect, this flag amplifies with depth exactly as much as independent per-block noise would and no more.",
+  "why_it_matters": "the trunk's revision exposure is now BOUNDED rather than estimated. It is 3.03 % per block, sqrt(N) in depth, 21 % over 48 blocks, 8.62x upstream's own bf16 -- and 0.435 A on a structure. Four scopes, one mechanism, no free parameter left in it."
+ },
+
+ "what_stays_open": "the arm ALSO showed the flag cannot account for of3t-trunkfwd's 46.67x (THE_REVISION_ARM_RAN.json, pre-registered branch B): 8.62x measured against 46.67x observed, with the port's own matched-convention 8.31x alongside, leaving at least 2.8x unexplained. D93's use_high_precision_attention difference is the live candidate and is unquantified because it acts through a CUDA autocast this host cannot run.",
+
+ "controls_from_foldab": "zero_self 2.19e-07; break-reversed-correspondence 12.51 A (the comparison can fail); lever unset vs shipped BYTE-IDENTICAL across 5 files; card0 vs card1 BYTE-IDENTICAL (the output does not depend on which card ran it); lever set vs unset NOT byte-identical (it does move the output). The env lever is default-off, read nowhere else, and release-gated to the branch.",
+
+ "provenance": "of3t-foldab on qb2-card0 (9 seeds x 2 arms x 5 samples, 1UBQ 76 aa, MSA depth 9656) and of3t-orchestrator pass 176 on pc CPU. The sqrt(N) cross-check is computed from the two rows' published figures and reproduces from them."
+}
