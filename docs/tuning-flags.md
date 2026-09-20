@@ -588,9 +588,10 @@ first, with today's pick last.
 **It only touches twenty padded lengths**, the ones whose shipped `k_chunk` fails to divide them:
 288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088, 1184, 1216, 1248, 1312, 1376,
 1472, 1504. Everywhere else the candidate list has one entry and the path is byte for byte the
-default. Protenix-v2 and OpenDDE pad to multiples of 32 and can present all twenty; Boltz-2 and
-BoltzGen pad to 64 and can present five, of which two gain. OpenFold3, Boltz-2's affinity trunk,
-ESMFold2 and RFD3 never reach this SDPA and are unaffected either way.
+default. Every model buckets its token axis to a multiple of 32 (`TOKEN_BUCKET`, with no per-model
+exception), so any model whose triangle attention reaches this kernel can present all twenty.
+OpenFold3, Boltz-2's affinity trunk, ESMFold2 and RFD3 never reach this SDPA and are unaffected
+either way.
 
 **Accuracy: not bit-exact, and this is the one flag where that is visible.** The wider chunk changes
 the online-softmax reduction order. This path reproduces bit-exactly at a fixed seed, so unlike
