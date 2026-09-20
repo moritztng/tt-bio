@@ -1,0 +1,85 @@
+{
+ "host": "qb1c0",
+ "board": "p150a",
+ "card_umd": 0,
+ "S": 512,
+ "n_rep": 7,
+ "clock": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 4
+  }
+ },
+ "ladder": [
+  {
+   "cz": 2,
+   "gflop": 0.537,
+   "dram_ms": 0.0491,
+   "dram_tflops": 10.936,
+   "dram_gbs": 64.1,
+   "l1_ms": 0.0488,
+   "l1_tflops": 11.011,
+   "l1_gbs": 64.5
+  },
+  {
+   "cz": 4,
+   "gflop": 1.074,
+   "dram_ms": 0.0627,
+   "dram_tflops": 17.12,
+   "dram_gbs": 100.3,
+   "l1_ms": 0.0745,
+   "l1_tflops": 14.413,
+   "l1_gbs": 84.5
+  },
+  {
+   "cz": 8,
+   "gflop": 2.147,
+   "dram_ms": 0.0945,
+   "dram_tflops": 22.723,
+   "dram_gbs": 133.1,
+   "l1_ms": 0.1042,
+   "l1_tflops": 20.602,
+   "l1_gbs": 120.7
+  },
+  {
+   "cz": 16,
+   "gflop": 4.295,
+   "dram_ms": 0.1476,
+   "dram_tflops": 29.095,
+   "dram_gbs": 170.5,
+   "l1_ms": 0.146,
+   "l1_tflops": 29.422,
+   "l1_gbs": 172.4
+  },
+  {
+   "cz": 32,
+   "gflop": 8.59,
+   "dram_ms": 0.2704,
+   "dram_tflops": 31.763,
+   "dram_gbs": 186.1,
+   "l1_ms": 0.259,
+   "l1_tflops": 33.164,
+   "l1_gbs": 194.3
+  },
+  {
+   "cz": 64,
+   "gflop": 17.18,
+   "dram_ms": 0.5173,
+   "dram_tflops": 33.214,
+   "dram_gbs": 194.6,
+   "l1_ms": 0.4621,
+   "l1_tflops": 37.178,
+   "l1_gbs": 217.8
+  },
+  {
+   "cz": 128,
+   "gflop": 34.36,
+   "dram_ms": 0.9617,
+   "dram_tflops": 35.729,
+   "dram_gbs": 209.4,
+   "l1_err": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  }
+ ]
+}

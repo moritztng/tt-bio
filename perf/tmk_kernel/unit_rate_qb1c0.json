@@ -1,0 +1,213 @@
+{
+ "host": "qb1c0",
+ "board": "p150a",
+ "card_umd": 0,
+ "pin_node": 1,
+ "S": 512,
+ "cz": 128,
+ "n_rep": 7,
+ "clock": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "arms": [
+  {
+   "arm": "SHIPPED  11x10 pc2x2 sub1x1",
+   "batch": 128,
+   "cfg": [
+    11,
+    10,
+    2,
+    2,
+    1,
+    1,
+    16
+   ],
+   "cores_engaged": 64,
+   "ms_median": 0.9093,
+   "ms_min": 0.9018,
+   "ms_max": 1.1061,
+   "gflop": 34.36,
+   "tflops_aggregate": 37.788,
+   "gflops_per_core": 590.4
+  },
+  {
+   "arm": "shipped-grid-only 8x8 pc2x2 sub1x1",
+   "batch": 128,
+   "cfg": [
+    8,
+    8,
+    2,
+    2,
+    1,
+    1,
+    16
+   ],
+   "cores_engaged": 64,
+   "ms_median": 0.9057,
+   "ms_min": 0.9006,
+   "ms_max": 1.6809,
+   "gflop": 34.36,
+   "tflops_aggregate": 37.935,
+   "gflops_per_core": 592.7
+  },
+  {
+   "arm": "sub2x2   11x10 pc2x2 sub2x2",
+   "batch": 128,
+   "cfg": [
+    11,
+    10,
+    2,
+    2,
+    2,
+    2,
+    16
+   ],
+   "cores_engaged": 64,
+   "ms_median": 1.1539,
+   "ms_min": 1.1483,
+   "ms_max": 1.1576,
+   "gflop": 34.36,
+   "tflops_aggregate": 29.776,
+   "gflops_per_core": 465.3
+  },
+  {
+   "arm": "UNIT     4x4 pc4x4 sub1x1",
+   "batch": 32,
+   "cfg": [
+    4,
+    4,
+    4,
+    4,
+    1,
+    1,
+    16
+   ],
+   "cores_engaged": 16,
+   "ms_median": 0.6294,
+   "ms_min": 0.6268,
+   "ms_max": 0.7613,
+   "gflop": 8.59,
+   "tflops_aggregate": 13.648,
+   "gflops_per_core": 853.0
+  },
+  {
+   "arm": "UNIT     4x4 pc4x4 sub2x2",
+   "batch": 32,
+   "cfg": [
+    4,
+    4,
+    4,
+    4,
+    2,
+    2,
+    16
+   ],
+   "cores_engaged": 16,
+   "ms_median": 0.6326,
+   "ms_min": 0.6289,
+   "ms_max": 0.6945,
+   "gflop": 8.59,
+   "tflops_aggregate": 13.578,
+   "gflops_per_core": 848.6
+  },
+  {
+   "arm": "UNIT     4x4 pc4x4 sub4x1",
+   "batch": 32,
+   "cfg": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    1,
+    16
+   ],
+   "cores_engaged": 16,
+   "ms_median": 0.6626,
+   "ms_min": 0.6524,
+   "ms_max": 0.6733,
+   "gflop": 8.59,
+   "tflops_aggregate": 12.964,
+   "gflops_per_core": 810.2
+  },
+  {
+   "arm": "UNIT     4x4 pc4x4 sub1x4",
+   "batch": 32,
+   "cfg": [
+    4,
+    4,
+    4,
+    4,
+    1,
+    4,
+    16
+   ],
+   "cores_engaged": 16,
+   "ms_median": 0.6169,
+   "ms_min": 0.6159,
+   "ms_max": 0.6223,
+   "gflop": 8.59,
+   "tflops_aggregate": 13.923,
+   "gflops_per_core": 870.2
+  },
+  {
+   "arm": "UNIT2    2x2 pc8x8 sub2x2",
+   "batch": 8,
+   "cfg": [
+    2,
+    2,
+    8,
+    8,
+    2,
+    2,
+    16
+   ],
+   "cores_engaged": 4,
+   "ms_median": 0.508,
+   "ms_min": 0.5075,
+   "ms_max": 0.5123,
+   "gflop": 2.147,
+   "tflops_aggregate": 4.227,
+   "gflops_per_core": 1056.7
+  },
+  {
+   "arm": "SOLO     1x1 pc16x16 sub2x2",
+   "batch": 2,
+   "cfg": [
+    1,
+    1,
+    16,
+    16,
+    2,
+    2,
+    16
+   ],
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=0,y=0)] grow to 3781120 B which is beyond max L1 siz"
+  },
+  {
+   "arm": "wide     8x8 pc2x2 sub2x2",
+   "batch": 128,
+   "cfg": [
+    8,
+    8,
+    2,
+    2,
+    2,
+    2,
+    16
+   ],
+   "cores_engaged": 64,
+   "ms_median": 1.153,
+   "ms_min": 1.124,
+   "ms_max": 1.195,
+   "gflop": 34.36,
+   "tflops_aggregate": 29.8,
+   "gflops_per_core": 465.6
+  }
+ ]
+}

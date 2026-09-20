@@ -1,0 +1,109 @@
+{
+ "host": "qb1c0",
+ "board": "p150a",
+ "card_umd": 0,
+ "S": 512,
+ "cz": 128,
+ "n_rep": 7,
+ "dram_gbs_measured": 381.3,
+ "clock_dram": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "clock": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "arms": [
+  {
+   "arm": "MCAST  shipped 11x10 pc2x2 sub1x1",
+   "kind": "mc",
+   "grid": [
+    11,
+    10
+   ],
+   "pc": [
+    2,
+    2,
+    1,
+    1,
+    16
+   ],
+   "ms_median": 0.9673,
+   "tflops": 35.521,
+   "vs_shipped": 1.0
+  },
+  {
+   "arm": "MCAST  4x4 pc4x4 sub1x4",
+   "kind": "mc",
+   "grid": [
+    4,
+    4
+   ],
+   "pc": [
+    4,
+    4,
+    1,
+    4,
+    16
+   ],
+   "ms_median": 2.4021,
+   "tflops": 14.304,
+   "vs_shipped": 0.4027
+  },
+  {
+   "arm": "REUSE  11x10 pc4x4 sub1x4",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 4\nba"
+  },
+  {
+   "arm": "REUSE  11x10 pc4x4 sub2x2",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 4\nba"
+  },
+  {
+   "arm": "REUSE  11x10 pc8x8 sub2x2",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 8\nba"
+  },
+  {
+   "arm": "REUSE  11x10 pc16x16 sub2x2",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] gro"
+  },
+  {
+   "arm": "REUSE  11x10 pc2x2 sub1x1",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 2\nba"
+  },
+  {
+   "arm": "REUSE  8x8 pc4x4 sub1x4",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 4\nba"
+  },
+  {
+   "arm": "REUSE  11x10 pc4x16 sub1x4",
+   "kind": "re",
+   "grid": [
+    11,
+    10
+   ],
+   "pc": [
+    4,
+    16,
+    1,
+    4,
+    8
+   ],
+   "ms_median": 1.3183,
+   "tflops": 26.064,
+   "vs_shipped": 0.7338
+  },
+  {
+   "arm": "REUSE  11x10 pc16x4 sub4x1",
+   "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 16, is not equal to per_core_N, 4\nba"
+  }
+ ]
+}
