@@ -222,28 +222,35 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log, ul
     # ships. `variant` names the one deviation each arm makes, and nothing else moves.
     sched = (lambda s: af3_lr(s, lr, warmup_steps=warmup))
     kw = dict(lr=lr, schedule=sched)
-    if variant == "fixed":
-        # `recipes.py` AFTER of3t-wirefix, again verbatim: the two arguments it now names and
-        # the schedule family they select. Nothing is hand-tuned -- these come out of the
-        # shipped signature, and `shipped_defaults` is recorded in the result file so the arm
-        # carries the identity of the source it claims to be.
+    if variant in ("fixed", "fixed5", "fixed5mis"):
+        # `recipes.py` AFTER of3t-wirefix, again verbatim: the arguments it now names and the
+        # schedule family they select. Nothing is hand-tuned -- these come out of the shipped
+        # signature, and `shipped_defaults` is recorded in the result file so the arm carries
+        # the identity of the source it claims to be.
         d = _shipped_defaults()
         kw["weight_decay"] = d["weight_decay"]
         kw["schedule"] = (lambda s: af3_lr(s, lr, warmup_steps=warmup,
                                            plateau_until=d["plateau_until"]))
+        # `fixed` is the FOUR divergences of3t-traj20 found, and it pins `AdamW`'s own class
+        # default rather than leaving it implicit, so the arm still means what it meant after
+        # the fifth fix moved what `recipes.py` passes. `fixed5` adds the fifth: upstream runs
+        # beta2 = 0.95 (`model_config.py:143-146`) and Adam's library default is 0.999, which
+        # is what shipped because `recipes.py` never passed betas. The pair is what attributes
+        # it -- one arm cannot.
+        kw["betas"] = (0.9, 0.999) if variant == "fixed" else d["betas"]
     if variant in ("wired", "wd0", "avg", "avgstale"):
         # The attribution arms. `wired` closes both gaps at once -- upstream's Adam carries no
         # weight decay and upstream clips per sample -- and `wd0` closes only the first, so the
         # pair says which of the two the divergence is.
         kw["weight_decay"] = 0.0
     opt = AdamW(params, **kw)
-    if variant == "miswire":
+    if variant in ("miswire", "fixed5mis"):
         _restore_d11(opt)
     urng = np.random.default_rng(ulp_seed)
     read = lambda n: params[n].value.arr            # noqa: E731  the weight the forward reads
     for k in range(1, steps + 1):
         opt.zero_grad()
-        if variant in ("wired", "avg", "avgstale", "fixed"):
+        if variant in ("wired", "avg", "avgstale", "fixed", "fixed5", "fixed5mis"):
             # Upstream's shape: clip each sample, accumulate, then step.
             # `avgstale` is the break control run on the HEALTHY arm: `stale` on the shipped
             # arm is saturated by that arm's own wiring error, so it cannot show a move.
@@ -432,7 +439,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True,
                     choices=["shipped", "scaled", "wired", "wd0", "avg", "avgstale", "miswire",
-                             "stale", "fixed", "aa", "ulp"])
+                             "stale", "fixed", "fixed5", "miswire5", "aa", "ulp"])
     ap.add_argument("--ulp", type=float, default=2.0 ** -24,
                     help="the ulp arm's per-element relative gradient perturbation")
     ap.add_argument("--limit", type=int, default=0, help="smoke only; 0 = the full scope")
@@ -452,7 +459,11 @@ def main() -> int:
                # sides and perturbs one, so the only thing it can read is the loop's own
                # response to rounding. `aa` runs UPSTREAM on both sides, which is the path
                # this row did not touch, and it must read exactly zero at every rung.
-               "fixed": "fixed", "ulp": "fixed", "aa": "shipped"}[a.arm]
+               "fixed": "fixed", "fixed5": "fixed5", "ulp": "fixed5",
+               # The instrument-can-fail arm, moved onto the POST-FIX path: an instrument
+               # that stops being able to fail once you fix things has stopped measuring.
+               "miswire5": "fixed5mis",
+               "aa": "shipped"}[a.arm]
     # The feedback coupling is set per arm so the closed loop carries a comparable share of
     # the drive in both, because the shipped warmup moves the weights ~1e-4 relative over 20
     # steps and the scaled one moves them ~1e-2. The share is MEASURED at three rungs and
@@ -504,7 +515,8 @@ def main() -> int:
         "accumulate_grad_batches": per_step, "rho": rho, "steps": STEPS,
         "ulp": (a.ulp if a.arm == "ulp" else 0.0),
         "shipped_defaults": {k: v for k, v in _shipped_defaults().items()
-                             if k in ("weight_decay", "plateau_until", "lr", "warmup_steps")},
+                             if k in ("betas", "weight_decay", "plateau_until", "lr",
+                                      "warmup_steps")},
         "scope": {"tensors": len(names), "tensors_declared": n_declared,
                   "tensors_dropped": len(dropped), "elements": elems,
                   "confidence_head_tensors_disabled_on_3_of_4_samples": len(conf)},

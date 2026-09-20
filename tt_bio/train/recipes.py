@@ -47,8 +47,8 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
-               weight_decay=0.0, plateau_until=50000, checkpoint_every=100, tokens=None,
-               weights=None, model=None):
+               betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
+               tokens=None, weights=None, model=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -70,13 +70,20 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     call-site census, which cannot see a weight a module fused in its own ``__init__`` --
     measured at 2119 of 2531 on OpenFold3's trunk.
 
-    ``weight_decay`` and ``plateau_until`` are the two places the AlphaFold-family recipes
-    disagree with each other, so they are arguments rather than constants. The defaults are
-    OpenFold3's: its ``configure_optimizers`` builds a plain ``torch.optim.Adam`` with no
-    decay at all, and its ``AlphaFoldLRScheduler`` holds the rate flat until
-    ``start_decay_after_n_steps`` where Protenix starts decaying from step zero.
-    ``plateau_until=None`` selects Protenix's family. One argument each, not a per-model
-    branch -- see :func:`tt_bio.train.optim.af3_lr` for the two closed forms.
+    ``betas``, ``weight_decay`` and ``plateau_until`` are where the AlphaFold-family recipes
+    disagree with each other and with the optimizer's own library defaults, so they are
+    arguments rather than constants. The values here are OpenFold3's: its
+    ``configure_optimizers`` builds a plain ``torch.optim.Adam`` at
+    ``betas=(beta1, beta2)`` with no decay at all (``runner.py:855-860``), its config sets
+    ``beta2: 0.95`` against Adam's usual 0.999 (``model_config.py:143-146``), and its
+    ``AlphaFoldLRScheduler`` holds the rate flat until ``start_decay_after_n_steps`` where
+    Protenix starts decaying from step zero. ``plateau_until=None`` selects Protenix's family.
+    One argument each, not a per-model branch -- see :func:`tt_bio.train.optim.af3_lr` for the
+    two closed forms.
+
+    None of the three could be left to a default. ``beta2`` is the sharpest: 0.999 against
+    0.95 is a second-moment horizon twenty times longer, it moves no gradient and no loss
+    curve, and over twenty steps it was the whole of a 0.9 % uniform excess in the update.
 
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
@@ -124,7 +131,7 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         installed, params = trainable(forward, cfg, dataset.device,
                                       dataset.batch([first.per_chip[dp_rank][0]]),
                                       model=model, rng=seed)
-        opt = AdamW(params, lr=lr, data_parallel=dp, weight_decay=weight_decay,
+        opt = AdamW(params, lr=lr, data_parallel=dp, betas=betas, weight_decay=weight_decay,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps,
                                               plateau_until=plateau_until))
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are

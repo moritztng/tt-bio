@@ -46,6 +46,21 @@ def test_the_recipe_carries_no_weight_decay():
     assert inspect.signature(AdamW).parameters["weight_decay"].default == 0.01
 
 
+def test_the_recipe_pins_openfold3s_second_moment_horizon():
+    """The fifth divergence, and the one that survived closing the other four.
+
+    `AdamW`s class default is Adams usual `(0.9, 0.999)`; OpenFold3 runs `(0.9, 0.95)`
+    (`model_config.py:143-146`, read by `runner.py:855-860`). A twenty-times-longer
+    second-moment horizon moves no gradient, no loss and no norm -- it changes the SIZE of
+    every update, which is why a per-parameter gradient check cannot see it. Over a 20-step
+    trajectory with bit-identical gradients on both sides it was a uniform 0.9 % excess, and
+    passing the right betas took d_2 from 9.095550e-03 to 4.884661e-06.
+    """
+    assert _defaults()["betas"] == (0.9, 0.95)
+    assert "betas=betas" in inspect.getsource(train_loop)
+    assert inspect.signature(AdamW).parameters["betas"].default == (0.9, 0.999)
+
+
 def test_the_recipe_selects_openfold3s_schedule_family():
     """`plateau_until` is the whole difference between AF2`s schedule and Protenix`s. Over
     0..200,004 the two families agree on 200,004 of 200,005 steps and disagree at 50,000, so
