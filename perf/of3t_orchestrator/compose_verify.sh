@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -78,7 +78,12 @@ for r in $ROWS; do
     echo "of3t-$r: dispatched but has not pushed a branch yet, skipped"
   fi
 done
-git merge --no-edit -q wk/of3t-orchestrator || true
+# NOT `|| true`. This merge lands last and is therefore the only thing that can override a row,
+# which is exactly why its failure must be loud: a conflict here silently drops the orchestrator's
+# corrections from the branch that goes to the merge gate, and the compose would still print
+# "clean". Found pass 92 while reverting a default flip through this very merge.
+git merge --no-edit -q wk/of3t-orchestrator \
+  || { echo "CONFLICT merging wk/of3t-orchestrator:"; git diff --name-only --diff-filter=U; exit 1; }
 
 # (1) ancestry, asserted AFTER the merges
 for r in $PRESENT; do
@@ -157,8 +162,13 @@ for r in $ROWS; do
   # turned on itself. When qb2 hard-hung on 2026-09-19 the two rows holding the campaign's
   # critical path were both there, and the compose said nothing about either.
   if [ ! -d "$wt" ]; then
-    rhost=$(grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null | tail -1 | \
-            sed 's/.*host=//')
+    # `|| true` is load-bearing under `set -o pipefail`: for a row that is dispatched but has
+    # never launched on ANY host there is no log file, `grep` exits non-zero, the pipeline
+    # inherits it and the whole compose aborts with rc=2 on a completely normal state. Caught
+    # pass 90 the first time a row was listed in ROWS before its first launch -- which is
+    # exactly the case the ROWS comment says must be supported.
+    rhost=$( { grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null || true; } | \
+            tail -1 | sed 's/.*host=//')
     # Only for a LIVE row. A concluded row's worktree holds nothing the campaign is waiting
     # on -- what origin has IS its final answer -- and noting nine of them buries the one
     # that matters, which is how a check gets ignored.
@@ -178,7 +188,14 @@ for r in $ROWS; do
   # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
   # two passes of wrong remedies on of3t-reference.)
   if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
-    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
+    # `|| true` again, and this is the THIRD site in this script where `set -o pipefail` plus a
+    # grep whose empty result is the NORMAL case took the whole compose down (the other two are
+    # the remote-host probe above and the ownership table below). A row that is ahead of origin
+    # but whose log has no `itN rc=N` line yet -- a first pass still running -- is completely
+    # ordinary, and it aborted the compose at rc=1 right after printing a healthy ancestry line.
+    # Pattern, named so the next grep added here gets it right: in this script every
+    # `x=$(grep ... | ...)` needs `|| true`, because none of them treat "no match" as an error.
+    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" 2>/dev/null | tail -1 || true)
     case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
       " -- it likely commits and never reaches a push; reshape the work, do not re-ask";; esac
   fi
@@ -402,6 +419,30 @@ PYGEN
 fi
 
 git worktree remove --force "$BASE"
+# (6) SHIPPED DEFAULTS THE COMPOSITION MUST NOT MOVE.
+#
+# `wk/of3t` is what goes to Moritz's merge gate, so a default that changed inside it is a change
+# that ships. `of3t-pairbias` measured the OF3 trunk pair-bias correction end to end and concluded
+# "Land the MECHANISM. Do NOT flip the OF3 trunk default on this evidence" -- 0.050 A of best-of-5
+# bought for 0.463 A on the structure a user receives, against a 0.324 A seed floor -- and then its
+# own commit landed the flip anyway. It sat in the composition for passes; `of3t-confhead` found it
+# by reading the branch rather than the verdict. The lever is one token, so the guard is one grep.
+#
+# This is deliberately NOT a general "no default moved" check, which would need a definition of
+# `default` this script cannot honestly give. It is a named assertion about a named line, and when
+# D1+D10 are approved to ship together the line here changes with them.
+_trunk="$CO/tt_bio/openfold3_trunk.py"
+_want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
+if grep -q "$_want" "$_trunk"; then
+  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 held, blocked on D10)"
+else
+  echo "SHIPPED DEFAULT MOVED -- $_trunk does not carry: $_want"
+  grep -n 'scale_pair_bias=' "$_trunk" | sed 's/^/  /'
+  echo "  D1 must not ship without D10 (of3t-pairbias's own verdict). If Moritz approved the pair,"
+  echo "  change _want in this script in the same commit that flips the default."
+  exit 1
+fi
+
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
 # `--push` exists because I once ran `compose_verify.sh; git -C $CO push -f` as one line and
 # force-pushed a FAILED, half-merged composition over a good one: 256 commits replaced by 55.
