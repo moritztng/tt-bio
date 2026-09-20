@@ -1,0 +1,873 @@
+{
+ "doc": "Does the taped OF3 trunk fit the card at a crop their recipe trains at?",
+ "argv": [
+  "--tokens",
+  "384",
+  "--backward",
+  "--out",
+  "perf/of3t_l1/out/r2_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "commit": "fcab645a6fefc40b84002a65b6bc65b03bf2b45a",
+  "branch": "wk/of3t-l1",
+  "started_utc": "2026-09-19T15:49:11Z",
+  "loadavg": [
+   10.73046875,
+   11.69580078125,
+   8.13330078125
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 196
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 196 samples, polled DURING the work"
+ },
+ "build_fold_s": 5.38,
+ "prep_to_sampler_s": 14.22,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.865,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "resting": {
+  "dram_b": 1544926208,
+  "census": {
+   "DRAM": {
+    "count": 3627,
+    "sum_b": 1544926208,
+    "largest_b": 47185920,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     47185920,
+     37748736,
+     37748736,
+     25427968,
+     25427968,
+     25427968,
+     18874368,
+     12713984,
+     9437184,
+     9437184
+    ],
+    "by_size": {
+     "distinct_sizes": 30,
+     "top_by_bytes": [
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 9437184,
+       "n": 33,
+       "total_b": 311427072
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 25427968,
+       "n": 3,
+       "total_b": 76283904
+      },
+      {
+       "each_b": 37748736,
+       "n": 2,
+       "total_b": 75497472
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 47185920,
+       "n": 1,
+       "total_b": 47185920
+      },
+      {
+       "each_b": 294912,
+       "n": 99,
+       "total_b": 29196288
+      },
+      {
+       "each_b": 32768,
+       "n": 838,
+       "total_b": 27459584
+      },
+      {
+       "each_b": 16384,
+       "n": 1295,
+       "total_b": 21217280
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 18874368,
+       "n": 1,
+       "total_b": 18874368
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1295,
+       "total_b": 21217280
+      },
+      {
+       "each_b": 32768,
+       "n": 838,
+       "total_b": 27459584
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 294912,
+       "n": 99,
+       "total_b": 29196288
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 49152,
+       "n": 57,
+       "total_b": 2801664
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 9437184,
+       "n": 33,
+       "total_b": 311427072
+      },
+      {
+       "each_b": 393216,
+       "n": 27,
+       "total_b": 10616832
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 3627
+  }
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 1670050816,
+  "ok": true,
+  "s": 180.75,
+  "dram_peak_b": 4794512384,
+  "l1_peak_b": 27033600,
+  "at_verb": "to_memory_config",
+  "at_stage": "pairformer",
+  "verb_calls": 82610,
+  "dram_live_allocs": 4226,
+  "l1_live_allocs": 1,
+  "dram_largest_b": 113246208,
+  "l1_largest_b": 27033600,
+  "census": {
+   "DRAM": {
+    "count": 4226,
+    "sum_b": 4794512384,
+    "largest_b": 113246208,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     113246208,
+     47185920,
+     37748736,
+     37748736,
+     37748736,
+     37748736,
+     37748736,
+     37748736,
+     37748736,
+     37748736
+    ],
+    "by_size": {
+     "distinct_sizes": 34,
+     "top_by_bytes": [
+      {
+       "each_b": 37748736,
+       "n": 67,
+       "total_b": 2529165312
+      },
+      {
+       "each_b": 18874368,
+       "n": 27,
+       "total_b": 509607936
+      },
+      {
+       "each_b": 9437184,
+       "n": 40,
+       "total_b": 377487360
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 248,
+       "total_b": 292552704
+      },
+      {
+       "each_b": 2359296,
+       "n": 49,
+       "total_b": 115605504
+      },
+      {
+       "each_b": 113246208,
+       "n": 1,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 25427968,
+       "n": 3,
+       "total_b": 76283904
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 23592960,
+       "n": 2,
+       "total_b": 47185920
+      },
+      {
+       "each_b": 47185920,
+       "n": 1,
+       "total_b": 47185920
+      },
+      {
+       "each_b": 294912,
+       "n": 151,
+       "total_b": 44531712
+      },
+      {
+       "each_b": 1966080,
+       "n": 21,
+       "total_b": 41287680
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1668,
+       "total_b": 27328512
+      },
+      {
+       "each_b": 32768,
+       "n": 880,
+       "total_b": 28835840
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 248,
+       "total_b": 292552704
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 294912,
+       "n": 151,
+       "total_b": 44531712
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 37748736,
+       "n": 67,
+       "total_b": 2529165312
+      },
+      {
+       "each_b": 49152,
+       "n": 58,
+       "total_b": 2850816
+      },
+      {
+       "each_b": 2359296,
+       "n": 49,
+       "total_b": 115605504
+      },
+      {
+       "each_b": 9437184,
+       "n": 40,
+       "total_b": 377487360
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 1,
+    "sum_b": 27033600,
+    "largest_b": 27033600,
+    "median_b": 27033600,
+    "p90_b": 27033600,
+    "smallest_b": 27033600,
+    "top10_b": [
+     27033600
+    ],
+    "by_size": {
+     "distinct_sizes": 1,
+     "top_by_bytes": [
+      {
+       "each_b": 27033600,
+       "n": 1,
+       "total_b": 27033600
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 27033600,
+       "n": 1,
+       "total_b": 27033600
+      }
+     ]
+    }
+   },
+   "total_buffers": 4227
+  },
+  "free": {
+   "free_b": 29431007744,
+   "largest_contiguous_free_per_bank_b": 3678394304,
+   "largest_contiguous_free_across_banks_b": 29427154432
+  },
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "ok": false,
+  "error": "           ^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-l1/tt_bio/autograd.py\", line 1153, in _recompute\n    y.backward(seed=g)\n  File \"/home/ttuser/.coworker/wt/of3t-l1/tt_bio/autograd.py\", line 212, in backward\n    backward([self], [seed])\n  File \"/home/ttuser/.coworker/wt/of3t-l1/tt_bio/autograd.py\", line 266, in backward\n    t.node.fn(_unshard(g))\n  File \"/home/ttuser/.coworker/wt/of3t-l1/tt_bio/taped_ttnn.py\", line 826, in bw\n    x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1207959552 B DRAM buffer across 8 banks, where each bank needs to store 150994944 B, but bank size is 4278190016 B (allocated: 4010065536 B, free: 268124480 B, largest free block: 150587328 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7c91f8cd2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::prim::TilizeWithValPaddingDeviceOperation::create_output_tensors(ttnn::prim::TilizeWithValPaddingParams const&, tt::tt_metal::Tensor const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim35TilizeWithValPaddingDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x14c) [0x7c91f311c67c]\n --- ttnn::prim::tilize_with_val_padding(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, std::variant<unsigned int, float> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType> const&, bool, bool, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8ff8dd) [0x7c91f30ff8dd]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8b8287) [0x7c91f30b8287]\n --- ttnn::tilize_with_val_padding(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, std::variant<unsigned int, float>, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType>, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa70524) [0x7c91f3270524]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa82108) [0x7c91f3282108]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa81e7d) [0x7c91f3281e7d]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa72dc5) [0x7c91f3272dc5]\n --- ttnn::concat(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > const&, int, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, unsigned int, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x612708) [0x7c91f9e12708]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7c91f9a6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aaeb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7c91fbe2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7c91fbe2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+  "error_head": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1207959552 B DRAM buffer across 8 banks, where each bank needs to store 150994944 B, but bank size is 4278190016 B (allocated: 4010065536 B, free: 268124480 B, largest free block: 150587328 B)\n",
+  "stage_at_failure": "enter",
+  "l1_holders": {
+   "tensors": [],
+   "totals": {
+    "l1_taped_tensors": 0,
+    "not_evictable": 0,
+    "distinct_addrs": 0,
+    "at_clash_addr": 0
+   }
+  },
+  "at_failure": {
+   "census": {
+    "DRAM": {
+     "count": 5924,
+     "sum_b": 31854031872,
+     "largest_b": 1207959552,
+     "median_b": 49152,
+     "p90_b": 23592960,
+     "smallest_b": 16384,
+     "top10_b": [
+      1207959552,
+      1207959552,
+      226492416,
+      226492416,
+      150994944,
+      150994944,
+      113246208,
+      113246208,
+      113246208,
+      75497472
+     ],
+     "by_size": {
+      "distinct_sizes": 42,
+      "top_by_bytes": [
+       {
+        "each_b": 47185920,
+        "n": 229,
+        "total_b": 10805575680
+       },
+       {
+        "each_b": 37748736,
+        "n": 143,
+        "total_b": 5398069248
+       },
+       {
+        "each_b": 23592960,
+        "n": 228,
+        "total_b": 5379194880
+       },
+       {
+        "each_b": 1207959552,
+        "n": 2,
+        "total_b": 2415919104
+       },
+       {
+        "each_b": 75497472,
+        "n": 29,
+        "total_b": 2189426688
+       },
+       {
+        "each_b": 25165824,
+        "n": 48,
+        "total_b": 1207959552
+       },
+       {
+        "each_b": 1966080,
+        "n": 380,
+        "total_b": 747110400
+       },
+       {
+        "each_b": 9437184,
+        "n": 56,
+        "total_b": 528482304
+       },
+       {
+        "each_b": 18874368,
+        "n": 27,
+        "total_b": 509607936
+       },
+       {
+        "each_b": 226492416,
+        "n": 2,
+        "total_b": 452984832
+       },
+       {
+        "each_b": 4718592,
+        "n": 84,
+        "total_b": 396361728
+       },
+       {
+        "each_b": 113246208,
+        "n": 3,
+        "total_b": 339738624
+       },
+       {
+        "each_b": 150994944,
+        "n": 2,
+        "total_b": 301989888
+       },
+       {
+        "each_b": 1179648,
+        "n": 251,
+        "total_b": 296091648
+       }
+      ],
+      "top_by_count": [
+       {
+        "each_b": 16384,
+        "n": 1922,
+        "total_b": 31490048
+       },
+       {
+        "each_b": 32768,
+        "n": 987,
+        "total_b": 32342016
+       },
+       {
+        "each_b": 1966080,
+        "n": 380,
+        "total_b": 747110400
+       },
+       {
+        "each_b": 131072,
+        "n": 371,
+        "total_b": 48627712
+       },
+       {
+        "each_b": 1179648,
+        "n": 251,
+        "total_b": 296091648
+       },
+       {
+        "each_b": 47185920,
+        "n": 229,
+        "total_b": 10805575680
+       },
+       {
+        "each_b": 23592960,
+        "n": 228,
+        "total_b": 5379194880
+       },
+       {
+        "each_b": 98304,
+        "n": 202,
+        "total_b": 19857408
+       },
+       {
+        "each_b": 65536,
+        "n": 171,
+        "total_b": 11206656
+       },
+       {
+        "each_b": 294912,
+        "n": 152,
+        "total_b": 44826624
+       },
+       {
+        "each_b": 37748736,
+        "n": 143,
+        "total_b": 5398069248
+       },
+       {
+        "each_b": 163840,
+        "n": 105,
+        "total_b": 17203200
+       },
+       {
+        "each_b": 147456,
+        "n": 104,
+        "total_b": 15335424
+       },
+       {
+        "each_b": 589824,
+        "n": 96,
+        "total_b": 56623104
+       }
+      ]
+     }
+    },
+    "L1": {
+     "count": 0,
+     "sum_b": 0,
+     "largest_b": 0,
+     "median_b": 0,
+     "p90_b": 0,
+     "smallest_b": 0,
+     "top10_b": [],
+     "by_size": {
+      "distinct_sizes": 0,
+      "top_by_bytes": [],
+      "top_by_count": []
+     }
+    },
+    "total_buffers": 5924
+   },
+   "free": {
+    "free_b": 2371488256,
+    "largest_contiguous_free_per_bank_b": 150587328,
+    "largest_contiguous_free_across_banks_b": 1204698624
+   }
+  },
+  "s": 354.28,
+  "dram_peak_b": 32369505280,
+  "l1_peak_b": 108134400,
+  "at_verb": "add",
+  "at_stage": "enter",
+  "verb_calls": 49007,
+  "dram_live_allocs": 5922,
+  "l1_live_allocs": 0,
+  "dram_largest_b": 1207959552,
+  "l1_largest_b": 0,
+  "census": {
+   "DRAM": {
+    "count": 5922,
+    "sum_b": 32369505280,
+    "largest_b": 1207959552,
+    "median_b": 49152,
+    "p90_b": 23592960,
+    "smallest_b": 16384,
+    "top10_b": [
+     1207959552,
+     1207959552,
+     226492416,
+     226492416,
+     226492416,
+     226492416,
+     150994944,
+     150994944,
+     113246208,
+     113246208
+    ],
+    "by_size": {
+     "distinct_sizes": 42,
+     "top_by_bytes": [
+      {
+       "each_b": 47185920,
+       "n": 229,
+       "total_b": 10805575680
+      },
+      {
+       "each_b": 23592960,
+       "n": 228,
+       "total_b": 5379194880
+      },
+      {
+       "each_b": 37748736,
+       "n": 142,
+       "total_b": 5360320512
+      },
+      {
+       "each_b": 1207959552,
+       "n": 2,
+       "total_b": 2415919104
+      },
+      {
+       "each_b": 75497472,
+       "n": 29,
+       "total_b": 2189426688
+      },
+      {
+       "each_b": 25165824,
+       "n": 48,
+       "total_b": 1207959552
+      },
+      {
+       "each_b": 226492416,
+       "n": 4,
+       "total_b": 905969664
+      },
+      {
+       "each_b": 1966080,
+       "n": 380,
+       "total_b": 747110400
+      },
+      {
+       "each_b": 9437184,
+       "n": 55,
+       "total_b": 519045120
+      },
+      {
+       "each_b": 18874368,
+       "n": 27,
+       "total_b": 509607936
+      },
+      {
+       "each_b": 113246208,
+       "n": 4,
+       "total_b": 452984832
+      },
+      {
+       "each_b": 4718592,
+       "n": 84,
+       "total_b": 396361728
+      },
+      {
+       "each_b": 150994944,
+       "n": 2,
+       "total_b": 301989888
+      },
+      {
+       "each_b": 1179648,
+       "n": 250,
+       "total_b": 294912000
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1922,
+       "total_b": 31490048
+      },
+      {
+       "each_b": 32768,
+       "n": 986,
+       "total_b": 32309248
+      },
+      {
+       "each_b": 1966080,
+       "n": 380,
+       "total_b": 747110400
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 250,
+       "total_b": 294912000
+      },
+      {
+       "each_b": 47185920,
+       "n": 229,
+       "total_b": 10805575680
+      },
+      {
+       "each_b": 23592960,
+       "n": 228,
+       "total_b": 5379194880
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 65536,
+       "n": 171,
+       "total_b": 11206656
+      },
+      {
+       "each_b": 294912,
+       "n": 152,
+       "total_b": 44826624
+      },
+      {
+       "each_b": 37748736,
+       "n": 142,
+       "total_b": 5360320512
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 5922
+  },
+  "free": {
+   "free_b": 1856014848,
+   "largest_contiguous_free_per_bank_b": 150587328,
+   "largest_contiguous_free_across_banks_b": 1204698624
+  },
+  "params_with_grad": 593,
+  "params_declared": 2531
+ }
+}

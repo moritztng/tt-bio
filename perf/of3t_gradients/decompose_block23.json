@@ -1,0 +1,167 @@
+{
+ "instrument": "block-scope instrument A, grouped by sub-module",
+ "block": 23,
+ "bars": {
+  "per_tensor": 0.05,
+  "median": 0.02
+ },
+ "a14_zero_reference_rule": "tensors with ref_norm below 1e-15 are excluded and named; a relative L2 on a zero denominator measures the denominator",
+ "a15_norm_share_of_compared_set": 0.000670815984698262,
+ "a15_note": "every median below is over a set holding 0.07 % of the reference gradient's squared norm",
+ "arms": {
+  "shipped": {
+   "groups": {
+    "attn_pair_bias": {
+     "n": 6,
+     "median": 1.107663904035666,
+     "worst": 11.391449190884646,
+     "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+     "over_bar": 6
+    },
+    "tri_att_end": {
+     "n": 8,
+     "median": 0.7528520023585976,
+     "worst": 1.1859621024323133,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_end.linear_z.weight",
+     "over_bar": 8
+    },
+    "tri_mul_out": {
+     "n": 10,
+     "median": 0.09541874004508313,
+     "worst": 0.10652268480234159,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_out.linear_a_g.weight",
+     "over_bar": 10
+    },
+    "tri_att_start": {
+     "n": 8,
+     "median": 0.09478721742060157,
+     "worst": 0.11072275645109612,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_start.mha.linear_q.weight",
+     "over_bar": 7
+    },
+    "tri_mul_in": {
+     "n": 10,
+     "median": 0.08270346378920579,
+     "worst": 0.10300383805187102,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_in.linear_g.weight",
+     "over_bar": 10
+    },
+    "pair_transition": {
+     "n": 5,
+     "median": 0.06040095922938949,
+     "worst": 0.0914396678145925,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.pair_transition.layer_norm.weight",
+     "over_bar": 5
+    },
+    "single_transition": {
+     "n": 5,
+     "median": 0.032232320171393505,
+     "worst": 0.038222410082194846,
+     "worst_tensor": "pairformer_stack.blocks.23.single_transition.swiglu.linear_a.weight",
+     "over_bar": 0
+    }
+   },
+   "n_compared": 52,
+   "n_excluded_zero_ref": 1,
+   "excluded": [
+    {
+     "tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_z.bias",
+     "ref_norm": 4.1808097526797e-19
+    }
+   ],
+   "median": 0.09304022153637678,
+   "worst": 11.391449190884646,
+   "over_bar": 46,
+   "median_inside_bar": false,
+   "tag": "block23_r0_crop64_tbshipped",
+   "config": {
+    "scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false,
+    "arm": "shipped",
+    "source": "openfold3_trunk.py:137"
+   },
+   "forward_z_masked": 0.008780122024683496,
+   "forward_s_masked": 0.002305725840486595,
+   "crop": 64
+  },
+  "tb-off": {
+   "groups": {
+    "attn_pair_bias": {
+     "n": 6,
+     "median": 1.1016341521636592,
+     "worst": 11.119852728873756,
+     "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+     "over_bar": 6
+    },
+    "tri_att_start": {
+     "n": 8,
+     "median": 0.056758195319210114,
+     "worst": 0.07734559898387848,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_start.layer_norm.weight",
+     "over_bar": 5
+    },
+    "tri_att_end": {
+     "n": 8,
+     "median": 0.038592349225475546,
+     "worst": 0.05499468114241743,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_end.layer_norm.weight",
+     "over_bar": 1
+    },
+    "single_transition": {
+     "n": 5,
+     "median": 0.032233309952089846,
+     "worst": 0.03822782409236398,
+     "worst_tensor": "pairformer_stack.blocks.23.single_transition.swiglu.linear_a.weight",
+     "over_bar": 0
+    },
+    "tri_mul_out": {
+     "n": 10,
+     "median": 0.014677903378131497,
+     "worst": 0.02194445905583772,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_out.linear_a_g.weight",
+     "over_bar": 0
+    },
+    "tri_mul_in": {
+     "n": 10,
+     "median": 0.011817856663834106,
+     "worst": 0.016157287228432824,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_in.linear_a_g.weight",
+     "over_bar": 0
+    },
+    "pair_transition": {
+     "n": 5,
+     "median": 0.010040022685441404,
+     "worst": 0.015080726452474503,
+     "worst_tensor": "pairformer_stack.blocks.23.pair_stack.pair_transition.layer_norm.weight",
+     "over_bar": 0
+    }
+   },
+   "n_compared": 52,
+   "n_excluded_zero_ref": 1,
+   "excluded": [
+    {
+     "tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_z.bias",
+     "ref_norm": 4.1808097526797e-19
+    }
+   ],
+   "median": 0.01743431268710607,
+   "worst": 11.119852728873756,
+   "over_bar": 12,
+   "median_inside_bar": true,
+   "tag": "block23_r0_crop64_tboff",
+   "config": {
+    "scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": false,
+    "accurate_softmax": false,
+    "arm": "off",
+    "source": "openfold3_trunk.py:137"
+   },
+   "forward_z_masked": 0.004044989164883495,
+   "forward_s_masked": 0.0023057175751833845,
+   "crop": 64
+  }
+ }
+}
