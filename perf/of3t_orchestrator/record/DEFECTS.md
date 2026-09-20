@@ -1303,6 +1303,44 @@ move it to the other column and the ratios soften but the direction does not cha
 
 ### D21. The device arm of instrument A runs, and its first reading is an instrument defect, not a result. UNFIXED — the forward discriminator has not been run.
 
+**PASS 116 — D21 IS CLOSED AS AN INSTRUMENT DEFECT AND REPLACED BY A REAL MEASUREMENT, WHICH
+FAILS.** `of3t-rebase` re-ran instrument A at diffusion scope against the rebuilt 0.4.3 reference
+over **all 48 structures**, and the orchestrator verified every figure from
+`perf/of3t_rebase/device_gradient_043all.json` rather than from prose:
+
+| | |
+|---|---|
+| median relative L2 | **1.6588e-01** — **8.3x** over the 2.0e-02 median bar |
+| worst | **1.8504e+01** on `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` |
+| over the 5.0e-02 bar | **474 of 547**, with **73 inside it** |
+| weights with no gradient | **0** |
+| compared set | 547 of 761 reference tensors, **51.14 %** of the model's squared gradient norm |
+| zero-model baseline | 1.0 — so this is **6.0x better than a deleted model**, not at it |
+| A18 discriminator | `forward_rel_median` **8.4748e-03**, inside the 5.0e-02 gate A19 fixed |
+| reference floor | **bit-exact, 0.000e+00 over all 761 tensors** |
+| structures | **48 of 48**, accumulation probe growing **26.68x** |
+
+**The probe's growth is the check that the scope is now right.** 48 independent samples would grow
+√48 = **6.93x** and perfectly correlated ones **48x**; the measured **26.68x** sits between, so
+`backward` is accumulating across tape contexts rather than replacing, and the structures are
+positively correlated as the same weights under different noise should be. Both conditions the
+orchestrator named at pass 115 — full scope **and** a growing probe — are satisfied.
+
+**So the verdict is FAIL against §3d, and it is a real failure rather than an artefact.** The
+reference correction bought **4.62x** on the median and **4.75x** on the worst case. D21's
+withheld 0.7672 and the 1-of-48 run's 0.9778 are both superseded: the first was a bijection
+defect at 283 of 870, the second a scope defect at 1 of 48, and neither was a statement about the
+port.
+
+**One tensor is worst in all three measurements**, across two references and three scopes:
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — **87.82**
+under D21, **1.291** at 1-of-48, **18.50** now. A reproducible named worst case across independent
+runs is the sharpest handle the diffusion gradient has, and no entry has pursued it.
+
+**Minor record note:** the row's prose quotes A18 at 8.342e-03 where the artifact reads
+**8.4748e-03**. The record follows the artifact. Neither changes the gate's verdict.
+
+
 **PASS 91: the ceiling argument that closed this campaign is GONE for the diffusion half.** Pass
 88 closed at a ceiling on A18's first clause — a disagreeing forward invalidates the gradient
 comparison taken at it, our DiT forward disagreed at 2.07e-02 per block, therefore completing the

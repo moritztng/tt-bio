@@ -3384,9 +3384,14 @@ denominator sharpens the point rather than softening it.** Full working in
 
 - **Forward verified**, D23 closed and inside the 5.0e-02 bar: `diffusion_module` **89.211 %**
   plus pairformer blocks 0 and 23 at ~0.32 % — **≈ 89.53 %**.
-- **Per-parameter GRADIENT passing at §3d bars**, which is what instrument A and the charter
-  actually require: pairformer block 0 at **1.2136e-02** and block 23 at **1.9191e-02**, and
-  **nothing else** — **0.201 %, measured** (corrected pass 112; the ≈0.32 % first written here
+- **Per-parameter GRADIENT MEASURED at §3d bars** — updated pass 116, now that the diffusion
+  module has a properly-scoped reading: `diffusion_module` at median **1.6588e-01** over
+  **51.14 %** of the squared norm (**FAIL**, 8.3x the median bar, but **6.0x better than a
+  deleted model** with 73 of 547 tensors inside the per-tensor bar), plus pairformer block 0 at
+  **1.2136e-02** and block 23 at **1.9191e-02** (**PASS**). So **51.3 % of the mass is now
+  measured** where it was ~0 % before, and what it says is *fails by 8x*, not *unmeasurable*.
+- **Per-parameter GRADIENT PASSING** remains pairformer blocks 0 and 23 alone — **0.201 %,
+  measured** (corrected pass 112; the ≈0.32 % first written here
   assumed the 48 blocks carry equal mass and they do not — three of 48 hold **21.6 %** of the
   trunk's gradient mass). And the block that **fails**, block 47, carries **1.057 %** on its own,
   **5.2x the passing pair**.
@@ -3959,3 +3964,139 @@ calibrated for a regime where D23 has closed.
 **12 %** forward change, so 2e-02 forward does not imply 2e-02 gradient. The amendment count on
 the record moves **eighteen → nineteen** accordingly; a nineteenth amendment that does not appear
 in the tally is the same defect as a superseded number that keeps being quoted.
+
+PASS 114. **The diffusion gradient came in at the zero-model baseline, and it is a 1-of-48 scope
+artefact rather than a ceiling. Catching that before it was published is the most valuable thing
+this desk has done.** Full working in `perf/of3t_orchestrator/scope/one_of_48.md`.
+
+`of3t-rebase` reported median **9.778e-01**, worst **1.291e+00**, **547 of 547** tensors over the
+5.0e-02 bar, over a set holding **51.14 %** of the model's squared gradient norm, against a
+zero-model baseline of **1.0**. Read as written, that refutes half the proof mass.
+
+**`device_gradient_043.json` says `structures_asked [0]`, `structures_done [0]`,
+`n_struct_total 48`.** The arm differentiated **one** noised structure; the reference is
+BUNDLE-MIN's gradient from a full training step, which accumulates **all 48**.
+
+**The generator's own comment names the failure mode** (`device_gradient.py:326`): *"A norm that
+grows structure over structure is the evidence; one that stays flat means the run is measuring the
+LAST structure alone and the total is wrong."* With one structure there is one probe value,
+`1.2510e-04`, and nothing to compare it to — the check built for exactly this **cannot fire**.
+
+**And the arithmetic predicts the number.** With `G = Σ_{k<48} g_k` and the arm computing `g_0`:
+`‖g_0 − G‖² ≈ (1 − 2 + 48)‖g‖² = 47‖g‖²`, so the ratio is `√47/√48 = 0.9895`.
+
+| predicted for a 1-of-48 arm | **0.9895** |
+|---|---|
+| **observed** | **0.9778** |
+| zero model | 1.0000 |
+
+A single-sample gradient against a 48-sample sum lands at ~0.99 **by construction**, whether the
+port is right or wrong — which is also why all 547 tensors are over bar *uniformly* and why the
+median sits a hair under the zero-model answer instead of at it.
+
+**What is good here and must not be thrown out with it.** A18's discriminator reads **1.104e-02**,
+inside the **5.0e-02** bar PROTOCOL **A19** fixed earlier the same night *before the number
+existed* — so admitting the gradient was correct, and the recalibration earned its keep within one
+pass. Coverage is **547 of 761** with `weights_without_grad = 0`, against D21's 283. And the
+reference floor is **bit-exact, 0.000e+00 over all 761**. The instrument is in far better shape
+than at D21; only its **scope** is wrong.
+
+**Stress-tested rather than asserted, because this desk has been wrong four times tonight.** The
+asymmetry is explicit in the comparison code: `fwd_ref = S["xl_out"][0, k]` is indexed **by
+structure**, which is why the forward reads a clean 1.104e-02; `r = ref_grad.get(nm)` is keyed by
+**parameter name only** and is therefore the full 48-structure accumulation. The mismatch is in
+the code, not inferred from the numbers.
+
+**And it does NOT say our diffusion backward is correct.** A wrong `g_0` compared 1-of-48 also
+reads ~0.99. The measurement cannot distinguish the two — which is exactly why it must not be
+published as either a pass or a ceiling.
+
+**Running all 48 is necessary and not sufficient.** The probe's own comment gives the second
+condition: accumulation is exact *"only if `backward` adds into an existing `.grad` across tape
+contexts rather than **replacing** it"*. A run that replaces would measure the **last** structure
+alone and would also read ~0.99. Two failure modes, one number — so the 48-structure arm is valid
+only if the probe is shown **growing**.
+
+**Two ways out, the second far cheaper:** run all 48 structures with the probe growing structure
+over structure as its comment requires; or emit the **per-structure** reference gradient for
+`k = 0` from `bundle_min.py`, which makes the arm already taken valid at no extra device cost.
+Sent to the row and written into its brief as amendment 5, because a correction that reaches only
+a state doc does not reach a running row.
+
+**The standing lesson, and it is the campaign's own in a new place:** a comparison must be taken
+at the same scope on both sides. D21's 0.7672 was withheld for a scope defect (283 of 870), this
+is the same class one level up, and in both cases the tell was a median sitting at the zero-model
+answer — *a number a zero model could also have produced is not evidence about the model.*
+
+PASS 116. **The diffusion gradient has a real measurement for the first time, and it FAILS by 8x
+rather than reading the zero model.** Every figure verified from
+`perf/of3t_rebase/device_gradient_043all.json`, not from prose.
+
+| | |
+|---|---|
+| median relative L2 | **1.6588e-01** — **8.3x** the 2.0e-02 median bar |
+| worst | **1.8504e+01** on `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` |
+| over the 5.0e-02 bar | **474 of 547**, **73 inside it** |
+| weights with no gradient | **0** |
+| compared set | 547 of 761 tensors, **51.14 %** of the model's squared gradient norm |
+| zero model | 1.0 — this is **6.0x better than a deleted model** |
+| A18 discriminator | **8.4748e-03**, inside the 5.0e-02 gate A19 fixed before the number existed |
+| reference floor | **bit-exact, 0.000e+00 over all 761** |
+| structures | **48 of 48**, probe growing **26.68x** |
+
+**The probe growth is what certifies the scope.** 48 independent samples would grow **√48 =
+6.93x**, perfectly correlated ones **48x**; the measured **26.68x** sits between — so `backward`
+accumulates across tape contexts rather than replacing, and the structures correlate as the same
+weights under different noise should. **Both conditions I named at pass 115 are satisfied**, which
+is why this number is admissible where 0.9778 was not.
+
+**So the campaign's largest block is measured and fails.** The reference correction bought
+**4.62x** on the median and **4.75x** on the worst case. D21's 0.7672 (a bijection defect at 283
+of 870) and the 1-of-48 run's 0.9778 (a scope defect) are both superseded, and neither was ever a
+statement about the port.
+
+**The sharpest handle nobody has pursued:** one tensor is worst in **all three** measurements,
+across two references and three scopes —
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight`, at
+**87.82** under D21, **1.291** at 1-of-48, **18.50** now. A reproducible named worst case across
+independent runs is where a bisection should start.
+
+**What the map now says.** **51.3 % of the squared gradient norm is measured**, against ~0 %
+before tonight: the diffusion module fails at 1.6588e-01 and pairformer blocks 0 and 23 pass at
+1.2136e-02 and 1.9191e-02. **Passing is still 0.201 %.** The honest headline is that the
+instrument finally reaches the mass that matters, and on that mass our gradient is eight times
+outside the bar.
+
+PASS 117. **The finite-difference validation confirms its pre-registered prediction and samples
+the wrong 6 % of the model.**
+
+**Confirmed first.** Run C's first FD sample reads
+`pairformer_stack.blocks.42.pair_stack.tri_att_end.mha.linear_k.weight[67,36]`, analytic
+**−1.609740e-05** against fd **−1.607327e-05**, **rel 1.499e-03** — squarely in the few-times-1e-3
+band pre-registered at pass 102, whose comparison points were 2.18e-03 (trunk) and 1.17e-03
+(diffusion) on the 0.5.0 side. So a **single h at 1e-4 needed no sweep**, A11's total-versus-partial
+anomaly is **absent at r = 0** exactly as predicted, and the *"median 0.353 at h = 1e-5 is
+truncation"* story I spent fifteen passes re-quoting stays refuted.
+
+**The bias.** `bundle_min.py:524-528` does `rs.shuffle(order)` and takes the first `fd_samples`
+parameters with a gradient entry above the floor — **uniform over parameter COUNT**. Count and
+gradient mass are nearly inverted in this model:
+
+| section | tensors | % of count | % of gradient norm |
+|---|---|---|---|
+| `pairformer_stack` | 2,736 | **65.61 %** | **5.828 %** |
+| `diffusion_module` | 761 | **18.25 %** | **89.211 %** |
+| `aux_heads` | 244 | 5.85 % | 2.843 % |
+
+With 8 samples: **P(a sample is diffusion) = 0.1825**, expected diffusion samples **1.46 of 8**,
+and **P(zero diffusion samples) = 19.9 %**. The validation is **5.2x more likely** to land on the
+section holding 5.8 % of the norm than on the one holding 89.2 %, and there is a one-in-five
+chance the 89.2 % receives **no finite-difference validation at all**. The first sample being a
+trunk parameter is consistent with that.
+
+**This is A15/D17 in a new place** — a count denominator is not a scope statement — and it matters
+more than usual, because the diffusion gradient just published at **1.6588e-01** rests on the very
+reference FD is meant to validate. Sent as three ranked fixes, cheapest first: stratify at least 3
+of the 8 into `diffusion_module`, or weight the shuffle by `ref_norm²`, or — if run C is too far
+along — report **which sections the 8 landed in** and state the coverage plainly. *"FD validated on
+N trunk and M diffusion parameters"* is a real statement; *"8 of 4,170"* is not.
