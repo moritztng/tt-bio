@@ -1,0 +1,1640 @@
+{
+ "model": "boltz2",
+ "size": 512,
+ "folds": 1,
+ "total_calls": 61260,
+ "by_path": {
+  "mcast_2d": 37399,
+  "mcast_in1": 21972,
+  "MatmulMultiCoreReuseMultiCastProgramConfig": 560,
+  "MatmulMultiCoreReuseProgramConfig": 528,
+  "mcast_in0": 801
+ },
+ "covered_by_mm1d_generic": 16435,
+ "git_head": "12feec89314bcc802f6a58c477952a70a03cfbde",
+ "rows": [
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 14400
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 9800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    3072
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 4800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    1536
+   ],
+   "b": [
+    1536,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 4800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 3600
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    47,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 2800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    47,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 2800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    47,
+    512,
+    512
+   ],
+   "b": [
+    512,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 2800
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 2412
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 1212
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 1200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 1200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    256
+   ],
+   "b": [
+    256,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 1200
+  },
+  {
+   "op": "matmul",
+   "a": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "b": [
+    1,
+    128,
+    512,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": false,
+   "n": 560
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": true,
+   "n": 560
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    384
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 532
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 400
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 400
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    1536
+   ],
+   "b": [
+    1536,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 400
+  },
+  {
+   "op": "linear",
+   "a": [
+    64,
+    512,
+    64
+   ],
+   "b": [
+    64,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 288
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    42,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 280
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    42,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 280
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    42,
+    512,
+    512
+   ],
+   "b": [
+    512,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 280
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": true,
+   "n": 264
+  },
+  {
+   "op": "matmul",
+   "a": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "MatmulMultiCoreReuseProgramConfig",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "matmul",
+   "a": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "b": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "MatmulMultiCoreReuseProgramConfig",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    1536
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    1536
+   ],
+   "b": [
+    1536,
+    384
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 264
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    4480,
+    32
+   ],
+   "b": [
+    32,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    4480,
+    128
+   ],
+   "b": [
+    128,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "matmul",
+   "a": [
+    1,
+    4480,
+    768
+   ],
+   "b": [
+    1,
+    4480,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    32,
+    32
+   ],
+   "b": [
+    32,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in0",
+   "why": "within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    32,
+    256
+   ],
+   "b": [
+    256,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in0",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    73728
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in0",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    36864
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": true,
+   "out_dtype": "None",
+   "path": "mcast_in0",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "matmul",
+   "a": [
+    1,
+    128,
+    512
+   ],
+   "b": [
+    1,
+    4480,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 200
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    4480,
+    128
+   ],
+   "b": [
+    128,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 200
+  },
+  {
+   "op": "matmul",
+   "a": [
+    64,
+    32,
+    512
+   ],
+   "b": [
+    1,
+    512,
+    512
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "within tile",
+   "covered_by_mm1d_generic": true,
+   "n": 128
+  },
+  {
+   "op": "linear",
+   "a": [
+    64,
+    512,
+    32
+   ],
+   "b": [
+    32,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 128
+  },
+  {
+   "op": "linear",
+   "a": [
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "explicit program_config",
+   "covered_by_mm1d_generic": true,
+   "n": 16
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "b": [
+    64,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 16
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "b": [
+    64,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 16
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    64,
+    512,
+    256
+   ],
+   "b": [
+    256,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "DataType.BFLOAT16",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 16
+  },
+  {
+   "op": "matmul",
+   "a": [
+    16384,
+    64
+   ],
+   "b": [
+    16384,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 16
+  },
+  {
+   "op": "linear",
+   "a": [
+    262144,
+    1024
+   ],
+   "b": [
+    1024,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 16
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "b": [
+    32,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 6
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 6
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": true,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 6
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 5
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "b": [
+    64,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 4
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    384
+   ],
+   "b": [
+    384,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 4
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    64
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 4
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    64
+   ],
+   "b": [
+    64,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 4
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "b": [
+    256,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 3
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "b": [
+    32,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 2
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    128
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 2
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "b": [
+    32,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 2
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": true,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 2
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    256
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 2
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    384
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": false,
+   "n": 1
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "b": [
+    128,
+    32
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in1",
+   "why": "narrow",
+   "covered_by_mm1d_generic": true,
+   "n": 1
+  },
+  {
+   "op": "matmul",
+   "a": [
+    16,
+    32,
+    288
+   ],
+   "b": [
+    288,
+    1120
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT4_B",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": false,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_in0",
+   "why": "within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 1
+  },
+  {
+   "op": "linear",
+   "a": [
+    1,
+    512,
+    768
+   ],
+   "b": [
+    768,
+    768
+   ],
+   "a_dtype": "DataType.BFLOAT16",
+   "b_dtype": "DataType.BFLOAT16",
+   "a_sharded": false,
+   "b_sharded": false,
+   "program_config": null,
+   "bias": true,
+   "activation": false,
+   "out_dtype": "None",
+   "path": "mcast_2d",
+   "why": "neither narrow nor within tile",
+   "covered_by_mm1d_generic": false,
+   "n": 1
+  }
+ ]
+}
