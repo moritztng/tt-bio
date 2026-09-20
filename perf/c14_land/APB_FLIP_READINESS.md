@@ -98,17 +98,28 @@ loop** (`tenstorrent.py` ~10773): a full-span `ttnn.slice` hands back the input'
 freeing the source killed the result on the single-chunk path, and BoltzGen design died past
 `SEQ_LEN_MORE_CHUNKING`. Main ships it with `tests/test_msa_row_chunk_alias.py`.
 
-**Why the gate's APB verdict transfers, as an argument and not as a measurement:**
+**Why the gate's APB verdict transfers — and this is stronger than the "disjoint modules" version
+first written here, which was the weaker argument.**
 
-* the fix is in `MSALayer.forward`; APB lives in `AttentionPairBias.__init__` and `__call__`. Disjoint
-  modules, disjoint call sites, and APB's firing counts are collected from `AttentionPairBias` alone;
-* the fix repairs a path that was previously *broken*, so it cannot make an APB-on tree worse
-  relative to an APB-off tree — both arms gain the same repair;
-* the gate's `boltzgen` arm passed at `80d401428`, i.e. its fixture sits below the threshold the bug
-  needed, so the bug was not masking anything in the arms that were scored.
+The changed code sits behind `if S > SEQ_LEN_MORE_CHUNKING:` (`tenstorrent.py:10917`), and the fix
+has exactly two halves:
 
-**The rigorous answer is still a re-gate at the tip before the merge lands**, and the honest reason
-it has not been run is cost rather than confidence: the journal is keyed on commit, so a re-gate
-re-runs all 21 arms (~75 min on a quiet box). Whoever merges should decide whether the transfer
-argument above is sufficient; this row is not entitled to make that call silently by leaving the
-provenance unstated.
+* the **single-chunk** path no longer frees `m`. That is the bug: a full-span `ttnn.slice` returns
+  the input's own buffer, so freeing the source freed the result and the fold **died**;
+* the **multi-chunk** path moves the same `ttnn.deallocate(m)` inside the `else`, which leaves it in
+  the same position relative to the `ttnn.concat` that consumes it. No behavioural change.
+
+So every arm that **passed** at `80d401428` either never entered that branch, or entered it with
+more than one chunk and is unaffected. An arm that had entered it with one chunk pre-fix would have
+crashed, not passed. **Twenty-one arms passed, so the fix cannot change any of their results.**
+
+That argument does not depend on knowing the threshold, which is worth saying because the threshold
+is not knowable from the constant: `SEQ_LEN_MORE_CHUNKING` reads 1536 at module level but
+`_apply_small_grid_budgets` reassigns it from the live grid and L1
+(`tenstorrent.py:5006`, `:5059`), so quoting 1536 for qb2 would be asserting a device-derived value
+from source. The passed/crashed argument above sidesteps it entirely.
+
+**A re-gate at the tip is still the belt-and-braces answer** and has not been run because the
+journal keys on commit, so it re-runs all 21 arms (~75 min on a quiet box) — cost, not doubt.
+Whoever merges can weigh that; this row's job is to state the provenance rather than leave it
+unsaid.
