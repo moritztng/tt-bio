@@ -1,10 +1,15 @@
 #!/bin/bash
 # The SHIPPED measurement for TT_BIO_SDPA_WIDE_K, to be run ON origin/main AFTER the merge.
 #
-# WHY IT REFUSES TO RUN ANYWHERE ELSE. The number that enters SHIPPED: is the one a user gets, and
-# a branch is not what a user gets (verify-the-deployed-artifact-not-your-own-change). So this
-# asserts HEAD is exactly origin/main and that the imported default is already True, and exits
-# without folding if either is false. Run it on a checkout of main, not on wk/pvx-gate-land.
+# WHY IT REFUSES TO RUN ON THE WRONG ENGINE. The number that enters SHIPPED: is the one a user
+# gets (verify-the-deployed-artifact-not-your-own-change). The folds below import tt_bio from $WT
+# through PYTHONPATH, so what actually gets scored is the WORKING TREE, not the commit HEAD points
+# at. The first version of this guard compared `git rev-parse HEAD` to origin/main, which is the
+# wrong object in both directions: it PASSES with uncommitted edits to tt_bio/ sitting in the tree
+# (scoring code no user has), and it REFUSES a worktree whose engine is byte-identical to main
+# because its HEAD is a branch. The guard now diffs the working tree against origin/main over the
+# engine paths, which is the claim "this is what a user gets" stated about the files that will be
+# imported. The default is checked separately, from the package that import resolves.
 #
 # WHY 352 AND 1088 AND NOT 512. The flag changes the k-chunk pick only at the twenty padded lengths
 # whose shipped chunk does not divide them, and 512 is not one: _dividing_sdpa_chunk_size
@@ -40,11 +45,13 @@ CONT="$WT/perf/pvx_gate_land/shipped_fold_contention.jsonl"
 cd "$WT" || exit 1
 
 git fetch -q origin || exit 1
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-  echo "REFUSING: HEAD $(git rev-parse --short HEAD) is not origin/main $(git rev-parse --short origin/main)."
-  echo "The shipped number is measured on what a user gets. Merge first, then run this on main."
+if ! git diff --quiet origin/main -- tt_bio scripts; then
+  echo "REFUSING: the engine in $WT is not origin/main's. Differences that would be scored:"
+  git diff --stat origin/main -- tt_bio scripts
+  echo "The shipped number is measured on what a user gets. Land the change first, then run this."
   exit 1
 fi
+echo "engine check: tt_bio and scripts in $WT are byte-identical to origin/main $(git rev-parse --short origin/main)"
 
 PYTHONPATH="$WT" $PY - "$RUNGS" <<'PYEOF' || exit 1
 import sys
