@@ -1,0 +1,37 @@
+{
+ "what": "every block of both stacks, as a share of the model's squared gradient norm. Summed directly from bundle_min_043/grads_f64_043.pt on qb2 (4,170 tensors, model total 10.279642678524986, sha256 1d4ea922...). CPU only, no device opened. Exhaustive: the 17 top-level sections sum to 100.0 % over all 4,170 tensors.",
+ "basis": "upstream OpenFold3 0.4.3, 4,170 parameters. NOT the 0.5.0 / 4,147 basis that pass 91 disqualified -- every share on that basis is a share of a model we do not claim.",
+
+ "headline": "The sixteen highest-mass blocks in the whole model are all diffusion-transformer blocks. DiT block 8 alone is 9.84053 % of the model -- 1.69x the entire 48-block pairformer stack (5.8282 %), and 9.2x pairformer block 47 (1.06624 %), the block this campaign has investigated most deeply. No block-scope arm has ever been run on DiT block 8.",
+
+ "dit_24_blocks_pct_of_model": {
+  "0": 0.69418, "1": 0.88305, "2": 2.89004, "3": 1.59142, "4": 2.75591, "5": 3.41027,
+  "6": 3.19777, "7": 3.31469, "8": 9.84053, "9": 4.20287, "10": 1.68510, "11": 3.06407,
+  "12": 3.22245, "13": 0.79167, "14": 0.74126, "15": 0.90935, "16": 0.13630, "17": 0.08233,
+  "18": 0.12850, "19": 0.23284, "20": 0.03637, "21": 0.01726, "22": 0.03917, "23": 0.02623
+ },
+ "dit_shape": "front-loaded and then it collapses. Blocks 0-15 hold 43.1946 % of the model; blocks 16-23 hold 0.6990 % -- the last third of the diffusion transformer is seven tenths of one percent of the gradient mass. A depth ladder that samples the DiT uniformly spends a third of its runs on 1.6 % of what it is measuring.",
+
+ "pairformer_48_blocks_pct_of_model": {
+  "0": 0.12631, "1": 0.05763, "2": 0.07078, "3": 0.06290, "4": 0.08895, "5": 0.07607,
+  "6": 0.08133, "7": 0.11216, "8": 0.08845, "9": 0.06826, "10": 0.08168, "11": 0.09990,
+  "12": 0.11916, "13": 0.08769, "14": 0.09205, "15": 0.10193, "16": 0.07500, "17": 0.07854,
+  "18": 0.07034, "19": 0.11406, "20": 0.09365, "21": 0.13639, "22": 0.13571, "23": 0.07514,
+  "24": 0.07478, "25": 0.07626, "26": 0.05501, "27": 0.04016, "28": 0.12478, "29": 0.07313,
+  "30": 0.10946, "31": 0.07588, "32": 0.06123, "33": 0.07496, "34": 0.18106, "35": 0.08025,
+  "36": 0.08271, "37": 0.15159, "38": 0.06962, "39": 0.10180, "40": 0.15164, "41": 0.11864,
+  "42": 0.09661, "43": 0.08290, "44": 0.12501, "45": 0.13220, "46": 0.42818, "47": 1.06624
+ },
+ "pairformer_shape": "flat at ~0.05-0.18 % for 46 blocks, then a two-block spike: block 46 is 0.42818 % and block 47 is 1.06624 %, 8.4x block 0. Those two blocks are 25.6 % of the whole trunk's mass. Block 47 was picked for this campaign because it was the WORST-PERFORMING block; it also happens to be the heaviest, which the campaign did not know when it picked it.",
+
+ "corrects_on_the_record": {
+  "pairformer block 0": "0.086 % -> 0.12631 % (and 57 tensors, not 53)",
+  "whole 48-block trunk": "3.156 % -> 5.8282 % (2,736 tensors, not 2,496-of-4,147 framing)",
+  "diffusion_module (all descendants)": "91.21 % -> 89.2106 % over 761 tensors",
+  "aux_heads": "4.27 % -> 2.8431 %",
+  "the inversion that matters": "on the old basis aux_heads (4.27) read LARGER than the whole pairformer trunk (3.156). Measured, pairformer is 5.8282 % and aux_heads 2.8431 % -- pairformer is 2.05x larger. The ordering flips."
+ },
+
+ "what_this_does_not_establish": "this is mass, not error. A block holding 9.84 % of the gradient can be perfectly ported and a block holding 0.017 % can be badly wrong. Mass says where a given amount of error COSTS most, and therefore where an arm is worth building; it is not itself a parity result. It is also one batch (batch_step003, 5nw3, 56 real tokens) at one r = 0 step -- nothing here shows these shares are stable across batches.",
+ "provenance": "recomputed 2026-09-20 pass 151 on tt-quietbox2 via torch.load + per-tensor float64 sum-of-squares, /home/ttuser/tt-bio-dev/env/bin/python, no Tenstorrent device opened, nice -n 15 alongside the live of3t-auxheads row."
+}
