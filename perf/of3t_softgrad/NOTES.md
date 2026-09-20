@@ -55,6 +55,15 @@ instrument floor this row rests on.
 
 ## Two defects, both in shared code
 
+AMENDMENT 1 offered a source-grounded hypothesis for the non-finite backward: that
+`_accurate_softmax` has no taped counterpart, so either the saved output `P` is not what the chain
+produced, or the five ops are taped individually and the `divide` carries a 1/x^2 term. **Both
+branches are refuted by the instrument.** The rule creates exactly ONE tape node, the same shape
+as the shipped rule; a finiteness probe over all 30 softmax calls per structure found the incoming
+cotangent, the saved output, the row-sum reduction and the emitted input-gradient all finite,
+count 0; and wrapping all 37 tape verbs put the first non-finite value at forward index 134, the
+softmax's own FORWARD output at shape [1, 14, 4, 32, 128]. The backward pair was never the defect.
+
 **D110 — `setdefault` cannot install a lever over an explicit argument.** `of3t-adaln`'s rule did
 `kwargs.setdefault("compute_kernel_config", precise_config())`, and both softmax call sites in
 this path pass that argument explicitly (`openfold3_diffusion_transformer.py:209`,
@@ -130,7 +139,14 @@ float64 gradient. Different measurements.
 4.885781e-02 while its mass-weighted headline is outside it. That is A23 in one line: the median
 describes the massless half.
 
-## The ckc_on arm
+## The ckc_on arm, which AMENDMENT 2 withdrew after it had already run
+
+AMENDMENT 2 retired this arm as moot, on the grounds that the `ttnn.max` repair put a compute
+kernel config onto the op by another route and `softmax_precise` at 2.566369e-01 had already
+answered what a config does to this gradient. It was already running, so it is reported as the
+cheap confirmation the amendment asked for rather than quietly dropped, and it confirms that
+reasoning exactly.
+
 
 `TT_BIO_SOFTMAX_CKC=1` is honoured (`_SOFTMAX_CKC` read True) and reaches nothing here. The census
 of the config actually passed to each softmax: **`None`, 1,440 of 1,440** — the op's own default,
