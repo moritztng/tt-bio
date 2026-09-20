@@ -114,6 +114,16 @@ def main() -> int:
                          "(dropout_floor_block0.json: 0.000e+00 worst across two seeds).")
     ap.add_argument("--fp32-softmax", default="on", choices=("on", "off"),
                     help="the shipped setting is on. `off` is the D8 arm.")
+    # D23/R126: the published bundle is upstream 0.5.0 running a checkpoint 0.5.0's own registry
+    # declares incompatible, so which bundle an arm was taken against is part of the arm. Bundle,
+    # manifest, capture directory and output directory are arguments rather than constants.
+    # Defaults are the published ones, so every arm already on the branch reads the same bytes.
+    ap.add_argument("--bundle", default=BUNDLE)
+    ap.add_argument("--manifest-json", default=None,
+                    help=f"manifest to hash against. Default is {REF_BRANCH}:{MANIFEST_GIT}, "
+                         f"read out of git and never from a working tree.")
+    ap.add_argument("--cap", default=CAP, help="captured block boundaries to drive the arm with")
+    ap.add_argument("--out-dir", default=OUT)
     a = ap.parse_args()
 
     import numpy as np
@@ -139,14 +149,20 @@ def main() -> int:
            "reference_is_the_frozen_bundle": True,
            "fp32_softmax": a.fp32_softmax == "on", "crop": a.crop}
 
-    man = manifest_from_git()
+    if a.manifest_json:
+        man = json.load(open(a.manifest_json))
+        man_src = a.manifest_json
+    else:
+        man = manifest_from_git()
+        man_src = f"{REF_BRANCH}:{MANIFEST_GIT}"
     decl = {x["file"]: x for x in man["artifacts"] if "sha256" in x}
     gfile = man["validated_gradient"]["file"]
-    got = sha256_file(os.path.join(BUNDLE, gfile))
+    got = sha256_file(os.path.join(a.bundle, gfile))
     if got != decl[gfile]["sha256"]:
         raise SystemExit(f"{gfile}: sha256 {got} != manifest {decl[gfile]['sha256']}")
     rep["bundle"] = {"file": gfile, "sha256": got, "verified": True,
-                     "manifest": f"{REF_BRANCH}:{MANIFEST_GIT}",
+                     "dir": a.bundle, "manifest": man_src,
+                     "upstream_revision": man.get("upstream", {}).get("version", "0.5.0"),
                      "num_recycles": man["validated_gradient"]["num_recycles"],
                      "weights": "of3-p2-155k.pt (trained)",
                      "reference_fd_max_rel": man["validated_gradient"]["finite_difference"]["max_rel_err"],
@@ -155,13 +171,13 @@ def main() -> int:
                          f"{man['validated_gradient']['n_parameters']}"}
     print(f"[{time.perf_counter()-t0:.0f}s] bundle hash verified", flush=True)
 
-    cap = torch.load(os.path.join(CAP, f"block{i}_boundary.pt"),
+    cap = torch.load(os.path.join(a.cap, f"block{i}_boundary.pt"),
                      map_location="cpu", weights_only=False)
     #: In stack mode the cotangent belongs to the LAST block's output, not the first's. Taking
     #: it from the wrong end would drive the backward with a cotangent for a different tensor
     #: and produce a number that looks like a gradient and is not one.
     cap_out = cap if not a.stack else torch.load(
-        os.path.join(CAP, f"block{last}_boundary.pt"), map_location="cpu", weights_only=False)
+        os.path.join(a.cap, f"block{last}_boundary.pt"), map_location="cpu", weights_only=False)
     caprep = json.load(open(a.capture_report))
     rep["capture"] = {"forward_loss_rel_vs_bundle": caprep["forward"]["rel"],
                       "global_norm_rel": caprep["global_norm_rel"],
@@ -211,7 +227,7 @@ def main() -> int:
     keep = (lambda k: k.startswith(pre) and int(k[len(pre) + len("blocks."):].split(".")[0])
             in range(i, last + 1)) if a.stack else (lambda k: k.startswith(pre))
     if a.reference == "bundle":
-        ref_all = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
+        ref_all = torch.load(os.path.join(a.bundle, gfile), map_location="cpu", weights_only=False)
         g_ref = {k[len(pre):]: (v.to(torch.float64) if v is not None else None)
                  for k, v in ref_all.items() if keep(k)}
         del ref_all
@@ -484,7 +500,8 @@ def main() -> int:
         ("Pairformer block %d only, driven by the bundle's own boundary. A PASS covers the "
          "tensors in `per_parameter` and nothing in `absent`." % i))
     os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"instrument_a_bundle_{tag}.json")
+    os.makedirs(a.out_dir, exist_ok=True)
+    path = os.path.join(a.out_dir, f"instrument_a_bundle_{tag}.json")
     json.dump(rep, open(path, "w"), indent=1, default=str)
     print(f"\ncompared {len(rows)} of their tensors, {len(absent)} absent")
     for d in rows[:12]:
