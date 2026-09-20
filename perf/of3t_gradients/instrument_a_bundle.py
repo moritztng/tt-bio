@@ -124,6 +124,17 @@ def main() -> int:
                          f"read out of git and never from a working tree.")
     ap.add_argument("--cap", default=CAP, help="captured block boundaries to drive the arm with")
     ap.add_argument("--out-dir", default=OUT)
+    ap.add_argument("--s-fp32-residual", default="shipped", choices=("shipped", "on", "off"),
+                    help="the single-track residual accumulation dtype. `tenstorrent.py` "
+                         "implements this and its own comment gives the mechanism: a track "
+                         "whose residual is much larger than its per-block update quantises "
+                         "that update away, because bf16's resolution is relative to what the "
+                         "accumulator already holds. It is True in exactly one place, the "
+                         "CONFIDENCE Pairformer (openfold3_confidence.py:101); the trunk does "
+                         "not pass it and runs the default False, and the trunk is the stack "
+                         "whose single track grows 367x from block 0 to block 47. RELEASE "
+                         "GATED: this changes accuracy and costs one [B, L, c_s] fp32 tensor. "
+                         "The measurement is the deliverable, not the flag.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator. Poison the PAD token positions of the captured "
                          "input with NaN and report how many parameter gradients come back NaN "
@@ -330,15 +341,28 @@ def main() -> int:
                              "accurate_softmax": acc,
                              "arm": a.transpose_bias,
                              "source": "openfold3_trunk.py:137"}
+    # The shipped trunk does not pass s_fp32_residual, so `shipped` is the class default.
+    s_fp32 = {"shipped": False, "on": True, "off": False}[a.s_fp32_residual]
+    rep["shipped_config"]["s_fp32_residual"] = s_fp32
+    rep["shipped_config"]["s_fp32_residual_arm"] = a.s_fp32_residual
     mod = T.Pairformer(nb, head_dim, no_heads_pair, c_s // no_heads_pair_bias,
                        no_heads_pair_bias, True, flat, ckc,
                        scale_pair_bias=spb, tri_att_scale_pair_bias=SHIPPED_TRI_SPB,
                        fp32_softmax=(a.fp32_softmax == "on"),
-                       transpose_bias=transpose_bias, accurate_softmax=acc)
+                       transpose_bias=transpose_bias, accurate_softmax=acc,
+                       s_fp32_residual=s_fp32)
     T.Module.torch_to_tt = orig
 
     ft = lambda x: ttnn.from_torch(x.to(torch.float32), layout=ttnn.TILE_LAYOUT,
                                    device=dev, dtype=ttnn.bfloat16)
+    # `_s_compute`/`_s_residual` are no-ops unless the single track ARRIVES in fp32:
+    # `_s_compute` returns `s` unchanged when `s.dtype == ttnn.bfloat16`, and `_s_residual`'s
+    # fp32 branch adds into whatever dtype `s` already is. So an arm that feeds everything in
+    # bf16 cannot make this lever fire, and would report a null result for the wrong reason.
+    s_dtype = ttnn.float32 if s_fp32 else ttnn.bfloat16
+    fts = lambda x: ttnn.from_torch(x.to(torch.float32), layout=ttnn.TILE_LAYOUT,
+                                    device=dev, dtype=s_dtype)
+    rep["shipped_config"]["s_input_dtype"] = str(s_dtype)
     # Their masks in our convention: `pair_mask` is the multiplicative outer product the
     # triangle multiplications contract against, `attn_mask` the additive -1e9 companion the
     # softmaxes take. Built from THEIR mask tensors rather than from a token count, so a padded
@@ -350,7 +374,7 @@ def main() -> int:
                     "real_tokens": int(sm.sum().item())}
 
     before = device_weights(mod)
-    ours = walked_weights(lambda: mod(ft(s_in), ft(z_in), ft(pm), ft(attn), ft(attn)), None, mod)
+    ours = walked_weights(lambda: mod(fts(s_in), ft(z_in), ft(pm), ft(attn), ft(attn)), None, mod)
     after = device_weights(mod)
     rep["ours_discovery"] = {"from_loader": len(loaded),
                              "reachable_before_forward": len(before),
@@ -361,7 +385,7 @@ def main() -> int:
 
     err = None
     try:
-        sa = ag.Tensor(ft(s_in), requires_grad=True)
+        sa = ag.Tensor(fts(s_in), requires_grad=True)
         za = ag.Tensor(ft(z_in), requires_grad=True)
         with ag.tape():
             s_out, z_out = mod(sa, za, ft(pm), ft(attn), ft(attn))
