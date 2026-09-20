@@ -1,0 +1,56 @@
+diff --git a/docs/tuning-flags.md b/docs/tuning-flags.md
+index ed0a00519..f18a11456 100644
+--- a/docs/tuning-flags.md
++++ b/docs/tuning-flags.md
+@@ -8,7 +8,7 @@ Reference numbers are Boltz-2 on one Blackhole processor of a p300c (Tenstorrent
+ 200 sampling steps, 3 recycles, `perf/size512/fixtures/cdk2x2_512.yaml`. Fold ratios are paired: both
+ arms are interleaved inside one process, so a ratio is never read across two sessions.
+ 
+-## `TT_BIO_APB_CONCAT_HEADS` — off
++## `TT_BIO_APB_CONCAT_HEADS` — on
+ 
+ Token attention re-assembles its heads with four ops: a slice that drops the padded head channels,
+ two permutes and a reshape. Turn this on and `ttnn.experimental.nlp_concat_heads` plus one reshape
+@@ -17,13 +17,11 @@ output projections then run 1024 wide instead of 768. Those extra channels are z
+ nothing, so the result is the same in exact arithmetic, but the projections round differently and
+ the structure moves a little.
+ 
+-Enabling it is worth roughly **+0.05 to +0.08 s a fold at 512 residues** on a p300c at a pinned
+-1350 MHz. The win is real but small: across the two interleaved sessions that ran on a tree matching
+-the arm they claimed, 12 of 14 paired blocks came out positive, while the same folds' base-against-base
+-control split 5 of 14. The tightest session, the only one whose chip had an idle board-pair sibling for
+-every fold, reads +0.0551 s against a control spread of 0.0314 s. **It is off because no single session
+-has separated the win from its own control to the campaign's bar, not because anything is wrong with
+-it.**
++It is worth roughly **+0.05 to +0.08 s a fold at 512 residues** on a p300c at a pinned 1350 MHz.
++The win is real but small: across two interleaved sessions, 12 of 14 paired blocks came out
++positive, while the same folds' base-against-base control split 5 of 14. The tightest session, the
++only one whose chip had an idle board-pair sibling for every fold, reads +0.0551 s against a control
++spread of 0.0314 s.
+ 
+ It reaches every model with token-level attention pair bias, which is most of them: Boltz-2, RF3,
+ OpenDDE, OpenFold3, OpenBind, BoltzGen and Protenix. Accuracy is measured on two of those at full
+@@ -34,7 +32,9 @@ with it off, though there it re-lanes only about a tenth of the attention sites,
+ weaker of the three readings. The output does not depend on the core grid: the release gate's
+ `l1-budget` arm gives one digest across the native, 8x8 and narrow grids.
+ 
+-`TT_BIO_APB_CONCAT_HEADS=0` is the default and the way back. The measurements are in
++`TT_BIO_APB_CONCAT_HEADS=0` turns it off and restores the four-op epilogue byte for byte, which is
++the way back if you need a structure to match one folded before this shipped. The measurements are
++in
+ `perf/c14_land/apb_grid_independence.md`, `perf/c14_land/apb_cross_session.json` and the session
+ files beside them.
+ 
+diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
+index a4bb6408e..181c96aa5 100644
+--- a/tt_bio/tenstorrent.py
++++ b/tt_bio/tenstorrent.py
+@@ -1562,7 +1562,7 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
+ # rows, so o's pad lanes are zero too. Anything multiplies zero to zero, which covers the gate, and
+ # zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
+ # projection, which is why this is priced per shape and not asserted.
+-_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
++_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", True)
+ APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
+ 
+ 
