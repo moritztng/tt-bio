@@ -149,6 +149,7 @@ def stat(rows, label):
 
 
 def main():
+    global MODEL_TOTAL_SQ
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", required=True, type=Path)
     ap.add_argument("--device-permuted", type=Path)
@@ -175,6 +176,15 @@ def main():
                          "of this script. Hardcoding it made the check silently vacuous on any "
                          "other scope: every name would miss and `max_abs_diff` would stay 0.0, "
                          "reporting `identical` on zero compared tensors.")
+    ap.add_argument("--model-total-sq", type=float, default=MODEL_TOTAL_SQ,
+                    help="the denominator every mass share here is stated in. Defaults to the "
+                         "campaign's published model squared gradient norm, which is right "
+                         "whenever --f64 is the whole model.")
+    ap.add_argument("--f64-scope-only", action="store_true", dest="f64_scope_only",
+                    help="--f64 holds this scope's tensors and not the whole model, so the "
+                         "model-drift assert cannot apply. The measured scope mass is recorded "
+                         "instead. Needed for the pairformer trunk, whose float64 arm is "
+                         "computed over a captured block boundary rather than over the model.")
     ap.add_argument("--sections", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
@@ -187,6 +197,8 @@ def main():
                          "a file that is not the one the campaign's figures came from would "
                          "make every number downstream unattributable.")
     args = ap.parse_args()
+
+    MODEL_TOTAL_SQ = args.model_total_sq
 
     inputs = {}
     for label, path in (("device", args.device), ("device_permuted", args.device_permuted),
@@ -222,10 +234,11 @@ def main():
     total_sq = sum(float(torch.linalg.vector_norm(v.to(torch.float64))) ** 2
                    for v in f64_full.values() if v is not None)
     drift = abs(total_sq - MODEL_TOTAL_SQ)
-    print(f"model squared gradient norm: measured {total_sq!r}, expected {MODEL_TOTAL_SQ!r}, "
-          f"relative drift {drift / MODEL_TOTAL_SQ:.3e} against a {MODEL_TOTAL_SQ_RTOL:.0e} "
-          f"tolerance", flush=True)
-    assert drift <= MODEL_TOTAL_SQ_RTOL * MODEL_TOTAL_SQ, (
+    print(f"float64 file squared gradient norm: measured {total_sq!r}, denominator "
+          f"{MODEL_TOTAL_SQ!r}, relative drift {drift / MODEL_TOTAL_SQ:.3e} against a "
+          f"{MODEL_TOTAL_SQ_RTOL:.0e} tolerance"
+          + (" -- NOT CHECKED, --f64-scope-only" if args.f64_scope_only else ""), flush=True)
+    assert args.f64_scope_only or drift <= MODEL_TOTAL_SQ_RTOL * MODEL_TOTAL_SQ, (
         f"denominator {total_sq!r} differs from the campaign's published {MODEL_TOTAL_SQ!r} by "
         f"{drift / MODEL_TOTAL_SQ:.3e} relative, past the {MODEL_TOTAL_SQ_RTOL:.0e} tolerance; "
         "every share here would be in a different denominator than the one D72 uses")
@@ -344,6 +357,7 @@ def main():
                          for v in f64.values() if v is not None) / MODEL_TOTAL_SQ,
                      "tensors_absent_from_float64": missing},
            "model_squared_gradient_norm": {
+               "float64_file_is_scope_restricted": args.f64_scope_only,
                "measured": total_sq,
                "expected": MODEL_TOTAL_SQ,
                "relative_drift": drift / MODEL_TOTAL_SQ,
