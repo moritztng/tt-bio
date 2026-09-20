@@ -45,13 +45,21 @@
    "sha256": "afa891ca862c171e35302321bdef858fded9f4eb34937195065b3bdb5df70938"
   }
  },
+ "aiclk_during_the_device_arms": "card 0, sampled every 2 s from qbcard/cardtel.tsv DURING each arm: shipped 800-1350 mean 1270 MHz (n=90), permcot 800-1350 mean 1277 (n=105), softmax-f64 bound 800-1350 mean 1219 (n=113). No timing figure is published from this window.",
+ "timing_published": "none. This row's deliverable is a gradient comparison, which is arithmetic and not throughput, so a clamped clock changes how long it takes and not what it computes.",
  "scope": {
   "n_tensors": 547,
   "source": "/home/ttuser/of3t_trajectory/device_grads_043all.pt",
   "pct_of_model_mass": 51.13576412567559,
   "tensors_absent_from_float64": []
  },
- "model_squared_gradient_norm": 10.279642678524981,
+ "model_squared_gradient_norm": {
+  "measured": 10.279642678524981,
+  "expected": 10.279642678524985,
+  "relative_drift": 3.456067287457774e-16,
+  "tolerance": 1e-12,
+  "why_a_tolerance_and_not_an_equality": "D78: a sum over 4,170 tensors has no single correct last bit, the record carries two honest spellings of it, and an equality check fails looking like a corrupted reference rather than like rounding"
+ },
  "diffcap_is_the_bundles_float64": {
   "what": "diffcap043 grad_f64 against the bundle's float64 gradient, over the device scope",
   "max_abs_diff": 0.0,

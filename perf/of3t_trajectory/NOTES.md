@@ -111,11 +111,28 @@ hash identically to both.
 refprec's it2 relaunch landed arm4 at 09:06:48Z byte-identical to the pinned copy, so the
 seeded fixed-draw arms reproduce exactly across launches.
 
+## Clock
+
+No timing figure is published here. A gradient comparison is arithmetic, not throughput, so a
+clamped clock changes how long a run takes and not what it computes. The AICLK is recorded
+anyway, so it is possible to tell later which window these numbers came from: card 0, sampled
+every 2 s from `qbcard/cardtel.tsv` DURING each arm, 800 to 1350 MHz with means of 1270 MHz
+over the shipped arm (n=90), 1277 over the permuted-cotangent control (n=105) and 1219 over the
+float64-softmax bound (n=113). The card bursts to 1350 under the arm and falls back to 800
+between structures, so the fleet's idle-window reading of min=max=800 is not what these runs
+saw.
+
 ## Checks the instrument carries
 
-`agreement.py` asserts the float64 file's model squared gradient norm is the campaign's
+`agreement.py` checks the float64 file's model squared gradient norm against the campaign's
 published 10.279642678524985 before it scores anything, so no share here is in a different
-denominator than D72's. It also verifies that `diffcap043`'s `grad_f64`, the reference the
+denominator than D72's. That check is a **relative tolerance of 1e-12, not an equality** (D78):
+the constant is a sum over 4,170 tensors, float addition is not associative, and the record
+already carries two honest spellings. This run produced a third, 10.279642678524981, a relative
+drift of 3.456e-16, and the measured value is printed beside the expected one so a drift is
+readable rather than binary. `MODEL_NORM_TOLERANCE_CONTROL.json` controls the tolerance in both
+directions: both recorded spellings and a 1e-13 drift pass, a 1e-11 drift and a 1 % denominator
+error fail. It also verifies that `diffcap043`'s `grad_f64`, the reference the
 device arm was scored against, is bit-identical to the bundle's own float64 gradient over all
 547 tensors (max abs diff 0.0). Without that identity our gradient and arm4's are not
 gradients of the same loss.

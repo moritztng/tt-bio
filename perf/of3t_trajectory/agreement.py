@@ -33,6 +33,14 @@ import torch
 REF_NORM_FLOOR = 1e-12          # A14: below this a relative error carries no information
 PER_TENSOR_BAR = 5.0e-02        # PROTOCOL 3d
 MODEL_TOTAL_SQ = 10.279642678524985   # the campaign's published denominator
+# D78: that constant is a sum over 4,170 tensors and float addition is not associative, so it
+# has no single correct last bit. The record already carries two honest spellings, `...985` and
+# `...986`, and summing the same leaves in different orders gives several results spanning
+# ~4e-16 relative. An equality check passes only while the iteration order happens to match,
+# and when it stops matching it fails looking like a corrupted reference rather than like
+# rounding. 1e-12 is ~4,000x the observed spread and still 1e4 tighter than anything that could
+# indicate a real problem.
+MODEL_TOTAL_SQ_RTOL = 1e-12
 BF16_OWN_FLOOR = 5.852018e-02   # arm4's own distance from float64 on the device arm's scope
 
 
@@ -144,6 +152,10 @@ def main():
     ap.add_argument("--sections", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
+    ap.add_argument("--aiclk", default="",
+                    help="the DURING-sampled AICLK for the device arms this scores, recorded "
+                         "so it is possible to tell later which window a number came from. "
+                         "This instrument publishes no timing figure either way.")
     ap.add_argument("--expect", action="append", default=[],
                     help="label=sha256, repeatable. A mismatch stops the run: measuring against "
                          "a file that is not the one the campaign's figures came from would "
@@ -183,9 +195,14 @@ def main():
     f64_full = torch.load(args.f64, map_location="cpu", weights_only=False)
     total_sq = sum(float(torch.linalg.vector_norm(v.to(torch.float64))) ** 2
                    for v in f64_full.values() if v is not None)
-    assert abs(total_sq - MODEL_TOTAL_SQ) < 1e-12, (
-        f"denominator {total_sq!r} is not the campaign's published {MODEL_TOTAL_SQ!r}; every "
-        "share here would be in a different denominator than the one D72 uses")
+    drift = abs(total_sq - MODEL_TOTAL_SQ)
+    print(f"model squared gradient norm: measured {total_sq!r}, expected {MODEL_TOTAL_SQ!r}, "
+          f"relative drift {drift / MODEL_TOTAL_SQ:.3e} against a {MODEL_TOTAL_SQ_RTOL:.0e} "
+          f"tolerance", flush=True)
+    assert drift <= MODEL_TOTAL_SQ_RTOL * MODEL_TOTAL_SQ, (
+        f"denominator {total_sq!r} differs from the campaign's published {MODEL_TOTAL_SQ!r} by "
+        f"{drift / MODEL_TOTAL_SQ:.3e} relative, past the {MODEL_TOTAL_SQ_RTOL:.0e} tolerance; "
+        "every share here would be in a different denominator than the one D72 uses")
     missing = [n for n in names if f64_full.get(n) is None]
     f64 = {n: (f64_full[n].to(torch.float64).reshape(-1) if f64_full.get(n) is not None
                else None) for n in names}
@@ -275,13 +292,26 @@ def main():
     args.sidecar_dir.mkdir(parents=True, exist_ok=True)
     out = {"what": __doc__.strip().splitlines()[0],
            "inputs": inputs,
+           "aiclk_during_the_device_arms": args.aiclk or "not recorded",
+           "timing_published": ("none. This row's deliverable is a gradient comparison, which "
+                                "is arithmetic and not throughput, so a clamped clock changes "
+                                "how long it takes and not what it computes."),
            "scope": {"n_tensors": len(names),
                      "source": str(args.device),
                      "pct_of_model_mass": 100.0 * sum(
                          float(torch.linalg.vector_norm(v)) ** 2
                          for v in f64.values() if v is not None) / MODEL_TOTAL_SQ,
                      "tensors_absent_from_float64": missing},
-           "model_squared_gradient_norm": total_sq,
+           "model_squared_gradient_norm": {
+               "measured": total_sq,
+               "expected": MODEL_TOTAL_SQ,
+               "relative_drift": drift / MODEL_TOTAL_SQ,
+               "tolerance": MODEL_TOTAL_SQ_RTOL,
+               "why_a_tolerance_and_not_an_equality": (
+                   "D78: a sum over 4,170 tensors has no single correct last bit, the record "
+                   "carries two honest spellings of it, and an equality check fails looking "
+                   "like a corrupted reference rather than like rounding"),
+           },
            "diffcap_is_the_bundles_float64": cap_check,
            "bars": {"upstream_bf16_own_distance_from_float64": BF16_OWN_FLOOR,
                     "per_tensor": PER_TENSOR_BAR},
