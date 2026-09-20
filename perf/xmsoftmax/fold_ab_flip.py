@@ -40,8 +40,14 @@ FIXTURES = ROOT / "perf" / "size512" / "fixtures"
 STEPS, SEED = 6, 0
 
 
-def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int) -> dict:
-    """One fold. arm 'on' = shipped defaults, 'off' = every site forced off."""
+def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
+             flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all") -> dict:
+    """One fold. arm 'on' = shipped defaults, 'off' = `flag` set to `off_value`.
+
+    The flag is a parameter because the protocol above is the general one and nothing in it is
+    specific to accurate-softmax: interleave, discard the cold fold, print the A/A floor before the
+    A/B delta. A second copy of it would be a second place for the floor to go missing.
+    """
     from tt_bio.main import predict_results_dir_name
     fixture = FIXTURES / f"cdk2x2_{rung}.yaml"
     if not fixture.exists():
@@ -50,9 +56,9 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int) -> dict:
     out_dir = workdir / f"out_{tag}"
     env = dict(os.environ)
     if arm == "off":
-        env["TT_BIO_ACCURATE_SOFTMAX_AB"] = "-all"
+        env[flag] = off_value
     else:
-        env.pop("TT_BIO_ACCURATE_SOFTMAX_AB", None)
+        env.pop(flag, None)
     cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(fixture),
            "--model", model, "--single_sequence", "--sampling_steps", str(STEPS),
            "--diffusion_samples", "1", "--seed", str(SEED), "--out_dir", str(out_dir)]
@@ -77,9 +83,10 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int) -> dict:
     return {"runtime_s": max(ts), "wall": wall}
 
 
-def cell(model: str, rung: int, reps: int, workdir: Path) -> dict:
+def cell(model: str, rung: int, reps: int, workdir: Path,
+         flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all") -> dict:
     print("\n=== %s @ %d aa ===" % (model, rung), flush=True)
-    warm = one_fold(model, rung, "on", workdir, rep=0)
+    warm = one_fold(model, rung, "on", workdir, rep=0, flag=flag, off_value=off_value)
     if "error" in warm:
         print("  warm-up FAILED: %s" % warm["error"], flush=True)
         return {"model": model, "rung": rung, "error": warm["error"]}
@@ -87,7 +94,7 @@ def cell(model: str, rung: int, reps: int, workdir: Path) -> dict:
     off, on = [], []
     for rep in range(1, reps + 1):
         for arm, acc in (("off", off), ("on", on)):
-            r = one_fold(model, rung, arm, workdir, rep)
+            r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value)
             if "error" in r:
                 print("  %s rep%d FAILED: %s" % (arm, rep, r["error"]), flush=True)
                 return {"model": model, "rung": rung, "error": r["error"],
@@ -109,6 +116,10 @@ def main() -> int:
     ap.add_argument("--models", default="protenix-v2,opendde")
     ap.add_argument("--rungs", default="512,768")
     ap.add_argument("--reps", type=int, default=2)
+    ap.add_argument("--flag", default="TT_BIO_ACCURATE_SOFTMAX_AB",
+                    help="Env var the off arm sets. Default: the accurate-softmax sites.")
+    ap.add_argument("--off-value", default="-all",
+                    help="Value the off arm sets --flag to. Default: -all.")
     ap.add_argument("--workdir", default="/tmp/xmflip")
     ap.add_argument("--out", default=str(ROOT / "perf/xmsoftmax/results/fold_ab_flip.json"))
     a = ap.parse_args()
@@ -117,14 +128,14 @@ def main() -> int:
     cells = []
     for rung in [int(r) for r in a.rungs.split(",")]:
         for model in a.models.split(","):
-            cells.append(cell(model, rung, a.reps, workdir))
+            cells.append(cell(model, rung, a.reps, workdir, a.flag, a.off_value))
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(
                 {"what": "cost of the shipped accurate-softmax default, per model per rung",
                  "metric": "results.json runtime_s, model load and startup excluded",
                  "steps": STEPS, "seed": SEED, "samples": 1, "single_sequence": True,
                  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
-                 "off_arm": "TT_BIO_ACCURATE_SOFTMAX_AB=-all", "on_arm": "shipped defaults",
+                 "off_arm": f"{a.flag}={a.off_value}", "on_arm": "shipped defaults",
                  "cells": cells}, indent=2) + "\n")
     print("\nmodel            rung   off med    on med     A/A       A/B", flush=True)
     for c in cells:
