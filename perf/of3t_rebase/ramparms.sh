@@ -41,4 +41,13 @@ echo "=== report ==="
 "$PY" perf/of3t_rebase/ladder_report.py \
     --glob "instrument_a_bundle_RAMP_block*.json" \
     --out perf/of3t_rebase/ramp_report.json
+rc=$?
+# A completion marker printed over a failed step is the gate-chain-with-no-failure-stop
+# shape: this script once printed RAMPARMS_ALLDONE after the report step died because
+# ladder_report.py was not in the checkout, and the log read as a clean run. The marker
+# is now conditional on the report and the exit code carries it.
+if [ "$rc" -ne 0 ]; then
+  echo "RAMPARMS_ALLDONE_FAILED report step rc=$rc -- the arms landed, the report did not"
+  exit "$rc"
+fi
 echo "RAMPARMS_ALLDONE $(date -u +%FT%TZ)"
