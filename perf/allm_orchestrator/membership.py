@@ -109,6 +109,41 @@ def _flags(node):
     return out
 
 
+# Names exported by tenstorrent.py that are plumbing rather than compute: importing them says
+# nothing about whether a model shares the work the perf levers were landed in.
+INFRA = {"Module", "TorchWrapper", "WeightScope", "Weights", "CORE_GRID_MAIN", "get_device",
+         "set_fast_mode", "accurate_softmax_site", "triatt_sdpa_hifi_site", "sdpa_ragged_pad_site"}
+
+
+def surface(files):
+    """-> (compute names, helper names) this model imports from tenstorrent.py.
+
+    Membership in the pairformer core is the wrong predictor on its own. What decides whether a
+    model can receive work done in the shared tree is how much of the shared tree it executes at
+    all, and a model that re-implements the stack in its own file shares nothing to fix.
+    """
+    names = set()
+    for f in files:
+        try:
+            tree = ast.parse(Path(f).read_text(errors="replace"))
+        except (SyntaxError, ValueError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module and \
+                    node.module.endswith("tenstorrent"):
+                names |= {a.name for a in node.names}
+            # `from . import tenstorrent` then `tenstorrent.PairformerModule(...)`. Counting only
+            # ImportFrom read Boltz-2 as sharing NOTHING, which is the third time in this campaign
+            # that a name-keyed scan was blind to a different access form -- after the alias and
+            # the docstring. Blindness is always silent and always reads as absence.
+            elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) \
+                    and node.value.id == "tenstorrent":
+                names.add(node.attr)
+    compute = sorted(n for n in names if n not in INFRA and not n.startswith("_"))
+    helper = sorted(n for n in names if n not in INFRA and n.startswith("_"))
+    return compute, helper
+
+
 def build():
     out = {}
     for model, files in MODELS.items():
@@ -152,8 +187,17 @@ def main():
                     if fl.get("fp32_softmax") == "True" else ""
                 w(f"  {model:<14} {e['site']:<46} {shown}{mark}\n")
 
+    w("\nshared surface: what each model imports from tenstorrent.py\n")
+    for model, files in MODELS.items():
+        compute, helper = surface(files)
+        w(f"  {model:<14} compute({len(compute)}): {', '.join(compute) or '-'}\n")
+        if helper:
+            w(f"  {'':<14} helpers:    {', '.join(helper)}\n")
+
     if args.json:
-        Path(args.json).write_text(json.dumps(m, indent=2, sort_keys=True) + "\n")
+        out = {"sites": m, "surface": {k: dict(zip(("compute", "helpers"), surface(v)))
+                                       for k, v in MODELS.items()}}
+        Path(args.json).write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
         w(f"\nwrote {args.json}\n")
     return 0
 

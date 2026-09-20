@@ -1,287 +1,432 @@
 {
-  "AF2": {
-    "OuterProductMean": [
-      {
-        "flags": {},
-        "site": "tt_bio/af2.py:558"
-      }
-    ],
-    "TriangleAttention": [
-      {
-        "flags": {
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False"
+  "sites": {
+    "AF2": {
+      "OuterProductMean": [
+        {
+          "flags": {},
+          "site": "tt_bio/af2.py:558"
+        }
+      ],
+      "TriangleAttention": [
+        {
+          "flags": {
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False"
+          },
+          "site": "tt_bio/af2.py:330"
         },
-        "site": "tt_bio/af2.py:330"
-      },
-      {
-        "flags": {
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False"
+        {
+          "flags": {
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False"
+          },
+          "site": "tt_bio/af2.py:334"
+        }
+      ],
+      "TriangleMultiplication": [
+        {
+          "flags": {},
+          "site": "tt_bio/af2.py:315"
         },
-        "site": "tt_bio/af2.py:334"
-      }
-    ],
-    "TriangleMultiplication": [
-      {
-        "flags": {},
-        "site": "tt_bio/af2.py:315"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/af2.py:317"
-      }
-    ]
+        {
+          "flags": {},
+          "site": "tt_bio/af2.py:317"
+        }
+      ]
+    },
+    "Boltz-2": {
+      "PairformerModule": [
+        {
+          "flags": {},
+          "site": "tt_bio/boltz2.py:4022"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/boltz2.py:4878"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/boltz2.py:5148"
+        },
+        {
+          "flags": {
+            "tri_att_sdpa_hifi": "tenstorrent.triatt_sdpa_hifi_site('boltz2.trunk')"
+          },
+          "site": "tt_bio/boltz2.py:5502"
+        }
+      ]
+    },
+    "BoltzGen": {
+      "PairformerModule": [
+        {
+          "flags": {},
+          "site": "tt_bio/boltzgen/model/models/boltz.py:258"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/boltzgen/model/modules/confidence.py:92"
+        }
+      ]
+    },
+    "ESMC": {},
+    "ESMFold2": {
+      "TriangleMultiplication": [
+        {
+          "flags": {
+            "gated_move": "True"
+          },
+          "site": "tt_bio/esmfold2.py:153"
+        },
+        {
+          "flags": {
+            "gated_move": "True"
+          },
+          "site": "tt_bio/esmfold2.py:157"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/esmfold2.py:1263"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/esmfold2.py:1264"
+        }
+      ]
+    },
+    "Nesso-1": {
+      "PairformerModule": [
+        {
+          "flags": {},
+          "site": "tt_bio/nesso1.py:153"
+        }
+      ]
+    },
+    "OpenDDE": {
+      "Pairformer": [
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site('opendde.refiner', default=True)",
+            "gated_move": "True"
+          },
+          "site": "tt_bio/opendde.py:415"
+        }
+      ]
+    },
+    "OpenFold3": {
+      "OuterProductMean": [
+        {
+          "flags": {},
+          "site": "tt_bio/openfold3_msa_embedder.py:75"
+        }
+      ],
+      "Pairformer": [
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site('openfold3.confidence')",
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False"
+          },
+          "site": "tt_bio/openfold3_confidence.py:86"
+        },
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site('openfold3.trunk')",
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False",
+            "transpose_bias": "tri_att_end_bias_follows_pair"
+          },
+          "site": "tt_bio/openfold3_trunk.py:137"
+        }
+      ],
+      "PairformerLayer": [
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site('openfold3.msa')",
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False",
+            "transpose_bias": "transpose_bias"
+          },
+          "site": "tt_bio/openfold3_msa_embedder.py:85"
+        },
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site('openfold3.template')",
+            "fp32_softmax": "True",
+            "scale_pair_bias": "False",
+            "transpose_bias": "transpose_bias"
+          },
+          "site": "tt_bio/openfold3_template.py:114"
+        }
+      ],
+      "Transition": [
+        {
+          "flags": {},
+          "site": "tt_bio/openfold3_msa_embedder.py:81"
+        }
+      ]
+    },
+    "Protenix-v2": {
+      "AttentionPairBias": [
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:930"
+        }
+      ],
+      "OuterProductMean": [
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:2507"
+        }
+      ],
+      "Pairformer": [
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.confidence', default=True)",
+            "gated_move": "gated_move"
+          },
+          "site": "tt_bio/protenix.py:1458"
+        },
+        {
+          "flags": {
+            "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.trunk', default=True)",
+            "gated_move": "gated_move"
+          },
+          "site": "tt_bio/protenix.py:2463"
+        }
+      ],
+      "PairformerLayer": [
+        {
+          "flags": {
+            "gated_move": "gated_move"
+          },
+          "site": "tt_bio/protenix.py:2473"
+        },
+        {
+          "flags": {
+            "gated_move": "gated_move"
+          },
+          "site": "tt_bio/protenix.py:2509"
+        }
+      ],
+      "Transition": [
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:904"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:2157"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:2486"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:2124"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/protenix.py:2516"
+        }
+      ]
+    },
+    "RFdiffusion3": {
+      "OuterProductMean": [
+        {
+          "flags": {},
+          "site": "tt_bio/rf3/msa.py:103"
+        }
+      ],
+      "Pairformer": [
+        {
+          "flags": {
+            "**": "**kwargs (unresolved -- read the site)"
+          },
+          "site": "tt_bio/rf3/confidence_head.py:114"
+        },
+        {
+          "flags": {
+            "**": "**kwargs (unresolved -- read the site)"
+          },
+          "site": "tt_bio/rf3/model.py:51"
+        }
+      ],
+      "PairformerLayer": [
+        {
+          "flags": {
+            "**": "**kwargs (unresolved -- read the site)",
+            "scale_pair_bias": "False",
+            "transpose_bias": "False"
+          },
+          "site": "tt_bio/rf3/msa.py:116"
+        },
+        {
+          "flags": {
+            "**": "**kwargs (unresolved -- read the site)",
+            "scale_pair_bias": "False",
+            "transpose_bias": "False"
+          },
+          "site": "tt_bio/rf3/template.py:100"
+        }
+      ],
+      "Transition": [
+        {
+          "flags": {},
+          "site": "tt_bio/rf3/diffusion_conditioning.py:82"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/rf3/diffusion_conditioning.py:86"
+        },
+        {
+          "flags": {},
+          "site": "tt_bio/rf3/msa.py:112"
+        }
+      ]
+    }
   },
-  "Boltz-2": {
-    "PairformerModule": [
-      {
-        "flags": {},
-        "site": "tt_bio/boltz2.py:4022"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/boltz2.py:4878"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/boltz2.py:5148"
-      },
-      {
-        "flags": {
-          "tri_att_sdpa_hifi": "tenstorrent.triatt_sdpa_hifi_site('boltz2.trunk')"
-        },
-        "site": "tt_bio/boltz2.py:5502"
-      }
-    ]
-  },
-  "BoltzGen": {
-    "PairformerModule": [
-      {
-        "flags": {},
-        "site": "tt_bio/boltzgen/model/models/boltz.py:258"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/boltzgen/model/modules/confidence.py:92"
-      }
-    ]
-  },
-  "ESMC": {},
-  "ESMFold2": {
-    "TriangleMultiplication": [
-      {
-        "flags": {
-          "gated_move": "True"
-        },
-        "site": "tt_bio/esmfold2.py:153"
-      },
-      {
-        "flags": {
-          "gated_move": "True"
-        },
-        "site": "tt_bio/esmfold2.py:157"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/esmfold2.py:1263"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/esmfold2.py:1264"
-      }
-    ]
-  },
-  "Nesso-1": {
-    "PairformerModule": [
-      {
-        "flags": {},
-        "site": "tt_bio/nesso1.py:153"
-      }
-    ]
-  },
-  "OpenDDE": {
-    "Pairformer": [
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site('opendde.refiner', default=True)",
-          "gated_move": "True"
-        },
-        "site": "tt_bio/opendde.py:415"
-      }
-    ]
-  },
-  "OpenFold3": {
-    "OuterProductMean": [
-      {
-        "flags": {},
-        "site": "tt_bio/openfold3_msa_embedder.py:75"
-      }
-    ],
-    "Pairformer": [
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site('openfold3.confidence')",
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False"
-        },
-        "site": "tt_bio/openfold3_confidence.py:86"
-      },
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site('openfold3.trunk')",
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False",
-          "transpose_bias": "tri_att_end_bias_follows_pair"
-        },
-        "site": "tt_bio/openfold3_trunk.py:137"
-      }
-    ],
-    "PairformerLayer": [
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site('openfold3.msa')",
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False",
-          "transpose_bias": "transpose_bias"
-        },
-        "site": "tt_bio/openfold3_msa_embedder.py:85"
-      },
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site('openfold3.template')",
-          "fp32_softmax": "True",
-          "scale_pair_bias": "False",
-          "transpose_bias": "transpose_bias"
-        },
-        "site": "tt_bio/openfold3_template.py:114"
-      }
-    ],
-    "Transition": [
-      {
-        "flags": {},
-        "site": "tt_bio/openfold3_msa_embedder.py:81"
-      }
-    ]
-  },
-  "Protenix-v2": {
-    "AttentionPairBias": [
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:930"
-      }
-    ],
-    "OuterProductMean": [
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:2507"
-      }
-    ],
-    "Pairformer": [
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.confidence', default=True)",
-          "gated_move": "gated_move"
-        },
-        "site": "tt_bio/protenix.py:1458"
-      },
-      {
-        "flags": {
-          "accurate_softmax": "accurate_softmax_site(f'{softmax_scope}.trunk', default=True)",
-          "gated_move": "gated_move"
-        },
-        "site": "tt_bio/protenix.py:2463"
-      }
-    ],
-    "PairformerLayer": [
-      {
-        "flags": {
-          "gated_move": "gated_move"
-        },
-        "site": "tt_bio/protenix.py:2473"
-      },
-      {
-        "flags": {
-          "gated_move": "gated_move"
-        },
-        "site": "tt_bio/protenix.py:2509"
-      }
-    ],
-    "Transition": [
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:904"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:2157"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:2486"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:2124"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/protenix.py:2516"
-      }
-    ]
-  },
-  "RFdiffusion3": {
-    "OuterProductMean": [
-      {
-        "flags": {},
-        "site": "tt_bio/rf3/msa.py:103"
-      }
-    ],
-    "Pairformer": [
-      {
-        "flags": {
-          "**": "**kwargs (unresolved -- read the site)"
-        },
-        "site": "tt_bio/rf3/confidence_head.py:114"
-      },
-      {
-        "flags": {
-          "**": "**kwargs (unresolved -- read the site)"
-        },
-        "site": "tt_bio/rf3/model.py:51"
-      }
-    ],
-    "PairformerLayer": [
-      {
-        "flags": {
-          "**": "**kwargs (unresolved -- read the site)",
-          "scale_pair_bias": "False",
-          "transpose_bias": "False"
-        },
-        "site": "tt_bio/rf3/msa.py:116"
-      },
-      {
-        "flags": {
-          "**": "**kwargs (unresolved -- read the site)",
-          "scale_pair_bias": "False",
-          "transpose_bias": "False"
-        },
-        "site": "tt_bio/rf3/template.py:100"
-      }
-    ],
-    "Transition": [
-      {
-        "flags": {},
-        "site": "tt_bio/rf3/diffusion_conditioning.py:82"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/rf3/diffusion_conditioning.py:86"
-      },
-      {
-        "flags": {},
-        "site": "tt_bio/rf3/msa.py:112"
-      }
-    ]
+  "surface": {
+    "AF2": {
+      "compute": [
+        "OuterProductMean",
+        "PAIR_ROW_BLOCK",
+        "TriangleAttention",
+        "TriangleMultiplication",
+        "batched_matmul"
+      ],
+      "helpers": [
+        "_fp32_softmax_attention",
+        "_pair_bias_from_z"
+      ]
+    },
+    "Boltz-2": {
+      "compute": [
+        "ConfidenceHeadsDevice",
+        "DiffusionModule",
+        "Fp32PairformerModule",
+        "MSAModule",
+        "PairAssemblyDevice",
+        "PairConditioningDevice",
+        "PairformerModule",
+        "TemplateRecycle",
+        "TrunkModule",
+        "TrunkRecycle",
+        "free"
+      ],
+      "helpers": []
+    },
+    "BoltzGen": {
+      "compute": [
+        "DiffusionModule",
+        "MSAModule",
+        "MiniformerModule",
+        "PairformerModule",
+        "TokenDistanceRecycle",
+        "TrunkModule",
+        "TrunkRecycle"
+      ],
+      "helpers": []
+    },
+    "ESMC": {
+      "compute": [
+        "SMALL_GRID_SEQ_TILE",
+        "pair_row_tile",
+        "trace_region_size"
+      ],
+      "helpers": [
+        "_PAIR_FFN_FC1_BLOCK_W",
+        "_PAIR_FFN_FC1_BW",
+        "_dtype",
+        "_pair_proj_linear",
+        "_sdpa_program_config_for_lengths"
+      ]
+    },
+    "ESMFold2": {
+      "compute": [
+        "SMALL_GRID_SEQ_TILE",
+        "TriangleMultiplication",
+        "attn_value_matmul",
+        "dram_peak",
+        "is_wormhole",
+        "msa_row_tile",
+        "pair_row_tile",
+        "row_block_after_refusal"
+      ],
+      "helpers": [
+        "_accurate_softmax",
+        "_sdpa_program_config_for_lengths"
+      ]
+    },
+    "Nesso-1": {
+      "compute": [
+        "Fp32PairformerModule",
+        "PairformerModule"
+      ],
+      "helpers": []
+    },
+    "OpenDDE": {
+      "compute": [
+        "Pairformer",
+        "concat_host_bytes"
+      ],
+      "helpers": [
+        "_acc_concat"
+      ]
+    },
+    "OpenFold3": {
+      "compute": [
+        "AdaLN",
+        "OuterProductMean",
+        "PairWeightedAveraging",
+        "Pairformer",
+        "PairformerLayer",
+        "Transition",
+        "batched_matmul",
+        "device_dtype_override",
+        "pad_dim",
+        "pwa_single_shot_bytes"
+      ],
+      "helpers": [
+        "_cached",
+        "_dtype"
+      ]
+    },
+    "Protenix-v2": {
+      "compute": [
+        "AdaLN",
+        "AttentionPairBias",
+        "MSA_CHUNK_SIZE",
+        "OuterProductMean",
+        "PairWeightedAveraging",
+        "Pairformer",
+        "PairformerLayer",
+        "Transition",
+        "batched_matmul",
+        "device_generation",
+        "dram_peak"
+      ],
+      "helpers": []
+    },
+    "RFdiffusion3": {
+      "compute": [
+        "DiffusionTransformer",
+        "OuterProductMean",
+        "PairWeightedAveraging",
+        "Pairformer",
+        "PairformerLayer",
+        "Transition",
+        "atom_pair_budget_bytes",
+        "attn_value_matmul",
+        "batched_matmul",
+        "l1_resident_budget_bytes",
+        "row_block"
+      ],
+      "helpers": [
+        "_TRANSPOSE_L1_RESERVE_PER_CORE",
+        "_dram_oom",
+        "_dtype"
+      ]
+    }
   }
 }
