@@ -60,6 +60,28 @@ def squeeze_leading(t, rank):
     return t
 
 
+# grad_device.their_name stops at tt-bios own primitive names for the pair stack, which are
+# not the checkpoints. Eight renames close the gap, and every one is checked by the shape
+# test at the comparison, so a wrong guess drops the tensor rather than scoring two
+# different ones against each other.
+_RENAME = [
+    ("pair_transition.fc1.", "pair_transition.swiglu.linear_a."),
+    ("pair_transition.fc2.", "pair_transition.swiglu.linear_b."),
+    ("pair_transition.fc3.", "pair_transition.linear_out."),
+    ("pair_transition.norm.", "pair_transition.layer_norm."),
+    (".norm_in.", ".layer_norm_in."),
+    (".norm_out.", ".layer_norm_out."),
+    (".g_out.", ".linear_g."),
+    (".p_out.", ".linear_z."),
+]
+
+
+def _upstream_name(n):
+    for a, b in _RENAME:
+        n = n.replace(a, b)
+    return n
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--boundary", required=True, type=Path)
@@ -242,7 +264,7 @@ def main() -> int:
         # scope-local lookup that only means anything against grad_device.mains
         # per-block reference dicts. Using it here silently dropped 100 of 180
         # tensors as no reference gradient under this name.
-        full = "aux_heads." + their
+        full = "aux_heads." + _upstream_name(their)
         lookup = their
         ref = ref_grads.get(full)
         if leaf.grad is None:
