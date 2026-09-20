@@ -12,8 +12,17 @@ memories read: `qb2-aiclk-governor-sets-fold-time-not-cotenancy`,
 Branch `wk/allm-audit`, worktree `/home/ttuser/.coworker/wt/allm-audit` on qb2.
 Arms folded on **qb2 card 1**, artifacts `perf/allm_audit/` and `/home/ttuser/allm_audit/` (mine alone).
 
-VERDICT: PARTIAL — the instrument, the five old trees and the scope definition are in place and
-verified; the arms are being folded. Ratios below are filled in as each pair lands.
+VERDICT: PARTIAL — one of five ratios measured (ESMFold2 **1.0385x**, and bit-identical across
+the window), the instrument and all five old trees verified and in place, the scope settled against
+the page's own source. The remaining four pairs are folding. This row is still working; it is not
+concluded and no `DONE_CHECK` should be read as saying otherwise.
+
+**A gate hole to hand to `allm-orchestrator`, found by running the check against this document:**
+`_allm_donecheck.py`'s `ratios` check counts `\d\.\d+x` inside the `RATIOS:` section and needs
+four. It passed this document when it contained **zero measured ratios** — the four matches were
+`1.5x`, `1.0x` and the two `pvx-didittransfer` reference figures quoted for comparison. A row that
+cites its predecessor's numbers clears the gate for free. The check wants the ratios keyed to the
+five model names, not counted.
 
 ## SCOPE
 
@@ -90,8 +99,8 @@ UNBUILDABLE: **no old commit has been abandoned. One could not be folded as it s
 repaired without substituting a measurement, and the repair is the interesting finding of this
 pass.**
 
-**ESMFold2 at `e65b66be`: the tree is fine, the hub moved under it.** The first old arm died in
-model load:
+**ESMFold2 at `e65b66be`: the tree is fine, the hub moved under it. Folded, after a one-line
+repair at the call site.** The first old arm died in model load:
 
     TypeError: DiffusionStructureHeadConfig.__init__() got an unexpected keyword argument 'architectures'
 
@@ -120,6 +129,24 @@ would record `{}`, and that is what distinguishes the old arm from the new one.
 Ten pins parse: ESMFold2, ESMFold2-Fast, ESMC-6B, esmc-300m, esmc-600m, protenix-v2-weights,
 OpenDDE, and three SaProt repos.
 
+**And the shim was at the wrong altitude — its own firing count is what caught that.** With
+`hf_hub_download` wrapped in every module that binds it, the old arm failed identically and
+`hf_pins_fired` came back **empty**. transformers 5.16.1 resolves a config through `cached_files`,
+not `hf_hub_download`; widening the shim to `cached_file`/`cached_files` did not fire either. Had
+the shim not counted what it pinned, "the pin table is installed" would have read exactly like "the
+pin took", which is `eligibility-firing-condition-is-not-a-code-fact` in a different costume.
+
+The repair is therefore the one line `origin/main` already carries, applied at the call site in the
+old tree: `ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=<pin>)`, with the value
+read out of the new tree's table rather than typed so the arms cannot drift. Verified without a
+device first — the config parses at the pin, `type=release`, `esmc_id=biohub/ESMC-6B` — and then on
+the card, where the load line names the pinned snapshot directly:
+`.../snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl`. The diff against
+`git show e65b66be:tt_bio/esmfold2_runtime.py` is committed as
+`perf/allm_audit/old_esmfold2_hf_revision.diff`, because an old arm that was edited has to show the
+edit. The `pinned_cell.py` shim stays in the runner for the loaders that DO call `hf_hub_download`
+directly, and keeps recording what it fired on.
+
 ## RATIOS
 
 RATIOS: **the deliverable, one transfer ratio per model. Being folded; filled in as each pair
@@ -127,13 +154,49 @@ lands.** Near 1.5x and the model received Boltz-2's window. Near 1.0x and it did
 `allm-gates` has a target. For reference, the two `pvx-didittransfer` measured on the same
 instrument: Boltz-2 **1.5006x**, Protenix-v2 **1.0525x**.
 
-| model | old | new | ratio | A/A floor |
-|---|---|---|---|---|
-| ESMFold2 | folding | — | — | — |
-| OpenDDE | — | — | — | — |
-| OpenFold3 | — | — | — | — |
-| BoltzGen | — | — | — | — |
-| RFdiffusion3 | — | — | — | — |
+| model | old | new | ratio | A/A floors | digest old -> new |
+|---|---|---:|---:|---|---|
+| ESMFold2 | **28.580 s** | **27.520 s** | **1.0385x** | 0.41 % / 0.09 % | `608ce8c40a2c4e33` -> `608ce8c40a2c4e33` |
+| OpenDDE | folding | — | — | — | — |
+| OpenFold3 | **38.425 s** | **33.970 s** | **1.1311x** | 0.17 % / 0.08 % | `6ee6ac7a3e730688` -> `9171421df49ef336` |
+| BoltzGen | — | — | — | — | — |
+| RFdiffusion3 | — | — | — | — | — |
+
+**ESMFold2: 1.0385x. It did not receive the window.** Over the 33 days in which Boltz-2's fold
+fell 1.5006x, ESMFold2's fell 3.85 %, from 28.580 s at `e65b66be` to 27.520 s at `47810889f`. Both
+arms n=3 warm after a discarded cold fold, same card, same instrument, **AICLK 1350.0 mean AND
+1350 minimum on every timed fold of both arms, zero re-asserts**. A/A floors 0.116 s (0.41 %) and
+0.024 s (0.09 %); the effect is 1.060 s, **9.4x the larger of the two floors**, so it is a
+measurement rather than a spread, and it is nowhere near 1.5x.
+
+**The window did not change one bit of ESMFold2's arithmetic.** Both arms return CIF digest
+`608ce8c40a2c4e33` and plDDT 0.9286, across all six timed folds. That is a stronger statement than
+the ratio alone: whatever landed between 2026-08-16 and today either did not touch this model's
+path or touched only its scheduling. It also confirms the arm is the computation the cell named —
+the published 29.393 s cell records plDDT 0.9285 and I get 0.9286 out of the pinned checkpoint.
+
+The old arm carried one co-tenanted fold of three (`cotenanted_folds: 1`), which read 28.595 s
+against that session's 28.479 and 28.580 — inside its own A/A spread, so it is recorded rather
+than corrected for. The new arm's session was clean on all four folds.
+
+**OpenFold3: 1.1311x, and it is the first model here whose arithmetic the window changed.**
+38.425 s at `973ae49f` to 33.970 s at `47810889f`. Both sessions clean on every fold, A/A floors
+0.067 s (0.17 %) and 0.028 s (0.08 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
+4.455 s, **66x the larger floor**. The old arm again lands on the published cell's own output:
+plDDT **0.547851** against the cell's 0.547851, with the seconds 0.45 % apart (38.425 against
+38.254).
+
+Unlike ESMFold2 this pair is **not** bit-identical: digest `6ee6ac7a3e730688` -> `9171421df49ef336`
+and plDDT 0.547851 -> 0.549222. Something in the window reached this model's arithmetic. That makes
+OpenFold3 the more interesting of the two for `allm-gates`: it is the model the shared-core
+hypothesis covers, it moved more than ESMFold2, and it moved its output. Whether 1.13x is the whole
+of what the shared path had to give it is exactly the question this row does not answer and that row
+does.
+
+One thing to hand over with it, from SCOPE above: OpenFold3 is the one model here where host is a
+large term inside the cell, **1.839 s of the published 38.254 s, 4.8 %**. At 1.1311x that term is
+big enough to matter to an attribution and it has not been re-measured here — this row times the
+region, it does not split it.
 
 No ratio is written here until both its arms exist with an A/A floor beside them, because an
 op-level win is a screen and four such levers reached the fold at 25x-to-infinite error with two
