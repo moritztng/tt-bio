@@ -780,8 +780,26 @@ DEF = _campaign_doc("DEFECTS")
 ORCH = _campaign_doc("ORCHESTRATOR")
 if DEF.is_file() and ORCH.is_file():
     import re as _re
+    # The campaign's convention is that a defect's status lives on its HEADING line, and this
+    # check reads only the heading. Pass 175: D77 was written with UNFIXED in its BODY instead,
+    # and it was therefore invisible here -- an UNFIXED defect that GAP was not required to
+    # name, which is precisely what this check exists to prevent. Same shape as D74 and D76:
+    # the guard read a narrower form than the document used. So a body-only declaration is now
+    # a FAILURE rather than a silent exclusion. The pattern is a status DECLARATION, not any
+    # mention of the word -- D66's body discusses other defects' UNFIXED status and must not
+    # trip it.
+    _dt_u = DEF.read_text()
+    _parts = _re.split(r"(?m)^(### D\d+\..*)$", _dt_u)
+    _ents = [(_parts[i], _parts[i + 1]) for i in range(1, len(_parts) - 1, 2)]
+    _decl = _re.compile(r"\*\*UNFIXED[.*]|\bUNFIXED\b\s*(?:--|\u2014|\.)")
+    _bodyonly = [_re.match(r"### (D\d+)\.", h).group(1) for h, b in _ents
+                 if "UNFIXED" not in h and _decl.search(b)]
+    if _bodyonly:
+        bad.append("defect(s) declare UNFIXED in the BODY but not on the heading, where this "
+                   "audit and GAP's coverage check read it, so they are invisible to both: "
+                   + ", ".join(_bodyonly) + " -- put the status on the heading line")
     unfixed = [m.group(1) for m in
-               _re.finditer(r"^### (D\d+)\..*$", DEF.read_text(), _re.M)
+               _re.finditer(r"^### (D\d+)\..*$", _dt_u, _re.M)
                if "UNFIXED" in m.group(0)]
     o = ORCH.read_text()
     g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
