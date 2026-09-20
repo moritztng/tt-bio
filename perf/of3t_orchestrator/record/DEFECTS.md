@@ -320,14 +320,27 @@ samples, 200 sampling steps, arms interleaved, p300c, AICLK 1350 sampled during.
 two fold campaigns, because a selection-rule change does not move the diffusion samples — six
 seeds with both arms complete, three pairs still folding:
 
-| arm | rank 0 (served) | best of 5 | seed floor, 15 pairs |
-|---|---|---|---|
-| shipped | **0.775 A** | 0.663 A | **0.275 A** (0.012–0.493) |
-| D1 alone | **1.068 A** | 0.634 A | 1.243 A |
-| D10 alone | **0.755 A** | 0.663 A | 0.336 A |
-| D1 + D10 | **0.945 A** | 0.634 A | 0.761 A |
+**FINAL, superseding the six-seed interim first recorded here** — nine ship-arm seeds, eight
+fix-arm seeds, seed floor over **28 pairs**, read from `perf/of3t_confhead/analyze.json` on
+`wk/of3t-confhead` at `5588d889a` rather than from the row's prose:
 
-**D1 does not ship, and fixing the selector did not rescue it.** D1+D10 serves **0.170 A worse**
+| arm | rank 0 (served) | best of 5 | seed floor, 28 pairs | picks best |
+|---|---|---|---|---|
+| shipped | **0.775 A** | 0.679 A | **0.226 A** | 1 |
+| D1 alone | **1.201 A** | 0.616 A | 1.133 A | 3 |
+| D10 alone | **0.760 A** | 0.679 A | 0.282 A | 1 |
+| D1 + D10 | **0.924 A** | 0.616 A | 0.671 A | **0** |
+
+The D1+D10 gap is **0.92369 − 0.77507 = 0.149 A**, not the 0.170 A of the six-seed interim. Every
+number here moved and the sign did not.
+
+**A nuance the `picks best` column carries and the means hide:** the repaired rule picks the
+single best sample **0 times** on the D1 arm where the shipped rule picks it 3 times — and still
+serves **0.28 A better on average**. It trades *picking the best* for *avoiding the worst mode*,
+which is the right trade on a bimodal distribution and is why mean-served improves while
+picks-best falls.
+
+**D1 does not ship, and fixing the selector did not rescue it.** D1+D10 serves **0.149 A worse**
 than shipped; the best rule in the whole candidate set, `gpde`, still serves 0.861 A, 0.086 A
 worse. The corrected trunk continues to **sample better and serve worse** — best-of-5 0.634 A
 against 0.663 A. The bar is "the served structure, rank 0, at or better than shipped", and it is

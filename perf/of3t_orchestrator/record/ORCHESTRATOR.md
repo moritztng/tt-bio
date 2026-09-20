@@ -452,8 +452,10 @@ the distinction cannot arise**, which is why the r = 0 captures validate cleanly
 either side**: the GPU baseline's method is pre-registered and nothing is measured, so the
 second half of Moritz's bar is untouched.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows; twenty-five
-defects on the record, ten of them UNFIXED**, three raised in the last five passes.
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Seventeen concluded rows; twenty-five
+defects on the record, ten of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
+and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
+seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
 **PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
 REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
@@ -3588,3 +3590,51 @@ other two are still running when A13 finishes, since nothing downstream can star
 uniformly and there is no nice-0 competitor, so the renice is inert (pass 99); this is
 self-contention inside one row's own job set, and the remedy is sequencing rather than priority —
 which is just as well, since priority is the one dial that cannot be turned back.
+
+PASS 105. **`of3t-confhead` concluded, and its headline is sharper than anything the campaign had
+on D10: the confidence head ranks its samples well, and the rule reads the wrong output.**
+
+pLDDT orders the samples at **+0.41 to +0.46 Spearman** against true RMSD; pTM — what the shipped
+rule actually reads — orders them at **+0.14 to +0.33**. So "the confidence head mis-ranks" was
+never right. The head's outputs carry the ordering; the selection rule consults the weakest one,
+and on a single chain it collapses to `0.2*pTM` because ipTM, `has_clash` and (measured)
+`disorder` are all identically zero.
+
+**Final numbers, read from `analyze.json` on `wk/of3t-confhead` at `5588d889a` rather than from
+prose — nine ship-arm seeds, eight fix-arm, seed floor over 28 pairs:**
+
+| arm | rank 0 (served) | best of 5 | seed floor | picks best |
+|---|---|---|---|---|
+| shipped | **0.775 A** | 0.679 A | **0.226 A** | 1 |
+| D1 alone | **1.201 A** | 0.616 A | 1.133 A | 3 |
+| D10 alone | **0.760 A** | 0.679 A | 0.282 A | 1 |
+| D1 + D10 | **0.924 A** | 0.616 A | 0.671 A | **0** |
+
+**Every number I recorded at pass 101 moved and the sign did not.** The gap is
+0.92369 − 0.77507 = **0.149 A**, not 0.170. D1 does not ship. My D10 entry and the compose guard
+both now carry the final figures and their source commit.
+
+**The `picks best` column carries a nuance the means hide**: the repaired rule picks the single
+best sample **0 times** on the D1 arm where the shipped rule picks it 3 times, and still serves
+**0.28 A better on average**. It trades picking the best for avoiding the worst mode — the right
+trade on a bimodal distribution, and why mean-served improves while picks-best falls.
+
+**The row adopted both corrections I sent and marked them as its own errors**, which is the
+behaviour to reinforce: the disorder hypothesis (measures 0.0 on every sample) and
+"selects worse than random" (true only on the D1 arm — on the shipped distribution the rule beats
+random by 0.033 A, which is exactly why the defect stayed invisible until D1 made the samples
+bimodal). It also took the pass-103 finding and labelled its own fix honestly: **not a
+unification**, since three of the four sites already order monomers identically by pTM, so this
+adopts Boltz-2's shape and departs from rf3 and protenix, with the shared-ranking-function answer
+recommended rather than taken because it would move three models the row never folded.
+
+**One recurrence to name, because the campaign has recorded it before.** The row's state-doc
+FIELDS are stale against its own concluded DONE — `DECISION:` still says 0.170 A and `FOLD:` still
+says "six seeds with both arms complete", while the DONE and the artifacts say 0.149 A over nine
+and eight. Same shape as `of3t-gradients` at pass 56. **The campaign record follows the artifacts**
+and now does. It is a reporting defect, not a measurement one, and none of the row's numbers are
+in question.
+
+**Owed and explicitly carried forward by the row**: the five-model digest run against a detached
+`origin/main` with the `--tri 0` control (confirmatory only — the change is post-forward, so it
+cannot move a forward output) and the seed-3 `fix` re-run.
