@@ -1,0 +1,4 @@
+# Regenerated in ~10 s by capture_operands.py on a card; 11.7 MB of fp32 activations
+# does not belong in a shared repo when the command that makes it is committed.
+operands_*.pt
+_capture_hook/__pycache__/
