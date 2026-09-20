@@ -3920,3 +3920,49 @@ of it**, and it is filed that way.
 Owner: `of3t-orchestrator`; the settling measurement belongs to whoever next holds a card with
 the diffusion capture. **STILL OPEN.** Artifact:
 `perf/of3t_orchestrator/TRANSITION_ERROR_FALLS_WITH_DEPTH.json`.
+
+---
+
+### D66. The field a reader treats as the campaign's answer had grown to 177,928 characters over 2,371 lines, with the verdict itself in its first eight — and every content check passed throughout, because none of them reads length. FOUND by `of3t-orchestrator`, pass 166. **FIXED.**
+
+`state/of3t-orchestrator.md` carries nine owed fields. Measured:
+
+| field | chars | lines |
+|---|---|---|
+| PROVES | 9,087 | 108 |
+| DOESNOT | 11,227 | 139 |
+| GAP | 28,332 | 334 |
+| **VERDICT** | **177,928** | **2,371** |
+
+**Every pass appends after the last field, and VERDICT is the last field**, so a hundred and
+sixty-five passes of narrative landed inside the one field a reader treats as the answer. The
+verdict itself — PARTIAL, the three mass shares, the row and defect counts — is its **first
+eight lines**; the remaining 2,363 are history.
+
+**And the audit was green the whole time.** It checks VERDICT's *content* thoroughly: the
+distance-to-go shares against the artifact, the defect and UNFIXED and concluded-row counts, the
+amendment phrase. Every one of those sits in the first eight lines and every one passed. **None
+of them reads its size.** A field can be entirely correct and entirely unusable, and a content
+check cannot tell the difference.
+
+**Fixed** by introducing a `PASSLOG:` field immediately after the verdict's own statement. The
+field regex `^FIELD:(.*?)(?=^[A-Z][A-Z_]+:|\Z)` then terminates VERDICT there, so **VERDICT is
+now 757 characters over 10 lines** and PASSLOG carries the 177,682-character history with a
+header saying what it is and why it moved. Both readers were re-verified afterwards: the compose
+audit reads all nine fields and passes, and `_of3t_donecheck.py` still parses VERDICT and
+correctly refuses on PARTIAL.
+
+**And guarded**, because the fix without the guard just resets the clock. `audit_evidence.py`
+now caps each owed field — VERDICT 4,000 chars, PROVES and DOESNOT 20,000, GAP 40,000 — and
+fails with *"summary field(s) have accreted past the point of being read"* naming the field and
+its size. GAP at 28,332 is already inside its cap but worth watching.
+
+**The class.** This is the fifth guard-shaped defect this campaign has found in its own
+instruments, and the first where the guard was not merely too narrow but **measuring the wrong
+axis entirely**. The others failed on vocabulary (word lists stopping at twenty and
+twenty-four), on form (prose vs token), or on staleness (a superseded artifact). This one failed
+on **dimension**: every check asked *is it right?* and none asked *is it readable?* **A document
+a human acts on needs a size check, not only a content check** — and the check is one line.
+
+Owner: `of3t-orchestrator`. **FIXED.** `state/of3t-orchestrator.md`,
+`perf/of3t_orchestrator/audit_evidence.py`.

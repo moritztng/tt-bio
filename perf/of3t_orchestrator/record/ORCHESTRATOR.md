@@ -150,7 +150,7 @@ PROVES: the **state-free half of OpenFold3's update rule, exactly and against up
 objects** — and, for the model-dependent half, that **the machinery to measure it now exists
 and what it currently reports is a ceiling**.
 
-Recomputed from the artifacts on every compose (152 checks, 0 drifted):
+Recomputed from the artifacts on every compose (153 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -732,9 +732,17 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; sixty-five defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; sixty-six defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
+
+
+PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
+there because every pass appended after the last field, so the field a reader treats as the
+verdict had grown to 177,928 characters over 2,371 lines with the verdict itself in its first
+eight. The audit checks VERDICT's CONTENT -- the shares, the counts, the amendment phrase -- and
+never its LENGTH, so it stayed green throughout. Everything below is history, in order, and
+nothing above this line depends on reading it.
 
 **PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
 REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
