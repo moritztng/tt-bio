@@ -25,6 +25,7 @@ in step. Read it off the config a caller already has, or pass the same one to ``
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import ttnn
 
@@ -87,6 +88,16 @@ def _num_cores_to_corerangeset(start, target, grid, row_wise=True):
     return ttnn.CoreRangeSet(ranges)
 
 
+def wheel_dataflow_dir():
+    """The wheel's own 1D matmul dataflow kernels, in place so their include paths resolve."""
+    return ttnn_cpp_root() / _MM_KERNELS / "dataflow"
+
+
+def split_kernel_dir():
+    """Our copies of those three kernels, with the writer-split arms guarded in."""
+    return Path(__file__).resolve().parent / "kernels" / "mm1d_split"
+
+
 def _dram_interleaved(t):
     mc = t.memory_config()
     return not mc.is_sharded()
@@ -100,7 +111,8 @@ def _fmt(idx, dtype, page_size):
     return ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=page_size)
 
 
-def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_batch=True):
+def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_batch=True,
+          writer_on_in0=False):
     """The ProgramDescriptor for ``matmul(in0, in1) -> out`` on the 1D ``mcast_in1`` path.
 
     ``pc`` is ``(grid_xy, in0_block_w, out_subblock_h, out_subblock_w, out_block_h, out_block_w,
@@ -108,9 +120,14 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
     with ``mcast_in0=False`` and ``fuse_batch=True``. ``ckc`` is ``(math_fidelity,
     math_approx_mode, fp32_dest_acc_en, packer_l1_acc)``.
 
-    ``kernel_dir`` re-points the two dataflow kernels at a directory of our own copies, which is
-    how the writer split ships; the compute kernel always comes from the wheel.
+    ``kernel_dir`` re-points the three dataflow kernels at a directory of our own copies; the
+    compute kernel always comes from the wheel.  ``writer_on_in0`` turns on the writer split --
+    the output write compiled out of the in1 sender/receiver and into the in0 sender, so the in1
+    fetch and the output drain are two RISCs instead of one -- which needs those copies, so it
+    defaults ``kernel_dir`` to ``split_kernel_dir()``.
     """
+    if writer_on_in0 and kernel_dir is None:
+        kernel_dir = split_kernel_dir()
     for v in _THROTTLE_ENV:
         assert os.environ.get(v) is None, f"{v} changes the shipped program; not transcribed"
     assert _dram_interleaved(in0) and _dram_interleaved(in1) and _dram_interleaved(out), \
@@ -234,6 +251,11 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
         0, 0,                                       # fuse_op twice
     ] + acc_in1 + ACCESSOR_PLACEHOLDER + acc_out
 
+    if writer_on_in0:
+        # Ten scalars then the output accessor, at the offset the in0 sender reads them from:
+        # sparsity_args.next_compile_time_args_offset().
+        in0_sender_ct = in0_sender_ct + writer_ct + acc_out
+
     in1_receiver_ct = [
         in1_block_w * in0_block_w,
         num_blocks, out_num_blocks_x, out_num_blocks_y,
@@ -268,6 +290,10 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
     in0_sender_defines = list(defines) + [("SKIP_MCAST", "1")]
     in1_sender_defines = list(defines)
     in1_receiver_defines = list(defines)
+    if writer_on_in0:
+        in0_sender_defines.append(("WRITER_ON_IN0", "1"))
+        in1_sender_defines.append(("WRITER_OFF_IN1", "1"))
+        in1_receiver_defines.append(("WRITER_OFF_IN1", "1"))
     if in1_mcast_receiver_num_cores == 1:
         in1_sender_defines.append(("SKIP_MCAST", "1"))
     # Blackhole's tiny-tile alignment workaround only fires for a tile size that is not a
@@ -337,13 +363,29 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
             a += [out_block_w // out_subblock_w, out_block_w // out_subblock_w, out_subblock_w, 0, 0]
             a += [last_out_num_blocks_h if last_h else out_num_blocks_y, out_num_blocks_x]
             rt["in1_receiver"].append((core, a))
-        rt["in0_sender"].append((core, [
+        a0 = [
             in0_addr,
             per_core_M * in0_tensor_stride_h * output_idx_y,
             0, 0, 0, 0,                             # in0 mcast args, unused
             per_core_M,                             # last_block_h
             0,                                      # sparsity_addr
-        ]))
+        ]
+        if writer_on_in0:
+            # The in1 receiver kernel's per-core writer args, which is the general layout; the
+            # mcast sender core keeps the values the shipped sender writer gets, so the relocated
+            # writer does byte-for-byte the same work on every core.
+            last_h = core != start_core and output_idx_y == num_blocks_y - 1
+            a0 += [
+                1, out_addr, out_start_tile_id,
+                out_block_h // out_subblock_h,
+                last_nonzero_subblocks_h if last_h else out_block_h // out_subblock_h,
+                last_subblock_of_last_block_h if last_h else out_subblock_h,
+                last_padded_block_tiles_h_skip if last_h else 0,
+                out_block_w // out_subblock_w, out_block_w // out_subblock_w, out_subblock_w,
+                0, 0,
+                last_out_num_blocks_h if last_h else out_num_blocks_y, out_num_blocks_x,
+            ]
+        rt["in0_sender"].append((core, a0))
 
     # --- kernels ----------------------------------------------------------------------------
     wheel = ttnn_cpp_root() / _MM_KERNELS
@@ -360,7 +402,8 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
         dm(dmd / os.path.basename(IN0_SENDER), all_cores, in0_sender_ct, rt["in0_sender"],
            ttnn.DataMovementProcessor.RISCV_1, in0_noc, in0_sender_defines,
            [("cb_in0", CB_IN0), ("cb_in0_sharded", CB_IN0_SHARDED),
-            ("cb_sparsity", CB_SPARSITY0), ("cb_in0_intermediate", CB_IN0_INTERMEDIATE)]),
+            ("cb_sparsity", CB_SPARSITY0), ("cb_in0_intermediate", CB_IN0_INTERMEDIATE)]
+           + ([("cb_out", CB_OUT)] if writer_on_in0 else [])),
         dm(dmd / os.path.basename(IN1_SENDER), in1_mcast_sender, in1_sender_ct, rt["in1_sender"],
            ttnn.DataMovementProcessor.RISCV_0, in1_noc, in1_sender_defines,
            [("cb_in1", CB_IN1), ("cb_bias", CB_BIAS), ("cb_out", CB_OUT),
@@ -389,6 +432,7 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "rt": rt,
             "addrs": (in0_addr, in1_addr, out_addr), "num_cores": num_cores,
+            "writer_on_in0": bool(writer_on_in0),
             "dims": {"Mt": Mt, "Kt": Kt, "Nt": Nt, "B": B, "num_blocks": num_blocks,
                      "num_blocks_x": num_blocks_x, "num_blocks_y": num_blocks_y,
                      "packer_l1_acc_en": packer_l1_acc_en,
@@ -396,8 +440,10 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
                      "mcast_receiver_cores": in1_mcast_receiver_num_cores}}
 
 
-#: Where the output address sits in each kernel's per-core runtime args, for a rebind.
-_OUT_ADDR_IDX = {"in1_sender": 7, "in1_receiver": 2}
+#: Where the output address sits in each kernel's per-core runtime args, for a rebind.  The in0
+#: sender takes 8 args shipped and holds no output address; with the writer relocated onto it, 14
+#: more, of which the output address is the second.
+_OUT_ADDR_IDX = {"in1_sender": 7, "in1_receiver": 2, "in0_sender": 8 + 1}
 
 
 def rebind(entry, in0_addr, in1_addr, out_addr):
@@ -405,6 +451,8 @@ def rebind(entry, in0_addr, in1_addr, out_addr):
     rt = entry["rt"]
     for _, a in rt["in0_sender"]:
         a[0] = in0_addr
+        if entry["writer_on_in0"]:
+            a[_OUT_ADDR_IDX["in0_sender"]] = out_addr
     for _, a in rt["in1_sender"]:
         a[0] = in1_addr
         a[_OUT_ADDR_IDX["in1_sender"]] = out_addr
@@ -418,20 +466,22 @@ def rebind(entry, in0_addr, in1_addr, out_addr):
     entry["addrs"] = (in0_addr, in1_addr, out_addr)
 
 
-def _key(in0, in1, out, pc, ckc, kernel_dir, defines, bcast_batch):
+def _key(in0, in1, out, pc, ckc, kernel_dir, defines, bcast_batch, writer_on_in0):
     spec = lambda t: (str(t.padded_shape), str(t.shape), str(t.dtype),
                       str(t.memory_config()))
     return (spec(in0), spec(in1), spec(out), tuple(map(str, pc)), tuple(str(c) for c in ckc),
-            str(kernel_dir), tuple(sorted(dict(defines).items())), bool(bcast_batch))
+            str(kernel_dir), tuple(sorted(dict(defines).items())), bool(bcast_batch),
+            bool(writer_on_in0))
 
 
-def generic_mm1d(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_batch=True):
+def generic_mm1d(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_batch=True,
+                 writer_on_in0=False):
     """``matmul`` on the 1D ``mcast_in1`` path through ``generic_op``, cached per shape/config."""
-    key = _key(in0, in1, out, pc, ckc, kernel_dir, defines, bcast_batch)
+    key = _key(in0, in1, out, pc, ckc, kernel_dir, defines, bcast_batch, writer_on_in0)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, out, pc, ckc, kernel_dir, defines,
-                                    bcast_batch)
+                                    bcast_batch, writer_on_in0)
     addrs = (in0.buffer_address(), in1.buffer_address(), out.buffer_address())
     if addrs != entry["addrs"]:
         rebind(entry, *addrs)

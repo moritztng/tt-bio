@@ -89,42 +89,54 @@ def main() -> int:
             out_block_h=obh, out_block_w=obw, per_core_M=pcM, per_core_N=pcN,
             fuse_batch=True, mcast_in0=False)
         pc = ((GRID.x, GRID.y), in0_bw, sbh, sbw, obh, obw, pcM, pcN)
-        out_g = ttnn.allocate_tensor_on_device(
-            ttnn.TensorSpec(ttnn.Shape([1, B, M, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
-                            ttnn.BufferType.DRAM), device)
-        arms[kt] = (x, w, pcfg, pc, out_g)
+        spec = ttnn.TensorSpec(ttnn.Shape([1, B, M, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                               ttnn.BufferType.DRAM)
+        out_g = ttnn.allocate_tensor_on_device(spec, device)
+        out_s = ttnn.allocate_tensor_on_device(spec, device)
+        arms[kt] = (x, w, pcfg, pc, out_g, out_s)
 
     def native(kt):
-        x, w, pcfg, _, _ = arms[kt]
+        x, w, pcfg, _, _, _ = arms[kt]
         return ttnn.linear(x, w, program_config=pcfg, compute_kernel_config=KC,
                            memory_config=DRAM, dtype=ttnn.bfloat16)
 
     def generic(kt):
-        x, w, _, pc, out_g = arms[kt]
+        x, w, _, pc, out_g, _ = arms[kt]
         return generic_mm1d(device, x, w, out_g, pc, CKC)
+
+    def split(kt):
+        x, w, _, pc, _, out_s = arms[kt]
+        return generic_mm1d(device, x, w, out_s, pc, CKC, writer_on_in0=True)
 
     # ---- correctness -----------------------------------------------------------------------
     for kt in CASES:
         ref = native(kt)
         got = generic(kt)
+        spl = split(kt)
         ttnn.synchronize_device(device)
-        tr, tg = ttnn.to_torch(ref), ttnn.to_torch(got)
-        eq = bool(torch.equal(tr, tg))
-        mad = float((tr.float() - tg.float()).abs().max())
-        x, w, _, _, _ = arms[kt]
+        tr, tg, ts = ttnn.to_torch(ref), ttnn.to_torch(got), ttnn.to_torch(spl)
+        x, w, _, _, _, _ = arms[kt]
         fp32 = (ttnn.to_torch(x).float().reshape(B * M, -1) @ ttnn.to_torch(w).float())
         def pcc(t):
             u, v = t.float().reshape(-1), fp32.reshape(-1)
             return float(torch.corrcoef(torch.stack([u, v]))[0, 1])
-        R["cases"]["kt%d" % kt] = {"torch_equal": eq, "max_abs_diff": mad,
-                                   "pcc_native": pcc(tr), "pcc_generic": pcc(tg)}
-        print("kt=%-3d torch.equal %s  max|diff| %.3e  PCC native %.6f generic %.6f"
-              % (kt, eq, mad, pcc(tr), pcc(tg)), flush=True)
+        c = {"torch_equal": bool(torch.equal(tr, tg)),
+             "max_abs_diff": float((tr.float() - tg.float()).abs().max()),
+             "split_torch_equal": bool(torch.equal(tr, ts)),
+             "split_max_abs_diff": float((tr.float() - ts.float()).abs().max()),
+             "pcc_native": pcc(tr), "pcc_generic": pcc(tg), "pcc_split": pcc(ts)}
+        R["cases"]["kt%d" % kt] = c
+        print("kt=%-3d generic vs native: torch.equal %s max|diff| %.3e | "
+              "split vs native: torch.equal %s max|diff| %.3e | PCC %.6f / %.6f / %.6f"
+              % (kt, c["torch_equal"], c["max_abs_diff"], c["split_torch_equal"],
+                 c["split_max_abs_diff"], c["pcc_native"], c["pcc_generic"], c["pcc_split"]),
+              flush=True)
         ttnn.deallocate(ref)
 
     if not a.time:
         Path(a.out).write_text(json.dumps(R, indent=1))
-        return 0 if all(c["torch_equal"] for c in R["cases"].values()) else 1
+        return 0 if all(c["torch_equal"] and c["split_torch_equal"]
+                        for c in R["cases"].values()) else 1
 
     # ---- timing, arms interleaved in one process -------------------------------------------
     def fit(xs, ys):
@@ -146,7 +158,7 @@ def main() -> int:
                 ttnn.synchronize_device(device)
                 e = time.perf_counter()
                 for r in rs:
-                    if r is not arms[kt][4]:
+                    if r is not arms[kt][4] and r is not arms[kt][5]:
                         ttnn.deallocate(r)
                 if i >= a.warm:
                     ts.append((e - s) * 1e3)
@@ -156,12 +168,12 @@ def main() -> int:
 
     for kt in CASES:
         for _ in range(3):
-            native(kt); generic(kt)
+            native(kt); generic(kt); split(kt)
         ttnn.synchronize_device(device)
 
     plan = []
     for _ in range(a.rounds):
-        plan += [("native", native), ("generic", generic)]
+        plan += [("native", native), ("generic", generic), ("split", split)]
     plan.append(("native_aa", native))
     for name, fn in plan:
         for kt in CASES:
@@ -176,14 +188,18 @@ def main() -> int:
     best = lambda k: st.median([r["c"] for r in R["arms"][k]])
     for kt in CASES:
         nv, gn = best("native_kt%d" % kt), best("generic_kt%d" % kt)
+        sp = best("split_kt%d" % kt)
         aa = R["arms"]["native_aa_kt%d" % kt][0]["c"]
-        print("kt=%-3d native %.5f ms  generic %.5f ms  generic/native %.4fx  "
-              "A/A floor %.3f %%" % (kt, nv, gn, gn / nv, 100 * abs(nv - aa) / aa), flush=True)
+        print("kt=%-3d native %.5f  generic %.5f  split %.5f ms | generic/native %.4fx  "
+              "native/split %.4fx  generic/split %.4fx  A/A floor %.3f %%"
+              % (kt, nv, gn, sp, gn / nv, nv / sp, gn / sp, 100 * abs(nv - aa) / aa), flush=True)
         R["cases"]["kt%d" % kt].update(
-            {"native_ms": nv, "generic_ms": gn, "ratio": gn / nv,
-             "aa_floor_pct": 100 * abs(nv - aa) / aa})
+            {"native_ms": nv, "generic_ms": gn, "split_ms": sp,
+             "transcription_ratio": gn / nv, "split_over_native": nv / sp,
+             "split_over_generic": gn / sp, "aa_floor_pct": 100 * abs(nv - aa) / aa})
     Path(a.out).write_text(json.dumps(R, indent=1))
-    return 0 if all(c["torch_equal"] for c in R["cases"].values()) else 1
+    return 0 if all(c["torch_equal"] and c["split_torch_equal"]
+                    for c in R["cases"].values()) else 1
 
 
 if __name__ == "__main__":
