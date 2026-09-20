@@ -199,6 +199,41 @@ fields should be nulled or moved rather than labelled.
 Found by `of3t-confhead` pass 1, machine-checked in `perf/of3t_confhead/rank_rule.py`. Independent
 of D1: it is the shipped selector, on the shipped default.
 
+**PASS 95 CORRECTION, by `of3t-confhead` against its own hypothesis: on ubiquitin the rule reduces
+one step FURTHER, to `0.2*pTM` and nothing else.** `disorder` reads **0.0 on all five samples** —
+a compact 76-residue fold never pushes a 25-residue smoothed RASA window past the 0.581 threshold
+— so every `rank_score` in the captured fold is `0.2*ptm` to the last digit. **The disorder
+mechanism below is therefore not what moves these picks**, and a fix aimed at the RASA term would
+have measured nothing on this target.
+
+Scope that correction precisely rather than over-applying it: `disorder = 0` is a property of a
+compact 76-residue monomer, not of monomers. On a larger or genuinely disordered single chain the
+term is non-zero and its 2.5x leverage over the only confidence term applies as written. What is
+refuted is *disorder as the explanation for D10 on 1UBQ*, not the weighting analysis.
+
+**And it makes the obvious fix provably inert.** With `iptm = 0` and `disorder = 0`, the
+`shipped`, `family`, `no_disorder` and `ptm` rules all reduce to a positive multiple of pTM, and a
+positive multiple cannot change an ordering — `rules.py` puts all four on **identical served
+RMSDs, sample for sample**, which needs no further seeds to believe. **So giving OpenFold3 the
+ipTM→pTM fallback the other four models carry changes nothing a single-chain user is served.** It
+remains the right consistency change for complexes; it is not the D10 fix.
+
+**Which relocates the fix.** The selector rests entirely on pTM, whose spread across the five
+samples is **0.010953** while their Cα-RMSD spreads **0.58 A** — it is ranking a 0.58 A structural
+difference with a signal that moves by one part in a hundred. The head also emits **pLDDT, PAE,
+PDE and experimentally-resolved, and the rule reads none of them**. On the three `fix`-arm folds
+captured so far `gpde`, `plddt`, `pae` and `boltz` each avoid the 1.60 A sample entirely and serve
+0.803–0.830 A where pTM serves 0.966 A. The row states plainly that three runs is not a result and
+the nine-seed table decides.
+
+**The reproduction control under all of this is unusually strong and worth recording on its own.**
+One fold, arm `fix`, seed 1, qb2 p300c card 0, **AICLK 1350 MHz with 34 reads during the fold,
+min = max = median = 1350**, 371 s wall: its five ranked Cα-RMSDs reproduce `of3t-pairbias`'s
+published `fix_s1` row to a **worst difference of 3.4e-08 A** — on a different card of the same
+class, through a different driver, with the D1 arm applied by patching the trunk `Pairformer`
+rather than by a second checkout. One comparison confirming the lever, the RMSD computation, the
+ranked order and card-class reproducibility together.
+
 `openfold3_fold.py:277` selects the returned sample with AF3 SI 5.9.3's full-complex metric,
 
 ```
@@ -218,6 +253,36 @@ the rule and not a broken call. (Our `_ptm_iptm` and theirs also agree on pTM to
 confidence term, with a positive sign**. A rival sample needs pTM higher by 0.125 to outrank a
 sample 0.05 more disordered. That is a concrete reason for a selector to prefer the looser mode and
 it predicts the sign D10 observes.
+
+**PASS 103 CORRECTION, from reading the four sites in source: OpenFold3 is alone in the CODE and
+is NOT alone in the resulting ORDER, and the actual outlier is Boltz-2.** Monomer ordering implied
+by each site with `iptm = 0` or `None`:
+
+| site | monomer score reduces to | orders by |
+|---|---|---|
+| `openfold3_fold.py:277` | `0.2*ptm + 0.5*disorder`; disorder = 0 on 1UBQ → `0.2*ptm` | **pTM** |
+| `rf3/confidence.py:108` | `iptm_v := ptm_v`, so `1.0*ptm − 100*clash` | **pTM** |
+| `worker.py:1065` | `iptm ≤ 0 → ptm` (pLDDT only if `ptm == 0`) | **pTM** |
+| `boltz2.py:6238` | `4*complex_plddt + ptm` | **a pLDDT blend** |
+
+**Three of the four order monomers identically, and OpenFold3 is one of the three** — `0.2*ptm`,
+`1.0*ptm` and `ptm` are positive multiples of one another. That is the same algebra `of3t-confhead`
+used to prove the family fallback inert, carried one step further: it is inert across rf3 and
+protenix too, so adopting it would move OpenFold3 from one pTM ordering to another.
+
+**Boltz-2 is the outlier and it is the only site that reads pLDDT at all** — which matters because
+pLDDT is the better signal on this evidence, serving **0.709 A** against `of3_fix`'s 0.755 A and
+shipped's 0.775 A on the same samples. So the chosen fix is **adopting Boltz-2's shape and
+departing from rf3 and protenix**, which is the right direction on the measurement and is not
+"bringing OpenFold3 into line with the family". Consistency with the family is the one
+justification the source does not support.
+
+**And UNIFIED-NEVER-PER-MODEL is not satisfied by making a fourth copy agree with three others
+when the four are four different formulas.** If pLDDT ranks better, the unified answer is one
+shared ranking function all four call, and rf3, protenix and of3 are all currently on the worse
+side of the campaign's own measurement. That is a larger change than `of3t-confhead` should make
+unasked; it is recorded here as the recommendation the evidence supports and as the thing that row
+is deliberately not doing.
 
 **OpenFold3 is alone in the family in leaving the degeneracy unhandled**, checked against the four
 source sites:
@@ -248,6 +313,61 @@ it reaches 2 of the 5 named models by construction and the other 3 must be shown
 with a control that moves them. Owner `of3t-confhead`.
 
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
+
+**PASS 101 — MEASURED END TO END BY `of3t-confhead`. D1 DOES NOT SHIP; D10 SHIPS AS A CORRECTNESS
+FIX WITH NO ACCURACY CLAIM.** 1UBQ, production CLI, the same searched MSA `of3t-pairbias` used, 5
+samples, 200 sampling steps, arms interleaved, p300c, AICLK 1350 sampled during. Four arms from
+two fold campaigns, because a selection-rule change does not move the diffusion samples — six
+seeds with both arms complete, three pairs still folding:
+
+**FINAL, superseding the six-seed interim first recorded here** — nine ship-arm seeds, eight
+fix-arm seeds, seed floor over **28 pairs**, read from `perf/of3t_confhead/analyze.json` on
+`wk/of3t-confhead` at `5588d889a` rather than from the row's prose:
+
+| arm | rank 0 (served) | best of 5 | seed floor, 28 pairs | picks best |
+|---|---|---|---|---|
+| shipped | **0.775 A** | 0.679 A | **0.226 A** | 1 |
+| D1 alone | **1.201 A** | 0.616 A | 1.133 A | 3 |
+| D10 alone | **0.760 A** | 0.679 A | 0.282 A | 1 |
+| D1 + D10 | **0.924 A** | 0.616 A | 0.671 A | **0** |
+
+The D1+D10 gap is **0.92369 − 0.77507 = 0.149 A**, not the 0.170 A of the six-seed interim. Every
+number here moved and the sign did not.
+
+**A nuance the `picks best` column carries and the means hide:** the repaired rule picks the
+single best sample **0 times** on the D1 arm where the shipped rule picks it 3 times — and still
+serves **0.28 A better on average**. It trades *picking the best* for *avoiding the worst mode*,
+which is the right trade on a bimodal distribution and is why mean-served improves while
+picks-best falls.
+
+**D1 does not ship, and fixing the selector did not rescue it.** D1+D10 serves **0.149 A worse**
+than shipped; the best rule in the whole candidate set, `gpde`, still serves 0.861 A, 0.086 A
+worse. The corrected trunk continues to **sample better and serve worse** — best-of-5 0.634 A
+against 0.663 A. The bar is "the served structure, rank 0, at or better than shipped", and it is
+not met.
+
+**The row states, correctly and unprompted, that both gaps are smaller than the shipped arm's own
+0.275 A seed floor**, so neither the regression nor D10's 0.020–0.066 A improvement is separable
+from re-running with another seed. D10 therefore ships as what it is — a rule that gave 0.8 of its
+weight to a term that is identically zero (D24), now fixed, with the served structure no worse —
+and **not** as a measured accuracy win. `plddt` alone would have served 0.709 A, better than the
+chosen `of3_fix` at 0.755 A, and was not picked: a rule chosen for the best number on one target
+is a rule fitted to one target, which is why the nine-rule candidate set was committed before any
+number existed.
+
+**Sign stability is reported rather than a single number**: the D1+D10 gap reads 0.062 A at four
+seeds and 0.170 A at six, same sign throughout. Six seeds, one target, one checkpoint.
+
+**Provenance, recorded rather than buried**: folds ran on qb2 outside the fleet lease system for
+that host (chip 0 seeds 1–5, chip 1 seeds 7–9 plus a `fix` seed-3 re-run, chip 2 seed 6 after
+`c14-land-tail` released the 2/3 board pair). One fold was refused when `of3t-rebase` opened chip
+0 inside tt_bio's 120 s device-lease wait and was re-run; one wedged at 0 % CPU before building
+the trunk and was killed by explicit pid and restarted. Load 39–43 on 16 cores throughout, both
+campaign shells and all descendants at **nice 15 in one sweep so both arms carry equal priority**,
+and no wall-clock trend is claimed. The seed-1 control is what makes cross-chip reporting safe:
+the same seed on a different chip of the same class reproduces the published structure to
+**3.4e-08 A**.
+
 
 **PASS 92 CORRECTION TO THE PASS-90 REFRAME BELOW, by `of3t-confhead`, and it is right.** A
 five-sample ordering has two one-sided marginals and they disagree here. Pass 90 quoted only the
@@ -792,7 +912,32 @@ gradient at all.
 | 640 | PASS | FAIL | 34.215 GB | 6016 |
 
 384's backward went **32.370 GB → 17.983 GB**, which is what made it fit; the ladder now stops
-between 384 and 640. **1,639 of 2,531** declared trunk weights carry a gradient at every
+between 384 and 640.
+
+**PASS 97 — "stops between 384 and 640" understates it, and the arithmetic had never been done.**
+640 failing at **34.215 GB of a 34.22 GB card** reads like a 5 MB miss. It is not: 34.215 GB is
+the high-water **reached before it died**, which is the card ceiling, and 640's live allocation
+count of **6016 is LOWER than 384's 6514** precisely because it never got to its own peak.
+Fitting the three passing rungs (`perf/of3t_orchestrator/crop/crop_ladder_fit.py`):
+
+| fit | crop 640 | crop 768 |
+|---|---|---|
+| `a + b·N²` through 256 and 384 | **51.9 GB, 1.52x the card**, short by **17.68 GB** | **75.2 GB, 2.2x**, short by 41.0 GB |
+| `a + b·N²` through 128 and 384 | 48.9 GB | 70.2 GB |
+
+**So crop 640 needs roughly half a card again, and 768 needs over two cards.** No modest memory
+lever closes 15-18 GB. Stated as an estimate rather than a measurement: these are two-point
+extrapolations under an `a + b·N²` model, and the pairwise exponents differ across the ladder
+(**1.55** from 128→256, **2.20** from 256→384), so the constant is soft. What is robust is the
+order of magnitude, and it says 640 is out of reach rather than nearly in it.
+
+**What that leaves, honestly.** Splitting one model across two chips would fit 640 in their
+combined 68.4 GB and is **forbidden on this fleet**, so more chips is not a path. The one legitimate lever is **deeper
+activation checkpointing** — more recompute for less memory, which trades time and is not "doing
+less of the model's own work". `ops.checkpoint_segment` already covers the three block stacks
+after `of3t-l1`; whether finer segmentation can find 15-18 GB at 640 is **unmeasured and
+unowned**. Until it is, the campaign's demonstrated training scope is **crop 384, one of
+upstream's four stage configs**, and that is a scope bound to state rather than a pending item. **1,639 of 2,531** declared trunk weights carry a gradient at every
 passing rung — the same count at all three, which is the consistency check.
 
 **And the recorded clash was never the defect.** D14's original signature —
@@ -1389,6 +1534,56 @@ key-set check catches the diffusion half and is structurally blind to the trunk 
 with missing 0 and unexpected 0. Pair it with an explicit assertion that the installed revision
 sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
 `of3t-rebase`'s brief is amended accordingly and the live session was told directly.
+
+**PASS 108 — D23's TRUNK HALF IS CONFIRMED TOO, and it survives its own pre-registered
+falsifier.** `of3t-rebase` ran six crop-64 arms against the rebuilt 0.4.3 reference, scored with
+`of3t-orchestrator`'s `revision/d8_vs_endnode.py` **unchanged** — same 5.0e-02 / 2.0e-02 bars,
+same A14 floor, same norm-share definition, 53 compared and 52 kept on both sides so the columns
+are the same tensors. **Recomputed independently by the orchestrator from the row's own artifacts
+and reproducing exactly:**
+
+| arm | median vs 0.5.0 | median vs 0.4.3 | over bar | norm share | |
+|---|---|---|---|---|---|
+| block 0 shipped | 6.481e-02 | **1.2136e-02** | 9/52 | 5.1 % | 5.34x better, **PASS** |
+| block 0 tb-off | 1.148e-02 | 7.3978e-02 | 37/52 | 24.1 % | 6.4x worse, FAIL |
+| block 23 shipped | 9.304e-02 | **1.9191e-02** | 15/52 | 25.0 % | 4.85x better, **PASS** |
+| block 23 tb-off | 1.743e-02 | 1.008e-01 | 46/52 | 70.0 % | 5.8x worse, FAIL |
+| block 47 shipped | 4.270e-01 | **2.0129e-01** | 52/52 | 100 % | 2.12x better, FAIL |
+| block 47 tb-off | 4.004e-01 | 2.386e-01 | 52/52 | 100 % | 1.68x better, FAIL |
+
+**The falsifier was "both arms moving the same direction refutes D23's trunk half."** At blocks 0
+and 23 they move in **opposite** directions — shipped improves, `tb-off` degrades — which is what a
+convention mismatch looks like and nothing else does. Both blocks cross **FAIL → PASS** on the
+median bar. Against the prediction written before the rebuild existed (≈0.0115, ≈0.0174, ≈0.40),
+the measurements land **within 6 % and 10 %** on the first two, and block 47 comes out twice as
+good as predicted.
+
+**Block 47 is a separate animal and D23 does not explain it.** Both arms improve *together*,
+2.12x and 1.68x, and both still fail at 2.013e-01 and 2.386e-01 with 52 of 52 tensors and 100 % of
+the compared norm over bar. **The depth-graded residual stands as its own open finding**, now with
+the reference-side term removed from it.
+
+**These arms are readable because the floor under them is bit-exact** — A13 on the rebuilt
+reference reads worst **0.000e+00** on all 171 tensors — so what they measure is our port's error
+with no reference-side term to share or subtract.
+
+**A mis-pin the row caught and handled exactly right.** The ladder first ran with
+`--scale-pair-bias on`; audited against the arms' own `shipped_config`, that is true of the three
+48-block *stack* arms and **false** of all six crop-64 arms, so the first run moved the bias
+convention and the revision together. The row **moved** those results to
+`perf/of3t_rebase/mispinned_spb_on/` rather than labelling them in place, citing that a label
+beside a wrong number does not stop it being quoted. It kept them as evidence about the flag, and
+they say something new: **the bias scale is worth 4.7x at depth 47** (9.439e-01 mis-pinned against
+2.013e-01 matched) **and nothing at depth 0** (1.207e-02 against 1.214e-02) — **depth-dependent**,
+which no entry records. The mis-pin also dropped `attn_pair_bias.linear_z.weight` out of the
+bijection, 52 instead of 53, which is how it was caught.
+
+**Orchestrator correction:** pass 106 hypothesised from the logs that "D1's correction has an L1
+cost". The arm that hit the circular-buffer clash was the **mis-pinned** `spb on` run, and crop-64
+arms ship with `spb=false`, so the clash was on a configuration that is not shipped. The narrow
+true statement is that `spb=on` clashed at crop 64 where `spb=off` ran; whether that is inherent
+is a lower-priority open question, and the 4.7x-at-depth-47 result is the more interesting fact
+about that flag.
 
 **PASS 91 — D23's DIFFUSION HALF IS CONFIRMED AND CLOSED AT BLOCK 0, against the prediction
 written before the rebuild existed.** `of3t-rebase` built the reference at 0.4.3 and re-ran the
