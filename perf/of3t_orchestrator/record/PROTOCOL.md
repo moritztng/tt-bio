@@ -1002,3 +1002,389 @@ applies to every per-block §3d figure this campaign has produced.
 
 Record: `perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
 `perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`. Filed as D51.
+
+---
+
+**A24 — 2026-09-20, raised by `of3t-orchestrator` (pass 175). An input to a measurement is
+identified by its DIGEST, not by its path, and the digest belongs in the result.**
+
+A brief that names a reference by filesystem path has pinned nothing. A path is a name for
+whatever is at that name *when the row happens to read it*, and in a fleet where several rows run
+at once that is not a constant.
+
+This is not hypothetical. `of3t-trajectory` was dispatched at 10:46 to compare our device
+gradient against `/home/ttuser/of3t_refprec/run/arm4_bf16_autocast/grads_f64.pt`. Six minutes
+later `of3t-refprec` — whose own it1 had been killed at the 3000 s turn cap with no JSON — was
+found re-running all four arms into that same directory. The 2.95 GB reference was about
+twenty-eight minutes from being rewritten in place. `torch.save` truncates the path it opens;
+there is no atomic rename to hide behind.
+
+**The failure mode is what makes this a protocol rule rather than a scheduling note.** A read
+that lands on a short file raises, and a raise is harmless — you lose the run and rerun it. A
+read that lands on a file whose header is new and whose tail is old, or that completes against a
+fully rewritten file that differs from the one every other number in the campaign was scored
+against, produces **a number that looks exactly like a measurement**. Nothing downstream can tell
+the difference, because the only record of what was read is a path that still exists.
+
+So, for every measurement:
+
+1. **Pin the input before reading it.** Copy or otherwise fix the bytes if the writer may still
+   be alive; a hardlink is *not* sufficient, because truncation of the path hits the shared
+   inode.
+2. **Record the digest of what was actually read** in the result artifact, next to the number it
+   produced. A result whose inputs are named only by path is not reproducible and cannot be
+   re-scored later, which is the same reason A15/D17 requires the denominator be written down.
+3. **Verify the digest against the expected value before loading, and STOP on a mismatch** rather
+   than measuring. A mismatch means the pin was taken against something other than the run the
+   surrounding numbers came from; every figure downstream of it would be unattributable.
+4. **When one row reads another row's output, check whether the writer is still running.** The
+   hazard is introduced by whoever dispatches the reader, so it is the dispatcher's to close.
+
+**And it generalises past files.** A checkpoint, a batch, a draws file and a package *revision*
+are all inputs under this rule — the campaign already learned the last of these the hard way,
+twice: a reference's code revision is part of the measurement, and a `getattr` fallback that
+names a version is indistinguishable from having measured one. A24 is the same rule stated once
+for every input rather than re-learned per input type.
+
+Record: D75, `workstreams/of3t-trajectory.txt` AMENDMENT 1 (which carries both pinned sha256s),
+`/home/ttuser/of3t_refprec/pinned_p175/`.
+
+---
+
+**A25 — 2026-09-20, raised by `of3t-orchestrator` (pass 175) after `of3t-direct`'s measurement.
+When the reference is itself imprecise, "agrees with the reference" is a STRICTER bar than "is as
+accurate as the reference", and both must be reported.**
+
+`of3t-direct` measured `diffusion_conditioning` — **36.9462 %** of the model, the campaign's best
+result — against upstream's own bf16 training gradient and it **failed** the bar at **1.0414x**.
+Then it reported the geometry, and the geometry inverts the meaning of the failure:
+
+    our error against the float64 ideal        0.015328
+    upstream's bf16 error against the ideal    0.121864     <- 8x LARGER than ours
+    cos between the two errors                -0.2727      <- weakly ANTI-aligned
+    our distance from THEIR gradient           6.463839e-02  vs threshold 6.207149e-02
+
+**Our gradient is eight times more accurate than the training step we are trying to reproduce**,
+and it fails a bar of the form *"no further from their gradient than they are from the ideal"* —
+because two errors that point different ways **add**. The row put it exactly: the bar "is not 'our
+error is small', it is 'our error is smaller than, or aligned with, theirs'." An error of our
+magnitude that were merely *independent* would read 1.0079x; the anti-alignment alone carries it
+to 1.0414x.
+
+**This is a real bar and it is the right bar for a *trajectory* claim** — if you want to argue our
+optimizer step lands where theirs lands, agreement with their step is what matters and direction
+counts. But it is the **wrong** bar for an *accuracy* claim, and this campaign's own foundation
+says **parity means accuracy, not bit-exactness**. A port that is strictly more accurate than the
+reference cannot be said to have failed to reproduce it on accuracy grounds.
+
+So, for every comparison against a reference that is not the ideal:
+
+1. **Report both distances** — from the reference **and** from the ideal — and the reference's own
+   distance from the ideal beside them. Three numbers, never one.
+2. **Report the cosine between the two error vectors.** It is what decides whether your error sits
+   inside the reference's or adds to it, and it is not recoverable from the magnitudes. Where the
+   ideal is available this costs nothing extra.
+3. **Say which bar a verdict is against.** "Fails agreement with their step at 1.0414x while being
+   8x more accurate than it" is one sentence and it is the result; either half alone misleads, in
+   opposite directions.
+4. **Do not upgrade a failure against the reference into a failure of accuracy**, or a pass on
+   accuracy into a reproduction claim. A15/D17 already requires the denominator be written down;
+   this requires the *subtrahend* be written down too, with its own error.
+
+**What it re-reads.** Every "does not survive the direct test" on this record needs its accuracy
+column beside it. `layer_norm_s` at 1.70x and `conditioning` at 1.0414x are **not** the same kind
+of result, and the diffusion transformer's 138.8x — where our error is genuinely far larger than
+upstream's, not merely misdirected — is a third kind. D72's optimistic reading was wrong to treat
+a shared-subtrahend pass as agreement; it does not follow that agreement is the only thing worth
+measuring.
+
+**A25 ADDENDUM — 2026-09-20, same pass, forced by A26. The worked example above says
+`diffusion_conditioning` "FAILED the bar at 1.0414x". Read A26 before you carry that verdict
+anywhere.** The 1.0414x is against the *"equals float64"* threshold, and **A26 shows no bf16 port
+can reach that threshold**: two independent error vectors of equal size subtract to **sqrt(2)**
+times it. Against the bar a bf16 port can actually reach, **the same measurement passes at
+0.7363x**.
+
+A25's substance is unchanged and still required — agreement with an imprecise reference is a
+stricter test than accuracy; report three distances and the cosine; say which bar. What changes is
+**the verdict on its own example**, and clause 3's model sentence should now read: *"passes the
+reachable bar at 0.7363x while being 8x more accurate than the step it reproduces"* rather than
+*"fails agreement at 1.0414x while being 8x more accurate"*. Both describe one measurement; the
+second scores it against a bar nothing can meet.
+
+This addendum exists because **an amendment that supersedes another's conclusion has to say so
+inside it.** A row reads PROTOCOL top to bottom and stops when it has what it needs; leaving the
+correction only in A26 means A25 goes on teaching a failure the campaign no longer stands behind.
+Same rule as "a superseded stamp does not stop a number being read", applied to protocol rather
+than to artifacts.
+
+Record: `of3t-direct` (`f2d29c403`), D72, D76, `of3t-trajectory`'s
+`perf/of3t_trajectory/NOTES.md`.
+
+---
+
+**A26 — 2026-09-20, raised by `of3t-residual` (pass 175) and adopted. The bar for an independent
+reimplementation is NOT "equals the ideal". Two independent error vectors of the same size
+subtract to sqrt(2) times that, so sqrt(2) x threshold is the bar a port can actually be held to,
+and the "equals the ideal" threshold is UNREACHABLE by construction.**
+
+A25 established that when the reference is itself imprecise, agreement with it is a stricter bar
+than accuracy. A26 says how much stricter, and it is calculable rather than a matter of taste.
+
+Write `e` for our error against the ideal and `t` for the reference's. What an agreement comparison
+measures is `||e - t||`, and
+
+    ||e - t||^2 = ||e||^2 + ||t||^2 - 2<e,t>
+
+so for two implementations of **the same accuracy** whose errors are **independent**
+(`||e|| = ||t||`, `<e,t> = 0`), the reading is `sqrt(2) ||t||` — **not zero, and not `||t||`**. On
+the diffusion scope that is
+
+    "equals float64" threshold          5.750945e-02     unreachable for any bf16 port
+    independent, same accuracy          8.133064e-02     = sqrt(2) x threshold
+    of3t-residual's bounded arm         7.777580e-02     = 0.9563x that bar
+
+**and the residual is arithmetic, not a defect.** Our bounded error is 5.930664e-02 from float64
+against upstream's 5.852018e-02 — a ratio of **1.0134** — with the two error vectors nearly
+orthogonal at **cos +0.0977**. That predicts
+`sqrt(1.0134^2 + 1 - 2*1.0134*0.0977) * 5.750945e-02 = 7.77768e-02` against a **measured
+7.777580e-02**: agreement to **1.26e-05 relative**. The distance that survives an accurate softmax
+is the consequence of subtracting two independent bf16 error vectors of the same size, and **no
+work on our side of the comparison can remove it.**
+
+`of3t-residual` demonstrated that directly and it is the most useful negative result of the pass:
+bounding the transition path on top of the softmax removed **35 %** of our own error — distance
+from float64 5.930664e-02 to 3.815464e-02, per-tensor count over the 5.0e-02 bar from 295 of 547
+to **43 of 547** — and bought **0.57 %** of agreement. Getting *more accurate than the reference*
+does not get you *closer to the reference*.
+
+So, for any agreement claim against an imprecise reference:
+
+1. **State the sqrt(2) bar beside the "equals the ideal" threshold**, and score against the one a
+   port can reach. Quoting only the unreachable one manufactures a failure — D76's mistake in a
+   subtler form: not an unreachable *branch*, an unreachable *bar*.
+2. **Predict the agreement from the three measured quantities** — `||e||`, `||t||`, `cos(e,t)` —
+   and report the prediction beside the measurement. If they agree, the gap is geometry and there
+   is nothing to fix; if they disagree, *that* difference is the defect, and it is smaller than the
+   raw gap.
+3. **Do not spend effort reducing `||e||` below `||t||`** in pursuit of agreement. Past that point
+   the reading is dominated by `||t||` and improvements are invisible. Say so rather than
+   optimising into it.
+4. **The sqrt(2) applies only to independent errors of equal size.** With a measured `cos` and
+   ratio, use the full expression above; sqrt(2) is the special case, quoted because it is the
+   right order-of-magnitude sanity check.
+
+**What A26 does not license.** It is not permission to stop measuring: a port whose error is
+*larger* than the reference's still fails on accuracy (the diffusion transformer at 129x), and a
+port whose error is *anti-aligned* reads worse than sqrt(2) even at equal size — `diffusion_
+conditioning` at cos -0.273 is the case, and `of3t-residual`'s own transition-bounded arm flips to
+cos -0.2938, which is why its agreement barely improved while its accuracy improved 1.55x.
+
+Record: `of3t-residual`'s A25 field and `perf/of3t_residual/`, PROTOCOL A25, D76, D86.
+
+---
+
+**A24-AMENDMENT — 2026-09-20, forced by `of3t-pairformer` (pass 175, D88). A digest pins the
+BYTES, not the FUNCTION. Two gradients of different losses produce a finite, plausible, entirely
+meaningless relative error, and no amount of digest discipline detects it.**
+
+A24 requires every input be identified by digest, verified before loading and recorded. That is
+necessary and it is **not sufficient**. At pass 175 I dispatched a row to score the pairformer
+trunk against a pinned reference whose sha256 matched exactly — and which was the gradient of a
+**different step**: arm4 at loss 1.267624369070698 against the only available trunk boundary at
+loss 1.6591175475821072. The row verified the digest, refused the reference, and built one over
+its own boundary with upstream's own module and recipe so that all arms share one function by
+construction.
+
+So, added to A24: **before scoring, assert that both sides are functions of the same loss**, by
+whichever of these the scope allows —
+
+1. **bit-identity of a shared intermediate** — `of3t-trajectory` asserts `diffcap043`'s `grad_f64`
+   is bit-identical to the bundle's own float64 gradient over all 547 tensors, max abs diff 0.0,
+   and says why: *without it our gradient and arm4's are not gradients of the same loss*;
+2. **the loss value and the gradient's global norm**, recorded on both sides and compared — the
+   two numbers that caught D88, and they are free;
+3. **construction** — compute the reference over the **same captured boundary** with upstream's
+   own module and recipe, which is what `upstream_arm.py` does and is the strongest form, because
+   it makes the shared function true by construction rather than by check.
+
+And when a brief names a reference, it must name the **step** the reference is of, not only its
+path and digest. A reference is identified by digest **plus the function it differentiates**.
+Record: D88, `of3t-pairformer`'s DIGEST field, A24.
+
+---
+
+**A27 — 2026-09-20, forced by D96 (pass 176), mine. A ratio names HOW ITS DENOMINATOR ARM WAS BUILT. "x upstream's own bf16" is not a unit: a full-cast bf16 arm and an autocast bf16 arm differ by 4.08x on the same tensor, because autocast exempts LayerNorm and softmax from the cast.**
+
+Any figure quoted as `N x <reference>` states **how the reference arm was constructed**, not just
+what it is called. "x upstream's own bf16" is not a unit: a full-cast bf16 arm and an autocast
+bf16 arm differ by **4.08x** on the same tensor, because autocast exempts LayerNorm and softmax
+from the cast. I formed a ratio against one, compared it against a ratio formed with the other,
+and called the wrong pre-registered branch on a 5.4x "shortfall" that was 4.08x unit error.
+
+**The rule.** A denominator is an input, and A24 identifies inputs by digest. A normalising arm is
+identified by: dtype policy (full-cast / autocast / mixed), which ops are exempted, and the tensor
+and mask it was computed over. Two ratios may be compared only if those agree; otherwise compare
+the **absolute** distances and say so.
+
+**Preferred practice**: publish the absolute relative L2 alongside every ratio. The absolute
+numbers in D96 were mutually consistent under the triangle inequality the moment they were put
+side by side; the ratios were not comparable at all.
+
+---
+
+**A26-SCOPE — 2026-09-20, surfaced by `of3t-auxgrad` (pass 177). A26's `sqrt(2)` applies ONLY
+when the reference is itself imprecise. Against a float64 reference the "equals the ideal"
+threshold is the one that binds, and quoting `sqrt(2) x threshold` there is too generous.**
+
+A26 says the bar an independent bf16 reimplementation can actually reach is `sqrt(2) x
+threshold`, because two independent error vectors of equal size subtract to `sqrt(2)` times one
+of them. That geometry requires **both** sides to carry error — it is A25's situation, where the
+reference is another approximation.
+
+When the reference is **float64**, only one side carries error. The subtraction is
+`||e - 0|| = ||e||`, the factor is 1, and the reachable bar is the threshold itself. A comparison
+scored against float64 may not claim A26's widening.
+
+**How to apply.** State the reference's precision beside any invocation of A26, the same way A27
+requires a ratio to name how its denominator arm was built. `of3t-auxgrad` quoted the reachable
+bar because its brief asked for it and then said plainly that it did not bind — that is the
+correct handling, and it is why the 89-of-176 per-tensor overage was reported against 5.0e-02
+rather than quietly against 7.071068e-02.
+
+Record: `of3t-auxgrad` (`state/of3t-auxgrad.md`, BARS), A25, A26, A27.
+
+**A26-SCOPE, worked both ways so the rule is not misapplied (added the same pass).** This
+amendment narrows A26, and a narrowing rule can silently invalidate a standing headline if
+applied to the wrong comparison. It does not here, and the reason is the distinction the rule is
+made of:
+
+- **`of3t-auxgrad`'s aux_heads comparison** is against a **float64** reference. One side carries
+  error, the factor is 1, and the binding bar is `5.0e-02` / `2.0e-02` itself. A26 does **not**
+  widen it, which is why that row reported 89 of 176 tensors over the per-tensor bar rather than
+  82 over the widened one.
+- **The diffusion arm's `0.9563x`** is against **upstream OpenFold3's own bf16 training step** —
+  an imprecise reference, which is exactly A25's situation. Both sides carry error, so A26's
+  `sqrt(2)` **does** apply and `7.777580e-02` against the `8.133064e-02` two independent bf16
+  implementations would read is a legitimate PASS. The campaign's central positive result is
+  untouched by this amendment.
+
+So the test is not "is our side bf16" but **"does the REFERENCE carry error"**. Anyone invoking
+A26 states the reference's precision; anyone narrowing a bar re-reads the headlines that stood
+under the old one, rather than assuming they survive.
+
+---
+
+**A28 — 2026-09-20, raised by `of3t-orchestrator` (pass 182) and adopted only after being shown
+to cost nothing. Every reading carries its REACHABILITY FLOOR: the reference's own
+implementation at training precision, scored against the same float64 reference, on the same
+statistic and in the same arms.** A bar is a claim about what is achievable, and that claim is
+**empirical**. Report three things — OURS, THEIRS-AT-TRAINING-PRECISION, and the ratio. The
+raw distance says whether the *quantity* is well-conditioned; **the ratio is the only one that
+says whether the PORT is faithful.**
+
+**What forced it.** The trunk's backward reads `5.367727e+00` against a `2.0e-02` float64 bar —
+**268x**. Pass 182 measured what upstream's OWN all-bf16 run reaches over the same 48 blocks
+against the same reference: `cos 0.194`, `r = 5.05`. The 48-block chained single-track cotangent
+is ill-conditioned in bf16 **for anyone**, so most of that 268x is floor and **our actual defect
+is 13.0x** — a figure `of3t-trunkback` reached independently at 12.75x from the parameter
+gradients. Quoting 268x as the thing to fix would have pointed a row at a number that no
+implementation can reach.
+
+**This does NOT relax any bar, and that is a condition of adoption, not a caveat.** The bar
+stays exactly where it was fixed before measuring, the verdict stays scored against it, and the
+floor is reported *beside* it. Anyone invoking A28 to move a verdict from FAIL to PASS is
+invoking it wrongly.
+
+**Tested before adoption, which is the part that makes it admissible.** Re-scoring every
+measured scope against upstream's own bf16 floor (D72's table, completed at pass 182 with the
+trunk row that did not exist when it was written) **changes NO verdict**: the diffusion
+transformer stays failing at **141.6x** the recipe's own error and the trunk at **12.75x**. An
+amendment that had flipped a verdict in the lenient direction would be goalpost-moving and
+would have to be argued in front of Moritz rather than written here. This one was run in the
+generous direction first and rescued nothing, so it is a reporting requirement and not a
+loosening.
+
+**It also cuts against us, and must be reported when it does.** On `diffusion_conditioning` our
+error is **7.95x SMALLER** than upstream's own bf16 step — so upstream's own implementation
+would **fail** a scope we pass. A28 requires saying that too. The floor is not a defence; it is
+context, and it is reported whichever way it points.
+
+**Interaction with A26/A26-SCOPE.** A26 asks whether the REFERENCE carries error, and widens the
+bar by `sqrt(2)` when it does. A28 asks a different question — whether the BAR IS REACHABLE at
+training precision — and never widens anything. A scope can be scored against float64 with no
+`sqrt(2)` (A26-SCOPE) and still owe a floor under A28. Both are stated; neither substitutes for
+the other.
+
+---
+
+**A29 — 2026-09-20, forced by D108 (pass 184), mine. AN EQUIVALENCE CLAIM NAMES THE TWO THINGS IT
+COMPARED.** "Revision-inert", "cosmetic", "functionally identical" — these are the highest-stakes
+words this campaign uses, because inertness is what licenses scoring a scope against either
+upstream tree. Any artifact asserting one must name, in the same artifact, the **source files it
+read in both trees** and the **specific construct** it checked. A citation of another artifact
+does not discharge it.
+
+**This is A27 one level up.** A27 says a ratio names how its denominator arm was built. A29 says
+an *equivalence* names what was set equal to what. Both exist because the reader cannot
+reconstruct the comparison from the conclusion.
+
+**What forced it.** D108: the diffusion transformer, **51.1358 %** of the gradient mass, was on
+the record as revision-inert on a reading that had never been re-checked — and it is not inert.
+0.4.3 gives every DiT block its own learned `layer_norm_z`; 0.5.0 deletes all of them for one
+shared pre-stack norm. The reason it was easy to miss is instructive: the *class split* that rode
+along with the change (`AttentionPairBias` → `DiffusionAttentionPairBias`) **is** inert, so
+reading the split and stopping there looks exactly like having checked.
+
+**Enforced mechanically, and the weak form was rejected after testing.** `audit_evidence.py` now
+fails any `perf/of3t_orchestrator/*.json` that uses the word *inert* without a source path in the
+same artifact. Both forms were run against all eight artifacts that use the word: requiring *a
+path or a citation* passed all eight, **including one that propagated "verified revision-inert"
+with nothing behind it** — a vacuous guard. Requiring a path fired on exactly that one. The weak
+form was discarded for being green, which is the thing a guard is supposed to make impossible.
+
+**A29 AMENDMENT, same pass — the word list is the SOURCE-EQUIVALENCE family ONLY, and finding
+its edge mattered more than finding the rule.** The guard covers *inert*, *cosmetic*,
+*functionally identical*, *identical in both*. It deliberately does **not** cover
+**bit-identical** or **byte-identical**, and the reason is a category distinction worth stating:
+those are claims about **measured tensor data**, and their correct evidence is a **number or a
+digest**, not a source path. Tested before deciding — widening the list to include them would
+have fired on **nine well-evidenced artifacts**, each already carrying exactly the right proof
+for its kind of claim: *"max abs diff 0.0"* over 26 tensors, *"sha256 d631c39e..."* for a
+reproduced gradient dump, a two-arm forward comparison. That would have been the **fifth** time
+in this campaign a guard was built wider than its subject.
+
+So the rule is not "demand a source path whenever a document says two things are the same." It
+is: **an equivalence between two pieces of CODE names the files; an equivalence between two
+pieces of DATA names the number or the digest.** Both are checkable; they are not checkable the
+same way. Adding *cosmetic* and *functionally identical* fires on nothing today and closes the
+hole where the identical claim escapes the guard by word choice alone.
+
+**A29 SECOND AMENDMENT, pass 192 — the guard needed a declared exemption, and finding that out
+cost nothing because it fired on me.** Two passes after A29 landed, the campaign documented why a
+*retired-claim* guard cannot be phrase-matched: **the text that retires or discusses a claim must
+quote it**, so the matcher fires hardest on the artifacts doing the right thing. A29's guard has
+the same shape, and it proved it immediately — it fired on
+`A_RETIRED_CLAIM_GUARD_WAS_PROTOTYPED_AND_REJECTED.json`, which asserts nothing and merely
+recounts *"the diffusion transformer called revision-inert when it is not"* as one of the
+recurrences that motivated it.
+
+Two bad resolutions were available: add a source path that proves nothing, or silently skip
+meta-discussion. Both hide the tension. Instead an artifact may now declare **`a29_exempt`** with
+a **non-empty reason**, argued in the artifact itself. The exemption is visible, greppable, and
+costs its author a sentence of justification — which is the right price for opting out of a
+check. Tested three ways: passes with a justified exemption, still fires on a bare claim, and an
+**empty** `a29_exempt` does **not** excuse it, so the escape hatch cannot be taken silently.
+
+The generalisation, for any future guard over prose: a guard whose subject is a *word* will
+eventually fire on the campaign discussing its own history. Build the exemption in at the start,
+make it require a reason, and make the empty reason fail.
+
+**The general lesson, recorded because it is bigger than this amendment.** The evidence audit runs
+162 checks and reads 0 drifted, and **every one of them is numeric**. In one week the prose inside
+those green documents produced three defects: an inference fold cost quoted as the price of
+training parity (nearly escalated to Moritz as a decision), "fused-qkv" for 240 unplaced leaves
+with nothing establishing it, and "inert" for a module that is not. **A number can be recomputed
+from an artifact, so a guard can own it; a word has only an author.** Green-on-numbers had been
+licensing the prose. A29 mechanises the one characterisation that was worth the most; the rest
+still need re-reading by hand.
