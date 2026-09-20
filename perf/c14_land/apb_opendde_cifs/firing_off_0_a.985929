@@ -1,0 +1,1 @@
+{"pid": 985929, "argv": "-c", "wrap": null, "patched": false, "calls": 0, "counter_name": "tt_bio.tenstorrent:APB_CONCAT_HEADS_STATS", "counter": null, "env_flags": {"TT_BIO_APB_CONCAT_HEADS": "0", "TT_BIO_LEASE_CARDS": "3", "TT_BIO_LEASE_HOLDER": "worker:c14-land-tail", "TT_BIO_PARENT_PID": "985595"}}

@@ -66,7 +66,10 @@ one() {  # arm seed runlabel
         --seed "$seed" --out_dir "$work" \
         > "$WT/perf/c14_land/xm_${MODEL}_${arm}_${seed}_${run}.log" 2>&1
   local rc=$?
-  local d=$OUT/${arm}${seed}_${run}
+  # Name the arm dir <size>_<arm>_<run>, which is what perf/other512/cif_rmsd.py parses.
+  # The first run used <arm><seed>_<run> and that scorers per-arm rollup found no members and
+  # crashed after printing the pairwise table -- the measurement survived, the summary did not.
+  local d=$OUT/0_${arm}${seed}_${run}
   mkdir -p "$d"
   find "$work" -name '*.cif' -exec cp {} "$d"/ \;
   # The firing count travels with the fold. An arm that scored 0.000 A because the flag never

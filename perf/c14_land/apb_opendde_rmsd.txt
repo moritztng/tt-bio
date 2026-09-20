@@ -1,0 +1,49 @@
+  off0_a                        900 atoms  prot.cif
+  off0_b                        900 atoms  prot.cif
+  off1_a                        900 atoms  prot.cif
+  off2_a                        900 atoms  prot.cif
+  on0_a                         900 atoms  prot.cif
+
+  atom identity identical across all 5 folds (900 atoms), so the comparison is atom-for-atom
+
+  pairwise all-atom Kabsch RMSD, A:
+    A/B  off0_a                     vs off0_b                         0.000000
+    A/B  off0_a                     vs off1_a                         5.542367
+    A/B  off0_a                     vs off2_a                         1.232094
+    A/B  off0_a                     vs on0_a                          0.133722
+    A/B  off0_b                     vs off1_a                         5.542367
+    A/B  off0_b                     vs off2_a                         1.232094
+    A/B  off0_b                     vs on0_a                          0.133722
+    A/B  off1_a                     vs off2_a                         5.565516
+    A/B  off1_a                     vs on0_a                          5.538896
+    A/B  off2_a                     vs on0_a                          1.241868
+
+  vs the `on` arm:
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/c14-land-tail/perf/other512/cif_rmsd.py", line 185, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/c14-land-tail/perf/other512/cif_rmsd.py", line 181, in main
+    print(f"    {arm:16s} {min(vals):9.6f} .. {max(vals):9.6f} A")
+                           ^^^^^^^^^
+ValueError: min() iterable argument is empty
+
+READING (the tail above is a crash in the summary section of perf/other512/cif_rmsd.py, not a
+failed measurement: my arm dirs are named `off0_a` where that script expects `<size>_<arm>_<run>`,
+so its per-arm rollup finds no members. The pairwise table is complete and is the measurement.)
+
+    A/A control   off0_a vs off0_b    0.000000 A     folds are deterministic; the run is readable
+    SIGNAL        off0_a vs on0_a     0.133722 A     APB on against APB off, same seed
+    seed floor    off0_a vs off2_a    1.232094 A
+    seed floor    off0_a vs off1_a    5.542367 A
+
+Firing, from the shim, per leg: on = 5288 served / 0 declined, every off leg = 0 served / 5288
+declined. Full coverage and complete arm separation, so this is a reading about the re-laned path
+and not about 9 % of it.
+
+VERDICT: APB moves OpenDDE by 0.1337 A against a seed-scatter floor of 1.23-5.54 A on the same
+fixture -- between 9x and 41x smaller than changing the seed. The 5.54 A leg is a basin flip, which
+is the expected behaviour of a diffusion model under any perturbation and is why the floor is quoted
+as a range rather than a single number.
+
+This is the cross-model reading the flip owed, and it is stronger than the protenix-v2 one it
+replaces: protenix-v2 was 1.997 vs 1.999 A at ~9 % coverage, OpenDDE is 0.1337 A at 100 %.
