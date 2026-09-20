@@ -1,0 +1,17 @@
+scored blocks [0, 1, 2, 3]
+
+arm     folds   mean load   median    min    max
+base       96      1.5270    1.515   0.82   2.60
+on         48      1.9446    1.790   0.77   3.60
+
+load sensitivity, fitted on the 96 base folds : +0.0022 s per unit loadavg (r = +0.016)
+mean loadavg gap (on - base)                  : +0.4176
+  worth                                       : -0.0009 s of fold time
+  measured APB effect                         : +0.0551 s
+  fraction attributable to load               : -1.7 %
+
+VERDICT: LOAD-ADVERSE, effect survives
+  The arms did NOT run at equal load: the `on` arm averaged +0.4176 higher, 27 % above base. A HIGHER load makes a fold SLOWER, so the load difference works AGAINST the measured speedup rather than for it. Load cannot have manufactured this effect; if anything the true lever effect is slightly larger than the measured 0.0551 s.
+
+  The fitted slope is NOT load-bearing here and should not be quoted as a correction: r = +0.016 over a range of 0.82-2.60 means the sensitivity is undetermined on a box this quiet. The direction argument above needs no slope.
+  CAVEAT on the metric: loadavg1 is a ONE-MINUTE average, and the bracket runs base,on,base, so an `on` leg's reading partly reflects the base leg that preceded it. That is a plausible cause of the gap and it does not change the direction argument.
