@@ -16,6 +16,16 @@ DTYPE POLICY, written out because "float64" names a width and not a policy (PROT
   bf16auto   float32 parameters under `torch.autocast("cpu", bfloat16)` -- upstream's own
              training recipe, the bar a bf16 port is actually measured against.
 
+ATTENTION PRECISION. The one other thing that differs between these revisions on this path is
+0.5.0 passing `use_high_precision_attention=True` into the single track's `AttentionPairBias`.
+It reaches `_attention`, which wraps its scores in `torch.amp.autocast("cuda", float32)` -- inert
+on CPU, so the flag cannot fire here and a float64 arm cannot see it. `--attn hp32` writes that
+policy out by hand instead (D93's method: a flag selecting a dtype policy can have its policy
+written out), casting q/k, the bias add and the softmax to float32 and the result back. Paired
+with `--policy bf16auto` that is the regime where the difference is live. `--attn native32` is
+its control: the same machinery selecting the tree's own policy, which must read bit-identical
+to an unpatched run or the instrument is the finding.
+
 TRANSPOSE BIAS. 0.5.0's `base_blocks.py` differs from 0.4.3's by exactly one added line,
 `transpose_bias=True` on the ending-node triangle attention. `--tb off` forces it back off and
 `--tb on` forces it on, by patching `TriangleAttention.forward` rather than by editing a tree.
@@ -78,6 +88,25 @@ def force_tb(value: bool):
     ta.TriangleAttention.forward = patched
 
 
+def force_attn(policy: str):
+    """Write the attention dtype policy out by hand, because the flag that selects it is a CUDA
+    autocast context and CPU disables it."""
+    import openfold3.core.model.primitives.attention as att
+    soft = att.softmax_no_cast
+
+    def patched(query, key, value, biases, use_high_precision=False):
+        in_dtype = query.dtype
+        dt = torch.float32 if policy == "hp32" else in_dtype
+        scores = torch.einsum("...qc, ...kc->...qk", query.to(dt), key.to(dt))
+        for b in biases:
+            scores = scores + b.to(dt)
+        scores = soft(scores, dim=-1)
+        return torch.einsum("...qk, ...kc->...qc",
+                            scores.to(value.dtype), value).to(in_dtype)
+
+    att._attention = patched
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tree", required=True)
@@ -86,6 +115,7 @@ def main() -> int:
     ap.add_argument("--report", required=True)
     ap.add_argument("--policy", default="f64", choices=("f64", "f32", "bf16auto"))
     ap.add_argument("--tb", default="keep", choices=("keep", "off", "on"))
+    ap.add_argument("--attn", default="keep", choices=("keep", "native32", "hp32"))
     ap.add_argument("--blocks", type=int, default=48)
     ap.add_argument("--threads", type=int, default=8)
     a = ap.parse_args()
@@ -97,6 +127,8 @@ def main() -> int:
         raise SystemExit(f"wrong tree on sys.path: {openfold3.__file__} is not under {a.tree}")
     if a.tb != "keep":
         force_tb(a.tb == "on")
+    if a.attn != "keep":
+        force_attn(a.attn)
 
     torch.set_num_threads(a.threads)
     torch.manual_seed(0)
@@ -124,7 +156,7 @@ def main() -> int:
 
     rep = {"what": __doc__.strip().splitlines()[0], "tree": a.tree,
            "openfold3_file": openfold3.__file__, "policy": a.policy, "tb": a.tb,
-           "blocks": a.blocks, "dims": dims, "load": load,
+           "blocks": a.blocks, "dims": dims, "load": load, "attn_policy": a.attn,
            "dtype_policy": {
                "f64": "every parameter and every activation float64; checkpoint upcast once at "
                       "load; no cast on the path; upstream's CUDA-autocast contexts are inert on "
@@ -137,7 +169,7 @@ def main() -> int:
            "out": a.out}
     with open(a.report, "w") as fh:
         json.dump(rep, fh, indent=2)
-    print(json.dumps({"tree": a.tree, "policy": a.policy, "tb": a.tb,
+    print(json.dumps({"tree": a.tree, "policy": a.policy, "tb": a.tb, "attn": a.attn,
                       "loaded": load["tensors_loaded"], "missing": len(load["missing"]),
                       "unexpected": len(load["unexpected"]),
                       "s_norm": rep["s_norm"], "z_norm": rep["z_norm"],

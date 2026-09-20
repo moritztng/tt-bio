@@ -30,10 +30,17 @@ def digest(root: Path) -> dict:
     files = sorted(root.rglob("*.py"))
     per = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
     whole = hashlib.sha256("".join(sorted(per.values())).encode()).hexdigest()
+    witness = {w: per.get(w) for w in WITNESS}
+    absent = [w for w, h in witness.items() if h is None]
+    if absent:
+        # A digest that reports ABSENT for the files that decide the function has gone quiet on
+        # the only question it was asked. Make it a failure, not a string in a report.
+        raise SystemExit(f"{root}: witness files not found: {absent} -- pass the PACKAGE ROOT "
+                         f"(the directory named openfold3), not its parent")
     return {"root": str(root), "n_py_files": len(files), "tree_sha256": whole,
             "rule": "sha256 of the sorted per-file sha256 hex strings, concatenated, of every "
                     ".py under the package root",
-            "witness_files": {w: per.get(w, "ABSENT") for w in WITNESS}}
+            "witness_files": witness}
 
 
 if __name__ == "__main__":
