@@ -6546,3 +6546,379 @@ must not be done while the rebuild is a single row's local artifact — `of3t-so
 boundary is on qb2 in its worktree, which is exactly the trap again. The fix is to land the
 rebuilt reference somewhere campaign-owned and repoint the scripts at that, and it should be one
 deliberate act rather than 26 edits scattered across rows that have concluded.
+
+### D111 UPDATE (pass 194). The mechanism is `ttnn.max` TRUNCATING to bf16, reproduced on a CPU to the integer; the product half of the flag is CLOSED on an invariant, and the repair is landed but UNEXECUTED.
+
+**The mechanism, named exactly.** `ttnn.max` truncates its result to bf16 by discarding mantissa
+bits — round **toward zero**, not round to nearest. On a negative row that puts the result ABOVE
+the true maximum, so `d = x - m` is negative at every element *including the one that is the
+maximum*, and there is no `exp(0) = 1` left to hold the sum off zero.
+
+**Reproduced with no device and no ttnn.** -1e9 truncated to bf16 is -998244352, exactly
+**1755648** above it — `of3t-softgrad`'s device measurement to the integer. The same CPU model
+also reproduces its **clamp60 finite** and **clamp88 NOT finite** readings, the second only once
+the model carries fp32's subnormal flush, which is precisely why -88 fails where -60 works. Three
+of three device readings before the model's fourth output is relied on.
+`perf/of3t_orchestrator/nanlever/{bf16_max_truncation.py,BF16_MAX_TRUNCATION.json}`.
+
+**The invariant that closes the product question.** Truncating a value already on the bf16 grid
+returns that value. So a **bf16 input gives an exact maximum**, `d == 0` at the maximum element,
+and the sum cannot be zero — whatever the mask magnitude is. Exposure needs BOTH an fp32 input off
+the bf16 grid AND a fully-masked row.
+
+**Every site that ships the chain ON feeds it bf16, and there are FOUR, not three.** The pass-190
+list missed `rf3`'s AttentionPairBias (`rf3/remap.py:263`). All four reach the chain through the
+**non-atom** branch of `AttentionPairBias` (`tenstorrent.py:8398`), which has no fp32-softmax route
+at all: `fp32_softmax` is only read by `_attention` (`:8112`), which serves `atom_level=True`. The
+non-atom path builds `logits` with `batched_matmul` on bf16 q/k and then `add_`/`multiply_` in
+place. `self.dtype` is bf16 unless `_DTYPE_OVERRIDE` is set (`:8021`), which no shipped model does.
+
+**And the site where the argument is load-bearing really does produce fully-masked rows.**
+OpenDDE's refiner pads `extra_attn_bias` with -1e9 on **both** token axes
+(`token_axis.py:462`) and its `Ns = 2*n_res - n_gly` axis is essentially never bucket-aligned, so
+padded — fully masked — rows occur on effectively every fold. They come out **uniform**, not NaN,
+because of the dtype. That is a better answer than pass 190's "Protenix-v2 is served with this on
+and no folds have failed": true, and the kind of evidence that stops being true the moment a site
+changes dtype.
+
+**What is still open.** The repair — floor the exponent at -60 — is committed on
+`wk/of3t-orchestrator` (`f84e232af`) and has **never executed**: pc has no card and no torch, so it
+is syntax-checked and verified as arithmetic, not as a run. Its **backward** is unmeasured and has
+its own hazard: on a fully-masked row the floored sum is ~1.1e-24 and `1/s**2` is ~8e47, past
+fp32's 3.4e38. Row `of3t-nanfloor` dispatched to execute it, and to test flooring the SUM instead
+(`s = ttnn.clamp(s, tiny, None)`), which is bit-identical on any row with a live maximum and costs
+a `[.., 1]` op rather than a full-size one.
+
+### D113. The compute kernel config never reached the 5-op chain, and the arm that helps settle the campaign's NO-GO was measured through that. FIXED on `wk/of3t-orchestrator`, UNEXECUTED.
+
+Both `_fp32_softmax_tail` call sites called `_accurate_softmax(x)` with no config
+(`tenstorrent.py:3773` and `:3787`), so the chain's fp32 `ttnn.sum` ran at the **op default**
+however the site was configured. The tree's other two call sites — `tenstorrent.py:8398` and
+`esmfold2.py:86` — always passed theirs, which is what makes this a slip rather than a decision.
+
+**Why it matters beyond tidiness.** The campaign's NO-GO rests in part on "no ON-DEVICE
+configuration reaches the bar", and one of its four arms is `softmax_accurate` at **1.323x** the
+bar for 1.661x cost. That arm was measured with the reduction at the op default. Whether the
+config moves it is **unmeasured**, and it is now measurable. A NO-GO whose supporting arm was
+structurally unable to show an effect is not settled — which is the same shape as D110, where
+`precise_config()` fired 1,440 times and changed nothing.
+
+Bands pre-registered in `workstreams/of3t-nanfloor.txt` before any number exists: inside the
+2.0e-02 mass-weighted bar means the 51.1358 % scope is REACHABLE ON DEVICE and the NO-GO does not
+stand as written; between the bar and 1.323x means it buys ground and misses; at or worse than
+1.323x means the dropped config was inert and the four-arm argument stands.
+
+### D114. The trunk's single-track "cliff" is not a precision loss — it is `scale_pair_bias=False`, and float64 says so to machine epsilon. ROOT-CAUSED by `of3t-trunkcliff`; the trunk's gradient is now readable for the first time.
+
+`of3t-trunk043ref` localised the trunk's remaining forward failure to the **single** track, a
+**9.22 % magnitude deficit made in blocks 45 to 47 of 48** — a cliff, not an accumulation, norm
+ratio falling 0.9920 → 0.9576 → 0.9113 → 0.9078 at cos 0.998430. `of3t-trunkcliff` then reproduced
+it at the op with two bit-exactness controls and named the cause: `AttentionPairBias` folds the
+pair bias inside its own score scale, `(q.k^T + z) * d**-0.5`, so a reference that adds the bias
+UNSCALED needs it pre-baked by sqrt(head_dim). `scale_pair_bias=False` does not, leaving the token
+pair bias at **1/sqrt(24) = 0.2041** of the reference value in all 48 blocks.
+
+**In float64 with the bias pre-scaled the single-track update reproduces upstream 0.4.3 exactly**:
+rel 7.882e-17 at block 8, 2.993e-16 at 44, 4.204e-16 at 45, 8.579e-16 at 46. An identity, not a fit.
+
+**Why it cliffs is the same fact from the other side.** The single track's own growth collapses the
+logits: `|q.k|max` 13916.7 → 6366.7 → 975.1 → 873.5 over blocks 8/44/45/46 while `|bias|max` only
+moves 53.88 → 83.21 → 29.44 → 22.75, so bias/q.k goes 0.0039 → 0.0131 → 0.0302 → 0.0260. A bias
+4.899x too small is invisible at 0.4 % of the logits and dominant at 3 %, and the error tracks that
+ratio one for one.
+
+**On device**: `scale_pair_bias=True` alongside the existing `tri_att_scale_pair_bias=False` takes
+the single track from 1.065338e-01 to **1.655263e-02**, inside both the 5.0e-02 bar and A26's
+7.071068e-02, with the pair track **bit-identical** (z norm 1040888.017681702 in both arms).
+Residual after the flip is **2.48x** upstream's own composed bf16 — genuine excess remains, 35x
+smaller than the convention was.
+
+**HELD, and the reason outranks an activation reading**: `of3t-confhead` concluded that D1+D10
+together serves **0.149 A worse at rank 0** over nine ship and eight fix seeds, and that fixing the
+selector did not rescue it. Nothing is flipped; `compose_verify.sh` still asserts the shipped
+default.
+
+**Two sub-findings.** The two precision knobs at this site are structurally **dead** —
+`fp32_softmax=False` and `accurate_softmax=True` move the block-45 output by 3e-06 and 4e-05
+relative, because the TOKEN-level branch of `AttentionPairBias.__call__` computes attention inline
+and never calls `self._attention`, the only place `fp32_softmax` is read; so `fp32_softmax=True` in
+`openfold3_trunk.py` buys the token attention nothing. And `s_fp32_residual` — the candidate the
+magnitude signature invites, and which the orchestrator's first draft of this entry proposed
+re-running — was already refuted twice by `of3t-rebase` with the lever shown firing.
+
+**Orchestrator error caught in the same pass, worth recording because it nearly cost a row.** My
+first draft of this entry filed D114 as "UNFIXED, the campaign's sharpest remaining defect" and
+dispatched a row named `of3t-trunkcliff` to root-cause it — a slug that already existed, concluded,
+having root-caused it. The check that caught it was grepping concluded rows' VERDICTS for the slug
+before writing the brief, which is `duplicate-check-grep-state-verdicts-not-just-task-names`
+working as intended. The near-miss is the argument for doing it every time: the name I invented
+independently was the name the row that already answered the question had been given, because it
+described the phenomenon.
+
+**What is left**: the trunk's **5.8282 % gradient has never been read against a 0.4.3 reference in
+either arm**. `of3t-pairformer`'s 1.061553e+01 is void under A18. With the pair track passing as
+shipped and the single track passing under an existing flag, A18 is satisfiable for the first time.
+Row `of3t-trunkg043` dispatched, bands pre-registered, flipping no shipped default.
+
+### D115. The guard that exists to stop GAP drifting checked one direction only, so six defects sat labelled UNFIXED in GAP while DEFECTS.md called them FIXED — one for nineteen passes. FIXED and guarded, and the guard's own break control caught a bug that would have made it useless.
+
+`audit_evidence.py` asserts that **every defect whose heading says UNFIXED is NAMED in GAP**. That
+is coverage. It says nothing about the **label GAP attaches**, so a defect could be FIXED in
+DEFECTS.md and go on being called UNFIXED in GAP forever, silently. Six were:
+
+| defect | GAP said | DEFECTS.md said | |
+|---|---|---|---|
+| D77 | UNFIXED | FIXED | **nineteen passes** |
+| D80 | UNFIXED, dispatched | FIXED | its own GAP body ends "**RESOLVED**" |
+| D95 | UNFIXED | FIXED | its own GAP body says "**D95 CLOSED at pass 176**" |
+| D101 | UNFIXED, deliberately | FIXED at 183, published | |
+| D90 | UNFIXED — escalation WITHDRAWN | WITHDRAWN | reconciled in words, allowed |
+| D113 | UNFIXED in effect, fixed in code | FIXED | reconciled in words, allowed |
+
+Two of them **contradicted themselves three lines apart** — a label reading UNFIXED above a body
+reading RESOLVED or CLOSED. A reader takes the label.
+
+**Why this is the same defect the campaign keeps filing.** D74, D76 and pass 175's D77 note are all
+"the guard read a narrower form than the document uses". This one is narrower in a different
+dimension: it read *presence* where the document could get *agreement* wrong. A guard that checks
+one direction of a two-way consistency is not a consistency check.
+
+**The fix**: a reverse check, wired into the same audit. A mismatch fires only when GAP's own
+parenthetical says UNFIXED and does **not** also name the status DEFECTS.md gives it, so
+"UNFIXED — escalation WITHDRAWN" and "UNFIXED in effect, fixed in code" pass. Nuance is allowed;
+an unreconciled contradiction is not.
+
+**And the break control earned its place immediately.** The first version tested reconciliation
+with `st not in label` — and **"FIXED" is a substring of "UNFIXED"**, so every FIXED defect
+reconciled against a label saying the exact opposite. FIXED is the commonest status, so the check
+would have been born unable to fire on the six cases that motivated it, and it would have reported
+`ok` on every run. The synthetic probe caught it on the first execution. Three controls now stand
+behind it: the probe (must fire on a known contradiction, or the check's silence is reported as
+uninformative rather than as a pass), a positive control on real data (the four stale labels put
+back are all four detected), and a nuance control (a reconciled label stays clean).
+
+`negative-control-must-break-what-check-reads`, and this time the thing it broke was the guard.
+
+### D19 UPDATE / D23 trunk half (pass 196). The pre-registered branch is CALLED from data already collected, with no card: D19's refutation condition DID NOT occur, so the revision IS the cause and both are CLOSED for the trunk.
+
+D19 carried a prediction registered before the arms ran: *"the **shipped** arm falls from 2.792e-01
+toward the bf16 composition floor while the **`tb-off`** arm, at 4.965e-02 against 0.5.0, gets
+worse. **Both arms moving the same way refutes D23's trunk half**."* `of3t-trunk043ref` collected
+the full 2x2 and nobody called the branch. It is called here, on the pair track at crop 64:
+
+| arm | vs 0.4.3 | vs 0.5.0 |
+|---|---|---|
+| **SHIPPED** | **4.947045e-02** | 2.793661e-01 |
+| **LEVER** (tb-off) | 2.118280e-01 | **4.971863e-02** |
+
+- shipped **fell 5.65x**, 2.793661e-01 → 4.947045e-02, as registered;
+- tb-off **rose 4.26x**, 4.971863e-02 → 2.118280e-01, as registered.
+
+**They moved in OPPOSITE directions, so the registered refutation condition did not occur.**
+D23's trunk half is **CONFIRMED**: the reference revision is the cause of D19's trunk figure, and
+D19 is closed as a port defect. Each arm agrees with **its own** convention's reference to
+**0.50 %** (4.947045e-02 against 4.971863e-02) and disagrees with the other's by 4.26x to 5.65x.
+A pure convention difference is the only thing that produces that shape.
+
+**One asymmetry, reported rather than smoothed.** The diagonal is tight to 0.50 %; the
+off-diagonal is **31.9 % apart** (2.793661e-01 against 2.118280e-01). The two conventions are
+therefore not mirror images through our port — our own bf16 error composes differently with each —
+so the 2x2 identifies the cause without licensing "the convention is the whole of the
+off-diagonal".
+
+**And the single track is convention-inert across all four cells**: 1.012900e-01 to 1.075168e-01,
+spread **1.0615x**. That is independent confirmation of D99's "the single track is ours and no
+convention change touches it", and it is consistent with `of3t-trunkcliff` finding a *different*
+flag (`scale_pair_bias`) behind it.
+
+No card was used. The measurement is `of3t-trunk043ref`'s; the call is this pass's.
+
+### D87 UPDATE (pass 196). SUPERSEDED. "The pairformer trunk's FORWARD is broken over 48 composed blocks" was true against a 0.5.0 reference and is not true against the one the checkpoint is bound to.
+
+Against 0.4.3 the **pair** track's composed forward reads **4.947045e-02**, under the 5.0e-02 bar.
+The **single** track's 1.065338e-01 is real but is not "the forward is broken over 48 blocks": it
+is `scale_pair_bias=False` (D114), it reproduces upstream to **rel ~1e-16** in float64 with the
+bias pre-scaled, and the already-landed flag reads 1.655263e-02 on device. The claim that "its
+gradient inherits that" survives only in the narrow A18 sense and is what `of3t-trunkg043` is
+dispatched to settle.
+
+### D91 UPDATE (pass 196). UNFIXED, narrowed. The owed arm is DELIVERED, so D91 goes from "the trunk returns to UNMEASURED" to "the trunk's GRADIENT is unread; its forward is now measured on both tracks against the right revision".
+
+D91 withdrew the trunk's 18.89 % error-mass share because it came from a reading against the wrong
+upstream revision, and returned `pairformer_stack` to unread. `of3t-trunk043ref` then ran the arm
+D99 recorded as still owed — SHIPPED against a 0.4.3-built reference — with 2 of 2 release trees
+built in full, 2736 of 2736 tensors loaded into each and whole-tree digests pinned before loading.
+**The forward is now measured on both tracks against the right revision.** The gradient is not, in
+either arm, and that is the whole of what D91 still names. `of3t-trunkg043` owns it.
+
+### D99 UPDATE (pass 196). CLOSED. Its own "still owed" line is delivered.
+
+D99 ended: *"Still owed: D91's arm, SHIPPED against a 0.4.3-built reference -- needs a card."*
+`of3t-trunk043ref` ran it. Its other claim — that the trunk has two failures and only the
+pair-track one is the reference — is confirmed twice over by the 2x2 above: the pair track moves
+5.65x with the convention, the single track moves 1.0615x across all four cells.
+
+
+### POINTER (pass 196), deliberately not headed with a defect number. D22 and D23 both stay UNFIXED; only their TRUNK half is settled.
+
+(Headed this way because a `### Dn ...` line is parsed as that defect's status declaration, and the word "closed" in this one's prose was read by the audit as D22 being closed. A pointer is not a status.)
+
+D19's UPDATE above closes the trunk half of D23 on its own pre-registered branch: each arm agrees
+with its own convention's reference to 0.50 % and disagrees with the other's by 4.26x to 5.65x, and
+the registered refutation condition did not occur. D22 and D23 keep their UNFIXED headings because
+their **diffusion** half is a separate question this pass did not check, and a defect whose label
+is right for one half and wrong for the other is exactly the drift D115 is about. Whoever closes
+the diffusion half should say so on these headings rather than in a third document.
+
+### D115 UPDATE (pass 196). What was actually swept for the same one-way shape, so the next reader does not redo it.
+
+Two other checks in `audit_evidence.py` have a coverage-only shape, and neither is the same defect:
+
+- **the scoreboard check** (`PROVES/DOESNOT must quote these N artifact-derived figures`) verifies
+  that every figure it knows about is quoted, and not the reverse — that every figure in the prose
+  is backed by an artifact. The reverse is not tractable as written: it would have to attribute
+  every number in two long prose fields to a source, and the false-positive rate would bury the
+  real finding. It is left one-way **deliberately**, which is a different thing from left one-way
+  **unnoticed**, and that is the distinction D115 is about.
+- **the tractable half of that reverse — a withdrawn figure still appearing in the prose — was
+  already prototyped as a retired-claim guard and REJECTED** (pass 188, commit `35d354794`), and
+  it found a real stale quote on the way. Not re-litigated here.
+
+So D115's "the same shape is likely elsewhere" is now **narrowed to: it was, in one place, and that
+place is deliberate**. The class stays open only in the weak sense that the campaign's other
+assert_*.py guards have not each been read for it.
+
+### D113 UPDATE (pass 198). REAL as a code defect, INERT as an explanation — and the inference that made it look load-bearing was mine and is refuted by measurement.
+
+I filed D113 as "the arm that helps settle the campaign's NO-GO was measured through a dropped
+config" and reopened the verdict partly on it. `of3t-nanfloor` ran the counterfactual and the
+premise does not hold.
+
+**The arm never went through the code I fixed.** The dropped config was in the two
+`_fp32_softmax_tail` call sites in `tt_bio/tenstorrent.py`; the `softmax_accurate` arm does not go
+through them — it installs its own rule on the tape verb, and **it has passed
+`_SOFTMAX_PRECISE_CKC` since it was written** (`8f413dae4` through `_accurate_softmax`, `8b6963af8`
+inlined). I read the source for the shipped path and asserted it was the path the measurement took.
+Those are different claims and I did not check the second.
+
+**Measured anyway, and inert to the bit.** Three arms on card 0 of a p300c, 48 structures each,
+same rebuilt 0.4.3 boundary, AICLK sampled DURING: shipped 63 s at mean **1316 MHz**, accurate_ckc
+and accurate_nockc 104 s at **1329 MHz**, `host_quiet` green at loadavg 0.27 against a 2.00 ceiling.
+`accurate_ckc` and `accurate_nockc` both read **1.076374e-01** — 1.323x the A26 reachable bar,
+5.3819x the 2.0e-02 mass-weighted bar — and their **547 tensors are bit-identical to each other**
+and to `of3t-softgrad`'s published accurate arm. The census proves the two arms really did differ:
+**fwd_precise 1440 / fwd_none 0** against **fwd_precise 0 / fwd_none 1440** over 1,440 intercepted
+softmax calls each. So the config was installed, it fired, and it changed nothing.
+
+**The control reproduces and is stronger than the headline agreeing**: shipped reads
+**7.426217e+00** and its 547 gradient tensors are **bit-identical** to `of3t-softgrad`'s shipped
+dump.
+
+**Pre-registered third band fires**: at or worse than 1.323x, the dropped config was inert and
+**the four-arm argument stands**. The 51.1358 % scope is settled as it was — no on-device
+configuration reaches the bar. D113 stays a real defect in `_fp32_softmax_tail` and is release-gated
+on `wk/of3t-orchestrator`; it explains nothing about the campaign's reading.
+
+**The counterfactual was still worth running**, for the reason the row gives: *"the source says it
+is passed"* and *"it reached the op"* are different claims, and now the census says both.
+
+### D111 UPDATE 2 (pass 198). UNFIXED, narrowed to one pending check. The floor EXECUTES, its blast radius at op level is exactly zero, and the form that shipped is 17.8x better than the form that was measured — because of the one design choice that was argued before it was written.
+
+**D0**: all four landed forms run on a p300c — `ttnn.clamp(d, -60.0, None)`, `_accurate_softmax(x,
+ckc)` positional with the config and with `None`, and the same on a bf16 input. No TypeError.
+
+**D1 forward**, on `rank5b.py`'s input verbatim: the shipped function returns **0 non-finite** and
+**rel_l2 6.493967e-04** against a float64 softmax. The pre-registration expected 0.011574924 ±1 %,
+and this is **17.8x smaller** — the landed form is NOT the form that was measured, and the
+difference is in the floor's favour.
+
+**Why**, and it is the one thing this repair got right by argument rather than by luck: `rank5b`'s
+`accurate_clamp60` also clamps the **TOP** at 0 (`ttnn.minimum(d, 0.0)`), which pulls the largest
+exponent from `exp(+0.0625)` down to `exp(0)` on every row where `ttnn.max` reads short. The row
+reproduced the both-sided form and it reads **0.01157492424155284**, the published digits exactly.
+The commit that landed the one-sided clamp had rejected the top clamp explicitly — clamping `d` at
+0 flattens every entry above the truncated maximum and destroys their ordering — and the
+measurement is 17.8x. **The shipped one-sided floor is also 2.15x better than the fused kernel**
+(1.3958e-03) on the same input.
+
+**Blast radius, measured**: against the unfloored chain, **every row with a live maximum is
+bit-identical** and the 114,688 non-finite entries on the masked rows go to 0.
+
+**The backward hazard flagged in the brief is real and it is order-dependent.** The arm's rule is
+analytic — `y*(g - sum(g*y))` — and never divides by the row sum: finite, **rel_l2 7.352071e-04**.
+Differentiating the CHAIN is where the overflow lives: `1/s = 8.925e+23` squares to **7.96e+47** and
+overflows (114,688 non-finite), while dividing by `s` twice is finite.
+
+**And the alternative the orchestrator argued and never ran is measured and WORSE.** Flooring the
+SUM is finite and is also bit-identical on live rows, and needs its floor at 1e-18 or above to keep
+`1/s**2` in range — but it costs the forward: masked rows come back as **zeros** rather than the
+uniform distribution the softmax of a constant row actually is, **rel_l2 0.167 overall** against
+6.494e-04 for the exponent floor. **Keep the exponent floor.** The suggestion was mine, it was
+offered as the cheaper option, and it is 257x worse.
+
+**Immunity, measured rather than argued**: on an input exactly on the bf16 grid, `ttnn.max`
+overshoots by **exactly 0.0** and falls short by **exactly 0.0**, and the shipped chain is finite.
+That is the pass-194 invariant confirmed on hardware.
+
+**Why D111 stays UNFIXED**: the floor is landed in a shipped function, and its blast radius is
+measured **at op level** only. Deliverable 3 — one OpenDDE fold at a non-bucket-aligned token
+count, finite and **bit-identical** to the unfloored tree by digest — is in flight on
+`of3t-nanfloor` (`immunity_fold.py`). Until that returns, "no shipped model moves" is an op-level
+result generalised, which is exactly the step D63 exists to stop: blast radius is measured by
+digest, never inferred from an op.
+
+### D111 UPDATE 3 (pass 199). FIXED. The floor's blast radius is now measured in a shipped model, by digest, which is what D63 asks for.
+
+`of3t-nanfloor` closed Deliverable 3: the two repairs "carry **zero blast radius in a shipped
+model**". Combined with the op-level result (every row with a live maximum bit-identical, all
+114,688 non-finite entries gone) and the hardware-measured immunity invariant (on a bf16-grid input
+`ttnn.max` overshoots by exactly 0.0), D111 is closed. The floor stays release-gated on
+`wk/of3t-orchestrator`; nothing is merged.
+
+### D116. The trunk's gradient is 22.52x upstream's own bf16 and the forward cannot see it: the error ACCUMULATES along the backward, and 92.68 % of its mass sits on four LayerNorm affine leaves. UNFIXED, dispatched.
+
+`of3t-trunkg043` read the pairformer stack's gradient against the **0.4.3** reference over **2736
+of 2736 tensors** — the whole scope, share of the stack's squared gradient norm exactly 1.0 — in
+the arm whose forward **passes** A18 (`s_masked` 1.691313e-02, `z_masked` 4.880487e-02, both inside
+5.0e-02, pair track bit-identical under the flip).
+
+| | |
+|---|---|
+| ours vs upstream 0.4.3 float64 | **9.025172e+00** mass-weighted |
+| upstream's own bf16, same boundary | 4.007237e-01 → we are **22.52x** it |
+| upstream fp32, same boundary | 3.655681e-05 |
+| zero-gradient baseline (A16) | exactly 1.0 → we are **9.03x worse than emitting zeros** |
+| break control | 1.844880e+02 |
+| mass-weighted norm ratio / cos | **1.5989** / **0.8187** — wrong in direction as well as size |
+
+**This is the pre-registered band that fired**, and the brief named the outcome before the number
+existed: *worse than ~2.5x their bf16 means a backward defect the forward does not show*, which is
+**D9's shape** (a 3.2x gradient change under a 12 % forward change).
+
+**The shape is accumulation along the backward**, which is exactly why a forward comparison is
+structurally blind to it: per block the flipped arm sits at **0.94x to 3.81x** upstream's own bf16
+over blocks **44-47, where the backward starts**, and **4.22x to 66.88x** over blocks **0-11, where
+it ends**.
+
+**The locus is a leaf CLASS, not a block.** Four single-track LayerNorm affine leaves —
+`attn_pair_bias.layer_norm_a.weight`, `attn_pair_bias.layer_norm_a.bias`,
+`single_transition.layer_norm.weight`, `single_transition.layer_norm.bias` — hold **2.121 %** of the
+gradient mass and **92.68 %** of the error mass. Worth noting against the campaign's own history:
+the kickoff directive flagged `single_transition` as *"the one sub-module with no attention and no
+pair coupling… the only one under the bar. That is mechanism-shaped. Follow it."* It is now inside
+the failing set, on the backward rather than the forward.
+
+**Padding is refuted as the mechanism**: zeroing the boundary pad rows leaves both the reference's
+and our own parameter gradients **bit-identical**, mass-weighted 0.000000e+00 on both sides, so the
+8 padded positions of 64 contribute nothing to either side.
+
+**One oddity carried rather than smoothed**: SHIPPED reads **5.506930e+00**, *lower* than the
+flipped arm's 9.025172e+00 — but its forward fails A18 at `s_masked` 1.064843e-01, so it is not the
+scope's reading. A lower number at a disagreeing forward is what A18 exists to refuse.
+
+Row `of3t-bwdaccum` dispatched, with the discriminator pre-registered: score the **cotangent**
+entering each block against the reference's, because a cotangent flat at the bf16 floor means a
+wrong leaf backward (a per-op defect) while one degrading with depth means something injects it per
+block and the leaves are a symptom. `dW = sum(g*xhat)` and `db = sum(g)` are bf16 reductions over a
+long axis, which is where **D55** (precision withheld from a reduction inside a cancellation) and
+**D111** (silent bf16 rounding on a reduce) both bite.
