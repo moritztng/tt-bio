@@ -1,37 +1,64 @@
 {
  "as_of": "2026-09-20, of3t-orchestrator pass 182 -- arithmetic over of3t-trunkback's published ds_in cosines, no new measurement, CPU only",
-
  "headline": "The trunk's per-block backward error is NOT uniform over depth -- given an equally CLEAN input cotangent, block 47's single-track error is 136x block 0's. It grows about 1.09-1.13 per block. This refines the pass-181 compounding model, which assumed one per-block error compounding 48 times. And upstream's OWN all-bf16 run over the same 48 blocks lands at cos 0.194 (r = 5.05), so the chained 48-block cotangent is an intrinsically brutal quantity in bf16 -- our defect against it is 13.0x, not the 268x the float64 headline implies.",
-
  "the_conversion_and_its_assumption": "r = ||error perpendicular to reference|| / ||component parallel to reference||, from cos = 1/sqrt(1+r^2). This assumes the usual parallel/perpendicular decomposition against the reference; it is a restatement of of3t-trunkback's published cosines, not a new measurement, and r is relative to the PARALLEL component, not to the reference's norm. Two or three points are not a curve and no constant here is fitted.",
-
  "single_blocks_each_given_a_clean_captured_cotangent": {
-  "block_0":  {"cos": 0.999988, "r": 0.004899},
-  "block_23": {"cos": 0.999318, "r": 0.036951},
-  "block_47": {"cos": 0.831806, "r": 0.667303},
+  "block_0": {
+   "cos": 0.999988,
+   "r": 0.004899
+  },
+  "block_23": {
+   "cos": 0.999318,
+   "r": 0.036951
+  },
+  "block_47": {
+   "cos": 0.831806,
+   "r": 0.667303
+  },
   "spread": "136.2x from block 0 to block 47",
-  "per_block_growth": {"b0_to_b23": 1.0918, "b23_to_b47": 1.1281},
+  "per_block_growth": {
+   "b0_to_b23": 1.0918,
+   "b23_to_b47": 1.1281
+  },
   "why_this_is_not_contamination": "each of these is a COMPLETE single-block problem -- of3t-trunkback captured that block's own input and its own output cotangent, and both sides are driven by the same captured cotangent. No error arrives from above. So the 136x is intrinsic to the block AT THAT DEPTH, and since every block runs the same code, what differs is the conditioning of the activations there."
  },
-
  "what_this_corrects": "pass 181 wrote that compounding a measured per-block error of 4.125325e-02 over 48 blocks predicts 5.9615 against a measured 5.351880, and concluded 'no mechanism beyond the per-block error compounding is required'. The closing arithmetic stands, but its premise -- ONE per-block error, applied 48 times -- is now measured to be false: the per-block error spans 136x over depth. The agreement of that calculation is therefore weaker evidence than it looked, because a 48-fold product is insensitive to how the factor is distributed. The conclusion it was used for (amplified, not accumulated) does NOT depend on uniformity and still holds: the chain reads 98.3x the worst single block it contains.",
-
  "the_chain_still_exceeds_every_block_in_it": {
   "worst_single_block_r": 0.667303,
   "chain_of_48_r": 65.613484,
   "ratio": "98.3x -- so chaining creates error far beyond any block's own contribution, which is the amplification result and is unaffected by the non-uniformity above"
  },
-
  "the_sobering_part_and_it_may_move_the_BAR": {
-  "upstream_own_all_bf16_over_the_same_48_blocks": {"cos": 0.194406, "r": 5.046},
-  "ours": {"cos": 0.015239, "r": 65.613},
+  "upstream_own_all_bf16_over_the_same_48_blocks": {
+   "cos": 0.194406,
+   "r": 5.046
+  },
+  "ours": {
+   "cos": 0.015239,
+   "r": 65.613
+  },
   "ours_over_floor": "13.0x",
   "reading": "upstream's own implementation, every parameter and activation in bfloat16 with no autocast, run over the same 48 blocks against the same float64 reference, ends up at cosine 0.194 -- nearly orthogonal. The 48-block chained single-track cotangent is an ill-conditioned quantity in bf16 for ANYONE. So our real defect is 13.0x upstream's own bf16, not the 268x that 5.367727 against a 2.0e-02 float64 bar implies, and most of that 268x is a floor no bf16 port can beat.",
   "independent_cross_check": "of3t-trunkback reached 12.75x for the PARAMETER gradients by a different route. This 13.0x is for the cotangent DIRECTION and is derived only from cosines. Two statistics, two derivations, agreeing to 2 %.",
   "what_it_does_NOT_license": "relaxing the bar. PROTOCOL fixes the bars before measuring and A26-SCOPE already says the reachable bar against a FLOAT64 reference is the threshold itself with no sqrt(2). Whether a scope whose bf16 floor is cos 0.194 should be scored against float64 at all is a PROTOCOL question for a written amendment, argued in front of the numbers -- not something to decide inside a result file. Flagged, not taken."
  },
-
  "what_it_tells_a_successor_row": "stop looking for one op that is wrong everywhere. The per-block error tracks DEPTH, the blocks are identical code, and each was measured with a clean input -- so the candidate class is whatever varies with depth in the activations the backward multiplies: growing activation norms, a residual stream that widens, a normalisation whose Jacobian conditioning degrades as its input scale grows. The cheap discriminator is a per-block ladder of single-block backward error at more than three depths, plus the activation norm at each, which of3t-trunkback's captures already support without a new forward.",
-
- "provenance": "of3t-orchestrator pass 182 on pc, CPU only. Every input is from origin/wk/of3t-trunkback at c38371a89, tables IG_CHAIN.json / IG_LADDER.json as quoted in state/of3t-trunkback.md's VERDICT. No number here is a new measurement and none is mine."
+ "provenance": "of3t-orchestrator pass 182 on pc, CPU only. Every input is from origin/wk/of3t-trunkback at c38371a89, tables IG_CHAIN.json / IG_LADDER.json as quoted in state/of3t-trunkback.md's VERDICT. No number here is a new measurement and none is mine.",
+ "REFUTED_IN_PART_AT_PASS_186_BY_of3t_trunkdepth": {
+  "status": "The SPREAD in this file is confirmed and larger than I measured. The ATTRIBUTION is refuted. I wrote that since every block runs the same code, what differs at depth must be the conditioning of the activations there, and I dispatched a row on that sentence. The row tested it on seven depths and the pre-registered answer is DIFFUSE.",
+  "what_the_row_measured": "of3t-trunkdepth, seven boundaries (0, 8, 16, 23, 32, 40, 47) out of ONE float64 replay. Blocks 0, 23 and 47 reproduce of3t-trunkback digit for digit -- 4.125325e-02, 6.124381e-02, 5.313206e-01 and ds_in cos 0.999988 / 0.999318 / 0.831806 -- so the four new depths sit on the same instrument.",
+  "the_preregistered_test_FAILED_and_by_how_little": {
+   "thresholds_fixed_in_advance": "Spearman rho >= 0.929 (two-tailed p<=0.01 at n=7, chosen to hold the six-candidate family under ~0.06), span >= 10x, and a log-log fit reproducing >= half the dependent's log-spread",
+   "ours_over_floor": "spread 11.85x; best candidate ||s_in|| reaches rho 0.857, span 376.6x, fit 0.632 of a 1.074 log-spread -- it clears the span and fit gates and MISSES ONLY rho",
+   "Ds_direction_deficit": "spread 13839.9x; ||s_in|| reaches rho 0.893, span 376.6x -- again misses only rho",
+   "verdict": "DIFFUSE on both dependents. Neither reaches 0.929. The row honoured the threshold it fixed in advance instead of rounding 0.893 up to 'tracks', which is the whole value of having set it."
+  },
+  "and_two_arguments_that_go_further_than_the_threshold": [
+   "THE LADDER HAS NO POWER TO SEPARATE THE TWO LEADING CANDIDATES. ||s_in|| is monotone in depth over these seven boundaries, so depth and ||s_in|| are RANK-IDENTICAL and a rank test cannot tell them apart. A higher rho would not have identified the norm either. That is a defect in the instrument I specified, not in the row's execution.",
+   "EFFECT SIZE KILLS THE NORM ANYWAY. Over blocks 8..47, ||s_in|| moves 1.57x while the raw direction deficit moves 1165x. The 376.6x span that passed my span gate is carried almost entirely by block 0. A variable that moves 1.57x cannot explain a 1165x move, which is exactly the failure mode my own span gate was written to catch -- and it slipped through because the span was computed across all seven points rather than across the range where the effect lives."
+  ],
+  "what_survives_from_this_file": "the raw spread, and it is bigger than I reported: ours/floor spans 11.85x across the ladder and the direction deficit spans 13839.9x. Block 0 sits at 1.67x its own pure-bf16 floor and block 47 at 19.82x. So the trunk's backward really is far worse at depth than at the top, the per-block error really is not uniform, and the pass-181 premise of ONE per-block error compounding 48 times remains wrong. What does NOT survive is my explanation of WHY.",
+  "what_this_costs_the_campaign": "a located cause for the trunk's 5.8282 %. The scope stays measured-and-failing at 5.367727e+00, 13.0x upstream's own all-bf16 floor over the same 48 blocks, with the locus known (the single-track cotangent chain over depth) and the mechanism unlocated. Under the verdict criteria re-fixed BLIND at pass 184 -- before this row reported -- 'returns DIFFUSE, or names a direction without a fix' is written in as NO-GO for this scope.",
+  "note": "of3t-trunkdepth had not written its state doc or concluded when this was recorded; LADDER.json and its commit are pushed and explicit, and this reads only those. Its own verdict governs."
+ }
 }
