@@ -6,6 +6,7 @@
 #
 #   devgrad_traj.sh            the real run
 #   devgrad_traj.sh permcot    the break control, every sample seeded with the wrong cotangent
+#   devgrad_traj.sh sm64       AMENDMENT 3's bound, every softmax on the host in float64
 set -uo pipefail
 W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
@@ -16,10 +17,11 @@ export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=wor
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 OUT=/home/ttuser/of3t_trajectory
 mkdir -p "$OUT"
-if [ "${1:-}" = "permcot" ]
-then TAG=_trajpermcot; PT=_permcot; EXTRA=--permute-cot
-else TAG=_traj; PT=; EXTRA=
-fi
+case "${1:-}" in
+  permcot) TAG=_trajpermcot;  PT=_permcot;  EXTRA=--permute-cot ;;
+  sm64)    TAG=_trajsm64;     PT=_sm64;     EXTRA=--softmax-f64 ;;
+  *)       TAG=_traj;         PT=;          EXTRA= ;;
+esac
 echo "=== device gradient, 48 structures, tag $TAG, card $CARD  $(date -u +%FT%TZ) ==="
 "$PY" perf/of3t_diffusion/device_gradient.py --structs all --tag "$TAG" \
     --cap /home/ttuser/of3t_rebase/diffcap043 \

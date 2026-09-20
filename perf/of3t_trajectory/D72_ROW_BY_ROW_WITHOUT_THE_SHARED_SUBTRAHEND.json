@@ -6,6 +6,7 @@
   "what_it_covers": "diffusion_module minus diffusion_conditioning. The four sections D72 filled from other rows' arms (conditioning, aux_heads, msa_module) and the two with no arm at all are outside it."
  },
  "headline": "7.426742e+00 mass-weighted over 547 tensors, median 1.753310e-01, norm ratio 7.781448, cos 0.410877",
+ "the_softmax_bound_column": "AMENDMENT 3. The same device arm with every softmax computed on the host in float64, forward and backward, scored against upstream's own bf16 gradient. Not a lever: what is left after it is what the softmax cannot explain.",
  "table": [
   {
    "section": "diffusion_module.diffusion_transformer",
@@ -25,6 +26,10 @@
    "worst_rel_l2": 18.033277194711754,
    "break_control_permuted_cotangent": 3.9384811039959198,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.diffusion_transformer'",
+   "softmax_f64_bound_vs_bf16": 0.11249728948978867,
+   "bound_multiples_of_this_sections_own_floor": 1.94600897630555,
+   "factor_the_bound_buys": 71.33542318076451,
+   "bound_cos": 0.9937748075421166,
    "verdict": "unchanged by removing the shared subtrahend: 138.8x this section's own bf16 floor"
   },
   {
@@ -67,6 +72,10 @@
    "worst_rel_l2": 2.4581596214344246,
    "break_control_permuted_cotangent": 1.9619549022544926,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.atom_attn_enc'",
+   "softmax_f64_bound_vs_bf16": 0.0943042588779971,
+   "bound_multiples_of_this_sections_own_floor": 1.330940311629561,
+   "factor_the_bound_buys": 2.3249569516669477,
+   "bound_cos": 0.9955474931889218,
    "verdict": "unchanged by removing the shared subtrahend: 3.1x this section's own bf16 floor"
   },
   {
@@ -98,6 +107,10 @@
    "worst_rel_l2": 1.4362096481244895,
    "break_control_permuted_cotangent": 1.473414587621965,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.atom_attn_dec'",
+   "softmax_f64_bound_vs_bf16": 0.28234836225499216,
+   "bound_multiples_of_this_sections_own_floor": 5.646981249011216,
+   "factor_the_bound_buys": 0.9966097403367072,
+   "bound_cos": 0.9593851377875589,
    "verdict": "unchanged by removing the shared subtrahend: 5.6x this section's own bf16 floor"
   },
   {
@@ -129,6 +142,10 @@
    "worst_rel_l2": 0.0527971410835785,
    "break_control_permuted_cotangent": 1.4058430626639902,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.layer_norm_s'",
+   "softmax_f64_bound_vs_bf16": 0.048163652005529495,
+   "bound_multiples_of_this_sections_own_floor": 1.5530473797639857,
+   "factor_the_bound_buys": 1.0962030262472007,
+   "bound_cos": 0.9999955757619278,
    "verdict": "D72 read this section AT OR BETTER against float64 and the direct test does NOT confirm it: the two errors point partly in different directions, so our distance from their gradient is 1.70x this section's own bf16 floor"
   },
   {
@@ -160,6 +177,10 @@
    "worst_rel_l2": 0.03496810848468805,
    "break_control_permuted_cotangent": 1.0544508942949165,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.layer_norm_a'",
+   "softmax_f64_bound_vs_bf16": 0.03742997172596953,
+   "bound_multiples_of_this_sections_own_floor": 1.012438813626415,
+   "factor_the_bound_buys": 0.9342274886204791,
+   "bound_cos": 0.9997300629776337,
    "verdict": "D72's reading SURVIVES the direct test: we are no further from their bf16 gradient than their bf16 gradient is from the ideal"
   },
   {
@@ -180,6 +201,10 @@
    "worst_rel_l2": 0.2456227943603803,
    "break_control_permuted_cotangent": 1.5548426778482234,
    "source": "AGREEMENT_WITH_UPSTREAMS_OWN_STEP.json, set 'section diffusion_module.linear_s'",
+   "softmax_f64_bound_vs_bf16": 0.08341802172266531,
+   "bound_multiples_of_this_sections_own_floor": 1.2746871198222585,
+   "factor_the_bound_buys": 2.9444811719101547,
+   "bound_cos": 0.9966427956165558,
    "verdict": "unchanged by removing the shared subtrahend: 3.8x this section's own bf16 floor"
   }
  ],

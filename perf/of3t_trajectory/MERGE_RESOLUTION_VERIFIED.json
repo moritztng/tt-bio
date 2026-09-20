@@ -1,0 +1,17 @@
+{
+ "what": "AMENDMENT 4: the hand-resolved perf/of3t_diffusion/device_gradient.py, verified by RUNNING it, not by parsing it.",
+ "when": "2026-09-20T09:21:12.072273Z",
+ "arm": "--structs 0 --cap diffcap043 --dump-grads, --dump-per-tensor deliberately OFF",
+ "exit_code": 0,
+ "sidecar_written_with_the_flag_off": true,
+ "sidecar_rows": 547,
+ "per_tensor_inlined_in_the_main_report_with_the_flag_off": false,
+ "dump_grads_tensors": 547,
+ "dump_grads_all_full_checkpoint_names": true,
+ "dump_grads_dtype": "torch.float64",
+ "key_set_identical_to_the_file_agreement_py_consumed": true,
+ "shapes_identical": true,
+ "dtypes_identical": true,
+ "resolution": "kept of3t-conditioning help text for --dump-per-tensor and its unconditional sidecar, kept this row --dump-grads, --permute-cot and --softmax-f64 with the zero-call guard",
+ "why_this_check": "a hand-resolved merge that imports is not a hand-resolved merge that works; both sides changed behaviour, not only text"
+}

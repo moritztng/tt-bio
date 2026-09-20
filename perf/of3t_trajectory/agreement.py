@@ -33,6 +33,14 @@ import torch
 REF_NORM_FLOOR = 1e-12          # A14: below this a relative error carries no information
 PER_TENSOR_BAR = 5.0e-02        # PROTOCOL 3d
 MODEL_TOTAL_SQ = 10.279642678524985   # the campaign's published denominator
+# D78: that constant is a sum over 4,170 tensors and float addition is not associative, so it
+# has no single correct last bit. The record already carries two honest spellings, `...985` and
+# `...986`, and summing the same leaves in different orders gives several results spanning
+# ~4e-16 relative. An equality check passes only while the iteration order happens to match,
+# and when it stops matching it fails looking like a corrupted reference rather than like
+# rounding. 1e-12 is ~4,000x the observed spread and still 1e4 tighter than anything that could
+# indicate a real problem.
+MODEL_TOTAL_SQ_RTOL = 1e-12
 BF16_OWN_FLOOR = 5.852018e-02   # arm4's own distance from float64 on the device arm's scope
 
 
@@ -144,6 +152,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", required=True, type=Path)
     ap.add_argument("--device-permuted", type=Path)
+    ap.add_argument("--device-bound", type=Path,
+                    help="AMENDMENT 3: the same device arm with every softmax computed on the "
+                         "host in float64. Not a lever, a bound -- what is left after it is "
+                         "what the softmax cannot explain.")
     ap.add_argument("--f64", required=True, type=Path)
     ap.add_argument("--bf16", required=True, type=Path)
     ap.add_argument("--f32", required=True, type=Path)
@@ -166,6 +178,10 @@ def main():
     ap.add_argument("--sections", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
+    ap.add_argument("--aiclk", default="",
+                    help="the DURING-sampled AICLK for the device arms this scores, recorded "
+                         "so it is possible to tell later which window a number came from. "
+                         "This instrument publishes no timing figure either way.")
     ap.add_argument("--expect", action="append", default=[],
                     help="label=sha256, repeatable. A mismatch stops the run: measuring against "
                          "a file that is not the one the campaign's figures came from would "
@@ -174,6 +190,7 @@ def main():
 
     inputs = {}
     for label, path in (("device", args.device), ("device_permuted", args.device_permuted),
+                        ("device_softmax_f64_bound", args.device_bound),
                         ("float64", args.f64), ("upstream_bf16", args.bf16),
                         ("upstream_f32", args.f32),
                         ("upstream_permuted_draws", args.upstream_permuted),
@@ -204,9 +221,14 @@ def main():
     f64_full = torch.load(args.f64, map_location="cpu", weights_only=False)
     total_sq = sum(float(torch.linalg.vector_norm(v.to(torch.float64))) ** 2
                    for v in f64_full.values() if v is not None)
-    assert abs(total_sq - MODEL_TOTAL_SQ) < 1e-12, (
-        f"denominator {total_sq!r} is not the campaign's published {MODEL_TOTAL_SQ!r}; every "
-        "share here would be in a different denominator than the one D72 uses")
+    drift = abs(total_sq - MODEL_TOTAL_SQ)
+    print(f"model squared gradient norm: measured {total_sq!r}, expected {MODEL_TOTAL_SQ!r}, "
+          f"relative drift {drift / MODEL_TOTAL_SQ:.3e} against a {MODEL_TOTAL_SQ_RTOL:.0e} "
+          f"tolerance", flush=True)
+    assert drift <= MODEL_TOTAL_SQ_RTOL * MODEL_TOTAL_SQ, (
+        f"denominator {total_sq!r} differs from the campaign's published {MODEL_TOTAL_SQ!r} by "
+        f"{drift / MODEL_TOTAL_SQ:.3e} relative, past the {MODEL_TOTAL_SQ_RTOL:.0e} tolerance; "
+        "every share here would be in a different denominator than the one D72 uses")
     missing = [n for n in names if f64_full.get(n) is None]
     f64 = {n: (f64_full[n].to(torch.float64).reshape(-1) if f64_full.get(n) is not None
                else None) for n in names}
@@ -264,6 +286,12 @@ def main():
             n: (d2[n].to(torch.float64).reshape(-1) if d2.get(n) is not None else None)
             for n in names}
         del d2
+    if args.device_bound:
+        d3 = torch.load(args.device_bound, map_location="cpu", weights_only=False)
+        loaded["DEVICE_SOFTMAX_F64_BOUND"] = {
+            n: (d3[n].to(torch.float64).reshape(-1) if d3.get(n) is not None else None)
+            for n in names}
+        del d3
     loaded["ZERO"] = {n: (torch.zeros_like(f64[n]) if f64.get(n) is not None else None)
                       for n in names}
 
@@ -282,6 +310,15 @@ def main():
         ("ZERO_vs_UPSTREAM_BF16", "ZERO", "UPSTREAM_BF16",
          "A16, measured not asserted: what a model that computes nothing reads."),
     ]
+    if "DEVICE_SOFTMAX_F64_BOUND" in loaded:
+        pairs.append(("DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16",
+                      "DEVICE_SOFTMAX_F64_BOUND", "UPSTREAM_BF16",
+                      "AMENDMENT 3. Everything the softmax could contribute removed, scored "
+                      "against upstream's own training gradient. What is left is what the "
+                      "softmax cannot explain."))
+        pairs.append(("DEVICE_SOFTMAX_F64_BOUND_vs_FLOAT64",
+                      "DEVICE_SOFTMAX_F64_BOUND", "FLOAT64",
+                      "the same bound against the ideal, so the record stays continuous."))
     if "DEVICE_COTANGENT_PERMUTED" in loaded:
         pairs.append(("DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16",
                       "DEVICE_COTANGENT_PERMUTED", "UPSTREAM_BF16",
@@ -296,13 +333,26 @@ def main():
     args.sidecar_dir.mkdir(parents=True, exist_ok=True)
     out = {"what": __doc__.strip().splitlines()[0],
            "inputs": inputs,
+           "aiclk_during_the_device_arms": args.aiclk or "not recorded",
+           "timing_published": ("none. This row's deliverable is a gradient comparison, which "
+                                "is arithmetic and not throughput, so a clamped clock changes "
+                                "how long it takes and not what it computes."),
            "scope": {"n_tensors": len(names),
                      "source": str(args.device),
                      "pct_of_model_mass": 100.0 * sum(
                          float(torch.linalg.vector_norm(v)) ** 2
                          for v in f64.values() if v is not None) / MODEL_TOTAL_SQ,
                      "tensors_absent_from_float64": missing},
-           "model_squared_gradient_norm": total_sq,
+           "model_squared_gradient_norm": {
+               "measured": total_sq,
+               "expected": MODEL_TOTAL_SQ,
+               "relative_drift": drift / MODEL_TOTAL_SQ,
+               "tolerance": MODEL_TOTAL_SQ_RTOL,
+               "why_a_tolerance_and_not_an_equality": (
+                   "D78: a sum over 4,170 tensors has no single correct last bit, the record "
+                   "carries two honest spellings of it, and an equality check fails looking "
+                   "like a corrupted reference rather than like rounding"),
+           },
            "diffcap_is_the_bundles_float64": cap_check,
            "bars": {"upstream_bf16_own_distance_from_float64": BF16_OWN_FLOOR,
                     "per_tensor": PER_TENSOR_BAR},
@@ -392,6 +442,51 @@ def main():
         },
         "branch": branch,
     }
+    if "DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16" in out["pairs"]:
+        bsets = {x["set"]: x for x in out["pairs"]["UPSTREAM_BF16_vs_FLOAT64"]["sets"]}
+        scope_key = "the device arm's scope (all compared tensors)"
+        # The threshold is what a PERFECT fix would read on THIS quantity. Our quantity is
+        # normalised by |bf16| and 5.852018e-02 is normalised by |float64|, so quoting it
+        # directly would be the D76 error again, 1.76 % in our favour.
+        r_b = bsets[scope_key]["mass_weighted_norm_ratio"]        # |bf16| / |float64|
+        # per-scope floor, not the BF16_OWN_FLOOR constant: of3t-direct showed
+        # section floors span 3.1012e-02 to 2.393700e-01, so the constant is one
+        # scope's bar. Identical to it on THIS scope; correct on any other.
+        perfect_b = floor / r_b
+        q = out["pairs"]["DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16"]["sets"][0][
+            "mass_weighted_rel_l2"]
+        if q <= perfect_b:
+            br = ("at or below the perfect-fix threshold: with the softmax's contribution "
+                  "removed we reproduce upstream's actual training gradient to within its own "
+                  "distance from the ideal")
+        elif q <= 2.0 * h:
+            br = ("between the threshold and ~2x the shipped arm: the bound moves us but does "
+                  "not close it; the residual names the next mechanism")
+        else:
+            br = ("no better than ~2x the shipped arm: the softmax is NOT the mechanism at "
+                  "model scope and the per-block localisation is refuted")
+        out["BOUND_READING"] = {
+            "what": "AMENDMENT 3, the model-scope float64-softmax bound",
+            "headline_mass_weighted_rel_l2": q,
+            "shipped_arm": h,
+            "factor_the_bound_buys": h / q if q else None,
+            "perfect_fix_threshold": perfect_b,
+            "how_the_threshold_was_derived": (
+                f"{floor!r} is this scope's own ||bf16-float64||/||float64||; the quantity is normalised "
+                f"by ||bf16||, and the measured ||bf16||/||float64|| on this scope is {r_b!r}, so "
+                f"a perfect fix (device == float64) reads {floor!r}/{r_b!r} = {perfect_b!r}"),
+            "attainable_range_check": {
+                "device_equals_upstream_bf16_reads": 0.0,
+                "device_equals_float64_reads": perfect_b,
+                "a_worse_device_reads": "unbounded above",
+                "verdict": ("every branch is inside the attainable range: the threshold is "
+                            "attained exactly by a perfect fix, 0 is attained by exact "
+                            "agreement, and nothing is capped below a branch boundary"),
+            },
+            "branch": br,
+        }
+        print("\nBOUND BRANCH:", br)
+
     # The geometry the threshold cannot show: our error e = d - f against theirs t = b - f.
     # D76 had to infer this cosine from three norms; measuring it directly separates "our error
     # points somewhere else entirely" from "our error is theirs, larger".
