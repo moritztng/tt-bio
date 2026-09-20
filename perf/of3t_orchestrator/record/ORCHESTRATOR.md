@@ -3294,3 +3294,63 @@ GRADIENT and everything downstream on that row**, and it was the process yieldin
 non-gating one. Separately, `c14-land-tail`'s benchmark is orphaned — no c14 worker is alive — so
 its contended number will be read by whatever launch picks that row up next. Flagged to Moritz;
 it is not mine to re-take.
+
+PASS 96. **DISTANCE TO GO, with the arithmetic — because the gate asks for GO or a NO-GO that
+shows why, and neither has been stated against the proof's own mass.**
+
+PROTOCOL §2 factors the update rule into five components. **Four carry no model and no device,
+and all four are closed exactly**, against upstream's own objects rather than a reading of them:
+the §4 LR schedule at **109,005 comparisons, 0 mismatches**; §4 clipping equivalent to their
+`grad_manager` on both axes it differed on; §5 optimizer at **7.455e-08** against a 1e-06 bar on
+upstream's own index mapping; the §4/§5 seam at **1.804e-07** with the clip binding on 100 % of
+steps and the wrong-order control rejected at **754,032x** the bar. The EMA is component five and
+we have none — it is off the update path. Add instrument D, upstream's own
+`test_training_full.py`, which had never executed here because it module-skips without CUDA:
+**1 passed in 183.99 s** and **1 passed in 400.61 s** on a rented H200, exit 0 both.
+
+**So component 1, the gradient, is the entire remaining gap — and its mass is concentrated, not
+spread.** Re-read from `replay_vs_r0.json` this pass rather than quoted:
+
+| section | % of squared gradient norm |
+|---|---|
+| `diffusion_module` | **91.2084** |
+| `aux_heads` | 4.2653 |
+| `pairformer_stack` | 3.1560 |
+| `msa_module` | 0.8932 |
+| `input_embedder` | 0.3999 |
+| everything else (6 sections) | 0.0772 |
+| **total** | **100.0000** |
+
+**Status against that mass:**
+
+- **91.21 %, `diffusion_module` — the ceiling here is GONE.** Pass 88 closed the campaign on
+  A18's first clause: our DiT forward disagreed at 2.07e-02 per block, so any gradient taken at
+  that boundary was void before it was taken, and there was *"a port to fix, not a number to
+  collect."* Against a 0.4.3 reference the same bisection reads **3.448e-03 per block and
+  2.168e-02 over all 24, every rung inside the 5.0e-02 bar**. There was no port to fix. **The
+  block carrying nine tenths of the proof is measurable**, gated on one mechanical step:
+  re-capturing the 3.2 GB A18 boundary at 0.4.3 so the discriminator can be re-read.
+- **3.16 %, `pairformer_stack`** — corrected arms in flight on `of3t-rebase`, prediction
+  pre-registered, falsifier named.
+- **4.27 %, `aux_heads`** — **the least-examined block in the campaign.** No instrument-A reading
+  at its own scope. This is the honest soft spot and it is bigger than the pairformer.
+- **1.37 %, the remainder.**
+
+**So 94.4 % of the proof mass is closed or has a named mechanical next measurement, 4.27 % is
+unexamined, and 1.37 % is small.** That is why the verdict stays **PARTIAL and does not become
+NO-GO**: the reproduction is not established, and it is not established unreachable either. Pass
+88's ceiling argument has been refuted on nine tenths of the mass by measurement, not by
+argument.
+
+**What is NOT on the path to GO, and must keep being said.** §6 coverage is **7 of 8 terms** with
+`bond` firing nowhere — a **dataset** gap, not a code gap, because 5nw3 carries no inter-token
+bond; closing it needs a target that does, which is cheap and unowned. Crops 640 and 768 do not
+fit, so three of upstream's four stage configs still do not run. And the standing bounds are
+unchanged: stability over a real 100k-step run, precision drift a 20-step trajectory cannot
+observe by construction, convergence to the published weights, and rare sample types outside the
+path-complete set.
+
+**The one thing this map changes operationally**: `aux_heads` at 4.27 % is larger than
+`pairformer_stack` at 3.16 %, and the campaign has spent dozens of passes on the pairformer and
+none on `aux_heads` at its own scope. That is a misallocation the norm shares make visible and
+prose did not.
