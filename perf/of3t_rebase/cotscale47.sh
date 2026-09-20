@@ -35,7 +35,16 @@ done
 grep -q -- "--cot-scale" "$W/perf/of3t_gradients/instrument_a_bundle.py" || {
   echo "STALE INSTRUMENT: instrument_a_bundle.py has no --cot-scale, ship the patched copy"; exit 2; }
 [ -f "$C/block47_boundary.pt" ] || { echo "no block-47 capture at $C"; exit 2; }
-for k in 1.0 0.125 0.015625; do
+# THE SCALES MUST NOT ALL BE POWERS OF TWO, and this script first shipped as if they could be.
+# Scaling every input to a linear computation by 2^n shifts exponents and leaves every mantissa
+# and every rounding decision untouched, so a power-of-two arm is invariant BY THE ARITHMETIC,
+# whatever the defect is. The first run used 1, 1/8 and 1/64, got bit-identical factors, and that
+# result was vacuous: it could not have come out any other way. The non-power-of-two arms are the
+# ones with teeth -- they re-round the cotangent into bf16 differently, so the whole backward
+# sees genuinely different mantissas. The powers of two are kept as an arithmetic control: they
+# MUST read bit-identical, and if they ever do not, the harness is not linear in the cotangent
+# and nothing else here can be read.
+for k in 1.0 0.125 0.015625 0.1 0.0137; do
   echo "=== block 47, cot-scale $k  $(date -u +%FT%TZ) ==="
   "$PY" perf/of3t_gradients/instrument_a_bundle.py --block 47 --crop 64 \
       --transpose-bias shipped --scale-pair-bias off --cot-scale "$k" \
