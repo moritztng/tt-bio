@@ -69,7 +69,14 @@ def collate1(x, ref=None):
 
 
 def snapshot(model):
-    return {n: (p.grad.detach().double().clone() if p.grad is not None else None)
+    """Clone the gradients at the parameter's own dtype, not at float64.
+
+    Two float64 snapshots of a 570 M-parameter model are 9.2 GB that carry no information the
+    float32 gradients did not already have; the comparison below upcasts per tensor, so the
+    accumulated sums are float64 either way. Measured on pc: with this and the checkpoint freed,
+    the crop-384 run peaks around 13 GB instead of being OOM-killed at 22 GB.
+    """
+    return {n: (p.grad.detach().clone() if p.grad is not None else None)
             for n, p in model.named_parameters()}
 
 
@@ -136,6 +143,8 @@ def main() -> int:
     inc = model.load_state_dict(sd, strict=False)
     if inc.unexpected_keys:
         raise SystemExit(f"KEY GATE FAILED: {len(inc.unexpected_keys)} unexpected tensors")
+    # The checkpoint and its recast copy are another 4.6 GB held for the whole run.
+    del ck, sd
 
     tmpl = torch.load(a.rank_template, weights_only=False) if a.rank_template else None
     batch = BM.move(collate1(sample, tmpl), "cpu", dtype)
@@ -173,6 +182,8 @@ def main() -> int:
         v0 = g0.get(n)
         if v4 is None:
             continue
+        v4 = v4.double()
+        v0 = None if v0 is None else v0.double()
         s4 = float((v4 ** 2).sum())
         d = v4 if v0 is None else v4 - v0
         sd_ = float((d ** 2).sum())
