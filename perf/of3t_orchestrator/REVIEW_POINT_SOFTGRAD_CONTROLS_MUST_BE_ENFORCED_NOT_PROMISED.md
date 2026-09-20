@@ -43,3 +43,23 @@ visible. What is not acceptable is four arms reported with the two ends absent f
 
 Tolerance also has to be stated, and is not yet: "reproduce 7.426217" is not a test until it
 says to how many digits.
+
+---
+
+## RESOLVED at pass 187 — and the control immediately earned its keep
+
+`of3t-softgrad` reports, in `846495be3`: *"shipped reads **7.426217** and softmax_host_f64 reads
+**0.0777758**, to every published digit, so the harness is the harness."* Both ends reproduce,
+on a **rebuilt** 0.4.3 boundary — the original had been pruned by `of3t_rebase`, and the rebuild
+was itself checked against four recorded numbers including a forward rel from a row that never
+touched it. So the control is discharged in form (b) of what I asked for: the reproduced values
+are reported beside the new arms, where a reader can check them.
+
+**And it was not ceremonial.** With the baseline pinned, `softmax_precise` could be read
+correctly as **all 547 tensors bit-identical to shipped** — a no-op (D110) — rather than as a
+lever that happened to move nothing. Without a reproduced `shipped` arm, "identical to shipped"
+is a statement about an unknown, and the honest reading would have been unavailable.
+
+One thing I asked for is still not stated and should be at conclusion: **the tolerance**. "Reads
+7.426217 to every published digit" is a stronger claim than a tolerance and is fine as reported,
+but the row should say what it would have done with a mismatch in the last digit.
