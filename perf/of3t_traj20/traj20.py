@@ -418,7 +418,15 @@ def score_step(names, k, wo, wt, W0, nw0):
             "p90_per_tensor": (vals[int(0.9 * (len(vals) - 1))] if vals else 0.0),
             "worst_per_tensor": worst[0], "worst_tensor": worst[1],
             "tensors_scored": len(live), "tensors_zero_ref": len(per) - len(live),
-            "tensors_bit_identical": sum(1 for x in per if x[0] == 0.0)}
+            "tensors_bit_identical": sum(1 for x in per if x[0] == 0.0),
+            # The 74 tensors whose REFERENCE update is exactly zero are a categorical bar, not
+            # an approximate one: `lr*wd*theta` moves every one of them and nothing else does,
+            # so with weight decay on, 0 of 4,147 were bit-identical. They are excluded from
+            # `worst_per_tensor` (it maxes over the live set), so counting them needs its own
+            # field -- inferring it from the totals is what `of3t-traj20` could not do.
+            "tensors_zero_ref_bit_identical": sum(1 for x in per
+                                                  if x[2] == 0.0 and x[0] == 0.0),
+            "tensors_live_bit_identical": sum(1 for x in per if x[2] > 0.0 and x[0] == 0.0)}
 
 
 def growth(rows, lo=2):

@@ -620,7 +620,9 @@
    "worst_tensor": null,
    "tensors_scored": 0,
    "tensors_zero_ref": 4147,
-   "tensors_bit_identical": 4147
+   "tensors_bit_identical": 4147,
+   "tensors_zero_ref_bit_identical": 4147,
+   "tensors_live_bit_identical": 0
   },
   {
    "k": 2,
@@ -636,7 +638,9 @@
    "worst_tensor": "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.linear_ada_out.bias",
    "tensors_scored": 4066,
    "tensors_zero_ref": 81,
-   "tensors_bit_identical": 1234
+   "tensors_bit_identical": 1234,
+   "tensors_zero_ref_bit_identical": 81,
+   "tensors_live_bit_identical": 1153
   },
   {
    "k": 3,
@@ -652,7 +656,9 @@
    "worst_tensor": "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight",
    "tensors_scored": 4066,
    "tensors_zero_ref": 81,
-   "tensors_bit_identical": 895
+   "tensors_bit_identical": 895,
+   "tensors_zero_ref_bit_identical": 81,
+   "tensors_live_bit_identical": 814
   },
   {
    "k": 4,
@@ -668,7 +674,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4068,
    "tensors_zero_ref": 79,
-   "tensors_bit_identical": 740
+   "tensors_bit_identical": 740,
+   "tensors_zero_ref_bit_identical": 79,
+   "tensors_live_bit_identical": 661
   },
   {
    "k": 5,
@@ -684,7 +692,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4070,
    "tensors_zero_ref": 77,
-   "tensors_bit_identical": 645
+   "tensors_bit_identical": 645,
+   "tensors_zero_ref_bit_identical": 77,
+   "tensors_live_bit_identical": 568
   },
   {
    "k": 6,
@@ -700,7 +710,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4071,
    "tensors_zero_ref": 76,
-   "tensors_bit_identical": 583
+   "tensors_bit_identical": 583,
+   "tensors_zero_ref_bit_identical": 76,
+   "tensors_live_bit_identical": 507
   },
   {
    "k": 7,
@@ -716,7 +728,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4071,
    "tensors_zero_ref": 76,
-   "tensors_bit_identical": 528
+   "tensors_bit_identical": 528,
+   "tensors_zero_ref_bit_identical": 76,
+   "tensors_live_bit_identical": 452
   },
   {
    "k": 8,
@@ -732,7 +746,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 479
+   "tensors_bit_identical": 479,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 405
   },
   {
    "k": 9,
@@ -748,7 +764,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 439
+   "tensors_bit_identical": 439,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 365
   },
   {
    "k": 10,
@@ -764,7 +782,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 409
+   "tensors_bit_identical": 409,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 335
   },
   {
    "k": 11,
@@ -780,7 +800,9 @@
    "worst_tensor": "pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 382
+   "tensors_bit_identical": 382,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 308
   },
   {
    "k": 12,
@@ -796,7 +818,9 @@
    "worst_tensor": "pairformer_stack.blocks.24.single_transition.linear_out.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 320
+   "tensors_bit_identical": 320,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 246
   },
   {
    "k": 13,
@@ -812,7 +836,9 @@
    "worst_tensor": "pairformer_stack.blocks.24.single_transition.linear_out.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 287
+   "tensors_bit_identical": 287,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 213
   },
   {
    "k": 14,
@@ -828,7 +854,9 @@
    "worst_tensor": "pairformer_stack.blocks.24.single_transition.linear_out.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 251
+   "tensors_bit_identical": 251,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 177
   },
   {
    "k": 15,
@@ -844,7 +872,9 @@
    "worst_tensor": "pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 231
+   "tensors_bit_identical": 231,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 157
   },
   {
    "k": 16,
@@ -860,7 +890,9 @@
    "worst_tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 213
+   "tensors_bit_identical": 213,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 139
   },
   {
    "k": 17,
@@ -876,7 +908,9 @@
    "worst_tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 195
+   "tensors_bit_identical": 195,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 121
   },
   {
    "k": 18,
@@ -892,7 +926,9 @@
    "worst_tensor": "pairformer_stack.blocks.24.single_transition.linear_out.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 175
+   "tensors_bit_identical": 175,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 101
   },
   {
    "k": 19,
@@ -908,7 +944,9 @@
    "worst_tensor": "pairformer_stack.blocks.24.single_transition.linear_out.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 153
+   "tensors_bit_identical": 153,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 79
   },
   {
    "k": 20,
@@ -924,12 +962,14 @@
    "worst_tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
    "tensors_scored": 4073,
    "tensors_zero_ref": 74,
-   "tensors_bit_identical": 137
+   "tensors_bit_identical": 137,
+   "tensors_zero_ref_bit_identical": 74,
+   "tensors_live_bit_identical": 63
   }
  ],
  "timing_s": {
-  "load": 3.740892171859741,
-  "trajectory": 334.8029959201813
+  "load": 3.5809028148651123,
+  "trajectory": 261.6918315887451
  },
  "sha256": {
   "w0": "9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e",
