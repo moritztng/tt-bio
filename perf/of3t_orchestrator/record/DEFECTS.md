@@ -199,6 +199,41 @@ fields should be nulled or moved rather than labelled.
 Found by `of3t-confhead` pass 1, machine-checked in `perf/of3t_confhead/rank_rule.py`. Independent
 of D1: it is the shipped selector, on the shipped default.
 
+**PASS 95 CORRECTION, by `of3t-confhead` against its own hypothesis: on ubiquitin the rule reduces
+one step FURTHER, to `0.2*pTM` and nothing else.** `disorder` reads **0.0 on all five samples** —
+a compact 76-residue fold never pushes a 25-residue smoothed RASA window past the 0.581 threshold
+— so every `rank_score` in the captured fold is `0.2*ptm` to the last digit. **The disorder
+mechanism below is therefore not what moves these picks**, and a fix aimed at the RASA term would
+have measured nothing on this target.
+
+Scope that correction precisely rather than over-applying it: `disorder = 0` is a property of a
+compact 76-residue monomer, not of monomers. On a larger or genuinely disordered single chain the
+term is non-zero and its 2.5x leverage over the only confidence term applies as written. What is
+refuted is *disorder as the explanation for D10 on 1UBQ*, not the weighting analysis.
+
+**And it makes the obvious fix provably inert.** With `iptm = 0` and `disorder = 0`, the
+`shipped`, `family`, `no_disorder` and `ptm` rules all reduce to a positive multiple of pTM, and a
+positive multiple cannot change an ordering — `rules.py` puts all four on **identical served
+RMSDs, sample for sample**, which needs no further seeds to believe. **So giving OpenFold3 the
+ipTM→pTM fallback the other four models carry changes nothing a single-chain user is served.** It
+remains the right consistency change for complexes; it is not the D10 fix.
+
+**Which relocates the fix.** The selector rests entirely on pTM, whose spread across the five
+samples is **0.010953** while their Cα-RMSD spreads **0.58 A** — it is ranking a 0.58 A structural
+difference with a signal that moves by one part in a hundred. The head also emits **pLDDT, PAE,
+PDE and experimentally-resolved, and the rule reads none of them**. On the three `fix`-arm folds
+captured so far `gpde`, `plddt`, `pae` and `boltz` each avoid the 1.60 A sample entirely and serve
+0.803–0.830 A where pTM serves 0.966 A. The row states plainly that three runs is not a result and
+the nine-seed table decides.
+
+**The reproduction control under all of this is unusually strong and worth recording on its own.**
+One fold, arm `fix`, seed 1, qb2 p300c card 0, **AICLK 1350 MHz with 34 reads during the fold,
+min = max = median = 1350**, 371 s wall: its five ranked Cα-RMSDs reproduce `of3t-pairbias`'s
+published `fix_s1` row to a **worst difference of 3.4e-08 A** — on a different card of the same
+class, through a different driver, with the D1 arm applied by patching the trunk `Pairformer`
+rather than by a second checkout. One comparison confirming the lever, the RMSD computation, the
+ranked order and card-class reproducibility together.
+
 `openfold3_fold.py:277` selects the returned sample with AF3 SI 5.9.3's full-complex metric,
 
 ```

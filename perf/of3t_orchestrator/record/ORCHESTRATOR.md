@@ -307,9 +307,20 @@ measurement: its attribution to our forward gap is impossible, and its conclusio
 can read below 6.4e-02"* does not follow from a shared-subtrahend contrast either. MEASURED,
 owner `of3t-rebase`.
 
-**D24 IS A SHIPPED-INFERENCE DEFECT ON THE SHIPPED DEFAULT, independent of D1.** On a single
-chain `openfold3_fold.py:277` ranks samples with `0.8*iptm + 0.2*ptm + 0.5*disorder -
-100*has_clash`, and **ipTM and `has_clash` are identically zero by construction** — ipTM averages
+**D24 IS A SHIPPED-INFERENCE DEFECT ON THE SHIPPED DEFAULT, independent of D1 — and on 1UBQ the
+rule reduces further than pass 92 recorded, to `0.2*pTM` alone.** `of3t-confhead` measured
+`disorder = 0.0` on all five samples (a compact 76-residue fold never pushes a 25-residue smoothed
+RASA window past 0.581), so every `rank_score` is `0.2*ptm` to the last digit. **The disorder
+mechanism is not what moves these picks on this target** — though `disorder = 0` is a property of
+a compact monomer, not of monomers, so the 2.5x weighting analysis stands for larger or
+disordered single chains. It also makes the obvious fix **provably inert**: with `iptm = 0` and
+`disorder = 0` the `shipped`, `family`, `no_disorder` and `ptm` rules are all positive multiples
+of pTM and cannot differ in ordering, measured identical sample for sample. So the ipTM→pTM
+fallback the other four models carry **changes nothing a single-chain user is served**. The
+selector rests entirely on pTM, spread **0.010953** across five samples whose Cα-RMSD spreads
+**0.58 A**, while the head's pLDDT, PAE, PDE and experimentally-resolved outputs are read by
+nothing. On a single chain `openfold3_fold.py:277` ranks samples with `0.8*iptm + 0.2*ptm +
+0.5*disorder - 100*has_clash`, and **ipTM and `has_clash` are identically zero by construction** — ipTM averages
 over cross-chain pairs that do not exist, `has_clash` is an inter-chain indicator. Machine-checked
 against a verbatim transcription of upstream's own `compute_ptm`: one chain gives ipTM
 **0.000000** both sides, two chains **0.154491** both sides, so it is the rule and not a broken
@@ -3219,3 +3230,45 @@ cross-box reproducibility, not a limit on anything.
 Two passes running now where a row has corrected me on substance — `of3t-confhead` on the D10
 marginals, `of3t-rebase` here — and in both cases the row was right and had done the arithmetic.
 That is the campaign's §3e discipline working in the direction it is hardest to apply.
+
+PASS 95. **`of3t-confhead` refuted its own D24 mechanism and produced the campaign's cleanest
+reproduction control in the same pass.**
+
+On ubiquitin `disorder` reads **0.0 on all five samples** — a compact 76-residue fold never pushes
+a 25-residue smoothed RASA window past the 0.581 threshold — so the monomer rule reduces one step
+past what pass 92 recorded, to **`0.2*pTM` and nothing else**, with every `rank_score` equal to
+`0.2*ptm` to the last digit. The RASA term I recorded as carrying 2.5x the weight of the only
+confidence term is real in the algebra and **inert on this target**. I am scoping that correction
+rather than over-applying it: `disorder = 0` is a property of a compact 76-residue monomer, not of
+monomers, so the weighting analysis stands for a larger or genuinely disordered single chain.
+
+**It also makes the obvious fix provably inert, without needing more seeds.** With `iptm = 0` and
+`disorder = 0`, the `shipped`, `family`, `no_disorder` and `ptm` rules are all positive multiples
+of pTM, and a positive multiple cannot reorder anything — measured identical, sample for sample.
+So giving OpenFold3 the ipTM→pTM fallback the other four models carry **changes nothing a
+single-chain user is served**. It stays the right consistency change for complexes and it is not
+the D10 fix.
+
+**Which relocates the fix rather than removing it.** The selector rests entirely on pTM, whose
+spread over five samples is **0.010953** while their Cα-RMSD spreads **0.58 A** — one part in a
+hundred of signal ranking a half-Angstrom structural difference — and the head's **pLDDT, PAE,
+PDE and experimentally-resolved outputs are read by nothing**. On three `fix`-arm folds so far
+`gpde`, `plddt`, `pae` and `boltz` each avoid the 1.60 A sample and serve 0.803–0.830 A where pTM
+serves 0.966 A. The row says plainly that three runs is not a result and the nine-seed table
+decides, which is the right call.
+
+**And the control underneath it is the strongest this campaign has produced.** One fold — arm
+`fix`, seed 1, qb2 p300c card 0, **AICLK 1350 MHz, 34 reads DURING the fold, min = max = median =
+1350**, 371 s wall — reproduces `of3t-pairbias`'s published `fix_s1` five ranked Cα-RMSDs to a
+**worst difference of 3.4e-08 A**, on a different card of the same class, through a different
+driver, with the D1 arm applied by patching the trunk `Pairformer` instead of using a second
+checkout. One comparison that confirms the lever, the RMSD computation, the ranked order and
+card-class reproducibility at once.
+
+`of3t-rebase` also filled `INFERENCE`: byte-identical to the tree it builds on, **6 of 6 digests**
+on one card, which is the check that this row changes the reference and not the model.
+
+Three consecutive passes now where a row corrected the record on substance and was right —
+`of3t-confhead` on the D10 marginals, `of3t-rebase` on the shared-subtrahend floor, and
+`of3t-confhead` again here against its own hypothesis. The last is the hardest kind and it was
+done unprompted.
