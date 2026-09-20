@@ -1032,6 +1032,34 @@ if _host_only is None:
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
 
+# --- the distance-to-go arithmetic must sum, and VERDICT must quote it ------------------------
+# Pass 152. The campaign's position is now a three-way split of the model's gradient mass, and
+# it is the number Moritz reads. Two ways it can rot: the three shares stop summing to 100 as
+# readings move between buckets, and VERDICT keeps yesterday's passing share. Both are the
+# campaign's most recurrent defect class, so both are mechanical now.
+_dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
+if _dtg:
+    _p = _dtg["measured_and_inside_bar"]["total_pct"]
+    _f = _dtg["measured_and_outside_bar"]["total_pct"]
+    _u = _dtg["not_measured_at_its_own_scope"]["total_pct"]
+    _tot = _p + _f + _u
+    if abs(_tot - 100.0) > 0.001:
+        bad.append(f"DISTANCE_TO_GO_BY_MASS's three shares sum to {_tot:.4f} %, not 100 -- a "
+                   f"reading moved buckets and the split was not rebalanced")
+    else:
+        ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} in / {_f:.4f} out / "
+                  f"{_u:.4f} unmeasured)")
+    if ORCH.is_file():
+        _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
+        _vt = _verd.group(1) if _verd else ""
+        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
+        for _val, _lbl in ((_p, "passing"), (_f, "failing"), (_u, "unmeasured")):
+            if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
+                bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
+                           f"summary has drifted from DISTANCE_TO_GO_BY_MASS")
+        if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
+            ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
+
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
 # is a claim about how much evidence stands behind the field, it is quoted verbatim, and nothing

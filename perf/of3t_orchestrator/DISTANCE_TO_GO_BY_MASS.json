@@ -1,0 +1,55 @@
+{
+ "what": "the campaign's state of proof stated in the only denominator that means anything for a gradient claim: the share of OpenFold3's squared gradient norm that is measured and inside bar, measured and outside, and not measured at all. Every share is from the exhaustive 0.4.3 table (4,170 tensors, model squared norm 10.279642678524985) and sums to exactly 100.0000 %.",
+ "as_of": "2026-09-20, orchestrator pass 152, after of3t-conditioning returned GO and of3t-auxheads returned its aux_heads reading.",
+
+ "headline": "40.0559 % of OpenFold3's gradient mass is now measured against a float64 reference and inside the bars. 51.0965 % is measured and outside them. 8.8476 % has no reading at its own scope. The passing share went from 2.84 % to 40.06 % in one cycle, entirely because diffusion_conditioning -- 36.9462 % of the model on its own -- turned out never to have been blocked.",
+
+ "measured_and_inside_bar": {
+  "total_pct": 40.0559,
+  "sections": [
+   {"section": "diffusion_module.diffusion_conditioning", "pct": 36.9462, "n": 26,
+    "headline": "mass-weighted rel_l2 7.865385e-03 against the 2.0e-02 mass-weighted bar",
+    "detail": "26 of 26 tensors inside the 5.0e-02 per-tensor bar, worst 1.204672e-02. The four tensors holding 33.9354 % of the model read 6.6e-03..1.2e-02 with cos > 0.9999 and norm ratios bracketing unity (0.9963..1.0037). Forward gated at 2.641e-03 (A18). Zero-model baseline measured at exactly 1.0, a 127.1x separation. A second control permutes the reference's own cotangent across samples and moves the headline to 2.161892e-01, 27.5x the reading. Reach is the FULL reference mass in scope (A20).",
+    "row": "of3t-conditioning, VERDICT GO, branch wk/of3t-conditioning at 5ae68df2d"},
+   {"section": "aux_heads", "pct": 2.8431, "n": 244,
+    "headline": "2.2678e-03 on the one tensor that is 99.9999943 % of the section",
+    "detail": "aux_heads.distogram.linear.weight, forward 2.8277e-03, gradient 2.2678e-03, both inside bar. The other 243 tensors hold 5.66e-08 of the section's norm -- 1.61e-09 of the model -- because initial_training weights distogram at 0.03 and the four confidence heads at 1e-4 each.",
+    "row": "of3t-auxheads, VERDICT PARTIAL (the section reading itself passes)"}
+  ],
+  "plus_one_single_tensor_section": {
+   "section": "diffusion_module.layer_norm_a", "pct": 0.2666, "n": 1,
+   "reading": "rel 0.00947, the best tensor in the whole diffusion device arm",
+   "caveat": "measured INSIDE an arm whose overall median is 0.16588 and which fails. Counted because the section is one tensor and that tensor is measured, but it is not a section-scope arm with its own controls, so it is listed apart from the two above."}
+ },
+
+ "measured_and_outside_bar": {
+  "total_pct": 51.0965,
+  "items": [
+   {"section": "diffusion_module.diffusion_transformer", "pct": 43.8936, "n": 552,
+    "reading": "inside the combined diffusion device arm: median_rel 0.16588 over 547 compared tensors, 474 of 547 over the 5.0e-02 bar, worst 18.504 on blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight (8.05416 % of the model, the model's 4th-heaviest tensor)",
+    "note": "the arm is whole-module; no per-section or per-block split exists because the run kept only worst10/best10 (D53)"},
+   {"section": "diffusion_module.atom_attn_enc", "pct": 5.5589, "n": 98,
+    "reading": "median 7.11e-01, cos 0.7757 (of3t-rebase's concluding measurement) -- the worst-performing named thing in the model"},
+   {"section": "pairformer_stack (7 of 48 blocks)", "pct": 1.64401, "n": 399,
+    "reading": "mass-weighted rel 0.14053 with fp32_softmax=True, 0.13707 with it off. The median-of-blocks the campaign quoted is 0.02162, which understates this arm 6.5x (A23)."}
+  ]
+ },
+
+ "not_measured_at_its_own_scope": {
+  "total_pct": 8.8476,
+  "items": [
+   {"section": "pairformer_stack (the other 41 blocks)", "pct": 4.18419},
+   {"section": "diffusion_module.atom_attn_dec", "pct": 1.3173, "note": "tensors from it appear in the diffusion arm's best10 at rel 0.012-0.014, but there is no section reading"},
+   {"section": "msa_module", "pct": 1.2400, "note": "boundary capture in flight on qb2 under of3t-auxheads amendment 2; forward already reproduces the reference loss at 1.267624369070698"},
+   {"section": "diffusion_module.layer_norm_s", "pct": 0.9835},
+   {"section": "input_embedder", "pct": 0.8007, "note": "same capture, in flight"},
+   {"section": "diffusion_module.linear_s", "pct": 0.2445},
+   {"section": "msa_module_embedder", "pct": 0.0612},
+   {"section": "template_embedder", "pct": 0.0103},
+   {"section": "layer_norm_z / layer_norm_s / linear_z / linear_s (top level)", "pct": 0.0059}
+  ]
+ },
+
+ "what_this_number_is_and_is_not": "it is the share of ONE reference gradient -- BUNDLE-MIN-043's r = 0 step at batch_step003, 5nw3, 56 real tokens, crop 384 -- that our stack reproduces to the pre-registered bars. It is not a statement about stability over a training run, about other batches, about other crops, or about convergence. The campaign has only ever claimed the update rule over N steps, and 40.0559 % is a statement about the INPUT to that rule at one point. Section shares at another batch could differ and their stability is unmeasured.",
+ "provenance": "assembled 2026-09-20 pass 152 by of3t-orchestrator on pc, CPU only. Shares from SECTION_MASS_MEASURED.json and BLOCK_MASS_PROFILE.json; readings from state/of3t-conditioning.md, state/of3t-auxheads.md, device_gradient_043all.json and smoff/FP32_SOFTMAX_UNDER_A23.json."
+}
