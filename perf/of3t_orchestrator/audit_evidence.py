@@ -1297,6 +1297,34 @@ if ORCH.is_file():
     else:
         ok.append("every owed summary field is inside its readability cap")
 
+# --- an INERTNESS claim must name what it compared ------------------------------------------
+# Pass 184, third instance in a week of the same failure: the numeric claims here are checked on
+# every compose and the CHARACTERISATIONS are not, so prose drifts freely inside a document that
+# audits green. "revision-inert" is the highest-stakes word the campaign uses -- it is what
+# licenses scoring a scope against either upstream tree -- and D108 found it applied to the
+# diffusion transformer (51.1358 % of the mass), which is not inert: 0.4.3 gives every DiT block
+# its own learned layer_norm_z where 0.5.0 has one shared. This is A27's rule one level up: a
+# ratio names how its denominator arm was built; an equivalence names the two things compared.
+# Required evidence is a SOURCE PATH in the same artifact, not a citation of another artifact --
+# tested both ways at pass 184, and accepting citations passed all 8 artifacts including one
+# that propagated the claim with nothing behind it, i.e. it was vacuous.
+_inert = _re.compile(r"\binert\b", _re.I)
+_pyp = _re.compile(r"[\w/\.\-~]+\.py\b")
+_bare = []
+for _f in sorted((ROOT / "perf/of3t_orchestrator").glob("*.json")):
+    try:
+        _s = json.dumps(json.load(open(_f)))
+    except Exception:
+        continue
+    if _inert.search(_s) and not _pyp.search(_s):
+        _bare.append(_f.name)
+if _bare:
+    bad.append("artifact(s) claim something is INERT without naming a source file they compared, "
+               "so the claim cannot be re-checked and the next reader inherits it: "
+               + ", ".join(_bare))
+else:
+    ok.append("every artifact using the word 'inert' names a source file it compared")
+
 # --- THE_ANSWER's by_scope table must SUM TO ITS OWN TOTAL ----------------------------------
 # Added pass 176. The table listed five scopes summing to 97.9933 % beside an arithmetic_check
 # asserting 100.0, because the no_reading bucket was only partly enumerated: pairformer_stack's
