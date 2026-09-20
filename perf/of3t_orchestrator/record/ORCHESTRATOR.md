@@ -192,7 +192,7 @@ Recomputed from the artifacts on every compose (146 checks, 0 drifted):
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **eighteen amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **nineteen amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -565,7 +565,7 @@ than in the model. D18's fix is in flight and its own detector passes; **D20**'s
 closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
 open bounds, and **D21** as the live instrument defect on the device arm.
 
-A protocol whose bars were fixed before any number existed and **amended eighteen times on the
+A protocol whose bars were fixed before any number existed and **amended nineteen times on the
 record**, each amendment marked for whether a number already existed — including two written
 this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
 instrument whose completeness you can assert, and its addendum, that gating a gradient
@@ -606,7 +606,7 @@ that already exists, and each has a number to beat:
 **What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
 instruments** rather than in the model, including one near-miss in which the central claim
 would have passed with our trunk deleted. The bars were fixed before any number existed and
-amended eighteen times on the record, each amendment marked for whether a number already
+amended nineteen times on the record, each amendment marked for whether a number already
 existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
 on every compose. *A verification campaign that cannot catch itself is not a verification
 campaign*, and the record is the evidence that this one could.
@@ -3928,3 +3928,34 @@ gradient mass, which is the fact the equal-blocks assumption missed.
 disproportionate mass, unexplained by D23, and unowned. The block ladder is the instrument — a
 rung or two between 23 and 47 would say whether the jump is smooth or a step, which three points
 cannot distinguish.
+
+PASS 113. **The 0.4.3 diffusion boundary landed and A18's gate is recalibrated — before the
+number exists, which is the only time it can honestly be done.**
+
+`DIFFCAP_ALLDONE 2026-09-20T01:43:36Z`, exit 0, `sub_boundary.pt` at 3,170,912,516 B beside
+`sub_boundary_043.json`. So the discriminator gating **89.211 %** of the proof mass is unblocked,
+and `of3t-rebase`'s worker is alive with no discriminator job started yet — verified, not assumed.
+
+**The problem I found by looking ahead rather than afterwards.** The row's brief sets the gate at
+*"~1e-2 or better → proceed"* and *"~1e-1 or worse → mis-wired operand"*. The 0.4.3 depth ladder
+reads **2.168e-02 over 24 blocks** and `xl_out` is the DiT's output after those blocks, so the
+discriminator is expected near **~2.2e-02** — **in neither branch**. A number landing between two
+thresholds and interpreted afterwards is exactly what fixing tolerances in advance exists to
+prevent.
+
+**PROTOCOL A19**, appended with §9's marker that **no number existed when it was made**: the
+operative meaning of A18's *"disagreeing forward"* is **outside the bar the comparison will be
+judged at**, which is §3d's **5.0e-02**, not 1e-2. The 1e-2 figure was written when the forward
+read 1.114e-01 and the only question was whether it was an order of magnitude out; it was never
+calibrated for a regime where D23 has closed.
+
+| discriminator reads | action |
+|---|---|
+| **< 5.0e-02** | take the gradient, reporting the forward beside it as its floor |
+| **5.0e-02 – 1e-1** | take it, and state the gradient is **bounded rather than measured** |
+| **≥ 1e-1** | unchanged — mis-wired operand, localise, do not touch the gradient |
+
+**And the forward is a floor, not a prediction.** D9 measured a **3.2x** gradient shift under a
+**12 %** forward change, so 2e-02 forward does not imply 2e-02 gradient. The amendment count on
+the record moves **eighteen → nineteen** accordingly; a nineteenth amendment that does not appear
+in the tally is the same defect as a superseded number that keeps being quoted.
