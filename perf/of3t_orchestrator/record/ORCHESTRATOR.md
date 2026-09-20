@@ -700,14 +700,17 @@ is strictly larger than 870.75 s by the cost of the diffusion module and the hea
 needs a pinned-recycle GPU rerun and a TT number that includes what the trunk cycle leaves out —
 and, per **D32**, the TT number must be taken **with the tape open**, since 21 sites in 9 modules
 decline their fused path there. The existing 870.75 s already was taped, so it is D32-compliant;
-any successor must be too.
+any successor must be too. **D58 (UNFIXED)**: the ~20x backward-over-forward amplification is the tape's own, not the
+diffusion module's — `msa_module` reads 19.8x (forward 0.82 %, gradient 16.2 %) against D30's
+19.6x on a different module with different ops on a different track — and `msa_module` itself
+misses both bars at 1.6211e-01 over 1.2317 % of the model; unowned.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
-mass is measured against a float64 reference and inside the bars, 52.7798 % is measured and
-outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
+mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
+outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
-compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
-two live, one newly dispatched; fifty-seven defects on the record, twenty-five of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty concluded rows,
+two live; fifty-eight defects on the record, twenty-six of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6440,3 +6443,39 @@ the sister AdaLN I used as the exoneration control at pass 153 and called **clea
 better than the failing leaf and it is still 9x over bar. A differential control being valid
 does not make its reference arm passing, and I should have written "less bad". That section is
 now the campaign's largest unowned item.
+
+### Pass 157, continued — `of3t-auxheads` concluded, and the ~20x is the tape's, not the diffusion module's
+
+D30 measured the diffusion module at forward 0.85 %, gradient 16.6 % — a **19.6x**
+backward-over-forward factor — and the campaign treated it as that module's number.
+`of3t-auxheads` has now measured `msa_module`: forward **0.82 %**, gradient **16.2 %**, **19.8x**.
+**Different module, different ops, different track, the same factor to two significant figures.**
+The amplification belongs to the backward itself, observed independently twice, and it gives
+A18 a quantitative companion: an *agreeing* forward does not imply an agreeing gradient, and the
+expected gap now has a measured size. Filed as **D58**.
+
+`msa_module` is 1.2317 % of the model and **misses both bars at 1.6211e-01**, against a boundary
+that is upstream's own — two float64 CPU runs reproduced the reference loss
+`1.267624369070698` digit for digit and their parameter gradients are **bit-identical** to
+`grads_f64_043.pt` (227/227 and 98/98, worst 0.0). `input_embedder` is **answered rather than
+measured**: 92.4879 % of it sits on a weight our shipped path applies on the **host** after a
+`ttnn.to_torch`, so there is no device gradient at that scope — the honest classification is a
+port-coverage gap, and the row made it. The row also corrected its own earlier reading of the
+§6 `bond` term: it is a **polymer–ligand** loss and **0 of 8** corpus targets carry one, so
+"8 of 8 targets carry inter-token bonds" was the wrong predicate and the term is NOT COVERED
+with the right one written down.
+
+Updated position:
+
+| | share of the model's squared gradient norm |
+|---|---|
+| measured and **inside** the bars | **39.7893 %** |
+| measured and **outside** | **54.0115 %** |
+| **no reading** | **6.1992 %** |
+
+And one slip of my own worth recording because it is the kind that survives review: rebuilding
+that table I filtered the unmeasured list with `startswith('msa_module')` to remove the section
+that had just been measured, which also removed **`msa_module_embedder`** — a different section.
+The three totals still summed to 100 because I had set them by subtraction, so the top line
+looked right while an item had silently vanished from the breakdown. Caught by re-summing the
+items against the stated total, which is the only check that would have caught it.

@@ -3548,3 +3548,47 @@ this entry said it meant.
 Owner: `of3t-orchestrator`. **REFUTED, retained as a record of the error.** Artifact:
 `perf/of3t_orchestrator/TWO_MECHANISMS_NOT_ONE.json`, whose headline is wrong and is annotated
 in place.
+
+---
+
+### D58. The ~20x backward-over-forward amplification is a property of the tape, not of the diffusion module: two independent modules, different ops and different tracks, read 19.6x and 19.8x. FOUND by `of3t-auxheads`, pass 157. **UNFIXED.**
+
+D30 measured the diffusion module at forward **0.85 %**, gradient **16.6 %** — a **19.6x**
+backward-over-forward factor — and the campaign called it that module's central number.
+`of3t-auxheads` has now measured `msa_module`: forward **0.82 %**, gradient **16.2 %**, a
+**19.8x** factor. **Different module, different ops, different track, the same factor to two
+significant figures.**
+
+So the amplification is not a diffusion-module property and not an artifact of any one
+mechanism the campaign has chased. It belongs to **the backward itself**, and it is now
+observed independently twice. That reframes every per-module forward reading in the campaign:
+a module whose forward agrees at 1 % should be expected to disagree at ~20 % in its gradient
+unless something specific prevents it, and A18's "a disagreeing forward invalidates the
+gradient" has a quantitative companion — **an agreeing forward does not imply an agreeing
+gradient, and the gap has a measured size.**
+
+`msa_module` itself is **1.2317 %** of the model and **misses both bars at 1.6211e-01**. Its
+boundary is upstream 0.4.3's own: two float64 CPU runs reproduced the reference loss
+`1.267624369070698` digit for digit and the second run's parameter gradients are **bit-identical**
+to `grads_f64_043.pt` (227/227 and 98/98, worst 0.0), so nothing here is a reference question.
+
+**Two more results from the same row, both worth keeping.**
+
+- `input_embedder` (0.8007 % of the model) is **answered as a port-coverage gap rather than
+  measured**: **92.4879 %** of it sits on a weight our shipped path applies **on the host**
+  after a `ttnn.to_torch`, so there is no device gradient at that scope to compare. Named, not
+  measured — and that is the honest classification.
+- **Nine `PairWeightedAveraging` weights receive no gradient while upstream gives theirs
+  non-zero ones** — a §3b presence miss holding 0.201 % of `msa_module`. Small, and it is a
+  *presence* defect rather than an accuracy one, which is a different and usually cheaper
+  class.
+- The §6 `bond` term is **NOT COVERED** and the row corrected its own earlier reading to get
+  there: it is a **polymer–ligand** loss and **0 of 8** corpus targets carry such a bond, so the
+  earlier "8 of 8 targets carry inter-token bonds" was the wrong predicate. The term contributes
+  zero and the exact predicate it needs is now written down.
+
+Owner: unassigned. **UNFIXED.** The 19.8x/19.6x coincidence is the transferable part and it has
+no owner; what would advance it is an `msa_module` forward bisection of the kind the row ran for
+`aux_heads`, which would say whether the factor is depth accumulation in both cases or two
+different routes to the same number. Record: `state/of3t-auxheads.md`,
+`perf/of3t_auxheads/`, branch `wk/of3t-auxheads` at `5333f7e7f`, no merge anywhere.
