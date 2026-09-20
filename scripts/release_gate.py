@@ -773,6 +773,13 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 # _size_ladder_card_type() returns, so a check and a record pass on one board always agree on
 # which ladder they are talking about.
 SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536)}
+# Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
+# ~/.coworker/coverage_sweep.py reads as "the top of the ladder". The union and not this
+# board's own set: a p300c record pass writing 1024 over a p150a pass's 1536 would flip the
+# LADDER_BELOW_BAR deficit on and off with whichever board recorded last. Each card's own
+# cells still say what that board actually walked.
+SIZE_LADDER_CONTRACT_RUNGS = tuple(sorted(
+    set(SIZE_LADDER_RUNGS).union(*(set(r) for r in SIZE_LADDER_CARD_RUNGS.values()))))
 SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
@@ -3060,7 +3067,7 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
     return findings
 
 
-def _size_ladder_model_rungs(model: str, want=None) -> tuple:
+def _size_ladder_model_rungs(model: str, want=None, card: str | None = None) -> tuple:
     """This model's own ladder, ascending, narrowed to ``rungs`` when the caller named them.
 
     A design model is walked on its own axis (SIZE_LADDER_DESIGN), so the fold rungs do not
@@ -3068,7 +3075,8 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
     top rung is set by how far its own fixture source can be cut. A fold model whose guard
     reaches past the shared ladder carries its own extra top rungs (SIZE_LADDER_EXTRA_RUNGS),
     and a board held to a higher bar than the shared ladder adds the rungs that reach it
-    (SIZE_LADDER_CARD_RUNGS, keyed by the board this process is running on).
+    (SIZE_LADDER_CARD_RUNGS). ``card`` names that board and defaults to the one this process
+    is running on, so a check reading a cell recorded elsewhere asks about the right ladder.
 
     ``want`` (from --size-ladder-rungs) FILTERS each model's ladder rather than replacing it,
     so a resume pass naming 1088 measures rf3 there and measures nothing for the models whose
@@ -3079,7 +3087,7 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
     else:
         ladder = tuple(sorted(set(SIZE_LADDER_RUNGS)
                               | set(SIZE_LADDER_EXTRA_RUNGS.get(model, ()))
-                              | set(_size_ladder_this_card_rungs())))
+                              | set(_size_ladder_card_rungs(card))))
     return ladder if want is None else tuple(n for n in ladder if n in want)
 
 
@@ -3995,24 +4003,24 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
     return path
 
 
-def _size_ladder_this_card_rungs() -> tuple:
-    """The rungs THIS board adds to the shared ladder, or () off a known board.
+def _size_ladder_card_rungs(card: str | None = None) -> tuple:
+    """The rungs ``card`` adds to the shared ladder, or () for a board with none.
 
-    Detection is cached because it shells out to tt-smi and every rung lookup calls it.
+    ``card`` defaults to the board this process is running on. Passing it explicitly is what
+    lets a check READ a card it is not running on: the coverage test walks every recorded
+    card in the baseline, and asking a p150a host what rungs the Galaxy's ladder walks is how
+    a per-board ladder turns into a demand for cells nobody owes.
+
     A board with no entry, and a host where the type cannot be read at all, both get the
     shared ladder: widening a ladder on a guess would demand baseline cells for a board
     nobody measured.
     """
-    global _SIZE_LADDER_CARD
-    if _SIZE_LADDER_CARD is None:
+    if card is None:
         try:
-            _SIZE_LADDER_CARD = _size_ladder_card_type()
+            card = _size_ladder_card_type()
         except Exception:                                                    # noqa: BLE001
-            _SIZE_LADDER_CARD = ""
-    return tuple(SIZE_LADDER_CARD_RUNGS.get(_SIZE_LADDER_CARD, ()))
-
-
-_SIZE_LADDER_CARD = None
+            card = ""
+    return tuple(SIZE_LADDER_CARD_RUNGS.get(card, ()))
 
 
 def _size_ladder_every_rung() -> tuple:
@@ -4025,7 +4033,7 @@ def _size_ladder_every_rung() -> tuple:
     Nothing else widens: the models' own ladders are still taken one at a time from
     _size_ladder_model_rungs, so a fold model never sees an atom rung.
     """
-    every = set(SIZE_LADDER_RUNGS) | set(_size_ladder_this_card_rungs())
+    every = set(SIZE_LADDER_CONTRACT_RUNGS)
     for extra in SIZE_LADDER_EXTRA_RUNGS.values():
         every |= set(extra)
     for d in SIZE_LADDER_DESIGN.values():
@@ -4200,13 +4208,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # The LADDER, not this pass's subset. --size-ladder-rungs records a rung at
                 # a time, and writing the subset here would have the file claim a four-rung
                 # ladder because the last resumed pass measured four of them.
-                # Every board's rungs, not just this one's: the key is read by
-                # ~/.coworker/coverage_sweep.py as "the top of the ladder", and a p300c
-                # record pass writing 1024 over a p150a pass's 1536 would flip the
-                # LADDER_BELOW_BAR deficit on and off with whichever board recorded last.
-                # Each card's own cells still say what that board actually walked.
-                "rungs": sorted(set(SIZE_LADDER_RUNGS).union(
-                    *(set(r) for r in SIZE_LADDER_CARD_RUNGS.values()))),
+                "rungs": list(SIZE_LADDER_CONTRACT_RUNGS),
                 "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
                          "diffusion_samples": 1, "seed": SEED},
             })
