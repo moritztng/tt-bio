@@ -1,0 +1,22 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 179",
+ "headline": "MEASURED: a forward reading does not bound the gradient, and the spread is 85x. On the two scopes with identical bars and the same float64 0.4.3 reference, aux_heads reads 0.077x its forward bar and 0.11x its gradient bar, while the pairformer trunk reads 2.131x its forward bar and 268.39x its gradient bar. A18 is a valid VETO and a useless BOUND -- which is what its own addendum (D9) says in prose, now with numbers behind it.",
+
+ "the_two_comparable_scopes": {
+  "why_only_two": "the diffusion scopes are scored against upstream's own bf16 step, so A26's sqrt(2) applies to them and not to these (A26-SCOPE), and mixing the two families is the A27 unit error this campaign already made once. aux_heads and the trunk share a float64 0.4.3 reference and the same bars -- 5.0e-02 per-tensor forward, 2.0e-02 mass-weighted gradient -- so only they can be set side by side.",
+  "table": [
+   {"scope": "aux_heads", "a18_forward": 3.865648e-03, "forward_x_bar": 0.077,
+    "gradient_A23": 2.271382e-03, "gradient_x_bar": 0.11},
+   {"scope": "pairformer trunk (single track)", "a18_forward": 1.065338e-01, "forward_x_bar": 2.131,
+    "gradient_A23": 5.367727e+00, "gradient_x_bar": 268.39}
+  ]
+ },
+
+ "what_the_numbers_do_and_do_not_mean": "these are two DIFFERENT QUANTITIES -- per-head logits against a captured boundary, and a mass-weighted comparison over parameter tensors -- so the 0.59x and 50.39x ratios are NOT a transfer function and nothing should be scaled by them. The claim is narrower and it is about PREDICTIVE VALUE: knowing a scope's forward reading tells you very little about its gradient reading, measured, across the only two scopes where the comparison is even legitimate.",
+
+ "the_consequence_that_should_change_behaviour": "a scope that merely SQUEAKS PAST A18 provides almost no assurance about its gradient. The trunk's forward missed the bar by 2.13x and its gradient missed by 268x. Read across, a hypothetical scope passing A18 at 0.9x the forward bar would sit nowhere useful on the gradient. So: A18's pass may be quoted as 'the forward does not invalidate this gradient' and never as 'the gradient is therefore likely fine' -- and a marginal A18 pass should be treated as close to no information at all.",
+
+ "why_this_was_worth_computing": "the campaign has five measured scopes and the relationship between their two instruments had never been looked at across them. It vindicates A18's design -- the one scope that failed A18 is the one scope whose gradient failed, so the veto fired exactly where it should -- while refuting any temptation to use a comfortable forward as evidence of gradient health. Both halves matter: the instrument is sound AND the inference people want to draw from it is not available.",
+
+ "provenance": "of3t-orchestrator pass 179 on pc, CPU only, no new measurement. Figures from of3t-auxgrad (VERDICT GO) and of3t-trunkgrad (VERDICT NO-GO), each as that row published it. Bars from PROTOCOL §3d; the reference-family restriction from A26-SCOPE and A27."
+}

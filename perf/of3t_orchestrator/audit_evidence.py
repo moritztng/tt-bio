@@ -15,11 +15,37 @@ CPU only, no card, no network. Run from a `wk/of3t` checkout.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# --- refuse to run outside the composed tree -------------------------------
+# This audit recomputes EVIDENCE.md against artifacts contributed by ~30 rows.
+# Run from a single row's worktree it finds most of them absent and reports
+# them as DRIFT -- at pass 182 that was 24 of 25 "drifts", all false, and the
+# real one was buried among them. A wrong-tree run must be a REFUSAL (exit 2),
+# never a drift report, because a drift report is indistinguishable from
+# artifacts having actually gone missing. compose_verify.sh:97 checks the
+# composition out as branch `wk/of3t`; that is the only tree this can score.
+if os.environ.get("OF3T_AUDIT_TREE_OK") != "1":
+    _br = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--abbrev-ref", "HEAD"],
+                         capture_output=True, text=True).stdout.strip()
+    if _br != "wk/of3t":
+        sys.stderr.write(
+            f"REFUSING: this audit scores the COMPOSED tree, but HEAD here is {_br!r}, "
+            f"not 'wk/of3t'.\n"
+            f"  {ROOT}\n"
+            "Most rows' artifacts are absent in a single row's worktree, so every check that\n"
+            "reads one would report a false DRIFT. Run it via perf/of3t_orchestrator/"
+            "compose_verify.sh,\nor against the composed worktree it builds. Set "
+            "OF3T_AUDIT_TREE_OK=1 only if you have\nverified the artifacts are present by "
+            "some other route.\n")
+        sys.exit(2)
+# ---------------------------------------------------------------------------
 
 
 _FELL_BACK: set = set()
@@ -951,13 +977,56 @@ if ORCH.is_file():
              "ninety"]
 
     def _word(n):
+        # Pass 176, FIFTH sighting of this class: the campaign reached 100 defects and this
+        # returned None, so the check announced it could not run. That announcement is the
+        # pass-138 fix working -- but a generator that stops at 99 is still a word list with
+        # extra steps. Hundreds are now generated too, and the range below is 10x the subject's
+        # current size rather than one step ahead of it.
         if n < 20:
             return _ONES[n]
         if n < 100:
             return _TENS[n // 10] + ("-" + _ONES[n % 10] if n % 10 else "")
+        if n < 1000:
+            head = _ONES[n // 100] + " hundred"
+            rest = n % 100
+            return head if not rest else head + " " + _word(rest)
         return None
 
-    _words = {n: _word(n) for n in range(1, 100)}
+    _words = {n: _word(n) for n in range(1, 1000)}
+
+    # --- ROWS must match the briefs on disk -------------------------------------------------
+    # Pass 182: ROWS read "twenty-four dispatched, twenty-one concluded" for SEVEN passes while
+    # the campaign ran 39 rows. Nothing caught it because ROWS is the one census field with no
+    # check. It gets the same treatment as every other transcribed summary here: checked against
+    # its source. The source for "dispatched" is the brief files; for "concluded" it is the
+    # markers MINUS this row's own, because of3t-orchestrator leaves a marker from an earlier
+    # pass that is stale the moment it is relaunched -- counting markers alone overstates by one,
+    # which is exactly the error this check first found in its own subject.
+    _WS  = Path("/home/moritz/.coworker/workstreams")
+    _CON = Path("/home/moritz/.coworker/state/concluded")
+    if not (_WS.is_dir() and _CON.is_dir()):
+        warn.append("ROWS census not checked -- the fleet's workstreams/ or state/concluded/ is "
+                    "not reachable from this host, so the count has no source to be checked "
+                    "against here")
+    elif ORCH.is_file():
+        _n_disp = len(list(_WS.glob("of3t-*.txt")))
+        _n_conc = len([d for d in _CON.iterdir()
+                       if "of3t" in d.name and "of3t-orchestrator" not in d.name])
+        _rm = _re.search(r"^ROWS:\s*\*\*([a-z-]+) dispatched, ([a-z-]+) concluded",
+                         ORCH.read_text(), _re.M)
+        if _rm is None:
+            bad.append("ROWS does not open with '**<word> dispatched, <word> concluded**', so "
+                       "the census cannot be checked against the briefs on disk")
+        else:
+            _wd, _wc = _words.get(_n_disp), _words.get(_n_conc)
+            if _wd is None or _wc is None:
+                bad.append(f"ROWS check cannot run: no number-word for {_n_disp}/{_n_conc}")
+            elif _rm.group(1) != _wd or _rm.group(2) != _wc:
+                bad.append(f"ROWS says '{_rm.group(1)} dispatched, {_rm.group(2)} concluded' but "
+                           f"disk has {_n_disp} of3t briefs and {_n_conc} concluded markers "
+                           f"(excluding this row's own) -- i.e. '{_wd}' and '{_wc}'")
+            else:
+                ok.append(f"ROWS matches the briefs on disk ({_wd} dispatched, {_wc} concluded)")
     if DEF.is_file():
         _dt = DEF.read_text()
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
@@ -1116,17 +1185,39 @@ if _host_only is None:
 # because a stamp does not stop a number being read.
 _dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json")
 if _dtg:
-    _p = _dtg["survives"]["total_pct"]
-    _f = _dtg["measured_and_fails"]["total_pct"] + \
-         _dtg["measured_and_void_under_A18"]["total_pct"]
-    _u = _dtg["no_direct_reading"]["total_pct"]
-    _tot = _p + _f + _u
+    # Schema-tolerant, and LOUD when it cannot read: at pass 180 the artifact was re-split
+    # (aux_heads left the VOID bucket, the trunk left UNREAD) and this check -- which indexed
+    # fixed keys -- died with a KeyError. The audit then printed nothing, and a grep for "DRIFT"
+    # came back empty, which reads exactly like a pass. A check that cannot run must SAY SO.
+    def _share(block, *names):
+        b = _dtg.get(block)
+        if not isinstance(b, dict):
+            return None
+        for n in names:
+            if isinstance(b.get(n), (int, float)):
+                return float(b[n])
+        return None
+
+    _p = _share("survives", "total_pct", "pct")
+    _pass = _share("measured_and_PASSES", "total_pct", "pct") or 0.0
+    _fail = _share("measured_and_fails", "total_pct", "pct")
+    _void = _share("measured_and_void_under_A18", "total_pct", "pct") or 0.0
+    _u = _share("no_direct_reading", "total_pct", "pct_total", "pct")
+    if _p is None or _fail is None or _u is None:
+        bad.append("DISTANCE_TO_GO_AGAINST_THEIR_STEP: cannot read its shares (survives="
+                   f"{_p}, fails={_fail}, unread={_u}) -- the schema moved and this check "
+                   "CANNOT RUN, which is not a pass")
+        _p, _pass, _fail, _void, _u = 0.0, 0.0, 0.0, 0.0, 0.0
+        _tot = 100.0
+    else:
+        _f = _fail + _void
+        _tot = _p + _pass + _f + _u
     if abs(_tot - 100.0) > 0.001:
         bad.append(f"DISTANCE_TO_GO_AGAINST_THEIR_STEP's shares sum to {_tot:.4f} %, not 100 -- a "
                    f"reading moved buckets and the split was not rebalanced")
     else:
         ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} survives / "
-                  f"{_f:.4f} fails-or-void / {_u:.4f} unread)")
+                  f"{_pass:.4f} passes / {_fail:.4f} fails / {_u:.4f} unread)")
     # The retired file must stay retired: if its live headline ever carries the old split again,
     # something restored it from history and VERDICT will follow.
     _old = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
@@ -1137,7 +1228,10 @@ if _dtg:
         _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
         _vt = _verd.group(1) if _verd else ""
         _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
-        for _val, _lbl in ((_p, "surviving"), (_f, "failing-or-void"), (_u, "unread")):
+        _checks = [(_p, "surviving"), (_fail, "failing"), (_u, "unread")]
+        if _pass:
+            _checks.append((_pass, "measured-and-passing"))
+        for _val, _lbl in _checks:
             if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
                 bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
                            f"summary has drifted from DISTANCE_TO_GO_AGAINST_THEIR_STEP")
@@ -1202,6 +1296,75 @@ if ORCH.is_file():
                    + "; ".join(_over) + " -- move the narrative to PASSLOG, which is what it is for")
     else:
         ok.append("every owed summary field is inside its readability cap")
+
+# --- an INERTNESS claim must name what it compared ------------------------------------------
+# Pass 184, third instance in a week of the same failure: the numeric claims here are checked on
+# every compose and the CHARACTERISATIONS are not, so prose drifts freely inside a document that
+# audits green. "revision-inert" is the highest-stakes word the campaign uses -- it is what
+# licenses scoring a scope against either upstream tree -- and D108 found it applied to the
+# diffusion transformer (51.1358 % of the mass), which is not inert: 0.4.3 gives every DiT block
+# its own learned layer_norm_z where 0.5.0 has one shared. This is A27's rule one level up: a
+# ratio names how its denominator arm was built; an equivalence names the two things compared.
+# Required evidence is a SOURCE PATH in the same artifact, not a citation of another artifact --
+# tested both ways at pass 184, and accepting citations passed all 8 artifacts including one
+# that propagated the claim with nothing behind it, i.e. it was vacuous.
+# The word list is the SOURCE-EQUIVALENCE family only. Pass 184 tested widening it to
+# bit-identical / byte-identical and that is a CATEGORY ERROR: those are claims about
+# measured tensor DATA, whose correct evidence is a number or a digest, not a source path.
+# Widening would have fired on nine well-evidenced artifacts -- "max abs diff 0.0",
+# "sha256 d631c39e...", a two-arm forward comparison -- i.e. the fifth time in this campaign
+# a guard was nearly built too wide. Adding `cosmetic` and `functionally identical` fires on
+# nothing today and closes the hole where the same claim evades the guard by word choice.
+_inert = _re.compile(r"\b(inert|cosmetic|functionally identical|identical in both)\b", _re.I)
+_pyp = _re.compile(r"[\w/\.\-~]+\.py\b")
+_bare = []
+for _f in sorted((ROOT / "perf/of3t_orchestrator").glob("*.json")):
+    try:
+        _j = json.load(open(_f))
+        _s = json.dumps(_j)
+    except Exception:
+        continue
+    # Pass 192: A29's guard has the same structural weakness this campaign documented one
+    # commit earlier -- the text that DISCUSSES a retired inertness claim must quote it, so the
+    # matcher fires on artifacts doing the right thing. It fired on
+    # A_RETIRED_CLAIM_GUARD_WAS_PROTOTYPED_AND_REJECTED.json, which asserts nothing and merely
+    # recounts "the diffusion transformer called revision-inert when it is not". The fix is an
+    # EXPLICIT, JUSTIFIED exemption rather than a silent skip or a spurious path added to
+    # satisfy the check: an artifact may carry `a29_exempt` with a non-empty reason, which is
+    # visible, greppable, and has to be argued in the artifact itself.
+    _exempt = isinstance(_j, dict) and str(_j.get("a29_exempt", "")).strip()
+    if _inert.search(_s) and not _pyp.search(_s) and not _exempt:
+        _bare.append(_f.name)
+if _bare:
+    bad.append("artifact(s) claim something is INERT without naming a source file they compared, "
+               "so the claim cannot be re-checked and the next reader inherits it: "
+               + ", ".join(_bare))
+else:
+    ok.append("every artifact using the word 'inert' names a source file it compared")
+
+# --- THE_ANSWER's by_scope table must SUM TO ITS OWN TOTAL ----------------------------------
+# Added pass 176. The table listed five scopes summing to 97.9933 % beside an arithmetic_check
+# asserting 100.0, because the no_reading bucket was only partly enumerated: pairformer_stack's
+# 5.8282 had a row and the other 2.0067 % did not. Nothing was WRONG -- both numbers were right --
+# but a reader who added the column up got a different answer from the one stated, and could not
+# tell which to trust. A table whose own rows do not reconstruct its total is not checkable, and
+# an unchecked total is how every drift in this campaign started.
+try:
+    _ta = json.load(open(ROOT / "perf/of3t_orchestrator/THE_ANSWER.json"))
+except Exception as _e:
+    warn.append(f"THE_ANSWER.json could not be read for the by_scope sum check ({_e})")
+else:
+    _rows = _ta.get("by_scope") or []
+    _sum = round(sum(float(r.get("mass_pct", 0)) for r in _rows), 4)
+    _claim = float(_ta.get("arithmetic_check", {}).get("total_pct", 0))
+    if not _rows:
+        bad.append("THE_ANSWER.json has no by_scope rows -- the headline table vanished")
+    elif abs(_sum - _claim) > 5e-4:
+        bad.append(f"THE_ANSWER by_scope sums to {_sum} but arithmetic_check.total_pct is "
+                   f"{_claim} -- the mass table does not reconstruct its own total, so a reader "
+                   f"adding the column up gets a different answer from the one stated")
+    else:
+        ok.append(f"THE_ANSWER by_scope sums to its own total ({_sum} over {len(_rows)} scopes)")
 
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
