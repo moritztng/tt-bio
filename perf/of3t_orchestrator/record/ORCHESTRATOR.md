@@ -3345,15 +3345,23 @@ control fires at 1.0.
 **So component 1, the gradient, is the entire remaining gap — and its mass is concentrated, not
 spread.** Re-read from `replay_vs_r0.json` this pass rather than quoted:
 
-| section | % of squared gradient norm |
-|---|---|
-| `diffusion_module` | **91.2084** |
-| `aux_heads` | 4.2653 |
-| `pairformer_stack` | 3.1560 |
-| `msa_module` | 0.8932 |
-| `input_embedder` | 0.3999 |
-| everything else (6 sections) | 0.0772 |
-| **total** | **100.0000** |
+**CORRECTED PASS 110 — the table below was computed on the 0.5.0 model's 4,147 parameters. The
+0.4.3 model has 4,170, and re-derived against it on a card
+(`perf/of3t_rebase/reach_by_norm_043.json`, reference sha256 matching the A13 hash):**
+
+| section | % of squared gradient norm — CORRECTED | (superseded 0.5.0 figure) |
+|---|---|---|
+| `diffusion_module` (761 tensors) | **89.211** | 91.208 |
+| `pairformer_stack` (2,736) | **5.828** | 3.156 |
+| `aux_heads` (244) | **2.843** | 4.265 |
+| `msa_module` (227) | **1.240** | 0.893 |
+| `input_embedder` (98) | **0.801** | 0.400 |
+| `msa_module_embedder` + others | **0.077** | 0.078 |
+
+**I found the 4,147-vs-4,170 defect myself at pass 91, asked for the re-derivation, and then went
+on quoting the superseded figures for fifteen passes** — in the pass-96 map, in pass 108 and in
+pass 109. That is the `superseded-stamp-does-not-stop-the-number-being-read` lesson landing on the
+person who wrote it down.
 
 **Status against that mass:**
 
@@ -3394,10 +3402,14 @@ unchanged: stability over a real 100k-step run, precision drift a 20-step trajec
 observe by construction, convergence to the published weights, and rare sample types outside the
 path-complete set.
 
-**The one thing this map changes operationally**: `aux_heads` at 4.27 % is larger than
-`pairformer_stack` at 3.16 %, and the campaign has spent dozens of passes on the pairformer and
-none on `aux_heads` at its own scope. That is a misallocation the norm shares make visible and
-prose did not.
+**The one thing this map changed operationally — and it was WRONG, corrected pass 110.** I wrote
+that `aux_heads` at 4.27 % is larger than `pairformer_stack` at 3.16 %, and called the campaign's
+attention split a misallocation. On the correct 4,170-parameter denominator **`pairformer_stack`
+is 5.828 % and `aux_heads` is 2.843 %** — the pairformer is *twice* `aux_heads`, so the split was
+roughly right and my "misallocation" was an artifact of the stale denominator. `of3t-auxheads` is
+still worth running: 2.843 % is real, unmeasured, and carries the unowned `bond` coverage hole.
+But the **reason I gave for dispatching it does not survive**, and a row dispatched on a wrong
+rationale should be told so rather than left to inherit it.
 
 PASS 97, footnote worth keeping. **The DONE_CHECK's forbidden-phrase guard fired on my own
 write-up of why crop 640 *cannot* be split across chips.** It substring-matches with no awareness
@@ -3797,3 +3809,53 @@ A13 says two runs agree; FD says the gradient *is* the derivative. The revision 
 function — `layer_norm_z` present or absent, `transpose_bias` on or off — so the 0.5.0 FD figures
 (**2.18e-03** trunk, **1.17e-03** diffusion) **cannot be inherited**. Both gates are real, which
 is exactly why the overlap is worth having rather than a decision about which to drop.
+
+PASS 110. **`of3t-rebase` corrected me on three things and is right on all three. REFBUILD is
+complete.**
+
+**1. The diffusion recapture was already running, and pass 109's headline is withdrawn.** It
+started **01:20:35Z**, before my message, writing to `~/of3t_rebase/diffcap043/` — not the
+`~/of3t_diffusion_cap/` I checked. I looked in one directory, found the 0.5.0 file untouched, and
+announced that the campaign's critical path "has not started". It had. And the row's reason for
+the new directory is better than the one I would have given: overwriting
+`of3t_diffusion_cap/sub_boundary.pt` would destroy the artifact **every published diffusion number
+was taken against**.
+
+**2. The sequencing I advised was already done**, and done with the pass-104 finding applied: run
+C and the recapture overlapping at nice 15 and nice 10, 605 % and 500 % — **two** float64 jobs,
+not three. The row had tried three earlier in the pass, measured everything running at about a
+third speed, and stopped the 0.5.0-on-qb2 host control at 82 minutes. It also names why the
+sizing must happen *before* launch: nice cannot be undone without privileges (pass 99).
+
+**3. The norm shares I have been quoting are the wrong model's, and I am the one who found that
+defect.** Re-derived on a card against the 0.4.3 model's 4,170 parameters
+(`perf/of3t_rebase/reach_by_norm_043.json`, whose `reference.sha256` is the same
+`1d4ea922…95cc4` I hashed for A13):
+
+| section | corrected | superseded |
+|---|---|---|
+| `diffusion_module` | **89.211 %** | 91.208 % |
+| `pairformer_stack` | **5.828 %** | 3.156 % |
+| `aux_heads` | **2.843 %** | 4.265 % |
+| `msa_module` | **1.240 %** | 0.893 % |
+| `input_embedder` | **0.801 %** | 0.400 % |
+
+**This destroys my pass-96 "misallocation" finding.** I argued `aux_heads` (4.27 %) was larger
+than the whole pairformer stack (3.16 %) and that dozens of passes on the pairformer against none
+on `aux_heads` was a misallocation the norm shares made visible. On the correct denominator the
+pairformer is **5.828 %** and `aux_heads` is **2.843 %** — the pairformer is *twice* `aux_heads`,
+the attention split was roughly right, and my finding was an artifact of a stale number I had
+myself flagged fifteen passes earlier and kept quoting. `of3t-auxheads` still earns its place —
+2.843 % is real, unmeasured, and it carries the unowned `bond` coverage hole — but its **stated
+rationale is withdrawn** and its brief must say so rather than let the row inherit it.
+
+**4. REFBUILD is complete.** A13 now reports **REPRODUCED: 4,170 of 4,170 bit-identical, worst
+0.0, median 0.0, 0 presence mismatches** — the row's own artifact, which is what I asked for at
+pass 107 rather than leaving my sha256 as the campaign's only evidence. Device coverage on the
+corrected model is **3,569 of 4,170 holding 97.80 %** of the squared norm, **up 24 carried and
+down 1 uncarried**, with **zero of the 24 new per-block DiT `layer_norm_z` uncarried** — the
+increase I predicted at pass 91 when I asked for the re-derivation.
+
+Three rows in a row have now corrected this desk on substance, each with the arithmetic in hand.
+That is the campaign's §3e discipline working in the direction it is hardest to apply, and the
+record is better for it every time.
