@@ -354,6 +354,16 @@ done
 # (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
+# (3b) DISPATCH HYGIENE. `card=-` reads as "any TT card" to fleet.sh, never "none", and the
+# failure is silent -- the row defers every two minutes with "no free card on any of [...]",
+# which reads as capacity rather than a typo. Three live hits: 2026-08-22, 2026-09-07 (three
+# days of deferrals), and 2026-09-20, mine, two rows at once. The memory entry asked twice for
+# a check; this is it. Deliberately narrow -- see the script's SCOPE comment for the wider
+# version that flagged 12 of 30 rows including one that plainly needed its card.
+echo "--- dispatch card tokens"
+"$PY" "$HERE/assert_dispatch_card_token.py" || \
+  { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
+
 echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }

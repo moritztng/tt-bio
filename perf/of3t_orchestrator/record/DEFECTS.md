@@ -5794,3 +5794,34 @@ boundary the change reorients the error rather than reducing it. One boundary, 5
 CPU — not a claim about upstream's change in general, but it is the configuration the reference
 was built in. Owner: `of3t-orchestrator`. **QUANTIFIED** (was UNFIXED); no longer an unknown in
 the trunk's accounting.
+
+### D97. I dispatched two rows with `card=-`, the documented trap that means "any TT card" — third live hit, and the first one that is mine. FIXED, with the guard the memory asked for twice.
+
+`fleet.sh` treats `card=-` as **any TT card**; the only token meaning "needs no device" is
+`card=cpu`. Both rows I dispatched at pass 176 are CPU-only — their briefs say *"You hold no card
+lease; do NOT open a Tenstorrent device"* in the body — and both headers read `card=-`. They
+would have deferred every two minutes with *"no free card on any of [pc]"*, which reads as
+capacity pressure rather than a typo, for as long as pc's card stayed busy.
+
+This is the **third** occurrence: 2026-08-22 on a control-plane row, 2026-09-07 on
+`grand-tidy-tt-bio` where the body literally said *"this task is dispatched `card=cpu`
+deliberately"* one line under a `card=-` header and cost three days, and now mine. The standing
+memory entry has twice recorded *"candidate cleanup: flag a brief whose body says it needs no
+card while its header disagrees"*. Recording the same fix as a candidate twice and then walking
+into it is the argument for building it.
+
+**Built**: `perf/of3t_orchestrator/assert_dispatch_card_token.py`, run by `compose_verify.sh` on
+every compose. Four controls: `card=-` fails, a body/header contradiction fails, a missing
+`#DISPATCH` fails, and a genuine card row passes.
+
+**And the first version of the guard was wrong, which is the part worth keeping.** I began by
+matching English — *"do NOT open a Tenstorrent device"*, *"CPU-only"*, *"no card lease"* — and it
+flagged **12 of ~30** briefs, including `of3t-foldab`, which had just run 9 seeds x 2 arms of
+folds on qb2-card0 and obviously needed its card. That phrase appears in card-USING briefs as an
+instruction about harness discipline, not a statement of requirement. **A guard that is wrong
+40 % of the time gets ignored, which is worse than no guard**, so the shipped version keeps only
+two mechanical signals: `card=-` in the header (always wrong, no interpretation needed) and the
+literal `card=cpu` in the body under a header that says otherwise (the 2026-09-07 shape exactly).
+English prose about devices was tried and does not separate; the script says so in its own SCOPE
+comment so the wider version is not re-attempted. Live sweep: 31 briefs, clean.
+Owner: `of3t-orchestrator`. **FIXED.**

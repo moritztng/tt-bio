@@ -1,5 +1,5 @@
 # Workstream: of3t-maskaudit
-#DISPATCH: host=pc card=- repo=tt-bio maxit=200 tier=opus5
+#DISPATCH: host=pc card=cpu repo=tt-bio maxit=200 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-maskaudit
 
 OF3T row `of3t-maskaudit` — **did the campaign's activation-space readings mask their padding, or
