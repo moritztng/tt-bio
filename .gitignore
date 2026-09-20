@@ -109,6 +109,10 @@ perf/sizegate/work-card*/
 perf/sizegate/probe/
 perf/sizegate/campaign/logs/
 perf/sizegate/campaign/claim/
+perf/sizegate/campaign/claim-rr/
+perf/sizegate/campaign/ab_card*/
+perf/sizegate/campaign/steps_ctl/
+perf/sizegate/campaign/scratch_*
 
 # Never again: press/pmol-env was a committed virtualenv (~976 MB of this
 # repo's history) and landing-page video added ~70 MB more. tests/test_repo_size_guard.py
@@ -155,3 +159,4 @@ perf/pvx_land/*.json
 # pvx-eligibility: the MSA cache its census seeds
 .msa_pvxel_*/
 perf/sizegate/failures/
+perf/sizegate/campaign/card*.lock

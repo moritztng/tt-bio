@@ -18,7 +18,8 @@ qb2 has 16 cores. Nothing here kills or throttles anything: other rows' jobs are
 """
 import json, os, subprocess, time
 
-OUT = "/home/ttuser/pvx_arms/gateland_sizeladder_contention.jsonl"
+OUT = os.environ.get("CONTENTION_OUT",
+                     "/home/ttuser/pvx_arms/gateland_sizeladder_contention.jsonl")
 TT = os.path.expanduser("~/.local/bin/tt-smi")
 
 

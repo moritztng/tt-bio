@@ -1,0 +1,18 @@
+SELF-TEST
+  want 0 got 0  ok  the window declining is the window working: 3842 calls at this
+  want 1 got 1  ok  the window declining is the window working: 9999 calls at this
+  want 0 got 0  ok  declines all 7684 on the band
+  want 1 got 1  ok  declines all 560 on the band
+  want 1 got 1  ok  no call site: 0 served AND 0 declined at this rung
+  want 1 got 1  ok  no call site: 0 served AND 0 declined at every rung
+  want 0 got 0  ok  same clause, every rung really 0
+  PASS: the checker fires on a contradicted claim and stays quiet on a true one
+
+==========================================================================================
+nesso1
+  other card p150a           byte-identical
+  other card tt-galaxy-wh-l  byte-identical
+  0 TODO reason(s) -- each is a red cell until a judgement is written
+  29 carried reason(s) the gate cannot regenerate the numbers of, 0 of which assert a count this entry no longer holds
+==========================================================================================
+0 item(s) need a hand: TODOs to write, static heads to re-open, scope leaks to undo
