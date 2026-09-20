@@ -1,4 +1,5 @@
 {
+ "WITHDRAWN": "Pass 120: these arrays are indexed by DIFFUSION STRUCTURE, not by pairformer block, and accumulation_probe is the norm of an accumulating gradient, not an error. Kept only as the record of a withdrawn fit. Do not cite. See ../diffusion/dit_depth_and_amplification.json.",
  "source": "device_gradient_043all.json (48 pairformer blocks, NP=448, atoms=422)",
  "note": "orchestrator, pass 118: does the trunk AMPLIFY error with depth, or accumulate it?",
  "accumulation_probe": {
@@ -26,5 +27,5 @@
   "coherent_k^1.0": 48.0,
   "observed": 26.68169388539845
  },
- "verdict": "the probe grows k^0.765, strictly sub-linear: slower than a coherent sum of per-block errors and faster than a random walk. It is accumulation with partial cancellation, NOT amplification. The forward has no depth trend at all (exponent -0.071, R^2 0.0195)."
+ "verdict": "WITHDRAWN -- wrong axis and wrong quantity. See the WITHDRAWN field."
 }
