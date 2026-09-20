@@ -3417,3 +3417,31 @@ The practical consequence for this fleet: renicing to protect a co-tenant is cor
 and it should be sized on the **whole expected life** of the job rather than on the moment, since
 there is no taking it back. Where the yield needs to be temporary, the right instrument is a
 benchlock the other campaign takes, not a one-way renice by the neighbour.
+
+PASS 100, fleet hygiene, closed before it bit rather than after.
+
+**A row dispatched to one host and doing its device work on another holds the wrong lease and
+takes the right cards invisibly.** `of3t-confhead`'s first launch went to **pc** at 01:24, before
+I repinned it; a repin only takes effect on the next launch, so that launch has held
+`state/leases/pc-card0.json` — *holder `worker:of3t-confhead`, host pc, card 0, since 01:24* —
+for over an hour while its folds run on **qb2 cards 0 and 1**, which it took outside the leasing
+system entirely.
+
+**Measured cost right now: none, and I checked rather than assumed.** pc card 0 is open by
+nobody and **no row is queued for pc with a card**, so the idle lease blocks no one. On qb2 only
+`/dev/tenstorrent/0` is open at this instant, by a confhead fold worker; 1, 2 and 3 are free.
+
+**The risk that was real: `of3t-rebase` is dispatched `tt-quietbox2 card=0` — the same chip
+confhead is cycling through 18 folds on.** Rebase has been on CPU float64 work for ~60 minutes so
+nothing has collided, and the collision would have arrived the moment it opened a device for the
+corrected trunk arms or the A18 re-capture. Told it to take card **2 or 3** — the other board
+pair, both idle — and told confhead **not** to switch chips mid-campaign, because 0 and 1 are one
+p300c board pair and using them as a pair is correct.
+
+**Neither row is at fault and the record should say so.** The lease is an artefact of a repin
+landing between launches, and the queue and brief now both read `host=qb2 card=any`, so the next
+launch lands on qb2 and holds the right lease with no intervention. What I asked for instead is
+provenance: `of3t-confhead` records which qb2 chips its folds ran on and that they ran unleased
+on that host. Its own seed-1 control already shows chip identity does not move the structure —
+**3.4e-08 A** against `of3t-pairbias`'s published row on a different card of the same class — so
+that is a provenance note, not a caveat on the result.
