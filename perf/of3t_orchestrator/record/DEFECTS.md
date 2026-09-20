@@ -6213,3 +6213,118 @@ benchmark mid-run while it held the benchlock. I didn't, for a reason that had n
 with the evidence: it was not my process, so the call was not mine. The standing constraint
 carried the decision that my diagnosis would have gotten wrong — which is the argument for the
 constraint being absolute rather than conditional on how confident the diagnosing row feels.
+
+### D106. FIVE values OpenFold3's config sets that our recipe never passes, so a library default shipped instead — and the largest is worth 1862x. FIXED ON `wk/of3t-wirefix`, RELEASE-GATED, NOTHING MERGED.
+
+PROTOCOL §7's assembled 20-step trajectory — required by §8's completion sentence and never run
+until pass 181 — found four divergences in the shipped training path on its first execution
+(`of3t-traj20`, NO-GO, all four pre-registered before measuring). `of3t-wirefix` closed them and
+found a **fifth** while attributing the residual. All five, with the arm that isolates each:
+
+| # | what ships | what OpenFold3 runs | where | worth |
+|---|---|---|---|---|
+| 1 | `weight_decay=0.01`, `AdamW`'s class default | none — a plain `torch.optim.Adam` (`runner.py:852-860`) | `recipes.py:118` passes no `weight_decay` | 74 tensors have an exactly zero reference update and we moved all of them; **0 of 4,147** bit-identical at k=2 with it on, **76** with it off |
+| 2 | one clip over the batch | per-sample clipping at `clip_val` 10.0, OF3's shipped default | `clip_and_accumulate` had **3 test call sites and 0 production ones** | we apply coefficient **0.6290** where upstream applies **1.0**, and it changes the **direction** of the sum |
+| 3 | divide by batch size | divide each parameter by **its own** participation count (`grad_manager.py:225-232`) | counter written at `optim.py:411`, **read 0 times** | closing it moves k=2 by **12.4x** |
+| 4 | Protenix's schedule family | AF2's — flat until `start_decay_after_n_steps` | `af3_lr` called without `plateau_until` | 200,004 of 200,005 points exact; the 20-step window is **blind to it by construction** |
+| 5 | `betas=(0.9, 0.999)`, `AdamW`'s class default | `(0.9, 0.95)` (`model_config.py:143-146`, read by `configure_optimizers`) | `recipes.py:118` passes no `betas` | **d_2 from 9.095550e-03 to 4.884661e-06 — a factor of 1862** |
+
+**Four of the five are literally the same sentence.** A value the reference recipe sets in its
+config, which our recipe never passes, so the library's own default ships instead. **None of
+them is a wrong number written down anywhere** — each is a number never written down at all,
+where the fallback happened to be something else. That is why grepping for the wrong value
+finds nothing in any of these cases, and why the only thing that finds them is diffing the
+recipe's **argument list** against the reference's **config**.
+
+**The fifth was found by elimination, which is worth recording as a method.** `of3t-wirefix`
+did not fit the 20-step curve. It showed the residual was a uniform *magnitude* excess
+(||d_ours||/||d_theirs|| = 1.008620 at k=2, per-tensor median 8.940e-03, p90 9.010e-03 — not a
+direction error, not a few bad tensors), then closed off every input: `AdamW.step()` is
+**bit-identical** to `torch.optim.Adam` on identical gradients over eight elements spanning 1.0
+to 1e-12; the accumulated gradient reaching each optimizer at k=2 is **bit-identical**
+(rel 0.000000e+00); counts identical; applied rate identical at 9e-05. Identical inputs and an
+identical formula producing a 0.9 % different update leaves only a constant, and there is
+exactly one constant left.
+
+**Status, precisely.** All five are closed on `wk/of3t-wirefix` with a test
+(`tests/test_of3_wiring_matches_openfold3.py`) that asserts the call sites and defaults and
+fails on all five when reverted. **Nothing is merged and nothing ships**: these change the
+training recipe, which is release-gated by standing constraint. The full-scope `fixed5` arm over
+4,147 tensors is pre-registered and running; its prediction is `d_1` exactly 0 with 4,147 of
+4,147 bit-identical and `d_2` in the low 1e-06 tracking the `ulp` arm, with an explicit
+commitment that if it stays materially above `ulp` a **sixth** divergence is unlocated and gets
+reported rather than the job called finished.
+
+**Why this is the campaign's central result and not a footnote.** With the fifth, **nine of the
+nine functional defects this campaign has found are call sites, not kernels** — the arithmetic
+in the ops is right and what is wrong is which argument reaches them, when, and whether they run
+at all. Per-parameter gradient equivalence, §3, the instrument most of the campaign's effort
+went into, is **structurally blind to five of the nine**, because it compares what an op
+computes from given inputs and these change which inputs arrive. That is the argument for §7
+existing, and for §7 having never been run being worth catching.
+
+**D72, addendum at pass 182 — the table's one missing row now exists, and it fills AGAINST us.**
+When D72 was written `pairformer_stack` (5.8282 %) was marked *no section arm*. `of3t-trunkback`
+has since built one: ours **5.351880** against a measured all-bf16 upstream floor of
+**4.196175e-01**, a ratio of **12.75x**, so that mass moves from UNKNOWN to **FAR PAST IT**. The
+split becomes at-or-better **42.2794 %**, within-10x **7.1207 %**, far-past **49.7218 %**, no-arm
+**0.8007 %** (`input_embedder` alone, down from 6.6289 %). *Far past it* is now **two** scopes
+rather than one: the diffusion transformer at 141.6x and the trunk at 12.75x.
+
+**Which settles the fair objection this defect invites.** If the 2.0e-02 float64 bar is missed by
+upstream's own training dtype, perhaps every failure the campaign reports is an artefact of the
+yardstick — the trunk reads 268x against float64 and only 12.75x against the recipe's own error,
+and pass 182 measured upstream's own bf16 reaching cos 0.194 over the same 48 blocks. Run in that
+generous direction, **re-scoring changes no verdict**: both failing scopes stay failing by 141.6x
+and 12.75x. The bar being stricter than upstream's own dtype is TRUE and worth saying plainly —
+on `diffusion_conditioning` we are **7.95x better** than upstream's own bf16 step, so upstream's
+own implementation would fail a scope we pass — but it rescues nothing that currently fails.
+
+Note D72 quotes a 3.148e-01 floor for `pairformer_stack` where `of3t-trunkback` measures
+4.196175e-01. Different scopes and statistics (section-level parameter gradients vs the 48-block
+chain over 99.2499 % of the trunk's gradient norm, pure bf16, no autocast). The ratio above uses
+trunkback's pair because ours and its floor come from the same arms in the same process. The two
+floors are **not** reconciled and neither is treated as the other.
+
+**D72 itself stays OPEN, unchanged**, on the shared-subtrahend rule: both columns are distances
+from the same float64 reference and two deviations from a shared reference do not order each
+other, so *at or better* is a statement about two distances and not a measured agreement. What
+closes it is a direct ours-vs-their-bf16 score on one scope. That caveat does not soften the
+finding above — a direct comparison could only make 141.6x and 12.75x larger, never smaller.
+Recorded at `perf/of3t_orchestrator/RESCORING_AGAINST_UPSTREAMS_OWN_BF16_CHANGES_NO_VERDICT.json`.
+
+### D107. A parameter disabled on every sample of a step: upstream still steps it from decaying momentum, we skip it entirely. UNFIXED — real in the code, inert in the instrument that found it.
+
+Identified by `of3t-wirefix` (pass 182) while accounting for §7's residual, **pre-registered as
+a prediction before the run and then confirmed by the run to be unable to fire in it**, which is
+the honest way to report a defect an instrument cannot see.
+
+`AdamW.step()` **skips** a parameter with no accumulated gradient. Upstream's
+`sync_and_average_grads` **assigns `param.grad` for every parameter**, zeroes the ones whose
+participation count is 0, and `torch.optim.Adam` then **still steps them** — `m` and `v` decay
+by `beta1`/`beta2` and the parameter moves on momentum alone. So for any step where a parameter
+is disabled on *every* sample, upstream moves it and we do not.
+
+**Why it could not fire in §7, stated exactly.** One of every four samples in that harness is
+fully enabled, so participation is `>= 1` at every rung — measured spread `[1, 4]`. The
+divergence needs a count of **0**, which never occurs there. The 20-step trajectory therefore
+passes its shape bar *with this defect present in the code*, and that is not a contradiction:
+an instrument that cannot reach a defect cannot clear it either.
+
+**Why it is not hypothetical.** The campaign's own LEDGER R6 records that upstream's runner
+disables confidence-head parameters on zero-confidence-weight samples, and `initial_training.yml`
+sets a zero confidence weight on **4 of its 5 datasets**. A step whose samples are drawn wholly
+from those four gives the confidence head a participation count of exactly 0 — the case this
+defect is about. Whether such a step actually occurs depends on the sampler and is **not
+measured**; that is the open question, not whether the code paths differ, which is settled by
+reading both.
+
+**It is the sixth instance of the campaign's one recurring class** and the tell is the same:
+the difference is in *whether the op runs*, not in what it computes. But it is **not** counted
+in the "nine of nine call sites" headline, because those nine were each measured to change a
+number and this one has only been read. It is counted when an arm makes it fire.
+
+**What would close it**, cheaply and without a card: construct a step whose samples all disable
+one parameter group, run the same `fixed5` path against upstream, and report `d_k`. If upstream
+moves the parameter and we do not, the defect is measured and the fix is one branch in
+`AdamW.step()` — assign and step rather than skip. Release-gated like the other five.

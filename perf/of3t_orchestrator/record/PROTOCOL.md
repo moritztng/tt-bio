@@ -1272,3 +1272,46 @@ made of:
 So the test is not "is our side bf16" but **"does the REFERENCE carry error"**. Anyone invoking
 A26 states the reference's precision; anyone narrowing a bar re-reads the headlines that stood
 under the old one, rather than assuming they survive.
+
+---
+
+**A28 — 2026-09-20, raised by `of3t-orchestrator` (pass 182) and adopted only after being shown
+to cost nothing. Every reading carries its REACHABILITY FLOOR: the reference's own
+implementation at training precision, scored against the same float64 reference, on the same
+statistic and in the same arms.** A bar is a claim about what is achievable, and that claim is
+**empirical**. Report three things — OURS, THEIRS-AT-TRAINING-PRECISION, and the ratio. The
+raw distance says whether the *quantity* is well-conditioned; **the ratio is the only one that
+says whether the PORT is faithful.**
+
+**What forced it.** The trunk's backward reads `5.367727e+00` against a `2.0e-02` float64 bar —
+**268x**. Pass 182 measured what upstream's OWN all-bf16 run reaches over the same 48 blocks
+against the same reference: `cos 0.194`, `r = 5.05`. The 48-block chained single-track cotangent
+is ill-conditioned in bf16 **for anyone**, so most of that 268x is floor and **our actual defect
+is 13.0x** — a figure `of3t-trunkback` reached independently at 12.75x from the parameter
+gradients. Quoting 268x as the thing to fix would have pointed a row at a number that no
+implementation can reach.
+
+**This does NOT relax any bar, and that is a condition of adoption, not a caveat.** The bar
+stays exactly where it was fixed before measuring, the verdict stays scored against it, and the
+floor is reported *beside* it. Anyone invoking A28 to move a verdict from FAIL to PASS is
+invoking it wrongly.
+
+**Tested before adoption, which is the part that makes it admissible.** Re-scoring every
+measured scope against upstream's own bf16 floor (D72's table, completed at pass 182 with the
+trunk row that did not exist when it was written) **changes NO verdict**: the diffusion
+transformer stays failing at **141.6x** the recipe's own error and the trunk at **12.75x**. An
+amendment that had flipped a verdict in the lenient direction would be goalpost-moving and
+would have to be argued in front of Moritz rather than written here. This one was run in the
+generous direction first and rescued nothing, so it is a reporting requirement and not a
+loosening.
+
+**It also cuts against us, and must be reported when it does.** On `diffusion_conditioning` our
+error is **7.95x SMALLER** than upstream's own bf16 step — so upstream's own implementation
+would **fail** a scope we pass. A28 requires saying that too. The floor is not a defence; it is
+context, and it is reported whichever way it points.
+
+**Interaction with A26/A26-SCOPE.** A26 asks whether the REFERENCE carries error, and widens the
+bar by `sqrt(2)` when it does. A28 asks a different question — whether the BAR IS REACHABLE at
+training precision — and never widens anything. A scope can be scored against float64 with no
+`sqrt(2)` (A26-SCOPE) and still owe a floor under A28. Both are stated; neither substitutes for
+the other.
