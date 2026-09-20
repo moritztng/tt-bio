@@ -3778,3 +3778,44 @@ D61) — but it is the one measurement that closes the question and it has not b
 
 Owner: `of3t-orchestrator`. **UNFIXED.** Artifact:
 `perf/of3t_orchestrator/K_DOES_NOT_EXPLAIN_THE_MODEL.json`.
+
+---
+
+### D63. Five of five shipped models construct a site the softmax lever patches; only three of five reach one at runtime. A release reviewer reading the construction count over-estimates the blast radius by two whole models. FOUND by `of3t-softmax`, pass 162, measured by digest. **UNFIXED as a reviewing convention.**
+
+`of3t-softmax` wired the lever at all five named call sites and then measured, per model, one
+fold on 1UBQ at 1 diffusion sample, same card, same seed, sha256 over the written structures:
+
+| model | digest off → on | CA-RMSD off vs on | negative control |
+|---|---|---|---|
+| OpenFold3 | **moved** `600ae14d → 1fbdb34b` | 0.3237 Å | 0.6250 Å (seed 1) |
+| Protenix-v2 | **moved** `b918958e → f30ffacc` | **2.2151 Å** | 4.1346 Å |
+| Boltz-2 | **UNMOVED** `a0db89ee == a0db89ee` | **5.64e-15 Å** | 1.3207 Å |
+| RF3 | **UNMOVED** `f9f2a94e == f9f2a94e` | **2.44e-15 Å** | 0.2005 Å |
+| BoltzGen | **moved** `c3268e4a → c22f0600` | *not defined* | `cc53cdc0` (moved) |
+
+**Constructing an op is not executing it on the shipped path.** Boltz-2 and RF3 both construct
+sites the lever patches and both come back byte-identical with a negative control that moves
+(1.3207 Å and 0.2005 Å), so the arms are live and the instrument works — the lever simply never
+reaches their fold. Anyone assessing this change from the construction count would carry two
+models of imagined risk into a release-gate conversation.
+
+**Two further readings from the same table.** Protenix-v2 moves **2.2151 Å** against a 4.1346 Å
+seed control — the same verdict as OpenFold3 (inside the floor) at **7×** the magnitude, so
+0.3237 Å does not generalise across models and should never be quoted as if it did. And
+**BoltzGen's Ångström column is correctly empty with a reason**: it designs a chain rather than
+folding a given one, the arms produced **291 / 285 / 299** CA atoms, there is no correspondence
+to superpose, and any number there would be invented. The digest still places it on the reached
+side. That is the one entry in this campaign where the honest value is a blank, and the row said
+so instead of filling it.
+
+**And the row's own DECISION paragraph said "four of five"** where its table measures three —
+a sentence written before the digests and never revised, sitting in the field a gate reviewer
+acts on. Flagged to the row while live. This is the campaign's most recurrent defect class and
+it has caught me four times; it is worth noting that it catches careful rows too, in the same
+place, for the same reason.
+
+Owner: `of3t-orchestrator`. **UNFIXED as a convention** — nothing in the release-gate process
+currently distinguishes "constructs the op" from "executes it", and the only thing that
+separates them is a digest with a negative control beside it. The rule: **blast radius is
+measured by digest, never counted from constructors.**

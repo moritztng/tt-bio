@@ -717,14 +717,17 @@ cancellation ratio differing by **7,532x** — one interpolated off the curve be
 (K ~ 1.3e+06), one measured directly on the reference's float64 summands (K = 172.60) — and
 at the measured values every block sits **19x to 2,872x** above the ladder's own device
 curve. The conditioning mechanism explains the ladder, not the model; the softmax A/B is
-untouched, but HOW it produces these magnitudes is unexplained again.
+untouched, but HOW it produces these magnitudes is unexplained again. **D63 (UNFIXED as a convention)**: five of five shipped models CONSTRUCT a site the softmax
+lever patches and only three of five REACH one at runtime — Boltz-2 and RF3 come back
+byte-identical at 5.64e-15 Å and 2.44e-15 Å with negative controls that move — so blast
+radius must be measured by digest, never counted from constructors.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live; sixty-two defects on the record, twenty-eight of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+one live; sixty-three defects on the record, twenty-nine of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6728,3 +6731,42 @@ measurements are untouched and its NO-GO stands; what it must not write is that 
 property of the arithmetic. **The honest position is narrower and better: the lever is measurably
 real, measurably cheap, and measurably invisible in the structure — and what would fix the
 27.2441 % remains unknown.** Filed as **D62**.
+
+---
+
+## Pass 162 — constructing an op is not executing it, and the row's own summary said four where its table said three
+
+`of3t-softmax` filled its digest table and the gate now passes it. The table is the best
+blast-radius measurement this campaign has, and it inverts the number everyone would have used.
+
+| model | digest off → on | CA-RMSD off vs on | negative control |
+|---|---|---|---|
+| OpenFold3 | **moved** | 0.3237 Å | 0.6250 Å |
+| Protenix-v2 | **moved** | **2.2151 Å** | 4.1346 Å |
+| Boltz-2 | **UNMOVED** `a0db89ee == a0db89ee` | **5.64e-15 Å** | 1.3207 Å |
+| RF3 | **UNMOVED** `f9f2a94e == f9f2a94e` | **2.44e-15 Å** | 0.2005 Å |
+| BoltzGen | **moved** | *not defined* | moved |
+
+**Five of five models construct a patched site. Three of five reach one at runtime.** Boltz-2
+and RF3 come back byte-identical with negative controls that move, so the arms are live and the
+instrument works — the lever simply never reaches their fold. A reviewer counting constructors
+would carry two models of imagined risk into the release-gate conversation. **Blast radius is
+measured by digest, never counted from constructors.** Filed as **D63**.
+
+Two more readings worth keeping. **Protenix-v2 moves 2.2151 Å against a 4.1346 Å control** — the
+same verdict as OpenFold3, inside the floor, at **7× the magnitude** — so 0.3237 Å does not
+generalise and must not be quoted as if it did. And **BoltzGen's Ångström column is correctly
+empty with its reason stated**: it designs a chain rather than folding a given one, the arms
+produced 291 / 285 / 299 CA, there is no correspondence to superpose, and any number would be
+invented. That is the one place in this campaign where the honest entry is a blank, and the row
+wrote the blank.
+
+**And its DECISION paragraph says "four of five"** where its own table measures three — written
+before the digests and never revised, sitting in the field a gate reviewer acts on. Flagged
+while the row is live; it is a one-word fix. Worth recording that this is the same defect class
+that has caught me four times, appearing in a careful row, in the same place, for the same
+reason: **the narrative advances and the summary keeps yesterday's number.**
+
+Amendment 3's warning turned out to be unnecessary — I checked, and the row's document contains
+zero instances of the dead "not computable / unfixable / property of the arithmetic" framing. It
+never wrote it. Preventive, and I told the row it could ignore that amendment.
