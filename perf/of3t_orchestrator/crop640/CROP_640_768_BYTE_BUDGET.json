@@ -1,54 +1,69 @@
 {
+ "SUPERSEDED_IN_PART": "2026-09-21, pass 203, by of3t-crop640's measured backward PROFILE. The DEFICIT SIZING stands; the LEVER PRICING does not. Measured at the 256 rung: at the backward peak the recompute working set is 71.17 % of 6.81 GB and the retained boundary set is 1.11 % of it -- `_retire` clears the pin and deallocates as the backward walks down, so the set DRAINS rather than standing for the whole backward. of3t-l1 read it the other way round and I inherited that reading.",
+ "THE_ERROR_NAMED": "I priced the boundary spill against the deficit AT THE PEAK. But the peak and the 640 failure are DIFFERENT MOMENTS of the same backward: 640 died inside the FIRST recompute, when the boundary set was still full, while 384 peaks later, when it has largely drained. A single sample at the maximum cannot tell those apart, which is why of3t-crop640 now keeps the whole profile -- owner totals at every walk, the full sample at the first recompute as well as at the peak, and boundaries-plus-recompute taken CO-LIVE rather than as two maxima added.",
+ "WHICH_FIGURES_SURVIVE": {
+  "'34.215 GB is where it DIED, not what it needs'": "STANDS, and it is the correction this file was written for.",
+  "'the sizing belongs at 384, where the backward completes'": "STANDS, and is what the row is doing.",
+  "'the spill saves 5.070 GB = 41 % of the deficit, necessary not sufficient'": "DEAD. It prices a term that is ~1 % of the peak, not 11 %. The spill may still be right AT THE FAILURE MOMENT, where the set is full, but that is a different measurement and this file did not make it.",
+  "decomposition estimate 46.52 GB": "ITS NUMBER survives, being anchored on the same measured 384 total, but ITS DERIVATION is wrong: it split that total on a co-liveness that does not hold.",
+  "observational floor as a control": "STANDS. The 640 run reached 34.215 GB and still died, so any model predicting less is refuted before it is used.",
+  "quadratic fit 45.62 GB and power law 51.40 GB at 640": "STAND. Both are fitted on MEASURED total peaks at 128/256/384 and use no boundary decomposition.",
+  "the 768 lever split, 22 % and 43 %": "DEAD for the same reason."
+ },
  "as_of": "2026-09-20, of3t-orchestrator pass 197. CPU only, no device. Arithmetic on of3t-l1's measured ladder; no measurement here is mine.",
-
  "headline": "640's backward does not nearly fit. It needs ~46 GB against a 34.22 GB card -- 1.36x, a 12.3 GB deficit -- and the 34.215 GB on the record is where it DIED, not what it requires. That matters because the two levers of3t-l1 proposed were sized against the wrong number: spilling the retained block boundaries buys 5.070 GB, which is 41 % of the deficit. It is necessary and it is not sufficient.",
-
- "the_misreading_this_corrects": "of3t-l1 records '640's backward fails at 34.215 GB of a 34.22 GB card', which reads as a near miss -- 5 MB short of a 34.22 GB card. The same row's own diagnosis says otherwise: the run was refused a 13,107,200 B buffer with 10,603,008 B free, INSIDE THE FIRST checkpoint recompute, with 0 of 2531 weights having received a gradient. A peak recorded at the moment of failure is a LOWER BOUND on the requirement, never the requirement. The backward had barely started.",
-
  "measured_inputs_all_of3t_l1s": {
-  "backward_dram_peak_bytes": {"128": 2522002432, "256": 7384437760, "384": 17983091712,
-                               "640": "FAILED; reached 34.215 GB"},
-  "forward_dram_peak_bytes":  {"128": 1696363520, "256": 2930365440, "384": 4794512384,
-                               "640": 10957517824},
-  "retained_block_boundaries_at_640_GB": 5.070,
-  "retained_block_boundaries_allocations_at_640": 408,
+  "backward_dram_peak_bytes": {
+   "128": 2522002432,
+   "256": 7384437760,
+   "384": 17983091712,
+   "640": "FAILED; reached 34.215 GB"
+  },
   "card_GB": 34.22,
+  "forward_dram_peak_bytes": {
+   "128": 1696363520,
+   "256": 2930365440,
+   "384": 4794512384,
+   "640": 10957517824
+  },
+  "retained_block_boundaries_allocations_at_640": 408,
+  "retained_block_boundaries_at_640_GB": 5.07,
   "source": "perf/of3t_l1/out/r3_{128,256,384,640}.json and of3t-l1's K13"
  },
-
+ "provenance": "of3t-orchestrator pass 197 on pc, CPU only, no device opened. Every measured byte is of3t-l1's, read from its committed artifacts. The decomposition, the two fits, the floor control and the lever pricing are this pass's.",
+ "the_control_every_estimate_had_to_pass": "the run REACHED 34.215 GB at 640 and still failed, so any model predicting less than 34.215 GB there is refuted on the spot. All three predict 45.6-51.4 GB and pass. This is the cheapest possible check on an extrapolation and it is why the bracket is quotable.",
+ "the_misreading_this_corrects": "of3t-l1 records '640's backward fails at 34.215 GB of a 34.22 GB card', which reads as a near miss -- 5 MB short of a 34.22 GB card. The same row's own diagnosis says otherwise: the run was refused a 13,107,200 B buffer with 10,603,008 B free, INSIDE THE FIRST checkpoint recompute, with 0 of 2531 weights having received a gradient. A peak recorded at the moment of failure is a LOWER BOUND on the requirement, never the requirement. The backward had barely started.",
  "three_independent_estimates_that_agree": {
   "decomposition": {
-   "method": "split the MEASURED 384 backward into the retained boundaries (scaled from K13's 640 figure at N^2, since z is N^2*c_z and dominates s at N*c_s) and everything else, then scale each to 640",
-   "at_384": {"total_GB": 16.748, "boundaries_GB": 1.825, "everything_else_GB": 14.923,
-              "boundary_share_pct": 10.9},
-   "at_640_GB": 46.52, "at_768_GB": 66.99
+   "at_384": {
+    "boundaries_GB": 1.825,
+    "boundary_share_pct": 10.9,
+    "everything_else_GB": 14.923,
+    "total_GB": 16.748
+   },
+   "at_640_GB": 46.52,
+   "at_768_GB": 66.99,
+   "method": "split the MEASURED 384 backward into the retained boundaries (scaled from K13's 640 figure at N^2, since z is N^2*c_z and dominates s at N*c_s) and everything else, then scale each to 640"
   },
-  "quadratic_fit": {"form": "peak = a + b*N^2 on the three completed rungs",
-                    "a_GB": 0.176, "b_GB_per_token2": 1.109e-4,
-                    "residuals_pct": {"128": -15.14, "256": 8.27, "384": -1.27},
-                    "at_640_GB": 45.62, "at_768_GB": 65.61},
-  "power_law": {"form": "exponent from the 256->384 rung", "exponent": 2.195,
-                "at_640_GB": 51.40, "at_768_GB": 76.70}
- },
- "the_control_every_estimate_had_to_pass": "the run REACHED 34.215 GB at 640 and still failed, so any model predicting less than 34.215 GB there is refuted on the spot. All three predict 45.6-51.4 GB and pass. This is the cheapest possible check on an extrapolation and it is why the bracket is quotable.",
-
- "what_the_proposed_levers_actually_buy": {
-  "at_640": {
-   "requirement_GB": 46.52, "card_GB": 34.22, "deficit_GB": 12.30, "deficit_pct_of_peak": 26,
-   "spill_the_48_retained_boundaries_to_host": {
-     "saves_GB": 5.070, "share_of_deficit_pct": 41,
-     "leaves_GB": 41.45, "verdict": "NECESSARY, NOT SUFFICIENT -- still 7.23 GB over the card"},
-   "and_so": "the recompute/tape term must ALSO fall by about 17 % on top of the spill. The two levers of3t-l1 named -- spill the boundaries, recompute a block in halves -- have to be taken TOGETHER at 640. Either alone leaves the card short."
+  "power_law": {
+   "at_640_GB": 51.4,
+   "at_768_GB": 76.7,
+   "exponent": 2.195,
+   "form": "exponent from the 256->384 rung"
   },
-  "at_768": {
-   "requirement_GB": 66.99, "deficit_GB": 32.77,
-   "spill_share_of_deficit_pct": 22,
-   "other_term_must_fall_pct": 43,
-   "verdict": "a DIFFERENT problem, not a bigger one. At 640 the boundary spill is 41 % of the answer; at 768 it is 22 %, and the remaining term has to be more than halved. A third lever is needed and none has been named."
+  "quadratic_fit": {
+   "a_GB": 0.176,
+   "at_640_GB": 45.62,
+   "at_768_GB": 65.61,
+   "b_GB_per_token2": 0.0001109,
+   "form": "peak = a + b*N^2 on the three completed rungs",
+   "residuals_pct": {
+    "128": -15.14,
+    "256": 8.27,
+    "384": -1.27
+   }
   }
  },
-
- "what_this_does_NOT_establish": "that the recompute/tape term can fall 17 %. This file sizes the deficit and prices one lever against it; it does not price the other, because nothing on the record splits the 41.45 GB into recompute versus tape. THAT is the measurement worth taking next, and it can be taken at 384 where the backward completes -- no 640 run is needed to size a 640 lever. The N^2 scaling of the non-boundary term is also an assumption: it is supported by three estimates agreeing and by the observational floor, and it is contradicted at small N, where the 128->256 rung reads exponent 1.550 and the quadratic fit is 15 % high at 128. The pair track dominates at large N, which is the argument for N^2 there -- an argument, not a measurement.",
-
- "provenance": "of3t-orchestrator pass 197 on pc, CPU only, no device opened. Every measured byte is of3t-l1's, read from its committed artifacts. The decomposition, the two fits, the floor control and the lever pricing are this pass's."
+ "what_the_proposed_levers_actually_buy_SUPERSEDED_pass203": null,
+ "what_this_does_NOT_establish": "that the recompute/tape term can fall 17 %. This file sizes the deficit and prices one lever against it; it does not price the other, because nothing on the record splits the 41.45 GB into recompute versus tape. THAT is the measurement worth taking next, and it can be taken at 384 where the backward completes -- no 640 run is needed to size a 640 lever. The N^2 scaling of the non-boundary term is also an assumption: it is supported by three estimates agreeing and by the observational floor, and it is contradicted at small N, where the 128->256 rung reads exponent 1.550 and the quadratic fit is 15 % high at 128. The pair track dominates at large N, which is the argument for N^2 there -- an argument, not a measurement."
 }
