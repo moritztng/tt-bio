@@ -132,11 +132,26 @@ class OF3Trunk(Module):
         # ours describes the bias following the pair transpose, theirs describes
         # undoing it. No weights change, so the checkpoint has to select it.
         tri_att_end_bias_follows_pair = not is_openbind(state_dict)
-        # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
-        # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
+        # openfold3 adds both pair biases UNSCALED (q is pre-scaled by 1/sqrt(d) in the
+        # reference Attention), and the two kernels under this one layer need opposite flags
+        # to deliver that. `AttentionPairBias` folds the bias inside its own score scale, so
+        # unscaled-at-the-reference means pre-baked by sqrt(d) here: scale_pair_bias=True.
+        # `TriangleAttention` adds it outside, so the same convention is
+        # tri_att_scale_pair_bias=False. Passing one False to both is what left the token
+        # bias at 1/sqrt(24) = 0.204 of reference for all 48 blocks.
+        #
+        # The SPLIT is landed; the OF3 trunk DEFAULT is deliberately NOT flipped, and
+        # `scale_pair_bias=False` below matches `main`. `of3t-pairbias` measured the
+        # corrected bias end to end and its own verdict is "Land the MECHANISM. Do NOT flip
+        # the OF3 trunk default on this evidence": over nine seeds on 1UBQ it buys 0.050 A of
+        # best-of-5 and costs 0.463 A on the structure a user actually receives, against this
+        # target's own 0.324 A seed floor. The loss is the confidence head preferring the
+        # looser of two sample modes (D10), not a worse ensemble, so the fix must ship with a
+        # selector fix or not at all. `of3t-confhead` owns that pair. Flipping this one token
+        # is the whole lever, and `compose_verify.sh` asserts it stays False.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=False, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"))
         self.template = TemplateEmbedder(
