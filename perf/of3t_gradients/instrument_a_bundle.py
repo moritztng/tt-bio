@@ -174,6 +174,18 @@ def main() -> int:
                          "in the forward. A mask-clean forward does not imply a mask-clean "
                          "backward. NaN in the parameter gradients means the pad reaches the "
                          "weights and every crop-64 figure inherits it.")
+    ap.add_argument("--bijection-bias-prescale", action="store_true",
+                    dest="bijection_bias_prescale",
+                    help="scale_pair_bias=True folds sqrt(head_dim) into the device's "
+                         "attn_pair_bias.linear_z.weight (tenstorrent.py:8177), so the by-value "
+                         "bijection stops recognising it and the one tensor the convention acts "
+                         "on goes UNREACHED -- 0.60 %% of the trunk's reference gradient mass, "
+                         "and 0.51 %% of it in block 47 alone. This matches the bijection "
+                         "against the PRE-SCALED weight and returns the extracted gradient to "
+                         "checkpoint coordinates: w_device = c*w, so dL/dw = c*dL/dw_device. "
+                         "Inert when the arm runs scale_pair_bias=False, where c is 1.0. The "
+                         "uncorrected norm ratio is recorded beside the corrected one so the "
+                         "factor is visible rather than asserted.")
     ap.add_argument("--forward-reference", default="",
                     help="A18, IN THIS PROCESS. Score the taped device forward against this "
                          "reference's own s/z outputs (ref_grad.py --forward-out), both tracks, "
@@ -446,6 +458,24 @@ def main() -> int:
     rep["masks"] = {"pair_mask_sum": float(pm.sum()), "single_mask_sum": float(sm.sum()),
                     "real_tokens": int(sm.sum().item())}
 
+    # See --bijection-bias-prescale. `c_s // no_heads_pair_bias` is the attention-pair-bias
+    # head dim, the same expression the T.Pairformer construction above passes.
+    _APB_KEY = "attn_pair_bias.linear_z.weight"
+    _bias_c = (c_s // no_heads_pair_bias) ** 0.5 if spb else 1.0
+    rep["bijection_bias_prescale"] = {
+        "enabled": bool(a.bijection_bias_prescale), "scale_pair_bias": spb,
+        "head_dim": c_s // no_heads_pair_bias, "factor": _bias_c,
+        "tensors": sorted(k for k in atoms if k.endswith(_APB_KEY))[:3],
+        "rule": "w_device = c*w so dL/dw = c*dL/dw_device"}
+    if a.bijection_bias_prescale:
+        # The card holds bf16(bf16(w) * c), not bf16(w * c): `torch_to_tt` rounds to bf16 first
+        # and `ttnn.multiply_` rounds again. Offering bf16(w*c) is 2.7e-03 away, inside
+        # `bijection_device.APPROX_BAR` but outside the exact-fingerprint index, so the candidate
+        # is built the way the device built it and the match stays exact.
+        for _k in list(atoms):
+            if _k.endswith(_APB_KEY):
+                atoms[_k] = atoms[_k].to(torch.bfloat16).to(torch.float32) * _bias_c
+
     before = device_weights(mod)
     ours = walked_weights(lambda: mod(fts(s_in), ft(z_in), ft(pm), ft(attn), ft(attn)), None, mod)
     after = device_weights(mod)
@@ -567,6 +597,28 @@ def main() -> int:
 
     # ---- the bijection, by value against the built model -------------------------------------
     dev_all = {p: ttnn.to_torch(t).to(torch.float32) for p, t in device_weights(mod).items()}
+    if a.bijection_bias_prescale:
+        _probe = []
+        for _dp, _dv in sorted(dev_all.items()):
+            if not _dp.endswith("attention_pair_bias.z_weight"):
+                continue
+            _j = int(_dp.split(".")[1]) + i
+            _w = sd[f"pairformer_stack.blocks.{_j}.attn_pair_bias.linear_z.weight"].float()
+            _d = _dv.reshape(-1).double()
+            for _tag, _c in (("bf16(bf16(w)*c)",
+                              (_w.to(torch.bfloat16).float() * _bias_c).to(torch.bfloat16)
+                              .float().T.reshape(-1).double()),
+                             ("bf16(w*c)",
+                              (_w * _bias_c).to(torch.bfloat16).float().T.reshape(-1).double())):
+                _probe.append({"device_path": _dp, "candidate": _tag,
+                               "rel_l2": float((_d - _c).norm() / (_c.norm() + 1e-300)),
+                               "bit_identical": bool(torch.equal(_d, _c))})
+            if len(_probe) >= 6:
+                break
+        rep["bijection_bias_prescale"]["device_weight_probe"] = _probe
+        for _x in _probe:
+            print(f"    z_weight probe {_x['device_path']} vs {_x['candidate']}: "
+                  f"rel {_x['rel_l2']:.6e} identical {_x['bit_identical']}", flush=True)
     if not a.stack:
         b = device_bijection(dev_all, atoms)
         placements, per_device = b["placements"], b["per_device"]
@@ -673,6 +725,8 @@ def main() -> int:
         band = gd.narrow(pl["axis"], pl["start"], pl["length"])
         if pl["layout"].endswith("transposed"):
             band = band.T
+        if a.bijection_bias_prescale and key.endswith(_APB_KEY) and _bias_c != 1.0:
+            band = band * _bias_c
         return band.contiguous(), None
 
     rows, absent, dumped = [], [], {}
