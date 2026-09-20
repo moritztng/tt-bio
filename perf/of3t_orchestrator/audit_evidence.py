@@ -1104,23 +1104,42 @@ if ORCH.is_file():
         # So the delimiter is now itself checked: anything that looks like a defect heading but
         # does not parse as one is a FAILURE. A document may not go partly invisible to its
         # own audit.
-        _loose = _re.findall(r"^### (D\d+)(.)", _dt, _re.M)
-        _malformed = [f"{d}{c!r}" for d, c in _loose if c != "."]
+        # Pass 198: the strict form had to widen, because the DOCUMENT's convention outgrew it
+        # and the guard went quiet in exactly the way its own comment warns about. Since D111's
+        # first UPDATE the campaign supersedes an entry by appending
+        # `### D<n> UPDATE <k> (pass p). <status> ...`, and eight such headings -- every
+        # correction written at passes 196 and 198 -- were invisible here while my own ad-hoc
+        # count saw them. Two readings of the same file disagreeing by eight is the symptom.
+        #
+        # So a heading is VALID if the number is followed by `.` or by ` UPDATE`, and anything
+        # else is still malformed. And the model changes with it: a defect is a NUMBER, not a
+        # heading, so the count is over DISTINCT numbers and the status is the LATEST heading's
+        # -- the same definition the contradiction check uses, shared rather than re-derived.
+        _loose = _re.findall(r"^### (D\d+)(\.| UPDATE\b| ?[^.\n])", _dt, _re.M)
+        _malformed = [f"{d}{c!r}" for d, c in _loose if c != "." and not c.startswith(" UPDATE")]
         if _malformed:
-            bad.append("defect heading(s) do not use the `### D<n>.` form the DEFECTS guards "
-                       "match, so they are INVISIBLE to the count, the UNFIXED list and GAP's "
-                       "coverage check: " + ", ".join(_malformed))
-        n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
-        # The strict count and the loose count must agree, or one of them is reading a subset.
-        if len(_loose) != n_def:
-            bad.append(f"DEFECTS holds {len(_loose)} defect-shaped headings but only {n_def} "
-                       f"parse -- {len(_loose) - n_def} entr(y/ies) are unaudited")
-        if not _malformed and len(_loose) == n_def:
+            bad.append("defect heading(s) do not use the `### D<n>.` or `### D<n> UPDATE` form "
+                       "the DEFECTS guards match, so they are INVISIBLE to the count, the "
+                       "UNFIXED list and GAP's coverage check: " + ", ".join(_malformed))
+        _valid = _re.findall(r"^### (D\d+)(?:\.| UPDATE\b)(.*)$", _dt, _re.M)
+        _nums = {d for d, _ in _valid}
+        n_def = len(_nums)
+        if len(_loose) != len(_valid):
+            bad.append(f"DEFECTS holds {len(_loose)} defect-shaped headings but only "
+                       f"{len(_valid)} parse -- {len(_loose) - len(_valid)} entr(y/ies) are "
+                       f"unaudited")
+        if not _malformed and len(_loose) == len(_valid):
             # Said out loud on success: a guard that is silent when green is invisible when
             # green, which is how this one's absence went unnoticed for 175 passes.
-            ok.append(f"all {n_def} defect headings parse, so none is invisible to its audit")
-        n_unf = len([m for m in _re.finditer(r"^### D\d+\..*$", _dt, _re.M)
-                     if "UNFIXED" in m.group(0)])
+            ok.append(f"all {len(_valid)} defect headings parse over {n_def} distinct defects, "
+                      f"so none is invisible to its audit")
+        _STAT_H = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+        _cur = {}
+        for _d, _rest in _valid:                       # file order, so a later UPDATE wins
+            _t = _STAT_H.findall(_rest.upper())
+            if _t:
+                _cur[_d] = _t[-1]
+        n_unf = sum(1 for _v in _cur.values() if _v == "UNFIXED")
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
             if _w is None:
@@ -1349,10 +1368,18 @@ for _f in sorted(Path("perf/of3t_orchestrator").glob("*.json")):
 # of them reads its size. A field can be entirely correct and entirely unusable.
 if ORCH.is_file():
     _o = ORCH.read_text()
-    _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000}
+    # Pass 198: the boundary pattern was `[A-Z][A-Z_]+:` -- underscores but not HYPHENS -- while
+    # the document already had two hyphenated fields, `BRANCH-VS-GATE:` and `DIRECTIVE-STATUS:`.
+    # So `DIRECTIVE-STATUS:` did not terminate GAP and its 9,223 characters were measured as part
+    # of it: GAP read 48,808 against a 40,000 cap when the field itself was 39,568. The cap fired
+    # on a field that was inside it, and the fix for the wrong field would have been to delete
+    # real content. Same class as the heading form widened above -- the guard's pattern was
+    # narrower than the document's own conventions.
+    _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000,
+             "DIRECTIVE-STATUS": 12000}
     _over = []
     for _f, _cap in _CAPS.items():
-        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_]+:|\Z)", _o, _re.M | _re.S)
+        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
         if _m and len(_m.group(1)) > _cap:
             _over.append(f"{_f} is {len(_m.group(1))} chars against a {_cap} cap")
     if _over:
