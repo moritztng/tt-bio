@@ -8,7 +8,12 @@
 # The claim is `mkdir`, which is atomic, so three cards walking overlapping lists never
 # record the same model twice into the same fragment.
 set -u
-WT=/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a
+# Derive the checkout from this script, never hardcode it. A worktree named here outlives
+# the row that made it by exactly as long as fleet hygiene takes to remove it; after that
+# every path still resolves inside the running process and every write lands on an unlinked
+# inode. Not hypothetical: the 2026-09-20 continuation kept folding on card 0 for 2h17m
+# after its worktree was deleted and recorded nothing.
+WT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 PY=/home/ttuser/kisoji_p2_fresh/env/bin/python3
 CARD=$1; shift
 cd "$WT" || exit 1
@@ -59,7 +64,7 @@ for M in "$@"; do
   PYTHONPATH="$WT" RELEASE_GATE_CENSUS_PYTHONPATH="$WT" \
   RELEASE_GATE_SIZE_WORKDIR="$WT/perf/sizegate/work-card$CARD" \
   TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=0,$CARD \
-  TT_BIO_LEASE_HOLDER=worker:cov-ladder-below-bar-all-bhp150a \
+  TT_BIO_LEASE_HOLDER=worker:cov-ladder-p150a-p2 \
     "$PY" scripts/release_gate.py --model size-ladder --size-ladder-record \
       --size-ladder-fragment --size-ladder-models "$M" --load-ceiling 0 >> "$LOG" 2>&1
   echo "=== $M card $CARD rc=$? $(date -u +%FT%TZ) ===" >> "$LOG"
