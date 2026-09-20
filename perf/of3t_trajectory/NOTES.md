@@ -22,6 +22,8 @@ of the model's squared gradient norm:
 | zero model vs upstream bf16 (A16) | 1.000000e+00 | 1.0 | 0.0 | n/a |
 | our run with permuted cotangents vs upstream bf16 | 3.706050e+00 | 1.579021e+00 | 3.3505 | -0.2252 |
 | upstream permuted draws vs upstream bf16 | 4.018294e-01 | 4.134079e-01 | 0.8955 | 0.9159 |
+| the float64-softmax bound vs upstream bf16 | **1.172914e-01** | 8.752432e-02 | 0.9787 | 0.9932 |
+| the float64-softmax bound vs float64 | 1.066810e-01 | 5.297022e-02 | 0.9959 | 0.9943 |
 
 7.4267 is 126.9x upstream's own distance from the ideal. Moving the reference from float64 to
 their actual training step moved our headline by 1.9 %: their bf16 sits 0.0585 from float64,
@@ -31,6 +33,31 @@ we sit 7.5 from both.
 added. `layer_norm_a` survives at 3.4968e-02 against a 3.6970e-02 floor. `layer_norm_s` does
 not: D72 read it AT OR BETTER at 2.3809e-02 against float64, and directly against their
 gradient it is 5.2797e-02, larger than either distance and 1.70x its own floor.
+
+## The softmax bound, at model scope
+
+`devgrad_traj.sh sm64` installs of3t-adaln's float64 softmax rule on the tape verb, so it
+reaches every softmax the tape sees: 1,440 calls intercepted over the 48 structures, all 24 DiT
+blocks and both atom transformers. It is a bound, not a lever. Everything the softmax could
+contribute is removed, and what is left is what the softmax cannot explain.
+
+It takes the scope headline from 7.426742e+00 to **1.172914e-01**, a factor of **63.3**, with
+the norm ratio going 7.7814 to 0.9787 and the cosine 0.4109 to 0.9932. The threshold a perfect
+fix would read is 5.750945e-02, so the bound lands at **2.04x** it: the softmax is the dominant
+mechanism at model scope and it does not account for all of the gap.
+
+| section | mass | bound | shipped | own bf16 floor | bound / floor |
+|---|---|---|---|---|---|
+| diffusion_transformer | 43.6221 % | 1.1250e-01 | 8.0250e+00 | 5.7809e-02 | 1.95x |
+| atom_attn_enc | 4.7348 % | 9.4304e-02 | 2.1925e-01 | 7.0855e-02 | 1.33x |
+| atom_attn_dec | 1.2843 % | 2.8235e-01 | 2.8139e-01 | 5.0000e-02 | 5.65x |
+| layer_norm_s | 0.9835 % | 4.8164e-02 | 5.2797e-02 | 3.1012e-02 | 1.55x |
+| layer_norm_a | 0.2666 % | 3.7430e-02 | 3.4968e-02 | 3.6970e-02 | 1.01x |
+| linear_s | 0.2445 % | 8.3418e-02 | 2.4562e-01 | 6.5442e-02 | 1.27x |
+
+The DiT is where the whole factor comes from: 8.0250 to 0.11250, 71.3x, and 138.8x its own
+floor down to 1.95x. `atom_attn_dec` does not move at all, 2.8139e-01 to 2.8235e-01, so the
+softmax explains none of its 5.65x. That is the next mechanism, named by the residual.
 
 ## What the direct column does not cover
 
@@ -49,6 +76,7 @@ The device arms, about 3 minutes each on one Blackhole card:
 
     perf/of3t_trajectory/devgrad_traj.sh            # the real run
     perf/of3t_trajectory/devgrad_traj.sh permcot    # the break control
+    perf/of3t_trajectory/devgrad_traj.sh sm64       # the float64-softmax bound
 
 Both write a `.pt` of the gradient tensors under `/home/ttuser/of3t_trajectory/` beside the
 per-tensor JSON here. Then the comparison, a few minutes and no card:
@@ -57,6 +85,7 @@ per-tensor JSON here. Then the comparison, a few minutes and no card:
       perf/of3t_trajectory/agreement.py \
       --device /home/ttuser/of3t_trajectory/device_grads_043all.pt \
       --device-permuted /home/ttuser/of3t_trajectory/device_grads_043all_permcot.pt \
+      --device-bound /home/ttuser/of3t_trajectory/device_grads_043all_sm64.pt \
       --f64 /home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt \
       --bf16 /home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt \
       --f32 /home/ttuser/of3t_refprec/pinned_p175/arm2_f32_upstream/grads_f64.pt \

@@ -11,6 +11,11 @@
    "bytes": 1256234605,
    "sha256": "8257b93567afb0f3ff29e80b9790f16597e1c2ee577ead979e847f330987f37a"
   },
+  "device_softmax_f64_bound": {
+   "path": "/home/ttuser/of3t_trajectory/device_grads_043all_sm64.pt",
+   "bytes": 1256232946,
+   "sha256": "d631c39ed7074b87da08e9d5bde44ff6d84ded97b88cab4f2d36555f9022e5a1"
+  },
   "float64": {
    "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
    "bytes": 2947844653,
@@ -659,6 +664,206 @@
    "headline": "mass-weighted rel_l2 1.000000e+00 over 547 tensors holding 51.1358 % of the model's squared gradient norm; median over tensors 1.000000e+00, norm ratio 0.000000, cos n/a",
    "per_tensor_sidecar": "per_tensor_ZERO_vs_UPSTREAM_BF16.json"
   },
+  "DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16": {
+   "arm": "DEVICE_SOFTMAX_F64_BOUND",
+   "reference": "UPSTREAM_BF16",
+   "why": "AMENDMENT 3. Everything the softmax could contribute removed, scored against upstream's own training gradient. What is left is what the softmax cannot explain.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 547,
+     "pct_of_model_mass": 51.13576412567559,
+     "mass_weighted_rel_l2": 0.11729139402485551,
+     "mass_weighted_norm_ratio": 0.9787279409870528,
+     "mass_weighted_cos": 0.993203029125629,
+     "median_rel_l2_over_tensors": 0.08752432423300072,
+     "n_rel_measurable": 547,
+     "n_over_per_tensor_bar": 477,
+     "worst_rel_l2": 1.4374293900269997,
+     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.diffusion_transformer",
+     "n": 456,
+     "pct_of_model_mass": 43.622111481326,
+     "mass_weighted_rel_l2": 0.11249728948978867,
+     "mass_weighted_norm_ratio": 0.9781540441830242,
+     "mass_weighted_cos": 0.9937748075421166,
+     "median_rel_l2_over_tensors": 0.08432250903921829,
+     "n_rel_measurable": 456,
+     "n_over_per_tensor_bar": 398,
+     "worst_rel_l2": 1.4167626621028626,
+     "worst_tensor": "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.atom_attn_enc",
+     "n": 48,
+     "pct_of_model_mass": 4.734845387109065,
+     "mass_weighted_rel_l2": 0.0943042588779971,
+     "mass_weighted_norm_ratio": 0.9927006638509664,
+     "mass_weighted_cos": 0.9955474931889218,
+     "median_rel_l2_over_tensors": 0.27467057695011976,
+     "n_rel_measurable": 48,
+     "n_over_per_tensor_bar": 45,
+     "worst_rel_l2": 1.4374293900269997,
+     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.atom_attn_dec",
+     "n": 40,
+     "pct_of_model_mass": 1.2842592499508616,
+     "mass_weighted_rel_l2": 0.28234836225499216,
+     "mass_weighted_norm_ratio": 0.9712358877947889,
+     "mass_weighted_cos": 0.9593851377875589,
+     "median_rel_l2_over_tensors": 0.1314485799385378,
+     "n_rel_measurable": 40,
+     "n_over_per_tensor_bar": 33,
+     "worst_rel_l2": 1.424451935729148,
+     "worst_tensor": "diffusion_module.atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.layer_norm_s",
+     "n": 1,
+     "pct_of_model_mass": 0.9834601790165411,
+     "mass_weighted_rel_l2": 0.048163652005529495,
+     "mass_weighted_norm_ratio": 0.9519238697599651,
+     "mass_weighted_cos": 0.9999955757619278,
+     "median_rel_l2_over_tensors": 0.048163652005529495,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 0.048163652005529495,
+     "worst_tensor": "diffusion_module.layer_norm_s.weight"
+    },
+    {
+     "set": "section diffusion_module.layer_norm_a",
+     "n": 1,
+     "pct_of_model_mass": 0.26663015175732807,
+     "mass_weighted_rel_l2": 0.03742997172596953,
+     "mass_weighted_norm_ratio": 0.9703838263420687,
+     "mass_weighted_cos": 0.9997300629776337,
+     "median_rel_l2_over_tensors": 0.03742997172596953,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 0.03742997172596953,
+     "worst_tensor": "diffusion_module.layer_norm_a.weight"
+    },
+    {
+     "set": "section diffusion_module.linear_s",
+     "n": 1,
+     "pct_of_model_mass": 0.24445767651578826,
+     "mass_weighted_rel_l2": 0.08341802172266531,
+     "mass_weighted_norm_ratio": 0.9806606680227206,
+     "mass_weighted_cos": 0.9966427956165558,
+     "median_rel_l2_over_tensors": 0.08341802172266531,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 1,
+     "worst_rel_l2": 0.08341802172266531,
+     "worst_tensor": "diffusion_module.linear_s.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.172914e-01 over 547 tensors holding 51.1358 % of the model's squared gradient norm; median over tensors 8.752432e-02, norm ratio 0.978728, cos 0.993203",
+   "per_tensor_sidecar": "per_tensor_DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16.json"
+  },
+  "DEVICE_SOFTMAX_F64_BOUND_vs_FLOAT64": {
+   "arm": "DEVICE_SOFTMAX_F64_BOUND",
+   "reference": "FLOAT64",
+   "why": "the same bound against the ideal, so the record stays continuous.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 547,
+     "pct_of_model_mass": 51.13576412567559,
+     "mass_weighted_rel_l2": 0.10668098122443263,
+     "mass_weighted_norm_ratio": 0.9959291005734293,
+     "mass_weighted_cos": 0.9942946443043368,
+     "median_rel_l2_over_tensors": 0.05297022406195575,
+     "n_rel_measurable": 547,
+     "n_over_per_tensor_bar": 295,
+     "worst_rel_l2": 1.4299214671405858,
+     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.diffusion_transformer",
+     "n": 456,
+     "pct_of_model_mass": 43.622111481326,
+     "mass_weighted_rel_l2": 0.1026981298224099,
+     "mass_weighted_norm_ratio": 0.9972584028043924,
+     "mass_weighted_cos": 0.9947158181449259,
+     "median_rel_l2_over_tensors": 0.05151551403545828,
+     "n_rel_measurable": 456,
+     "n_over_per_tensor_bar": 237,
+     "worst_rel_l2": 1.4215691545365936,
+     "worst_tensor": "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.atom_attn_enc",
+     "n": 48,
+     "pct_of_model_mass": 4.734845387109065,
+     "mass_weighted_rel_l2": 0.06169053222837194,
+     "mass_weighted_norm_ratio": 0.9854970972209536,
+     "mass_weighted_cos": 0.9981758507520003,
+     "median_rel_l2_over_tensors": 0.1549615092342212,
+     "n_rel_measurable": 48,
+     "n_over_per_tensor_bar": 36,
+     "worst_rel_l2": 1.4299214671405858,
+     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.atom_attn_dec",
+     "n": 40,
+     "pct_of_model_mass": 1.2842592499508616,
+     "mass_weighted_rel_l2": 0.28339199102830737,
+     "mass_weighted_norm_ratio": 0.9999470208240367,
+     "mass_weighted_cos": 0.9598423635954155,
+     "median_rel_l2_over_tensors": 0.06293387606929363,
+     "n_rel_measurable": 40,
+     "n_over_per_tensor_bar": 22,
+     "worst_rel_l2": 1.42440432842779,
+     "worst_tensor": "diffusion_module.atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.weight"
+    },
+    {
+     "set": "section diffusion_module.layer_norm_s",
+     "n": 1,
+     "pct_of_model_mass": 0.9834601790165411,
+     "mass_weighted_rel_l2": 0.018751087799425893,
+     "mass_weighted_norm_ratio": 0.9814310154974423,
+     "mass_weighted_cos": 0.9999965376536413,
+     "median_rel_l2_over_tensors": 0.018751087799425893,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 0.018751087799425893,
+     "worst_tensor": "diffusion_module.layer_norm_s.weight"
+    },
+    {
+     "set": "section diffusion_module.layer_norm_a",
+     "n": 1,
+     "pct_of_model_mass": 0.26663015175732807,
+     "mass_weighted_rel_l2": 0.004931205976951942,
+     "mass_weighted_norm_ratio": 0.99785760866831,
+     "mass_weighted_cos": 0.999990115347321,
+     "median_rel_l2_over_tensors": 0.004931205976951942,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 0.004931205976951942,
+     "worst_tensor": "diffusion_module.layer_norm_a.weight"
+    },
+    {
+     "set": "section diffusion_module.linear_s",
+     "n": 1,
+     "pct_of_model_mass": 0.24445767651578826,
+     "mass_weighted_rel_l2": 0.03928519104263515,
+     "mass_weighted_norm_ratio": 0.994205077110901,
+     "mass_weighted_cos": 0.9992407275225985,
+     "median_rel_l2_over_tensors": 0.03928519104263515,
+     "n_rel_measurable": 1,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 0.03928519104263515,
+     "worst_tensor": "diffusion_module.linear_s.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.066810e-01 over 547 tensors holding 51.1358 % of the model's squared gradient norm; median over tensors 5.297022e-02, norm ratio 0.995929, cos 0.994295",
+   "per_tensor_sidecar": "per_tensor_DEVICE_SOFTMAX_F64_BOUND_vs_FLOAT64.json"
+  },
   "DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16": {
    "arm": "DEVICE_COTANGENT_PERMUTED",
    "reference": "UPSTREAM_BF16",
@@ -867,5 +1072,20 @@
   "multiples_of_the_bar": 126.9090790115931,
   "what_moving_the_reference_from_float64_to_their_bf16_did_to_our_headline": 0.9811840338518936,
   "branch": "above ~1.0 but below our own distance from float64: we do not reproduce upstream's training gradient, and the number is the honest size of the gap in the only units that matter"
+ },
+ "BOUND_READING": {
+  "what": "AMENDMENT 3, the model-scope float64-softmax bound",
+  "headline_mass_weighted_rel_l2": 0.11729139402485551,
+  "shipped_arm": 7.42674214739265,
+  "factor_the_bound_buys": 63.31873032235281,
+  "perfect_fix_threshold": 0.05750945046651825,
+  "how_the_threshold_was_derived": "0.05852018 is ||bf16-float64||/||float64||; this quantity is normalised by ||bf16||, and the measured ||bf16||/||float64|| on this scope is 1.0175750163717907, so a perfect fix (device == float64) reads 0.05852018/1.0175750163717907 = 0.05750945046651825",
+  "attainable_range_check": {
+   "device_equals_upstream_bf16_reads": 0.0,
+   "device_equals_float64_reads": 0.05750945046651825,
+   "a_worse_device_reads": "unbounded above",
+   "verdict": "every branch is inside the attainable range: the threshold is attained exactly by a perfect fix, 0 is attained by exact agreement, and nothing is capped below a branch boundary"
+  },
+  "branch": "between the threshold and ~2x the shipped arm: the bound moves us but does not close it; the residual names the next mechanism"
  }
 }

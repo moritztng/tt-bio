@@ -67,6 +67,12 @@ def main() -> int:
                         "forward, the weights and the arithmetic are untouched. A comparison "
                         "that cannot tell this apart from the real run is not measuring "
                         "agreement with anything.")
+    p.add_argument("--softmax-f64", action="store_true", dest="softmax_f64",
+                   help="AMENDMENT 3's BOUND, not a lever: compute every softmax the tape sees, "
+                        "forward and backward, on the host in float64. of3t-adaln's rule "
+                        "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
+                        "reaches all 24 DiT blocks and both atom transformers. What is left "
+                        "after it is what the softmax cannot explain.")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -189,6 +195,38 @@ def main() -> int:
         fp32_dest_acc_en=True, packer_l1_acc=True)
     act = ttnn.float32
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=act)
+
+    # AMENDMENT 3's bound. of3t-adaln's `host_f64_rule` verbatim, plus a fire counter: the
+    # shim caches its wrapper, so a patch that does not drop it is a silent no-op, and that is
+    # exactly how the first sandwich arm reported two identical columns. An arm that reads the
+    # same as the shipped one because nothing fired is not a bound, so the count is published
+    # and a zero count is a hard failure.
+    softmax_calls = [0]
+    if a.softmax_f64:
+        from tt_bio import taped_ttnn as TT
+
+        def host_f64_softmax(shipped, args, kwargs):
+            softmax_calls[0] += 1
+            x = TT._wrap(args[0])
+            dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+            y64 = torch.softmax(ttnn.to_torch(x.value).double(), dim=dim)
+            y0 = ttnn.from_torch(y64.float(), layout=x.value.layout, device=dev,
+                                 dtype=x.value.dtype)
+
+            def make():
+                def bw(g):
+                    g64 = ttnn.to_torch(g).double()
+                    d = y64 * (g64 - (g64 * y64).sum(dim=dim, keepdim=True))
+                    x.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=dev,
+                                               dtype=g.dtype))
+                return bw
+
+            return TT._tape(y0, [x], make)
+
+        TT._VERBS["softmax"] = host_f64_softmax
+        TT._SHIM.__dict__.pop("softmax", None)
+        print(f"[{time.perf_counter()-t0:.0f}s] float64 softmax bound installed on the tape verb",
+              flush=True)
 
     aux = build_dm_device_aux(
         dev, ft, cl0=cl0, plm0=plm0, atom_mask=atom_mask, atom_to_token_index=a2t,
@@ -440,6 +478,8 @@ def main() -> int:
            "over_5e-2": sum(1 for d, _, _ in cmp_rows if d > 5.0e-2),
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
+           "softmax_f64_bound": bool(a.softmax_f64),
+           "softmax_calls_intercepted": softmax_calls[0],
            "cotangent_permuted": bool(a.permute_cot),
            "grads_dumped_to": a.dump_grads or None,
            "per_tensor_dumped": bool(a.dump_per_tensor),
@@ -452,6 +492,10 @@ def main() -> int:
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10", "per_tensor")},
                      indent=1, default=str), flush=True)
     print("wrote", path, flush=True)
+    if a.softmax_f64 and softmax_calls[0] == 0:
+        print("FAILED: --softmax-f64 intercepted 0 softmax calls, so this arm is the shipped "
+              "arm under another name", flush=True)
+        return 3
     return 1 if err is not None else 0
 
 

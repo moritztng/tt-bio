@@ -129,6 +129,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", required=True, type=Path)
     ap.add_argument("--device-permuted", type=Path)
+    ap.add_argument("--device-bound", type=Path,
+                    help="AMENDMENT 3: the same device arm with every softmax computed on the "
+                         "host in float64. Not a lever, a bound -- what is left after it is "
+                         "what the softmax cannot explain.")
     ap.add_argument("--f64", required=True, type=Path)
     ap.add_argument("--bf16", required=True, type=Path)
     ap.add_argument("--f32", required=True, type=Path)
@@ -148,6 +152,7 @@ def main():
 
     inputs = {}
     for label, path in (("device", args.device), ("device_permuted", args.device_permuted),
+                        ("device_softmax_f64_bound", args.device_bound),
                         ("float64", args.f64), ("upstream_bf16", args.bf16),
                         ("upstream_f32", args.f32),
                         ("upstream_permuted_draws", args.upstream_permuted),
@@ -223,6 +228,12 @@ def main():
             n: (d2[n].to(torch.float64).reshape(-1) if d2.get(n) is not None else None)
             for n in names}
         del d2
+    if args.device_bound:
+        d3 = torch.load(args.device_bound, map_location="cpu", weights_only=False)
+        loaded["DEVICE_SOFTMAX_F64_BOUND"] = {
+            n: (d3[n].to(torch.float64).reshape(-1) if d3.get(n) is not None else None)
+            for n in names}
+        del d3
     loaded["ZERO"] = {n: (torch.zeros_like(f64[n]) if f64.get(n) is not None else None)
                       for n in names}
 
@@ -241,6 +252,15 @@ def main():
         ("ZERO_vs_UPSTREAM_BF16", "ZERO", "UPSTREAM_BF16",
          "A16, measured not asserted: what a model that computes nothing reads."),
     ]
+    if "DEVICE_SOFTMAX_F64_BOUND" in loaded:
+        pairs.append(("DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16",
+                      "DEVICE_SOFTMAX_F64_BOUND", "UPSTREAM_BF16",
+                      "AMENDMENT 3. Everything the softmax could contribute removed, scored "
+                      "against upstream's own training gradient. What is left is what the "
+                      "softmax cannot explain."))
+        pairs.append(("DEVICE_SOFTMAX_F64_BOUND_vs_FLOAT64",
+                      "DEVICE_SOFTMAX_F64_BOUND", "FLOAT64",
+                      "the same bound against the ideal, so the record stays continuous."))
     if "DEVICE_COTANGENT_PERMUTED" in loaded:
         pairs.append(("DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16",
                       "DEVICE_COTANGENT_PERMUTED", "UPSTREAM_BF16",
@@ -321,6 +341,48 @@ def main():
             h / ours_f64,
         "branch": branch,
     }
+    if "DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16" in out["pairs"]:
+        bsets = {x["set"]: x for x in out["pairs"]["UPSTREAM_BF16_vs_FLOAT64"]["sets"]}
+        scope_key = "the device arm's scope (all compared tensors)"
+        # The threshold is what a PERFECT fix would read on THIS quantity. Our quantity is
+        # normalised by |bf16| and 5.852018e-02 is normalised by |float64|, so quoting it
+        # directly would be the D76 error again, 1.76 % in our favour.
+        r = bsets[scope_key]["mass_weighted_norm_ratio"]          # |bf16| / |float64|
+        perfect = BF16_OWN_FLOOR / r
+        q = out["pairs"]["DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16"]["sets"][0][
+            "mass_weighted_rel_l2"]
+        if q <= perfect:
+            br = ("at or below the perfect-fix threshold: with the softmax's contribution "
+                  "removed we reproduce upstream's actual training gradient to within its own "
+                  "distance from the ideal")
+        elif q <= 2.0 * h:
+            br = ("between the threshold and ~2x the shipped arm: the bound moves us but does "
+                  "not close it; the residual names the next mechanism")
+        else:
+            br = ("no better than ~2x the shipped arm: the softmax is NOT the mechanism at "
+                  "model scope and the per-block localisation is refuted")
+        out["BOUND_READING"] = {
+            "what": "AMENDMENT 3, the model-scope float64-softmax bound",
+            "headline_mass_weighted_rel_l2": q,
+            "shipped_arm": h,
+            "factor_the_bound_buys": h / q if q else None,
+            "perfect_fix_threshold": perfect,
+            "how_the_threshold_was_derived": (
+                f"{BF16_OWN_FLOOR} is ||bf16-float64||/||float64||; this quantity is normalised "
+                f"by ||bf16||, and the measured ||bf16||/||float64|| on this scope is {r!r}, so "
+                f"a perfect fix (device == float64) reads {BF16_OWN_FLOOR}/{r!r} = {perfect!r}"),
+            "attainable_range_check": {
+                "device_equals_upstream_bf16_reads": 0.0,
+                "device_equals_float64_reads": perfect,
+                "a_worse_device_reads": "unbounded above",
+                "verdict": ("every branch is inside the attainable range: the threshold is "
+                            "attained exactly by a perfect fix, 0 is attained by exact "
+                            "agreement, and nothing is capped below a branch boundary"),
+            },
+            "branch": br,
+        }
+        print("\nBOUND BRANCH:", br)
+
     args.out.write_text(json.dumps(out, indent=1) + "\n")
     print("\nBRANCH:", branch)
     print("wrote", args.out)

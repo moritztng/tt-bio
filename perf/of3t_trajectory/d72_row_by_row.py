@@ -29,6 +29,8 @@ def main():
     direct = sets("DEVICE_vs_UPSTREAM_BF16")
     permcot = sets("DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16")
     bf16 = sets("UPSTREAM_BF16_vs_FLOAT64")
+    bound = (sets("DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16")
+             if "DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16" in ag["pairs"] else {})
 
     rows = []
     for r in d72["table"]:
@@ -64,6 +66,13 @@ def main():
             worst_rel_l2=d["worst_rel_l2"],
             break_control_permuted_cotangent=permcot[key]["mass_weighted_rel_l2"],
             source=f"{a.agreement.name}, set {key!r}")
+        if key in bound:
+            bd = bound[key]["mass_weighted_rel_l2"]
+            row.update(
+                softmax_f64_bound_vs_bf16=bd,
+                bound_multiples_of_this_sections_own_floor=bd / own_floor,
+                factor_the_bound_buys=h / bd if bd else None,
+                bound_cos=bound[key]["mass_weighted_cos"])
         if h <= own_floor:
             row["verdict"] = ("D72's reading SURVIVES the direct test: we are no further from "
                               "their bf16 gradient than their bf16 gradient is from the ideal")
@@ -91,13 +100,19 @@ def main():
                      f"{scope['n']} tensors, median {scope['median_rel_l2_over_tensors']:.6e}, "
                      f"norm ratio {scope['mass_weighted_norm_ratio']:.6f}, cos "
                      f"{scope['mass_weighted_cos']:.6f}"),
+        "the_softmax_bound_column": (
+            "AMENDMENT 3. The same device arm with every softmax computed on the host in "
+            "float64, forward and backward, scored against upstream's own bf16 gradient. Not a "
+            "lever: what is left after it is what the softmax cannot explain."
+            if bound else "not run"),
         "table": rows,
         "provenance": {"D72": str(a.d72), "direct": str(a.agreement)},
     }
     a.out.write_text(json.dumps(out, indent=1) + "\n")
     for r in rows:
         print(f"{r['section']:46s} {r['pct_of_model_mass_D72']:7.4f} % "
-              f"{str(r['device_vs_bf16_direct'])[:12]:>12s}  {r['verdict'][:60]}")
+              f"{str(r['device_vs_bf16_direct'])[:12]:>12s} "
+              f"{str(r.get('softmax_f64_bound_vs_bf16'))[:12]:>12s}  {r['verdict'][:52]}")
     print("wrote", a.out)
 
 
