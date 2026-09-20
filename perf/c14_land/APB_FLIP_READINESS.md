@@ -86,3 +86,29 @@ This is `unpaired-cross-stack-rmsd-carries-full-seed-floor` with a number attach
 same-seed, same-box, same-tree five-fold run in `apb_xmodel_accuracy.sh` is not belt-and-braces —
 it is the only design that can see an effect this size, which is why its A/A control must read
 0.000000 A before anything else in it is readable.
+
+## 4. What the green gate describes, stated exactly
+
+The 21-of-21 green gate was scored at **`80d401428`**. The branch tip is now **`acab313e6`**, which
+merged six further commits of `origin/main`. So the gate does not describe the tip, and that has to
+be said rather than assumed away.
+
+The one production change in that delta is a **use-after-free fix in `MSALayer`'s chunked row
+loop** (`tenstorrent.py` ~10773): a full-span `ttnn.slice` hands back the input's own buffer, so
+freeing the source killed the result on the single-chunk path, and BoltzGen design died past
+`SEQ_LEN_MORE_CHUNKING`. Main ships it with `tests/test_msa_row_chunk_alias.py`.
+
+**Why the gate's APB verdict transfers, as an argument and not as a measurement:**
+
+* the fix is in `MSALayer.forward`; APB lives in `AttentionPairBias.__init__` and `__call__`. Disjoint
+  modules, disjoint call sites, and APB's firing counts are collected from `AttentionPairBias` alone;
+* the fix repairs a path that was previously *broken*, so it cannot make an APB-on tree worse
+  relative to an APB-off tree — both arms gain the same repair;
+* the gate's `boltzgen` arm passed at `80d401428`, i.e. its fixture sits below the threshold the bug
+  needed, so the bug was not masking anything in the arms that were scored.
+
+**The rigorous answer is still a re-gate at the tip before the merge lands**, and the honest reason
+it has not been run is cost rather than confidence: the journal is keyed on commit, so a re-gate
+re-runs all 21 arms (~75 min on a quiet box). Whoever merges should decide whether the transfer
+argument above is sufficient; this row is not entitled to make that call silently by leaving the
+provenance unstated.
