@@ -1,0 +1,27 @@
+{
+ "cases": {
+  "kt4": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "split_torch_equal": true,
+   "split_max_abs_diff": 0.0,
+   "pcc_native": 1.0,
+   "pcc_generic": 1.0,
+   "pcc_split": 1.0,
+   "in0_writer_fires": true,
+   "restores_after_control": true
+  },
+  "kt32": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "split_torch_equal": true,
+   "split_max_abs_diff": 0.0,
+   "pcc_native": 0.9999954104423523,
+   "pcc_generic": 0.9999954104423523,
+   "pcc_split": 0.9999954104423523,
+   "in0_writer_fires": true,
+   "restores_after_control": true
+  }
+ },
+ "time": false
+}
