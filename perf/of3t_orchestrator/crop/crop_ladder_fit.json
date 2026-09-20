@@ -1,0 +1,55 @@
+{
+ "ladder": [
+  {
+   "crop": 128,
+   "backward_dram_gb": 2.522,
+   "live_allocs": 5581,
+   "verdict": "PASS"
+  },
+  {
+   "crop": 256,
+   "backward_dram_gb": 7.384,
+   "live_allocs": 6249,
+   "verdict": "PASS"
+  },
+  {
+   "crop": 384,
+   "backward_dram_gb": 17.983,
+   "live_allocs": 6514,
+   "verdict": "PASS"
+  },
+  {
+   "crop": 640,
+   "backward_dram_gb": 34.215,
+   "live_allocs": 6016,
+   "verdict": "FAIL (card ceiling 34.22 GB)"
+  }
+ ],
+ "card_gb": 34.22,
+ "pairwise_power_exponent": {
+  "128->256": 1.5498,
+  "256->384": 2.1953
+ },
+ "fit_256_384": {
+  "form": "a + b*N^2",
+  "a_gb": -1.0952,
+  "b_gb_per_token2": 0.00012938232421875
+ },
+ "predicted_640": {
+  "backward_dram_gb": 51.9,
+  "times_card": 1.52,
+  "shortfall_gb": 17.68
+ },
+ "predicted_768": {
+  "backward_dram_gb": 75.22,
+  "times_card": 2.2,
+  "shortfall_gb": 41.0
+ },
+ "fit_128_384": {
+  "a_gb": 0.5894,
+  "b_gb_per_token2": 0.00011795806884765625,
+  "predicted_640_gb": 48.91,
+  "predicted_768_gb": 70.16
+ },
+ "caveat": "Two-point extrapolations under an a + b*N^2 model. The 128->256 rung fits a different exponent (1.55) from 256->384 (2.20), so this is an estimate with a stated model, not a measurement. What is robust is the ORDER: 640 is not a near miss. Checkpointing or allocator changes move the constant, not the N^2."
+}
