@@ -142,7 +142,10 @@ def main() -> int:
 
     head.forward_device(si_d, st_d, zt_d, oh_d, use_zij_trunk_embedding=use_ztrunk)
     params, unmapped, inverse_checks = GD.tape_parameters(head, reg)
-    dn = lambda t: torch.Tensor(ttnn.to_torch(t)).double()
+    def dn(t):
+        # a taped output is an autograd.Tensor wrapping the device handle; a leaf
+        # gradient is the raw handle. Take either.
+        return torch.Tensor(ttnn.to_torch(getattr(t, "value", t))).double()
 
     report = {
         "instrument": "instrument A at aux_heads scope, 0.4.3 boundary",
@@ -186,8 +189,8 @@ def main() -> int:
                    "ref_norm_real_block": float(th[tokm][:, tokm].norm()),
                    "our_norm": float(og.norm())}
         fwd.append(row)
-        extra = f"  real-block {row[rel_l2_real_block]:.4e}" if "rel_l2_real_block" in row else ""
-        print(f"  FWD {k:34s} rel_l2 {row[rel_l2]:.4e}{extra}", flush=True)
+        extra = f"  real-block {row['rel_l2_real_block']:.4e}" if "rel_l2_real_block" in row else ""
+        print(f"  FWD {k:34s} rel_l2 {row['rel_l2']:.4e}{extra}", flush=True)
     worst = max(fwd, key=lambda r: r["rel_l2"])
     report["forward"] = {
         "rows": fwd, "worst_head": worst["head"], "worst_rel_l2": worst["rel_l2"],
@@ -200,8 +203,8 @@ def main() -> int:
         ("FAIL -- a head is outside the 5.0e-02 bar, so any gradient taken at this "
          "boundary is invalid until the forward is localised"),
     }
-    print(f"[{time.perf_counter()-t0:.0f}s] forward: worst {worst[head]} "
-          f"{worst[rel_l2]:.4e}  -> {report[forward][a18_first_clause][:4]}", flush=True)
+    print(f"[{time.perf_counter()-t0:.0f}s] forward: worst {worst['head']} "
+          f"{worst['rel_l2']:.4e}  -> {report['forward']['a18_first_clause'][:4]}", flush=True)
 
     if a.forward_only:
         a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -234,8 +237,13 @@ def main() -> int:
     # ---- per-parameter against the float64 reference ---------------------------------------
     pert_name, pert_factor = (a.perturb.rsplit(":", 1) if a.perturb else (None, None))
     rows = []
-    for their, (leaf, inv, _where, _bi, lookup) in sorted(params.items()):
-        full = "aux_heads." + lookup
+    for their, (leaf, inv, _where, _bi, _lookup) in sorted(params.items()):
+        # The dict KEY is their full name; the trailing element of the value is a
+        # scope-local lookup that only means anything against grad_device.mains
+        # per-block reference dicts. Using it here silently dropped 100 of 180
+        # tensors as no reference gradient under this name.
+        full = "aux_heads." + their
+        lookup = their
         ref = ref_grads.get(full)
         if leaf.grad is None:
             rows.append({"name": full, "skip": "no gradient reached this leaf"}); continue
@@ -311,12 +319,12 @@ def main() -> int:
         n_over = report["gradient"]["n_over_bar"]
         print(f"\nPER-PARAMETER vs float64 0.4.3: {len(scored)} scored, {len(a14)} A14-excluded, "
               f"{len(skipped)} skipped")
-        print(f"  worst   {scored[0][name]}  {scored[0][rel_l2]:.4e}  (bar 5.0e-02)")
+        print(f"  worst   {scored[0]['name']}  {scored[0]['rel_l2']:.4e}  (bar 5.0e-02)")
         print(f"  median  {median:.4e}  (bar 2.0e-02)")
         print(f"  over the per-tensor bar: {n_over} of {len(scored)}")
         if reach:
-            print(f"  reach: {reach[share_of_aux_heads_own_norm]*100:.3f} %% of aux_heads own "
-                  f"squared norm = {reach[share_of_model_squared_norm]*100:.4f} %% of the model")
+            print(f"  reach: {reach['share_of_aux_heads_own_norm']*100:.3f} %% of aux_heads own "
+                  f"squared norm = {reach['share_of_model_squared_norm']*100:.4f} %% of the model")
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(report, indent=1, default=str) + "\n")
     print(f"[{time.perf_counter()-t0:.0f}s] written {a.out}", flush=True)

@@ -241,10 +241,10 @@ def main() -> int:
                 "reproduced": n_id == n_cmp and n_cmp == ent["n_with_gradient"],
             }
         report["sections"][s] = ent
-        print(f"{s}: {ent[n_params]} params, {ent[n_with_gradient]} with gradient, "
-              f"cotangents {ent[cotangent_keys]}", flush=True)
+        print(f"{s}: {ent['n_params']} params, {ent['n_with_gradient']} with gradient, "
+              f"cotangents {ent['cotangent_keys']}", flush=True)
         if ref is not None:
-            print(f"   self-check {ent[self_check_vs_published_reference]}", flush=True)
+            print(f"   self-check {ent['self_check_vs_published_reference']}", flush=True)
 
     report["total_s"] = time.time() - t_start
     (a.out / "capture_report.json").write_text(json.dumps(report, indent=1, default=str) + "\n")
