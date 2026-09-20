@@ -1,0 +1,28 @@
+{
+  "label": "openfold3-512-c1",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "predict",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/size512/fixtures/cdk2x2_512.yaml",
+    "--model",
+    "openfold3",
+    "--single_sequence",
+    "--seed",
+    "0",
+    "--out_dir",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/allm_safety/out/fold_openfold3_512_c1"
+  ],
+  "rc": 0,
+  "wall_s": 320.935,
+  "processes": 1,
+  "grid": "11x10",
+  "keys": {
+    "tenstorrent|2,12|served": 32,
+    "tenstorrent|2,2|served": 16,
+    "tenstorrent|4,17|served": 848,
+    "tenstorrent|4,4|served": 1272,
+    "trimul_tail|2,2|declined": 16,
+    "trimul_tail|4,4|declined": 424
+  }
+}

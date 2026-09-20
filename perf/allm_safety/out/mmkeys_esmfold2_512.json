@@ -1,0 +1,23 @@
+{
+  "label": "esmfold2-512-c1",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "predict",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/size512/fixtures/cdk2x2_512.yaml",
+    "--model",
+    "esmfold2",
+    "--single_sequence",
+    "--seed",
+    "0",
+    "--out_dir",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/allm_safety/out/fold_esmfold2_512_c1"
+  ],
+  "rc": 0,
+  "wall_s": 209.695,
+  "processes": 1,
+  "grid": "11x10",
+  "keys": {
+    "trimul_tail|8,8|served": 2169
+  }
+}
