@@ -40,6 +40,32 @@ OWNERS = ("boundaries", "weights", "weight_grads", "tape", "cotangents", "recomp
           "other_leaf", "unattributed")
 
 
+def bnd_closed_form(rung):
+    """The boundary term as a*N^2 + b*N, read off its own shape census.
+
+    The set is small and fully enumerated -- four distinct shapes at every crop -- and its
+    counts are the ARCHITECTURE's (48 pairformer blocks, one MSA module, one template stack),
+    not the crop's. So the term does not need an exponent fitted to it: substitute the crop
+    into the shapes and the answer is exact. The fit is kept beside it as a cross-check, and
+    the two agreeing is what says the shape census is complete.
+    """
+    a = b = 0
+    for e in rung["boundary_shapes"]:
+        dims, n = e["shape"], e["n"]
+        w = 2 if "BFLOAT16" in e["dtype"] else 4
+        # Every crop-sized axis is the token axis; the rest are channels, heads or MSA depth.
+        tok = sum(1 for d in dims if d == rung["tokens"])
+        rest = 1
+        for d in dims:
+            if d != rung["tokens"]:
+                rest *= d
+        if tok == 2:
+            a += n * rest * w
+        elif tok == 1:
+            b += n * rest * w
+    return a, b
+
+
 def read(p: Path):
     d = json.loads(p.read_text())
     b = d.get("backward") or {}
@@ -53,6 +79,7 @@ def read(p: Path):
             "walk_gap_pct": b.get("walk_gap_to_peak_pct"),
             "census_dram_b": w["census_dram_b"], "parts": parts,
             "boundary_pins": b.get("ckpt_pins"), "allocs": b.get("dram_live_allocs"),
+            "boundary_shapes": w["shapes"]["boundaries"],
             "card": d["env"].get("tt_visible_devices"), "commit": d["env"].get("commit"),
             "branch": d["env"].get("branch"), "host": d["env"].get("host"),
             "aiclk": d["env"].get("aiclk_line")}
@@ -79,8 +106,14 @@ def main() -> int:
             expo[o] = (round(math.log(b_ / a_) / math.log(hi["tokens"] / lo["tokens"]), 3)
                        if a_ > 0 and b_ > 0 else None)
 
+    bnd_a, bnd_b = bnd_closed_form(base)
+    bnd_exact = lambda n: bnd_a * n * n + bnd_b * n
+
     def scale(o, n):
-        """Measured exponent where there is one; N^2 otherwise, flagged as the fallback."""
+        """The closed form for the boundaries; the measured exponent elsewhere; N^2 as the
+        fallback where a rung read zero and no exponent could be fitted."""
+        if o == "boundaries":
+            return bnd_exact(n)
         p = expo.get(o)
         if p is None:
             p = 2.0
@@ -100,6 +133,15 @@ def main() -> int:
     out = {"card_GB": CARD_GB, "floor_640_GB": FLOOR_640_GB,
            "rungs": rungs, "base_tokens": n0,
            "owner_exponents": expo, "exponents_fitted_on": fitted_on,
+           "boundary_closed_form": {
+               "form": "a*N^2 + b*N, substituted into the shape census, not fitted",
+               "a_b_per_token2": bnd_a, "b_b_per_token": bnd_b,
+               "reproduces_base_rung_b": bnd_exact(n0),
+               "measured_base_rung_b": base["parts"]["boundaries"],
+               "rel_err_pct": round(100 * (bnd_exact(n0) - base["parts"]["boundaries"])
+                                    / base["parts"]["boundaries"], 4),
+               "cross_check_vs_fitted_exponent": expo.get("boundaries"),
+               "shapes": base["boundary_shapes"]},
            "at_base": {
                "peak_GB": round(base["peak_b"] / GB, 3),
                "boundaries_GB": round(base["parts"]["boundaries"] / GB, 3),
@@ -178,6 +220,9 @@ def main() -> int:
     print("recompute is %.1f %% of the non-boundary term -> %s"
           % (rec_share, out["pre_registered_branch"]))
     print("exponents:", {o: expo.get(o) for o in OWNERS})
+    print("boundaries closed form %d*N^2 + %d*N reproduces the %d rung to %.4f %% (fit says "
+          "exponent %s)" % (bnd_a, bnd_b, n0, out["boundary_closed_form"]["rel_err_pct"],
+                            expo.get("boundaries")))
     for n in (640, 768):
         r = out["projections"][n]
         print("%d: peak %.2f GB, deficit %.2f GB | spill %.2f -> %.2f | halve recompute %.2f "
