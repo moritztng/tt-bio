@@ -1,0 +1,27 @@
+SDPA_CHUNK_MAX=256  SDPA_CHUNK_TILE=32  PAIRFORMER_PAD_MULTIPLE=32
+padded lengths swept: 32..1536 step 32 (48 of them), affected: 20
+
+padded  shipped_k  divides  wide ladder                 raw N (32-align)  raw N (64-pad)
+   288         64  False    [288, 96, 64]               257-288           --
+   352         64  False    [352, 64]                   321-352           --
+   416        256  False    [416, 256]                  385-416           --
+   544        256  False    [544, 256]                  513-544           --
+   608        256  False    [608, 256]                  577-608           --
+   704        256  False    [704, 352, 256]             673-704           641-704
+   736        256  False    [736, 256]                  705-736           --
+   832        256  False    [832, 416, 256]             801-832           769-832
+   864        256  False    [864, 288, 256]             833-864           --
+   928        256  False    [928, 256]                  897-928           --
+   992        256  False    [992, 256]                  961-992           --
+  1056        256  False    [1056, 352, 256]            1025-1056         --
+  1088        256  False    [1088, 544, 256]            1057-1088         1025-1088
+  1184        256  False    [1184, 256]                 1153-1184         --
+  1216        256  False    [1216, 608, 256]            1185-1216         1153-1216
+  1248        256  False    [1248, 416, 256]            1217-1248         --
+  1312        256  False    [1312, 256]                 1281-1312         --
+  1376        256  False    [1376, 256]                 1345-1376         --
+  1472        256  False    [1472, 736, 256]            1441-1472         1409-1472
+  1504        256  False    [1504, 256]                 1473-1504         --
+
+unaffected (single-entry ladder, byte-for-byte today): 28 lengths, e.g. [32, 64, 96, 128, 160, 192, 224, 256] ... [1344, 1408, 1440, 1536]
+ASSERTED: every unaffected length returns exactly the shipped k_chunk with the flag on.

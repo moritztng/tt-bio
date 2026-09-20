@@ -158,13 +158,19 @@ def resumable(path: Path, key: dict) -> dict[str, dict]:
     return {arm: rec for arm, rec in latest.items() if rec.get("verdict") == "PASS"}
 
 
-def ingest(log: Path, key: dict, journal: Path) -> list[tuple[str, str]]:
+def ingest(log: Path, key: dict, journal: Path, members=None) -> list[tuple[str, str]]:
     """Back-fill a journal from a gate log written before journalling existed.
 
     Returns the (arm, verdict) pairs recorded. Raises on any GATE headline it maps to zero or several
     arms, so this cannot quietly under-report what a log contains -- an unrecognised
     headline means the table below is stale, and a resume built on a stale table would skip
     an arm that never ran.
+
+    `members` maps arm -> the --model values that arm's single headline covered, for the two arms
+    whose verdict is not their own name (fold-models, esmc). Without it those records default to
+    members=[arm], release_gate._resume_plan's subset test fails, and the back-fill silently loses
+    the most expensive arm in the gate while appearing to succeed: on 2026-09-19 an ingest of nine
+    PASS arms resumed eight, and the one it dropped was the nine-model fold leg.
     """
     recorded = []
     for n, raw in enumerate(log.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
@@ -177,7 +183,8 @@ def ingest(log: Path, key: dict, journal: Path) -> list[tuple[str, str]]:
                 f"{log}:{n}: this gate headline maps to {hits or 'no arm'}, so the ingest "
                 f"table in gate_journal.INGEST_MARKERS is stale:\n  {raw}")
         arm = hits[0]
-        append(journal, key, arm, verdict, raw, source=f"{log}:{n}")
+        append(journal, key, arm, verdict, raw, source=f"{log}:{n}",
+               members=(members or {}).get(arm))
         recorded.append((arm, verdict))
     return recorded
 
@@ -190,6 +197,10 @@ def _main(argv=None) -> int:
                     help="Back-fill arm verdicts from an existing gate log. Needs the key "
                          "flags below to say which tree and host produced it.")
     ap.add_argument("--show", action="store_true", help="Print the journal, one arm per line.")
+    ap.add_argument("--members", action="append", default=[], metavar="ARM=M1,M2",
+                    help="The --model values an arm's single headline covered. Needed for the two "
+                         "arms whose verdict is not their own name (fold-models, esmc); without it "
+                         "a back-filled multi-model arm never resumes. Repeatable.")
     for f in KEY_FIELDS:
         ap.add_argument(f"--{f.replace('_', '-')}", default=None)
     args = ap.parse_args(argv)
@@ -199,7 +210,13 @@ def _main(argv=None) -> int:
         key["dirty"] = str(key["dirty"]).lower() in ("1", "true", "yes")
         for f in ("fast", "diffusion_trace"):
             key[f] = str(key[f]).lower() in ("1", "true", "yes")
-        for arm, verdict in ingest(args.ingest, key, args.journal):
+        members = {}
+        for spec in args.members:
+            arm, _, ms = spec.partition("=")
+            if not ms:
+                ap.error(f"--members wants ARM=M1,M2, got {spec!r}")
+            members[arm] = [m for m in ms.split(",") if m]
+        for arm, verdict in ingest(args.ingest, key, args.journal, members):
             print(f"{arm:<16}{verdict}")
         return 0
 

@@ -1,0 +1,22 @@
+Environment stamp for boltz2_quiet_rerun.log (a benchmark log without one is incomparable).
+
+The background contention sampler launched with this run wrote ZERO bytes, so there is no
+automated per-30s record for it and none is claimed. The file it would have written was deleted
+rather than committed empty. What follows are samples taken BY HAND during the run, each one a
+real observation at the stated time, not an average and not a reconstruction.
+
+  time (UTC)   loadavg 1m   card 2 aiclk   note
+  11:11:25     1.57         --             immediately before benchlock was taken
+  11:16:49     ~1.8         --             during the 512/640 rungs
+  11:19:52     1.24         --             during the 768 rung
+  11:23:07     --           1350 MHz       during the 768 rung, all four cards read
+                                           800/800/1350/800, so card 2 is the folding one
+  11:24:05     1.04         --             at release
+
+Host tt-quietbox2, board class p300c, card 2, TT_BIO_AICLK=1350, tree 8bede8dfd, package
+/home/ttuser/pvx_gateland_wt/tt_bio. 16 cores.
+
+The three rungs that completed read 256 aa 4.1 s, 512 aa 11.0 s, 640 aa 19.0 s against a recorded
+baseline of 4.1 / 11.0 / 17.3. The 768 rung never completed: it printed trunk 2/4 at 11:16:04 and
+wrote no further bytes, 35 threads parked in futex_do_wait, and exited -9 on the SIGKILL that
+cleared it at 11:23.
