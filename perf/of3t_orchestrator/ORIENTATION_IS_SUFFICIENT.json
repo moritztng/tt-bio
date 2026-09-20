@@ -1,0 +1,36 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "one block's orientation change is 4.712263e-03, and accumulated coherently over 48 blocks that is 2.2619e-01 against the observed 2.793661e-01 -- 0.81x. A random walk would give 3.26e-02, 0.12x, far too small. The orientation difference is sufficient; no port defect is needed to explain the observation.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Script committed as perf/of3t_orchestrator/orientation_is_sufficient.py; 0.5.0 tree at ~/.coworker/scratch/of3t-data/up0.5.0.",
+ "the_first_attempt_was_VACUOUS_and_that_is_recorded": "my first arm compared the two orientations on a freshly constructed TriangleAttention and got nan. TriangleAttention ZERO-INITIALISES its output projection, so both arms emitted exactly 0.0 and the ratio was 0/0. An arm that cannot differ is not evidence -- the campaign has filed that class twice already (the power-of-two scale test, and arm2-vs-arm3 in D69) -- so it is fixed by giving every parameter non-degenerate values, and the script asserts both arm norms are non-zero before reporting anything.",
+ "the_measurement": {
+  "composition": [
+   {
+    "model": "fully coherent, n^1.0",
+    "predicted": 0.22619,
+    "x_observed": 0.81
+   },
+   {
+    "model": "trunkfwd's measured exponent 0.925",
+    "predicted": 0.16919,
+    "x_observed": 0.61
+   },
+   {
+    "model": "random walk, n^0.5",
+    "predicted": 0.032648,
+    "x_observed": 0.12
+   }
+  ],
+  "control": "the same arm run twice is bit-identical, max abs diff 0.000e+00, so the module is deterministic and the contrast is the flag.",
+  "observed_by_of3t_trunkfwd": 0.2793661,
+  "per_block_cos": 0.999989,
+  "per_block_rel_l2": 0.004712263,
+  "setup": "0.5.0's own TriangleAttention, float64, c_z=128 c_hidden=32 heads=4, N=64, one module, one input, identical weights -- transpose_bias=False (0.4.3's only behaviour) against transpose_bias=True (what 0.5.0's caller passes). The flag is isolated to a single permute_final_dims call, so this is exactly the revision difference and nothing else."
+ },
+ "what": "a measurement, not a source reading, of whether the 0.4.3 -> 0.5.0 ending-node bias orientation change is QUANTITATIVELY SUFFICIENT to explain of3t-trunkfwd's 2.793661e-01 over 48 composed blocks. D90's withdrawal of my product-defect escalation rested on reading the two release trees; this checks the magnitude.",
+ "what_this_establishes_and_what_it_does_not": {
+  "does_not_establish": "that our port is correct in every other respect, and it is not the decisive arm. Random weights are not the checkpoint and one block shape is not the real configuration, so 0.81x is indicative, not exact. The decisive measurement is still upstream's own 0.4.3 PairFormerBlock against the same captured boundary, which of3t-foldab owes.",
+  "establishes": "the orientation change is a real, non-trivial functional difference whose magnitude, accumulated over 48 blocks the way trunkfwd measured the accumulation to behave, lands within 1.2x of the observed disagreement. Combined with the source reading -- 0.4.3 has no transpose_bias parameter at all -- the revision mismatch is a sufficient explanation."
+ },
+ "why_the_coherent_model_is_the_right_one": "of3t-trunkfwd measured the accumulation exponent INDEPENDENTLY at 0.925 before the flip and 0.584 after -- near-coherent collapsing to near-random-walk, which it identified as the signature of removing a systematic per-block bias. A per-block orientation difference is exactly such a bias. Two facts derived from different measurements agree."
+}
