@@ -195,6 +195,16 @@ def main() -> int:
                          "gradient scored against a 0.4.3 reference needs its forward scored "
                          "against the same one, and carrying that number in from another "
                          "process is what `of3t-auxgrad` had to undo.")
+    ap.add_argument("--dump-input-grads", default="", dest="dump_input_grads",
+                    help="write dL/ds_in and dL/dz_in -- the cotangent this scope hands to "
+                         "whatever precedes it -- to this .pt. `input_grad_ours` publishes "
+                         "their NORMS only, which cannot say whether the chain is turned the "
+                         "right way; with the tensors the chain error gets a rel_l2, a norm "
+                         "ratio and a cosine like every other quantity. Over ONE block both "
+                         "sides are driven by the same captured cotangent, so this separates "
+                         "a backward that carries the cotangent wrongly from one that carries "
+                         "it correctly and forms the WEIGHT gradients wrongly. They are "
+                         "different defects and the parameter gradients alone conflate them.")
     ap.add_argument("--dump-forward", default="", dest="dump_forward",
                     help="write the taped device forward outputs to this .pt, so the A18 "
                          "reading can be re-scored against another reference without re-running "
@@ -681,6 +691,17 @@ def main() -> int:
             for k in ("ds_in_norm", "dz_in_norm"):
                 d0, r0 = og.get(k), ref_ig.get(k)
                 og[k.replace("_norm", "_ratio")] = (d0 / r0) if (d0 and r0) else None
+        if a.dump_input_grads:
+            _d = os.path.dirname(a.dump_input_grads)
+            if _d:
+                os.makedirs(_d, exist_ok=True)
+            torch.save({"ds_in": (ttnn.to_torch(sa.grad).to(torch.float64)
+                                  if sa.grad is not None else None),
+                        "dz_in": (ttnn.to_torch(za.grad).to(torch.float64)
+                                  if za.grad is not None else None),
+                        "first_block": i, "blocks": nb, "crop": a.crop,
+                        "cot_scale": a.cot_scale}, a.dump_input_grads)
+            og["dumped_to"] = a.dump_input_grads
         rep["input_grad_ours"] = og
         if ref_ig:
             print(f"[{time.perf_counter()-t0:.0f}s] D38 input-gradient ratio: "

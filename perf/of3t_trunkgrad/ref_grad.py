@@ -50,8 +50,13 @@ def sha256_file(p, chunk=1 << 22):
     return h.hexdigest()
 
 
-def build(sd, n, dtype):
-    """Upstream's own PairFormerBlock, dimensions read off the checkpoint, strict load."""
+def build(sd, n, dtype, first=0):
+    """Upstream's own PairFormerBlock, dimensions read off the checkpoint, strict load.
+
+    `first` is the checkpoint block index the window starts at, so one block in the middle of
+    the trunk can be built alone. The window is always contiguous and always keyed by the
+    CHECKPOINT index, never by its position in the window.
+    """
     from openfold3.core.model.latent.pairformer import PairFormerBlock
     p0 = f"{PRE}0."
     c_s = sd[p0 + "attn_pair_bias.layer_norm_a.weight"].shape[0]
@@ -67,7 +72,7 @@ def build(sd, n, dtype):
                 // c_z,
                 pair_dropout=0.25, fuse_projection_weights=False, inf=1e9)
     mods, load = [], []
-    for i in range(n):
+    for i in range(first, first + n):
         sub = {k[len(f"{PRE}{i}."):]: v.to(dtype) for k, v in sd.items()
                if k.startswith(f"{PRE}{i}.")}
         m = PairFormerBlock(**dims).to(dtype)
@@ -97,6 +102,24 @@ def main() -> int:
     ap.add_argument("--cap", default="/home/ttuser/of3t_gradients/cap")
     ap.add_argument("--crop", type=int, default=64, help="0 means the whole 384-token batch")
     ap.add_argument("--blocks", type=int, default=48)
+    ap.add_argument("--first", type=int, default=0, metavar="K",
+                    help="checkpoint block index the window starts at. The boundary follows it: "
+                         "cap/block{K}_boundary.pt in, cap/block{K+blocks-1}_boundary.pt's "
+                         "cotangent back. `--first 23 --blocks 1` is block 23's backward ALONE, "
+                         "with no chaining at all, which is what separates a wrong leaf-op "
+                         "backward from an error the chain accumulates over 48 of them.")
+    ap.add_argument("--nan-pad", action="store_true",
+                    help="D28 discriminator, reference side. Poison the PAD token positions of "
+                         "the captured input with NaN and count how many parameter gradients "
+                         "come back NaN. A LayerNorm WEIGHT gradient sums over every position "
+                         "including the padded ones, so a mask-clean forward does not imply a "
+                         "mask-clean backward; this says whether upstream's own backward is "
+                         "mask-clean, which is what our side has to be compared against.")
+    ap.add_argument("--input-grad-out", default="",
+                    help="write dL/ds_in and dL/dz_in to this .pt. Over a single block both "
+                         "sides are driven by the SAME captured cotangent, so this is the error "
+                         "that block's backward hands to the block before it -- the per-block "
+                         "chain error, which is the quantity a 48-deep stack compounds.")
     ap.add_argument("--policy", default="f64", choices=("f64", "f32", "bf16auto"))
     ap.add_argument("--tb", default="keep", choices=("keep", "off", "on"))
     ap.add_argument("--threads", type=int, default=8)
@@ -118,8 +141,8 @@ def main() -> int:
     torch.set_num_threads(a.threads)
     torch.manual_seed(0)
 
-    last = a.blocks - 1
-    src0 = os.path.join(a.cap, "block0_boundary.pt")
+    last = a.first + a.blocks - 1
+    src0 = os.path.join(a.cap, f"block{a.first}_boundary.pt")
     srcL = os.path.join(a.cap, f"block{last}_boundary.pt")
     cap0 = torch.load(src0, map_location="cpu", weights_only=False)
     capL = torch.load(srcL, map_location="cpu", weights_only=False)
@@ -139,11 +162,22 @@ def main() -> int:
 
     N = int(z_in.shape[1])
     real = int(single_mask.sum())
+    if a.nan_pad:
+        pad = (single_mask.reshape(-1) <= 0)
+        if not bool(pad.any()):
+            raise SystemExit("--nan-pad: this boundary has no pad rows, nothing to poison")
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] = float("nan")
+        z_in[:, pad, :] = float("nan")
+        z_in[:, :, pad] = float("nan")
+        print(f"[{time.perf_counter()-t0:.0f}s] D28: poisoned {int(pad.sum())} pad rows of "
+              f"{int(pad.numel())} with NaN", flush=True)
     rep = {"what": __doc__.strip().splitlines()[0], "tree": a.tree,
            "openfold3_file": openfold3.__file__, "policy": a.policy, "tb": a.tb,
            "blocks": a.blocks, "crop": c, "checkpoint": CKPT,
-           "boundary": {"inputs_from_block": 0, "cotangent_from_block": last,
-                        "block0": src0, "block47": srcL,
+           "first_block": a.first,
+           "boundary": {"inputs_from_block": a.first, "cotangent_from_block": last,
+                        "block_first": src0, "block_last": srcL,
                         "tokens": N, "real_tokens": real,
                         "padding_fraction_single": 1.0 - real / N,
                         "padding_fraction_pair": 1.0 - float(pair_mask.sum()) / (N * N),
@@ -158,6 +192,9 @@ def main() -> int:
                            "upstream's own training recipe",
            }[a.policy]}
 
+    if a.boundary_check and (a.first, a.blocks) != (0, 48):
+        raise SystemExit("--boundary-check pins the 0..47 crop-64 boundary; it does not "
+                         "describe a single-block window")
     if a.boundary_check:
         b = torch.load(a.boundary_check, map_location="cpu", weights_only=False)
         ident = {k: bool(torch.equal(v, b[k])) for k, v in
@@ -178,18 +215,23 @@ def main() -> int:
     sd = torch.load(CKPT, map_location="cpu", weights_only=False, mmap=True)
     if isinstance(sd, dict) and "state_dict" in sd and isinstance(sd["state_dict"], dict):
         sd = sd["state_dict"]
-    mods, dims, load = build(sd, a.blocks, dt)
+    mods, dims, load = build(sd, a.blocks, dt, first=a.first)
     rep["their_dims"] = dims
     rep["their_load"] = {"blocks": len(load),
                          "tensors": sum(x["tensors"] for x in load),
                          "missing": sum(len(x["missing"]) for x in load),
                          "unexpected": sum(len(x["unexpected"]) for x in load)}
     n_par = sum(1 for m in mods for _ in m.named_parameters())
-    print(f"[{time.perf_counter()-t0:.0f}s] built {a.blocks} PairFormerBlock in {a.policy}, "
+    print(f"[{time.perf_counter()-t0:.0f}s] built {a.blocks} PairFormerBlock "
+          f"[{a.first}..{last}] in {a.policy}, "
           f"{n_par} tensors, N={N} real={real}", flush=True)
 
     s = s_in.to(dt).contiguous()
     z = z_in.to(dt).contiguous()
+    if a.input_grad_out:
+        s = s.detach().requires_grad_(True)
+        z = z.detach().requires_grad_(True)
+    s_leaf, z_leaf = s, z
     sm, pm = single_mask.to(dt), pair_mask.to(dt)
     ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
            else torch.autocast("cpu", enabled=False))
@@ -216,19 +258,45 @@ def main() -> int:
 
     loss.backward()
     grads, absent = {}, []
-    for j, m in enumerate(mods):
+    for j, m in enumerate(mods, start=a.first):
         for n, p in m.named_parameters():
             full = f"{PRE}{j}.{n}"
             if p.grad is None:
                 absent.append(full)
             else:
                 grads[full] = p.grad.detach().to(torch.float64).clone()
+    if a.nan_pad:
+        nan_t = sorted(k for k, v in grads.items() if bool(torch.isnan(v).any()))
+        rep["nan_pad"] = {"pad_rows": int((single_mask.reshape(-1) <= 0).sum()),
+                          "real_rows": real, "tensors": len(grads), "nan": len(nan_t),
+                          "nan_tensors": nan_t[:12],
+                          "forward_out_nan": bool(torch.isnan(s_out).any()
+                                                  or torch.isnan(z_out).any())}
+        print(f"[{time.perf_counter()-t0:.0f}s] D28 reference: {len(nan_t)} of {len(grads)} "
+              f"parameter gradients NaN; forward output NaN "
+              f"{rep['nan_pad']['forward_out_nan']}", flush=True)
     gsq = sum(float((v ** 2).sum()) for v in grads.values())
     rep["gradient"] = {"with_grad": len(grads), "without_grad": len(absent),
                        "absent": absent[:32],
                        "global_norm": gsq ** 0.5, "squared_norm": gsq}
     print(f"[{time.perf_counter()-t0:.0f}s] backward done, {len(grads)} tensors, "
           f"global norm {gsq ** 0.5:.12e}", flush=True)
+
+    if a.input_grad_out:
+        ig = {"ds_in": (s_leaf.grad.detach().to(torch.float64).clone()
+                        if s_leaf.grad is not None else None),
+              "dz_in": (z_leaf.grad.detach().to(torch.float64).clone()
+                        if z_leaf.grad is not None else None),
+              "first_block": a.first, "blocks": a.blocks, "crop": c, "policy": a.policy}
+        os.makedirs(os.path.dirname(a.input_grad_out) or ".", exist_ok=True)
+        torch.save(ig, a.input_grad_out)
+        rep["input_grad"] = {
+            "file": a.input_grad_out,
+            "ds_in_norm": None if ig["ds_in"] is None else float(ig["ds_in"].norm()),
+            "dz_in_norm": None if ig["dz_in"] is None else float(ig["dz_in"].norm())}
+        print(f"[{time.perf_counter()-t0:.0f}s] input gradients |ds_in| "
+              f"{rep['input_grad']['ds_in_norm']:.12e} |dz_in| "
+              f"{rep['input_grad']['dz_in_norm']:.12e}", flush=True)
 
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     torch.save(grads, a.out)

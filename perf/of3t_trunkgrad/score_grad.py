@@ -67,6 +67,29 @@ def _row(name, ours, ref):
             "diff_sq": float((d ** 2).sum()), "dot": float(torch.dot(o, r))}
 
 
+def _decompose(r, c):
+    """Split rel^2 into its magnitude and direction halves, exactly.
+
+        rel^2 = 1 + r^2 - 2rc = (r - 1)^2 + 2r(1 - c)
+
+    with r the norm ratio and c the error cosine. The first term is the magnitude half, the
+    second the direction half. Beside them, `best_rescaled_rel_l2` = sqrt(1 - c^2): the
+    smallest rel_l2 any constant rescaling of our tensor could reach, attained at r = c. A
+    magnitude share near 1 says nothing on its own -- if the best rescaled figure is also near
+    1 then no rescaling helps and the disagreement is a direction disagreement.
+    """
+    if r is None or c is None:
+        return None
+    rel_sq = 1.0 + r * r - 2.0 * r * c
+    mag, dirn = (r - 1.0) ** 2, 2.0 * r * (1.0 - c)
+    return {"rel_l2": math.sqrt(max(rel_sq, 0.0)),
+            "magnitude_sq": mag, "direction_sq": dirn,
+            "magnitude_share": mag / rel_sq if rel_sq > 0 else None,
+            "direction_share": dirn / rel_sq if rel_sq > 0 else None,
+            "best_rescaled_rel_l2": math.sqrt(max(1.0 - c * c, 0.0)),
+            "best_rescale_factor": c}
+
+
 def _mass(rows):
     if not rows:
         return None
@@ -74,9 +97,10 @@ def _mass(rows):
     sr = sum(r["ref_sq"] for r in rows)
     so = sum(r["our_sq"] for r in rows)
     dot = sum(r["dot"] for r in rows)
+    nr = math.sqrt(so) / (math.sqrt(sr) + 1e-300)
+    cs = dot / (math.sqrt(so) * math.sqrt(sr) + 1e-300)
     return {"rel_l2": math.sqrt(sd) / (math.sqrt(sr) + 1e-300),
-            "norm_ratio": math.sqrt(so) / (math.sqrt(sr) + 1e-300),
-            "cos": dot / (math.sqrt(so) * math.sqrt(sr) + 1e-300),
+            "norm_ratio": nr, "cos": cs, "decomposition": _decompose(nr, cs),
             "n_tensors": len(rows), "ref_squared_norm": sr, "error_squared_norm": sd}
 
 
@@ -90,7 +114,18 @@ def _group(rows, key, total_ref_sq, total_diff_sq):
         m = _mass(rs)
         stats.append({key: k, "n": len(rs),
                       "median_rel_l2": v[len(v) // 2], "worst_rel_l2": v[-1],
+                      "median_norm_ratio": sorted(
+                          x["norm_ratio"] for x in rs
+                          if x["norm_ratio"] is not None)[len(
+                              [x for x in rs if x["norm_ratio"] is not None]) // 2]
+                      if any(x["norm_ratio"] is not None for x in rs) else None,
+                      "median_cos": sorted(
+                          x["cos"] for x in rs if x["cos"] is not None)[len(
+                              [x for x in rs if x["cos"] is not None]) // 2]
+                      if any(x["cos"] is not None for x in rs) else None,
                       "mass_weighted_rel_l2": m["rel_l2"],
+                      "norm_ratio": m["norm_ratio"], "cos": m["cos"],
+                      "decomposition": m["decomposition"],
                       "share_of_compared_ref_mass": m["ref_squared_norm"] / (total_ref_sq or 1.0),
                       "share_of_error_mass": m["error_squared_norm"] / (total_diff_sq or 1.0),
                       "n_over_bar": sum(1 for x in rs if x["rel_l2"] > PER_TENSOR_BAR),
