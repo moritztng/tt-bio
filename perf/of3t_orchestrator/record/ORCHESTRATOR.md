@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty-four dispatched, forty-two concluded, two live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-five dispatched, forty-two concluded, three live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -841,11 +841,13 @@ document was still quoting the superseded reading. Each line says who closed it,
    from `of3t-l1`'s artifacts and refuses to run in a tree that lacks them.
    **What is NOT priced** is the second lever, because nothing splits the 41.45 GB into recompute
    versus tape — and that measurement can be taken at **384, where the backward completes**, so no
-   640 run is needed to size a 640 lever. **Deliberately not dispatched, and both hosts were checked at pass 198**: qb2 is carrying
-   `of3t-nanfloor` and `of3t-trunkg043`; qb1 is at loadavg **12.57** with two processes holding TT
-   devices and a measurement-exclusivity pin on the grand-tidy row. The sizing measurement is small
-   — one instrumented **384** backward, which completes — but a memory peak read under contention
-   is not a reading. Dispatch it to whichever host frees an uncontended card first.
+   640 run is needed to size a 640 lever. **DISPATCHED at pass 200** as `of3t-crop640`, once qb2 came free (loadavg 0.09, zero device
+   holders, all four cards). Held for two passes while qb2 carried `of3t-nanfloor` and
+   `of3t-trunkg043` — and the reason I gave then was partly wrong and is corrected here: I wrote
+   that "a memory peak read under contention is not a reading", conflating host load with device
+   exclusivity. **A DRAM high-water is per-device**, so a co-tenant on another card does not disturb
+   it; what actually constrained the dispatch was card availability and the board-pair reset risk of
+   putting three rows on two pairs. The brief says so and tells the row to pin its card.
 6. **Whole-model equivalence — OPEN, and it is the charter.**
 
 **Directive 2.**
@@ -962,7 +964,7 @@ branches and unmerged. The SS7 fixes cannot reach a shipped path at all — thre
 has no production callers, `AdamW` is constructed in exactly one non-test place (inside it), and
 both optimizer changes are dead code unless `self.accum` is filled, which only that loop does.
 
-Forty-four dispatched, forty-three concluded, two live (this row and `of3t-bwdaccum`); one hundred sixteen defects on the record, forty-three of them UNFIXED. `state/concluded` holds forty-three of3t markers, two of which are this row's own stale ones, which is why the two counts differ. The composition `wk/of3t` rebuilds from `origin/main` every pass and carries **41 of 42** rows at 1231 ahead of main — `of3t-trunkg043` is dispatched and has not pushed, and is skipped BY NAME rather than silently. Verified at 159 checks, twenty-nine amendments.
+Forty-five dispatched, forty-two concluded, three live (this row, `of3t-bwdaccum` and `of3t-crop640`). `state/concluded` holds forty-four of3t markers — two more than the concluded-row count, because two are this row's own stale ones, which is why the two figures differ. One hundred sixteen defects on the record, forty-three of them UNFIXED. The composition `wk/of3t` is **published at `6364b874`**, 42 of 43 rows, 1238 ahead of main, merge gate clean and fast-forwardable, verified at 164 checks with 0 drifted and twenty-nine amendments. Rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the
