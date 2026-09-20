@@ -7,7 +7,11 @@ origin). Artifacts in `perf/of3t_adaln/`. Nothing in `tt_bio/` changed: the trac
 against the commit this branch was cut from (592d632e1 on `wk/of3t`) touches 0 files under
 `tt_bio/`; everything it adds is under `perf/of3t_adaln/`. Every
 ablation below is installed from the instrument and removed again. The orchestrator holds the
-merge gate; this branch stays on its own.
+merge gate; this branch stays on its own. This file lives in three places that must stay
+identical: here, on qb2 at the same path, and in the branch at
+`perf/of3t_adaln/STATE_of3t-adaln.md`. The row's gate runs on qb2, the dispatch host, and for
+four passes this document existed only on the orchestrator host, so the check passed wherever I
+ran it and failed where it counted.
 
 The brief was amended six times while this pass was running. Amendment 1 refuted its own premise
 from the model's natural A/B: two instances of `tenstorrent.AdaLN` per DiT block, the same class
