@@ -1,0 +1,34 @@
+shape N=512 D=128  Z=67.109 MB   clock 1350-1350 MHz, n=92 samples, 0 errors, span 6.82/6.89 s
+
+arm                              ms     GB/s        MB  A/A
+P_gated_production           0.6805    295.9   201.327  0.05 %
+P_unfused_stock_permute      4.8500     41.5   201.327  -
+P_unfused_reblock            3.6155     55.7   201.327  -
+M_permute_stock_0312         2.1258     63.1   134.218  1.11 %
+M_reblock_fwd                0.8894    150.9   134.218  0.16 %
+M_reblock_back               0.5530    242.7   134.218  -
+M_permute_back_stock         6.5580     20.5   134.218  -
+C_tile_transpose             0.3676    365.1   134.218  0.27 %
+C_clone                      0.3510    382.4   134.218  -
+
+P_gated_production: 0.6805 ms vs a pure-copy floor of 0.5265 ms on the same 201.3 MB -> 1.292x above copy, 0.1540 ms recoverable
+                    against the tile-granular transpose rate: 0.5514 ms -> 1.234x
+M_reblock_back: 0.5530 ms vs a pure-copy floor of 0.3510 ms on the same 134.2 MB -> 1.575x above copy, 0.2020 ms recoverable
+                against the tile-granular transpose rate: 0.3676 ms -> 1.504x
+
+per trimul call (2 gated moves + 1 back move, from the census):
+  measured 1.914 ms   pure-copy floor 1.404 ms   recoverable 0.510 ms (26.6 % of the term)
+  trix-radical booked 2.551 ms for this term in an 11.519 ms/call module: measured share 16.6 %, recoverable share 4.4 %
+
+per cdk2x2_512 fold (18055 ms, 1120 gated + 560 back calls, derived as count x standalone per-call time):
+  channel moves 1072 ms = 5.94 % of the fold
+  recoverable to a pure copy 286 ms = 1.58 % -> fold 1.0161x as an unreachable upper bound
+
+the three numbers in circulation for 'the shipped move', all at N=512 D=128 in this session:
+  ttnn.permute(0,3,1,2)        63.1 GB/s  (pass 1 read 63.3 -- reproduced, but production calls it 0 times per fold)
+  reblock_permute (ours)      150.9 GB/s  (trix-radical's 158; perfwar's 221 was N=1024)
+  reblock_permute_gated       295.9 GB/s  (THE shipped call, 1120 of 1120 per fold)
+  tile-granular control       365.1 GB/s
+  straight clone              382.4 GB/s
+
+what the fusion already banked: the sequence it replaces reads 4.850 ms with the stock move and 3.616 ms with ours, against 0.680 ms fused: 7.13x / 5.31x

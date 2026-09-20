@@ -1,0 +1,56 @@
+{
+ "host": "tt-quietbox2",
+ "fixture": "cdk2x2_512",
+ "fold_s": 18.055,
+ "plddt": 0.844645,
+ "tt_visible": "3",
+ "aiclk_after": "1350",
+ "stats_gated_counter": 1120,
+ "counts": {
+  "gated": {
+   "in=1x512x512x512 slice_c=128 out=- rowblk=False bt=DRAM dt=BFLOAT16": 1120
+  },
+  "gated_elig": {
+   "in=1x512x512x512 slice_c=128 -> True": 560
+  },
+  "fwd": {},
+  "fwd_elig": {},
+  "back": {
+   "in=1x128x512x512": 560
+  },
+  "permute": {
+   "in=1x768x512 dims=(0, 2, 1)": 5000,
+   "in=1x16x512x48 dims=(0, 1, 3, 2)": 4800,
+   "in=1x512x512x4 dims=(0, 3, 1, 2)": 560,
+   "in=512x512x128 dims=(1, 0, 2)": 560,
+   "in=1x512x512x16 dims=(0, 3, 1, 2)": 264,
+   "in=1x16x512x24 dims=(0, 1, 3, 2)": 264,
+   "in=1x384x512 dims=(0, 2, 1)": 264,
+   "in=1x512x128 dims=(0, 2, 1)": 200,
+   "in=1x128x4480 dims=(0, 2, 1)": 200,
+   "in=64x512x32 dims=(0, 2, 1)": 128,
+   "in=64x32x512 dims=(0, 2, 1)": 128,
+   "in=512x512x8 dims=(2, 0, 1)": 16,
+   "in=64x512x32 dims=(1, 2, 0)": 16,
+   "in=64x512x32 dims=(2, 1, 0)": 16,
+   "in=512x1024x512 dims=(0, 2, 1)": 16,
+   "in=140x32x128x12 dims=(0, 3, 1, 2)": 2,
+   "in=280x16x1 dims=(1, 2, 0)": 1,
+   "in=16x1x1120 dims=(2, 0, 1)": 1,
+   "in=1x512x512x384 dims=(0, 3, 1, 2)": 1,
+   "in=1x512x512x128 dims=(0, 2, 1, 3)": 1
+  },
+  "transpose": {
+   "in=1x16x512x32 dims=(-2,-1)": 264
+  }
+ },
+ "totals": {
+  "gated": 1120,
+  "gated_elig": 560,
+  "fwd": 0,
+  "fwd_elig": 0,
+  "back": 560,
+  "permute": 12438,
+  "transpose": 264
+ }
+}

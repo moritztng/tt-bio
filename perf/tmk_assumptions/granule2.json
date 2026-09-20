@@ -1,0 +1,294 @@
+{
+ "clock": {
+  "n": 92,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350.0,
+  "max_gap_ms": 387.4,
+  "errors": 0,
+  "sampler_span_s": 6.82,
+  "measure_span_s": 6.89,
+  "target": 1350
+ },
+ "shape": {
+  "N": 512,
+  "D": 128,
+  "Z_MB": 67.109,
+  "node": 3
+ },
+ "arms": {
+  "P_gated_production": {
+   "serial_ms": 0.68046,
+   "pipe_ms": 0.64598,
+   "serial_intercept_ms": 0.01217,
+   "serial_raw": {
+    "1": 0.6926,
+    "2": 1.3681,
+    "4": 2.7245,
+    "8": 5.4558
+   },
+   "pipe_raw": {
+    "1": 0.68,
+    "2": 1.3236,
+    "4": 2.6177,
+    "8": 5.2018
+   },
+   "MB": 201.327,
+   "serial_GBs": 295.87,
+   "pipe_GBs": 311.66,
+   "note": "THE SHIPPED MOVE: reads p and g slices, writes the moved gated plane"
+  },
+  "P_gated_production_AA": {
+   "serial_ms": 0.68011,
+   "pipe_ms": 0.6484,
+   "serial_intercept_ms": 0.00338,
+   "serial_raw": {
+    "1": 0.6835,
+    "2": 1.365,
+    "4": 2.7292,
+    "8": 5.4442
+   },
+   "pipe_raw": {
+    "1": 0.681,
+    "2": 1.3265,
+    "4": 2.6266,
+    "8": 5.2197
+   },
+   "MB": 201.327,
+   "serial_GBs": 296.02,
+   "pipe_GBs": 310.5,
+   "note": "A/A twin"
+  },
+  "P_unfused_stock_permute": {
+   "serial_ms": 4.84996,
+   "pipe_ms": 4.84135,
+   "serial_intercept_ms": 0.00755,
+   "serial_raw": {
+    "1": 4.8575,
+    "2": 9.708,
+    "4": 19.4574,
+    "8": 38.8073
+   },
+   "pipe_raw": {
+    "1": 4.871,
+    "2": 9.6758,
+    "4": 19.3417,
+    "8": 38.7605
+   },
+   "MB": 201.327,
+   "serial_GBs": 41.51,
+   "pipe_GBs": 41.58,
+   "note": "chunk+sigmoid+mul then ttnn.permute -- bytes counted as the fused kernel's"
+  },
+  "P_unfused_reblock": {
+   "serial_ms": 3.61554,
+   "pipe_ms": 3.59518,
+   "serial_intercept_ms": 0.01888,
+   "serial_raw": {
+    "1": 3.6344,
+    "2": 7.2466,
+    "4": 14.4745,
+    "8": 28.9432
+   },
+   "pipe_raw": {
+    "1": 3.6181,
+    "2": 7.2214,
+    "4": 14.3863,
+    "8": 28.7844
+   },
+   "MB": 201.327,
+   "serial_GBs": 55.68,
+   "pipe_GBs": 56.0,
+   "note": "same, with our non-gated kernel as the move"
+  },
+  "M_permute_stock_0312": {
+   "serial_ms": 2.12582,
+   "pipe_ms": 2.08618,
+   "serial_intercept_ms": -0.01964,
+   "serial_raw": {
+    "1": 2.1062,
+    "2": 4.2543,
+    "4": 8.4733,
+    "8": 16.9869
+   },
+   "pipe_raw": {
+    "1": 2.1264,
+    "2": 4.1889,
+    "4": 8.372,
+    "8": 16.7296
+   },
+   "MB": 134.218,
+   "serial_GBs": 63.14,
+   "pipe_GBs": 64.34,
+   "note": "pass 1's baseline op, reproduced in this session"
+  },
+  "M_permute_stock_0312_AA": {
+   "serial_ms": 2.10232,
+   "pipe_ms": 2.07544,
+   "serial_intercept_ms": 0.032,
+   "serial_raw": {
+    "1": 2.1343,
+    "2": 4.2505,
+    "4": 8.4495,
+    "8": 16.8505
+   },
+   "pipe_raw": {
+    "1": 2.1339,
+    "2": 4.2965,
+    "4": 8.7491,
+    "8": 16.662
+   },
+   "MB": 134.218,
+   "serial_GBs": 63.84,
+   "pipe_GBs": 64.67,
+   "note": "A/A twin"
+  },
+  "M_reblock_fwd": {
+   "serial_ms": 0.88942,
+   "pipe_ms": 0.85577,
+   "serial_intercept_ms": 0.01515,
+   "serial_raw": {
+    "1": 0.9046,
+    "2": 1.7885,
+    "4": 3.5636,
+    "8": 7.1305
+   },
+   "pipe_raw": {
+    "1": 0.8884,
+    "2": 1.7432,
+    "4": 3.4515,
+    "8": 6.8788
+   },
+   "MB": 134.218,
+   "serial_GBs": 150.9,
+   "pipe_GBs": 156.84,
+   "note": "our shipped non-gated kernel, same bytes, same move"
+  },
+  "M_reblock_fwd_AA": {
+   "serial_ms": 0.89081,
+   "pipe_ms": 0.85458,
+   "serial_intercept_ms": 0.00686,
+   "serial_raw": {
+    "1": 0.8977,
+    "2": 1.7837,
+    "4": 3.5645,
+    "8": 7.1333
+   },
+   "pipe_raw": {
+    "1": 0.8954,
+    "2": 1.7437,
+    "4": 3.4571,
+    "8": 6.8775
+   },
+   "MB": 134.218,
+   "serial_GBs": 150.67,
+   "pipe_GBs": 157.06,
+   "note": "A/A twin"
+  },
+  "M_reblock_back": {
+   "serial_ms": 0.55298,
+   "pipe_ms": 0.5034,
+   "serial_intercept_ms": -0.00773,
+   "serial_raw": {
+    "1": 0.5453,
+    "2": 1.0875,
+    "4": 2.189,
+    "8": 4.4161
+   },
+   "pipe_raw": {
+    "1": 0.5876,
+    "2": 1.0531,
+    "4": 2.0861,
+    "8": 4.1114
+   },
+   "MB": 134.218,
+   "serial_GBs": 242.72,
+   "pipe_GBs": 266.62,
+   "note": "the return move, 560 calls per 512 aa fold"
+  },
+  "M_permute_back_stock": {
+   "serial_ms": 6.558,
+   "pipe_ms": 6.51619,
+   "serial_intercept_ms": -0.05893,
+   "serial_raw": {
+    "1": 6.4991,
+    "2": 13.0547,
+    "4": 26.326,
+    "8": 52.4051
+   },
+   "pipe_raw": {
+    "1": 6.529,
+    "2": 13.0396,
+    "4": 25.7209,
+    "8": 52.1424
+   },
+   "MB": 134.218,
+   "serial_GBs": 20.47,
+   "pipe_GBs": 20.6,
+   "note": "the stock op the return move replaces"
+  },
+  "C_tile_transpose": {
+   "serial_ms": 0.36763,
+   "pipe_ms": 0.34883,
+   "serial_intercept_ms": 0.00549,
+   "serial_raw": {
+    "1": 0.3731,
+    "2": 0.7392,
+    "4": 1.4834,
+    "8": 2.9465
+   },
+   "pipe_raw": {
+    "1": 0.3676,
+    "2": 0.7103,
+    "4": 1.4184,
+    "8": 2.8094
+   },
+   "MB": 134.218,
+   "serial_GBs": 365.09,
+   "pipe_GBs": 384.77,
+   "note": "TILE-GRANULAR control: same bytes, no channel exchange"
+  },
+  "C_tile_transpose_AA": {
+   "serial_ms": 0.36863,
+   "pipe_ms": 0.35009,
+   "serial_intercept_ms": 0.0099,
+   "serial_raw": {
+    "1": 0.3785,
+    "2": 0.7434,
+    "4": 1.4802,
+    "8": 2.959
+   },
+   "pipe_raw": {
+    "1": 0.3711,
+    "2": 0.7172,
+    "4": 1.4161,
+    "8": 2.8217
+   },
+   "MB": 134.218,
+   "serial_GBs": 364.09,
+   "pipe_GBs": 383.38,
+   "note": "A/A twin"
+  },
+  "C_clone": {
+   "serial_ms": 0.35098,
+   "pipe_ms": 0.33328,
+   "serial_intercept_ms": 0.0067,
+   "serial_raw": {
+    "1": 0.3577,
+    "2": 0.7114,
+    "4": 1.416,
+    "8": 2.8146
+   },
+   "pipe_raw": {
+    "1": 0.3485,
+    "2": 0.681,
+    "4": 1.3517,
+    "8": 2.6814
+   },
+   "MB": 134.218,
+   "serial_GBs": 382.4,
+   "pipe_GBs": 402.71,
+   "note": "no-permute control: the same bytes copied"
+  }
+ }
+}
