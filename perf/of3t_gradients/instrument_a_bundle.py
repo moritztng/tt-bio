@@ -135,6 +135,18 @@ def main() -> int:
                          "whose single track grows 367x from block 0 to block 47. RELEASE "
                          "GATED: this changes accuracy and costs one [B, L, c_s] fp32 tensor. "
                          "The measurement is the deliverable, not the flag.")
+    ap.add_argument("--cot-scale", type=float, default=1.0, metavar="K",
+                    help="scale the cotangent injected ON THE DEVICE by K, and divide the "
+                         "device gradients by K again before scoring. In exact arithmetic the "
+                         "backward is linear in the cotangent, so norm_ratio and cos are "
+                         "INVARIANT under this: any movement is finite-precision magnitude "
+                         "dependence and nothing else. The REFERENCE side is deliberately left "
+                         "unscaled, so ref_norm, the A14 floor, reach, the mass shares and the "
+                         "passing-mass denominator are identical to the K=1 arm by construction "
+                         "and the two arms are directly comparable. Use a power of two (1/8, "
+                         "1/64): then both the scale and the unscale are exact in binary "
+                         "floating point and in bf16, and the instrument contributes no "
+                         "rounding of its own to a test about rounding.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator. Poison the PAD token positions of the captured "
                          "input with NaN and report how many parameter gradients come back NaN "
@@ -407,14 +419,20 @@ def main() -> int:
         # to be 1. (The stored cotangent is separately known good: `capture_vs_bundle` has the
         # reference recomputing this block's parameter gradients FROM THIS CAPTURE and matching
         # the bundle at worst 0.000e+00 on all 57 tensors, at blocks 0, 23 and 47 alike.)
-        d_cot_s, d_cot_z = ft(cot_s), ft(cot_z)
+        # --cot-scale K injects K*cot on the device and divides the device gradients by K
+        # again at scoring time. The reference keeps the unscaled cotangent, so every reference
+        # quantity is bit-identical to the K=1 arm. D37 is scored against K*cot -- what was
+        # actually asked for -- not against cot, or the guard would fire on the scale itself.
+        _kcs, _kcz = (cot_s * a.cot_scale), (cot_z * a.cot_scale)
+        d_cot_s, d_cot_z = ft(_kcs), ft(_kcz)
         _ns = float(torch.linalg.vector_norm(ttnn.to_torch(d_cot_s).to(torch.float64)))
         _nz = float(torch.linalg.vector_norm(ttnn.to_torch(d_cot_z).to(torch.float64)))
         rep["cotangent_on_device"] = {
-            "reference_cot_s_norm": float(cot_s.norm()), "device_cot_s_norm": _ns,
-            "reference_cot_z_norm": float(cot_z.norm()), "device_cot_z_norm": _nz,
-            "ratio_s": _ns / (float(cot_s.norm()) or 1.0),
-            "ratio_z": _nz / (float(cot_z.norm()) or 1.0),
+            "cot_scale": a.cot_scale,
+            "reference_cot_s_norm": float(_kcs.norm()), "device_cot_s_norm": _ns,
+            "reference_cot_z_norm": float(_kcz.norm()), "device_cot_z_norm": _nz,
+            "ratio_s": _ns / (float(_kcs.norm()) or 1.0),
+            "ratio_z": _nz / (float(_kcz.norm()) or 1.0),
             "note": "s is the single track, z the pair track. A ratio away from 1 here would "
                     "mean the harness rescales a track on the way to the device.",
         }
@@ -506,6 +524,10 @@ def main() -> int:
                   ttnn.to_torch(sa.grad).to(torch.float64))) if sa.grad is not None else None),
               "dz_in_norm": (float(torch.linalg.vector_norm(
                   ttnn.to_torch(za.grad).to(torch.float64))) if za.grad is not None else None)}
+        if a.cot_scale != 1.0:
+            for _k in ("ds_in_norm", "dz_in_norm"):
+                if og.get(_k) is not None:
+                    og[_k] = og[_k] / a.cot_scale
         ref_ig = rep.get("input_grad_reference")
         if ref_ig:
             for k in ("ds_in_norm", "dz_in_norm"):
@@ -580,6 +602,8 @@ def main() -> int:
                            "ref_norm": ref_n})
             continue
         r, m = ref.numpy(), mine.numpy()
+        if a.cot_scale != 1.0:
+            m = m / a.cot_scale          # exact for a power of two; see --cot-scale
         # PROTOCOL A16/D35. A single rel_l2 cannot say WHICH WAY we are wrong. With
         # rel^2 = 1 + r^2 - 2*r*c it only bounds the norm ratio to [1-rel, 1+rel], and a zero
         # gradient gives r = 0 and rel = 1 exactly, so every rel is scored against a 1.0
