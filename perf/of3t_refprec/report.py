@@ -12,7 +12,10 @@ SETS = ["MODEL (all tensors)",
         "diffusion device-arm scope (diffusion_module minus diffusion_conditioning), "
         "FULL denominator per A20",
         "attention side of the diffusion arm",
-        "rest of the diffusion arm"]
+        "rest of the diffusion arm",
+        "the one leaf (blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight), "
+        "device reads 10.6980",
+        "diffusion device-arm scope minus the one leaf, device reads 0.2929"]
 
 
 def f(x, spec=".6e"):
@@ -66,6 +69,20 @@ def main():
             assert g["param"] == h["param"]
             print(f"    {label:28s} {f(g['rel_l2']):>14s} {f(g['r'], '.6f'):>12s} "
                   f"{f(g['cos'], '.6f'):>10s}")
+
+    print()
+    print("=" * 100)
+    print("THE NAMED TENSOR, BESIDE WHAT THE DEVICE ARM READS ON IT")
+    print("=" * 100)
+    for nt in first.get("named_tensors_beside_the_device_reading", []):
+        print(f"\n{nt['param']}")
+        print(f"    {nt['pct_of_model_mass']:.5f} % of the model on its own")
+        print(f"    device arm   rel_l2 {nt['device_rel_l2']}   ({nt['source']})")
+        for label, rep in d.items():
+            g = next(x for x in rep["named_tensors_beside_the_device_reading"]
+                     if x["param"] == nt["param"])
+            print(f"    {label:28s} rel_l2 {f(g['this_arm_rel_l2']):>14s} "
+                  f"r {f(g['this_arm_r'], '.6f'):>12s} cos {f(g['this_arm_cos'], '.6f'):>10s}")
 
     print()
     print("=" * 100)
