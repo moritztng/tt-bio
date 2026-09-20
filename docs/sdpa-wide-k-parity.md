@@ -91,9 +91,22 @@ further than the effect does. Measure the trunk stage instead. Protenix-v2, `exa
 | `TT_BIO_SDPA_WIDE_K=1` | 106.3 s |
 | | **1.1285x** |
 
+**Read that table as an indication, not as a measurement.** It records no board class, no AICLK, no
+A/A floor and no n. The parts differ by 1.19x on the same fold and the clock governor alone swings
+one by 1.27x-1.41x, so 13.7 s is the right order and is not a figure to quote. The op table above it
+does carry its provenance and is quotable. Re-running the stage arm clocked, floored and on a named
+board would settle it; until someone does, do not put 1.1285x or 13.7 s in front of a user.
+
 The fold serves exactly one triangle-attention shape, `686x686`, at `(352, 256, stock)` by default
 and `(352, 704, fused)` with the lever on, 1208 calls per fold with zero fall-backs. The op screen
-predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 13.7 s, so predicted and measured agree to 2.6%.
+predicted 1208 x 11.05 ms = 13.35 s, which is the same order as the stage arm's 13.7 s.
+
+## Where it does nothing
+
+The search starts at a 256 cap and stops at the first `k_chunk` that divides the padded length, so
+at any length 256 already divides there is nothing to widen and the flag changes neither the pick
+nor the bytes. That covers **512, 768, 1024, 1280 and 1536**, and 512 is the length most of this
+engine's published cells are taken at. The twenty lengths in the table above are the whole reach.
 
 ## Accuracy
 

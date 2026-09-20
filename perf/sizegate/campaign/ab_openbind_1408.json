@@ -1,0 +1,209 @@
+{
+  "card": 0,
+  "model": "openbind",
+  "rung": 1408,
+  "node": "/sys/class/tenstorrent/tenstorrent!1",
+  "budgets": [
+    524288,
+    786432,
+    917504
+  ],
+  "reps": 2,
+  "rows": [
+    {
+      "tag": "rep0_b524288",
+      "budget": 524288,
+      "rc": 0,
+      "wall_s": 494.69,
+      "runtime_s": 463.1,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 99
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 619520,
+        "l1": 440,
+        "l1_blocks": 619520,
+        "l1_refused": 0,
+        "l1_cores": 88,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1408.cif",
+        "sha256": "55ef403ff114b8ab",
+        "n_ca": 1408,
+        "clash_frac": 0.0497,
+        "chain_break_frac": 1.0,
+        "ca_ca_median_A": 107.4369,
+        "radius_of_gyration_A": 84.895,
+        "plddt_mean": 0.339212,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 107.437 A outside [3.6, 4.0]",
+          "100.0% of consecutive CA pairs exceed 5.0 A",
+          "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+        ]
+      }
+    },
+    {
+      "tag": "rep0_b786432",
+      "budget": 786432,
+      "rc": 0,
+      "wall_s": 478.89,
+      "runtime_s": 450.7,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 96
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 618816,
+        "l1": 440,
+        "l1_blocks": 618113,
+        "l1_refused": 1,
+        "l1_cores": 88,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1408.cif",
+        "sha256": "55ef403ff114b8ab",
+        "n_ca": 1408,
+        "clash_frac": 0.0497,
+        "chain_break_frac": 1.0,
+        "ca_ca_median_A": 107.4369,
+        "radius_of_gyration_A": 84.895,
+        "plddt_mean": 0.339212,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 107.437 A outside [3.6, 4.0]",
+          "100.0% of consecutive CA pairs exceed 5.0 A",
+          "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+        ]
+      }
+    },
+    {
+      "tag": "rep0_b917504",
+      "budget": 917504,
+      "rc": 0,
+      "wall_s": 485.52,
+      "runtime_s": 455.7,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 98
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 618816,
+        "l1": 440,
+        "l1_blocks": 618113,
+        "l1_refused": 1,
+        "l1_cores": 88,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1408.cif",
+        "sha256": "55ef403ff114b8ab",
+        "n_ca": 1408,
+        "clash_frac": 0.0497,
+        "chain_break_frac": 1.0,
+        "ca_ca_median_A": 107.4369,
+        "radius_of_gyration_A": 84.895,
+        "plddt_mean": 0.339212,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 107.437 A outside [3.6, 4.0]",
+          "100.0% of consecutive CA pairs exceed 5.0 A",
+          "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+        ]
+      }
+    },
+    {
+      "tag": "rep1_b524288",
+      "budget": 524288,
+      "rc": 0,
+      "wall_s": 482.28,
+      "runtime_s": 453.8,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 97
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 619520,
+        "l1": 440,
+        "l1_blocks": 619520,
+        "l1_refused": 0,
+        "l1_cores": 88,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1408.cif",
+        "sha256": "55ef403ff114b8ab",
+        "n_ca": 1408,
+        "clash_frac": 0.0497,
+        "chain_break_frac": 1.0,
+        "ca_ca_median_A": 107.4369,
+        "radius_of_gyration_A": 84.895,
+        "plddt_mean": 0.339212,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 107.437 A outside [3.6, 4.0]",
+          "100.0% of consecutive CA pairs exceed 5.0 A",
+          "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+        ]
+      }
+    },
+    {
+      "tag": "rep1_b786432",
+      "budget": 786432,
+      "rc": 0,
+      "wall_s": 480.79,
+      "runtime_s": 451.6,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 97
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 618816,
+        "l1": 440,
+        "l1_blocks": 618113,
+        "l1_refused": 1,
+        "l1_cores": 88,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1408.cif",
+        "sha256": "55ef403ff114b8ab",
+        "n_ca": 1408,
+        "clash_frac": 0.0497,
+        "chain_break_frac": 1.0,
+        "ca_ca_median_A": 107.4369,
+        "radius_of_gyration_A": 84.895,
+        "plddt_mean": 0.339212,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 107.437 A outside [3.6, 4.0]",
+          "100.0% of consecutive CA pairs exceed 5.0 A",
+          "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+        ]
+      }
+    }
+  ]
+}

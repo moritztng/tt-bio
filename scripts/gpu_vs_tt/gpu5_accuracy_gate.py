@@ -6,8 +6,9 @@ data point. Five models write five different confidence conventions, so the gate
 split in two:
 
   HARD  geometry. Finite coordinates, the residue count the fixture asks for, a median
-        consecutive CA-CA distance in the protein band, and a radius of gyration that is
-        neither a collapsed ball nor an exploded chain. A broken install, a truncated
+        consecutive CA-CA distance in the protein band, a clash fraction (CA atoms under
+        3.5 A from a non-bonded CA) under 2%, and a radius of gyration that is neither a
+        collapsed ball nor an exploded chain. A broken install, a truncated
         input or a NaN-producing kernel fails here. Failing this means the run is not a
         speed data point.
   SOFT  confidence. Mean plDDT off the CA B-factor column, normalised to 0-1. Reported,
@@ -44,6 +45,48 @@ def _rg_band(n: int) -> tuple[float, float]:
 # A chain break is a consecutive pair beyond 5 A. Diffusion models leave a few; a
 # structure that is mostly breaks is not a fold.
 BREAK_CUT, BREAK_FRAC_MAX = 5.0, 0.05
+# A clash is two CA atoms under 3.5 A apart that are not bonded neighbours (the i,i+1
+# virtual bond is 3.80 A and excluded). Both numbers are MEASURED off the 38 deposited
+# structures in examples/ground_truth_structures, not asserted: a 4.0 A cutoff calls 6% of
+# 21tw a clash, because real tertiary contacts do reach 3.5-4.0 A (718 such pairs across
+# the set). At 3.5 A only 4 of the 38 have any clash at all and the worst is 9udq at 0.39%
+# of its CA atoms, so 2% is five times the worst real structure. The fraction is of ATOMS
+# in at least one such pair, not of pairs, so it reads as "this share of the chain is
+# interpenetrating".
+CLASH_CUT, CLASH_SEQ_SEP, CLASH_FRAC_MAX = 3.5, 2, 0.02
+
+
+def clashing_atoms(cas, cut: float = CLASH_CUT, sep: int = CLASH_SEQ_SEP) -> set:
+    """Indices of CA atoms sitting under ``cut`` from a non-bonded CA.
+
+    Spatial hash on a ``cut``-sized grid, so the cost is linear in atoms. The size ladder
+    reads this at 1536 residues, and a pure-Python sweep over that many atoms' 1.2 M pairs
+    is a minute of a release gate's time for an answer a grid gives in under a second.
+    Sequence separation is the index distance within one chain, which is file order, the
+    same assumption the chain-break metric above already makes.
+    """
+    grid: dict = {}
+    for i, (_, _, x, y, z, _) in enumerate(cas):
+        grid.setdefault((int(x // cut), int(y // cut), int(z // cut)), []).append(i)
+    hit, c2 = set(), cut * cut
+    for (gx, gy, gz) in grid:
+        near = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    near += grid.get((gx + dx, gy + dy, gz + dz), ())
+        for i in grid[(gx, gy, gz)]:
+            ci, _, xi, yi, zi, _ = cas[i]
+            for j in near:
+                if j <= i:
+                    continue
+                cj, _, xj, yj, zj, _ = cas[j]
+                if ci == cj and abs(j - i) < sep:
+                    continue
+                if (xi - xj) ** 2 + (yi - yj) ** 2 + (zi - zj) ** 2 < c2:
+                    hit.add(i)
+                    hit.add(j)
+    return hit
 
 
 def _parse_cif(text: str):
@@ -130,6 +173,14 @@ def gate(path: Path, expect_residues: int | None, expect_plddt: float | None) ->
             r["fail"].append(f"median CA-CA {med:.3f} A outside [{CA_CA_LO}, {CA_CA_HI}]")
         if not r["checks"]["chain_breaks_ok"]:
             r["fail"].append(f"{brk:.1%} of consecutive CA pairs exceed {BREAK_CUT} A")
+
+    if r["checks"]["all_finite"]:
+        hit = clashing_atoms(cas)
+        r["clash_frac"] = round(len(hit) / len(cas), 4)
+        r["checks"]["clashes_ok"] = r["clash_frac"] <= CLASH_FRAC_MAX
+        if not r["checks"]["clashes_ok"]:
+            r["fail"].append(f"{r['clash_frac']:.1%} of CA atoms sit under {CLASH_CUT} A "
+                             f"from a non-bonded CA")
 
     cx = [sum(p[k] for p in xyz) / len(xyz) for k in range(3)]
     rg = math.sqrt(sum(math.dist(p, cx) ** 2 for p in xyz) / len(xyz))

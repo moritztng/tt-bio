@@ -2747,6 +2747,122 @@ def _keep_failed_fold_log(log: Path, label: str) -> str:
         return f"the log could not be kept: {e}"
 
 
+class _NoClock:
+    """Stands in for the sampler when it cannot run, so the caller has nothing to sample
+    rather than a clock nobody read."""
+    clocks: dict = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+_BY_PATH: dict = {}
+
+
+def _load_by_path(rel: str):
+    """Import a module of this repo by PATH, cached, or None if it will not load.
+
+    Not `from perf.clocksample import during`: an `import` of a sibling tree needs REPO_ROOT
+    on sys.path and this file keeps it off deliberately, so tt_bio resolves through the
+    installed dist (see the import block at the top). Both callers below are instruments
+    that must never take the gate down, so a failure to load returns None and the cell it
+    would have filled stays empty.
+    """
+    if rel not in _BY_PATH:
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "_rg_" + rel.replace("/", "_").removesuffix(".py"), REPO_ROOT / rel)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _BY_PATH[rel] = mod
+        except Exception as e:
+            print(f"  [size-ladder] {rel} did not load ({e})", flush=True)
+            _BY_PATH[rel] = None
+    return _BY_PATH[rel]
+
+
+def _clock_during(period: float = 5.0):
+    """perf/clocksample.py's `during`, sampling AICLK on a thread for the duration."""
+    mod = _load_by_path("perf/clocksample.py")
+    return _NoClock() if mod is None else mod.during(period=period)
+
+
+def _size_ladder_structure(out_dir: Path) -> dict | None:
+    """The geometry of the CIF this fold wrote, read while it is still on disk.
+
+    The recorder clears its workdir at the end of the pass, so a rung's structure is read
+    here or not at all. Every cell recorded before this was a runtime with nothing beside it
+    saying the fold had folded anything: a kernel that returns fast and wrong is a speedup
+    by this instrument's own reading. Reuses the five-model GPU benchmark's accuracy gate
+    rather than a second CIF reader (it is pure stdlib for exactly this reason).
+
+    WHAT IT IS NOT: a fold-quality verdict. The ladder folds at SIZE_LADDER_STEPS, and six
+    diffusion steps does not converge. Measured on boltz2/256, same fixture, same seed, same
+    card, only the step count moving (perf/sizegate/campaign/steps_ctl.log, 2026-09-20):
+
+        steps   runtime   CA-CA median   breaks   Rg      plDDT
+            6     11.7 s      137.17 A    100 %   111.1   0.526
+           25     11.9 s        3.80 A      0 %    19.1   0.874
+          100     19.6 s        3.81 A      0 %    19.2   0.870
+          200     27.3 s        3.80 A      0 %    19.1   0.861
+
+    So `geometry_ok` is False on every predict rung of this ladder and says nothing about the
+    port: at 25 steps the same code folds a clean protein. The block is recorded because it
+    is a cheap comparator ACROSS cells, pass to pass and arm to arm, where the config is held
+    fixed. `steps` rides along so the verdict cannot be quoted out of that context.
+
+    Never fails the rung. A parser bug in a read-only instrument must not be able to take a
+    release gate down.
+    """
+    mod = _load_by_path("scripts/gpu_vs_tt/gpu5_accuracy_gate.py")
+    if mod is None:
+        return None
+    cifs = sorted(out_dir.rglob("*.cif"))
+    if not cifs:
+        return None
+    try:
+        r = mod.gate(cifs[0], None, None)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    return {"file": cifs[0].name, "steps": SIZE_LADDER_STEPS, "n_ca": r["n_ca"],
+            "clash_frac": r.get("clash_frac"),
+            "chain_break_frac": r.get("chain_break_frac"),
+            "ca_ca_median_A": r.get("ca_ca_median_A"),
+            "radius_of_gyration_A": r.get("radius_of_gyration_A"),
+            "plddt_mean": r.get("plddt_mean"),
+            "geometry_ok": r["pass"], "geometry_fail": r["fail"]}
+
+
+def _aiclk_cell(clk) -> dict | None:
+    """The clock this fold ran at, or None when it cannot be attributed to the folding card.
+
+    tt-smi honours TT_VISIBLE_DEVICES, so with exactly one card granted its index 0 IS the
+    card the fold ran on. Without that pin the recorder sees every chip on the box and index
+    0 is whichever UMD enumerated first, which need not be the one folding, so the cell stays
+    empty instead of carrying a clock read off a neighbour. On Blackhole the AICLK sets the
+    fold time (800 MHz reads 21.90 s at 512 aa where the 1350 burst reads 14.69 s), so a
+    runtime beside a clock from the wrong chip is worse than a runtime with no clock.
+
+    The window is the whole SUBPROCESS, model load included, and the chip idles at 800 until
+    compute starts. `min` and `max` are therefore exact and the median is only the fold's
+    clock once the fold dominates the process. Measured both ways on this card: openbind at
+    1280, a 360 s fold, reads 800/1350/1350 over 78 samples, median at the boost; boltz2 at
+    256, a 7.5 s fold behind a ~20 s load, reads 800/800/1350 over 5, median at idle. Read
+    the median on the long rungs and the max everywhere.
+    """
+    vis = (os.environ.get("TT_VISIBLE_DEVICES") or "").strip()
+    if not vis or "," in vis:
+        return None
+    xs = sorted(clk.clocks.get(0, []))
+    if not xs:
+        return None
+    return {"card": vis, "min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1],
+            "n": len(xs)}
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -2806,10 +2922,11 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             "--out_dir", str(out_dir),
         ]
     t0 = time.monotonic()
-    with open(log, "w") as fp:
+    with open(log, "w") as fp, _clock_during() as clk:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
+    aiclk = _aiclk_cell(clk)
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
                          f" ({_keep_failed_fold_log(log, label)})"}
@@ -2868,7 +2985,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     if runtime_s is None and need_runtime:
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall, "runtime_src": where,
-            "census_json": census_json, "grid": census.get("grid")}
+            "census_json": census_json, "grid": census.get("grid"), "aiclk": aiclk,
+            "structure": _size_ladder_structure(out_dir)}
 
 
 def _size_ladder_dark(entry: dict) -> bool:
@@ -3215,6 +3333,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
+    # Every rep's runtime, and the clock each rep ran at. The median is what the check
+    # reads; these are what make it interpretable. One number per cell cannot say whether
+    # 195.1 at 1152 and 196.3 at 1088 are an inversion or two draws from one spread, and it
+    # cannot say whether a cell that moved between passes moved because the engine did or
+    # because the chip was at 800 MHz instead of 1350.
+    reps_s, aiclk, structure = {}, {}, {}
     # Per-rung noise, not just the middle rung's. The loop below already has every rep's
     # runtime for every rung, so this costs no folds -- it was being thrown away.
     sigmas = {}
@@ -3270,8 +3394,21 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                     drift.append(f)
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
+        if runs[0].get("structure"):
+            structure[str(rung)] = runs[0]["structure"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
+        reps_s[str(rung)] = [round(t, 2) for t in ts]
+        cells = [r["aiclk"] for r in runs if r.get("aiclk")]
+        if cells:
+            # min and max are the true extremes over every sample of every rep. The
+            # per-rep medians are listed rather than collapsed, because a median of
+            # medians is not a median of the samples and would read as if it were.
+            aiclk[str(rung)] = {"card": cells[0]["card"],
+                                "min": min(c["min"] for c in cells),
+                                "max": max(c["max"] for c in cells),
+                                "rep_median": [c["median"] for c in cells],
+                                "n": sum(c["n"] for c in cells)}
         if rung in sigma_rungs and len(ts) > 1:
             sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
             if rung == sigma_rung:
@@ -3281,7 +3418,8 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
-            "runtime_src": runtime_src,
+            "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
+            "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -3509,11 +3647,22 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
               flush=True)
         return []
     old_lv = prev.get("levers") or {}
+    old_reps, old_clk = prev.get("runtime_reps_s") or {}, prev.get("aiclk") or {}
+    old_st = prev.get("structure") or {}
     for r in spare:
         if r in old_rt:
             meas["runtime_s"][r] = old_rt[r]
             if r in old_lv:
                 meas["levers"][r] = old_lv[r]
+            # Carry the reps and the clock with the runtime. Carrying the number alone
+            # turns a clocked cell back into an unclocked one, which is the defect the
+            # stamp exists to remove.
+            if r in old_reps:
+                meas.setdefault("runtime_reps_s", {})[r] = old_reps[r]
+            if r in old_clk:
+                meas.setdefault("aiclk", {})[r] = old_clk[r]
+            if r in old_st:
+                meas.setdefault("structure", {})[r] = old_st[r]
         elif r in old_ref_all:
             meas.setdefault("refused", {})[r] = old_ref_all[r]
     if meas.get("sigma") is None and prev.get("sigma_runtime_512") is not None:
@@ -4362,7 +4511,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
-                        for k in ("levers", "runtime_s", "census_jsons"):
+                        for k in ("levers", "runtime_s", "census_jsons",
+                                  "runtime_reps_s", "aiclk", "structure"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"],
@@ -4380,6 +4530,12 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            if meas.get("runtime_reps_s"):
+                entry["runtime_reps_s"] = meas["runtime_reps_s"]
+            if meas.get("aiclk"):
+                entry["aiclk"] = meas["aiclk"]
+            if meas.get("structure"):
+                entry["structure"] = meas["structure"]
             if m in SIZE_LADDER_DESIGN:
                 entry["axis"] = SIZE_LADDER_DESIGN[m]["axis"]
                 entry["runtime_from"] = meas.get("runtime_src")
