@@ -3272,3 +3272,69 @@ Owner: `of3t-orchestrator`. **FIXED** — `of3t-adaln` amendment 1 carries the c
 row is redirected onto a better experiment than the one the stale belief produced. The general
 lesson is saved as a standing memory
 (`blocked-scope-must-be-rechecked-against-artifacts-not-prose`), now with its second sighting.
+
+---
+
+### D55. The tape gives its precise kernel config to the reductions feeding weight gradients and withholds it from the four that sit inside near-cancellations — including the softmax backward, which is the one construct in the attention path the transition path does not have. FOUND by `of3t-orchestrator`, pass 154. **UNFIXED**, and whether it is the 25.58 % is **unmeasured**.
+
+`precise_config()` (`autograd.py:42`) is HiFi4 + `fp32_dest_acc_en` + `packer_l1_acc`, and its
+docstring says: *"A backward accumulates over the reduction axis and again over fan-in, and
+bf16 accumulation is how a gradient turns into noise. **Every op here defaults to it.**"*
+
+It is not true of four sites, and they are not randomly distributed.
+
+| gets the config | |
+|---|---|
+| `autograd.py:499` | an axis sum |
+| `autograd.py:536` `_sum_leading` | with the measurement that motivated it recorded: cosine **0.379 → 0.999995** |
+| `autograd.py:678` / `1605` | the layer_norm backward's **variance** reduction |
+
+| does **not**, and what it feeds | |
+|---|---|
+| `taped_ttnn.py:200` | `inner = Σ(g·y)` → `x.grad = y·(g − inner)`, the **softmax backward** — a near-cancellation |
+| `autograd.py:708` | the same rule, duplicated |
+| `autograd.py:949` | `inner = rowsum(dP·P)` → `ds = P·(dP − inner)`; the two **matmuls three lines either side both pass `cfg`** and the reduction between them does not |
+| `autograd.py:689/690`, `1616/1617` | `dn_mean`, `dn_norm_mean` → `dx = (dnorm − dn_mean − norm·dn_norm_mean)·rstd` — **two** cancellations, while the variance three lines above gets the config |
+| `autograd.py:958` | a bias gradient accumulation |
+
+**In every case the surrounding ops in the same rule got the config and the reduction inside the
+cancellation did not.** The reductions feeding a **weight** gradient were fixed; the ones feeding
+the **activation** gradient `dx` were not. That inconsistency is a defect on its own terms — the
+docstring asserts a universality the code does not have, and a reader (me, for three passes) takes
+it at face value.
+
+**Why it is also the best remaining candidate for the 25.5795 %.** It fits every constraint
+`of3t-conditioning` established: a cancellation is the one construct in a backward that
+**amplifies** (if `|g − inner|` is 1 % of `|g|`, a bf16 `inner` loses two of three digits and `dx`
+is ~100 % wrong), its amplification factor is `1/(relative spread of the cotangent)` which varies
+**per block and qualitatively** rather than as a graded severity, a cancellation residual can land
+the **wrong side of zero** (blocks 0 and 6, α = −1.49/−1.59), the AdaLN op **gradchecks clean in
+isolation** because its own rules use the precise `_sum_leading` while what reaches it in situ has
+come back through the softmax, and — the cleanest fit — **the attention path fails 59x worse than
+the transition path and the transition has no softmax at all.** D49 is the same rule from the other
+side: `fp32_softmax` is the campaign's only gradient-parity lever.
+
+**What it does not explain, which is why this is a lead and not a finding.** The site has two
+failure patterns: at blocks 0/5/6/7/12 the gain is damaged while `linear_g` reads 0.19–0.72, but at
+block 8 the whole gate track fails together (4.546 / 5.936 / 18.504) while the shift branch holds
+at 0.817. One imprecise cotangent arriving at the AdaLN output should damage the gain and both
+linears together. Either there are two causes, or the branches have different sensitivity to the
+same bad cotangent.
+
+**Scope if it is real.** This is the shared tape, so it is **five models, not one** — every taped
+training backward in the tree runs these rules. Under the standing UNIFIED rule the fix is one
+argument at each site, not a per-model patch, and it needs one measurement per model rather than
+an argument.
+
+**The test, and it is two lines.** Add `compute_kernel_config=precise_config()` at
+`taped_ttnn.py:200`, re-run the diffusion arm at `--structs all` **interleaved A/B/A**, and see
+whether the leaf's mass-weighted **10.6980** moves. Backward-only — the tape does not run in
+inference — so it cannot move a shipped digest. **And the control it needs**: a precision fix that
+changes nothing is indistinguishable from one that never reached the kernel, so a third arm with a
+deliberately wrong config (LoFi, `fp32_dest_acc_en` off) must make the number **worse**. If neither
+direction moves, this lead is refuted and that is a result.
+
+Owner: `of3t-adaln` (brief amendment 3, sent while the row is live). **UNFIXED.** Nothing is to be
+merged even if it works: a precision change to a training backward on a path five models share is
+release-gated. Artifact:
+`perf/of3t_orchestrator/CANCELLATION_REDUCTIONS_UNCONFIGURED.json`.

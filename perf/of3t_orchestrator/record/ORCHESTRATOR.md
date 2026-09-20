@@ -402,7 +402,12 @@ median-over-tensors, both of which are the wrong granularity; PROTOCOL A23 now b
 set statistic to the mass its set holds, and no existing figure has been restated under it
 yet. **D52 (FIXED this pass)**: `diffusion_conditioning`, 36.9462 % of the model, was
 recorded as blocked on a boundary move for eleven passes while the capture that unblocks it
-sat on qb2 — row `of3t-conditioning` dispatched, result pending. **D53 (UNFIXED)**: A23's
+sat on qb2 — row `of3t-conditioning` dispatched, and it returned **GO**. **D54 (FIXED)**: the
+per-tensor array I told a live row to produce had been on disk three hours, D52's lesson
+recurring against me. **D55 (UNFIXED)**: the tape gives `precise_config()` to the reductions
+feeding weight gradients and withholds it from the four inside near-cancellations — the
+softmax backward among them — which is the best remaining candidate for the 25.5795 % and is
+unmeasured; it is five models if real, and release-gated either way. **D53 (UNFIXED)**: A23's
 argument met data and landed the unflattering way — the ten worst tensors of the existing
 diffusion arm hold **15.7140 %** of the model and the ten best **1.1650 %**, a 13.5x
 concentration of error on the mass, with the worst point (rel **18.504**) on the model's
@@ -692,7 +697,7 @@ mass is measured against a float64 reference and inside the bars, 52.7798 % is m
 outside them, and 7.4309 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Nineteen concluded rows,
-two live; fifty-four defects on the record, twenty-three of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; fifty-five defects on the record, twenty-four of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6190,3 +6195,65 @@ redirected it onto that list, ordered cheapest-and-most-suspicious first. My own
 near-cancellation — the one construct on the list that *amplifies*, that varies per block with
 how sharp the attention is, and that can flip sign — and because D49's `fp32_softmax` lever is
 already the campaign's only gradient-parity lever.
+
+---
+
+## Pass 154 — the tape withholds its precise config from exactly the reductions that cancel
+
+`of3t-adaln` is on the handoff list with the fp32-cast softmax ranked first. While it measures, I
+audited every reduction in the tape's backward rules from source. There are nine, and they split
+cleanly.
+
+`precise_config()`'s docstring says *"bf16 accumulation is how a gradient turns into noise. **Every
+op here defaults to it.**"* Four sites do not, and they are not scattered:
+
+    GETS IT   autograd.py:499                  an axis sum
+              autograd.py:536  _sum_leading    (measurement recorded: cosine 0.379 -> 0.999995)
+              autograd.py:678 / 1605           the layer_norm backward's VARIANCE
+
+    DOES NOT  taped_ttnn.py:200  inner = sum(g*y)      -> x.grad = y*(g - inner)   SOFTMAX
+              autograd.py:708    the same rule again
+              autograd.py:949    inner = rowsum(dp*p)  -> ds = p*(dp - inner)
+                                 ...and the two MATMULS three lines either side both pass cfg
+              autograd.py:689/690, 1616/1617    dn_mean, dn_norm_mean
+                                 -> dx = (dnorm - dn_mean - norm*dn_norm_mean)*rstd
+                                 ...and the VARIANCE three lines above gets it
+              autograd.py:958    a bias accumulation
+
+**In every case the surrounding ops in the same rule got the config and the reduction inside the
+cancellation did not.** The reductions feeding a *weight* gradient were fixed — with a measurement
+recorded for one of them — and the ones feeding the *activation* gradient `dx` were not. That
+inconsistency is a defect on its own terms: the docstring asserts a universality the code does not
+have, and I took it at face value for three passes.
+
+**It is also the best remaining candidate for the 25.5795 %, and it fits every constraint the
+campaign has.** A cancellation is the one construct in a backward that **amplifies** — which is
+`of3t-conditioning`'s hardest result, that the spurious component is 3.62x the *entire model's*
+gradient and so cannot be a miscount. Its amplification is `1/(relative spread of the cotangent)`,
+which varies per block **qualitatively** rather than as a graded severity — matching norm ratios
+from 0.71 to 19.24 and cosines from −0.80 to +0.998. A cancellation residual can land the wrong
+side of zero, which a wrong scale cannot — matching the sign flips at blocks 0 and 6. The AdaLN op
+gradchecks clean in isolation because its own rules go through the precise `_sum_leading`, and
+fails in situ because what reaches it there has come back through the softmax, which is not
+precise. And the cleanest fit of all: **the attention path fails 59x worse than the transition
+path, and the transition path has no softmax.** D49 is the same rule seen from the other side —
+`fp32_softmax` is the campaign's only gradient-parity lever.
+
+**What stops me calling it the answer.** The site has two failure patterns, and one imprecise
+cotangent should not produce both: at blocks 0/5/6/7/12 the gain is damaged while `linear_g` reads
+0.19–0.72, but at block 8 the whole gate track fails together while the shift branch holds at
+0.817. Either there are two causes or the branches differ in sensitivity. Filed as **D55**, a lead
+with its refutation condition attached, not a finding — my last two source-based hypotheses for
+this defect were both refuted by measurement, and the honest lesson from that is to hand source
+reads to whoever holds a card rather than to believe them.
+
+**If it is real it is five models, not one.** This is the shared tape; every taped training
+backward in the tree runs these rules. Under the standing UNIFIED rule the fix is one argument at
+each site with one measurement per model, not a per-model patch — and it is release-gated either
+way.
+
+Amendment 3 went to `of3t-adaln` with the two-line test — add the config at `taped_ttnn.py:200`,
+re-run the diffusion arm **interleaved A/B/A**, watch the leaf's 10.6980 — and with the control it
+needs: a precision fix that changes nothing is indistinguishable from one that never reached the
+kernel, so a third arm with a deliberately wrong config must make the number **worse**. If neither
+direction moves, the lead is refuted and that is a result.
