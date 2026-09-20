@@ -36,8 +36,21 @@ CARD=1
 LEDGER="$WT/perf/c14_land/gate_apb_ledger.txt"
 JOURNAL="$WT/perf/c14_land/gate_apb_journal.jsonl"
 MAX_WAIT_S=${MAX_WAIT_S:-5400}      # per arm, total time willing to wait out a loud box
+FIRING="$WT/perf/c14_land/gate_apb_firing"
 cd "$WT" || exit 1
-export PYTHONPATH="$WT"           # score THIS tree, not the shared checkout
+# Score THIS tree, not the shared checkout, and ride the firing shim into every fold child.
+export PYTHONPATH="$WT:$WT/perf/c14_land/gishim"
+# 3. A GREEN GATE IS WORTHLESS IF THE FLAG NEVER FIRED. This row spent a pass proving that:
+#    TT_BIO_MM_SHORT_M_BW passed the l1-budget arm across three grids while making the Boltz-2
+#    output grid-dependent, because that arm folds protenix-v2 and protenix-v2 never calls it.
+#    APB is decided at construction, so there is nothing useful to wrap -- but the model keeps
+#    APB_CONCAT_HEADS_STATS = [served, declined], and the shim reads it out of every process,
+#    fold children included, along with that process TT_BIO_* env. An arm that comes back PASS
+#    with counter [0, N] or null is BLIND, not green, and now says so in its own artifact.
+#    perf/c14_land/test_gishim.py proves the shim records a live counter and reports null rather
+#    than [0, 0] when the module never loaded (5 passed, device-free).
+export C14_GI_COUNTER="tt_bio.tenstorrent:APB_CONCAT_HEADS_STATS"
+mkdir -p "$FIRING"
 
 ARMS=$("$PY" scripts/release_gate.py --list-arms | grep -vx 'size-ladder')
 echo "=== APB GATE START $(date -Is) commit $(git rev-parse --short HEAD) card $CARD ==="
@@ -52,7 +65,7 @@ for ARM in $ARMS; do
     echo "##### ARM $ARM START $(date -Is) load $(cut -d' ' -f1 /proc/loadavg) #####"
     LOG="perf/c14_land/gate_apb_${ARM}.log"
     TT_BIO_APB_CONCAT_HEADS=1 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \
-      TT_BIO_LEASE_HOLDER=worker:c14-land-tail \
+      TT_BIO_LEASE_HOLDER=worker:c14-land-tail C14_GI_OUT="$FIRING/$ARM" \
       "$PY" scripts/release_gate.py --keep --journal "$JOURNAL" --model "$ARM" 2>&1 \
       | tee "$LOG"
     RC=${PIPESTATUS[0]}
