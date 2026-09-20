@@ -50,4 +50,31 @@ if no_default:
     sys.exit(f"FAIL {PATH}: {no_default} lost their default and are now REQUIRED -- every "
              f"existing caller of this shipped function breaks")
 
-print(f"OK {PATH}: confidence forward keeps all of {sorted(WANT)}, each with a default")
+# The two masks are a RELEASE-GATED fix (of3t-auxfind): the mechanism may ride in the
+# composition, but only while it is off by default. Control 6 on that branch showed the default
+# path bit-identical on 7 of 7 tensors -- that is a property of `token_mask is None`, so assert
+# the default VALUE, not merely that a default exists. "Defaults off" is a claim about the
+# composed branch and must be read from it, never from a write-up.
+_defaults = dict(zip([a.arg for a in node.args.args][-len(node.args.defaults):],
+                     node.args.defaults)) if node.args.defaults else {}
+_bad_default = []
+for _n in ("token_mask", "single_mask"):
+    _d = _defaults.get(_n)
+    if not (isinstance(_d, ast.Constant) and _d.value is None):
+        _bad_default.append(f"{_n}={ast.unparse(_d) if _d is not None else '<none>'}")
+if _bad_default:
+    sys.exit(f"FAIL {PATH}: the release-gated masks are no longer off by default "
+             f"({', '.join(_bad_default)}) -- a gated fix has become a shipped default")
+
+# and the shipped inference call site must still not pass them
+import os as _os
+_fold = _os.path.join(_os.path.dirname(PATH), "openfold3_fold.py")
+if _os.path.exists(_fold):
+    _fsrc = open(_fold).read()
+    _passed = [n for n in ("token_mask=", "single_mask=") if n in _fsrc]
+    if _passed:
+        sys.exit(f"FAIL {_fold}: the shipped fold path now passes {_passed} into the confidence "
+                 f"head -- that is the release-gated change becoming live inference")
+
+print(f"OK {PATH}: confidence forward keeps all of {sorted(WANT)}; the release-gated masks "
+      f"default to None and the shipped fold path does not pass them")

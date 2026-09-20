@@ -537,6 +537,16 @@ git worktree remove --force "$BASE"
 # This is deliberately NOT a general "no default moved" check, which would need a definition of
 # `default` this script cannot honestly give. It is a named assertion about a named line, and when
 # D1+D10 are approved to ship together the line here changes with them.
+# The SECOND shipped default the composition must not move, added pass 177. of3t-auxfind's
+# confidence-mask fix is RELEASE-GATED and rides in the composition: it takes aux_heads' A18 from
+# 4 of 5 heads at 5.174368e-01 to 0 of 5 at 3.865648e-03, and it would move pLDDT, PAE, PTM/IPTM
+# and the ranking score on any padded fold. That is safe ONLY while it is off by default, and
+# "off by default" is a property of the composed branch, not of the row's write-up -- so it is
+# read from the tree. The asserter checks the default VALUE is None (a default merely EXISTING
+# is not enough) and that the shipped fold path still does not pass the masks.
+"$PY" "$HERE/assert_confidence_forward_signature.py" "$CO/tt_bio/openfold3_confidence.py" \
+  || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
+
 _trunk="$CO/tt_bio/openfold3_trunk.py"
 _want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
