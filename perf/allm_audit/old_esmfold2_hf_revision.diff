@@ -1,0 +1,20 @@
+--- /tmp/orig_esm_rt.py	2026-09-20 22:44:48.728127488 +0000
++++ /home/ttuser/allm_audit/trees/old_esmfold2/tt_bio/esmfold2_runtime.py	2026-09-20 22:44:29.898093197 +0000
+@@ -510,7 +510,16 @@
+     tenstorrent.set_fast_mode(fast)
+     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
+ 
+-    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False).eval()
++    # allm-audit: pass the hub revision this port was verified against, exactly as
++    # origin/main does via tt_bio.weights.hf_revision. Upstream re-published this repo in
++    # place on 2026-09-14 in a schema this vendored loader cannot parse, so without the
++    # pin the 2026-08-16 tree cannot load a checkpoint at all. The pin IS the
++    # pre-2026-09-14 commit, so this restores the weights the published cell was measured
++    # against; it changes which bytes load and no line of compute.
++    import os as _os
++    _rev = _os.environ.get('ALLM_HF_REV_ESMFOLD2') or None
++    _kw = {'revision': _rev} if _rev else {}
++    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **_kw).eval()
+     return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm)
+ 
+ 

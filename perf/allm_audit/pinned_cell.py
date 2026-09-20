@@ -77,7 +77,7 @@ def install() -> None:
             return
 
         def pinned(*a, **kw):
-            repo = kw.get("repo_id") or (a[0] if a else None)
+            repo = kw.get("repo_id") or kw.get("path_or_repo_id") or (a[0] if a else None)
             if kw.get("revision") is None and repo in PINS:
                 kw["revision"] = PINS[repo]
                 FIRED[repo] = FIRED.get(repo, 0) + 1
@@ -91,10 +91,23 @@ def install() -> None:
             m = getattr(H, sub, None)
             if m is not None:
                 wrap(m, name)
-    # transformers binds the symbol at import time, so patch its copy as well.
+    # transformers does NOT route a config through hf_hub_download. Measured on transformers
+    # 5.16.1 / huggingface_hub 1.29.0: with hf_hub_download patched in every module that binds
+    # it, the shim fired on nothing and the old arm still died on the re-published config. The
+    # resolver is `cached_files`, with `cached_file` as its single-filename wrapper, so the
+    # revision has to be filled there. Both are patched, and `hf_hub_download` stays patched for
+    # the loaders that do call it directly -- ESMC's sharded safetensors among them.
     try:
         import transformers.utils.hub as TH
-        wrap(TH, "hf_hub_download")
+        for name in ("hf_hub_download", "cached_file", "cached_files"):
+            wrap(TH, name)
+        for mod_name in ("transformers.utils", "transformers.configuration_utils",
+                         "transformers.modeling_utils"):
+            m = sys.modules.get(mod_name)
+            if m is not None:
+                for name in ("cached_file", "cached_files"):
+                    if getattr(m, name, None) is not None:
+                        wrap(m, name)
     except Exception:                  # noqa: BLE001 -- absent is fine, nothing to pin
         pass
 

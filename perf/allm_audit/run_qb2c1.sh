@@ -21,6 +21,15 @@ mkdir -p "$OUT"
 MGD=$($PY -c "import sys;sys.path.insert(0,'$NEW');from tt_bio.main import _find_ttnn_mesh_graph_descriptor as f;print(f('p150_mesh_graph_descriptor.textproto') or '')" 2>/dev/null)
 [ -n "$MGD" ] && export TT_MESH_GRAPH_DESC_PATH="$MGD"
 
+# The one repo whose old arm cannot reach a loadable checkpoint without a revision. The value is
+# read out of the NEW tree's pin table rather than typed, so the two arms cannot drift apart, and
+# it is exported to BOTH arms -- the new tree passes the same revision itself, so on that arm it
+# is a no-op. See perf/allm_audit/old_esmfold2_hf_revision.diff for the call-site patch it feeds.
+export ALLM_HF_REV_ESMFOLD2=$(grep -A4 '^HF_REVISIONS = {' "$NEW/tt_bio/weights.py" \
+  | grep 'ESMFOLD2_REPO:' | sed 's/.*"\([0-9a-f]\{40\}\)".*/\1/')
+[ ${#ALLM_HF_REV_ESMFOLD2} -eq 40 ] || { echo "FATAL: no ESMFold2 pin parsed"; exit 2; }
+echo "ESMFold2 hub pin: $ALLM_HF_REV_ESMFOLD2"
+
 run() {   # run <tree> <tag> <model> <reps>
   local tree=$1 tag=$2 model=$3 reps=$4
   if [ -s "$OUT/$tag.json" ] && grep -q '"summary"' "$OUT/$tag.json" 2>/dev/null; then
@@ -31,6 +40,7 @@ run() {   # run <tree> <tag> <model> <reps>
     env TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:allm-audit \
         ${TT_MESH_GRAPH_DESC_PATH:+TT_MESH_GRAPH_DESC_PATH=$TT_MESH_GRAPH_DESC_PATH} \
         PYTHONPATH="$tree" ALLM_PIN_SOURCE="$NEW/tt_bio/weights.py" \
+        ALLM_HF_REV_ESMFOLD2="$ALLM_HF_REV_ESMFOLD2" \
     "$PY" -u "$tree/perf/allm_audit/pinned_cell.py" --model "$model" --reps "$reps" --clock 1350 \
       --fixdir "$FIX" --out "$OUT/$tag.json" --tag "$tag"
   echo "RC=$? $tag"
