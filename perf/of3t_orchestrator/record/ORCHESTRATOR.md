@@ -12,7 +12,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-six amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-seven amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -143,7 +143,7 @@ PROVES: the **state-free half of OpenFold3's update rule, exactly and against up
 objects** — and, for the model-dependent half, that **the machinery to measure it now exists
 and what it currently reports is a ceiling**.
 
-Recomputed from the artifacts on every compose (159 checks, 0 drifted):
+Recomputed from the artifacts on every compose (158 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -210,7 +210,7 @@ Recomputed from the artifacts on every compose (159 checks, 0 drifted):
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **twenty-six amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **twenty-seven amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -782,7 +782,7 @@ than in the model. D18's fix is in flight and its own detector passes; **D20**'s
 closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
 open bounds, and **D21** as the live instrument defect on the device arm.
 
-A protocol whose bars were fixed before any number existed and **amended twenty-six times on the
+A protocol whose bars were fixed before any number existed and **amended twenty-seven times on the
 record**, each amendment marked for whether a number already existed — including two written
 this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
 instrument whose completeness you can assert, and its addendum, that gating a gradient
@@ -823,7 +823,7 @@ that already exists, and each has a number to beat:
 **What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
 instruments** rather than in the model, including one near-miss in which the central claim
 would have passed with our trunk deleted. The bars were fixed before any number existed and
-amended twenty-six times on the record, each amendment marked for whether a number already
+amended twenty-seven times on the record, each amendment marked for whether a number already
 existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
 on every compose. *A verification campaign that cannot catch itself is not a verification
 campaign*, and the record is the evidence that this one could.
