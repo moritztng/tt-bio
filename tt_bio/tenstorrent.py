@@ -10933,10 +10933,20 @@ class MSALayer(Module):
                 mc = ttnn.add_(mc, self.msa_transition(mc))
                 parts.append(mc)
                 dram_peak("msalayer chunked: row loop")
-            ttnn.deallocate(m)
             if len(parts) == 1:
+                # One chunk means the slice above spanned the whole tensor, and a full-span
+                # ttnn.slice hands back the input's OWN buffer: `parts[0]` and `m` are two
+                # Python objects over one allocation (measured -- same buffer_address, and
+                # `is_allocated()` goes False on the slice the moment `m` is freed). So the
+                # free below belongs to the concat branch only. Freeing here killed the
+                # result: BoltzGen design carries one MSA row, so every target past
+                # SEQ_LEN_MORE_CHUNKING took this branch and died on the reallocate.
                 m = parts[0]
             else:
+                # Partial slices are real copies, so the source is dead weight from here.
+                # Freeing it before the join keeps two copies live at the last step instead
+                # of three.
+                ttnn.deallocate(m)
                 m = ttnn.concat(parts, dim=1)
                 for p in parts:
                     ttnn.deallocate(p)
