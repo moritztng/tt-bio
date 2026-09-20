@@ -1,0 +1,218 @@
+{
+ "headline": "the direction is now MEASURED, and it is the opposite of what I registered: at block 47 the device gradient is INFLATED by about 18 % across essentially the whole block, not shrunk. And the block carries TWO separate defects, not one.",
+ "source": "of3t-rebase landed amendment 14 within the hour: instrument_a_bundle.py:539-548 now emits device_norm, norm_ratio, cos and zero_model_rel, with an `identifiability` summary. Six A16 bundles, all scale_pair_bias=False (the trunk default this branch holds), same frozen reference 1d4ea9225f85, crop 64. Their median rel reproduces my independent recompute exactly at all four shared arms: 0.0121, 0.0192, 0.2013, 0.2386.",
+ "blocks": {
+  "block0": {
+   "n": 52,
+   "spb": false,
+   "transpose_bias": true,
+   "median_rel": 0.012135513239367901,
+   "norm_ratio_deciles": {
+    "0": 0.37996693004971355,
+    "0.1": 0.9878619616966879,
+    "0.25": 0.993238166022876,
+    "0.5": 0.9984619940286047,
+    "0.75": 1.0009642354667438,
+    "0.9": 1.0019859551311385,
+    "1.0": 1.0050656678103203
+   },
+   "cos_deciles": {
+    "0": 0.4213313922064912,
+    "0.1": 0.9968112138749251,
+    "0.25": 0.9996028447619221,
+    "0.5": 0.999928054790323,
+    "0.75": 0.9999608965884176,
+    "0.9": 0.9999682717635175,
+    "1.0": 0.9999840718920934
+   },
+   "pct_within_5pct_of_unit_norm_ratio": 94.23076923076923,
+   "pct_cos_above_0p99": 94.23076923076923,
+   "bulk": {
+    "n": 50,
+    "median_norm_ratio": 0.9987604710093874,
+    "median_cos": 0.9999415794569024,
+    "rel_implied_by_bulk": 0.010873485660076985,
+    "rel_if_scale_corrected": 0.010809305537135157
+   },
+   "outliers": [
+    {
+     "tensor": "0.attn_pair_bias.layer_norm_z.weight",
+     "norm_ratio": 0.534101810626137,
+     "cos": 0.4213313922064912,
+     "rel_l2": 0.9138911451654851,
+     "ref_norm": 5.037741913009234e-06
+    },
+    {
+     "tensor": "0.attn_pair_bias.linear_z.weight",
+     "norm_ratio": 0.37996693004971355,
+     "cos": 0.5877213692994161,
+     "rel_l2": 0.8353116179586978,
+     "ref_norm": 2.5273418342114975e-05
+    }
+   ]
+  },
+  "block23": {
+   "n": 52,
+   "spb": false,
+   "transpose_bias": true,
+   "median_rel": 0.01919069614011403,
+   "norm_ratio_deciles": {
+    "0": 0.5353134704266239,
+    "0.1": 0.9859502706021575,
+    "0.25": 0.9895054656723608,
+    "0.5": 0.9988504360803075,
+    "0.75": 1.0005580071988678,
+    "0.9": 1.0068019737411276,
+    "1.0": 6.082835450521939
+   },
+   "cos_deciles": {
+    "0": -0.30905837208651804,
+    "0.1": 0.9815958299353241,
+    "0.25": 0.9986471189359907,
+    "0.5": 0.9998368035323119,
+    "0.75": 0.9999155996627324,
+    "0.9": 0.9999449048730923,
+    "1.0": 0.9999750374006071
+   },
+   "pct_within_5pct_of_unit_norm_ratio": 92.3076923076923,
+   "pct_cos_above_0p99": 88.46153846153847,
+   "bulk": {
+    "n": 48,
+    "median_norm_ratio": 0.9989311097437896,
+    "median_cos": 0.9998555457783638,
+    "rel_implied_by_bulk": 0.017021814187453313,
+    "rel_if_scale_corrected": 0.01699730694176142
+   },
+   "outliers": [
+    {
+     "tensor": "23.attn_pair_bias.layer_norm_a.weight",
+     "norm_ratio": 6.082835450521939,
+     "cos": 0.41356863810716943,
+     "rel_l2": 5.741911456294123,
+     "ref_norm": 0.00015986685474286936
+    },
+    {
+     "tensor": "23.attn_pair_bias.layer_norm_a.bias",
+     "norm_ratio": 3.5959202565042,
+     "cos": 0.4828476375170853,
+     "rel_l2": 3.2338953740081737,
+     "ref_norm": 0.00030373964995855396
+    },
+    {
+     "tensor": "23.attn_pair_bias.layer_norm_z.weight",
+     "norm_ratio": 0.9418784351202545,
+     "cos": -0.30905837208651804,
+     "rel_l2": 1.571408864130499,
+     "ref_norm": 2.2505087197476408e-05
+    },
+    {
+     "tensor": "23.attn_pair_bias.linear_z.weight",
+     "norm_ratio": 0.5353134704266239,
+     "cos": 0.047537407080862897,
+     "rel_l2": 1.1116050030928775,
+     "ref_norm": 6.292821429948746e-05
+    }
+   ]
+  },
+  "block47": {
+   "n": 52,
+   "spb": false,
+   "transpose_bias": true,
+   "median_rel": 0.20128904136799777,
+   "norm_ratio_deciles": {
+    "0": 0.20173347363337377,
+    "0.1": 0.8867066855032778,
+    "0.25": 1.155205176213462,
+    "0.5": 1.180370412107555,
+    "0.75": 1.192931606337257,
+    "0.9": 1.2191817756814964,
+    "1.0": 32.55604595709427
+   },
+   "cos_deciles": {
+    "0": -0.5147501445307223,
+    "0.1": 0.8380181216671947,
+    "0.25": 0.9961670401223259,
+    "0.5": 0.9976661081988659,
+    "0.75": 0.9981840862533902,
+    "0.9": 0.9985884365113975,
+    "1.0": 0.9997669358502218
+   },
+   "pct_within_5pct_of_unit_norm_ratio": 0.0,
+   "pct_cos_above_0p99": 80.76923076923077,
+   "bulk": {
+    "n": 44,
+    "median_norm_ratio": 1.1823407576375442,
+    "median_cos": 0.9978756284028663,
+    "rel_implied_by_bulk": 0.1956313219889683,
+    "rel_if_scale_corrected": 0.06518238407934686
+   },
+   "outliers": [
+    {
+     "tensor": "47.attn_pair_bias.layer_norm_a.weight",
+     "norm_ratio": 32.55604595709427,
+     "cos": -0.5147501445307223,
+     "rel_l2": 33.08190724677101,
+     "ref_norm": 0.009763989772186994
+    },
+    {
+     "tensor": "47.attn_pair_bias.layer_norm_a.bias",
+     "norm_ratio": 1.218906259241947,
+     "cos": 0.6530287797964758,
+     "rel_l2": 0.9453944861808142,
+     "ref_norm": 0.06398113810726258
+    },
+    {
+     "tensor": "47.attn_pair_bias.mha.linear_g.weight",
+     "norm_ratio": 0.9445044710086861,
+     "cos": 0.7617547432506391,
+     "rel_l2": 0.6731472157936872,
+     "ref_norm": 0.003483587676026804
+    },
+    {
+     "tensor": "47.single_transition.swiglu.linear_a.weight",
+     "norm_ratio": 0.9150088119268085,
+     "cos": 0.8380181216671947,
+     "rel_l2": 0.5510473610716589,
+     "ref_norm": 0.003948983515952389
+    },
+    {
+     "tensor": "47.single_transition.linear_out.weight",
+     "norm_ratio": 0.8787385046945779,
+     "cos": 0.8172297950453689,
+     "rel_l2": 0.5795850096860815,
+     "ref_norm": 0.0030009272480222967
+    },
+    {
+     "tensor": "47.attn_pair_bias.mha.linear_o.weight",
+     "norm_ratio": 0.796481223923627,
+     "cos": 0.3775382096872471,
+     "rel_l2": 1.0163553263517702,
+     "ref_norm": 0.0014944924152816008
+    },
+    {
+     "tensor": "47.attn_pair_bias.layer_norm_z.weight",
+     "norm_ratio": 0.20320530717669505,
+     "cos": 0.9792815960843477,
+     "rel_l2": 0.8020610711006778,
+     "ref_norm": 0.0982190139657673
+    },
+    {
+     "tensor": "47.attn_pair_bias.linear_z.weight",
+     "norm_ratio": 0.20173347363337377,
+     "cos": 0.9492829985223724,
+     "rel_l2": 0.8109821705057026,
+     "ref_norm": 0.1684163898143518
+    }
+   ]
+  }
+ },
+ "reading": [
+  "BLOCKS 0 AND 23 ARE RIGHT. 94 % and 92 % of tensors have |norm_ratio - 1| < 0.05 AND cos > 0.99. Their two-to-four outliers are all attn_pair_bias tensors with reference norms of 5e-06 to 3e-04 -- precision on near-zero gradients, which is what the bar is meant to tolerate.",
+  "BLOCK 47 CARRIES A BLOCK-WIDE 1.18x INFLATION. Its norm_ratio deciles run 0.887 / 1.155 / 1.180 / 1.193 / 1.219: the middle half of the block sits inside +-1.6 % of 1.18, with cos 0.996-0.999. ZERO tensors are within 5 % of unit norm ratio. That is a common multiplicative factor, measured, not inferred.",
+  "THE ARITHMETIC CHECKS OUT. rel^2 = 1 + r^2 - 2rc with r = 1.180 and c = 0.9977 gives rel = 0.193 against the measured 0.2013. So block 47's failure is ALMOST ENTIRELY the magnitude, not the direction.",
+  "AND ONE TENSOR IS A SEPARATE, SEVERE DEFECT. 47.attn_pair_bias.layer_norm_a.weight has norm_ratio 32.556 and cos -0.5148 at a reference norm of 9.76e-03 -- 32x too large AND pointing the wrong way. That is the campaign's long-quoted worst tensor, and it is now characterised rather than merely named."
+ ],
+ "my_prediction_refuted": "At pass 119 I registered the s_fp32_residual hypothesis with the prediction that block 47's gradient is SHRUNK -- per-block updates quantised away by a bf16 residual far larger than them, so norm_ratio << 1 with cos ~ 1. The cos half is right (0.998). THE DIRECTION IS WRONG: norm_ratio is 1.18, inflated. The hypothesis as registered is refuted, and the s_fp32_residual arm should be re-scoped or dropped rather than run to confirm a direction already measured against it.",
+ "what_a_scale_fix_would_buy": "correcting the 1.18 alone takes block 47 from rel 0.2013 to sqrt(2-2c) = 0.068 -- a 3x improvement that still fails the 2.0e-02 median bar and still fails the 5.0e-02 per-tensor bar. So the inflation is necessary to fix and not sufficient.",
+ "correction_to_my_own_D36": "D36 read rho ~ 1 as evidence of a COMMON multiplicative factor. rho is computed per tensor, so strictly it only shows the error is proportional to the reference WITHIN each tensor; commonality ACROSS tensors needed the norm_ratio spread, which D36 did not have. The measurement happens to support the stronger reading at block 47 -- the middle half sits inside +-1.6 % of 1.18 -- but D36 was entitled only to the weaker one."
+}
