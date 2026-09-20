@@ -18,8 +18,11 @@
 #
 #   sh rung.sh <target_residues> <umd_device> [budget_s] [binder]
 set -u
-WT=/home/ttuser/.coworker/wt/cov-unproven-boltzgen-bhp150a
-PY=/home/ttuser/tt-bio/env/bin/python3
+# Derive the checkout from this script's own location. A hardcoded worktree path dies with
+# the row that wrote it: fleet hygiene tears the worktree down at conclusion and every later
+# rung then fails on a path that is simply gone.
+WT=$(cd "$(dirname "$0")/../.." && pwd)
+PY=${TT_BIO_PY:-/home/ttuser/tt-bio/env/bin/python3}
 B=$WT/perf/bgcov
 TRES=$1; DEV=$2; BUDGET=${3:-3600}; BINDER=${4:-80}
 OUT=$B/out/${TRES}_dev${DEV}
@@ -47,7 +50,7 @@ TT_BIO_LEASE_TIMEOUT=2400 TT_METAL_LOGGER_LEVEL=FATAL \
     --model boltzgen --sizes "$TRES" --binder "$BINDER" \
     --target perf/bhdesign/targets/big_1831.cif \
     --card "$DEV" --board p150a --arch blackhole \
-    --holder worker:cov-unproven-boltzgen-bhp150a \
+    --holder "${HOLDER:-worker:bgcov}" \
     --timeout "$BUDGET" \
     --work "$OUT/work" --out "$OUT/rung.jsonl" 2>&1 | tee "$OUT/rung.log"
 kill "$SIDE" 2>/dev/null
