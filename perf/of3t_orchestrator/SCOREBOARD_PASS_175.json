@@ -1,0 +1,123 @@
+{
+ "accuracy_results_both_sides_vs_float64": {
+  "reading": "outside the diffusion transformer the port is MORE accurate than upstream's own bf16 training step on every scope where both were measured. The accuracy failure is one module.",
+  "rows": [
+   {
+    "device": 7.5692,
+    "device_is": "125.41x LESS accurate",
+    "pct": 52.2644,
+    "scope": "diffusion device-arm scope, 735 tensors",
+    "upstream_bf16": 0.06035589
+   },
+   {
+    "device": 0.14053,
+    "device_is": "2.09x MORE accurate",
+    "pct": 1.644,
+    "scope": "pairformer, the 7 measured blocks, 399 tensors",
+    "upstream_bf16": 0.2942526
+   },
+   {
+    "device": 0.20129,
+    "device_is": "1.15x MORE accurate",
+    "pct": 1.0662,
+    "scope": "pairformer block 47 alone, 57 tensors",
+    "upstream_bf16": 0.230776
+   },
+   {
+    "device": 0.16211,
+    "device_is": "1.10x MORE accurate",
+    "pct": 1.24,
+    "scope": "msa_module, 227 tensors",
+    "upstream_bf16": 0.1789444
+   }
+  ],
+  "why_a_shared_reference_is_legitimate_here": "A25: comparing two distances from the ideal orders them on ACCURACY. It does not order them on agreement, which is D72's error and is kept out of this section."
+ },
+ "agreement_coverage": {
+  "note": "the largest piece of the remainder is pairformer_stack: 5.8282 % of the model with only 7 of 48 blocks measured at all, and no agreement reading on any of them.",
+  "pct_recoverable": 7.0944,
+  "pct_that_never_can": 0.74055,
+  "pct_with_a_direct_reading": 92.1651,
+  "pct_without": 7.8349,
+  "scopes": [
+   {
+    "pct": 51.1358,
+    "row": "of3t-trajectory",
+    "scope": "diffusion device arm, 547 tensors"
+   },
+   {
+    "pct": 36.9462,
+    "row": "of3t-direct",
+    "scope": "diffusion_conditioning"
+   },
+   {
+    "pct": 2.8431,
+    "row": "of3t-direct",
+    "scope": "aux_heads"
+   },
+   {
+    "pct": 1.24,
+    "row": "of3t-direct",
+    "scope": "msa_module"
+   }
+  ]
+ },
+ "agreement_results": [
+  {
+   "note": "the only scope on the entire record that does",
+   "pct": 0.2666,
+   "ratio": 0.95,
+   "scope": "diffusion_module.layer_norm_a",
+   "verdict": "SURVIVES"
+  },
+  {
+   "note": "'passes' by 0.06 %, but one tensor is 100.0000 % of the section's mass so the headline IS one tensor, the median over tensors is 1.461326e+00, 176 of 176 measurable tensors are past the per-tensor bar, and A18's forward discriminator FAILS at 3.6515e-01 on plddt_logits against a 5.0e-02 bar. A18's first clause: a disagreeing forward invalidates the gradient.",
+   "pct": 2.8431,
+   "ratio": 0.9994,
+   "scope": "aux_heads",
+   "verdict": "VOID under A18, not a pass"
+  },
+  {
+   "note": "and is 7.95x MORE ACCURATE than upstream's own step. Fails by 4.1 % purely because the two errors are anti-aligned, cos -0.273, and so add instead of nesting. The A25 case.",
+   "pct": 36.9462,
+   "ratio": 1.0414,
+   "scope": "diffusion_module.diffusion_conditioning",
+   "verdict": "DOES NOT SURVIVE"
+  },
+  {
+   "note": "larger than either side's distance from float64",
+   "pct": 1.24,
+   "ratio": 1.3398,
+   "scope": "msa_module",
+   "verdict": "DOES NOT SURVIVE"
+  },
+  {
+   "note": "accuracy 129.343x -- the columns agree, so this is magnitude, not direction",
+   "pct": 51.1358,
+   "ratio": 129.14,
+   "scope": "diffusion device arm AS SHIPPED",
+   "verdict": "DOES NOT SURVIVE"
+  },
+  {
+   "note": "accuracy 1.823x, residual essentially ORTHOGONAL to upstream's (cos +0.045). A BOUND, not a shippable lever.",
+   "pct": 51.1358,
+   "ratio": 2.04,
+   "scope": "the same scope with every softmax in float64",
+   "verdict": "DOES NOT SURVIVE, but by 2x"
+  }
+ ],
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "we do NOT reproduce OpenFold3's training gradient: of D72's three AT-OR-BETTER scopes, zero survive a direct comparison against upstream's own bf16 training step, and the only scope on the record that does is layer_norm_a at 0.2666 % of the model. But the entire ACCURACY failure is the diffusion transformer's softmax -- computing it in float64 takes that scope from 129x less accurate than upstream's own training step to 1.823x -- and on every other scope where both were measured the port is MORE accurate than that step, conditioning by 7.95x and pairformer by 2.09x.",
+ "honest_limits": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures, num_recycles 0. Nothing here establishes these factors hold at another batch or with recycling. Every arm is seeded and replays fixed draws, and the reference gradients are bit-reproducible only at a FIXED OMP_NUM_THREADS -- the digest is a function of the thread count (D80).",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Assembled from of3t-trajectory, of3t-direct (f2d29c403) and of3t-refprec, each figure from the row that measured it. Every input digest-verified per A24. No file under tt_bio/ changed by any of the three, so inference is byte-identical by construction. No timing figure is quoted: qb2's AICLK was CLAMPED-UNDER-LOAD at 800 through this window.",
+ "the_bar_is_fair_and_the_bar_is_strict": {
+  "fair": "upstream's own fp32, on upstream's weights, batch and draws at the same step, scores 8.158418e-05 against its own float64 gradient over all 4,170 parameters -- the campaign's 2.0e-02 bar sits 245x above that, so the bar is not measuring single precision against float64 and every device reading is the device's own error. On the one tensor that is 8.05416 % of the model, upstream's fp32 reads 2.929034e-05 where the device reads 18.504.",
+  "strict": "upstream's own bf16 autocast over fp32 parameters -- the dtype an AF3-style step actually runs -- reads 1.105201e-01 at model scope, 5.5x OUTSIDE the same bar. The campaign's bar is stricter than upstream's own training precision."
+ },
+ "what": "the OF3T campaign's scoreboard at pass 175: what reproduces, what does not, and the arithmetic for each, separating AGREEMENT with upstream's own training step (which needs a direct reading) from ACCURACY against the float64 ideal (which a shared reference can carry) -- PROTOCOL A25.",
+ "what_would_close_it": {
+  "and_the_residual_is_named_but_unexplained": "after the bound, 2.04x agreement / 1.823x accuracy remains. atom_attn_dec is the counter-case: 2.8139e-01 to 2.8235e-01, UNMOVED, so the softmax explains none of its 5.65x. The worst tensor also moves house to a conditioned_transition layer norm. That is the next measurement, not a conclusion.",
+  "but_no_shipped_lever_reaches_it": "of3t-softmax: 0.3237 A against a 0.6250 A seed floor at +46 % per op, and no shipped precision lever reaches the parity bar. 3 of 5 models execute a patched site though 5 of 5 construct one -- Boltz-2 and RF3 take the fused-SDPA branch around it.",
+  "the_mechanism_is_identified_and_bounded": "the diffusion transformer's softmax. 1,440 calls intercepted across all 24 DiT blocks and both atom transformers; the bound takes the DiT from 138.8x its own bf16 floor to 1.95x, a factor of 71.3."
+ }
+}
