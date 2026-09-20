@@ -434,11 +434,13 @@ git worktree remove --force "$BASE"
 _trunk="$CO/tt_bio/openfold3_trunk.py"
 _want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
-  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 held, blocked on D10)"
+  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.170 A worse at rank 0, of3t-confhead pass 101; not blocked on D10, which is resolved)"
 else
   echo "SHIPPED DEFAULT MOVED -- $_trunk does not carry: $_want"
   grep -n 'scale_pair_bias=' "$_trunk" | sed 's/^/  /'
-  echo "  D1 must not ship without D10 (of3t-pairbias's own verdict). If Moritz approved the pair,"
+  echo "  D1 is HELD on its own measurement: D1+D10 serves 0.170 A worse than shipped at rank 0 over"
+  echo "  six seeds (of3t-confhead pass 101), and the best rule in the candidate set still serves"
+  echo "  0.086 A worse. Fixing the selector did not rescue it. If Moritz approves it anyway,"
   echo "  change _want in this script in the same commit that flips the default."
   exit 1
 fi
