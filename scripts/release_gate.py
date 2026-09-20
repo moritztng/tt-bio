@@ -2684,6 +2684,29 @@ def _size_limit_refusal(text: str) -> str | None:
     return found or None
 
 
+def _keep_failed_fold_log(log: Path, label: str) -> str:
+    """Copy a failed fold's log somewhere the next model will not delete, and say where.
+
+    The scratch dir is removed whole per card, so the fold log a failure points at survives
+    only until the runner starts the next model. rf3 failed at its 256 warm-up on two
+    different cards on 2026-09-20 with `SpawnProcess-1 exit 1` -- "any other code prints its
+    own fatal above", and above was gone both times. What reaches the campaign log is
+    `_fold_error`'s 400 characters, which here was the generic worker-exited sentence and not
+    the fatal.
+
+    Never raises: this runs inside a path that is already reporting a failure, and a copy that
+    throws would replace the fold's error with its own (see `_fold_log_text`).
+    """
+    keep = REPO_ROOT / "perf" / "sizegate" / "failures"
+    dest = keep / f"{label}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.log"
+    try:
+        keep.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(log, dest)
+        return f"full log kept at {dest.relative_to(REPO_ROOT)}"
+    except Exception as e:
+        return f"the log could not be kept: {e}"
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -2748,13 +2771,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     if timed_out:
-        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
+        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     if rc != 0:
         text = _fold_log_text(log)
         refusal = _size_limit_refusal(text)
         if refusal:
             return {"refused": refusal}
-        return {"error": f"census fold exited {rc}: {_fold_error(text)}"}
+        return {"error": f"census fold exited {rc}: {_fold_error(text)}"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
