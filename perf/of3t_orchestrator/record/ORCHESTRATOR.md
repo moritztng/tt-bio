@@ -3769,3 +3769,31 @@ firmware**, and its board-pair partner was in service so a `tt-smi -r` was unava
 working chip and two jobs it ran the ladder and stopped the two 48-block stack arms — correctly,
 since amendment 2a already established the stack is saturated and cannot separate our stack from a
 deleted one. `perf/of3t_rebase/trunk043.sh` runs them unchanged when a chip frees.
+
+PASS 109. **The campaign's remaining critical path is now one job, and it has not started.**
+
+Checked on disk rather than inferred: `~/of3t_rebase/cap043/` holds `block0_boundary.pt`,
+`block23_boundary.pt` and `block47_boundary.pt` at 482 MB each and **nothing else**, while
+`/home/ttuser/of3t_diffusion_cap/sub_boundary.pt` is still the **3.17 GB file from Sep 19
+19:55 — the 0.5.0 one**. So the diffusion boundary has not been recaptured at 0.4.3, A18's
+discriminator cannot be re-read, and **91.21 % of the model's squared gradient norm remains
+unmeasurable**. `of3t-rebase`'s `GRADIENT:` field says precisely this and is right; the point here
+is sequencing.
+
+**The scale is worth stating plainly, because the last two passes have felt like progress and the
+proof mass says how much.** The entire 48-block trunk stack is **3.156 %** of the squared norm, so
+the two blocks that just crossed FAIL → PASS live inside that 3.156 %. The diffusion module is
+**91.21 %**, and one capture stands between it and its first reading.
+
+**Sequencing advice sent, with the reasoning.** Run C is CPU-bound float64 at ~615 %; the boundary
+recapture is largely device work — the trunk capture ran at ~330 % CPU beside two other
+`OMP_NUM_THREADS=14` jobs and still finished in 4986 s. Those two should overlap far better than
+two float64 gradient runs do, so starting the recapture now likely costs run C much less than the
+threefold penalty pass 104 measured for genuinely CPU-competing jobs. Run strictly serially and
+the diffusion gradient is several hours out.
+
+**And run C is genuinely required despite A13 passing, so this is not a choice between them.**
+A13 says two runs agree; FD says the gradient *is* the derivative. The revision changed the
+function — `layer_norm_z` present or absent, `transpose_bias` on or off — so the 0.5.0 FD figures
+(**2.18e-03** trunk, **1.17e-03** diffusion) **cannot be inherited**. Both gates are real, which
+is exactly why the overlap is worth having rather than a decision about which to drop.
