@@ -4138,3 +4138,61 @@ tensors, not a substitute for the row.
 Owner: `of3t-refprec` for the full result. Artifacts:
 `perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`,
 `perf/of3t_orchestrator/REFPREC_READING_PREREGISTERED.json`.
+
+---
+
+### D70. The campaign's bar is stricter than OpenFold3's own training: upstream at bf16 misses the 2.0e-02 mass-weighted bar by 2.9×, while its fp32 clears it by 642× — and our device is 129× worse than upstream's own training dtype on the same tensors. FOUND by `of3t-orchestrator`, pass 170. **STILL PROVISIONAL** on a control that has not landed.
+
+D69 read arm2 alone and reported "247× inside the bar". True of fp32, and **not the whole
+answer**. `arm4_bf16_autocast` — bf16 autocast with fp32 parameters, which is what an AF3-style
+training step actually runs — landed at 08:24.
+
+**Scope-matched to the device arm's own 547 tensors** (all 547 names resolved; comparing our
+547-tensor figure against a 4,170-tensor one would be the scope mismatch this campaign keeps
+catching):
+
+| | mass-weighted `rel_l2` | vs the 2.0e-02 bar |
+|---|---|---|
+| upstream **fp32** | **3.117006e-05** | 642× **inside** |
+| upstream **bf16** (its actual training dtype) | **5.852018e-02** | **2.9× outside** |
+| **our device** | **7.5692** | 378× outside |
+
+**Two conclusions, and they must travel together.**
+
+**The gap is ours.** Single precision clears the bar by 642× on these exact tensors, so no
+arithmetic obstacle exists, and our device is **129× worse than what the recipe itself achieves
+in its own training dtype**. Nothing about conditioning, cancellation or precision excuses that.
+
+**And the bar as written is stricter than upstream's own training.** A 2.0e-02 mass-weighted bar
+against a **float64** reference is missed by bf16 autocast. Whole-model, bf16 reads
+**1.105201e-01** with **4,033 of 4,161** tensors over the per-tensor bar holding **60.22 %** of
+the model. So "reproduce OpenFold3 training" measured against float64 demands *better than
+upstream does*. **The defensible target for a training-reproduction claim is parity with
+upstream's own bf16 floor, not with float64** — and against that bar our device is still 129×
+out, which is the honest size of the port gap.
+
+**The named tensor across all three** — `blocks.8…layer_norm_a.layer_norm_s.weight`, 8.05416 %
+of the model:
+
+| | rel | `r` | `cos` |
+|---|---|---|---|
+| upstream fp32 | 1.178860e-05 | 1.000004 | 1.000000 |
+| upstream bf16 | **2.788682e-02** | 1.024740 | **0.999919** |
+| our device | 18.504 | 19.2415 | 0.74941 |
+
+bf16 reproduces it marginally over the per-tensor bar with the direction essentially intact. We
+read **19× the magnitude and lose a quarter of the direction** — **664× worse than upstream's own
+training dtype on one tensor.** Those are different phenomena, not different amounts of the same
+one.
+
+**Where bf16's own misses sit** is itself informative: the heaviest are the
+`diffusion_conditioning` LayerNorm vectors at rel 5.3e-02 to 7.9e-02 — the same four tensors
+carrying 33.9354 % of the model — marginally over a 5.0e-02 bar with cosines near 1. That is
+what a bf16 floor looks like.
+
+**STILL PROVISIONAL.** The permuted negative control had **not** landed when this was computed.
+Until it moves the headline by orders of magnitude the comparison has not been shown capable of
+failing, and none of these numbers is established. Recorded now rather than discovered later.
+
+Owner: `of3t-refprec` for the reported result. Artifact:
+`perf/of3t_orchestrator/BAR_IS_ACHIEVABLE_THE_GAP_IS_OURS.json`.

@@ -262,6 +262,13 @@ Recomputed from the artifacts on every compose (153 checks, 0 drifted):
   reads 18.504 / 19.2415 / 0.74941 — **1.57 million times worse**. The reading was fixed in
   writing before the arm produced output. This ends every "may not be computable" argument the
   campaign has entertained.
+- **And the bar is stricter than upstream's own training** (pass 170, D70). Scope-matched to the
+  device arm's own 547 tensors: upstream **fp32 3.117006e-05** (642x inside the bar), upstream
+  **bf16 5.852018e-02** — its actual training dtype, **2.9x OUTSIDE** — and our device
+  **7.5692**. So our port is **129x worse than what the recipe itself achieves**, and a 2.0e-02
+  bar against float64 asks for better than upstream does. The defensible target for a
+  training-reproduction claim is parity with upstream's own bf16 floor. **Provisional**: the
+  permuted control had not landed when this was computed.
 
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
@@ -743,7 +750,7 @@ mass is measured against a float64 reference and inside the bars, 54.0115 % is m
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; sixty-nine defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; seventy defects on the record, thirty of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7105,3 +7112,44 @@ tensors, and it says so.
 
 Filed as **D69**, and it answers **D64**, the question I posed at pass 163 and should have posed
 before pass 40.
+
+---
+
+## Pass 170 — arm4 completes the answer and it is two statements, not one
+
+D69 read arm2 alone and led with "247× inside the bar". True of fp32, and not the whole answer.
+`arm4_bf16_autocast` — bf16 with fp32 parameters, what an AF3-style training step actually runs
+— landed at 08:24, and I scope-matched both reference arms to the device arm's **own 547
+tensors** before comparing anything, because our 7.5692 is a 547-tensor figure and setting it
+beside a 4,170-tensor one is precisely the mismatch this campaign keeps catching.
+
+    upstream fp32   3.117006e-05    642x INSIDE the 2.0e-02 bar
+    upstream bf16   5.852018e-02    2.9x OUTSIDE  <- its actual training dtype
+    our device      7.5692          378x outside
+
+**The gap is ours.** fp32 clears the bar by 642× on these exact tensors, so there is no
+arithmetic obstacle, and we are **129× worse than what the recipe itself achieves in its own
+training dtype**. No conditioning or precision argument survives that.
+
+**And the bar as written is stricter than upstream's own training.** Whole-model, bf16 reads
+**1.105201e-01** with 4,033 of 4,161 tensors over the per-tensor bar holding **60.22 %** of the
+model. A 2.0e-02 mass-weighted bar against a *float64* reference asks for better than upstream
+does. **The defensible target for a training-reproduction claim is parity with upstream's own
+bf16 floor** — and against that our device is still 129× out, which is the honest size of the
+port gap.
+
+The named tensor across all three, `blocks.8…layer_norm_a.layer_norm_s.weight` at 8.05416 %:
+
+    upstream fp32   rel 1.178860e-05   r 1.000004   cos 1.000000
+    upstream bf16   rel 2.788682e-02   r 1.024740   cos 0.999919
+    our device      rel 18.504         r 19.2415    cos 0.74941
+
+bf16 reproduces it marginally over the per-tensor bar with its direction essentially intact; we
+read 19× the magnitude and lose a quarter of the direction — **664× worse than upstream's own
+training dtype on one tensor**. Different phenomena, not different amounts of the same one. And
+bf16's own heaviest misses are the four `diffusion_conditioning` LayerNorm vectors at
+5.3e-02–7.9e-02 with cosines near 1, which is what a bf16 floor looks like.
+
+**Still provisional, stated now rather than discovered later**: the permuted negative control
+had not landed when this was computed. Until it moves the headline by orders of magnitude the
+comparison has not been shown capable of failing. Filed as **D70**.

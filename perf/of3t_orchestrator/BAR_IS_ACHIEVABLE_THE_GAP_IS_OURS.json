@@ -1,24 +1,29 @@
 {
  "what": "an independent orchestrator read of of3t-refprec's arm2 the moment it landed, against the pre-registration committed at pass 168 before any arm produced output. The row's own reported result, with its full controls, is still owed and this does not replace it.",
-
  "THE_RESULT": {
   "arm": "arm2_f32_upstream -- upstream OpenFold3 0.4.3 at float32 with its OWN autocast and .float() calls left in, same weights, same batch (batch_step003), same draws (draws_recycles0), num_recycles 0, r = 0.",
   "mass_weighted_rel_l2_vs_float64": 8.107441e-05,
-  "bar": 2.0e-02,
+  "bar": 0.02,
   "inside_the_bar_by": "247x",
   "median_over_tensors": 2.215005e-05,
   "verdict_per_the_preregistration": "arm2 < 5.0e-02 -> THE BAR IS ACHIEVABLE IN SINGLE PRECISION. Our device arm's 7.5692 is entirely OURS. The campaign's framing is CONFIRMED and the 54.0115 % of the model outside the bar is a port gap with no excuse available."
  },
-
  "the_named_tensor_settles_the_conditioning_defence": {
   "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
   "share_of_model": 8.05416,
-  "upstream_fp32": {"rel": 1.178860e-05, "r": 1.000004, "cos": 1.000000},
-  "our_device":    {"rel": 18.504,       "r": 19.2415,  "cos": 0.74941},
+  "upstream_fp32": {
+   "rel": 1.17886e-05,
+   "r": 1.000004,
+   "cos": 1.0
+  },
+  "our_device": {
+   "rel": 18.504,
+   "r": 19.2415,
+   "cos": 0.74941
+  },
   "ratio": "we are 1.57 MILLION times worse on the model's fourth-heaviest tensor.",
   "what_it_kills": "every remaining form of 'this sum may simply not be computable'. Single precision reproduces the float64 value to five decimal places with a cosine of exactly 1.000000. The reduction is not ill-conditioned in any way that constrains an implementation."
  },
-
  "the_over_bar_count_and_why_it_is_not_a_qualification": {
   "count": "298 of 4,161 tensors over the 5.0e-02 per-tensor bar",
   "mass_they_hold": "0.000001 % of the model, between all of them",
@@ -26,20 +31,63 @@
   "what_they_are": "confidence-head and pairformer-embedding tensors inside aux_heads, whose reference gradients are ~1e-05 because initial_training weights those terms at 1e-4. A relative bar on a component with no mass is not a readable instrument, which is A23 from the other side.",
   "reference_zero_tensors": 9
  },
-
  "an_arm_of_my_own_design_that_cannot_differ": {
   "observed": "arm2_f32_upstream and arm3_f32_removed are BYTE-IDENTICAL (sha256 09f1217c8ea254d0..., both differing from the reference's 1d4ea922...).",
   "why_that_is_correct_and_not_a_bug": "`no_autocast` exists to stop upstream downcasting a FLOAT64 graph: it neutralises `torch.amp.autocast` and makes `Tensor.float()` identity ONLY on float64 tensors. At float32 there is nothing to protect -- autocast(float32) is a no-op and .float() is already identity -- so arm3 is the same computation as arm2 by construction.",
   "whose_error": "mine. I specified the arm3 - arm2 contrast in the brief and pre-registered it as isolating 'upstream's own casting from single precision itself'. It cannot differ at fp32, so it isolates nothing. Same family as the power-of-two scale-invariance arm: a contrast built so that it cannot move.",
   "what_would_actually_isolate_it": "the comparison must be at a dtype where upstream's casts bite -- i.e. the bf16 arm with and without no_autocast, not the fp32 pair."
  },
-
  "what_is_still_owed_and_not_claimed_here": [
   "arm4_bf16_autocast -- bf16 with fp32 parameters, which is what an AF3-style training step ACTUALLY runs, and the honest floor. It was still executing when this was computed. fp32 meeting the bar 247x over does not license any claim about bf16.",
   "the permuted negative control, which must move the headline by orders of magnitude before any of this is believable. It was still executing.",
   "A16's measured zero-model baseline on this comparison.",
   "the row's own reported numbers with its own controls. This file is one orchestrator computation off the landed tensors and is not a substitute for the row's result."
  ],
-
- "provenance": "computed 2026-09-20 pass 169 by of3t-orchestrator on qb2 via ssh, CPU only, no device opened, torch.load of arm2's grads_f64.pt (2,947,844,653 bytes, sha256 09f1217c...) against bundle_min_043/grads_f64_043.pt (sha256 1d4ea922...). Both arms verified to load `4935 tensors, 1 missing, 0 unexpected` -- the same version_tensor state as the reference build -- before the numbers were computed. Reading fixed in REFPREC_READING_PREREGISTERED.json at pass 168, before any arm produced output."
+ "provenance": "computed 2026-09-20 pass 169 by of3t-orchestrator on qb2 via ssh, CPU only, no device opened, torch.load of arm2's grads_f64.pt (2,947,844,653 bytes, sha256 09f1217c...) against bundle_min_043/grads_f64_043.pt (sha256 1d4ea922...). Both arms verified to load `4935 tensors, 1 missing, 0 unexpected` -- the same version_tensor state as the reference build -- before the numbers were computed. Reading fixed in REFPREC_READING_PREREGISTERED.json at pass 168, before any arm produced output.",
+ "COMPLETED_AT_PASS_170_BY_ARM4": {
+  "why_this_file_was_incomplete": "it read arm2 alone. arm4 -- bf16 autocast with fp32 parameters, which is what an AF3-style training step ACTUALLY runs -- landed at 08:24 and changes the framing. The pass-169 headline '247x inside the bar' is true of fp32 and is not the whole answer.",
+  "whole_model_4170_tensors": {
+   "upstream fp32 (arm2)": 8.107441e-05,
+   "upstream bf16 (arm4)": 0.1105201,
+   "bar": 0.02,
+   "bf16_over_bar_by": 5.5,
+   "bf16_median_over_tensors": 0.1940002,
+   "bf16_over_per_tensor_bar": "4,033 of 4,161 tensors holding 60.224227 % of the model; 3,956 of those survive A14"
+  },
+  "scope_matched_to_the_device_arms_own_547_tensors": {
+   "note": "the device arm's 7.5692 is over 547 tensors, not 4,170. Comparing it to a whole-model figure is a scope mismatch, so both reference arms were recomputed on exactly those 547 names (all 547 resolved).",
+   "upstream_fp32": 3.117006e-05,
+   "upstream_bf16": 0.05852018,
+   "our_device": 7.5692,
+   "bar": 0.02,
+   "upstream_fp32_inside_bar_by": 642,
+   "upstream_bf16_outside_bar_by": 2.9,
+   "our_device_worse_than_upstreams_own_bf16_by": 129
+  },
+  "the_two_conclusions_that_must_travel_together": [
+   "THE GAP IS OURS. Single precision clears the bar by 642x on these exact tensors, so no arithmetic obstacle exists, and our device is 129x worse than what the recipe itself achieves in its own training dtype.",
+   "AND THE BAR AS WRITTEN IS STRICTER THAN UPSTREAM'S OWN TRAINING. A 2.0e-02 mass-weighted bar against a FLOAT64 reference is missed by bf16 autocast -- 5.852018e-02 on this scope, 2.9x out. So 'reproduce OpenFold3 training' measured against float64 demands better than upstream does. The defensible target for a TRAINING-reproduction claim is parity with upstream's own bf16 floor, not with float64."
+  ],
+  "the_named_tensor_across_all_three": {
+   "tensor": "blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight (8.05416 % of the model)",
+   "upstream_fp32": {
+    "rel": 1.17886e-05,
+    "r": 1.000004,
+    "cos": 1.0
+   },
+   "upstream_bf16": {
+    "rel": 0.02788682,
+    "r": 1.02474,
+    "cos": 0.999919
+   },
+   "our_device": {
+    "rel": 18.504,
+    "r": 19.2415,
+    "cos": 0.74941
+   },
+   "reading": "bf16 reproduces this tensor at 2.8e-02 with cos 0.999919 -- slightly over the per-tensor bar and structurally correct. We read 19x the magnitude and lose a quarter of the direction. 664x worse than upstream's own training dtype on one tensor."
+  },
+  "where_bf16s_own_misses_sit": "the heaviest tensors over bf16's per-tensor bar are the diffusion_conditioning LayerNorm vectors at rel 5.3e-02 to 7.9e-02 -- the same four tensors that carry 33.9354 % of the model. They are marginally over a 5.0e-02 bar with cosines near 1, which is what a bf16 floor looks like, and is a different phenomenon from our 18.504.",
+  "STILL_PROVISIONAL": "the permuted negative control had NOT landed when this was computed. Until it moves the headline by orders of magnitude, none of these numbers is established -- the comparison has not been shown capable of failing. Stated here rather than discovered later."
+ }
 }
