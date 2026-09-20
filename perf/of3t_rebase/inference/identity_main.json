@@ -8,10 +8,10 @@
  "repo": "/home/ttuser/of3t_rebase/main_wt",
  "env": {
   "host": "tt-quietbox2",
-  "tt_visible_devices": "1",
+  "tt_visible_devices": "0",
   "head": "ec4b66412c8e66dbc3792b75d0baafd854550b2f",
   "branch": "HEAD",
-  "started_utc": "2026-09-19T23:52:18Z",
+  "started_utc": "2026-09-20T01:17:40Z",
   "tt_bio_file": "/home/ttuser/of3t_rebase/main_wt/tt_bio/__init__.py",
   "arch": "Arch.BLACKHOLE"
  },
