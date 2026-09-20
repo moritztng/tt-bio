@@ -4066,3 +4066,37 @@ before tonight: the diffusion module fails at 1.6588e-01 and pairformer blocks 0
 1.2136e-02 and 1.9191e-02. **Passing is still 0.201 %.** The honest headline is that the
 instrument finally reaches the mass that matters, and on that mass our gradient is eight times
 outside the bar.
+
+PASS 117. **The finite-difference validation confirms its pre-registered prediction and samples
+the wrong 6 % of the model.**
+
+**Confirmed first.** Run C's first FD sample reads
+`pairformer_stack.blocks.42.pair_stack.tri_att_end.mha.linear_k.weight[67,36]`, analytic
+**−1.609740e-05** against fd **−1.607327e-05**, **rel 1.499e-03** — squarely in the few-times-1e-3
+band pre-registered at pass 102, whose comparison points were 2.18e-03 (trunk) and 1.17e-03
+(diffusion) on the 0.5.0 side. So a **single h at 1e-4 needed no sweep**, A11's total-versus-partial
+anomaly is **absent at r = 0** exactly as predicted, and the *"median 0.353 at h = 1e-5 is
+truncation"* story I spent fifteen passes re-quoting stays refuted.
+
+**The bias.** `bundle_min.py:524-528` does `rs.shuffle(order)` and takes the first `fd_samples`
+parameters with a gradient entry above the floor — **uniform over parameter COUNT**. Count and
+gradient mass are nearly inverted in this model:
+
+| section | tensors | % of count | % of gradient norm |
+|---|---|---|---|
+| `pairformer_stack` | 2,736 | **65.61 %** | **5.828 %** |
+| `diffusion_module` | 761 | **18.25 %** | **89.211 %** |
+| `aux_heads` | 244 | 5.85 % | 2.843 % |
+
+With 8 samples: **P(a sample is diffusion) = 0.1825**, expected diffusion samples **1.46 of 8**,
+and **P(zero diffusion samples) = 19.9 %**. The validation is **5.2x more likely** to land on the
+section holding 5.8 % of the norm than on the one holding 89.2 %, and there is a one-in-five
+chance the 89.2 % receives **no finite-difference validation at all**. The first sample being a
+trunk parameter is consistent with that.
+
+**This is A15/D17 in a new place** — a count denominator is not a scope statement — and it matters
+more than usual, because the diffusion gradient just published at **1.6588e-01** rests on the very
+reference FD is meant to validate. Sent as three ranked fixes, cheapest first: stratify at least 3
+of the 8 into `diffusion_module`, or weight the shuffle by `ref_norm²`, or — if run C is too far
+along — report **which sections the 8 landed in** and state the coverage plainly. *"FD validated on
+N trunk and M diffusion parameters"* is a real statement; *"8 of 4,170"* is not.
