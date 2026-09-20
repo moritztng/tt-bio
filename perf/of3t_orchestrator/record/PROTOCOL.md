@@ -511,8 +511,9 @@ precondition is the whole of it and must be checked, not assumed — a parameter
 feeds another path makes the captured cotangent an incomplete gradient, and the comparison
 would be wrong in the flattering direction.
 
-Applied here it converts **91.21 %** of the squared gradient norm from unmeasurable to
-measurable while D19 stays open.
+Applied here it converts **89.2106 %** of the squared gradient norm from unmeasurable to
+measurable while D19 stays open. (Measured on the 0.4.3 reference at pass 151; the 91.21 %
+this sentence used to carry was the 0.5.0 / 4,147 bundle that pass 91 disqualified.)
 
 **A16 — 2026-09-19, raised by `of3t-orchestrator` from `of3t-gradients`' stack-scope run, §3d
 and §3e gain a reporting requirement. No bar moves; what a FAILING number is allowed to mean
@@ -944,3 +945,60 @@ the opposite direction — the *positive* arm was made incapable of moving.
 (1.0 to 0.0137) the pair factor moves **0.03 %** and the single **0.2 %**, while they sit **18 %**
 and **11 %** from unity. **Gradient magnitude does not drive the block-47 factors.** The
 pass-141 reading stands; the pass-138 evidence for it was empty.
+---
+
+**A23 — 2026-09-20, raised by `of3t-orchestrator` (pass 151). A median over tensors is a
+statistic about the tensors that carry no mass. Every set statistic must be reported with the
+fraction of reference mass its set holds, and a mass-concentrated scope may not be headlined by
+a median-over-tensors.**
+
+Measured exhaustively on the 0.4.3 reference (4,170 tensors, model squared gradient norm
+10.279642678524985):
+
+| reaching | tensors | % by count |
+|---|---|---|
+| 50 % of the gradient's mass | **8** | 0.19 % |
+| 90 % | **52** | 1.25 % |
+| 99 % | 628 | 15.06 % |
+| 99.9 % | 1,814 | 43.50 % |
+
+The **median** tensor holds **1.305e-04 %** of the model's mass. The 2,085 tensors at or below
+the median — the half a median-over-tensors statistic is centred on — hold **0.05746 %** of the
+mass between them, one part in 1,740.
+
+**So the campaign's own 2.0e-02 median-over-tensors bar is a bar evaluated where the gradient
+is not.** That is not a reason to drop it: it is a good per-tensor safety net, it catches
+structural breakage, and it is scope-independent. It is a reason it cannot be the headline. A
+change that moves the median-over-tensors and leaves the heavy tensors alone has changed
+almost nothing about the gradient vector; a change that moves one of the top eight and leaves
+the median alone has changed half of it.
+
+**The rule.**
+
+1. Any statistic computed over a set of tensors is reported **with the fraction of the
+   reference's squared norm that set holds**. "median 7.11e-01 over 98 tensors" becomes
+   "median 7.11e-01 over 98 tensors holding 5.5589 % of the model".
+2. For any scope, the **headline** number is a mass-weighted one — `rel_l2` over the
+   concatenated set, or the mass-weighted share in agreement. The median-over-tensors is
+   reported **beside** it, never instead of it.
+3. When a scope's mass is concentrated in a few tensors, **name them and give their individual
+   results**. `aux_heads` is the extreme case: `aux_heads.distogram.linear.weight` is
+   **100.0000 %** of that section's mass and the other 243 tensors hold 0.000001 % of the model
+   between them. A median over those 244 is a median over 243 numbers that mean nothing.
+
+**And it exposes a gap in A14.** A14 excludes tensors with `ref_norm < 1e-12`. That removes 86
+tensors holding 1.1e-23 % of the mass — the exact zeros. It does **not** remove the 196 tensors
+with `ref_norm < 1e-6`, which hold 2.0e-10 % of the mass and are, for every purpose a parity
+claim has, also zero. A14's threshold was set to avoid dividing by zero. The threshold that
+matters is **mass**, not norm, and it is rule 1 above, not a larger epsilon: do not exclude
+them, **weight** them.
+
+**What this re-scores.** D49's `fp32_softmax=False` result was scored as "three blocks cross the
+median bar, 5 of 7 pass against 2". Those seven pairformer blocks hold roughly 0.5 % of the
+model's mass between them, and the statistic that moved was the median-over-tensors within each.
+The measurement stands exactly as taken; what it licenses is narrower than the phrasing
+suggested, and the lever's effect on the model's gradient as a vector is **unmeasured**. The same
+applies to every per-block §3d figure this campaign has produced.
+
+Record: `perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
+`perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`. Filed as D51.

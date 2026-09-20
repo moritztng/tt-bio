@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-two amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-three amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -217,10 +217,25 @@ Recomputed from the artifacts on every compose (150 checks, 0 drifted):
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **twenty-two amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **twenty-three amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
+- **Where OpenFold3's gradient actually is, exhaustively** (pass 151, D51). Every one of the
+  4,170 tensors of the 0.4.3 reference summed in float64: **84.6253 %** of the model's squared
+  gradient norm sits in **1-D tensors** — LayerNorm gains and biases — holding **0.0952 %** of
+  its parameters. **Half the mass is in eight tensors**, 90 % in fifty-two. The median tensor
+  holds **1.305e-04 %**, and the lighter half of the model holds **0.05746 %** between them.
+  Ten of the twelve heaviest tensors are LayerNorm vectors on the single track inside
+  `diffusion_module`. `aux_heads.distogram.linear.weight` is **100.0000 %** of its section's
+  mass, the other 243 tensors 0.000001 % of the model. Both artifacts sum to exactly 100.0 %
+  over all 4,170 tensors, which is the property that makes them a denominator rather than a
+  table.
+- **What the reference's finite-difference axis covers, in the right units** (pass 151). Eight
+  samples was reported by count and by section; by **mass** the set directly validates
+  **22.9369 %** of the model's squared gradient norm and includes the **#2 and #3 heaviest
+  tensors**. Its worst point, rel **5.088e-03**, falls on the #2 tensor — the reference's own
+  validation is loosest exactly at the mass peak, still ~10x inside the bar.
 
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
@@ -316,12 +331,35 @@ merely large.**
   types outside the path-complete set, crops beyond 384/640/768, anything about the EMA (we
   have none; it is off the update path but on the validation and checkpoint paths), and
   long-run hardware effects.
+- **It has not measured the thing that holds a third of the gradient, and it wrongly recorded
+  that as blocked** (D52). `diffusion_conditioning` is **36.9462 %** of the model over 26
+  tensors, four of which are **33.9354 %** over 1,985 scalars. For eleven passes the record
+  said this needed `device_gradient.py`'s boundary moved first. It did not: `sub_boundary.pt`
+  has carried `cond_out`, **`cond_out_cot`** and float64 reference gradients for all 26 since
+  01:43 on 2026-09-20. Row `of3t-conditioning` is dispatched this pass; **no result exists yet.**
+- **Its headline statistic has been measured where the gradient is not** (A23, D51). The
+  2.0e-02 median-over-tensors bar is evaluated on the half of the model holding one part in
+  1,740 of its mass. Every per-block §3d figure this campaign has produced — including D49's
+  `fp32_softmax=False` result, scored as "three blocks cross the median bar" over seven
+  pairformer blocks worth roughly 0.5 % of the model — is licensed more narrowly than its
+  phrasing suggested. The measurements stand as taken; the mass-weighted restatement of them
+  **has not been run**.
+- **DiT block 8 is 9.84053 % of the model — 1.69x the entire pairformer stack — and has never
+  had a block-scope arm.** The sixteen highest-mass blocks in the model are all DiT blocks.
+  Unowned.
 
 **The campaign has not reproduced OpenFold3 training and this document does not say it has.**
 
 GAP: the open defects are enumerated in `state/of3t/DEFECTS.md` and every UNFIXED one is
 named here by number, which the compose audit now checks mechanically so this field cannot
-drift again unnoticed.
+drift again unnoticed. **D51 (UNFIXED)**: the gradient's mass is concentrated — half of it in
+eight tensors, 84.6253 % in 1-D LayerNorm vectors holding 0.0952 % of the parameters — and
+the campaign has been allocating arms and scoring results by section name and by
+median-over-tensors, both of which are the wrong granularity; PROTOCOL A23 now binds every
+set statistic to the mass its set holds, and no existing figure has been restated under it
+yet. **D52 (FIXED this pass)**: `diffusion_conditioning`, 36.9462 % of the model, was
+recorded as blocked on a boundary move for eleven passes while the capture that unblocks it
+sat on qb2 — row `of3t-conditioning` dispatched, result pending.
 
 **D25: UPSTREAM REPLAYED AGAINST UPSTREAM ACROSS BOXES READS 6.224e-02 — AND IT IS NOT A FLOOR
 ON OUR ARMS.** `replay_vs_r0.json` compares a qb2-CPU r = 0 replay against the republished r = 0
@@ -600,8 +638,8 @@ and, per **D32**, the TT number must be taken **with the tape open**, since 21 s
 decline their fused path there. The existing 870.75 s already was taped, so it is D32-compliant;
 any successor must be too.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Eighteen concluded rows; fifty
-defects on the record, twenty-one of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Eighteen concluded rows, one newly
+dispatched; fifty-two defects on the record, twenty-two of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -713,7 +751,7 @@ than in the model. D18's fix is in flight and its own detector passes; **D20**'s
 closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
 open bounds, and **D21** as the live instrument defect on the device arm.
 
-A protocol whose bars were fixed before any number existed and **amended twenty-two times on the
+A protocol whose bars were fixed before any number existed and **amended twenty-three times on the
 record**, each amendment marked for whether a number already existed — including two written
 this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
 instrument whose completeness you can assert, and its addendum, that gating a gradient
@@ -754,7 +792,7 @@ that already exists, and each has a number to beat:
 **What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
 instruments** rather than in the model, including one near-miss in which the central claim
 would have passed with our trunk deleted. The bars were fixed before any number existed and
-amended twenty-two times on the record, each amendment marked for whether a number already
+amended twenty-three times on the record, each amendment marked for whether a number already
 existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
 on every compose. *A verification campaign that cannot catch itself is not a verification
 campaign*, and the record is the evidence that this one could.
@@ -5659,3 +5697,126 @@ outside the diffusion module combined (10.79 %) by a factor of 3.4.** The whole 
 Recorded as **D50**. Honest limit stated in the record: this is one batch at r = 0, and nothing
 here establishes the shares are stable across batches — it is the right denominator for
 comparisons against *this* reference, which is what every comparison in this campaign uses.
+
+---
+
+## Pass 151 — I measured the denominator, and it says the campaign has been aiming by name
+
+Pass 150 ended mid-triage: eight files carried gradient shares taken on the 0.5.0 / 4,147-tensor
+bundle that pass 91 disqualified, and a live row (`of3t-auxheads`) was executing a brief whose
+opening rationale those shares had inverted. The triage is done and it turned into something
+larger.
+
+**The triage rule I applied.** A file whose job is to be *quoted* gets the number corrected in
+place; a file whose job is to *record what I believed at pass N* keeps its number and gets a
+forward pointer. So `EVIDENCE.md` (the scoreboard), `PROTOCOL.md`, `DEFECTS.md`'s live-fact
+sentences and `state/of3t-diffusion.md`'s summary fields were edited in place — a labelled wrong
+number still gets quoted — while the pass logs in this document and `LEDGER.md` keep theirs.
+`EVIDENCE.md` now opens with a BASIS banner naming the one ordering the correction flipped, and
+its header no longer says "last updated pass 34", 117 passes ago.
+
+**Then I recomputed the shares exhaustively instead of trusting my own earlier table.** All
+4,170 tensors of `bundle_min_043/grads_f64_043.pt`, float64 sum-of-squares on qb2, no device
+opened, nice'd alongside the live row. The previous `SECTION_MASS_MEASURED.json` listed 14
+sections and silently dropped 4 tensors — 0.002 % of the mass, which is nothing, but a table
+that does not say it is partial reads as complete. Seventeen sections now, summing to exactly
+**100.0 %** over all 4,170.
+
+Corrected on the record: `diffusion_module` **91.21 → 89.2106 %** (761 tensors), pairformer
+block 0 **0.086 → 0.12631 %** and 53 → **57** tensors, the whole trunk **3.156 → 5.8282 %**,
+`aux_heads` **4.27 → 2.8431 %**.
+
+### What the exhaustive sum actually showed, which I was not looking for
+
+**84.6253 % of OpenFold3's squared gradient norm sits in 1-D tensors holding 0.0952 % of its
+parameters.** 350,588 scalars out of 368,296,732 carry five sixths of the gradient. Ten of the
+twelve heaviest tensors in the model are LayerNorm gains and biases on the **single (`s`)
+track** inside `diffusion_module`; only two matrices appear in the top twelve at all, the larger
+at 3.39 %. The heaviest single tensor in the model is a **384-entry vector**.
+
+Half the mass is in **eight tensors**. Ninety percent is in **fifty-two**. The median tensor
+holds **1.305e-04 %**, and the 2,085 tensors at or below the median hold **0.05746 %** between
+them — one part in 1,740.
+
+Per-entry rms says this is not only a dimension artifact: **5.272e-02** for the heaviest
+LayerNorm bias against **2.661e-03** for the heaviest matrix in the top twelve. The entries are
+individually ~20x larger *and* there are ~128x fewer of them, and both effects push the same
+way. Mechanically it is what a LayerNorm gain/bias gradient is — a sum over every token and every
+sample accumulated into a short vector — so it is expected, which is not the same as harmless.
+
+### Three consequences, and one of them is about my own bar
+
+**One — the campaign's headline statistic is evaluated where the gradient is not.** The
+2.0e-02 **median-over-tensors** bar is a bar on the half of the model holding one part in 1,740
+of its mass. It is a good per-tensor safety net and it cannot be the headline. Filed as
+**PROTOCOL A23**: every set statistic carries the fraction of reference mass its set holds; the
+headline for a scope is mass-weighted with the median beside it, never instead of it; where mass
+is concentrated, the heavy tensors are named individually. A23 also exposes a gap in A14 — its
+`ref_norm < 1e-12` cut removes 86 exact zeros holding 1.1e-23 % of the mass, and leaves the 196
+tensors under 1e-6 that hold 2.0e-10 % and are, for any purpose a parity claim has, also zero.
+The fix is to **weight** by mass, not to raise the epsilon.
+
+A23 re-scores work I published four passes ago. D49's `fp32_softmax=False` result was reported as
+"three blocks cross the median bar, 5 of 7 pass against 2", over seven pairformer blocks holding
+roughly 0.5 % of the model between them. The measurement stands exactly as taken. What it
+licenses is narrower than the sentence I wrote, and the lever's effect on the model's gradient
+as a vector is unmeasured.
+
+**Two — `aux_heads` is one tensor, and the live row needed to know before it reported.**
+Measured, not rounded: `aux_heads.distogram.linear.weight` is **100.0000 %** of that section's
+gradient mass and the other 243 tensors hold **0.000001 %** of the model between them. Their
+reference norms are far above A14's 1e-12 cut, so they would not be excluded — they would
+dominate any median the row took. Amendments 4 and 5 went to `of3t-auxheads` while it holds
+qb2-card0, telling it to headline the per-tensor result on the distogram weight with the
+244-tensor median beside it, labelled by the mass it covers. Amendment 5 also carries the good
+news: that tensor is one of the eight the reference's finite-difference axis validated directly,
+at rel **1.387e-05**, so any disagreement the row finds on it is unambiguously ours, with no "is
+the reference right" branch to rule out first. That is a firmer footing than any other section
+in this campaign has.
+
+**Three — the biggest thing on the record was never blocked.** `diffusion_conditioning` is
+**36.9462 %** of the model over 26 tensors, and **four** of those are **33.9354 %** over
+**1,985 scalars**, 0.000539 % of the model's parameters. For eleven passes I have written that
+this scope needs `device_gradient.py`'s walked boundary moved first — `of3t-rebase` called it a
+precondition and I repeated it in a brief, in this document, and in every pending-work list
+since. I read the keys of the capture this pass. `diffcap043/sub_boundary.pt`, written at
+**01:43 the same morning**, carries `cond_out` (si and zij), **`cond_out_cot` — the reference's
+cotangent at exactly that boundary** — and `grad_f64`, 761 float64 reference gradients including
+**all 26 `diffusion_conditioning.*`**. The reference side of the arm is complete. Only our side
+is missing, and that is a script.
+
+The sentence that misled me was true: `device_gradient.py:9` describes *the tool's* scope
+correctly. It is not a statement about what has been captured, and it went stale the moment a
+different row captured more. **When a scope is recorded as blocked, re-check the blocker against
+the artifacts on disk, not against the prose that first declared it.** Filed as **D52**.
+
+### Dispatched
+
+Row **`of3t-conditioning`** — `workstreams/of3t-conditioning.txt`, `TASKS.md` row, and an
+`_of3t_donecheck.py` entry so it cannot conclude ungated (the check correctly refuses it right
+now, for a missing state doc). A18's forward discriminator on si and zij **separately** before
+any gradient; then instrument A over the 26 reported under A23 — mass-weighted headline, the four
+heavy tensors each with rel **and** norm ratio **and** cosine, the measured zero-model baseline
+beside them. The brief carries the verified key list so the next row does not rediscover it, and
+it states that two of the four heavy tensors are already FD-validated (rel 5.088e-03 and
+1.501e-05), which is what makes a disagreement there unambiguously ours.
+
+Still unowned after this pass: **DiT block 8 at 9.84053 % of the model** — 1.69x the entire
+48-block pairformer stack, 9.2x pairformer block 47, and the sixteen highest-mass blocks in the
+model are all DiT blocks. And the mass-weighted restatement of every §3d figure the campaign has
+already produced, which A23 now requires and which no row owns.
+
+**One thing got better rather than worse.** The reference's finite-difference axis was reported
+by count (8 of 4,170) and by section (4 hit). By mass it directly validates **22.9369 %** of the
+gradient and includes the **#2 and #3 heaviest tensors in the model**. Count-based coverage of a
+mass-concentrated gradient is the wrong denominator in both directions — here it understated a
+good result, and on a uniform sample it would overstate a weak one. Recorded with its caveat: the
+set's **worst** point, rel **5.088e-03**, is on the **#2 heaviest tensor**, so the reference's own
+validation is loosest exactly at the mass peak. Still ~10x inside the 5.0e-02 bar, and the number
+to quote when leaning on that axis is 5.088e-03, not the 5.508e-05 median.
+
+Artifacts: `perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
+`perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`,
+`perf/of3t_orchestrator/SECTION_MASS_MEASURED.json` (now exhaustive),
+`perf/of3t_orchestrator/fd/REFERENCE_VALIDATED_FINAL.json` (mass coverage added).
+Defects **D51** and **D52**. Protocol **A23**.

@@ -521,10 +521,10 @@ Found by `of3t-gradients` (pass 59) after D14 closed and the memory explanation 
 
 **Instrument A at model scope is not blocked by L1, by memory, or by the reference.** A taped
 trunk cycle fits crop 384 on one p300c. The obstacle is that **tt-bio wires no OF3 training
-forward past the trunk**: the diffusion module (**91.21 %** of the reference's squared
-gradient norm) and `aux_heads` (**4.27 %**) are not on a taped path, so a model-scope gradient
-*has nothing to come from on our side*. Together that is **95.5 %** of the magnitude the claim
-is about.
+forward past the trunk**: the diffusion module (**89.2106 %** of the reference's squared
+gradient norm, 761 tensors) and `aux_heads` (**2.8431 %**) are not on a taped path, so a
+model-scope gradient *has nothing to come from on our side*. Together that is **92.05 %** of
+the magnitude the claim is about.
 
 **PASS 71 — CLOSED on coverage.** Strict forward **and** backward end to end:
 **2,456 of 2,457 = 100.0 %, 0 missing**, and **all 870 reachable device weights carry a
@@ -625,8 +625,8 @@ it is cheap.
 
 **The next runnable rung, named by the row**: the whole 48-block pairformer stack driven by a
 captured trunk-output cotangent — one CPU float64 replay to bank the boundary, then one ~870 s
-device run. That rung is **3.156 %** of the squared norm. It is a real advance on block 0's
-**0.086 %** and it is still not model scope. **It has since been run** — see the stack-scope
+device run. That rung is **5.8282 %** of the squared norm. It is a real advance on block 0's
+**0.12631 %** and it is still not model scope. **It has since been run** — see the stack-scope
 ceiling in EVIDENCE: 2,496 of 2,736 tensors, both arms above the zero model's 1.0.
 
 ---
@@ -673,7 +673,7 @@ That is not a caveat on a result, it is a statement that the measurement cannot 
 way at all. The row's response is the right one: because `diffusion_module` parameters appear
 nowhere else in the graph, the loss gradient with respect to them **is** the module-local
 function driven by the cotangent at its output — so capturing `(kwargs, xl_out, dL/dxl_out)`
-turns **91.21 %** of the squared norm into a **self-contained float64 reference with D19
+turns **89.2106 %** of the squared norm into a **self-contained float64 reference with D19
 entirely upstream of it**.
 
 **It has already halved once, which is evidence the dropout fix was real.** Against the
@@ -772,8 +772,8 @@ card IS the extension the amendment asked for; the module was out of scope only 
 could not be constructed.
 
 **What this puts a ceiling on.** Pairformer block 0 — the scope instrument A has actually run
-at — is 53 of 4,147 tensors holding **0.086 % of the squared norm** against the republished
-reference (0.20 % against the withdrawn one), and the **whole 48-block trunk is 3.156 %**. *No trunk-scope instrument can be a statement about the gradient's
+at — is 57 of 4,170 tensors holding **0.12631 % of the squared norm** against the 0.4.3
+reference, and the **whole 48-block trunk is 5.8282 %**. *No trunk-scope instrument can be a statement about the gradient's
 magnitude, whatever its per-tensor result.* That is now the governing scope note on every §3d
 number this campaign has produced.
 
@@ -2926,3 +2926,129 @@ campaign uses.
 
 Owner: closed as a brief defect (amended). The measured table is
 `perf/of3t_orchestrator/SECTION_MASS_MEASURED.json`.
+
+---
+
+### D51. The campaign has been allocating arms by section name while 84.6 % of the gradient's mass sits in 1-D LayerNorm vectors holding 0.095 % of the parameters — and the single heaviest thing in the model had never been named. FOUND by `of3t-orchestrator`, pass 151. Measured, exhaustive, **UNFIXED**.
+
+**What was measured.** Every one of the 4,170 tensors of the 0.4.3 reference
+(`bundle_min_043/grads_f64_043.pt`, model squared norm 10.279642678524985), summed in float64
+on the host, no device opened. The section table sums to **100.0 %** over all 4,170 tensors —
+the earlier `SECTION_MASS_MEASURED.json` listed 14 sections and silently dropped 4 holding
+0.002 %, which is negligible mass but a table that does not say it is partial reads as complete.
+Both are corrected.
+
+**The finding.**
+
+| cut | tensors | parameters | % of parameters | % of gradient mass |
+|---|---|---|---|---|
+| all 1-D tensors | 1,514 | 350,588 | **0.0952 %** | **84.6253 %** |
+| all `.bias` | 817 | 220,992 | 0.0600 % | 23.0692 % |
+| `layer_norm` name family | 1,509 | 29,467,644 | 8.0011 % | 85.3118 % |
+
+**Ten of the twelve heaviest tensors in the model are LayerNorm gain/bias vectors on the single
+(`s`) track inside `diffusion_module`.** Only two matrices appear in the top twelve at all, and
+the larger is 3.39 %. The heaviest single tensor in OpenFold3's gradient is a **384-entry
+vector**: `diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias`, **10.38237 %**.
+
+**Why this is a defect and not just a fact.** Every dispatch this campaign has made was argued
+from a *section* share — "diffusion is 89 %", "aux_heads is 2.8 %", "the trunk is 5.8 %". Those
+shares are correct and they are the wrong granularity to allocate on, because the mass inside a
+section is not spread across it. Two consequences already on the record:
+
+- **`diffusion_conditioning`, the largest open item, is four tensors.** The section is 36.9462 %
+  over 26 tensors; **four** of them are **33.9354 %** — 91.85 % of the section — over **1,985
+  scalars**, 0.000539 % of the model's parameters. The other 22 tensors are 3.0107 % of the
+  model between them. This item has been blocked for passes on moving `device_gradient.py`'s
+  walked boundary to cover the whole module. The dominant third of it is four short vectors.
+- **DiT block 8 is 9.84053 % of the model** — 1.69x the *entire* 48-block pairformer stack and
+  9.2x pairformer block 47, the block this campaign has investigated in the most depth. The
+  sixteen highest-mass blocks in the model are all DiT blocks. No block-scope arm has ever been
+  run on DiT block 8. `perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`.
+
+**A third consequence, in the other direction, which is good news.** The reference's
+finite-difference axis was reported by count (8 of 4,170) and by section (4 sections hit). By
+**mass** it directly validates **22.9369 %** of the gradient, and it happens to include the #2
+and #3 heaviest tensors in the model (9.29095 % and 8.80266 %). Count-based coverage of a
+mass-concentrated gradient is the wrong denominator in *both* directions — here it understated a
+good result; applied to a uniform sample it would overstate a weak one. Recorded in
+`fd/REFERENCE_VALIDATED_FINAL.json`, together with the caveat that the set's **worst** agreement,
+rel **5.088e-03**, falls on the **#2 heaviest tensor** — the reference's own validation is
+loosest exactly at the mass peak, still ~10x inside the 5.0e-02 bar.
+
+**Is the concentration an artifact of dimension?** Partly, not mostly. Per-entry rms is
+**5.272e-02** for the heaviest LayerNorm bias (384 entries) against **2.661e-03** for the
+heaviest matrix in the top twelve (49,152 entries): the entries are individually ~20x larger
+*and* there are ~128x fewer of them, and the two effects compound. Mechanically this is what a
+LayerNorm gain/bias gradient is — a sum over every token and every sample of the normalized
+activation, accumulated into a short vector — so it is expected, which is not the same as
+harmless.
+
+**And the denominator caveat that must travel with it.** The squared-norm share is the right
+denominator for *this campaign's* question, which is whether our gradient **is** their gradient
+as a vector, and it is what a global grad-norm clip sees. It is **not** the right denominator for
+the optimiser step: Adam divides each coordinate by its own second moment, which removes most of
+this concentration. A parity failure concentrated in these vectors would read loudly in a
+gradient-norm comparison and quietly in an Adam trajectory. Quote both.
+
+**What this does not establish.** Mass is not error. No arm has been run at this cut, so nothing
+here says the LayerNorm gradients are where our port is wrong. It says where a given amount of
+error costs most, and therefore which arm is worth building next. One batch (`batch_step003`,
+5nw3, 56 real tokens), one r = 0 step; the stability of these shares across batches is unmeasured.
+
+Owner: `of3t-orchestrator`. **UNFIXED** — this changes what should be dispatched next and no
+dispatch has been made on it yet. Artifacts:
+`perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
+`perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`,
+`perf/of3t_orchestrator/SECTION_MASS_MEASURED.json` (now exhaustive).
+
+---
+
+### D52. The campaign's largest open item has been recorded as blocked for eleven passes. It was unblocked at 01:43 the same day, by a capture one of my own rows made and nobody read the keys of. FOUND by `of3t-orchestrator`, pass 151. Now dispatched.
+
+**The claim on the record.** `diffusion_conditioning` — 36.9462 % of the model's squared
+gradient norm, the largest single unmeasured scope in the campaign — "needs the
+`device_gradient.py` boundary moved", which `of3t-rebase` called *a precondition, not a
+follow-up*. I repeated it in the state doc, in `of3t-auxheads`' amendment 3, and in the
+pending-work list of every pass since. `perf/of3t_diffusion/device_gradient.py:9` says it in
+the source: *"our module is their `diffusion_module` minus `diffusion_conditioning`, which on
+our side is a separate class that feeds it"*.
+
+**What is actually on qb2.** `/home/ttuser/of3t_rebase/diffcap043/sub_boundary.pt`,
+3,170,912,516 bytes, written **2026-09-20 01:43**. Its keys, read this pass:
+
+```
+cond_out       tuple: si (1, 48, 384, 384), zij (1, 1, 384, 384, 128)
+cond_out_cot   list : the REFERENCE's cotangent at exactly that boundary, same shapes
+grad_f64       dict : 761 float64 reference gradients, including all 26 diffusion_conditioning.*
+enc_in, dit_in, dit_out, dec_in, xl_out, cot
+```
+
+Inputs, the cotangent at the conditioning's output, and the float64 answer for all 26 tensors.
+**The reference side of the arm is complete.** What is missing is our side — run our conditioning
+class forward on `cond_out`'s inputs, backward on `cond_out_cot`, compare 26 tensors. That is a
+script, not a boundary move.
+
+**How it stayed hidden.** The capture was made to serve the *sub-module* bisection of the
+diffusion path, and it was described by its purpose rather than its contents. `cond_out_cot` was
+written because capturing a boundary means capturing both sides of it — it was a free by-product
+of the thing the row was asked for, and no one listed the file's keys afterwards. Everything
+downstream then quoted the scope sentence in `device_gradient.py`'s docstring, which was true
+when written and describes a *tool's* scope, not the *evidence's* availability. Eleven passes of
+"blocked on a precondition" rest on reading a tool's docstring as a statement about what data
+exists.
+
+**The lesson, which is not "read the docstring".** A scope sentence in a tool describes what the
+tool walks. It is not a statement about what has been captured, and it silently becomes stale the
+moment a different row captures more. **When a scope is recorded as blocked, the blocker is
+re-checked against the artifacts on disk, not against the prose that first declared it** — list
+the keys of the capture, do not quote the module that does not read them.
+
+**Cost.** Eleven passes during which the largest item on the record was described as needing work
+that had already been done, while smaller scopes were dispatched. Compounding D50 and D51: the
+campaign's allocation has been argued from prose about section sizes and prose about blockers,
+and both were checkable in minutes against files that were already present.
+
+Owner: `of3t-orchestrator`. **FIXED as of this pass** — row `of3t-conditioning` dispatched
+(`workstreams/of3t-conditioning.txt`, `TASKS.md`, `_of3t_donecheck.py` entry added), carrying the
+verified key list so the next row does not have to rediscover it.
