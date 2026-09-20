@@ -72,6 +72,17 @@ def main() -> int:
                         "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
                         "reaches all 24 DiT blocks and both atom transformers. What is left "
                         "after it is what the softmax cannot explain.")
+    p.add_argument("--softmax-lever", default="", dest="softmax_lever",
+                   choices=["", "precise", "accurate"],
+                   help="a SHIPPABLE softmax lever, unlike --softmax-f64 which is a host "
+                        "bound. `precise` adds precise_config() to the forward softmax call "
+                        "and leaves the shipped backward alone; `accurate` runs "
+                        "tenstorrent._accurate_softmax in the forward and adds "
+                        "precise_config() to the backward reduction. Both are of3t-adaln's "
+                        "block-8 rules verbatim, installed on the tape verb so they reach "
+                        "all 24 DiT blocks and both atom transformers. Mutually exclusive "
+                        "with --softmax-f64; the intercept count is published and a zero is "
+                        "a hard failure.")
     p.add_argument("--host-f64", default="", dest="host_f64",
                    help="comma-separated tape verbs to compute, forward and backward, on the "
                         "host in float64 -- the same BOUND the softmax got, generalised. "
@@ -261,6 +272,63 @@ def main() -> int:
         TT._SHIM.__dict__.pop("softmax", None)
         print(f"[{time.perf_counter()-t0:.0f}s] float64 softmax bound installed on the tape verb",
               flush=True)
+
+    # The two levers that could actually ship. of3t-adaln scored these on ONE block; at scope
+    # they have never been scored at all, and one block is not the arm. Same counter, same
+    # zero-count hard failure: a lever that fires nothing is the shipped arm under another
+    # name, which is exactly how the first sandwich arm reported two identical columns.
+    if a.softmax_lever:
+        if a.softmax_f64:
+            print("FAILED: --softmax-lever and --softmax-f64 are mutually exclusive; one is a "
+                  "shippable lever and the other is a host bound", flush=True)
+            return 2
+        from tt_bio import taped_ttnn as TT
+        from tt_bio.autograd import precise_config
+        from tt_bio.tenstorrent import _accurate_softmax
+        shipped_softmax_rule = TT._VERBS["softmax"]
+
+        def precise_forward_rule(shipped, args, kwargs):
+            """of3t-adaln's `precise_forward_rule`: the shipped tape rule with
+            precise_config() on the FORWARD softmax call, backward untouched."""
+            softmax_calls[0] += 1
+            kwargs = dict(kwargs)
+            kwargs.setdefault("compute_kernel_config", precise_config())
+            return shipped_softmax_rule(shipped, args, kwargs)
+
+        def accurate_forward_rule(shipped, args, kwargs):
+            """of3t-adaln's `accurate_forward_rule`: _accurate_softmax in the forward, the
+            shipped backward with precise_config() on its reduction."""
+            softmax_calls[0] += 1
+            x = TT._wrap(args[0])
+            dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+            # `_accurate_softmax` reduces over the last axis only. A call on any other axis
+            # would silently become a MIXED arm, so it throws rather than reporting.
+            nd = len(x.value.shape)
+            if dim not in (-1, nd - 1):
+                raise AssertionError(
+                    f"--softmax-lever accurate got dim={dim} on a rank-{nd} tensor; "
+                    f"_accurate_softmax only reduces the last axis")
+            y0 = _accurate_softmax(x.value, compute_kernel_config=precise_config())
+            box = [y0]
+
+            def make():
+                def bw(g):
+                    y = box[0]
+                    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True,
+                                     compute_kernel_config=precise_config())
+                    x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+                return bw
+
+            out = TT._tape(y0, [x], make)
+            if out.node is not None:
+                out.box = box
+            return out
+
+        TT._VERBS["softmax"] = {"precise": precise_forward_rule,
+                                "accurate": accurate_forward_rule}[a.softmax_lever]
+        TT._SHIM.__dict__.pop("softmax", None)
+        print(f"[{time.perf_counter()-t0:.0f}s] softmax lever '{a.softmax_lever}' installed on "
+              f"the tape verb", flush=True)
 
     # The same bound on the other verbs, in this row's own namespace so the shared instrument
     # keeps one hook rather than six rules.
@@ -544,6 +612,7 @@ def main() -> int:
                                      if len(shape_by_name[nm]) == 2
                                      and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
+           "softmax_lever": a.softmax_lever or None,
            "softmax_calls_intercepted": softmax_calls[0],
            "host_f64_verbs": hf64_verbs or None,
            "host_f64_calls_intercepted": (
@@ -591,9 +660,9 @@ def main() -> int:
             print(f"FAILED: --host-f64 intercepted 0 calls for {zero}, so those verbs are the "
                   f"shipped ones under another name", flush=True)
             return 3
-    if a.softmax_f64 and softmax_calls[0] == 0:
-        print("FAILED: --softmax-f64 intercepted 0 softmax calls, so this arm is the shipped "
-              "arm under another name", flush=True)
+    if (a.softmax_f64 or a.softmax_lever) and softmax_calls[0] == 0:
+        print(f"FAILED: {'--softmax-f64' if a.softmax_f64 else '--softmax-lever'} intercepted "
+              f"0 softmax calls, so this arm is the shipped arm under another name", flush=True)
         return 3
     return 1 if err is not None else 0
 
