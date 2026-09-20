@@ -12,10 +12,15 @@ memories read: `qb2-aiclk-governor-sets-fold-time-not-cotenancy`,
 Branch `wk/allm-audit`, worktree `/home/ttuser/.coworker/wt/allm-audit` on qb2.
 Arms folded on **qb2 card 1**, artifacts `perf/allm_audit/` and `/home/ttuser/allm_audit/` (mine alone).
 
-VERDICT: PARTIAL — one of five ratios measured (ESMFold2 **1.0385x**, and bit-identical across
-the window), the instrument and all five old trees verified and in place, the scope settled against
-the page's own source. The remaining four pairs are folding. This row is still working; it is not
-concluded and no `DONE_CHECK` should be read as saying otherwise.
+VERDICT: PARTIAL — **three of five ratios measured**: ESMFold2 **1.0385x** (bit-identical
+across the window), OpenFold3 **1.1311x**, OpenDDE **1.0319x**. BoltzGen has its old arm at
+46.352 s/design and RFdiffusion3 has neither arm yet; both are queued on the card behind a
+host-wide benchlock that `land-standing` held for 19 minutes straight. All six trees are verified
+against their commits file by file, the scope is settled against the page's own source, and the
+design arms are wired to card 1 and to the published cell's own batch. **Not one of the three
+measured ratios is near Boltz-2's 1.5006x**, and the largest of them, OpenFold3, is a model
+inside the shared pairformer core. This row is still working; it is not concluded and no
+`DONE_CHECK` should be read as saying otherwise.
 
 **A gate hole to hand to `allm-orchestrator`, found by running the check against this document:**
 `_allm_donecheck.py`'s `ratios` check counts `\d\.\d+x` inside the `RATIOS:` section and needs
@@ -76,8 +81,10 @@ the box. qb1 was checked as an alternative and is worse: loadavg 18.97, three of
 `pvx-didittransfer`'s, so all three rows time the same region with the same code.
 
 **Provenance is checked against git, not assumed.** Each old tree is `git archive` of its published
-commit, and `tt_bio/tenstorrent.py` and `scripts/gpu_vs_tt/tt_baseline.py` were md5'd on disk
-against `git show <commit>:<path>`, **ten of ten OK**. The new arm is `origin/main` pinned at
+commit, and every `.py` under `tt_bio/` in all six trees was re-hashed on disk with
+`git hash-object` against `git ls-tree -r <commit>`: **1693 files, one differing**, and that one is
+the ESMFold2 hub-revision line documented under UNBUILDABLE. So the only edit anywhere in any arm
+is the edit this document describes. The new arm is `origin/main` pinned at
 `47810889f` (2026-09-21), extracted the same way, so "today" is one commit for every model rather
 than whatever main happened to be that hour.
 
@@ -157,16 +164,16 @@ instrument: Boltz-2 **1.5006x**, Protenix-v2 **1.0525x**.
 | model | old | new | ratio | A/A floors | digest old -> new |
 |---|---|---:|---:|---|---|
 | ESMFold2 | **28.580 s** | **27.520 s** | **1.0385x** | 0.41 % / 0.09 % | `608ce8c40a2c4e33` -> `608ce8c40a2c4e33` |
-| OpenDDE | folding | — | — | — | — |
+| OpenDDE | **81.508 s** | **78.990 s** | **1.0319x** | 0.03 % / 0.11 % | `6623f39115836675` -> `ad0e34ae7f12a61a` |
 | OpenFold3 | **38.425 s** | **33.970 s** | **1.1311x** | 0.17 % / 0.08 % | `6ee6ac7a3e730688` -> `9171421df49ef336` |
-| BoltzGen | — | — | — | — | — |
+| BoltzGen | **46.352 s/design** | folding | — | 1.51 % / — | n/a, design |
 | RFdiffusion3 | — | — | — | — | — |
 
 **ESMFold2: 1.0385x. It did not receive the window.** Over the 33 days in which Boltz-2's fold
 fell 1.5006x, ESMFold2's fell 3.85 %, from 28.580 s at `e65b66be` to 27.520 s at `47810889f`. Both
 arms n=3 warm after a discarded cold fold, same card, same instrument, **AICLK 1350.0 mean AND
 1350 minimum on every timed fold of both arms, zero re-asserts**. A/A floors 0.116 s (0.41 %) and
-0.024 s (0.09 %); the effect is 1.060 s, **9.4x the larger of the two floors**, so it is a
+0.024 s (0.09 %); the effect is 1.060 s, **9.1x the larger of the two floors**, so it is a
 measurement rather than a spread, and it is nowhere near 1.5x.
 
 **The window did not change one bit of ESMFold2's arithmetic.** Both arms return CIF digest
@@ -179,10 +186,26 @@ The old arm carried one co-tenanted fold of three (`cotenanted_folds: 1`), which
 against that session's 28.479 and 28.580 — inside its own A/A spread, so it is recorded rather
 than corrected for. The new arm's session was clean on all four folds.
 
+**OpenDDE: 1.0319x, the smallest of the three folds, and its output moved.** 81.508 s at
+`b4feba14` to 78.990 s at `47810889f`, both sessions clean on every fold, A/A floors 0.025 s
+(0.03 %) and 0.088 s (0.11 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
+2.518 s, 28.6x the larger floor, so it is real and it is small: 3.1 % over the same 33 days in
+which Boltz-2 fell 1.5006x. OpenDDE is the model that delegates to the whole Protenix-v2 graph,
+and it lands within 0.6 % of Protenix-v2's own 1.0525x.
+
+**One thing in that pair is worth someone else's attention: the fold output changed.** Digest
+`6623f39115836675` -> `ad0e34ae7f12a61a` and plDDT **0.75411 -> 0.717514**, a drop of 0.037 on a
+metric whose scale is 0 to 1. Both arms load the same checkpoint -- the old arm's shim pinned
+`aurekaresearch/OpenDDE` at `02c1835848` and counted it (`hf_pins_fired: {"aurekaresearch/OpenDDE":
+1}`), the new tree passes that same revision itself, so `hf_pins_fired` is empty there by
+construction -- which means the move is in the tree, not in the weights. This row measures
+seconds and does not judge accuracy, so it is recorded here and handed on rather than assessed:
+the plDDT delta is 50x ESMFold2's zero and 27x OpenFold3's 0.00137 on the same window.
+
 **OpenFold3: 1.1311x, and it is the first model here whose arithmetic the window changed.**
 38.425 s at `973ae49f` to 33.970 s at `47810889f`. Both sessions clean on every fold, A/A floors
 0.067 s (0.17 %) and 0.028 s (0.08 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
-4.455 s, **66x the larger floor**. The old arm again lands on the published cell's own output:
+4.455 s, **66.5x the larger floor**. The old arm again lands on the published cell's own output:
 plDDT **0.547851** against the cell's 0.547851, with the seconds 0.45 % apart (38.425 against
 38.254).
 
@@ -197,6 +220,15 @@ One thing to hand over with it, from SCOPE above: OpenFold3 is the one model her
 large term inside the cell, **1.839 s of the published 38.254 s, 4.8 %**. At 1.1311x that term is
 big enough to matter to an attribution and it has not been re-measured here — this row times the
 region, it does not split it.
+
+**BoltzGen old arm, `59474b45`: 46.352 s/design.** Median of four warm designs, 45.898 /
+46.271 / 46.434 / 46.595 s, spread 1.51 %, after dropping the cold design and the one that pays
+the checkpoint switch, which the harness detects from the "Switched checkpoint." line rather than
+by picking the slowest. 500 sampling steps resolved from the shipped `design.yaml` and asserted
+501 stamps per design, six designs written and validated, batch 1. AICLK 1350.0 mean, 1350
+minimum, 1265 samples, **zero re-asserts**. It sits 2.3 % above the published 45.289 s cell,
+which is a different day and a different box mood on the same board class, and the cell is not
+used as an arm.
 
 No ratio is written here until both its arms exist with an A/A floor beside them, because an
 op-level win is a screen and four such levers reached the fold at 25x-to-infinite error with two
@@ -222,6 +254,28 @@ point, so `perf/allm_audit/pinned_run.py` supplies the missing part and nothing 
 FORCE_AICLK on the node the child uses, keeps it there with the same watchdog, and samples every
 chip at 4 Hz while the child runs. `Clock` and `Sampler` are **imported from `cell.py`**, so the
 design arms and the fold arms are pinned and sampled by the same code.
+
+**Which RFdiffusion3 arm, decided from the published cell rather than from the harness default.**
+`rfd3_page.py` offers two arms and they are different units: `ceiling` asks for eight designs at
+batch 8, which the runtime clamps to chunks of two at this target size, and `b1` runs batch 1. The
+p150a cell the commit was published from is **batch 1, 200 timesteps, median of three warm
+designs**, so `b1` is the arm both of my RFdiffusion3 arms run. The ceiling arm is not run here at
+all: mixing the two would be exactly the conversion
+`design-row-throughput-denies-gpu-its-batch` warns about. BoltzGen runs the harness as published,
+six designs leaving four warm after the cold one and the one that pays the checkpoint switch.
+
+**Both design harnesses took their card from a hardcoded `TT_VISIBLE_DEVICES=0` and wrote to one
+fixed results path.** This row is granted card 1 and needs two arms of each model in separate
+files, so both now read the card from the environment and the output path from `ALLM_OUT`, and
+the harness file is byte-identical in both trees of a pair (md5 `d82ef373574a6a92753df0d35c87d8df`
+for `bg_page.py`, `d24413b00bcc825508db2a96cb52b071` for `rfd3_page.py`). The card is not
+bookkeeping: the lease refuses a wrong-card open, and it refuses an unpinned one because a process
+that can see four chips brings up all four.
+
+**Both old trees answer the harness's calls.** `design --help` on `59474b45` carries every flag
+`bg_page.py` passes, and `run_design` at `6f85ecfe` takes the same fifteen parameters as on main,
+`batch_size` and `num_timesteps` among them. Checked before queueing rather than at the head of a
+benchlock queue.
 
 **RFdiffusion3's 91.443 s is a retired figure and this row does not treat it as live.** The page
 has since re-measured that cell at **92.472 s** on card 1 and says of the older number that it "was
