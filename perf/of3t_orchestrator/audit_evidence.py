@@ -15,11 +15,37 @@ CPU only, no card, no network. Run from a `wk/of3t` checkout.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# --- refuse to run outside the composed tree -------------------------------
+# This audit recomputes EVIDENCE.md against artifacts contributed by ~30 rows.
+# Run from a single row's worktree it finds most of them absent and reports
+# them as DRIFT -- at pass 182 that was 24 of 25 "drifts", all false, and the
+# real one was buried among them. A wrong-tree run must be a REFUSAL (exit 2),
+# never a drift report, because a drift report is indistinguishable from
+# artifacts having actually gone missing. compose_verify.sh:97 checks the
+# composition out as branch `wk/of3t`; that is the only tree this can score.
+if os.environ.get("OF3T_AUDIT_TREE_OK") != "1":
+    _br = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--abbrev-ref", "HEAD"],
+                         capture_output=True, text=True).stdout.strip()
+    if _br != "wk/of3t":
+        sys.stderr.write(
+            f"REFUSING: this audit scores the COMPOSED tree, but HEAD here is {_br!r}, "
+            f"not 'wk/of3t'.\n"
+            f"  {ROOT}\n"
+            "Most rows' artifacts are absent in a single row's worktree, so every check that\n"
+            "reads one would report a false DRIFT. Run it via perf/of3t_orchestrator/"
+            "compose_verify.sh,\nor against the composed worktree it builds. Set "
+            "OF3T_AUDIT_TREE_OK=1 only if you have\nverified the artifacts are present by "
+            "some other route.\n")
+        sys.exit(2)
+# ---------------------------------------------------------------------------
 
 
 _FELL_BACK: set = set()
