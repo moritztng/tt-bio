@@ -53,4 +53,37 @@ odd_new() { run "$NEW"             "odd_new_$1"  opendde   "${2:-3}"; }
 of3_old() { run "$T/old_openfold3" "of3_old_$1"  openfold3 "${2:-3}"; }
 of3_new() { run "$NEW"             "of3_new_$1"  openfold3 "${2:-3}"; }
 
+# --- design arms ----------------------------------------------------------------------------
+# A design is not a fold and cell.py cannot drive one, so the two design models reuse the
+# harnesses their published cells were taken with (bg_page.py, rfd3_page.py, recovered from
+# a4823118e). Those harnesses do not pin a clock, so pinned_run.py wraps them: the same Clock and
+# the same Sampler as cell.py, imported rather than restated, so every arm of this row is pinned
+# and DURING-sampled by one piece of code. The harness is copied identically into both trees, so
+# an arm pair differs in the tree and in nothing else. s/design stays s/design.
+drun() {  # drun <tree> <tag> <harness> [args...]
+  local tree=$1 tag=$2 harness=$3; shift 3
+  if [ -s "$OUT/$tag.jsonl" ]; then
+    echo "=== $(date -u +%H:%M:%SZ) $tag already measured, skipping ==="; return 0
+  fi
+  echo "=== $(date -u +%H:%M:%SZ) $tag tree=$tree harness=$harness args=$* ==="
+  rm -rf "/tmp/allm_$tag"*
+  ( cd "$tree" && BENCHLOCK_WAIT_S=1800 BENCHLOCK_LOAD_WAIT_S=600 "$BL" allm-audit -- \
+      env TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:allm-audit \
+          ${TT_MESH_GRAPH_DESC_PATH:+TT_MESH_GRAPH_DESC_PATH=$TT_MESH_GRAPH_DESC_PATH} \
+          ALLM_OUT="$OUT/$tag.jsonl" ALLM_DESIGN_DIR="/tmp/allm_$tag" \
+          ALLM_HF_REV_ESMFOLD2="$ALLM_HF_REV_ESMFOLD2" PYTHONPATH="$tree" \
+      "$PY" -u "$tree/perf/allm_audit/pinned_run.py" --node 1 --clock 1350 \
+        --out "$OUT/${tag}_clk.json" -- \
+        "$PY" -u "$tree/perf/allm_audit/$harness" "$@" )
+  echo "RC=$? $tag"
+}
+
+# BoltzGen: the shipped design CLI, 500 steps asserted not passed, batch 1, 6 designs leaving 4
+# warm, which is the published cell own n. RFdiffusion3: the b1 arm, batch 1 and 200 timesteps,
+# which is what the published cell is; the ceiling arm is a different unit and is not run here.
+bg_old()   { drun "$T/old_boltzgen"      "bg_old_$1"   bg_page.py; }
+bg_new()   { drun "$NEW"                 "bg_new_$1"   bg_page.py; }
+rfd3_old() { drun "$T/old_rfdiffusion3"  "rfd3_old_$1" rfd3_page.py b1; }
+rfd3_new() { drun "$NEW"                 "rfd3_new_$1" rfd3_page.py b1; }
+
 "$@"

@@ -31,7 +31,7 @@ import time
 import gemmi
 
 FIXTURE = "perf/dsfix/fixtures/bg_R3.yaml"
-OUT = pathlib.Path("perf/dspage/results/bg_page.jsonl")
+OUT = pathlib.Path(os.environ.get("ALLM_OUT", "perf/dspage/results/bg_page.jsonl"))
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 N_DESIGNS = 6
 EXP_STEPS = 500                  # the shipped design.yaml default, asserted not passed
@@ -39,16 +39,16 @@ EXP_STAMPS = EXP_STEPS + 1       # the progress line prints k=0 as well as 1..50
 EXP_CHAINS = {100, 414}          # 100 designed binder + 414 target residues
 BATCH = re.compile(r"batch (\d+)/(\d+)")
 DIFF = re.compile(r"diff (\d+)/(\d+)")
-HOST, CARD, TTNN = "qb2", 0, "0.68.0"
+HOST, CARD, TTNN = "qb2", os.environ.get("TT_VISIBLE_DEVICES", "0"), "0.68.0"
 
 
 def run(out_dir):
     cmd = [PY, "-u", "-m", "tt_bio.main", "design", FIXTURE,
            "--model", "boltzgen", "--steps", "design",
            "--num_designs", str(N_DESIGNS), "--out_dir", out_dir, "--debug", "--log"]
-    env = dict(os.environ, TT_VISIBLE_DEVICES="0",
-               TT_BIO_LEASE_HOLDER="worker:perf-page-design-models",
-               PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
+    # The card comes from the caller, not from this file: this row is granted qb2 card 1 and an
+    # unpinned open would bring up every chip in the box.
+    env = dict(os.environ, PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
     t0 = time.time()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          text=True, bufsize=1, env=env)
@@ -99,7 +99,7 @@ def main():
     if OUT.exists() and OUT.read_text().strip():
         print("[bg] already measured, %s" % OUT, flush=True)
         return
-    out_dir = "/tmp/bg_page"
+    out_dir = os.environ.get("ALLM_DESIGN_DIR", "/tmp/bg_page")
     os.system("rm -rf %s" % out_dir)
     stamps, steps, diff_t, switched, wall, rc, tail = run(out_dir)
     if rc != 0 or len(stamps) < N_DESIGNS + 1:

@@ -40,14 +40,14 @@ from tt_bio.rfd3.sampler import RFD3Sampler              # noqa: E402
 
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
-OUT = pathlib.Path("perf/dspage/results/rfd3_page.jsonl")
+OUT = pathlib.Path(os.environ.get("ALLM_OUT", "perf/dspage/results/rfd3_page.jsonl"))
 STEPS = 200                    # upstream production default, what the GPU arm ran
 SEED = 42                      # the CLI default
 EXP_ATOMS = 6051               # featurised L at R4, MEASURED in the fixture ladder
 EXP_RES = 685                  # 585 target + 100 designed binder
 ARMS = {"ceiling": (8, 8), "b1": (4, 1)}
 
-HOST, CARD, TTNN = "qb2", 0, "0.68.0"
+HOST, CARD, TTNN = "qb2", os.environ.get("TT_VISIBLE_DEVICES", "0"), "0.68.0"
 
 # Every sampler.sample call, as (wall seconds, designs in that forward).
 WALLS: list[tuple[float, int]] = []
@@ -105,7 +105,7 @@ def main():
             print("[rfd3] %s cached" % arm, flush=True)
             continue
         nd, bs = ARMS[arm]
-        out_dir = "/tmp/rfd3_page_%s" % arm
+        out_dir = os.environ.get("ALLM_DESIGN_DIR", "/tmp/rfd3_page") + "_" + arm
         os.system("rm -rf %s" % out_dir)
         WALLS.clear()
         t0 = time.perf_counter()
