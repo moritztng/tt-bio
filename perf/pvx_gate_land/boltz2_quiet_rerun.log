@@ -1,0 +1,20 @@
+[2026-09-20T11:12:59Z] boltz2 quiet re-run, tree 8bede8dfd, loadavg 1.33
+benchlock: pvx-gate-land acquired after 2s, loadavg 1.33 3.42 4.77
+[release-gate] granted card(s) [2]
+[release-gate] scoring tt_bio from /home/ttuser/pvx_gateland_wt/tt_bio (commit 8bede8dfd)
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+boltz2              4.1s    11.0s    19.0s        -        -        -          -          -     658s  FAIL (rung 768 rep 0: census fold exited -9: 11:15:53  [tt-quietbox2:tt2]   trunk 0/4 / 11:15:59  [tt-quietbox2:tt2]   trunk 1/4 / 11:16:04  [tt-quietbox2:tt2]   trunk 2/4)
+    FAIL rung 768 rep 0: census fold exited -9: 11:15:53  [tt-quietbox2:tt2]   trunk 0/4 / 11:15:59  [tt-quietbox2:tt2]   trunk 1/4 / 11:16:04  [tt-quietbox2:tt2]   trunk 2/4
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
+benchlock: pvx-gate-land released, rc=1, loadavg 1.04 1.49 3.05
+[2026-09-20T11:24:01Z] rc=1 loadavg 1.04
