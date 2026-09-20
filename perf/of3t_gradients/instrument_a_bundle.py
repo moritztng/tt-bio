@@ -391,7 +391,28 @@ def main() -> int:
             s_out, z_out = mod(sa, za, ft(pm), ft(attn), ft(attn))
         s_ours = ttnn.to_torch(s_out.value).to(torch.float64)
         z_ours = ttnn.to_torch(z_out.value).to(torch.float64)
-        ag.backward([s_out, z_out], [ft(cot_s), ft(cot_z)])
+        # D37 discriminator. `probe.cot_*_norm` records the REFERENCE's cotangent norms at this
+        # boundary; these are OURS, after the float64 -> float32 -> bf16 cast the harness does on
+        # the way to the device. A per-track constant in the gradients is exactly what a
+        # per-track-scaled cotangent would produce, so the ratio is recorded rather than assumed
+        # to be 1. (The stored cotangent is separately known good: `capture_vs_bundle` has the
+        # reference recomputing this block's parameter gradients FROM THIS CAPTURE and matching
+        # the bundle at worst 0.000e+00 on all 57 tensors, at blocks 0, 23 and 47 alike.)
+        d_cot_s, d_cot_z = ft(cot_s), ft(cot_z)
+        _ns = float(torch.linalg.vector_norm(ttnn.to_torch(d_cot_s).to(torch.float64)))
+        _nz = float(torch.linalg.vector_norm(ttnn.to_torch(d_cot_z).to(torch.float64)))
+        rep["cotangent_on_device"] = {
+            "reference_cot_s_norm": float(cot_s.norm()), "device_cot_s_norm": _ns,
+            "reference_cot_z_norm": float(cot_z.norm()), "device_cot_z_norm": _nz,
+            "ratio_s": _ns / (float(cot_s.norm()) or 1.0),
+            "ratio_z": _nz / (float(cot_z.norm()) or 1.0),
+            "note": "s is the single track, z the pair track. A ratio away from 1 here would "
+                    "mean the harness rescales a track on the way to the device.",
+        }
+        print(f"[{time.perf_counter()-t0:.0f}s] D37 cotangent on device: "
+              f"s {rep['cotangent_on_device']['ratio_s']:.6f}  "
+              f"z {rep['cotangent_on_device']['ratio_z']:.6f}", flush=True)
+        ag.backward([s_out, z_out], [d_cot_s, d_cot_z])
     except Exception as e:
         import traceback
         traceback.print_exc()
