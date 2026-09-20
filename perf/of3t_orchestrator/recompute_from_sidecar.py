@@ -51,6 +51,34 @@ def mass_weighted(rows: list[dict]) -> tuple[float, int, float]:
     return math.sqrt(num / den), len(rows), sum(r.get("pct_of_model_mass", 0.0) for r in rows)
 
 
+SQRT2 = math.sqrt(2.0)
+
+
+def transpose_signature(rows: list[dict], rel_tol: float = 0.05,
+                        cos_tol: float = 0.05) -> list[dict]:
+    """Tensors whose gradient was scored against its own TRANSPOSE.
+
+    A transpose is norm-preserving and decorrelating, so dW against dW-transpose reads
+    rel_l2 = sqrt(2) with cos = 0 -- independent of dtype, and no precision lever touches it.
+    That fingerprint has now caught the same defect class twice in this campaign: D59 (48
+    contaminated entries of the per-tensor array) and D86 (a shape test that cannot fire on a
+    SQUARE weight, so 87 of 547 tensors were scored against their own transposes and became
+    56.22 % of the bounded arm's squared error on 0.2035 % of its mass).
+
+    It is cheap, needs only a per-tensor array, and belongs in every result file's own validation
+    rather than in an orchestrator's retrospective -- which is why it lives here beside the
+    recomputation.
+    """
+    out = []
+    for r in rows:
+        rel, cos = r.get("rel_l2"), r.get("cos")
+        if not isinstance(rel, (int, float)) or not isinstance(cos, (int, float)):
+            continue
+        if abs(rel - SQRT2) < rel_tol and abs(cos) < cos_tol:
+            out.append(r)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("sidecar")
@@ -72,6 +100,37 @@ def main() -> int:
     v, n, m = mass_weighted(rows)
     got["ALL"] = v
     print(f"{'ALL (the whole sidecar)':46s} {n:5d} {m:9.4f} {v:21.6e}")
+
+    rel_tol_used, cos_tol_used = 0.05, 0.05
+    sq = transpose_signature(rows, rel_tol_used, cos_tol_used)
+    if sq:
+        tot = sum(r["diff_norm"] ** 2 for r in rows)
+        em = sum(r["diff_norm"] ** 2 for r in sq) / tot * 100 if tot else 0.0
+        mm = sum(r["ref_norm"] ** 2 for r in rows)
+        ms = sum(r["ref_norm"] ** 2 for r in sq) / mm * 100 if mm else 0.0
+        print(f"\nTRANSPOSE SIGNATURE: {len(sq)} of {len(rows)} tensors read rel_l2 ~ sqrt(2) "
+              f"with cos ~ 0 -- {em:.2f} % of the squared error on {ms:.4f} % of the mass.")
+        print("  That is a gradient scored against its own transpose (D59, D86), not a precision "
+              "problem: a transpose is norm-preserving and decorrelating, so no lever moves it.")
+        print(f"  Read the {em:.2f} % as a share of THIS arm's error, and do not read a small one "
+              f"as harmless: on the")
+        print("  shipped diffusion arm these tensors are ~0.01 % of the squared error because the "
+              "softmax swamps")
+        print("  them, and 56.22 % of it once the softmax bound removes that. A contaminant's "
+              "share grows as the")
+        print("  dominant error is fixed, so it is exactly the arms you have improved that this "
+              "check matters on.")
+        print(f"  The count is a LOWER BOUND at this tolerance (|rel-sqrt2|<{rel_tol_used}, "
+              f"|cos|<{cos_tol_used}): of3t-residual")
+        print("  identified 87 square tensors in this arm by construction, where the fingerprint "
+              "catches those whose")
+        print("  rel sits close enough to sqrt(2); widen the tolerances to sweep, and check "
+              "squareness in the source.")
+        for r in sorted(sq, key=lambda r: -r["diff_norm"] ** 2)[:5]:
+            print(f"    {str(r.get('param'))[-64:]:66s} rel {r['rel_l2']:.4f} cos {r['cos']:+.4f}")
+    else:
+        print(f"\nno transpose signature: 0 of {len(rows)} tensors read rel_l2 ~ sqrt(2) with "
+              f"cos ~ 0")
 
     bad = []
     for spec in a.expect:
