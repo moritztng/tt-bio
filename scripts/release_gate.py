@@ -793,7 +793,14 @@ SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 SIZE_LADDER_EXP_MAX_TOL = 1.40
 # Transient fold/census scratch; deleted after the run unless --keep. Lives under
 # perf/sizegate, never the repo root (the 08-13 run_*.sh lesson).
-SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
+#
+# Overridable because the delete is of the WHOLE directory and the path used to be a
+# constant. Recording several models at once on several cards of one box -- which is the only
+# way a nine-model ladder finishes in an afternoon -- then had the first model to finish
+# rmtree the scratch out from under the two still folding, including the census json a
+# running pass is about to read. Give each card its own.
+SIZE_LADDER_WORKDIR = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR")
+                                   or REPO_ROOT / "perf" / "sizegate" / "work")
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
