@@ -5,6 +5,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **Triangle attention now picks a wider SDPA key chunk, and at twenty padded lengths that changes
+  the bytes you get back.** `TT_BIO_SDPA_WIDE_K` is on by default. The fused kernel refuses any key
+  chunk that does not divide the padded sequence, so at those lengths it used to decline every call
+  and fall back to the stock op; it now takes the widest dividing chunk instead. Protenix-v2's trunk
+  stage goes from 120.0 s to 106.3 s at 686 tokens (1.1285x, all 1208 calls served, none falling
+  back) on one Blackhole processor of a p300c, and the op is 1.27x-4.39x wherever it fires. The
+  affected padded lengths are 288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088,
+  1184, 1216, 1248, 1312, 1376, 1472 and 1504; Protenix-v2 and OpenDDE can present all of them,
+  Boltz-2 and BoltzGen five, and OpenFold3, ESMFold2 and RFD3 none.
+
+  **This is not bit-exact.** The wider chunk changes the online-softmax reduction order, and this
+  path used to reproduce byte for byte at a fixed seed, so a run at one of those lengths will not
+  match a 0.9.0 run of the same input. The structure moves 0.060-0.146 A on a 686-residue chain,
+  against 3.69-7.28 A between seeds of that same input, and pLDDT by 0.0001 against a seed-to-seed
+  0.0041. Set `TT_BIO_SDPA_WIDE_K=0` to restore the old pick exactly. See
+  [docs/tuning-flags.md](docs/tuning-flags.md) and
+  [docs/sdpa-wide-k-parity.md](docs/sdpa-wide-k-parity.md).
+
 ### Fixed
 
 - **The size-ladder gate takes its rep count from the rung that is noisy.** One sigma, measured

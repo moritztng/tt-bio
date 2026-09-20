@@ -1455,24 +1455,61 @@ def _headline(arm: str, line: str) -> None:
                             members=_ARM_MEMBERS.get(arm, [arm]))
 
 
-def _arm_members(arm: str, models) -> list:
-    """The --model values an arm's single verdict covers.
+def _arm_members(arm: str, models, size_ladder_models=None) -> list:
+    """What an arm's single verdict actually covers, for the resume's subset test.
 
-    Eleven arms are their own name. Two are not: the fold leg scores every model in MODELS
-    in one table under one headline, and the ESMC leg does the same for its models. A resume
-    has to know that, or a run recorded with `--model boltz2` would discharge the fold arm
-    for a later run that asked for all five.
+    Ten arms are their own name. Three are not. The fold leg scores every model in MODELS in
+    one table under one headline and the ESMC leg does the same for its models, so a resume
+    has to know that or a run recorded with `--model boltz2` would discharge the fold arm for
+    a later run that asked for all five.
+
+    size-ladder is the third, and it was missing. One `--model size-ladder` value stands for
+    nine per-model ladders, and `--size-ladder-models boltz2` scores exactly one of them while
+    printing the same "GATE PASS - lever census and scaling exponents" headline. So a one-model
+    debug run journalled `members=["size-ladder"]`, and the next `--resume` discharged the whole
+    nine-model arm on the strength of it -- ~2h45m of device time skipped for 8 min that ran.
+    This is the same defect as the `ingest()` members bug fixed on 2026-09-19 and the same shape
+    as a partial verdict read as a whole one: the record did not describe what was scored.
+    Namespacing the members (`size-ladder:<model>`) keeps them from colliding with --model
+    values, and a record written before this existed carries `["size-ladder"]`, which is not a
+    superset of any of them, so it refuses rather than resumes. Refusing costs a re-run; the
+    other direction ships an unrun arm inside a green gate.
     """
     if arm == "fold-models":
         return sorted(m for m in models if m in MODELS)
     if arm == "esmc":
         return sorted(m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN)
+    if arm == "size-ladder":
+        if arm not in models:
+            return []
+        return sorted(f"size-ladder:{m}"
+                      for m in (size_ladder_models or SIZE_LADDER_MODELS))
     return [arm] if arm in models else []
 
 
+# What a resume key means by "dirty": the SOURCE that decides an arm's verdict, not the working
+# directory. Without a pathspec this asked `git status --porcelain` about the whole tree, and the
+# gate writes its own run outputs (boltz2_results_prot/, pxdesign_gate.json, rfd3_gate_designs/, ...)
+# into the repo root, so the gate dirtied its own tree. Every arm after the first then journalled
+# with dirty=True, and gate_journal.resumable() returns {} for a dirty tree, so --resume could never
+# discharge anything. Measured on 2026-09-19: qb2 hard-reset 16:21:00Z with nine arms green and
+# nineteen untracked output paths in the tree; all nine were unresumable, and the nineteen were
+# output directories with not one tracked source file modified. The crash-resume written for exactly
+# that reset had never been able to fire.
+_SOURCE_PATHS = ("tt_bio", "scripts", "tests", "pyproject.toml")
+
+
 def _repo_dirty() -> bool:
+    """Is the source that determines an arm's verdict different from its commit?
+
+    Scoped to _SOURCE_PATHS deliberately. An untracked results directory does not change what an
+    arm scores, so counting it loses the resume; an edit under tt_bio/ or scripts/ does, so it must
+    still refuse. Untracked files inside those paths count too (no --untracked-files=no here): a
+    stray module under tt_bio/ can shadow a real one, which is a source change by any other name.
+    """
     try:
-        return bool(subprocess.check_output(["git", "status", "--porcelain"],
+        return bool(subprocess.check_output(["git", "status", "--porcelain", "--"]
+                                            + list(_SOURCE_PATHS),
                                             cwd=REPO_ROOT, text=True, timeout=10).strip())
     except Exception:
         return True   # cannot prove it is clean, so it is not resumable
@@ -1504,7 +1541,10 @@ def _resume_plan(journal: Path, key: dict, models: list):
         if not set(covers) <= set(rec.get("members") or [arm]):
             continue          # that run scored fewer models than this one is asking for
         resumed[arm] = rec
-        remaining = [m for m in remaining if m not in covers]
+        # `m != arm` because an arm's members are no longer always --model values: size-ladder
+        # covers nine namespaced ladders under the single --model value "size-ladder", and
+        # without this the arm would be discharged and then run anyway.
+        remaining = [m for m in remaining if m not in covers and m != arm]
     return resumed, remaining
 
 
@@ -4809,8 +4849,11 @@ def main() -> int:
     want_rf3_1024aa = "rf3-1024aa" in models
     want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
+    # What this run's size-ladder leg will actually score, so its journal record describes it.
+    _sl_models = (args.size_ladder_models.split(",") if args.size_ladder_models else None)
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
-    _ARM_MEMBERS = {a: _arm_members(a, models) for a in ("fold-models", "esmc")}
+    _ARM_MEMBERS = {a: _arm_members(a, models, _sl_models) for a in
+                    ("fold-models", "esmc", "size-ladder")}
     _preflight_scored_package()
     _preflight_eval_scorers(models)
     _preflight_esmc_root(esmc_models)
