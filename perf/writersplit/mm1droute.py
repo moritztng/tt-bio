@@ -28,6 +28,7 @@ _ORIG = {}
 _STATS = collections.Counter()
 _SHAPES = collections.Counter()
 _SPEC = {}
+_WIDE = [False]
 
 
 def stats():
@@ -41,9 +42,15 @@ def _batch(shape):
     return n
 
 
-def _interleaved_dram(t):
-    mc = t.memory_config()
-    return (not mc.is_sharded()) and mc.buffer_type == ttnn.BufferType.DRAM
+def _unsharded(t):
+    """What mm1d_generic actually requires.
+
+    The factory's only memory branches are `in0_is_sharded` and `output_is_sharded`; an
+    L1-INTERLEAVED operand takes neither, and its page size reaches the kernel through
+    TensorAccessorArgs like a DRAM one does.  Requiring DRAM here as well was this harness being
+    stricter than the transcription, and it cost 7,532 routable calls a fold.
+    """
+    return not t.memory_config().is_sharded()
 
 
 def _ckc_args(ckc):
@@ -54,21 +61,21 @@ def _ckc_args(ckc):
             bool(getattr(ckc, "packer_l1_acc", False)))
 
 
-def _out_shape(name, x, w, kw, key):
-    """The output's logical shape, taken from ONE native call per distinct signature.
+def _out_spec(name, x, w, kw, key):
+    """The output's spec, taken from ONE native call per distinct signature.
 
     Recomputing it here was wrong: `compute_matmul_output_shape` broadcasts the batch dims and
-    follows the higher-rank operand, and the fold issues ranks this module has no business
-    re-deriving.  A native call costs one program build per signature, at most 66 in a fold, and
-    it makes the routed op a drop-in by construction rather than by argument.
+    follows the higher-rank operand, and the default memory config and dtype are resolved deeper
+    still.  A native call costs one program build per signature, eighteen in a fold, and it makes
+    the routed op a drop-in by construction rather than by argument.
     """
     if key in _SPEC:
         return _SPEC[key]
     ref = _ORIG[name](x, w, **kw)
-    shape = [int(d) for d in ref.shape]
+    spec = ([int(d) for d in ref.shape], ref.dtype, ref.memory_config())
     ttnn.deallocate(ref)
-    _SPEC[key] = shape
-    return shape
+    _SPEC[key] = spec
+    return spec
 
 
 def _route(name, device, split, x, w, kw):
@@ -97,12 +104,23 @@ def _route(name, device, split, x, w, kw):
     if out_dtype != ttnn.bfloat16:
         _STATS["skip:out_dtype"] += 1
         return None
-    if not (_interleaved_dram(x) and _interleaved_dram(w)):
-        _STATS["skip:operand_memory"] += 1
+    if not (_unsharded(x) and _unsharded(w)):
+        _STATS["skip:operand_sharded"] += 1
+        return None
+    # An L1-interleaved operand is not a factory branch, and routing it reaches 15,451 calls a
+    # fold instead of 9,247.  It is off by default anyway, because it MOVES THE FOLD DIGEST and
+    # the reason is not yet established: with --wide the tr and split arms agree with each other
+    # and differ from ship, which is the same signature the transposed-matmul defect had, so it
+    # is a chooser or coverage question on the newly reached shapes rather than anything the
+    # split does.  mm1dcalib.py has only been run over the 17 DRAM shapes; run it over the wide
+    # set before turning this on.
+    if not _WIDE[0] and not (x.memory_config().buffer_type == ttnn.BufferType.DRAM
+                             and w.memory_config().buffer_type == ttnn.BufferType.DRAM):
+        _STATS["skip:operand_not_dram"] += 1
         return None
     mc = kw.get("memory_config")
-    if mc is not None and (mc.is_sharded() or mc.buffer_type != ttnn.BufferType.DRAM):
-        _STATS["skip:out_memory"] += 1
+    if mc is not None and mc.is_sharded():
+        _STATS["skip:out_sharded"] += 1
         return None
     a = [int(d) for d in x.padded_shape]
     b = [int(d) for d in w.padded_shape]
@@ -146,10 +164,15 @@ def _route(name, device, split, x, w, kw):
         _STATS["skip:blocks_exceed_cores"] += 1
         return None
 
-    key = (tuple(a), tuple(b), str(x.dtype), str(w.dtype), str(out_dtype), grid)
+    key = (tuple(a), tuple(b), str(x.dtype), str(w.dtype), str(out_dtype), grid,
+           str(x.memory_config()), str(w.memory_config()), str(kw.get("memory_config")))
+    shape, ref_dtype, ref_mc = _out_spec(name, x, w, kw, key)
+    if ref_mc.is_sharded() or ref_dtype != out_dtype:
+        _STATS["skip:native_out_spec"] += 1
+        return None
     out = ttnn.allocate_tensor_on_device(
-        ttnn.TensorSpec(ttnn.Shape(_out_shape(name, x, w, kw, key)), out_dtype,
-                        ttnn.TILE_LAYOUT, ttnn.BufferType.DRAM), device)
+        ttnn.TensorSpec(ttnn.Shape(shape), ref_dtype, ttnn.TILE_LAYOUT,
+                        ref_mc.buffer_type), device)
     try:
         r = generic_mm1d(device, x, w, out, pc, (fidelity, approx, fp32, packer),
                          writer_on_in0=split)
@@ -162,12 +185,13 @@ def _route(name, device, split, x, w, kw):
     return r
 
 
-def install(device, split):
+def install(device, split, wide=False):
     """Wrap ttnn.matmul and ttnn.linear.  Idempotent; `remove()` puts the originals back."""
     remove()
     _STATS.clear()
     _SHAPES.clear()
     _SPEC.clear()
+    _WIDE[0] = bool(wide)
     for name in ("matmul", "linear"):
         _ORIG[name] = getattr(ttnn, name)
 

@@ -72,6 +72,8 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--model", default="boltz2")
     ap.add_argument("--clock", type=int, default=0, help="0 = correctness run, do not force")
+    ap.add_argument("--wide", action="store_true",
+                    help="also route L1-interleaved operands; moves the digest, see mm1droute")
     ap.add_argument("--out", default=str(HERE / "mm1dfold.jsonl"))
     a = ap.parse_args()
 
@@ -108,12 +110,12 @@ def main() -> int:
 
     rec = {"tag": a.tag, "arm": a.arm, "host": socket.gethostname(), "model": a.model,
            "size": a.size, "pid": os.getpid(), "t_start": time.time(),
-           "clock_forced": a.clock or None,
+           "clock_forced": a.clock or None, "wide": bool(a.wide),
            "git_head": os.popen("git -C %s rev-parse HEAD" % ROOT).read().strip(),
            "folds": []}
 
     if a.arm != "ship":
-        mm1droute.install(T.get_device(), split=(a.arm == "split"))
+        mm1droute.install(T.get_device(), split=(a.arm == "split"), wide=a.wide)
 
     for i in range(a.folds + 1):
         cs = ClockSampler(held) if held else None
