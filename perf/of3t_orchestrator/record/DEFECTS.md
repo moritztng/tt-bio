@@ -6134,3 +6134,22 @@ sidecar — it exits 1; `$?` after a pipeline is `head`'s status, which is my ow
 nearly "fixed" a non-bug. And my compose wait-loops had been timing out at 600 s because
 `pgrep -f compose_verify.sh` matches the wrapper containing that string; `[c]ompose_verify.sh`
 fixes it. Owner: `of3t-orchestrator`. **FIXED.**
+
+**D95, CLEARED for every crop-64 figure by a paired test (pass 181, `of3t-trunkback`).** D95
+said padding can distort an activation reading by an amount that is neither proportional to the
+padding fraction nor of fixed sign. `of3t-maskaudit` then showed no A18 verdict changes.
+`of3t-trunkback` has now closed the remaining question by measurement rather than by scope
+argument: zeroing every padded position on **both** sides removes 99.76 % of the pair input's
+squared mass (`|z_in|` 1320432.53 → 64263.67, `|s_in|` 5850.17 → 5623.55) and changes the
+reference's loss, the reference's global gradient norm, our 48-block figure, our block-47 figure
+and every chain figure **in no reported digit**. Both backwards are exactly mask-clean with
+respect to the pad's values, so **no crop-64 figure in this campaign is contaminated by
+padding.**
+
+**And it retired the ledger's own discriminator as the wrong instrument.** The registered cheap
+test was to poison the pad with NaN. Run, it fires on **both** sides — 27 of 45 of our parameter
+gradients come back NaN and 57 of 57 of upstream's float64 ones, with both forwards NaN —
+because `0 x NaN` is NaN while `0 x finite` is 0, so a mask that works perfectly still
+propagates the poison. A discriminator that cannot distinguish the hypothesis from its negation
+is not a cheap test, it is no test; the attributing one is the paired zeroing above. Worth
+keeping because the NaN probe *looks* like the obvious cheap check and is not.
