@@ -111,3 +111,45 @@ nothing.
 leaves one of the four samples per step fully enabled, so every parameter has participation
 >= 1 at every rung. It is named here so the run tests the prediction, and it is a real defect
 for a schedule where a parameter is disabled on all samples of a step.
+
+## AMENDMENT, written before the arm that measures it: a FIFTH divergence, and it is the residual
+
+Found the way the other five were: by reading the call path and then measuring two steps on
+40 tensors, not by fitting the 20-step curve. The evidence that forced it, in order:
+
+1. `of3t-traj20`'s `avg` arm reads ||d_ours|| / ||d_theirs|| = **1.008620** at k=2 with a
+   per-tensor median of 8.940e-03 and a p90 of 9.010e-03. That is a uniform MAGNITUDE excess
+   across essentially every tensor, not a direction error and not a few bad tensors.
+2. `AdamW.step()` is **bit-identical** to `torch.optim.Adam` on identical gradients, measured
+   over eight elements spanning 1.0 down to 1e-12 for two steps: ratio exactly 1.0 on every
+   element, ||o||/||t|| = 1.0000000000.
+3. At k=2 the accumulated gradient reaching each optimizer is **bit-identical**
+   (rel = 0.000000e+00, summed and participation-divided), the counts are identical, the
+   applied rate is identical at 9e-05 -- and `d_2` still reads 9.095550e-03.
+
+Identical inputs, identical formula, a 0.9 % different update. The only thing left is a
+constant, and it is **beta2**.
+
+**`recipes.py:118` never passes `betas`, so `AdamW`'s class default `(0.9, 0.999)` ships where
+OpenFold3 runs `(0.9, 0.95)`.** Upstream's `configure_optimizers` reads them out of its config
+(`runner.py:855-860`), and that config sets `beta1: 0.9, beta2: 0.95`
+(`projects/of3_all_atom/config/model_config.py:143-146`). Exactly the class the other four
+belong to: a parameter the recipe never passes, so the library default ships instead of the
+reference recipe's value.
+
+Passing `betas=(0.9, 0.95)` on the same 40-tensor two-step probe takes `d_2` from
+**9.095550e-03 to 4.884661e-06**, a factor of 1862, down to the same order as the `ulp` arm.
+
+### The sixth fix, and the arm
+
+`train_loop` gains `betas=(0.9, 0.95)` and passes it, the same one-argument shape as
+`weight_decay` and `plateau_until`. The arm is `fixed5`, run at full scope over the same
+4,147 tensors with everything else identical to `fixed`.
+
+**Prediction, fixed before the run.** `fixed5` reads `d_1` exactly 0 with 4,147 of 4,147
+bit-identical, `d_2` in the low 1e-06 range, and it tracks the `ulp` arm in both magnitude and
+shape from k=2 to k=20, because if beta2 was the whole residual then what is left is the two
+stacks' own fp32 rounding and nothing else. **If `fixed5` stays materially above `ulp`, a
+sixth divergence is unlocated** and I report its size and shape rather than calling the job
+finished. `fixed` is kept and reported beside it: it is the four-fix arm and it is what makes
+the fifth one attributable.
