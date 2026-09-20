@@ -3555,3 +3555,36 @@ case". If pLDDT ranks better, the unified answer is **one shared ranking functio
 and rf3, protenix and OpenFold3 are all on the worse side of our own number. Recorded in D24 as
 the recommendation the evidence supports, and left unowned deliberately: it changes what four
 shipped models return and belongs behind Moritz's gate, not inside a row chartered for D10.
+
+PASS 104. **Run B looked stuck at 81 minutes against run A's 29 and was 98 % finished; the real
+finding is that the critical path is being slowed threefold for nothing.**
+
+Wall clock invites the wrong conclusion here, so the arithmetic:
+
+| | |
+|---|---|
+| run A, 23:09:28 → 23:38:52, essentially alone | 29.4 min × ~1000 % = **~29,400 %-min** |
+| run B, started 23:38:52, measured at 355 % | 81.0 min × 355 % = **~28,755 %-min** |
+| run B progress | **~98 % of run A's total work**, ~2 min remaining |
+
+Not wedged and not pathological — the same computation at a third of the cores. Memory is not a
+factor either, and I checked rather than assumed: qb2 has **249 GB with 88 free, zero swap used
+and zero swap activity**, the three jobs at 22.3 / 32.4 / 20.8 GB RSS, and `vmstat` reading 92 %
+user, 0 % idle, 0 % iowait — cleanly CPU-bound.
+
+**The actionable part.** Three concurrent jobs each asking `OMP_NUM_THREADS=14` on a 16-core box
+each get about a third. That costs nothing in total CPU-seconds, but it runs the **critical path**
+— run B → A13 → run C → the validated 0.4.3 reference → everything downstream including the held
+`of3t-auxheads` — roughly **3x slower**, to make concurrent progress on two jobs that are not on
+it: the 0.5.0 box control and `capture_trunk_boundary`. Run serially, run B would have finished
+around 23:08 and A13 would already be done.
+
+It matters most for **run C**, the finite-difference validation: `--fd-samples 8` means 16 extra
+forward passes on top of the gradient, and at ~331 s per float64 r = 0 forward uncontended that is
+already substantial before a threefold penalty. Told the row to let run C have the box if the
+other two are still running when A13 finishes, since nothing downstream can start without it.
+
+**Worth separating from the pass-95 renice, which this is not.** Everything here is at nice 15
+uniformly and there is no nice-0 competitor, so the renice is inert (pass 99); this is
+self-contention inside one row's own job set, and the remedy is sequencing rather than priority —
+which is just as well, since priority is the one dial that cannot be turned back.
