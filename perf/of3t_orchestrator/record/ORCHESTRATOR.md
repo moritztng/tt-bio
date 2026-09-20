@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty-one dispatched, thirty-eight concluded, three live** (pass 183: this row, `of3t-trunkdepth` on qb2 hunting the trunk backward's depth-dependent amplifier, and `of3t-softgrad` scoring the two shippable softmax levers on the 51 % scope's gradient at full scope). 41 briefs = 38 concluded + those three. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-one dispatched, thirty-nine concluded, two live** (pass 186: this row, and `of3t-softgrad` scoring the two shippable softmax levers on the 51 % scope's gradient at full scope; `of3t-trunkdepth` concluded NO-GO -- there is no scale-dependent amplifier in the trunk's backward, the raw depth growth is the bf16 FLOOR's depth growth). 41 briefs = 39 concluded + those two. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -283,9 +283,12 @@ Recomputed from the artifacts on every compose (163 checks, 0 drifted):
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
 
-- **Measured directly against upstream's own training step, we do not reproduce it: 7.426742**
+- **Measured directly against upstream's own training step, we do not reproduce it: 7.426217**
   mass-weighted over the 547 tensors the device arm covers (51.1358 % of the model), **126.9x
-  upstream's own distance from the float64 ideal**. Our error is essentially **orthogonal** to
+  upstream's own distance from the float64 ideal**. (That is the D86-CORRECTED arm; this field
+  quoted the pre-D86 published 7.426742 until pass 186 — the two differ by 0.007 % because the
+  softmax error swamps the transpose contribution, so the 126.9x is unchanged, but the live
+  field should carry the corrected number.) Our error is essentially **orthogonal** to
   theirs — cos ~ 0.20, about 4 % shared variance, our error 129x larger — which is why moving the
   reference from float64 to their actual bf16 step changed the headline by only 1.9 %. Per
   section against each section's own bf16 floor: `diffusion_transformer` **138.8x**,
@@ -673,7 +676,7 @@ entirely on accuracy, and all of it inside the diffusion arm is the softmax — 
 returned NO-GO on every shipped lever (+46 %/op), so closing it is a **release-gated precision
 decision, not a measurement**. **PASS 176-177, the trunk.** Scored against **0.5.0** while `of3-p2-155k` binds to **0.4.3**; rebuilt at 0.4.3 the shipped **pair** track reads **4.947045e-02**, under the bar, and **92.08 %** of the old figure was the reference revision. **D95 closed**, no A18 verdict changed. **`aux_heads`** (2.8431 %) is **DONE** — a call site was dropping two masks; handed over, all five heads read **exactly 0.0** and the re-taken gradient **2.271382e-03**, 8.81x inside the bar, reaching no user. The trunk's single track is **EXPLAINED**: `AttentionPairBias` folds the bias inside its score scale, and pre-scaled it matches upstream to **4.2e-16** — a flip held as **D1** because it costs **0.463 A** on a served structure, so that gap is a **decision, not a defect**. **Its GRADIENT is now MEASURED and FAILS** at 5.367727e+00 — though re-scored against upstream's own all-bf16 over the same 48 blocks that is **13.0x**, not 268x, and single-block error spans **136x over depth on identical code**, which `of3t-trunkdepth` is dispatched on. **PASS 182 — PROTOCOL SS7 PASSES ITS SHAPE BAR**, the instrument SS8 requires and that had never been run. It found four divergences; closing them exposed a **fifth** — `betas` never passed, so AdamW's `(0.9,0.999)` shipped where OF3 runs `(0.9,0.95)`. With all five closed: `d_1` **exactly 0 both sides**, 4,147 of 4,147 bit-identical, `d_20` **8.2071e-06** at 2.815x the fp32 floor, exponent **+0.194** (flat, r2 0.093) against the four-fix arm's +1.267. Upstream-vs-upstream is **exactly 0.0 at all twenty rungs** and the mis-wired control **still fails**. **The UPDATE RULE is reproduced — on a BRANCH**: all five are release-gated and unmerged, so the shipped path still carries every one, and SS7 does not test the gradient the rule consumes. **Nine of nine** functional defects are CALL SITES.
 
-Thirty-nine concluded markers, one this live row's own and stale, so thirty-eight others; two live (this row, `of3t-trunkdepth`); one hundred eight defects on the record,
+Forty concluded markers, one this live row's own and stale, so thirty-nine others; two live (this row, `of3t-softgrad`); one hundred nine defects on the record,
 forty-three of them UNFIXED. The composition `wk/of3t` carries 38 of 38 rows at 1161 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted

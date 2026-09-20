@@ -6388,3 +6388,44 @@ documents produced: an inference fold cost quoted as the price of training parit
 escalated to Moritz as a decision), "fused-qkv" for 240 unplaced leaves with nothing establishing
 it, and "inert" for a module that is not. A number can be recomputed from an artifact, so a guard
 can own it. A word has only an author.
+
+### D109. I briefed a row to separate two variables that were rank-identical on the ladder I specified, so the instrument could not have answered the question whichever way it came out. FOUND by the row, recorded here; the row's execution was correct.
+
+`of3t-trunkdepth`'s brief was mine: measure single-block backward error at seven depths and
+answer **"does it track activation norm?"** with a Spearman test at ρ ≥ 0.929, a ≥10× span gate
+and a fit-share gate, all fixed before measuring. The row ran it exactly and landed DIFFUSE —
+and then said something better than its own verdict:
+
+> `||s_in||` is monotone in depth over these boundaries, so **depth and `||s_in||` are
+> rank-identical** and a rank test has no power to separate them.
+
+**A rank test cannot distinguish two candidates that are rank-ties of each other, at any ρ.** So
+a *positive* result would have been as uninterpretable as the negative one: ρ = 1.0 for the norm
+would also have been ρ = 1.0 for depth. The question I posed could not be answered by the design
+I posed it with.
+
+**And my span gate — written precisely to catch this class — was itself defeated.** I required
+the candidate to span ≥10× because a prior row had measured `z_norm` flat to 2.1 % over these
+same boundaries, so a flat variable could reach ρ = 1.0 and explain nothing. `||s_in||` spans
+**376.6×** and clears the gate. But it **jumps 239× between block 0 and block 8 and then moves
+1.57× across the whole of blocks 8..47**, while the dependent moves **1165×** over that same
+range. The entire span is one endpoint. Block 0 is the only low-norm point on the ladder, so the
+relationship rests on **n = 1** at that end.
+
+The gate was right in intent and wrong in construction: a span computed **end to end** is not a
+span over **the range where the effect lives**. Fifth sighting in this campaign of a check that
+looked sufficient and was not, and the first where the defective check was one I had added to
+prevent exactly the failure it then admitted.
+
+**What it cost, and what it did not.** It did not cost the result: the row reached a real
+conclusion anyway by dividing each depth by its own pure-bf16 floor, which removed the depth
+dependence entirely (1.46, 218, 74, 32, 28, 99, 103, ρ +0.32) and showed there is no
+scale-dependent amplifier to find. It did cost the row a cleanly-posed question, and it means
+the DIFFUSE verdict rests on the floor-normalised argument rather than on the correlation test I
+designed. Had the floor arm not been in the brief, this row would have returned an
+uninterpretable number.
+
+**The fix for the next brief of this shape**: before posing a rank test on small n, check whether
+the candidates are rank-ties; if they are, the design must break the tie (hold one fixed, or
+sample off the monotone path) or the test is theatre. And gate dynamic range over the sub-range
+where the dependent varies, not end to end.
