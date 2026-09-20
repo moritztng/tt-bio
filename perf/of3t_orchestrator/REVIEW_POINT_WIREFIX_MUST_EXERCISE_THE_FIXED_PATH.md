@@ -41,3 +41,37 @@ defaults in `train_loop`'s source, which is most of (b) but not the harness half
 before touching the source, which is the right order, and it may already be handling this in
 the part it has not pushed. This is to be checked against its conclusion, not shouted into a
 live measurement.
+
+---
+
+## RESOLVED by the row itself, in `fe693257a`, before I raised it
+
+`of3t-wirefix` closed this independently and more precisely than I had framed it. `traj20.py`
+now carries:
+
+```python
+def _shipped_defaults():
+    import inspect
+    from tt_bio.train.recipes import train_loop
+    return {k: v.default for k, v in inspect.signature(train_loop).parameters.items()}
+```
+
+and the `fixed` arm takes `weight_decay` and `plateau_until` from it rather than restating
+them, with `shipped_defaults` recorded into the result file so the arm carries the identity of
+the source it claims to measure. The row's own comment gives the reason in the same terms:
+*"the arm and the thing it claims to measure can drift apart without either changing."*
+
+**Coverage is now 3 of 4 exercised or source-derived, and the fourth is pinned — worth stating
+exactly rather than calling it closed outright:**
+
+| fix | how the harness now relates to the shipped source |
+|---|---|
+| 1. `weight_decay=0.0` | **read** from `train_loop`'s signature |
+| 4. `plateau_until=50000` | **read** from `train_loop`'s signature |
+| 3. participation-count division | **executed** — it lives inside `AdamW.step()`, which the harness calls |
+| 2. per-sample clipping loop | still **replicated** — it is control flow in `train_loop`'s *body*, not a default, so a signature read cannot reach it; pinned instead by `test_of3_wiring_matches_openfold3.py` asserting the call site in that body |
+
+Fix 2 is the only one where the harness and the shipped path remain two pieces of code that
+have to agree, and it is the one with a source-asserting test beside it. That is a defensible
+position and the row should say so in its conclusion rather than implying all four are
+executed. No action for the row beyond that.
