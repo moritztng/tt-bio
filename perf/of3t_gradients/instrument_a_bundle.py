@@ -124,6 +124,15 @@ def main() -> int:
                          f"read out of git and never from a working tree.")
     ap.add_argument("--cap", default=CAP, help="captured block boundaries to drive the arm with")
     ap.add_argument("--out-dir", default=OUT)
+    ap.add_argument("--nan-pad", action="store_true",
+                    help="D28 discriminator. Poison the PAD token positions of the captured "
+                         "input with NaN and report how many parameter gradients come back NaN "
+                         "on each side. A crop-64 boundary carries 56 real tokens and 8 pad "
+                         "rows, and the forward disagrees far more unmasked than masked, so the "
+                         "device writes something different into the pad and the mask hides it "
+                         "in the forward. A mask-clean forward does not imply a mask-clean "
+                         "backward. NaN in the parameter gradients means the pad reaches the "
+                         "weights and every crop-64 figure inherits it.")
     a = ap.parse_args()
 
     import numpy as np
@@ -214,6 +223,21 @@ def main() -> int:
             single_mask = single_mask[:, :c].contiguous()
         if pair_mask is not None:
             pair_mask = pair_mask[:, :c, :c].contiguous()
+    if a.nan_pad:
+        if single_mask is None:
+            raise SystemExit("--nan-pad needs the single mask to know which rows are pad")
+        pad = (single_mask.reshape(-1) <= 0)
+        if not bool(pad.any()):
+            raise SystemExit("--nan-pad: this boundary has no pad rows, nothing to poison")
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] = float("nan")
+        z_in[:, pad, :] = float("nan")
+        z_in[:, :, pad] = float("nan")
+        rep["nan_pad"] = {"pad_rows": int(pad.sum()), "real_rows": int((~pad).sum()),
+                          "poisoned": ["s_in rows", "z_in rows", "z_in cols"]}
+        print(f"[{time.perf_counter()-t0:.0f}s] D28: poisoned {int(pad.sum())} pad rows of "
+              f"{int(pad.numel())} with NaN", flush=True)
+
     N = int(z_in.shape[1])
     rep["probe"] = {"tokens": N, "s_norm": float(s_in.norm()), "z_norm": float(z_in.norm()),
                     "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
@@ -419,6 +443,27 @@ def main() -> int:
     grads = {n: (ttnn.to_torch(l.grad).to(torch.float64) if l.grad is not None else None)
              for n, l in ours.items()}
 
+    if a.nan_pad:
+        # The whole point of the run: does NaN in the PAD reach the WEIGHTS? Counted on both
+        # sides, because "both leak" and "only ours leaks" are different findings. In
+        # `--reference bundle` mode theirs is a saved tensor and never saw the poison, so this
+        # is only a statement about our side unless `--reference block-eval` re-ran it.
+        def nan_count(d):
+            n_nan = sum(1 for v in d.values()
+                        if v is not None and bool(torch.isnan(v).any()))
+            return {"tensors": sum(1 for v in d.values() if v is not None), "nan": n_nan,
+                    "nan_tensors": sorted(k for k, v in d.items()
+                                          if v is not None and bool(torch.isnan(v).any()))[:12]}
+        rep["nan_pad"]["ours"] = nan_count(grads)
+        rep["nan_pad"]["theirs"] = nan_count(g_ref)
+        rep["nan_pad"]["theirs_recomputed_on_poisoned_input"] = (a.reference == "block-eval")
+        rep["nan_pad"]["forward_out_nan"] = {
+            "ours_s": bool(torch.isnan(s_out_t).any()) if "s_out_t" in dir() else None}
+        print(f"[{time.perf_counter()-t0:.0f}s] D28: ours {rep['nan_pad']['ours']['nan']} of "
+              f"{rep['nan_pad']['ours']['tensors']} gradients NaN; theirs "
+              f"{rep['nan_pad']['theirs']['nan']} of {rep['nan_pad']['theirs']['tensors']} "
+              f"(recomputed: {a.reference == 'block-eval'})", flush=True)
+
     def our_grad_for(key):
         pls = placements.get(key)
         if not pls:
@@ -441,13 +486,23 @@ def main() -> int:
     for key, ref in g_ref.items():
         full = pre + key
         mine, why = our_grad_for(key)
+        # PROTOCOL A20. An absent tensor carries its REFERENCE NORM out with it, so the reach
+        # below can be stated against the full reference mass instead of against the tensors
+        # that happened to place. An unplaceable tensor is UNREACHED, not not-there: at block 47
+        # `attn_pair_bias.linear_z.weight` is a quarter of the block's gradient mass and it goes
+        # absent under the shipped `scale_pair_bias`, because the device folds the scale into
+        # the weight and the by-value bijection stops recognising it. Reporting reach over the
+        # compared set alone hides exactly the tensor the lever acts on.
+        ref_n = None if ref is None else float(np.linalg.norm(ref.numpy()))
         if ref is None or mine is None:
             absent.append({"their_tensor": full, "reference_present": ref is not None,
-                           "ours_present": mine is not None, "reason": why})
+                           "ours_present": mine is not None, "reason": why,
+                           "ref_norm": ref_n})
             continue
         if tuple(mine.shape) != tuple(ref.shape):
             absent.append({"their_tensor": full,
-                           "shape_mismatch": [list(mine.shape), list(ref.shape)]})
+                           "shape_mismatch": [list(mine.shape), list(ref.shape)],
+                           "ref_norm": ref_n})
             continue
         r, m = ref.numpy(), mine.numpy()
         rows.append({"their_tensor": full, "key": key,
@@ -460,6 +515,32 @@ def main() -> int:
     rel = [d["rel_l2"] for d in rows]
     rep["per_parameter"] = rows
     rep["absent"] = absent
+    # Reach, over the FULL reference mass rather than over what placed (A20).
+    sq_cmp = sum(d["ref_norm"] ** 2 for d in rows)
+    sq_abs = sum((x.get("ref_norm") or 0.0) ** 2 for x in absent)
+    sq_all = sq_cmp + sq_abs
+    rep["reach"] = {
+        "rule": "PROTOCOL A20: an unplaceable tensor is UNREACHED, not absent from the "
+                "denominator. Reach is over the full reference gradient mass of this scope.",
+        "compared_tensors": len(rows), "absent_tensors": len(absent),
+        "squared_norm_compared": sq_cmp, "squared_norm_absent": sq_abs,
+        "squared_norm_full_scope": sq_all,
+        "reach_over_full_scope": (sq_cmp / sq_all) if sq_all else None,
+        # Two different questions, and the campaign has quoted them as one. `reach` is how much
+        # of the scope's gradient mass was MEASURED; `passing` is how much of it is inside the
+        # per-tensor bar. Unreached mass counts against both, which is the point of A20.
+        "passing_share_of_full_scope":
+            (sum(d["ref_norm"] ** 2 for d in rows if d["rel_l2"] <= PER_TENSOR_BAR) / sq_all)
+            if sq_all else None,
+        "passing_share_of_compared":
+            (sum(d["ref_norm"] ** 2 for d in rows if d["rel_l2"] <= PER_TENSOR_BAR) / sq_cmp)
+            if sq_cmp else None,
+        "unreached_ranked": sorted(
+            ({"tensor": x["their_tensor"], "ref_norm": x.get("ref_norm"),
+              "share_of_full_scope": ((x.get("ref_norm") or 0.0) ** 2 / sq_all) if sq_all else None,
+              "reason": x.get("reason") or "shape mismatch"} for x in absent),
+            key=lambda d: -(d["share_of_full_scope"] or 0.0)),
+    }
     rep["presence"] = {"their_with_gradient": sum(1 for v in g_ref.values() if v is not None),
                        "their_total": len(g_ref), "compared": len(rows), "absent": len(absent),
                        "their_zero_valued": sum(1 for d in rows if d["ref_is_zero"]),
@@ -503,7 +584,13 @@ def main() -> int:
     os.makedirs(a.out_dir, exist_ok=True)
     path = os.path.join(a.out_dir, f"instrument_a_bundle_{tag}.json")
     json.dump(rep, open(path, "w"), indent=1, default=str)
-    print(f"\ncompared {len(rows)} of their tensors, {len(absent)} absent")
+    print(f"\ncompared {len(rows)} of their tensors, {len(absent)} absent; reach over the FULL "
+          f"reference mass of this scope "
+          f"{100*(rep['reach']['reach_over_full_scope'] or 0):.3f} %, of which "
+          f"{100*(rep['reach']['passing_share_of_full_scope'] or 0):.3f} % passes the bar")
+    for u in rep["reach"]["unreached_ranked"][:4]:
+        if u["share_of_full_scope"]:
+            print(f"   UNREACHED {100*u['share_of_full_scope']:6.2f} %  {u['tensor']}")
     for d in rows[:12]:
         print(f"   {d['rel_l2']:.3e}  {d['their_tensor']}")
     for x in absent[:20]:
