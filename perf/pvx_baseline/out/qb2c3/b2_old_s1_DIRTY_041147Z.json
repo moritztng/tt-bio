@@ -1,0 +1,338 @@
+{
+ "tag": "b2_old_s1",
+ "model": "boltz2",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "card_env": "3",
+ "ttnn": "0.68.0",
+ "tree": "/home/ttuser/pvx_qb2/old",
+ "clock_target": 1350,
+ "timers": [],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "started_utc": "2026-09-20T02:22:24Z",
+ "loadavg_start": [
+  "13.39",
+  "12.28",
+  "13.22"
+ ],
+ "foreign_at_start": [
+  {
+   "pid": 1081620,
+   "nodes": [
+    1
+   ],
+   "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+  }
+ ],
+ "runs": [
+  {
+   "i": 0,
+   "cold": true,
+   "fold_s": 37.387,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "foreign_tt": [
+    {
+     "pid": 1081620,
+     "nodes": [
+      1
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+    }
+   ],
+   "loadavg1": 14.75,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.9
+    },
+    "1": {
+     "aiclk_mean": 1348.7,
+     "aiclk_min": 1312,
+     "aiclk_max": 1350,
+     "power_w_mean": 46.1
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.5
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 57.7
+    }
+   },
+   "load_mean": 14.17,
+   "load_max": 14.75,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 125,
+   "power_w_mean": 57.7
+  },
+  {
+   "i": 1,
+   "cold": false,
+   "fold_s": 35.719,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "foreign_tt": [
+    {
+     "pid": 1081620,
+     "nodes": [
+      1
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+    }
+   ],
+   "loadavg1": 14.81,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.9
+    },
+    "1": {
+     "aiclk_mean": 1349.2,
+     "aiclk_min": 1331,
+     "aiclk_max": 1350,
+     "power_w_mean": 43.5
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.6
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 58.6
+    }
+   },
+   "load_mean": 14.98,
+   "load_max": 15.73,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 119,
+   "power_w_mean": 58.6
+  },
+  {
+   "i": 2,
+   "cold": false,
+   "fold_s": 35.081,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "foreign_tt": [
+    {
+     "pid": 1081620,
+     "nodes": [
+      1
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+    }
+   ],
+   "loadavg1": 14.44,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 29.0
+    },
+    "1": {
+     "aiclk_mean": 1349.3,
+     "aiclk_min": 1318,
+     "aiclk_max": 1350,
+     "power_w_mean": 43.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.7
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 55.1
+    }
+   },
+   "load_mean": 14.58,
+   "load_max": 15.14,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 112,
+   "power_w_mean": 55.1
+  },
+  {
+   "i": 3,
+   "cold": false,
+   "fold_s": 35.644,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "foreign_tt": [
+    {
+     "pid": 1081620,
+     "nodes": [
+      1
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+    }
+   ],
+   "loadavg1": 16.49,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 29.1
+    },
+    "1": {
+     "aiclk_mean": 1349.0,
+     "aiclk_min": 1325,
+     "aiclk_max": 1350,
+     "power_w_mean": 45.3
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.7
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 56.2
+    }
+   },
+   "load_mean": 15.69,
+   "load_max": 16.8,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 120,
+   "power_w_mean": 56.2
+  },
+  {
+   "i": 4,
+   "cold": false,
+   "fold_s": 32.924,
+   "plddt": null,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "4f3995a69be5d610"
+   },
+   "foreign_tt": [
+    {
+     "pid": 1081620,
+     "nodes": [
+      1
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+    }
+   ],
+   "loadavg1": 17.61,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 29.1
+    },
+    "1": {
+     "aiclk_mean": 1147.6,
+     "aiclk_min": 800,
+     "aiclk_max": 1350,
+     "power_w_mean": 35.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.7
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 60.2
+    }
+   },
+   "load_mean": 17.7,
+   "load_max": 18.31,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 106,
+   "power_w_mean": 60.2
+  }
+ ],
+ "fixture_sha256": {
+  "cdk2x2_512.yaml": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+  "cdk2x2_512.a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e"
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "device_nodes": [
+  3
+ ],
+ "clock_after_force": {
+  "3": 1350
+ },
+ "clock_reasserts": 0,
+ "summary": {
+  "n": 4,
+  "fold_s_sorted": [
+   32.924,
+   35.081,
+   35.644,
+   35.719
+  ],
+  "median_fold_s": 35.362,
+  "min_fold_s": 32.924,
+  "max_fold_s": 35.719,
+  "aa_floor_s": 2.795,
+  "aa_floor_pct": 7.9,
+  "aiclk_mean_over_timed": 1350.0,
+  "aiclk_min_over_timed": 1350,
+  "digests": [
+   "4f3995a69be5d610"
+  ],
+  "plddts": [],
+  "cotenanted_folds": 4,
+  "partner_busy": false,
+  "box_busy": true,
+  "host_quiet": false,
+  "load_max_during": 18.31,
+  "clean_session": false
+ }
+}
