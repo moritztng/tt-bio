@@ -3052,3 +3052,61 @@ and both were checkable in minutes against files that were already present.
 Owner: `of3t-orchestrator`. **FIXED as of this pass** — row `of3t-conditioning` dispatched
 (`workstreams/of3t-conditioning.txt`, `TASKS.md`, `_of3t_donecheck.py` entry added), carrying the
 verified key list so the next row does not have to rediscover it.
+
+---
+
+### D53. The campaign's errors are concentrated on exactly the tensors that carry the gradient — the ten worst hold 15.7140 % of the model, the ten best 1.1650 % — and the worst disagreement on the record, rel 18.504, is on the model's fourth-heaviest tensor. FOUND by `of3t-orchestrator`, pass 151, from two artifacts that already existed. **UNFIXED.**
+
+**No new run.** `device_gradient_043all.json` (547 tensors compared, all 48 structures,
+`median_rel` **0.16588**, `worst_rel` **18.504**, **474 of 547 over** the 5.0e-02 bar) has been
+on qb2 since the 0.4.3 rebuild. The per-tensor reference mass was measured this pass (D51). They
+had never been read together.
+
+| | share of the model's squared gradient norm |
+|---|---|
+| the **ten worst** tensors by `rel` | **15.7140 %** |
+| the **ten best** tensors by `rel` | **1.1650 %** |
+
+A **13.5x concentration of error on mass.** The single worst point in the campaign —
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` at rel
+**18.504** — is **8.05416 %** of the model, the **fourth-heaviest tensor in OpenFold3**, sitting
+inside the heaviest block in the model (DiT block 8, 9.84053 %).
+
+**Seven of the ten worst are `attention_pair_bias.layer_norm_a.*` inside the diffusion
+transformer**, six of them the same leaf, `layer_norm_a.layer_norm_s.weight`. That is the same
+leaf family D51 independently identified as carrying the model's mass. **The campaign's mass peak
+and its worst errors are the same tensors.** Nothing connected them before because the mass table
+did not exist until this pass.
+
+**Why this is a defect about our reporting and not only about our port.** A23 was raised earlier
+this pass on the general argument that a median over tensors describes the tensors that carry no
+mass. This is that argument meeting data, and it lands in the **unflattering** direction: the
+headline `median_rel` **0.16588** *understates* the damage, because the tensors failing worst are
+the heavy ones. The mass-weighted figure — the one a parity claim actually owes — is still
+unmeasured and will be worse than the median. Every place this campaign has quoted a diffusion
+median is quoting the flattering half of a distribution whose failures sit on the mass.
+
+**A hypothesis written down so it is falsifiable, and which this does NOT establish.** Within the
+six `layer_norm_a.layer_norm_s.weight` points, `rel` broadly rises with mass — blocks 0/6/5/7/12/8
+at rel 2.73/2.84/4.54/5.31/5.65/18.50 against mass 0.18/1.39/2.43/2.86/0.76/8.05 %. `rel` is
+already a *relative* measure, so a fixed relative error would be **independent** of magnitude;
+`rel` growing with magnitude would point at something super-linear — saturation, overflow, a
+magnitude-dependent precision loss — rather than a uniform rounding difference. **But these are
+six points, block 12 already breaks the ordering, and they are the six worst of a family of 24 —
+a selected tail, not a sample.** The family's full `rel` set is not in the artifact, so the
+hypothesis is **still open** — neither confirmed nor refuted, and it may not be quoted as
+either. **What would settle it:** the per-tensor dump below, then `rel` plotted against
+`‖g_ref‖` for all 24 blocks of that one leaf. **It is refuted if the full family shows no
+trend** — which is the likely outcome, because six worst-of-24 points will manufacture this
+trend whether or not it exists.
+
+**What blocks all three follow-ups, and what it costs.** `device_gradient_043all.json` stores
+aggregates plus `worst10`/`best10` and **no per-tensor array**. So the mass-weighted headline
+A23 requires, the per-block DiT profile, and the mass-vs-`rel` test above are *all* underivable
+from what exists — and all three come free from one re-run that writes the per-tensor rel beside
+the tensor name. **A result file that keeps only the extremes cannot be re-analysed under a
+denominator discovered later**, and this campaign has now changed its denominator twice.
+
+Owner: `of3t-orchestrator`. **UNFIXED.** The per-tensor dump is requested of the live
+`of3t-conditioning` row as an explicitly secondary deliverable (amendment 1 to its brief).
+Artifact: `perf/of3t_orchestrator/ERRORS_CONCENTRATE_ON_MASS.json`.

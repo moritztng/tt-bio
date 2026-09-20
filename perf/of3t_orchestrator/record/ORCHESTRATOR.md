@@ -344,9 +344,15 @@ merely large.**
   pairformer blocks worth roughly 0.5 % of the model — is licensed more narrowly than its
   phrasing suggested. The measurements stand as taken; the mass-weighted restatement of them
   **has not been run**.
-- **DiT block 8 is 9.84053 % of the model — 1.69x the entire pairformer stack — and has never
-  had a block-scope arm.** The sixteen highest-mass blocks in the model are all DiT blocks.
-  Unowned.
+- **DiT block 8 is 9.84053 % of the model — 1.69x the entire pairformer stack — and it is
+  where the campaign's worst disagreement already sits.** Its heaviest tensor,
+  `attention_pair_bias.layer_norm_a.layer_norm_s.weight` (8.05416 % of the model), reads rel
+  **18.504** against the reference — the worst point on the record. The sixteen highest-mass
+  blocks in the model are all DiT blocks. No block-scope arm has ever been run on any of them.
+- **The diffusion arm's own headline is the flattering half of its distribution** (D53). Ten
+  worst tensors hold **15.7140 %** of the model, ten best **1.1650 %**; `median_rel` 0.16588
+  understates the damage and the mass-weighted number **has not been computed**, because the
+  run kept only the extremes.
 
 **The campaign has not reproduced OpenFold3 training and this document does not say it has.**
 
@@ -359,7 +365,13 @@ median-over-tensors, both of which are the wrong granularity; PROTOCOL A23 now b
 set statistic to the mass its set holds, and no existing figure has been restated under it
 yet. **D52 (FIXED this pass)**: `diffusion_conditioning`, 36.9462 % of the model, was
 recorded as blocked on a boundary move for eleven passes while the capture that unblocks it
-sat on qb2 — row `of3t-conditioning` dispatched, result pending.
+sat on qb2 — row `of3t-conditioning` dispatched, result pending. **D53 (UNFIXED)**: A23's
+argument met data and landed the unflattering way — the ten worst tensors of the existing
+diffusion arm hold **15.7140 %** of the model and the ten best **1.1650 %**, a 13.5x
+concentration of error on the mass, with the worst point (rel **18.504**) on the model's
+fourth-heaviest tensor; the run kept no per-tensor array, so the mass-weighted headline, the
+per-block DiT error profile and the mass-vs-rel test are all underivable until one re-run
+writes it.
 
 **D25: UPSTREAM REPLAYED AGAINST UPSTREAM ACROSS BOXES READS 6.224e-02 — AND IT IS NOT A FLOOR
 ON OUR ARMS.** `replay_vs_r0.json` compares a qb2-CPU r = 0 replay against the republished r = 0
@@ -639,7 +651,7 @@ decline their fused path there. The existing 870.75 s already was taped, so it i
 any successor must be too.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Eighteen concluded rows, one newly
-dispatched; fifty-two defects on the record, twenty-two of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
+dispatched; fifty-three defects on the record, twenty-three of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -5820,3 +5832,35 @@ Artifacts: `perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
 `perf/of3t_orchestrator/SECTION_MASS_MEASURED.json` (now exhaustive),
 `perf/of3t_orchestrator/fd/REFERENCE_VALIDATED_FINAL.json` (mass coverage added).
 Defects **D51** and **D52**. Protocol **A23**.
+
+### Pass 151, continued — the denominator changed what the existing result means
+
+Two artifacts were already on qb2. `device_gradient_043all.json`: 547 tensors compared, all 48
+structures, `median_rel` **0.16588**, `worst_rel` **18.504**, **474 of 547 over** the 5.0e-02 bar.
+And, as of this pass, the per-tensor reference mass. They had never been read together.
+
+  the ten **worst** tensors by rel hold **15.7140 %** of the model's squared gradient norm
+  the ten **best**  tensors by rel hold  **1.1650 %**
+
+Errors are **13.5x concentrated on the mass**, not scattered across the tensors that carry none.
+The worst point in the campaign is on
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — **8.05416 %**
+of the model, its **fourth-heaviest tensor**, inside its **heaviest block**. Seven of the ten worst
+are `attention_pair_bias.layer_norm_a.*` in the DiT, six of them the same leaf — the same family
+that carries the mass. The mass peak and the worst errors are the same tensors.
+
+So A23 met data within the same pass that raised it, and it landed the unflattering way: the
+`median_rel` **0.16588** the campaign has been quoting **understates** the damage. The
+mass-weighted figure — the one a parity claim owes — will be worse, and cannot be computed,
+because the run kept `worst10`/`best10` and **no per-tensor array**. That also blocks the
+per-block DiT error profile and a hypothesis worth testing: within the 24-block
+`layer_norm_a.layer_norm_s.weight` family, does rel **rise with mass**? rel is already relative,
+so a fixed relative error is magnitude-independent; rel growing with magnitude points at
+something super-linear rather than rounding. The six points on the record hint that way and
+**they are the six worst of 24 — a selected tail that would manufacture the trend whether or not
+it exists.** Written down as a hypothesis with its refutation condition stated, filed as **D53**,
+and requested of the live `of3t-conditioning` row as an explicitly secondary deliverable.
+
+The durable lesson: **a result file that keeps only the extremes cannot be re-analysed under a
+denominator discovered later**, and this campaign has now changed its denominator twice — once at
+pass 91 (0.5.0 → 0.4.3) and once at pass 151 (count → mass).
