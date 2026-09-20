@@ -174,6 +174,19 @@ def main() -> int:
                          "in the forward. A mask-clean forward does not imply a mask-clean "
                          "backward. NaN in the parameter gradients means the pad reaches the "
                          "weights and every crop-64 figure inherits it.")
+    ap.add_argument("--forward-reference", default="",
+                    help="A18, IN THIS PROCESS. Score the taped device forward against this "
+                         "reference's own s/z outputs (ref_grad.py --forward-out), both tracks, "
+                         "masked, with the padding fraction beside each. `forward_rel` above "
+                         "compares against the CAPTURED 0.5.0 block-47 output, which is a "
+                         "different question once the reference revision is in dispute; a "
+                         "gradient scored against a 0.4.3 reference needs its forward scored "
+                         "against the same one, and carrying that number in from another "
+                         "process is what `of3t-auxgrad` had to undo.")
+    ap.add_argument("--dump-forward", default="", dest="dump_forward",
+                    help="write the taped device forward outputs to this .pt, so the A18 "
+                         "reading can be re-scored against another reference without re-running "
+                         "the device.")
     a = ap.parse_args()
 
     import numpy as np
@@ -507,6 +520,50 @@ def main() -> int:
         print(f"[{time.perf_counter()-t0:.0f}s] forward s {rep['forward_rel']['s']:.3e} "
               f"z {rep['forward_rel']['z']:.3e} (masked s {rep['forward_rel']['s_masked']:.3e} "
               f"z {rep['forward_rel']['z_masked']:.3e})", flush=True)
+
+        if a.dump_forward:
+            d = os.path.dirname(a.dump_forward)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            torch.save({"s": s_ours, "z": z_ours, "single_mask": sm, "pair_mask": pm,
+                        "crop": a.crop, "scale_pair_bias": spb}, a.dump_forward)
+            rep["forward_dumped_to"] = a.dump_forward
+        if a.forward_reference:
+            fr = torch.load(a.forward_reference, map_location="cpu", weights_only=False)
+            s_r = fr["s"].to(torch.float64)
+            z_r = fr["z"].to(torch.float64)
+            real = int(sm.sum())
+
+            def _sc(o, r, m):
+                o, r = (o * m).flatten(), (r * m).flatten()
+                on, rn = float(o.norm()), float(r.norm())
+                return {"rel": float((o - r).norm() / (rn + 1e-300)),
+                        "ratio": (on / rn) if rn else None,
+                        "cos": (float(torch.dot(o, r)) / (on * rn)) if (on and rn) else None,
+                        "verdict": ("PASS" if float((o - r).norm() / (rn + 1e-300))
+                                    <= PER_TENSOR_BAR else "FAIL")}
+
+            rep["a18_vs_reference"] = {
+                "reference": a.forward_reference,
+                "rule": "A18: the forward is confirmed in the SAME process that takes the "
+                        "gradient. A disagreeing forward invalidates the gradient taken at it; "
+                        "an agreeing one removes mis-wiring from the list and bounds nothing.",
+                "bar": PER_TENSOR_BAR,
+                "tokens": N, "real_tokens": real,
+                "padding_fraction_single": 1.0 - real / N,
+                "padding_fraction_pair": 1.0 - float(pm.sum()) / (N * N),
+                "s_masked": _sc(s_ours, s_r, msk),
+                "z_masked": _sc(z_ours, z_r, pmk),
+                "s_padded_scope": _sc(s_ours, s_r, torch.ones_like(msk)),
+                "z_padded_scope": _sc(z_ours, z_r, torch.ones_like(pmk))}
+            _A = rep["a18_vs_reference"]
+            print(f"[{time.perf_counter()-t0:.0f}s] A18 vs {a.forward_reference}: "
+                  f"s_masked {_A['s_masked']['rel']:.6e} ({_A['s_masked']['verdict']}) "
+                  f"r {_A['s_masked']['ratio']:.6f} cos {_A['s_masked']['cos']:.6f} | "
+                  f"z_masked {_A['z_masked']['rel']:.6e} ({_A['z_masked']['verdict']}) "
+                  f"r {_A['z_masked']['ratio']:.6f} cos {_A['z_masked']['cos']:.6f} | "
+                  f"padding {_A['padding_fraction_single']:.6f} single / "
+                  f"{_A['padding_fraction_pair']:.6f} pair", flush=True)
 
     # ---- the bijection, by value against the built model -------------------------------------
     dev_all = {p: ttnn.to_torch(t).to(torch.float32) for p, t in device_weights(mod).items()}

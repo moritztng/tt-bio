@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""One upstream release tree's 48-block pairformer trunk GRADIENT over the captured boundary.
+
+`of3t_trunk043ref/ref_stack.py` runs the forward of one tree at one dtype policy;
+`of3t_pairformer/upstream_arm.py` takes the gradient but only from whichever `openfold3` the
+interpreter happens to find, which is how a 0.5.0 reference ended up under a checkpoint bound to
+0.4.3. This is the two of them joined: the tree is an argument and it is asserted after import,
+and the same process writes the parameter gradients AND the forward outputs the A18 check needs.
+
+DTYPE POLICY, written out because "float64" names a width and not a policy (A27):
+
+  f64        every parameter and every activation float64. The checkpoint is upcast once at load
+             and nothing casts on the path. Upstream's `_attention` wraps its scores in
+             `torch.amp.autocast("cuda", ...)`, inert on CPU, so `use_high_precision_attention`
+             cannot fire in this arm.
+  f32        parameters and activations float32, no autocast.
+  bf16auto   float32 parameters under `torch.autocast("cpu", bfloat16)` -- upstream's own
+             training recipe, and the only honest floor for a bf16 port.
+
+THE BOUNDARY. `cap/block0_boundary.pt` in, `cap/block{last}_boundary.pt`'s cotangent back. That
+is exact rather than approximate: pairformer block i's parameters appear once in their graph and
+at num_recycles 0 the trunk runs once, so
+
+    dL/d(theta_i) = d/d(theta_i) [ <cot_s, s_out> + <cot_z, z_out> ]
+
+with the inputs, masks and cotangents all from one run of their own step. `--boundary-check`
+asserts the sliced tensors are bit-identical to `of3t_trunk043ref/boundary_c64.pt`, so the crop
+is an artifact with a sha256 and not a convention each script re-derives.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+import time
+
+import torch
+
+CKPT = "/home/ttuser/of3-weights/of3-p2-155k.pt"
+PRE = "pairformer_stack.blocks."
+
+
+def sha256_file(p, chunk=1 << 22):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for b in iter(lambda: f.read(chunk), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def build(sd, n, dtype):
+    """Upstream's own PairFormerBlock, dimensions read off the checkpoint, strict load."""
+    from openfold3.core.model.latent.pairformer import PairFormerBlock
+    p0 = f"{PRE}0."
+    c_s = sd[p0 + "attn_pair_bias.layer_norm_a.weight"].shape[0]
+    c_z = sd[p0 + "pair_stack.tri_mul_in.layer_norm_in.weight"].shape[0]
+    nh_bias = sd[p0 + "attn_pair_bias.linear_z.weight"].shape[0]
+    nh_pair = sd[p0 + "pair_stack.tri_att_start.linear_z.weight"].shape[0]
+    dims = dict(c_s=c_s, c_z=c_z, c_hidden_pair_bias=c_s // nh_bias, no_heads_pair_bias=nh_bias,
+                c_hidden_mul=sd[p0 + "pair_stack.tri_mul_in.linear_a_p.weight"].shape[0],
+                c_hidden_pair_att=sd[p0 + "pair_stack.tri_att_start.mha.linear_q.weight"].shape[0]
+                // nh_pair,
+                no_heads_pair=nh_pair, transition_type="swiglu",
+                transition_n=sd[p0 + "pair_stack.pair_transition.swiglu.linear_a.weight"].shape[0]
+                // c_z,
+                pair_dropout=0.25, fuse_projection_weights=False, inf=1e9)
+    mods, load = [], []
+    for i in range(n):
+        sub = {k[len(f"{PRE}{i}."):]: v.to(dtype) for k, v in sd.items()
+               if k.startswith(f"{PRE}{i}.")}
+        m = PairFormerBlock(**dims).to(dtype)
+        missing, unexpected = m.load_state_dict(sub, strict=True)
+        m.eval()                                # the capture disabled dropout; so does this
+        mods.append(m)
+        load.append({"block": i, "tensors": len(sub),
+                     "missing": list(missing), "unexpected": list(unexpected)})
+    return mods, dims, load
+
+
+def force_tb(value: bool):
+    """Pin the ending-node bias orientation whatever the tree's own call site passes."""
+    import openfold3.core.model.layers.triangular_attention as ta
+    orig = ta.TriangleAttention.forward
+
+    def patched(self, *a, **kw):
+        kw["transpose_bias"] = value
+        return orig(self, *a, **kw)
+
+    ta.TriangleAttention.forward = patched
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tree", required=True, help="directory containing the openfold3/ package")
+    ap.add_argument("--cap", default="/home/ttuser/of3t_gradients/cap")
+    ap.add_argument("--crop", type=int, default=64, help="0 means the whole 384-token batch")
+    ap.add_argument("--blocks", type=int, default=48)
+    ap.add_argument("--policy", default="f64", choices=("f64", "f32", "bf16auto"))
+    ap.add_argument("--tb", default="keep", choices=("keep", "off", "on"))
+    ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--boundary-check", default="",
+                    help="assert the sliced boundary is bit-identical to this extract_boundary "
+                         "artifact, and record its sha256")
+    ap.add_argument("--out", required=True, help="parameter gradients, keyed by checkpoint name")
+    ap.add_argument("--forward-out", default="", help="s/z forward outputs, for the A18 check")
+    ap.add_argument("--report", required=True)
+    a = ap.parse_args()
+    t0 = time.perf_counter()
+
+    sys.path.insert(0, a.tree)
+    import openfold3
+    if not openfold3.__file__.startswith(a.tree):
+        raise SystemExit(f"wrong tree on sys.path: {openfold3.__file__} is not under {a.tree}")
+    if a.tb != "keep":
+        force_tb(a.tb == "on")
+    torch.set_num_threads(a.threads)
+    torch.manual_seed(0)
+
+    last = a.blocks - 1
+    src0 = os.path.join(a.cap, "block0_boundary.pt")
+    srcL = os.path.join(a.cap, f"block{last}_boundary.pt")
+    cap0 = torch.load(src0, map_location="cpu", weights_only=False)
+    capL = torch.load(srcL, map_location="cpu", weights_only=False)
+    c = a.crop
+    cs = (lambda x: x[:, :c].contiguous()) if c else (lambda x: x.contiguous())
+    cz = (lambda x: x[:, :c, :c].contiguous()) if c else (lambda x: x.contiguous())
+    f64 = lambda x: x.detach().to(torch.float64)
+
+    s_in = f64(cs(cap0["args"][0]))
+    z_in = f64(cz(cap0["args"][1]))
+    single_mask = f64(cs(cap0["kwargs"]["single_mask"]))
+    pair_mask = f64(cz(cap0["kwargs"]["pair_mask"]))
+    s_cap = f64(cs(capL["out"][0]))
+    z_cap = f64(cz(capL["out"][1]))
+    cot_s = f64(cs(capL["cot"][0]))
+    cot_z = f64(cz(capL["cot"][1]))
+
+    N = int(z_in.shape[1])
+    real = int(single_mask.sum())
+    rep = {"what": __doc__.strip().splitlines()[0], "tree": a.tree,
+           "openfold3_file": openfold3.__file__, "policy": a.policy, "tb": a.tb,
+           "blocks": a.blocks, "crop": c, "checkpoint": CKPT,
+           "boundary": {"inputs_from_block": 0, "cotangent_from_block": last,
+                        "block0": src0, "block47": srcL,
+                        "tokens": N, "real_tokens": real,
+                        "padding_fraction_single": 1.0 - real / N,
+                        "padding_fraction_pair": 1.0 - float(pair_mask.sum()) / (N * N),
+                        "s_in_norm": float(s_in.norm()), "z_in_norm": float(z_in.norm()),
+                        "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm())},
+           "dtype_policy": {
+               "f64": "every parameter and every activation float64; checkpoint upcast once at "
+                      "load; no cast on the path; upstream's CUDA-autocast contexts are inert on "
+                      "CPU so use_high_precision_attention cannot fire",
+               "f32": "parameters and activations float32, no autocast",
+               "bf16auto": "float32 parameters under torch.autocast('cpu', bfloat16) -- "
+                           "upstream's own training recipe",
+           }[a.policy]}
+
+    if a.boundary_check:
+        b = torch.load(a.boundary_check, map_location="cpu", weights_only=False)
+        ident = {k: bool(torch.equal(v, b[k])) for k, v in
+                 (("s_in", s_in), ("z_in", z_in), ("single_mask", single_mask),
+                  ("pair_mask", pair_mask))}
+        ident["s_ref_050_captured"] = bool(torch.equal(s_cap, b["s_ref_050_captured"]))
+        ident["z_ref_050_captured"] = bool(torch.equal(z_cap, b["z_ref_050_captured"]))
+        rep["boundary_identity"] = {"file": a.boundary_check,
+                                    "sha256": sha256_file(a.boundary_check),
+                                    "bit_identical": ident,
+                                    "all": all(ident.values())}
+        if not all(ident.values()):
+            raise SystemExit(f"boundary slicing diverged from {a.boundary_check}: {ident}")
+        print(f"[{time.perf_counter()-t0:.0f}s] boundary bit-identical to {a.boundary_check}",
+              flush=True)
+
+    dt = torch.float32 if a.policy in ("f32", "bf16auto") else torch.float64
+    sd = torch.load(CKPT, map_location="cpu", weights_only=False, mmap=True)
+    if isinstance(sd, dict) and "state_dict" in sd and isinstance(sd["state_dict"], dict):
+        sd = sd["state_dict"]
+    mods, dims, load = build(sd, a.blocks, dt)
+    rep["their_dims"] = dims
+    rep["their_load"] = {"blocks": len(load),
+                         "tensors": sum(x["tensors"] for x in load),
+                         "missing": sum(len(x["missing"]) for x in load),
+                         "unexpected": sum(len(x["unexpected"]) for x in load)}
+    n_par = sum(1 for m in mods for _ in m.named_parameters())
+    print(f"[{time.perf_counter()-t0:.0f}s] built {a.blocks} PairFormerBlock in {a.policy}, "
+          f"{n_par} tensors, N={N} real={real}", flush=True)
+
+    s = s_in.to(dt).contiguous()
+    z = z_in.to(dt).contiguous()
+    sm, pm = single_mask.to(dt), pair_mask.to(dt)
+    ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
+           else torch.autocast("cpu", enabled=False))
+    t1 = time.perf_counter()
+    with ctx:
+        for m in mods:
+            s, z = m(s, z, sm, pm)
+        loss = (s.to(torch.float64) * cot_s).sum() + (z.to(torch.float64) * cot_z).sum()
+    s_out = s.detach().to(torch.float64)
+    z_out = z.detach().to(torch.float64)
+    msk = single_mask.reshape(1, N, 1)
+    pmk = pair_mask.reshape(1, N, N, 1)
+    rel = lambda x, y: float((x - y).norm() / (y.norm() + 1e-300))
+    rep["forward"] = {
+        "loss": float(loss.detach()),
+        "s_out_norm": float(s_out.norm()), "z_out_norm": float(z_out.norm()),
+        "seconds": time.perf_counter() - t1,
+        "vs_captured_050": {"s": rel(s_out, s_cap), "z": rel(z_out, z_cap),
+                            "s_masked": rel(s_out * msk, s_cap * msk),
+                            "z_masked": rel(z_out * pmk, z_cap * pmk)}}
+    print(f"[{time.perf_counter()-t0:.0f}s] forward done, loss {float(loss.detach()):.12e}, "
+          f"vs captured 0.5.0 masked s {rep['forward']['vs_captured_050']['s_masked']:.3e} "
+          f"z {rep['forward']['vs_captured_050']['z_masked']:.3e}", flush=True)
+
+    loss.backward()
+    grads, absent = {}, []
+    for j, m in enumerate(mods):
+        for n, p in m.named_parameters():
+            full = f"{PRE}{j}.{n}"
+            if p.grad is None:
+                absent.append(full)
+            else:
+                grads[full] = p.grad.detach().to(torch.float64).clone()
+    gsq = sum(float((v ** 2).sum()) for v in grads.values())
+    rep["gradient"] = {"with_grad": len(grads), "without_grad": len(absent),
+                       "absent": absent[:32],
+                       "global_norm": gsq ** 0.5, "squared_norm": gsq}
+    print(f"[{time.perf_counter()-t0:.0f}s] backward done, {len(grads)} tensors, "
+          f"global norm {gsq ** 0.5:.12e}", flush=True)
+
+    os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
+    torch.save(grads, a.out)
+    rep["out"] = a.out
+    rep["out_sha256"] = sha256_file(a.out)
+    if a.forward_out:
+        torch.save({"s": s_out, "z": z_out, "single_mask": single_mask, "pair_mask": pair_mask,
+                    "policy": a.policy, "tree": a.tree, "tb": a.tb, "crop": c}, a.forward_out)
+        rep["forward_out"] = a.forward_out
+        rep["forward_out_sha256"] = sha256_file(a.forward_out)
+    rep["seconds"] = time.perf_counter() - t0
+    os.makedirs(os.path.dirname(a.report) or ".", exist_ok=True)
+    with open(a.report, "w") as fh:
+        json.dump(rep, fh, indent=2)
+    print(f"[{time.perf_counter()-t0:.0f}s] wrote {a.out} and {a.report}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
