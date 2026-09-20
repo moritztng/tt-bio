@@ -163,12 +163,21 @@ class AdamW:
             self.master[n].shape) for n, t in params.items()}
         self.exp_avg = {n: np.zeros_like(v) for n, v in self.master.items()}
         self.exp_avg_sq = {n: np.zeros_like(v) for n, v in self.master.items()}
+        # The per-sample clipping accumulator. Empty means the caller clips the batch once,
+        # which is what this file did before and what every caller does today; non-empty means
+        # `clip_and_accumulate` ran per sample and `step()` must use what it summed rather than
+        # clip a second time. `participation` is their per-parameter active count
+        # (`parameter_participation_counts`), kept because a parameter absent from most samples
+        # must not be averaged by the batch size.
+        self.accum: Dict[str, "np.ndarray"] = {}
+        self.participation: Dict[str, int] = {}
+        self.accum_count = 0
 
     def zero_grad(self) -> None:
         for t in self.params.values():
             t.grad = None
 
-    def step(self, *, replicas=None) -> dict:
+    def step(self, *, replicas=None, disabled=()) -> dict:
         """One update. Returns the per-parameter update magnitudes, for the control.
 
         ``replicas`` is the per-chip gradient for each parameter,
@@ -179,6 +188,8 @@ class AdamW:
         """
         import numpy as np
         self._reduce(replicas)
+        disabled = set(disabled)
+        per_sample = bool(self.accum)
         self.steps += 1
         self.beta1_pow *= self.beta1
         self.beta2_pow *= self.beta2
@@ -188,14 +199,21 @@ class AdamW:
         # Global-norm clipping, computed once over every gradient before any of them is
         # applied. Per-parameter clipping would be a different algorithm: it changes the
         # DIRECTION of the update, not just its length.
-        gnorm = self.grad_norm()
-        clip = (min(1.0, self.clip_norm / gnorm)
-                if (self.clip_norm > 0 and gnorm > 0) else 1.0)
+        # Under per-sample clipping every sample was already clipped as it arrived, so the
+        # norm here is the accumulated one and is reported rather than applied -- clipping the
+        # sum again would be a third algorithm, neither theirs nor ours.
+        gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
+                 if per_sample else self.grad_norm(disabled))
+        clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
         for name, t in self.params.items():
-            if t.grad is None:
+            if name in disabled:
                 continue
-            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            g = self.accum.get(name) if per_sample else (
+                None if t.grad is None else
+                to_host(t.grad).astype(np.float32).reshape(self.master[name].shape))
+            if g is None:
+                continue
             if clip != 1.0:
                 g = g * clip
             m = self.exp_avg[name]
@@ -221,7 +239,9 @@ class AdamW:
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.last_per_sample = per_sample
         self.last_report = report
+        self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
 
     def _reduce(self, replicas) -> None:
@@ -303,15 +323,65 @@ class AdamW:
         m, d = math.sqrt(m), math.sqrt(d)
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan")}
 
-    def grad_norm(self) -> float:
-        """Global L2 norm of the gradients, for clipping and for the trajectory log."""
+    def grad_norm(self, disabled=()) -> float:
+        """Global L2 norm of the gradients, for clipping and for the trajectory log.
+
+        ``disabled`` is the set of parameter names this sample does not activate, and it is
+        excluded from the norm. Theirs does the same and it is not a detail: `_clip_grads`
+        builds `params_enabled` by dropping `disabled_params` BEFORE computing the norm
+        (`grad_manager.py:147-153`), and their runner disables the confidence head whenever a
+        sample's summed confidence weight is zero, which `initial_training.yml` does on 4 of its
+        5 datasets. Norming over a set they excluded gives a different clip coefficient for
+        every gradient in the step -- measured at 8.368e-01 relative on one small enabled tensor
+        beside one large disabled one, which is not a corner case but most of initial training.
+        """
         import numpy as np
+        disabled = set(disabled)
         tot = 0.0
-        for t in self.params.values():
-            if t.grad is not None:
+        for name, t in self.params.items():
+            if t.grad is not None and name not in disabled:
                 gg = to_host(t.grad).astype(np.float32)
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
+
+    def clip_coef(self, gnorm: float) -> float:
+        """``min(1, clip_norm/gnorm)``, their `max_norm / maximum(gnorm, max_norm)`.
+
+        The same rule written two ways, agreeing to 8.51e-08 across eight straddling cases
+        against their real `compute_global_norm` -- inside the float32 floor both stacks share.
+        Factored out so the per-sample path and the per-batch path cannot drift apart.
+        """
+        return (min(1.0, self.clip_norm / gnorm)
+                if (self.clip_norm > 0 and gnorm > 0) else 1.0)
+
+    def clip_and_accumulate(self, disabled=()) -> dict:
+        """Clip THIS SAMPLE's gradients and add them to the accumulator. Their algorithm.
+
+        Per-sample clipping is a different algorithm from per-batch clipping, not a different
+        constant: it changes the DIRECTION of the accumulated update, which is the same reason
+        this file already refuses per-parameter clipping. Measured at 1.948e-01 relative over 3
+        samples with one 200x outlier. `per_sample_clipping: True` at `clip_val 10.0` is their
+        shipped default (`clip_and_accumulate`, `grad_manager.py:242`).
+
+        Call it after each sample's backward, then `zero_grad()` before the next sample's. The
+        caller owns the per-sample loop because only the caller knows what a sample is; `step()`
+        consumes the accumulator when there is one and clips the batch once when there is not.
+        """
+        import numpy as np
+        disabled = set(disabled)
+        gnorm = self.grad_norm(disabled)
+        clip = self.clip_coef(gnorm)
+        for name, t in self.params.items():
+            if t.grad is None or name in disabled:
+                continue
+            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            if clip != 1.0:
+                g = g * clip
+            acc = self.accum.get(name)
+            self.accum[name] = g if acc is None else acc + g
+            self.participation[name] = self.participation.get(name, 0) + 1
+        self.accum_count += 1
+        return {"grad_norm": gnorm, "clip": clip, "samples": self.accum_count}
 
     def state_dict(self) -> dict:
         return {"steps": self.steps, "lr": self.lr, "beta1": self.beta1,
