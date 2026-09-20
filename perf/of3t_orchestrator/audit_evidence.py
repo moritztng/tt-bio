@@ -1234,6 +1234,30 @@ if ORCH.is_file():
         ok.append(f"PROVES states the check count correctly ({_n_now} = {_n_ran} confirmed "
                   f"+ {len(warn)} skipped-and-said-so)")
 
+# --- THE_ANSWER's by_scope table must SUM TO ITS OWN TOTAL ----------------------------------
+# Added pass 176. The table listed five scopes summing to 97.9933 % beside an arithmetic_check
+# asserting 100.0, because the no_reading bucket was only partly enumerated: pairformer_stack's
+# 5.8282 had a row and the other 2.0067 % did not. Nothing was WRONG -- both numbers were right --
+# but a reader who added the column up got a different answer from the one stated, and could not
+# tell which to trust. A table whose own rows do not reconstruct its total is not checkable, and
+# an unchecked total is how every drift in this campaign started.
+try:
+    _ta = json.load(open(ROOT / "perf/of3t_orchestrator/THE_ANSWER.json"))
+except Exception as _e:
+    warn.append(f"THE_ANSWER.json could not be read for the by_scope sum check ({_e})")
+else:
+    _rows = _ta.get("by_scope") or []
+    _sum = round(sum(float(r.get("mass_pct", 0)) for r in _rows), 4)
+    _claim = float(_ta.get("arithmetic_check", {}).get("total_pct", 0))
+    if not _rows:
+        bad.append("THE_ANSWER.json has no by_scope rows -- the headline table vanished")
+    elif abs(_sum - _claim) > 5e-4:
+        bad.append(f"THE_ANSWER by_scope sums to {_sum} but arithmetic_check.total_pct is "
+                   f"{_claim} -- the mass table does not reconstruct its own total, so a reader "
+                   f"adding the column up gets a different answer from the one stated")
+    else:
+        ok.append(f"THE_ANSWER by_scope sums to its own total ({_sum} over {len(_rows)} scopes)")
+
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")
