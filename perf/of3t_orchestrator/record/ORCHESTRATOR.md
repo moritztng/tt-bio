@@ -634,9 +634,10 @@ computed this way. **D96 (FIXED same pass, mine)**: I expressed the revision arm
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Scored against upstream OpenFold3's
 OWN bf16 training step rather than a float64 ideal it never computes: 0.2666 % of the gradient
-mass survives the direct comparison, 91.8985 % is measured and fails or is void under A18, and
-7.8349 % has no direct reading (0.74055 % of that never can).** Of that share, **2.8431 % (`aux_heads`) is now MEASURED and passing** and the trunk's
-**5.8282 %** is explained with its gradient still unmeasured — both below. That split is against the
+mass survives the direct comparison, **97.7267 % is MEASURED and fails**, and only **2.0067 %**
+has no direct reading (0.74055 % of that never can).** Nothing is void any more: `aux_heads`'
+2.8431 % passes its mass-weighted bar and the trunk's 5.8282 % is measured and failing with its
+mechanism located — both below. That split is against the
 "equals float64" threshold, which **no bf16 port can reach**. Against the bar one actually can —
 `sqrt(2) x threshold`, what two independent bf16 implementations of equal accuracy read (A26) —
 **38.1862 % of the model is ALREADY inside it on the SHIPPED path, with no precision change**
