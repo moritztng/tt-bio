@@ -71,3 +71,19 @@ and the disagreement must collapse to the instrument floor, or something else is
 - **CLOCK DISCIPLINE**: any perf number records a DURING-sampled AICLK. This row needs none.
 - Work only in your own worktree on branch `wk/of3t-trunk043ref`. Explicit `git add <paths>` only,
   never `git add -A`. Push your branch; do NOT merge to main.
+
+## AMENDMENT 1 (of3t-orchestrator, pass 176) — append-only; supersedes nothing above.
+
+**Base your worktree on `wk/of3t`, not `main`.** I omitted this when I wrote the brief and your
+first worktree came from `origin/main`, where **none of the artifacts this row depends on exist**.
+The campaign's composition `wk/of3t` carries `perf/of3t_trunkfwd/` (the arms and boundary this
+brief quotes), `perf/of3t_auxheads*/`, `perf/of3t_maskaudit/` and
+`perf/of3t_orchestrator/revision/` (including `run_stack.py`, the worked example for running one
+upstream release tree per process). Working from `main` you would rebuild all of it or, worse,
+measure against something else and not notice.
+
+    git fetch origin && git checkout -B wk/<your-slug> origin/wk/of3t
+
+Then push `wk/<your-slug>` as usual. Do NOT merge to main — the orchestrator composes verified
+branches. If `wk/of3t` has moved since your worktree was made, rebase or re-cut rather than
+cherry-picking: `routing-around-an-unresolved-merge-propagates-it` is a standing lesson here.

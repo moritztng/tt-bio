@@ -5952,3 +5952,32 @@ correct for it by argument.
 **What lands**: D95 closes as *measured, no verdict affected*; A18 is amended to require the
 padding fraction and the scoring scope beside every forward figure; the aux_heads headline
 becomes 5.177082e-01. Owner: `of3t-orchestrator`. **FIXED.**
+
+### D100. I dispatched two rows without saying which branch to base on, so one of them got a worktree from `main` where none of the artifacts it depends on exist. FIXED by amendment.
+
+`of3t-auxfind` launched at 15:30 and its log reads
+`fresh worktree /home/ttuser/.coworker/wt/of3t-auxfind from origin/main`. Neither of the pass-176
+briefs said where to base. Every comparable OF3T row says it explicitly — `of3t-confidence`'s
+reads *"Builds on `wk/of3t`, not `main`, because the tape's R7/R10/R11/K12/R19 fixes are in the
+composition"* — and I omitted it from both.
+
+**What that costs.** `main` has none of `perf/of3t_trunkfwd/` (the arms and boundary
+`of3t-trunk043ref`'s brief quotes verbatim), `perf/of3t_auxheads*/`, `perf/of3t_maskaudit/` or
+`perf/of3t_orchestrator/revision/` (including `run_stack.py`, which the brief names as the worked
+example). The row either rebuilds all of it, or — the bad case — measures against a
+**different** boundary and reports a number that cannot be compared to the ones its own brief
+quotes. That is the same failure shape as scoring against the wrong revision, one level up: not
+a wrong computation, a wrong input, silently.
+
+**Why it is worth a number rather than a quiet edit.** The dispatch checklist has now produced
+three defects in two passes — D97 (`card=-`), D98 (no TASKS ws-tag), and this — and all three are
+**silent**: nothing logs "this row is working from the wrong base". Two of the three are now
+mechanically guarded; this one is not, because the right base is a judgement (some rows genuinely
+should start from `main`). What can be checked mechanically is weaker but still useful: a brief
+that **names** an artifact path under `perf/of3t_*` belonging to another row, while saying
+nothing about its base branch, is almost certainly wrong. Recorded as the candidate; not built
+this pass, because the last guard I built too eagerly flagged 12 of 30 briefs.
+
+**Fixed** by AMENDMENT 1 on both briefs — the append-only channel is the only one that reaches a
+row already holding a worktree — instructing `git checkout -B wk/<slug> origin/wk/of3t`.
+Owner: `of3t-orchestrator`. **FIXED.**
