@@ -649,23 +649,10 @@ from our accuracy ratio and the error cosine to within **1.26e-05** — nothing 
 **Three things are NOT settled.** The **shipped** path: that same 88 % fails at **91.3x** the
 reachable bar, entirely on accuracy, and the whole of it inside the diffusion arm is the softmax —
 for which `of3t-softmax` returned NO-GO on every shipped lever (+46 % per op), so closing it is a
-**release-gated precision change, not a measurement**. The **pairformer trunk** (5.8282 %):
-`of3t-pairformer` measured it at **1.061553e+01**, norm ratio 10.55, cos −0.017 — ten and a half
-times too large and pointing somewhere unrelated, **10.6x further from their step than emitting
-zeros** — with its **A18 forward failing** at 2.796859e-01, so it is a **port defect in the
-forward composition** that the gradient inherits (D87). That **REFUTES "the failure is one
-module"**, which is retracted everywhere: in measured error mass the diffusion transformer is
-80.79 % and the **trunk is 18.89 %**, against the 0.4 % that framing allotted to everything
-outside the transformer. And **`aux_heads`** (2.8431 %) is void under A18 for the same reason. **Pass 176 weakens
-the A18 evidence itself**: every A18 figure above was computed over a 56-real/384-padded
-activation, and padding dilutes a STRUCTURAL difference **39x** while diluting bf16 noise only
-**1.2x** (D95) — so an A18 pass bounds imprecision well and a wrong transform hardly at all. And
-the owed revision arm ran: the trunk's orientation flag is worth **8.62x** upstream's own bf16
-measured on upstream's own two trees, control exactly 0.0 — real, but **not** the 46.67x, so
-pre-registered branch B fired and the trunk's magnitude is REOPENED (D93 is the live candidate).
+**release-gated precision change, not a measurement**. The **pairformer trunk** (5.8282 %) read **1.061553e+01** with its A18 forward failing at 2.796859e-01 — that whole reading is **superseded** by the 0.4.3 rebuild below and its narrative is in PASSLOG. **PASS 176 CLEARED BOTH OF THOSE FORWARDS, and the trunk paragraph above is superseded.** The trunk was scored against a reference built on **0.5.0** while `of3-p2-155k` is bound to **0.4.3**. Rebuilt at 0.4.3 on the same boundary and weights, the SHIPPED port's pair track reads **4.947045e-02** masked — **under the 5.0e-02 bar**, 0.70x the A26 reachable bar — and **92.08 %** of the old 2.793661e-01 was the reference revision, measured not bounded. `transpose_bias` is the only live float64 difference on that path (0.5.0 forced to the 0.4.3 orientation reads **exactly 0.0**), so the shipped orientation is **correct** for our checkpoint. Its **single** track is still ours at **1.065338e-01** (2.13x the bar) and is now **located**: 84 % of it in **blocks 45–47**. And **`aux_heads`** (2.8431 %), void under A18, is **repaired at the call site** — handing the shipped `PairformerLayer` the two masks it was dropping takes all five heads to **exactly 0.000000e+00**, r 1.0, cos 1.0. **Both are FORWARDS**: A18 opens the gate, it does not close the question, and neither scope's gradient is measured. **D95 closed** — every activation reading enumerated, **no A18 verdict changes** — though `aux_heads`' headline restates upward to **5.177082e-01** on `pae_logits`, and padding distortion is neither proportional to the padding fraction nor one-signed.
 
 Thirty-one concluded rows, none live; one hundred defects on the record, forty-two of them
-UNFIXED. The composition `wk/of3t` carries 24 of 26 rows at 959 commits ahead of main.
+UNFIXED. The composition `wk/of3t` carries 32 of 32 rows at 1061 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
 there because every pass appended after the last field, so the field a reader treats as the
@@ -8799,3 +8786,14 @@ needs a pinned-recycle GPU rerun and a TT number that includes what the trunk cy
 and, per **D32**, the TT number must be taken **with the tape open**, since 21 sites in 9 modules
 decline their fused path there. The existing 870.75 s already was taped, so it is D32-compliant;
 any successor must be too.
+
+## Moved out of VERDICT at pass 176 (superseded by the 0.4.3 trunk rebuild; kept because the reasoning it refuted is part of the record)
+
+The **pairformer trunk** (5.8282 %):
+`of3t-pairformer` measured it at **1.061553e+01**, norm ratio 10.55, cos −0.017 — ten and a half
+times too large and pointing somewhere unrelated, **10.6x further from their step than emitting
+zeros** — with its **A18 forward failing** at 2.796859e-01, so it is a **port defect in the
+forward composition** that the gradient inherits (D87). That **REFUTES "the failure is one
+module"**, which is retracted everywhere: in measured error mass the diffusion transformer is
+80.79 % and the **trunk is 18.89 %**, against the 0.4 % that framing allotted to everything
+outside the transformer.
