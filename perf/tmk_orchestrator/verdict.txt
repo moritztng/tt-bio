@@ -1,0 +1,33 @@
+ROUTE A -- RATE. Re-priced by tmk-assumptions, qb2 p300c node 3, pinned 1350 MHz.
+  The three sites sit at 170.6 / 170.7 / 127.9 FLOP/byte against a machine balance of
+  263 FLOP/byte, so all three are BELOW balance: none can reach the compute roof at any
+  kernel quality, and each one's binding roof is traffic at 73.53 / 73.58 / 50.10-55.15.
+  A at its best-BW traffic roof (49 % of the deficit) module 11.519 ->  9.745 ms (1.1820x)   fold 1.0419x
+  A at its same-mix traffic roof (25 %)              module 11.519 -> 10.613 ms (1.0854x)   fold 1.0210x
+  The campaign booked 3.491 ms here. At most 1.774 ms of it exists.
+
+ROUTE B -- THE AXIS EXCHANGE. Resurrected, but its headroom depends on the baseline.
+  tile-granular control: 364.7 GB/s, within 3.4 % of a straight clone of the same bytes.
+  Three different numbers are in circulation for 'the shipped move', and they disagree:
+      63.3 GB/s  headroom  5.76x   ttnn.permute, what tmk-assumptions timed and labelled 'shipped'
+     158.0 GB/s  headroom  2.31x   trix-radical's figure for the shipped path
+     221.0 GB/s  headroom  1.65x   reblock_permute/_back, OUR kernel, perfwar-trimul-kernel at N=1024
+
+  Production at 512 aa calls reblock_permute_gated (tenstorrent.py:6415, 6492-6495,
+  behind eligible_gated), NOT ttnn.permute. perfwar measured our own kernel at 221/210
+  GB/s against ttnn.permute's 55 -- and 63.3 is in ttnn.permute territory, not ours.
+  So the 5.76x is against an op production does not call. Pricing the term both ways,
+  over the 2.551 ms trix-radical booked and the 2.121 ms tmk-assumptions measured:
+  B from 2.551 ms vs ttnn.permute  (5.76x)           module 11.519 ->  9.411 ms (1.2240x)   fold 1.0502x
+  B from 2.551 ms vs our kernel    (1.65x)           module 11.519 -> 10.514 ms (1.0956x)   fold 1.0233x
+  B from 2.121 ms vs ttnn.permute  (5.76x)           module 11.519 ->  9.766 ms (1.1795x)   fold 1.0414x
+  B from 2.121 ms vs our kernel    (1.65x)           module 11.519 -> 10.683 ms (1.0782x)   fold 1.0193x
+
+STACKED, and this is the campaign's answer
+  A best + B vs ttnn.permute                         module 11.519 ->  7.992 ms (1.4413x)   fold 1.0868x
+  A best + B vs our kernel                           module 11.519 ->  8.909 ms (1.2929x)   fold 1.0628x
+  A plausible + B vs ttnn.permute                    module 11.519 ->  8.860 ms (1.3001x)   fold 1.0641x
+  A plausible + B vs our kernel                      module 11.519 ->  9.777 ms (1.1781x)   fold 1.0411x
+
+  The 1.05x worth-building bar for a NEW build, and the 1.3531x hard ceiling from
+  trimul being 26.10 % of the fold, both still stand.
