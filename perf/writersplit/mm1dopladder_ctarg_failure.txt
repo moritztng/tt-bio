@@ -1,0 +1,19 @@
+  FAILED TO BUILD [1, 140, 128, 128] x [128, 256] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+  FAILED TO BUILD [1, 140, 32, 128] x [128, 128] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+  FAILED TO BUILD [1, 140, 32, 128] x [128, 256] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+  FAILED TO BUILD [1, 140, 32, 256] x [256, 128] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+  FAILED TO BUILD [1, 47, 512, 128] x [128, 512] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+  FAILED TO BUILD [1, 47, 512, 512] x [512, 128] at the generic arm: TT_THROW @ /project/tt_metal/impl/program/program.cpp:156: tt::exception
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/compile_time_args.h:25:23: error: static assertion failed: Index out of range
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/compile_time_args.h:25:23: note: the comparison reduces to '(30 < 30)'
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/compile_time_args.h:25:23: note: the comparison reduces to '(32 < 30)'
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/compile_time_args.h:62:62: error: inconsistent types 'int' and 'long unsigned int' deduced for lambda return type
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/compile_time_args.h:62:62: error: no matching function for call to 'get_ct_arg<TensorAccessorArgs<30>::NumBanksCTAOffset>()'
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:36:38: error: non-constant condition for static assertion
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:39:43: error: non-constant condition for static assertion
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:56:6: error: 'TensorAccessorArgs<30>::<lambda()>' called in a constant expression
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:64:6: error: 'TensorAccessorArgs<30>::<lambda()>' called in a constant expression
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:68:47: error: non-constant condition for static assertion
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/tt_metal/hw/inc/api/tensor/tensor_accessor_args.h:69:52: error: non-constant condition for static assertion
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in0_sender_padding.cpp:138:91: error: class template argument deduction failed:
+/home/ttuser/kisoji_p2_fresh/env/lib/python3.10/site-packages/ttnn/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in0_sender_padding.cpp:138:91: error: no matching function for call to 'TensorAccessor(const TensorAccessorArgs<30>&, const uint32_t&, const uint32_t&)'

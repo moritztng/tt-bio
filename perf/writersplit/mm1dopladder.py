@@ -19,9 +19,21 @@ Every point is an n-ladder (n = 1, 2, 4, 8, 16) fitted to time = L + c*n, so the
 is separated from the ~0.05 ms host bracket floor L that a `sync; call; sync` charges.  Reading an
 intercept without the ladder is how a fixed cost gets billed as op time.
 
-REFUSES TO RUN unless the AICLK holds at the target DURING the window and the host is quiet.
-`--anyway` runs regardless and stamps the record `usable: false`; that mode is for proving the
-harness executes, never for a number anybody quotes.
+Each ladder point is the MINIMUM of its repetitions, not the median.  Contention only ever adds
+time to a bracket -- a descheduled python thread, a stolen core, an evicted cache line all make a
+call look slower and none makes it look faster -- so over enough repetitions the minimum converges
+on the uncontended cost while the median tracks the load.  That is what makes this readable on a
+host somebody else is folding on, and it is the whole reason the estimator changed.
+
+It is not taken on trust.  `native_aa` is a second native arm, interleaved into every round exactly
+like the three real ones, so the session measures its own floor with the same instrument, the same
+warmth and the same neighbours as the ratio it reports.  `--contended` runs on a loud host and lets
+that floor decide: `usable` is true only if the worst per-signature A/A floor is inside `--aa-bar`.
+A session whose own twin moves more than the bar cannot price a lever and says so instead of
+returning a plausible number.  `--anyway` is the weaker mode that only proves the harness executes.
+
+The AICLK is forced to the target and sampled DURING the window either way; a number without a
+clock is not a measurement.
 """
 from __future__ import annotations
 
@@ -63,14 +75,22 @@ def main() -> int:
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--clock", type=int, default=1350)
     ap.add_argument("--anyway", action="store_true")
+    ap.add_argument("--contended", action="store_true",
+                    help="run on a host that is not quiet and let this session's own A/A "
+                         "floor decide whether it counts; only honest with --stat min")
+    ap.add_argument("--stat", choices=("min", "median"), default="min")
+    ap.add_argument("--aa-bar", type=float, default=0.5,
+                    help="worst per-signature A/A floor, in percent, a contended session "
+                         "may carry and still count as a measurement")
     ap.add_argument("--out", default=str(HERE / "mm1dopladder.json"))
     a = ap.parse_args()
 
     quiet = subprocess.run([sys.executable, str(QUIET)], capture_output=True, text=True)
     host_quiet = quiet.returncode == 0
-    if not host_quiet and not a.anyway:
+    if not host_quiet and not (a.anyway or a.contended):
         print(quiet.stdout.strip()[-400:])
-        print("REFUSING: host not quiet.  Re-run when it is, or --anyway for a harness check.")
+        print("REFUSING: host not quiet.  Re-run when it is, --contended to let the A/A "
+              "floor decide, or --anyway for a bare harness check.")
         return 3
 
     import torch
@@ -105,7 +125,7 @@ def main() -> int:
     print("nodes %r forced to %d MHz (host_quiet=%s)" % (held, a.clock, host_quiet), flush=True)
     sampler = clk.Sampler(held[0])
 
-    cases = []
+    cases, failed = [], []
     for s in sigs:
         ash, bsh = s["a"], s["b"]
         x = ttnn.from_torch(torch.randn(*ash) * 0.05, dtype=ttnn.bfloat16,
@@ -116,19 +136,32 @@ def main() -> int:
         if pc is None or mc0:
             print("  skipping %s x %s: no 1D config" % (ash, bsh))
             continue
-        ref = ttnn.linear(x, w, compute_kernel_config=KC, memory_config=DR,
-                          dtype=ttnn.bfloat16, core_grid=G)
-        ttnn.synchronize_device(device)
-        spec = ttnn.TensorSpec(ttnn.Shape([int(d) for d in ref.shape]), ttnn.bfloat16,
-                               ttnn.TILE_LAYOUT, ttnn.BufferType.DRAM)
-        tr = ttnn.to_torch(ref)
-        ttnn.deallocate(ref)
-        og, os_ = (ttnn.allocate_tensor_on_device(spec, device),
-                   ttnn.allocate_tensor_on_device(spec, device))
-        eq_g = bool(torch.equal(tr, ttnn.to_torch(
-            generic_mm1d(device, x, w, og, pc, CKC))))
-        eq_s = bool(torch.equal(tr, ttnn.to_torch(
-            generic_mm1d(device, x, w, os_, pc, CKC, writer_on_in0=True))))
+        step = "native"
+        try:
+            ref = ttnn.linear(x, w, compute_kernel_config=KC, memory_config=DR,
+                              dtype=ttnn.bfloat16, core_grid=G)
+            ttnn.synchronize_device(device)
+            spec = ttnn.TensorSpec(ttnn.Shape([int(d) for d in ref.shape]), ttnn.bfloat16,
+                                   ttnn.TILE_LAYOUT, ttnn.BufferType.DRAM)
+            tr = ttnn.to_torch(ref)
+            ttnn.deallocate(ref)
+            og, os_ = (ttnn.allocate_tensor_on_device(spec, device),
+                       ttnn.allocate_tensor_on_device(spec, device))
+            step = "generic"
+            eq_g = bool(torch.equal(tr, ttnn.to_torch(
+                generic_mm1d(device, x, w, og, pc, CKC))))
+            step = "split"
+            eq_s = bool(torch.equal(tr, ttnn.to_torch(
+                generic_mm1d(device, x, w, os_, pc, CKC, writer_on_in0=True))))
+        except Exception as e:
+            # Which arm refused matters: the wheel's own op failing is a shape this ladder may
+            # not price at all, while the transcription failing is a coverage defect in mine.
+            head = str(e).strip().splitlines()
+            failed.append({"a": ash, "b": bsh, "n": s["n"], "arm": step,
+                           "err": head[0][:300] if head else repr(e)[:300]})
+            print("  FAILED TO BUILD %s x %s at the %s arm: %s"
+                  % (ash, bsh, step, (head[0] if head else repr(e))[:200]), flush=True)
+            continue
         cases.append({"a": ash, "b": bsh, "n": s["n"], "pc": pc, "x": x, "w": w,
                       "og": og, "os": os_, "generic_bitexact": eq_g, "split_bitexact": eq_s})
         print("  %s x %s  n=%-6d cfg=%s  bit-exact generic %s split %s"
@@ -146,6 +179,8 @@ def main() -> int:
 
     ARMS = {"native": native, "generic": generic, "split": split}
 
+    AGG = min if a.stat == "min" else st.median
+
     def ladder(fn, c, ns=(1, 2, 4, 8, 16)):
         pts = []
         for n in ns:
@@ -161,7 +196,7 @@ def main() -> int:
                         ttnn.deallocate(r)
                 if i >= a.warm:
                     ts.append((e0 - s0) * 1e3)
-            pts.append((n, st.median(ts)))
+            pts.append((n, AGG(ts)))
         L, cc, res = fit([p[0] for p in pts], [p[1] for p in pts])
         return {"pts": pts, "L": L, "c": cc, "resid": res}
 
@@ -171,13 +206,17 @@ def main() -> int:
                 fn(c)
         ttnn.synchronize_device(device)
 
+    if not cases:
+        print("no signature built; nothing to price")
+        return 2
+
     plan = []
     for _ in range(a.rounds):
-        plan += list(ARMS.items())
-    plan.append(("native_aa", native))
+        plan += list(ARMS.items()) + [("native_aa", native)]
 
-    R = {"clock_target": a.clock, "host_quiet": host_quiet, "usable": host_quiet,
-         "tag": a.tag, "arms": {}}
+    R = {"clock_target": a.clock, "host_quiet": host_quiet, "usable": None,
+         "stat": a.stat, "aa_bar_pct": a.aa_bar, "contended": bool(a.contended),
+         "tag": a.tag, "arms": {}, "failed_signatures": failed}
     for name, fn in plan:
         for i, c in enumerate(cases):
             key = "%s_%d" % (name, i)
@@ -189,12 +228,12 @@ def main() -> int:
     R["clock"] = sampler.stop()
     print("AICLK during: %r" % (R["clock"],), flush=True)
 
-    best = lambda k: st.median([r["c"] for r in R["arms"][k]])
+    best = lambda k: AGG([r["c"] for r in R["arms"][k]])
     tot = {"native": 0.0, "generic": 0.0, "split": 0.0}
     R["cases"] = []
     for i, c in enumerate(cases):
         nv, gn, sp = best("native_%d" % i), best("generic_%d" % i), best("split_%d" % i)
-        aa = R["arms"]["native_aa_%d" % i][0]["c"]
+        aa = best("native_aa_%d" % i)
         floor = 100 * abs(nv - aa) / aa
         for k, v in (("native", nv), ("generic", gn), ("split", sp)):
             tot[k] += v * c["n"]
@@ -209,6 +248,9 @@ def main() -> int:
               % ("%s" % (c["a"],), c["n"], nv, gn, sp, gn / nv, nv / sp, gn / sp, floor),
               flush=True)
 
+    floors = [c["aa_floor_pct"] for c in R["cases"]]
+    R["aa_floor_max_pct"] = max(floors) if floors else None
+    R["usable"] = bool(floors) and R["aa_floor_max_pct"] <= a.aa_bar
     R["weighted_ms_per_fold"] = tot
     print("\nweighted by real call counts, these %d signatures cost per fold:" % len(cases))
     print("  native %.2f ms   generic %.2f ms   split %.2f ms"
@@ -216,9 +258,11 @@ def main() -> int:
     if tot["split"]:
         print("  split saves %.2f ms against native and %.2f ms against the transcription"
               % (tot["native"] - tot["split"], tot["generic"] - tot["split"]))
+    print("\nA/A floor worst %.3f %% against a %.3f %% bar; host_quiet=%s; stat=%s -> "
+          "usable=%s" % (R["aa_floor_max_pct"], a.aa_bar, host_quiet, a.stat, R["usable"]))
     if not R["usable"]:
-        print("\nHOST WAS NOT QUIET -- record stamped usable=false.  These numbers are a harness "
-              "check, not a measurement, and must not be quoted.")
+        print("This session cannot price the lever: its own A/A twin moves more than the "
+              "bar.  No ratio from it may be quoted.")
     Path(a.out).write_text(json.dumps(
         {k: v for k, v in R.items() if k != "_"}, indent=1, default=str))
     return 0
