@@ -7620,3 +7620,148 @@ The lesson is D125's, arriving one entry later than the entry that stated it: **
 is not a status, and the ten minutes it costs to read the shipped selector is cheaper than carrying
 the ambiguity another pass.** It also flips the expected direction — I raised the candidate as
 probably-closable and it is confirmed live.
+
+### D55 UPDATE (pass 220). STILL UNFIXED, re-located in the composed tree because EVERY line number in the original entry had gone stale — and the softmax-backward repair walked past the site and put the asymmetry inside a single division.
+
+**First, the entry could not be checked as written.** D55 is stated entirely as a table of line
+numbers, and all five point somewhere else today: `taped_ttnn.py:200` is now a `_unary` closure,
+`autograd.py:708` a SiLU docstring, `:949` a `concat` backward, `:689` `sigmoid`, `:958` a slice.
+This is the trap D31 already flagged once in this same file (`tenstorrent.py:7205` → `:7398`) and it
+is now the second sighting, so it is a defect-writing rule and not an anecdote: **a defect located
+only by line number decays into an unfalsifiable claim.** Locate by symbol and by the code text,
+and give the line as a convenience.
+
+**Re-located by pattern, and the substance holds.** On `wk/of3t` (the composition, which is where
+the repair lives — the orchestrator branch carries only the asserter):
+
+  * `taped_ttnn.py:216` — `inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)`, the
+    softmax backward's near-cancellation. **No `compute_kernel_config`.**
+  * `autograd.py:612-613` — the same rule, duplicated. No config.
+  * `autograd.py:847` — `inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)` feeding
+    `ds = p*(dp − inner)`. The `ttnn.matmul` at `:842` (`dv_part`), the one at `:845-846` (`dp`) and
+    the one at `:859` (`dq_rows`) **all pass `compute_kernel_config=cfg`**; the reduction between
+    them does not. D55's central observation, verified in today's tree.
+  * `autograd.py:595-598` and `:1514-1517` — `dn_mean`, `dn_norm_mean` → `dx`, two cancellations,
+    no config on either `ttnn.mean`.
+
+**And the new part.** `of3t-apbgrad`'s repair inserted a SECOND reduction three lines below the
+first, and gave that one the config:
+
+    216    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)        # no config
+    217    if _SOFTMAX_BW_RENORM:
+    218        inner = ttnn.divide(inner, ttnn.sum(
+    219            y, dim=dim, keepdim=True, compute_kernel_config=precise_config()))
+    220    x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+
+**The numerator and the denominator of one division are computed at different kernel configs.**
+The repair is correct about the arithmetic it set out to fix — the renorm arm reads 1.006695e-01 at
+model scope, 0.9592x the reachable bar, and is bit-identical to the independently derived host
+float64 arm on 547 of 547 tensors — so whatever the asymmetry costs is already inside those
+numbers. That is exactly why it is worth measuring: it is a **free, untested lever**, one keyword
+argument wide, on the construct D55 argues is the campaign's amplifier.
+
+**Candidate, now owned**: a third arm with `:216` given `precise_config()` too, measured beside the
+shipped and renorm arms on a scope already instrumented. Added to `of3t-tapediverge`'s brief as
+AMENDMENT 1 rather than filed as a wish. Whether it moves anything is unmeasured, and a lever that
+fires and is inert is a result.
+
+### D8 UPDATE (pass 222). UNFIXED, RE-STATED against upstream's own bf16 as the record said was owed — and the re-statement kills the headline while sharpening what survives into something much more useful.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/d8restate/restate_d8.py` reads
+`perf/of3t_apbgrad/SCOPE_c64.json`, which has carried every number below since pass 216 and has
+never been read this way. **Scope honesty first**: this re-states D8 on the **pairformer stack** —
+2,736 tensors, 48 blocks, BOTH tracks — because that is the scope on which a bf16 floor exists.
+D8's own words are narrower, *one assembled block's pair track*. So this is a re-statement on a
+SUPERSET, reported per block so the block-level claim stays visible, and the pair track alone is
+not separately re-scored. Denominator per A27: `floor_their_bf16_vs_float64`, upstream 0.4.3's own
+bf16-autocast training step against `grads_f64_043.pt`, same 2,736 tensors, same scorer, same run.
+
+**The headline claim does not survive.** D8 says the gradients are *"an order of magnitude outside
+the bar"*, the bar being 5.0e-02 per tensor against float64:
+
+    arm                                      rel vs f64   x upstream   over bar   mass over bar
+    shipped (CTRL)                         9.025172e+00     24.1356      2733          0.9875
+    renorm                                 3.833066e-01      1.0251      2734          0.9954
+    upstream 0.4.3's OWN bf16 step         3.739355e-01      1.0000      2713          0.6013
+
+**Upstream's own recipe puts 2,713 of its own 2,736 tensors over that bar** — 99.16 %, against our
+99.93 %. Being an order of magnitude outside it does not distinguish us from the thing we are
+reproducing. This is D9's shape exactly, and the record predicted it.
+
+**What survives is better stated and worse news, by mass and per block.** Two things the
+mass-weighted headline hides:
+
+  * **By mass over the bar we are 1.65x upstream**: 0.9954 of the stack's gradient mass sits
+    outside the per-tensor bar for us against **0.6013** for their own bf16.
+  * **Per block against upstream's own bf16 for the SAME block**: only **6 of 48** blocks are at or
+    better than it, **26 of 48** are inside A26's sqrt(2), and the **22 outside A26 hold 66.67 % of
+    the stack's gradient mass**. Median **1.3769x**, spread **5.0x** end to end.
+
+        block 46   2.8742x   41.333 % of the stack's mass   <- worst AND heaviest
+        block  1   2.4265x    1.176 %
+        block 30   1.7862x    0.884 %
+        block 47   1.7628x    5.595 %
+        block 37   0.5756x    1.375 %   <- best
+
+**The single heaviest block in the stack is also its worst**, at 41.3 % of the mass and 2.87x. That
+is a locus, not a tail: `worst-tensor-names-the-tail-not-the-locus` cuts the other way here.
+
+**And the reconciliation is verified rather than argued.** The 1.0251x headline and block 46's
+2.8742x are both true because block 46's own bf16 floor is large and dominates both sides of the
+ratio. The script **refuses to report** unless the per-block table recomposes to the published
+headline under `mass_weighted_rel = sqrt(Σ_b mass_b · rel_b²)`: it recomposes at relative
+difference **0.0** (ours) and **2.969e-16** (upstream's bf16), and the block mass shares sum to 1.0.
+Without that check the per-block table would be a different measurement wearing the headline's
+name, which is exactly what D84 was.
+
+**So D8 is UNFIXED and its statement changes**, from *"an order of magnitude outside a bar"* — true
+of upstream's own recipe too, and therefore empty — to **"22 of 48 blocks are outside the reachable
+bar against upstream's own bf16, holding two thirds of the stack's mass, and the heaviest block in
+the model is the worst one at 2.87x"**. The next row on D8 should start at block 46 and should not
+spend a pass on the per-tensor float64 bar, which nothing bf16 reaches.
+
+### D56 UPDATE (pass 222). UNFIXED, and MORE open than before: the ~2,172x floor's denominator is a precision OpenFold3 0.4.3 does not use, so the second of D56's two candidate explanations is removed and the magnitude it was invoked to explain is now unexplained by either.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/d56restate/restate_d56.py` reads
+`perf/of3t_fp32islands/version_split.json`. D118 bucketed seven defects under the fp32 ceiling and
+called **D56 the strongest**; D120 then corrected D9 and half of D8 and left D56 untouched. This is
+the same correction applied to it, and like D120's it is a **denominator**, not a measurement.
+
+D56's surviving claim after D62 withdrew its conditioning mechanism is: *"the 25.5795 % sits on a
+constant ~2,172x device arithmetic floor against torch fp32, which is a port gap and not a property
+of the arithmetic."* **Both halves of that last clause are wrong.**
+
+D56's construct `g_γ = Σ_i (dL/d ln_out)_i · ŝ_i` is the LayerNorm affine WEIGHT gradient — row
+`layer_norm BACKWARD d(gamma) [384]` in `version_split.json`. Different harness from D56's synthetic
+K-ladder (this is the real island at crop-384 shapes), so what follows re-states which denominator
+is the right one; it does not re-measure D56's ratio.
+
+    0.4.3 (bf16), upstream's own        6.603603e-03
+    0.5.0 (fp32), upstream's own        1.407498e-07
+    ours bf16 (as shipped)              4.256869e-03
+    ours fp32 storage                   1.426218e-03
+
+**Against 0.4.3 — the boundary the served checkpoint is bound to — we are 1.5513x MORE accurate
+than upstream on exactly this construct.** `normalization.py:64-75` runs LayerNorm in bf16 with
+autocast explicitly disabled, so torch fp32 is not what upstream computes here and a ratio against
+it does not describe a gap with upstream at all. **Against 0.5.0** our shipped arm is 30,244x and
+our fp32 arm 10,133x away — and *that* is a property of the arithmetic, not a port gap: TT fp32 is
+not IEEE fp32. So the clause is inverted on both counts, and D56's decision question — *"whether
+25.5795 % of the model is retired as unfixable"* — is answered for this island: at 0.4.3 there is
+nothing to fix, because we are ahead.
+
+**This makes D56 MORE open, not less, and that is the honest reading.** D56 exists to explain why
+the real tensor reads **18.504**. Two explanations have now been removed: conditioning (D62 measured
+K directly at **172.60** where D56 interpolated 1.3e+06 off the curve it was explaining, and at
+172.60 the ladder predicts ~6e-03 — a ~3,000x shortfall), and now the fp32 ceiling, which does not
+bite at the revision we target. A third partial explanation is also bounded rather than free: the
+18.504 is against **float64**, and D8's re-statement this pass shows that reference is one
+upstream's own bf16 fails on 2,713 of 2,736 tensors — but upstream's own worst tensor by error mass
+reads **3.4262**, so reference choice cannot carry a factor of five beyond it.
+
+**What the same data does say, and it is new**: on `blocks.4.attn_pair_bias.layer_norm_a.weight`,
+the single tensor carrying the most error mass for **upstream's own bf16 step**, upstream reads rel
+**3.4262** at cos **−0.021** against float64 and we read **2.5326** at cos **−0.149**. Same tensor,
+same scorer. **Upstream's own recipe produces a gradient essentially orthogonal to the float64 one
+there**, and ours is 26 % closer. Whatever produces 18.504 is not a place our port is behind
+upstream; it is a place both are far from float64 and nobody has explained why.

@@ -1552,6 +1552,26 @@ if ORCH.is_file():
                   f"+ {len(warn)} skipped-and-said-so)")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
+
+# Publish the NAMES, not only the count. Pass 221: the executed-check total fell from 166 to 165
+# and the number alone could not say which check stopped firing -- the script was byte-identical
+# across the two runs, so it was data-dependent, and there was nothing to diff. A bare integer is a
+# drift DETECTOR and not a drift LOCATOR, which is the same shape as this campaign's own A15 (a
+# count denominator is not a scope statement). From here every compose writes the sorted list, so
+# the next time the count moves the answer is one `diff`.
+try:
+    # Into the campaign state dir, NOT next to this script: the audit runs from the COMPOSED
+    # tree under /tmp, so a sibling file is discarded the moment the compose is rebuilt and
+    # nothing is ever diffable. D112 is a concluded row's worktree being pruned and taking the
+    # campaign's reference with it; this is the same trap one directory over.
+    (Path("/home/moritz/.coworker/state/of3t/CHECKS_RUN.txt")).write_text(
+        "# every check this audit CONFIRMED, one per line, sorted. Regenerated on every compose.\n"
+        "# Diff two of these to find out which check stopped firing when the count moves; the\n"
+        "# count alone cannot tell you (pass 221).\n"
+        + "".join(f"{line}\n" for line in sorted(ok)))
+except Exception as _e:                                        # never fail the audit over a write
+    print(f"  WARN  could not write CHECKS_RUN.txt ({_e})")
+
 for line in ok:
     print(f"  ok    {line}")
 for line in warn:

@@ -99,8 +99,6 @@ TABLE = {
                   "gradient component, which the entry itself calls a port gap."),
     "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
                   "measured on two independent modules -- and the tape is shipped training code."),
-    "D63": (USER, "Five of five shipped models construct a site the softmax lever patches and "
-                  "only three reach one at runtime, so a repair's reach differs by model."),
     "D107": (USER, "A parameter disabled on every sample of a step: upstream still steps it from "
                    "decaying momentum and tt_bio's AdamW skips it -- a real update divergence."),
     "D117": (USER, "safe_multi_chain_permutation_alignment raises KeyError on these batches and "
@@ -137,6 +135,10 @@ TABLE = {
                   "an instrument defect in the comparison, not in the model."),
     "D62": (CAMP, "Two determinations of block 8's cancellation ratio differ by 7,532x, one of "
                   "them interpolated off the curve it was explaining."),
+    "D63": (CAMP, "RE-CLASSIFIED pass 222, see BOUNDARY. Its own heading says 'UNFIXED as a "
+                  "REVIEWING CONVENTION': the measurement is complete and nothing in the shipped "
+                  "models is wrong; what is wrong is estimating blast radius from a construction "
+                  "count."),
     "D64": (CAMP, "Everything was measured against float64 and never against what OpenFold3's own "
                   "training precision achieves -- a choice of reference."),
     "D71": (CAMP, "The negative control the reference-precision result rests on is not a "
@@ -181,9 +183,18 @@ BOUNDARY = {
     "D37": "Could be read as USER-FACING: 'block 47's gradient is INFLATED by 1.18x' is a fact "
            "about our port. Kept CAMPAIGN-INTERNAL because the DEFECT as filed is that the "
            "campaign registered the wrong direction; the magnitude itself is D8's.",
-    "D63": "Could be read as CAMPAIGN-INTERNAL: it measures a default-off lever's reach. Kept "
-           "USER-FACING because the statement is about five SHIPPED models' runtime paths and it "
-           "bounds which of them any softmax repair can ever help.",
+    "D63": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 222, and the move is in the "
+           "direction that flatters me, so the argument is given in full and can be reversed in "
+           "one line. The USER-FACING test published here is 'changes what someone using the "
+           "shipped tt-bio gets today -- an inference output, a crash, or a training run's result "
+           "on the shipped default'. D63 changes none of those: its table is complete and "
+           "CORRECT, Boltz-2 and RF3 come back byte-identical because they take the fused-SDPA "
+           "branch, and the negative controls move (1.3207 A, 0.2005 A) so the instrument works. "
+           "It is a true measured fact ABOUT the shipped tree, not a defect IN it -- its own "
+           "heading says 'UNFIXED as a reviewing convention'. It stays UNFIXED either way, so the "
+           "gate's keyword clause is unaffected; only the USER-FACING count moves, 12 -> 11. I "
+           "looked for a defect to move the other way at the same time and did not find one; that "
+           "absence is recorded rather than balanced by a manufactured move.",
     "D73": "Arguably already closed by of3t-refprec and of3t-wholemodel, which measured exactly "
            "what it says was never measured. Left UNFIXED and CAMPAIGN-INTERNAL here because "
            "closing a defect is a status edit in DEFECTS.md, not a side effect of a triage.",
