@@ -73,6 +73,9 @@ sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_tape"))
 import numpy as np                                                       # noqa: E402
 
 
+import resume as _resume
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -397,7 +400,11 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
         return dict(lr=lr_now, coefs=coefs, grad_norm_last_sample=gn,
                     n_disabled_last_sample=len(disabled), participation_spread=spreads)
 
-    for k in range(1, steps + 1):
+    k0 = _resume.load_theirs(d_out, A, B, log, aa_rows)
+    if k0:
+        t0 -= log[-1]["wall_s"]          # wall_s stays cumulative across a resumed arm
+        print(f"theirs: resuming at k={k0 + 1}", flush=True)
+    for k in range(k0 + 1, steps + 1):
         row = one_step(A, k)
         wa = {n: p.detach().to(torch.float64).numpy().astype(np.float32)
               for n, p in A["params"].items()}
@@ -414,6 +421,7 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
         row.update(k=k, wall_s=time.time() - t0)
         log.append(row)
         save_step(d_out, k, wa)
+        _resume.save_theirs(d_out, k, A, B, log, aa_rows)
         print(f"[{time.time()-t0:.0f}s] their k={k:2d} lr={row['lr']:.6e} "
               f"clip={row['coefs']} spread={row['participation_spread']}", flush=True)
 
@@ -692,7 +700,12 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
     t0 = time.time()
     stale_hold = None
     fwd_rel = None
-    for k in range(1, steps + 1):
+    k0, stale_hold, fwd_rel = _resume.load_ours(d_out, opt, params, _to_device, log,
+                                                master_in_checkpoint_orientation)
+    if k0:
+        t0 -= log[-1]["wall_s"]          # wall_s stays cumulative across a resumed arm
+        print(f"ours: resuming at k={k0 + 1}", flush=True)
+    for k in range(k0 + 1, steps + 1):
         coefs = []
         for s, idx in enumerate(blocks[k]):
             for j in idx:
@@ -737,6 +750,7 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
                     "tape_resolves_after_step": resolved, "of_walked": len(params.slots),
                     "participation_spread": spread, "wall_s": time.time() - t0})
         save_step(d_out, k, master_in_checkpoint_orientation())
+        _resume.save_ours(d_out, k, opt, log, stale_hold, fwd_rel)
         print(f"[{time.time()-t0:.0f}s] our k={k:2d} lr={opt.last_lr:.6e} "
               f"grad_norm={opt.last_grad_norm} resolves={resolved}/{len(params.slots)} "
               f"rebound={moved} spread={spread}", flush=True)
