@@ -111,7 +111,7 @@
  "the_reframing": {
   "at_or_better_than_upstreams_own_bf16": 42.2794,
   "far_past_it": 43.8936,
-  "headline": "RETIRED at pass 175. This field claimed the failure was one module. of3t-pairformer measured the trunk at 1.061553e+01 -- worse than the diffusion transformer's 8.025 -- and 18.89 % of measured error mass against the 0.4 % this framing allotted to everything outside the diffusion transformer. See perf/of3t_orchestrator/THE_ERROR_MASS_IS_ONE_MODULE.json, field REFUTED.",
+  "headline": "RETIRED at pass 175. This field claimed the failure was one module. of3t-pairformer measured the trunk at 1.061553e+01 -- worse than the diffusion transformer's 8.025 -- and 18.89 % of measured error mass against the 0.4 % this framing allotted to everything outside the diffusion transformer. See perf/of3t_orchestrator/THE_ERROR_MASS_IS_ONE_MODULE.json, field REFUTED. [D91, same pass: that refutation is itself WITHDRAWN -- the trunk's 1.061553e+01 scored our 0.4.3-convention port against a 0.5.0-convention reference (D90), so 'one module' is UNMEASURED, neither confirmed nor refuted.]",
   "headline_RETIRED": "49.4 % of the model deviates from float64 by NO MORE than upstream's own training precision does, and essentially the entire failure is ONE module: the diffusion transformer at 141.6x. Scored against float64 the campaign reported 54 % outside the bar; scored against the recipe's own floor it is one bad module and a long tail already at parity.",
   "no_arm_at_section_scope": 6.6289,
   "within_10x_of_it": 7.1207
