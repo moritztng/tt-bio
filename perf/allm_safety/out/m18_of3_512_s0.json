@@ -1,0 +1,199 @@
+{
+ "model": "openfold3",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "off,on,off,on",
+ "sites": "",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T02:41:59Z",
+ "loadavg": [
+  3.47900390625,
+  2.734375,
+  3.41943359375
+ ],
+ "ccd_donor": null,
+ "seed": 0,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 39.619,
+   "plddt": 0.549222,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 20
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 20 samples, polled DURING the work",
+   "digest": "afd909ba727385c5db114cb79e335e30adbec33f4ed77daaf655dbe3fe68ae33",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {},
+   "cif_dir": "perf/allm_safety/out/cif_m18_openfold3_512_s0_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 24.32,
+   "plddt": 0.547487,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "bd012d0f9f23d99268f62009df0902bc3cd4b26aa341f4e7271de0e0753eda6b",
+   "hifi_stats": {
+    "served": 432,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     2
+    ]
+   },
+   "cif_dir": "perf/allm_safety/out/cif_m18_openfold3_512_s0_leg1_on"
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 37.987,
+   "plddt": 0.549222,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 19
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 19 samples, polled DURING the work",
+   "digest": "afd909ba727385c5db114cb79e335e30adbec33f4ed77daaf655dbe3fe68ae33",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {},
+   "cif_dir": "perf/allm_safety/out/cif_m18_openfold3_512_s0_leg2_off"
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 24.248,
+   "plddt": 0.547487,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "bd012d0f9f23d99268f62009df0902bc3cd4b26aa341f4e7271de0e0753eda6b",
+   "hifi_stats": {
+    "served": 432,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     2
+    ]
+   },
+   "cif_dir": "perf/allm_safety/out/cif_m18_openfold3_512_s0_leg3_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 108,
+ "triatt_targeted": 108,
+ "paths": [
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_start"
+ ],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "fused_hifi",
+ "cold_s": 84.201,
+ "medians": {
+  "off": 38.803,
+  "on": 24.284
+ },
+ "aa_floor": {
+  "off": 1.631999999999998,
+  "on": 0.07199999999999918
+ },
+ "digests": {
+  "off": [
+   "afd909ba727385c5db114cb79e335e30adbec33f4ed77daaf655dbe3fe68ae33"
+  ],
+  "on": [
+   "bd012d0f9f23d99268f62009df0902bc3cd4b26aa341f4e7271de0e0753eda6b"
+  ]
+ },
+ "ratio": 1.59788,
+ "delta_s": 14.519
+}
