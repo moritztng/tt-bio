@@ -1,0 +1,82 @@
+{
+ "node": 1,
+ "clock_target": 1350,
+ "cmd": [
+  "/home/ttuser/tt-bio-dev/env/bin/python3",
+  "-u",
+  "/home/ttuser/allm_audit/trees/new/perf/allm_audit/bg_page.py"
+ ],
+ "started_utc": "2026-09-20T23:55:36Z",
+ "foreign_at_start": [
+  {
+   "pid": 1034791,
+   "nodes": [
+    2
+   ],
+   "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+  }
+ ],
+ "loadavg_start": [
+  "1.00",
+  "1.88",
+  "2.47"
+ ],
+ "clock_after_force": {
+  "1": 1350
+ },
+ "per_node": {
+  "0": {
+   "aiclk_mean": 800.0,
+   "aiclk_min": 800,
+   "aiclk_max": 800,
+   "power_w_mean": 28.2
+  },
+  "1": {
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "power_w_mean": 60.6
+  },
+  "2": {
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "power_w_mean": 32.1
+  },
+  "3": {
+   "aiclk_mean": 915.7,
+   "aiclk_min": 800,
+   "aiclk_max": 1350,
+   "power_w_mean": 30.5
+  }
+ },
+ "aiclk_mean": 1350.0,
+ "aiclk_min": 1350,
+ "aiclk_max": 1350,
+ "aiclk_n": 1022,
+ "power_w_mean": 60.6,
+ "rc": 0,
+ "ended_utc": "2026-09-20T23:59:53Z",
+ "loadavg_end": [
+  "2.80",
+  "2.43",
+  "2.56"
+ ],
+ "foreign_at_end": [
+  {
+   "pid": 1034791,
+   "nodes": [
+    2
+   ],
+   "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=5, pipe_h"
+  },
+  {
+   "pid": 1141289,
+   "nodes": [
+    3
+   ],
+   "cmd": "/home/ttuser/tt-bio-dev/env/bin/python perf/of3t_diffusion/device_gradient.py --structs all --tag _f64renorm --cap /home"
+  }
+ ],
+ "clock_reasserts": 0
+}

@@ -12,22 +12,26 @@ memories read: `qb2-aiclk-governor-sets-fold-time-not-cotenancy`,
 Branch `wk/allm-audit`, worktree `/home/ttuser/.coworker/wt/allm-audit` on qb2.
 Arms folded on **qb2 card 1**, artifacts `perf/allm_audit/` and `/home/ttuser/allm_audit/` (mine alone).
 
-VERDICT: PARTIAL — **three of five ratios measured**: ESMFold2 **1.0385x** (bit-identical
-across the window), OpenFold3 **1.1311x**, OpenDDE **1.0319x**. BoltzGen has its old arm at
-46.352 s/design and RFdiffusion3 has neither arm yet; both are queued on the card behind a
-host-wide benchlock that `land-standing` held for 19 minutes straight. All six trees are verified
-against their commits file by file, the scope is settled against the page's own source, and the
-design arms are wired to card 1 and to the published cell's own batch. **Not one of the three
-measured ratios is near Boltz-2's 1.5006x**, and the largest of them, OpenFold3, is a model
-inside the shared pairformer core. This row is still working; it is not concluded and no
-`DONE_CHECK` should be read as saying otherwise.
+VERDICT: GO — **all five transfer ratios measured, ten arms on one card with one instrument.**
+BoltzGen **1.2896x**, OpenFold3 **1.1311x**, RFdiffusion3 **1.0411x**, ESMFold2 **1.0385x**,
+OpenDDE **1.0319x**. Every arm ran at AICLK 1350.0 mean and 1350 minimum sampled DURING the fold,
+zero re-asserts, on qb2 card 1 (Blackhole p300c), with both arms of a model interleaved on the same
+card and an A/A floor beside each. Every tree is verified file by file against its published commit,
+the scope is settled against the page's own source, and no old commit was abandoned. **Only BoltzGen
+is anywhere near Boltz-2's 1.5006x.** The three shared-pairformer models land 1.03-1.13x, and the two
+that sit outside that core land 1.04x and 1.29x, which is the opposite of what the shared-core
+hypothesis predicts. This row reports the ratios and stops there; pairing them with the work census
+to say what each one MEANS is `allm-orchestrator`'s, per its 2026-09-20 correction — a ratio near
+1.0x is equally consistent with a blocked lever and with a model already converting its work better
+than the model the 1.5x came from, and the ratio alone cannot tell those apart.
 
-**A gate hole to hand to `allm-orchestrator`, found by running the check against this document:**
-`_allm_donecheck.py`'s `ratios` check counts `\d\.\d+x` inside the `RATIOS:` section and needs
-four. It passed this document when it contained **zero measured ratios** — the four matches were
-`1.5x`, `1.0x` and the two `pvx-didittransfer` reference figures quoted for comparison. A row that
-cites its predecessor's numbers clears the gate for free. The check wants the ratios keyed to the
-five model names, not counted.
+**The gate hole this document found has since been closed, recorded here because the finding was
+this row's.** `_allm_donecheck.py`'s `ratios` check counted `\d\.\d+x` anywhere under `RATIOS:` and
+needed four. It passed this document when it contained **zero measured ratios**: the four matches
+were the prose `1.5x` and `1.0x` and the two `pvx-didittransfer` figures quoted for comparison. A row
+citing its predecessor's numbers cleared it for free. The check is now keyed per model name and
+refuses an in-flight word, so each of the five owes a ratio or a plain statement that it could not
+get one.
 
 ## SCOPE
 
@@ -156,83 +160,125 @@ directly, and keeps recording what it fired on.
 
 ## RATIOS
 
-RATIOS: **the deliverable, one transfer ratio per model. Being folded; filled in as each pair
-lands.** Near 1.5x and the model received Boltz-2's window. Near 1.0x and it did not, and
-`allm-gates` has a target. For reference, the two `pvx-didittransfer` measured on the same
-instrument: Boltz-2 **1.5006x**, Protenix-v2 **1.0525x**.
+RATIOS: **the deliverable, one transfer ratio per model, all five measured.** Each is read between
+two arms of mine that share the timed region, the card, the pinned clock and the instrument; the
+published cell is used only to name the commit the old arm is extracted at. Each effect is quoted
+against the LARGER of its pair's two A/A floors, because an op-level win is a screen and four such
+levers reached the fold here at 25x-to-infinite error with two flipping sign. For reference, the two
+`pvx-didittransfer` measured on this same instrument: Boltz-2 **1.5006x**, Protenix-v2 **1.0525x**.
 
-| model | old | new | ratio | A/A floors | digest old -> new |
-|---|---|---:|---:|---|---|
-| ESMFold2 | **28.580 s** | **27.520 s** | **1.0385x** | 0.41 % / 0.09 % | `608ce8c40a2c4e33` -> `608ce8c40a2c4e33` |
-| OpenDDE | **81.508 s** | **78.990 s** | **1.0319x** | 0.03 % / 0.11 % | `6623f39115836675` -> `ad0e34ae7f12a61a` |
-| OpenFold3 | **38.425 s** | **33.970 s** | **1.1311x** | 0.17 % / 0.08 % | `6ee6ac7a3e730688` -> `9171421df49ef336` |
-| BoltzGen | **46.352 s/design** | folding | — | 1.51 % / — | n/a, design |
-| RFdiffusion3 | — | — | — | — | — |
+| model | old | new | ratio | effect vs larger A/A floor | digest old -> new |
+|---|---:|---:|---:|---|---|
+| BoltzGen | **46.352 s/design** | **35.943 s/design** | **1.2896x**, defensible floor **1.2704x** | 10.409 s vs 1.848 s = **5.6x** | design model, no digest; atoms differ, old 3818-3906 new 3795-3871 |
+| OpenFold3 | **38.425 s** | **33.970 s** | **1.1311x** | 4.455 s vs 0.067 s = **66.5x** | `6ee6ac7a3e730688` -> `9171421df49ef336` |
+| RFdiffusion3 | **93.077 s/design** | **89.403 s/design** | **1.0411x**, a lower bound | 3.674 s vs 2.985 s = **1.2x** | design model, no digest; atoms identical design for design |
+| ESMFold2 | **28.580 s** | **27.520 s** | **1.0385x** | 1.060 s vs 0.116 s = **9.1x** | `608ce8c40a2c4e33` -> `608ce8c40a2c4e33`, unchanged |
+| OpenDDE | **81.508 s** | **78.990 s** | **1.0319x** | 2.518 s vs 0.088 s = **28.6x** | `6623f39115836675` -> `ad0e34ae7f12a61a` |
 
-**ESMFold2: 1.0385x. It did not receive the window.** Over the 33 days in which Boltz-2's fold
-fell 1.5006x, ESMFold2's fell 3.85 %, from 28.580 s at `e65b66be` to 27.520 s at `47810889f`. Both
-arms n=3 warm after a discarded cold fold, same card, same instrument, **AICLK 1350.0 mean AND
-1350 minimum on every timed fold of both arms, zero re-asserts**. A/A floors 0.116 s (0.41 %) and
-0.024 s (0.09 %); the effect is 1.060 s, **9.1x the larger of the two floors**, so it is a
-measurement rather than a spread, and it is nowhere near 1.5x.
+**BoltzGen: 1.2896x, and it is the only one of the five in Boltz-2's class.** 46.352 s/design at
+`59474b45` to 35.943 s/design at `47810889f`, medians of four warm designs after dropping the cold
+one and the one that pays the checkpoint switch, which the harness detects from the "Switched
+checkpoint." line rather than by picking the slowest. Both arms did the identical amount of the
+model's own work: `steps_ok: true` with **501 step stamps counted per design in all twelve designs
+of both arms**, 500 resolved from the shipped `design.yaml`, `diffusion_batch` 1 either side, same
+fixture and same two checkpoints. Node 1 read AICLK 1350.0 mean / 1350 min / 1350 max over 1265 and
+1022 samples, zero re-asserts on either arm.
 
-**The window did not change one bit of ESMFold2's arithmetic.** Both arms return CIF digest
-`608ce8c40a2c4e33` and plDDT 0.9286, across all six timed folds. That is a stronger statement than
-the ratio alone: whatever landed between 2026-08-16 and today either did not touch this model's
-path or touched only its scheduling. It also confirms the arm is the computation the cell named —
-the published 29.393 s cell records plDDT 0.9285 and I get 0.9286 out of the pinned checkpoint.
+**The partner ran the wrong way round on this pair, so quote the bound, not the point estimate.**
+Card 1's board partner is node 0, and it was at 993.4 MHz mean (800-1350, 32.7 W) through the OLD
+arm and flat 800 MHz / 28.2 W through the NEW one. A busy partner slows the measured card, so the
+confound sits on the numerator and inflates old/new. The old arm's own record bounds it: the partner
+swung its full 800-1350 range *within* that arm and the arm's warm spread is only 1.51 %, so the
+partner term cannot exceed 1.51 %. The new arm has the mirror problem and it points the same way —
+it picked up a co-tenant on node 3 mid-arm (pid 1141289, node 3 going 800 -> 1350) and its four warm
+designs rise monotonically 35.465 -> 37.313, a 5.14 % spread, so if anything it is penalised. Worst
+case for the claim is the old arm inflated the full 1.51 % and the new arm not penalised at all:
+**>= 1.2704x**. That is the number to defend and it still puts BoltzGen with Boltz-2 rather than
+with Protenix-v2.
 
-The old arm carried one co-tenanted fold of three (`cotenanted_folds: 1`), which read 28.595 s
-against that session's 28.479 and 28.580 — inside its own A/A spread, so it is recorded rather
-than corrected for. The new arm's session was clean on all four folds.
+**Its atom counts differ between the arms and that is not an arithmetic change.** BoltzGen's arms
+wrote 3818-3906 atoms and 3795-3871, but they also vary design to design *within* each arm, because
+this harness runs the shipped CLI without a fixed seed and each design is a different sampled
+sequence. So the two arms are not comparable structure by structure and no claim is made that they
+are. RFdiffusion3 is the opposite case and the contrast is the point: it runs at seed 42 and its two
+arms reproduced each other exactly, which is why an output claim is made there and not here.
 
-**OpenDDE: 1.0319x, the smallest of the three folds, and its output moved.** 81.508 s at
-`b4feba14` to 78.990 s at `47810889f`, both sessions clean on every fold, A/A floors 0.025 s
-(0.03 %) and 0.088 s (0.11 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
-2.518 s, 28.6x the larger floor, so it is real and it is small: 3.1 % over the same 33 days in
-which Boltz-2 fell 1.5006x. OpenDDE is the model that delegates to the whole Protenix-v2 graph,
-and it lands within 0.6 % of Protenix-v2's own 1.0525x.
+**OpenFold3: 1.1311x, and it is the only fold model here whose arithmetic the window changed.**
+38.425 s at `973ae49f` to 33.970 s at `47810889f`. Both sessions clean on every fold, A/A floors
+0.067 s (0.17 %) and 0.028 s (0.08 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
+4.455 s, **66.5x the larger floor**, the cleanest separation of the ten arms. The old arm lands on
+the published cell's own output: plDDT **0.547851** against the cell's 0.547851, with the seconds
+0.45 % apart (38.425 against 38.254). Unlike ESMFold2 the pair is not bit-identical — digest
+`6ee6ac7a3e730688` -> `9171421df49ef336`, plDDT 0.547851 -> 0.549222. Something in the window reached
+this model's arithmetic. One term to hand over with it, from SCOPE: OpenFold3 is the one model here
+where host is large inside the cell, **1.839 s of the published 38.254 s, 4.8 %**. At 1.1311x that is
+big enough to matter to an attribution, and it has not been re-measured here — this row times the
+region, it does not split it.
+
+**RFdiffusion3: 1.0411x, a lower bound, and the ratio is not the strong result.** 93.077 s/design at
+`6f85ecfe` to 89.403 s/design at `47810889f`, medians of three warm chunks after the cold one, batch
+1, 200 timesteps, seed 42 either side. Node 1 at AICLK 1350.0 mean / 1350 min / 1350 max over 1552
+samples, zero re-asserts.
+
+**Its floor nearly swallows it, so do not read three decimals off it.** The effect is 3.674 s
+(3.95 %) against a new-arm warm spread of 2.985 s / 3.34 % (88.031 / 89.403 / 91.016). That is
+**1.2x the larger floor**, against 9.1x, 28.6x and 66.5x for the three folds. The defensible claim
+is "in the 1.03-1.13x pack, not in Boltz-2's class", not a point estimate. The partner confound
+gives the direction for free and it points the same way: node 0 was flat 800 MHz through the OLD arm
+and 1108.9 MHz mean (800-1350, 34.9 W) through the NEW one, penalising the denominator, so
+**1.0411x is a lower bound**.
+
+**The stronger result for this model is that both arms wrote the same structures.** `atoms: [5126,
+5117, 5129, 5112]` in both arms, identical design for design — the same four designed sequences,
+atom for atom, from the same seed. **The window did not change one bit of RFdiffusion3's
+arithmetic.** That is the same statement ESMFold2's unchanged digest makes, it is independent of a
+noisy 3.95 %, and it is what actually answers this campaign's question for this model.
+
+**ESMFold2: 1.0385x, and it did not receive the window.** Over the 33 days in which Boltz-2's fold
+fell 1.5006x, ESMFold2's fell 3.71 %, 28.580 s at `e65b66be` to 27.520 s at `47810889f`. Both arms
+n=3 warm after a discarded cold fold, AICLK 1350.0 mean AND 1350 minimum on every timed fold of both
+arms, zero re-asserts. A/A floors 0.116 s (0.41 %) and 0.024 s (0.09 %); the effect is 1.060 s,
+**9.1x the larger floor**, so it is a measurement rather than a spread, and it is nowhere near 1.5x.
+
+**The window did not change one bit of ESMFold2's arithmetic either.** Both arms return CIF digest
+`608ce8c40a2c4e33` and plDDT 0.9286 across all six timed folds. Whatever landed between 2026-08-16
+and today either did not touch this model's path or touched only its scheduling. It also confirms the
+arm is the computation the published cell named: that cell records plDDT 0.9285 and I get 0.9286 out
+of the pinned checkpoint.
+
+**One partner asymmetry on this pair, bounded by the arm's own record at 0.35 %.** `esm_old_s1` is
+the only one of the six fold arms carrying a `foreign_tt` entry — device node 0, card 1's board
+partner, which ran 800 -> 1350 MHz at 28.8 -> 33.8 W across the arm, while `esm_new_s1` sat at a flat
+800 MHz / 28.8 W on all three folds. A busy partner sits beside the numerator, so the asymmetry
+inflates old/new. The three old-arm warm folds ran at three different partner states and the idle one
+was fastest: 28.580 s at 1082 MHz mean / 33.8 W, 28.595 s at 920 MHz / 31.2 W, 28.479 s at a flat
+800 MHz / 28.8 W. Busiest against idle is **0.35 %**, inside the arm's own 0.41 % spread, so the
+partner term cannot account for a 3.85 % gap. **1.0385x stands, with at most ~0.35 % of it partner
+asymmetry.** The other five arms are clean on this term.
+
+**OpenDDE: 1.0319x, the smallest of the five, and its output moved.** 81.508 s at `b4feba14` to
+78.990 s at `47810889f`, both sessions clean on every fold, A/A floors 0.025 s (0.03 %) and 0.088 s
+(0.11 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is 2.518 s, **28.6x the larger
+floor**, so it is real and it is small: 3.09 % over the same 33 days in which Boltz-2 fell 1.5006x.
+OpenDDE delegates to the whole Protenix-v2 graph and it lands within 0.6 % of Protenix-v2's own
+1.0525x, which is the one cross-check in this table against a number measured by another row.
 
 **One thing in that pair is worth someone else's attention: the fold output changed.** Digest
 `6623f39115836675` -> `ad0e34ae7f12a61a` and plDDT **0.75411 -> 0.717514**, a drop of 0.037 on a
-metric whose scale is 0 to 1. Both arms load the same checkpoint -- the old arm's shim pinned
-`aurekaresearch/OpenDDE` at `02c1835848` and counted it (`hf_pins_fired: {"aurekaresearch/OpenDDE":
-1}`), the new tree passes that same revision itself, so `hf_pins_fired` is empty there by
-construction -- which means the move is in the tree, not in the weights. This row measures
-seconds and does not judge accuracy, so it is recorded here and handed on rather than assessed:
-the plDDT delta is 50x ESMFold2's zero and 27x OpenFold3's 0.00137 on the same window.
+metric whose scale is 0 to 1. Both arms load the same checkpoint — the old arm's shim pinned
+`aurekaresearch/OpenDDE` at `02c1835848` and counted it (`hf_pins_fired:
+{"aurekaresearch/OpenDDE": 1}`), and the new tree passes that same revision itself, so
+`hf_pins_fired` is empty there by construction. The move is therefore in the tree, not in the
+weights. This row measures seconds and does not judge accuracy, so it is recorded and handed on
+rather than assessed: the plDDT delta is 50x ESMFold2's zero and 27x OpenFold3's 0.00137 on the same
+window.
 
-**OpenFold3: 1.1311x, and it is the first model here whose arithmetic the window changed.**
-38.425 s at `973ae49f` to 33.970 s at `47810889f`. Both sessions clean on every fold, A/A floors
-0.067 s (0.17 %) and 0.028 s (0.08 %), AICLK 1350.0 mean and 1350 minimum throughout. The effect is
-4.455 s, **66.5x the larger floor**. The old arm again lands on the published cell's own output:
-plDDT **0.547851** against the cell's 0.547851, with the seconds 0.45 % apart (38.425 against
-38.254).
-
-Unlike ESMFold2 this pair is **not** bit-identical: digest `6ee6ac7a3e730688` -> `9171421df49ef336`
-and plDDT 0.547851 -> 0.549222. Something in the window reached this model's arithmetic. That makes
-OpenFold3 the more interesting of the two for `allm-gates`: it is the model the shared-core
-hypothesis covers, it moved more than ESMFold2, and it moved its output. Whether 1.13x is the whole
-of what the shared path had to give it is exactly the question this row does not answer and that row
-does.
-
-One thing to hand over with it, from SCOPE above: OpenFold3 is the one model here where host is a
-large term inside the cell, **1.839 s of the published 38.254 s, 4.8 %**. At 1.1311x that term is
-big enough to matter to an attribution and it has not been re-measured here — this row times the
-region, it does not split it.
-
-**BoltzGen old arm, `59474b45`: 46.352 s/design.** Median of four warm designs, 45.898 /
-46.271 / 46.434 / 46.595 s, spread 1.51 %, after dropping the cold design and the one that pays
-the checkpoint switch, which the harness detects from the "Switched checkpoint." line rather than
-by picking the slowest. 500 sampling steps resolved from the shipped `design.yaml` and asserted
-501 stamps per design, six designs written and validated, batch 1. AICLK 1350.0 mean, 1350
-minimum, 1265 samples, **zero re-asserts**. It sits 2.3 % above the published 45.289 s cell,
-which is a different day and a different box mood on the same board class, and the cell is not
-used as an arm.
-
-No ratio is written here until both its arms exist with an A/A floor beside them, because an
-op-level win is a screen and four such levers reached the fold at 25x-to-infinite error with two
-flipping sign.
+**What the five say together, stated as a shape rather than as a verdict.** The shared-pairformer
+models — OpenFold3, OpenDDE and (from `pvx-didittransfer`) Protenix-v2 — came out 1.1311x, 1.0319x
+and 1.0525x. The two models sitting outside that core came out 1.0385x and 1.2896x. So the largest
+transfer in this table belongs to a model the shared-core hypothesis does not cover, and the three it
+does cover are the bottom half. That is a fact about the ratios, not an explanation of them, and the
+explanation needs the work census this row does not own.
 
 ## DESIGN-SCOPE
 
@@ -282,3 +328,82 @@ has since re-measured that cell at **92.472 s** on card 1 and says of the older 
 measured in a different window on card 2 ... it is not comparable with either arm here and is not
 quoted as a baseline". `6f85ecfe` is still the right commit to extract — it is the commit that cell
 was published from — but the published seconds beside it are not a target to reproduce.
+
+## HARNESS
+
+**`output_ok: false` on both RFdiffusion3 arms was my harness, not the model, and the arms stand.**
+`rfd3_page.py` failed all four designs of each arm on `na != EXP_ATOMS` with `EXP_ATOMS = 6051`,
+commented "featurised L at R4". That is exactly what 6051 is, and it is not what a CIF contains.
+Verified against the live source rather than taken on trust, three claims, all three holding:
+
+1. `tt_bio/rfd3/design.py:658` sets `n_atoms=int(X.shape[1])`, the padded featurised atom axis, and
+   line 664 prints the same expression. That is where the 6051 in my log comes from.
+2. `_write_cif` does not write from it. It builds a `keep` list, skips every slot flagged
+   `_is_virtual` (synthetic atom14 pad slots) and every `CB` whose residue the sequence head called
+   GLY, then sizes the output `struc.AtomArray(len(keep))` (lines 233-249).
+3. The GLY skip reads `gly_tok`, built from `pred_restype` — **the designed sequence** — which is
+   why four siblings of one arm read 5126 / 5117 / 5129 / 5112 rather than one number.
+
+So the constant compared a real atom count against a padded width and could never pass for any
+design, and the sibling variation it also tripped on is the model designing different sequences.
+`validate()`'s own docstring already said so: *"residue topology and finiteness, never atom equality
+between siblings"*. The docstring was right and the constant contradicted it. The two checks that do
+encode the docstring both PASSED on all eight CIFs — `EXP_RES = 685` on every one, and zero
+non-finite coordinates — which is visible in the recorded `output_fail`, whose every entry is an
+atom-equality line and none of which mentions residues or finiteness. `bg_page.py` never had the bug:
+it records `atoms` varying 3795-3906 with `output_ok: true`.
+
+Fixed in `perf/allm_audit/rfd3_page.py`: `EXP_ATOMS` and its comparison are deleted, residues and
+finiteness stay, and the docstring now says why the atom count is recorded and never asserted. The
+two arms' designs were written to `/tmp/rfd3_page_b1`, which the harness itself `rm -rf`s at the head
+of each run, so the corrected validator could not be re-run against those exact files; the evidence
+the arms are valid is the recorded `output_fail` above, not a re-run, and it is stated that way
+deliberately.
+
+**Handed on rather than fixed, because it is not this row's file:** `DesignResult.n_atoms` in
+`tt_bio/rfd3/design.py` is a public field reporting the featurised width for a structure whose own
+`out_path` contains 15-18 % fewer atoms. The verbose line at 664 prints the same misleading number.
+Anyone reading that field to size an output will be wrong by that margin. Recorded here and left for
+whoever owns that file.
+
+## VERDICT
+
+VERDICT: GO — **the deliverable exists in full: five transfer ratios, measured, each with an A/A
+floor and a DURING-sampled clock.**
+
+| model | ratio | how far above its own floor |
+|---|---:|---|
+| BoltzGen | **1.2896x** (>= 1.2704x defensible) | 5.6x |
+| OpenFold3 | **1.1311x** | 66.5x |
+| RFdiffusion3 | **1.0411x** (lower bound) | 1.2x |
+| ESMFold2 | **1.0385x** | 9.1x |
+| OpenDDE | **1.0319x** | 28.6x |
+
+Ten arms, one card (qb2 card 1, Blackhole p300c), one instrument (`pvx-baseline`'s `cell.py`, md5
+`21e0770f080a4d965203b59a193107be`, byte-identical to the file `pvx-didittransfer` used), one timed
+region for every fold arm, the two design models keeping their own s/design unit. AICLK pinned and
+sampled at 4 Hz DURING every arm: 1350.0 mean and 1350 minimum on all ten, zero re-asserts anywhere.
+1693 `.py` files across six trees re-hashed against their commits with one intended difference, the
+ESMFold2 hub-revision line documented under UNBUILDABLE. No old commit abandoned and no measurement
+substituted.
+
+**What this row does NOT conclude, and deliberately.** It does not label any model a target. A ratio
+near 1.0x is consistent with a blocked lever and equally consistent with a model already converting
+its work better than the model the 1.5x came from — Protenix-v2 came out 1.0525x with no execution
+gap at all, running the shared Pairformer 1.837x better per MAC than Boltz-2 while doing 5.948x its
+trunk arithmetic. The ratio alone cannot separate those, and the work census that can is
+`allm-model`'s. What this row hands `allm-orchestrator` is five numbers and the confound bound on
+each, which is what it was asked for.
+
+**Three things in here are worth someone acting on, none of them ratios:**
+
+1. **An old commit can stop being foldable without a byte of it changing.** ESMFold2 at `e65b66be`
+   died in model load on a config schema upstream re-published in place on 2026-09-14. The tree is
+   byte-identical to main in the file that failed. Any future archaeology against a pre-2026-09-14
+   commit needs `weights.HF_REVISIONS` applied at the call site, and needs to COUNT what it pinned:
+   my first two shims installed cleanly and pinned nothing, and without the firing count "the pin
+   table is installed" would have read exactly like "the pin took".
+2. **OpenDDE's fold output moved 0.037 plDDT across the window** with byte-identical weights on both
+   arms. That is 50x ESMFold2's zero on the same window. Seconds are this row's unit; that one needs
+   an accuracy owner.
+3. **The `EXP_ATOMS` harness defect above**, plus the mislabelled `DesignResult.n_atoms` it exposed.

@@ -50,9 +50,16 @@ def design_arm(out: Path, tag: str):
             if "chunk_s_max" in rec else
             round(rec["s_per_design_max"] - rec["s_per_design_min"], 3),
             "n": rec.get("n_warm"), "clk_mean": c.get("aiclk_mean"), "clk_min": c.get("aiclk_min"),
-            "digest": "-", "metric": rec.get("atoms"), "clean": rec.get("output_ok"),
+            # a design has no CIF digest, so the comparable output signature is the per-design
+            # atom counts. "-" on both arms made every design pair read "identical" for free.
+            "digest": "atoms " + ",".join(str(x) for x in (rec.get("atoms") or [])),
+            "metric": rec.get("atoms"), "clean": rec.get("output_ok"),
             "cotenanted": len(c.get("foreign_at_start") or []),
             "reasserts": c.get("clock_reasserts")}
+
+
+def _span(xs):
+    return "%d-%d" % (min(xs), max(xs)) if xs else "?"
 
 
 def main() -> int:
@@ -77,7 +84,12 @@ def main() -> int:
         eff = abs(old["s"] - new["s"])
         floor = max(old["floor_s"], new["floor_s"])
         clk = "OK" if all(x == 1350 for x in (old["clk_min"], new["clk_min"])) else "BAD"
-        dig = "identical" if old["digest"] == new["digest"] else f"{old['digest']}->{new['digest']}"
+        if old["digest"] == new["digest"]:
+            dig = "identical" if unit == "s/fold" else "atoms identical design for design"
+        elif unit == "s/design":
+            dig = "atoms differ: old %s, new %s" % (_span(old["metric"]), _span(new["metric"]))
+        else:
+            dig = f"{old['digest']}->{new['digest']}"
         print(f"{name:<14} {unit:<9} {old['s']:>10.3f} {new['s']:>10.3f} {ratio:>8.4f}x  "
               f"{old['floor_pct']:>7.2f}% {new['floor_pct']:>7.2f}%  {clk:<5}  {dig}")
         print(f"{'':<14} effect {eff:.3f} {unit.split('/')[0]}, "

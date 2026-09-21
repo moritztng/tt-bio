@@ -43,7 +43,6 @@ CKPT = "/home/ttuser/.boltz/rfd3/weights"
 OUT = pathlib.Path(os.environ.get("ALLM_OUT", "perf/dspage/results/rfd3_page.jsonl"))
 STEPS = 200                    # upstream production default, what the GPU arm ran
 SEED = 42                      # the CLI default
-EXP_ATOMS = 6051               # featurised L at R4, MEASURED in the fixture ladder
 EXP_RES = 685                  # 585 target + 100 designed binder
 ARMS = {"ceiling": (8, 8), "b1": (4, 1)}
 
@@ -66,7 +65,13 @@ RFD3Sampler.sample = _timed_sample
 
 def validate(out_dir, n_expected):
     """A timing counts only if the designs are real. Design invariants, not folding ones:
-    residue topology and finiteness, never atom equality between siblings."""
+    residue topology and finiteness, never atom equality between siblings.
+
+    The atom count is deliberately recorded and not asserted. Two designs of the same
+    target write different numbers of atoms because _write_cif skips CB on every residue
+    the sequence head called GLY, and that head designs a different sequence each time.
+    The featurised width DesignResult.n_atoms reports (6051 at R4) is the padded axis,
+    not what lands in the CIF."""
     cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
     bad = []
     if len(cifs) != n_expected:
@@ -80,8 +85,6 @@ def validate(out_dir, n_expected):
         nf = sum(1 for ch in st[0] for r in ch for a in r
                  if not all(abs(v) < 1e6 and v == v for v in (a.pos.x, a.pos.y, a.pos.z)))
         atoms.append(na)
-        if na != EXP_ATOMS:
-            bad.append("%s: %d atoms != %d" % (c.name, na, EXP_ATOMS))
         if nr != EXP_RES:
             bad.append("%s: %d residues != %d" % (c.name, nr, EXP_RES))
         if nf:

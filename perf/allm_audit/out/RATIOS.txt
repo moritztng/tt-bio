@@ -1,0 +1,11 @@
+model          unit             old        new     ratio   A/A old  A/A new  clock  digest/output
+ESMFold2       s/fold        28.580     27.520   1.0385x     0.41%    0.09%  OK     identical
+               effect 1.060 s, 9.1x the larger floor; n=3/3, clk_mean 1350.0/1350.0, clean False/True, cotenanted 1/0
+OpenDDE        s/fold        81.508     78.990   1.0319x     0.03%    0.11%  OK     6623f39115836675->ad0e34ae7f12a61a
+               effect 2.518 s, 28.6x the larger floor; n=3/3, clk_mean 1350.0/1350.0, clean True/True, cotenanted 0/0
+OpenFold3      s/fold        38.425     33.970   1.1311x     0.17%    0.08%  OK     6ee6ac7a3e730688->9171421df49ef336
+               effect 4.455 s, 66.5x the larger floor; n=3/3, clk_mean 1350.0/1350.0, clean True/True, cotenanted 0/0
+BoltzGen       s/design      46.352     35.943   1.2896x     1.51%    5.14%  OK     atoms differ: old 3818-3906, new 3795-3871
+               effect 10.409 s, 5.6x the larger floor; n=4/4, clk_mean 1350.0/1350.0, clean True/True, cotenanted 0/1
+RFdiffusion3   s/design      93.077     89.403   1.0411x     0.28%    3.34%  OK     atoms identical design for design
+               effect 3.674 s, 1.2x the larger floor; n=3/3, clk_mean 1350.0/1350.0, clean False/False, cotenanted 1/1
