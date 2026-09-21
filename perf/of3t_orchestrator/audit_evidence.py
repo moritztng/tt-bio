@@ -1560,7 +1560,11 @@ print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 # count denominator is not a scope statement). From here every compose writes the sorted list, so
 # the next time the count moves the answer is one `diff`.
 try:
-    (Path(__file__).with_name("CHECKS_RUN.txt")).write_text(
+    # Into the campaign state dir, NOT next to this script: the audit runs from the COMPOSED
+    # tree under /tmp, so a sibling file is discarded the moment the compose is rebuilt and
+    # nothing is ever diffable. D112 is a concluded row's worktree being pruned and taking the
+    # campaign's reference with it; this is the same trap one directory over.
+    (Path("/home/moritz/.coworker/state/of3t/CHECKS_RUN.txt")).write_text(
         "# every check this audit CONFIRMED, one per line, sorted. Regenerated on every compose.\n"
         "# Diff two of these to find out which check stopped firing when the count moves; the\n"
         "# count alone cannot tell you (pass 221).\n"
