@@ -1,0 +1,15 @@
+{
+  "a": "/tmp/of3t/of3t-modelboundary/dev_CTRL_c64_captures.pt",
+  "b": "/home/ttuser/of3t_apbgrad/dev_scope_CTRL_c64.pt",
+  "n_a": 2736,
+  "n_b": 2736,
+  "n_common": 2736,
+  "only_in_a": [],
+  "n_only_in_a": 0,
+  "only_in_b": [],
+  "n_only_in_b": 0,
+  "n_moved": 0,
+  "bit_identical": true,
+  "worst_rel_move": 0.0,
+  "worst_tensor": null
+}
