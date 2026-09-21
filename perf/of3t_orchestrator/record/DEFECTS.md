@@ -8954,3 +8954,998 @@ would abort every compose on a collision that has not happened.
 cond043's --expect-version* (its side is genuinely absent today, which is why the flag is
 conditional); with that flag added, both sides present; deleting `--capture-ln` reports it lost;
 renaming `"f64"` reports the f64 policy lost. No arm of the check is vacuous.
+
+### D129 UPDATE 2 (pass 240). The bar barely moves across the boundary: upstream 0.4.3's own bf16 floor on this leaf is 1.5931532097e-01 against 0.5.0's 1.5815634233e-01, **0.73 %** apart, so A26's bar goes 0.223667 → 0.2253059. Still **UNFIXED**, and the ratio that would settle it is still uncomputed.
+
+`of3t-cond043` returned **GO** on `wk/of3t-cond043` at `e633d89bf`, CPU only, nothing under
+`tt_bio/`. Package `/home/ttuser/of3t_refprec/of3pkg043` (0.4.3), capture
+`/home/ttuser/of3t_softgrad/diffcap043`, reference `grad_f64` from that capture's own
+`sub_boundary.pt`, `OMP_NUM_THREADS=8`, 761 tensors.
+
+    whole diffusion scope, n=761      mass-weighted rel 1.8817643472e-01
+    D129's leaf, n=30                 1.5931532097e-01   (0.5.0: 1.5815634233e-01, +0.73 %)
+    attention_pair_bias...   n=24     2.8190352687e-01   (0.5.0: 4.8070180113e-01, -41 %)
+    f32 instrument floor              2.0628292805e-05   four orders below every bf16 arm
+    A/A                               max |difference| exactly 0.0
+    break control                     scope 0.188176 -> 1.234348, leaf 0.159315 -> 1.389184
+    A16                               exactly 1.0;   A14  nothing near the 1e-12 floor
+
+**So the caveat the orchestrator attached to D129 is answered on the denominator side and only
+there.** The bar at the boundary the served checkpoint is bound to is **2.2530588761e-01**. Whether
+D129 survives depends on our arm *at the 0.4.3 capture*, which no artifact in this campaign holds
+and which needs a device lease the row was explicitly dispatched without.
+
+**The row refuses the quotient everyone wants, and it is right to.** 0.693974 was taken at
+`/home/ttuser/of3t_diffusion_cap` against that capture's float64 reference under 0.5.0; the floor
+was taken at `diffcap043` against a different float64 reference under 0.4.3. A27 permits a ratio
+only inside one capture, one package, one reference.
+
+**The prediction was registered before the first arm (`63030ff0f`) and scored honestly**: right that
+the 0.4.3 floor on D129's leaf would be larger and by far less than 2x; **wrong** on the other leaf
+and on the whole scope, both of which came back *smaller*; and wrong in its reasoning even where the
+arithmetic survived. The row says the miss is worth more than the hit, and the next entry is why.
+
+### D120 UPDATE 2 (pass 240). Its mechanism is CORRECTED at the diffusion boundary: 0.4.3 and 0.5.0 are two different FUNCTIONS there, not two roundings of one. A cross-version difference in that scope was never a precision measurement. D120 stays **UNFIXED**.
+
+D120 says our port is within 1.8x of upstream at 0.4.3 and 19,000–30,000x away at 0.5.0 *"with
+nothing about our arithmetic different between those two sentences"*, and attributes the whole of it
+to an autocast boundary that moved — LayerNorm and the attention softmax in bf16 at 0.4.3, fp32 at
+0.5.0. `of3t-cond043`'s version-only arm holds the **capture fixed** and swaps only the package, all
+four cells scored against the **same** float64 reference (`BARS_VERSION_ONLY.json`, 737 tensors,
+reference mass 12.6504, verified by the orchestrator from the pushed artifact):
+
+| arm | scope mass-weighted rel | D129's leaf | the other leaf |
+|---|---|---|---|
+| `pkg050_f32` | **1.94959719e-05** | 1.52003152e-05 | 2.24336157e-05 |
+| `pkg050_bf16auto` | 3.02183704e-01 | 1.58156342e-01 | 4.80701801e-01 |
+| `pkg043_f32` | **7.66979728e-01** | 6.47233715e-01 | 7.80768803e-01 |
+| `pkg043_bf16auto` | 7.71559363e-01 | 7.29764343e-01 | 6.94323455e-01 |
+
+**Read the two rows that matter.** Within **0.5.0**, going f32 → bf16 moves the scope from
+1.95e-05 to 0.302 — a factor of **15,500**, which is what a precision boundary looks like. Within
+**0.4.3**, the same f32 → bf16 switch moves it from 0.76698 to 0.77156 — **0.6 %**. The dtype does
+essentially nothing. The entire **0.767** is the package, at **39,340x** the instrument floor, with
+no bf16 anywhere in the f32 cell.
+
+**What this corrects and what it does not.** It does **not** refute D120's island measurements,
+which were taken on trunk/attention fp32 islands at crop-384 and are a different scope. It does
+refute *"only the boundary moved"* **as an account of the diffusion boundary**: there, the two
+upstream trees compute materially different functions, so any figure that differences 0.4.3 against
+0.5.0 in that scope is measuring a model change and a precision change at once and cannot separate
+them. D120's own durable lesson — *any of3t gradient number is unreadable without its boundary
+version* — is strengthened, not weakened: at the diffusion boundary the two versions are not
+comparable at all, not merely comparable-with-a-caveat.
+
+**And it retires a question of the orchestrator's own.** Pass 236 filed D129 with the caveat that
+4.388x *"cannot say whether the same ratio holds at 0.4.3"* and framed that as a precision question
+after D120. It is not a precision question. It is a *which model* question, which is why the ratio
+has to be rebuilt rather than translated.
+
+### D69 UPDATE (pass 240). Never closed by anyone: the parser has been reading it as FIXED since pass 169 because its heading contains the English word "fixed". Restated **UNFIXED**.
+
+D69's only heading ends *"...against a reading fixed before the arm produced output"*. The status
+parser uppercases the whole heading before matching its vocabulary, so that past participle has
+stood in for a declaration for seventy-one passes, and D69 has been absent from the UNFIXED set,
+from `state/of3t/UNFIXED_TRIAGE.json` and from GAP's naming requirement the entire time.
+
+**Its substance was never disposed of.** Upstream's own single precision reproduces its float64
+gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a
+port gap and not a bar problem. Later work has moved the surrounding numbers a great deal — the
+whole-model reading is now 0.9592x of its reachable bar — but no row has ever addressed D69's claim
+as such, and inventing a closure for it now would repeat the error in the other direction. It is
+**UNFIXED** until something measures it.
+
+### D116 UPDATE 5 (pass 240). Restated **FIXED** in capitals, because its previous heading said "D8 is NOT closed by it" and the parser read that negation as CLOSED.
+
+No substantive change. D116 was fixed at pass 207, release-gated and unmerged, and GAP has said so
+throughout; the ledger agreed only by accident, having stored `CLOSED` out of the phrase *"and D8 is
+NOT closed by it"*. A word-level regex cannot see a negation. The status is **FIXED**.
+
+### D8 UPDATE 4 (pass 240). Restated **REFUTED** in capitals; no substantive change.
+
+D8's pass-232 heading read *"REFUTED — closed as a NON-DEFECT"*, and the parser stored `CLOSED` from
+the lower-case second word rather than `REFUTED` from the first. Both mean the same thing here, so
+nothing about D8 changes; the heading is restated so the stored status is the one that was written.
+The four LayerNorm affine leaves read 0.747x–0.849x of upstream's own bf16 floor, inside A26.
+
+### D113 UPDATE 2 (pass 240). Restated **REFUTED** in capitals; no substantive change.
+
+Its pass-198 heading ended *"...is refuted by measurement"* and the parser stored `REFUTED` off the
+lower-case word. It happened to be the right answer, which is exactly why it is worth restating: a
+guard that is right by luck is not a guard. Real as a code defect, inert as an explanation.
+
+### D134. The status parser reads a defect's state out of ORDINARY PROSE and out of NEGATIONS, which is D87's failure inverted and in the more dangerous direction. FOUND by the orchestrator (pass 240). **FIXED** by a guard; four defects restated.
+
+`_last` in `audit_evidence.py` uppercases each `### D<n>` heading before matching the status
+vocabulary. An English word therefore counts as a declaration:
+
+| defect | heading text | parser stored | truth |
+|---|---|---|---|
+| **D69** | *"...a reading fixed before the arm produced output"* | `FIXED` | never closed by anyone |
+| **D116** | *"...and D8 is NOT closed by it"* | `CLOSED` | FIXED at pass 207, and the heading is a negation |
+| D8 | *"REFUTED — closed as a NON-DEFECT"* | `CLOSED` | REFUTED; same meaning, wrong source |
+| D113 | *"...is refuted by measurement"* | `REFUTED` | right answer, by luck |
+
+**Two of the four are false closures**, and one of those, D116, is a heading that says the
+**opposite** of what was stored — a word-level regex cannot see `NOT`. D87 was a real closure the
+parser could not read and it cost twenty-four passes; this is the inverse and it is worse, because
+it removes a defect from `unfixed` **silently** rather than leaving one in.
+
+**The guard does not decide any status**; it refuses to read one out of prose. A declaration must be
+UPPER-CASE in the source — which is already the house convention, always capitalised and usually
+bolded — and must not be immediately preceded by a negation. A probe with two synthetic headings in
+exactly D69's and D116's shapes runs on every compose, so the check cannot ship inert the way three
+guards in this file already have.
+
+D69, D116, D8 and D113 are restated above. Only D69's status actually moves, to **UNFIXED**.
+
+### D133. Twenty-nine of a hundred and thirty-two defects declare no status on any heading, so they are invisible to the UNFIXED set and to every gate clause built on it. FOUND by the orchestrator (pass 240). **FIXED** by a ratchet, with the backlog published.
+
+The parser's clause is deliberately conservative — a status-free heading must not drop a live
+defect — but a defect that has **never** declared one never enters `_last` at all. It is absent from
+`unfixed`, from `state/of3t/UNFIXED_TRIAGE.json`, from GAP's naming requirement, and therefore from
+GO condition 5 and from the additive USER-FACING clause in `_of3t_donecheck.py`.
+
+**D120 sat in that state for twenty-nine passes** while GAP's prose called it UNFIXED; it entered
+the set only when pass 240 gave it a heading with a word on it. **D121** is there too, and GAP calls
+it *"UNFIXED as a standing rule"*. So the summary and the ledger have been disagreeing about which
+defects exist, in a direction no check could see.
+
+**Frozen as a RATCHET, not an exemption.** `state/of3t/STATUSLESS_BACKLOG.json` records the
+twenty-nine at pass 240. The audit fails on any statusless defect **not** in that list, and equally
+on any entry that has **since acquired** a status, so the list can only shrink and cannot quietly
+absorb new ones. Failing on all twenty-nine at once would have aborted every compose until they were
+triaged in a hurry, which is how a status word gets chosen for convenience rather than measured.
+
+### D25 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a cross-box upstream-against-upstream replay, corrected by `of3t-rebase` the same night. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D34 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a classification of every compared tensor by leaf op. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D36 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a second statistic already in the files, read. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D38 UPDATE (pass 241). **RECORDED** — a finding, not a defect: three mechanisms eliminated by code reading, so no run is spent on them. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D39 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the block-boundary ladder, captured and read. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D40 UPDATE (pass 241). **RECORDED** — a finding, not a defect: seven blocks measured at one config. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D41 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the one variable that separates block 47, measured across seven blocks. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D43 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a chain that aborted correctly on its first use of the failure-stop. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D44 UPDATE (pass 241). **RECORDED** — a finding, not a defect: block 47 priced against the model's gradient mass. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D45 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a protocol error of mine that made an arm vacuous, caught before it was believed. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D47 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the contiguous 40-47 bracket, measured. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D50 UPDATE (pass 241). **RECORDED** — a finding, not a defect: an inverted premise in a brief of mine, caught against the measurement. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D52 UPDATE (pass 241). **RECORDED** — a finding, not a defect: an item recorded as blocked for eleven passes that was already unblocked. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D65 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a depth trend measured and pre-registered for test. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D70 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the campaign's bar priced against OpenFold3's own training dtypes. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D72 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the model re-scored against upstream's own bf16 floor. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D74 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a row list that was a comment rather than code. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D75 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a reference being overwritten underneath a measurement. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D76 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a pre-registered branch that was arithmetically unreachable. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D109 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a brief of mine whose instrument could not have answered its question. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D49 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: `fp32_softmax=False` improves gradient parity on five of seven trunk blocks and the shipped default is still the other way, so there is a decision outstanding.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D110 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: a lever that fires 1,440 times and cannot take effect is still a lever that does not work.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D121 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: it asks for two counters where the instruments have one, which is work not yet done.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D135. The status vocabulary had no word for a FINDING, was written out five times across four files, and was applied by a parser that read English prose as a declaration. FOUND and FIXED by the orchestrator (pass 241). **FIXED.**
+
+Reading D133's twenty-nine statusless entries showed why they had no status: **most are not
+defects.** *"Block 47 is worth about one per cent of the model's gradient mass"*, *"I briefed a row
+to separate two variables that were rank-identical on the ladder I specified"* — there is nothing to
+repair, so FIXED is false and UNFIXED is false, and their authors reached for words outside the
+vocabulary (*"MEASURED"*, *"recorded"*) exactly as pass 196 reached for SUPERSEDED.
+
+**RECORDED added, and it is not the SUPERSEDED mistake.** SUPERSEDED was refused because it is
+genuinely ambiguous — D87 meant its CLAIM was superseded, D119 meant its NUMBERS were, and one is a
+closure while the other is not. RECORDED asserts one thing: this entry is a finding, so nothing is
+pending. **It is fenced**: a defect that has EVER declared UNFIXED may not later be restated
+RECORDED, which is the retirement-by-relabelling move the word would otherwise enable, and the
+audit refuses it rather than judging it.
+
+**Applied**: twenty entries are now RECORDED, and **three are UNFIXED instead** — **D49** (the
+shipped default is still the other way and a decision is outstanding), **D110** (a lever that fires
+1,440 times and cannot take effect is a lever that does not work) and **D121** (it asks for two
+counters where the instruments have one). Where a reader could reasonably think something should be
+done, the conservative word is the honest one. The statusless backlog goes **29 → 6**; the six that
+remain are real code defects whose repair state needs reading one at a time.
+
+**One definition, not five.** `audit_evidence.py` carried the pattern twice, `triage.py` and
+`defecttriage/gate_is_a_keyword_test.py` once each, and `_of3t_donecheck.py` once — the shape of
+half the defects this campaign has filed against its own instruments. The four in this tree now
+import `perf/of3t_orchestrator/status_vocab.py`. The gate runs from a different checkout and cannot
+import it, so its literal is **compared** against `PATTERN` on every compose and the compose fails
+if they drift.
+
+**And the parser now applies the rule the pass-240 guard only reported.** D134 added a check that
+a status must be UPPER-CASE and unnegated, but `_last` went on matching against `heading.upper()`,
+so the guard and the parse gave two answers to one question. The moment RECORDED joined the
+vocabulary that hole re-read four entries silently — **D3**'s heading is *"UNFIXED, out of scope,
+recorded so it is not lost"*, and its last lower-case word would have retired it, along with D117,
+D123 and D124. Case matters, the house convention is capitals, and `statuses_by_defect` now enforces
+it with a self-test carrying D3's, D116's and D69's exact shapes.
+
+### D4 UPDATE (pass 241). **FIXED** — declared, on what the entry's own body already records: "Fixed in the shared path."
+
+The loader-hooked census was blind to anything a module derived in its own `__init__`, by the same
+32-tensor shortfall on OpenFold3, Protenix-v2, Boltz-2 and BoltzGen — 2119 weights found by the
+loader against 2531 reachable from the built model, and 2314 of 2531 carrying a gradient once
+discovery walks the built model. `of3t-leaves` closed it in the shared path, which is what the
+UNIFIED rule requires. No status word had ever been written on a heading (**D133**); this declares
+the one the body states.
+
+### D5 UPDATE (pass 241). **FIXED** — declared, with the scope note the entry already carries.
+
+Both arms were closed by `of3t-leaves` against upstream's real `grad_manager`: the disabled-parameter
+exclusion **8.333e-01 → 1.989e-08**, and per-sample clipping **1.957e-01 → 0.000e+00**. The honest
+scope note stands and is not a defect: per-sample clipping **has no caller**, because the shipped
+loop runs one forward per batch. The rule is equivalent; the loop that would exercise it does not
+exist.
+
+### D6 UPDATE (pass 241). **FIXED** — declared, and the fourth blind spot verified in the tree rather than taken from the entry.
+
+Three of the four are recorded closed in the body (the function-local `import ttnn` census with its
+allowlist and reasons, the `_Ttnn.__getattr__` proxy, and `triatt_qkv.py` fixed **as a class**). The
+fourth — *"OF3's `fp32_softmax=True` path had no backward at all"* — was checked against the
+composed tree rather than assumed: `taped_ttnn.py` registers the derivative for the
+`MUL_UNARY_SFPU` activation the fp32-softmax tail rides, with the note that *"openfold3's trunk,
+template and MSA stacks all take that path by default — `fp32_softmax=True` at every one of them —
+so this is the shipped path for a whole model, not an opt-in corner."* The path has a backward.
+
+### D7 UPDATE (pass 241). **FIXED** — declared, both halves verified in the tree.
+
+`_triangle_mul_memory_config` now returns DRAM under a tape (`if seq_len in _TRIMUL_DRAM_SHAPES or
+ops.taping()`), carrying the defect and its reason in its own comment: a tape keeps what the forward
+frees, so every chunk's split, both channel moves, the input projection and the chunk matmul stayed
+resident and the fourth block's QKV projection refused. And `docs/openfold3-vendor.md`, the dangling
+`NOTICE` reference that existed nowhere, exists — closed by `of3t-data`.
+
+### D18 UPDATE (pass 241). **FIXED** — the rebuild it was waiting on is not only published, it is the reference every diffusion arm in this campaign is scored against.
+
+D18 was filed at pass 40 as *"FIX IN FLIGHT — the rebuild reproduces bit-identically; publication
+pending"*, and the publication is long since done: `bundle_min_043` is the campaign's reference, and
+`of3t-cond043` re-validated it at pass 240 with `vs_bundle` worst_rel **0.0** over 761 tensors and
+all four declared sha256 hashes matching. A defect whose stated exit condition has been met for two
+hundred passes should not still be reading as in-flight.
+
+### D1 UPDATE (pass 241). **UNFIXED**, and USER-FACING: the repair is written and measured, it is deliberately HELD because applying it measured WORSE, and the deviation is what ships.
+
+`openfold3_trunk.py` builds all 48 pairformer blocks with `scale_pair_bias=False`, so the trunk pair
+bias lands at **1/sqrt(24) = 0.204** of its intended value in every OF3 fold served. The sweep is
+unambiguous: `c = 1/sqrt(24)` fits all four blocks at 6.9e-03 to 1.7e-02 while the reference `c = 1`
+is off by 9.1e-02 to 3.3e-01.
+
+**Why it is still UNFIXED after the fix was written.** The compose asserts the shipped default every
+run — *"OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.149 Å worse at rank
+0, `of3t-confhead` final, `5588d889a`; not blocked on D10, which is resolved)"*. So the original
+blocker is gone and what holds it now is its own measurement: flipping it made the served structures
+**0.149 Å worse** at rank 0. That is a real reason to hold and not a reason to close.
+
+**So it is recorded as what it is**: a deviation from upstream's intended arithmetic that ships
+today, with a repair in hand that measured worse. **USER-FACING**, because it changes the inference
+output a user gets, and the gate should count it. Whether to ship the repair against a 0.149 Å
+regression is Moritz's decision, not a row's — it is the same shape as D10 and D24.
+
+### D136. GO condition 3's headline is attributed to "the shipped default" and was measured on an arm the row itself recorded as default-off and unmerged — while the arm actually named `shipped` read exactly zero. FOUND by the orchestrator (pass 245). **UNFIXED** as a record correction; the measurement that would settle it is running.
+
+VERDICT has said, for twenty-five passes: *"the **shipped default** reads **4.763338e-02** at k=20,
+exponent **−0.2482**, 26 of 26 tape resolutions."* Read from `perf/of3t_modeltraj/` directly:
+
+| artifact | arm | rel_d @ k=20 | d_ours_norm | exponent | tape_resolves_after_step |
+|---|---|---|---|---|---|
+| `traj_repin.json` | repin | **4.7633384e-02** | 5.0872181e-01 | **−0.24817** | **26 → 26** |
+| `traj_renorm.json` | **repin** | 4.7633384e-02 | 5.0872181e-01 | −0.24817 | 26 → 26 |
+| `traj_repin_aa2.json` | repin | 4.7633384e-02 | 5.0872181e-01 | −0.24817 | 26 → 26 |
+| `traj_shipped.json` | **shipped** | **1.0** | **0.0** | **0.0** | **0 → 0** |
+| `traj_stale.json` | stale | 6.3472124e-02 | 5.1060321e-01 | −0.11923 | 26 → 26 |
+| `traj_permute.json` | permute | 1.4054243e+03 | 7.1493046e+02 | −2.21383 | 26 → 26 |
+
+**Every figure in the headline is the `repin` arm**, and `of3t-modeltraj` says in its own words what
+that arm was: *"Carried as the `repin` arm, **default-off, unmerged**."* The arm named `shipped`
+moved **zero weight over twenty steps** and resolved **0 of 26** parameters at every step — which is
+not a trajectory result at all, it is **D126**.
+
+**The claim became true afterwards, by a different mechanism, and nobody has measured it since.**
+The repin arm repaired the tape **from the caller**, handing the leaf back to `autograd.parameter`
+after each step — something `parameter()`'s docstring names as the caller's duty and no caller in
+`tt_bio/` performed. What landed on main is not that: `autograd.py:167-168` re-keys `_PARAMS`
+**inside the value setter**, so no caller action is needed. Same intent, arguably stronger, and a
+**different program**. That the two produce the same trajectory is an inference; this campaign's
+standard is that an inference is not a measurement.
+
+**Not a new dispatch, because the measurement is already running.** `of3t-trajwide`'s `run_ours.sh`
+has it exactly right in its own comment — *"shipped: the trajectory, on the shipped default — no
+repin flag, because `of3t-rebind` moved the re-keying into `autograd.Tensor.value` and the default
+and the repaired program are now the same program"* — and it is executing that arm on a tree
+carrying the landed fix. When it reports, GO condition 3 will have a shipped-default trajectory for
+the first time.
+
+**Until then the honest statement is a configuration, not the shipped port** — the same caveat
+VERDICT already applies to every other number it carries, and it should not have been the one
+sentence exempt from it. One smaller trap recorded with it: `traj_renorm.json`'s `arm` field reads
+**`repin`**, so a reader picking artifacts by filename gets the repin arm believing it is the renorm
+one.
+
+### D137. The host float64 softmax is gated on a GLOBAL ENV FLAG and its entry point accepts a raw inference tensor by design, which is the one gating shape the 2026-09-21 constraint names as forbidden. FOUND by the orchestrator (pass 246). **UNFIXED**; nothing ships, and the repair is one condition.
+
+Moritz, verbatim (2026-09-21): *"make sure regular inference is not changed to softmax fp64, not
+made slower. cause it was already in a good state. we did this only for training. i dont want to see
+regression in inference."* The brief adds: *"Gate it on the tape being installed, not on a global
+flag — a global flag is exactly how `tt-bio-shared-diffusion-global-env-default-regression`
+happened."*
+
+**What the composition actually does.** `host_f64_softmax_site(token, default=False)` returns
+`_site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)` — **a global env flag with a per-site
+grammar, and no reference to the tape**. The call-time entry is:
+
+```python
+def site_softmax(x, dim=-1, *, host_f64=False, **kw):
+    if not host_f64:
+        HOST_F64_SOFTMAX_STATS["declined"] += 1
+        return ttnn.softmax(x, dim=dim, **kw)
+    return host_f64_softmax(x, dim)
+```
+
+and `host_f64_softmax`'s own docstring says *"`x` may be a raw ttnn tensor (**inference**) or a taped
+`autograd.Tensor` (training)"*. So an inference fold reaches the float64 round trip if and only if
+someone sets one environment variable. That is precisely the shape the constraint forbids, and the
+memory entry it cites is a shared global default that regressed a model nobody was working on.
+
+**The blast radius is not OpenFold3.** The composition wires `host_f64_softmax_site` into
+`openfold3_atom_transformer.py`, `openfold3_diffusion_transformer.py` **and `protenix.py`**, and the
+fp32 softmax sites it sits beside are the shared triangle path (`af2.py`, `openfold3_trunk.py`,
+`openfold3_template.py`, `openfold3_msa_embedder.py`, `openfold3_confidence.py`). One flag reaches
+every model in tt-bio.
+
+**Nothing ships today, and that is measured rather than assumed.** No float64-softmax symbol exists
+on `origin/main` — asserted on every compose from pass 246, with a probe that finds the path on
+`wk/of3t` so the silence on main is informative. Every site defaults False, checked by
+`assert_new_levers_default_off.py`, and a fold with the path present and off is byte-identical by
+digest on OpenFold3, Protenix-v2 and OpenDDE.
+
+**The repair is one condition, in `site_softmax`**: take the host path only when the tape is
+installed, the `ops.taping()` idiom `_triangle_mul_memory_config` already uses, with a
+`refused_no_tape` counter beside `served`/`declined` so a refusal is readable rather than silent.
+Then the env flag can only choose **which taped sites** use it, never whether inference does.
+
+**Why it is not done in this pass.** The code is on `wk/of3t-f64softmax`, a CONCLUDED row's branch,
+and reaches the orchestrator only through the composition; editing `tt_bio/tenstorrent.py` from here
+would make a third row an editor of a file whose co-edit declaration names two. It is filed with the
+exact change and the exact file so the next row that touches that path does it, and **it blocks
+`land-standing` for this path** regardless of who does it.
+
+**And a clarification the record needs, because I asked Moritz a question that this changes.**
+`TT_BIO_SOFTMAX_BW_RENORM` — the lever in D56, which pin 9629 asks him to ship — lives in
+`taped_ttnn.py` and is **backward-only**, so it runs only under a tape and **cannot reach an
+inference fold at all**. The float64 softmax is the one that would. The two must not be answered as
+one question.
+
+### D136 UPDATE (pass 247). Still **UNFIXED**, and the measurement that closes it has now RUN: `of3t-trajwide`'s reference side completed and its shipped arm resolves 980 of 980 parameters at every step. Not a result yet — the row has not scored or concluded.
+
+In-flight evidence from the row's own logs on qb2, recorded because D136 is precisely a claim about
+whether the **post-fix shipped default** resolves the tape, and that is a control rather than the
+row's headline:
+
+    theirs.log   "=== theirs done rc=0 2026-09-21T08:35:54Z", 20 steps in 8446 s,
+                 A/A 738 of 738 bit-identical at max|d| = 0.000e+00 on every step
+    ours_*.log   resolves=980/980  rebound=980  at every step, on the `shipped` arm --
+                 no repin flag, because the re-keying now lives in `autograd.Tensor.value`
+
+So the thing D136 says has never been measured — the trajectory on the **real** shipped default,
+rather than on the `repin` harness arm — has been executed, at **980** parameters instead of
+`of3t-modeltraj`'s 26. **The trajectory numbers are the row's to report and are not quoted here**:
+`--score` has not run, nothing is published, and an orchestrator quoting an unconcluded row's
+headline is a recorded failure of this campaign (`ttx-orchestrator-summary-overstates-refuted-
+subreport`). D136 closes when the row reports, not before.
+
+### D138. The fleet stamps CEST and the rows stamp UTC, so a defer reads two hours wrong and a correct one looks like a row parked over finished work. FOUND by the orchestrator (pass 247). **RECORDED** — no code is wrong; it is a reading trap with a live cost.
+
+`fleet.log` timestamps in **CEST** (pc is UTC+2). Worker logs, `notbefore` reasons and the rows'
+own instrumentation stamp in **UTC** (qb2 runs UTC). Read together:
+
+    fleet.log   2026-09-21 08:36:09  DEFER of3t-trajwide until 2026-09-21 10:45:00
+    theirs.log  2026-09-21T08:35:54Z  === theirs done rc=0
+
+which reads as a row deferring itself for **two hours and nine minutes** fifteen seconds after its
+job finished. It is not. The defer's epoch is **1789980300 = 08:45:00 UTC**, its stated reason
+predicted the 20th step at *"~08:39Z"*, and the job landed at 08:35:54Z — a gate set **nine minutes**
+after a prediction that was accurate to three. The row was right and the fleet was right.
+
+**The cost is not hypothetical.** Reading it the wrong way, the orchestrator was one step from
+hand-clearing a correct `notbefore` and filing a defect against a row that had done nothing wrong.
+What stopped it was running `date` on both hosts instead of reasoning from the strings — the same
+discipline as naming a ratio's denominator, one layer down. **Any comparison of a fleet timestamp
+with a row's timestamp must convert first**, and a defer is exactly where that bites, because the
+decision turns on a margin of minutes.
+
+### D137 UPDATE (pass 251). Still **UNFIXED**, and my stated reason for not fixing it was the secondary one: the function does not exist on this branch at all, and the repair has NO OWNER.
+
+Pass 246 said the repair was not done here because *"editing `tt_bio/tenstorrent.py` from the
+orchestrator would make a third row an editor of a file whose co-edit declaration names two."* True,
+and not the binding reason. Checked by branch:
+
+    origin/main                    def site_softmax  -- absent
+    origin/wk/of3t-orchestrator    def site_softmax  -- absent
+    origin/wk/of3t-f64softmax      def site_softmax  -- present
+    origin/wk/of3t   (composition) def site_softmax  -- present, via that merge
+
+**`site_softmax` and `host_f64_softmax` exist only on `wk/of3t-f64softmax`.** They reach the
+orchestrator through the composition and nowhere else, so there is no function on this branch to add
+a condition to. Patching it here would mean first pulling another row's feature onto this branch,
+which changes what the composition is composed FROM — a worse defect than the one being fixed.
+
+**The consequence is the part that matters, and pass 246 did not state it: the repair is
+orphaned.** `of3t-f64softmax` CONCLUDED and its branch is frozen. No live row touches that file.
+`of3t-ditcot` is briefed, deliberately, to drive its host-float64 arms from its own harness and
+**not** to widen a construction-site selector. So nothing in flight will fix this, and a defect that
+blocks `land-standing` with no owner is a defect that waits forever.
+
+**Dispatched as `of3t-f64gate`** (pass 251), `DEPENDS_ON: of3t-ditcot` so it queues behind the
+current chain rather than competing for the card. One condition, one probe, and the inference fold
+A/B the 2026-09-21 constraint requires of any change to a shared softmax site — honoured literally
+rather than argued away, even though a tape gate can only ever REMOVE a path from inference.
+
+### D21 UPDATE (pass 252). **CLOSED** — its own artifact refutes the heading: the forward discriminator ran on all 48 structures, and the instrument defect was replaced by a real measurement 136 passes ago. The reading that replaced it belongs to D30.
+
+D21's only heading has read *"UNFIXED — the forward discriminator has not been run"* since pass 21.
+Its body has carried the opposite since pass 116, and this is the D125 shape: a closure declared
+inside a body, where the status parser cannot see it. Three of the four D125 examined did not
+survive reading, so this one was checked against the artifact rather than the prose. Every figure
+verifies in `perf/of3t_rebase/device_gradient_043all.json`:
+
+    forward_rel_median          0.008474800850934073   inside the 5.0e-02 A18/A19 gate
+    forward_rel                 a list of 48 -- the discriminator ran on EVERY structure, not once
+    median_rel                  0.16588485538135056    8.3x the 2.0e-02 median bar
+    worst_rel                   18.503974843073646     diffusion_transformer.blocks.8
+                                                       .attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    zero_model_median           1.0                    so 6.0x better than a deleted model
+    n_struct_total              48 of 48
+    share_of_diffusion_sq_norm  0.5732029094107396
+
+**Both halves of the heading are disposed of.** *"The first reading is an instrument defect, not a
+result"* was true and is fixed — `of3t-rebase` replaced the instrument and re-ran at diffusion scope
+against the rebuilt 0.4.3 reference. *"The forward discriminator has not been run"* is **false
+against its own artifact** and has been for 136 passes: it ran 48 times and reported a median of
+8.4748e-03, comfortably inside the gate A19 fixed.
+
+**Nothing is lost by closing it, and this is the part D125 says to state explicitly.** What the
+replacement measurement found — median **1.6588e-01**, 8.3x the bar, on 474 of 547 tensors — is not
+D21's subject. D21 is about whether the instrument was sound; the number it produced is **D30**'s
+(*"the diffusion module's backward costs 19.6x the forward it is taken at"*), which is UNFIXED,
+USER-FACING, and owned by `of3t-ditcot`. The closure moves no evidence and drops no obligation.
+
+### D139. I asked Moritz to rule on a question this campaign's own PROTOCOL had answered forty passes earlier, and it sat in his queue for thirty-four. FOUND and WITHDRAWN by the orchestrator (pass 253). **FIXED** — the ask is withdrawn; nothing in the record changes, because the fix was already in force.
+
+Pin **9597**, authored at pass 215: *"the 'more accurate than upstream' protocol question ... my
+recommendation, and the default if no answer comes: measure both, and never score 'closer to float64
+than upstream' as a failure."* The worked case is `diffusion_conditioning`, **36.9462 %** of the
+model, scored a FAILURE at **1.0414x** against upstream's own training step while being **8x more
+accurate** than that step against the float64 ideal (0.015328 against 0.121864, cosine **−0.2727**).
+
+**PROTOCOL A25's ADDENDUM, written at pass 175, already says it:**
+
+> *"The 1.0414x is against the 'equals float64' threshold, and **A26 shows no bf16 port can reach
+> that threshold** ... Against the bar a bf16 port can actually reach, **the same measurement passes
+> at 0.7363x** ... clause 3's model sentence should now read: 'passes the reachable bar at 0.7363x
+> while being 8x more accurate than the step it reproduces' rather than 'fails agreement at 1.0414x'
+> ... the second scores it against a bar nothing can meet."*
+
+A26 replaced the bar, every headline since is scored against A26, and the campaign's own artifacts
+carry both columns (`ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json`, superseded by
+`THE_ANSWER.json`). **The question was stale when I sent it**, which is the recorded class
+`stale-open-ask-outdated-by-later-finding` — and the aggravating detail is that the thing it was
+stale against is a protocol **I own and wrote**.
+
+**Withdrawn rather than left standing.** An open ask is a claim on Moritz's attention, and this one
+had been making that claim for thirty-four passes while asking for a decision already taken. The
+withdrawal was sent as a normal alert rather than a new ask, because adding a question to retire a
+question is the wrong direction. **Known behaviour to expect**: `state/pending-input/9597.md` will
+keep reading `status: open` until he replies, since only `tg_agent.sh` flips that field — the
+campaign's own view is corrected here instead.
+
+**The lesson is not "check before asking", which I did.** I checked the *pending-input queue* for
+duplicate asks and found none. What I did not check was whether the campaign had already **decided**
+the thing — a different question, answered by PROTOCOL rather than by the ask log. Before an ask
+goes out, grep the protocol for the rule it proposes, not just the queue for the question.
+
+### D140. Two of `of3t-trajwide`'s six arms died silently — no error, no traceback, no `done rc=` marker, no process — and nothing in the fleet can see it, because the row's own worker is between passes. FOUND by the orchestrator (pass 254). **UNFIXED**; the row is told in place.
+
+Observed on qb2 at 09:24:02 UTC, with the row's state doc still reading **IN FLIGHT**:
+
+    steplogs written   theirs, shipped, shipped_aa2, permute, stale        (5 of 7 arms)
+    ours_stale.log     === stale done rc=0  2026-09-21T09:16:05Z
+    ours_norebind.log  === norebind start   2026-09-21T09:16:05Z
+                       ... discovery: 980 device weights walked, 848 carry a checkpoint name
+                       ... forward rel at level 10: 2.002969e-02        <- last line, 6 total
+    last written       09:16:28, i.e. ~8 minutes before this reading
+    processes          NO `--side ours` and no `run_ours.sh` anywhere
+    ours_chain.log     EMPTY.  chain.log EMPTY.
+
+So `norebind` started, walked its 980 weights, took one forward — and vanished between the first
+forward and the first step. `zero`, the A16 baseline, never started. **Neither has a steplog.**
+
+**Not an OOM, checked rather than assumed.** `/var/log/kern.log`'s most recent kill is
+**02:16:33**, the pairformer rung already recorded in `SCOPE_LADDER.json`; there is nothing at
+09:16, and the host currently reports **193 GB available** of 249. The log carries no error,
+traceback, "killed" or "memory" line in any of its six lines.
+
+**What is still alive is the reference side**: `--side theirs --arm theirs_aa2` at **987 % CPU**,
+2888 s in, which is the legitimate A/A repeat of the float64 arm. So the row is not dead — half of
+it is running and the other half stopped without saying so.
+
+**Why this is the orchestrator's to catch.** The row's worker is between passes, so nothing of its
+own is watching; the fleet sees a launched task, not a missing arm; and `ours_chain.log` is EMPTY,
+so whatever sequenced those arms left no record of its own exit. This is the
+`detached-ssh-fold-process-invisible-to-fleet` shape with the detail that makes it worse — **the
+arms that died are both CONTROLS**. `norebind` is the break control that must still saturate at 1.0
+and `zero` is the A16 baseline; a run that quietly loses its controls and keeps its treatment arms
+is a run that will look finished and prove nothing.
+
+**Told in place rather than restarted.** The arms are the row's, the card lease is the row's, and
+this orchestrator holds neither. `workstreams/of3t-trajwide.txt` is amended so the row's next pass
+checks every arm for a `done rc=` marker and a steplog before it scores anything, and re-runs what
+is missing — and refuses to publish a verdict whose controls did not run.
+
+### D141. The shared diffusion capture's provenance records `missing_keys` and NOT `unexpected_keys`, so a checkpoint that silently drops 24 trained tensors reads as a clean load in every artifact derived from it. FOUND by the orchestrator (pass 255), from a finding `of3t-trajwide` is still working. **UNFIXED.**
+
+`perf/of3t_diffusion/capture_diffusion_boundary.py` — the script that built **`diffcap043`**, the
+capture every diffusion-scope arm in this campaign is scored against — does:
+
+```python
+inc = model.load_state_dict(sd, strict=False)
+rep["checkpoint"] = {"file": CKPT.name, "n_loaded": len(sd),
+                     "n_missing": len(inc.missing_keys),
+                     "missing": list(inc.missing_keys)}
+```
+
+**`inc.unexpected_keys` is never read, never recorded and never asserted empty.** The rebuilt
+capture's report therefore says:
+
+    n_loaded 4935 | n_missing 1 | missing ['version_tensor'] | n_unexpected  -- ABSENT
+
+which reads as a clean load. `perf/of3t_gradients/capture_trunk_boundary.py`, the trunk equivalent,
+**does** record `n_unexpected` — so the trunk side has had the guard all along and the diffusion
+side has never had it.
+
+**What lives in the field that is not recorded.** `of3t-trajwide` (live, BLOCKED, its numbers are
+its own to publish) reports that upstream 0.4.3 hoists the pair LayerNorm to the transformer level
+as one shared `LayerNorm(c_z)` while `of3-p2-155k.pt` stores it **per block** — 24 tensors under
+`attention_pair_bias.layer_norm_z.weight`. Loading that checkpoint into their module with
+`strict=False` leaves the shared weight at its **all-ones init** and drops the 24 trained ones as
+*unexpected*; the row measures those 24 at **0.2982 to 0.7355** relative away from ones, median
+**0.5196**, and says our side loads all 24 bit-exactly. Its own words: *"the two sides run different
+architectures for the pair-bias normalisation in all 24 blocks."*
+
+**The defect filed here is not that finding — it is that the instrument could not show it.** A
+provenance block whose purpose is to prove the reference was loaded correctly omits exactly the
+field in which this class of error appears, so twenty-four dropped trained tensors produced a report
+reading *1 missing, `version_tensor`*. The row could only call it *"the 1 missing / 24 unexpected the
+last pass recorded as a footnote"* because the 24 appeared on **stdout** and never in an artifact.
+
+**Blast radius, and it is why this is filed separately and immediately.** Every figure scored
+against `diffcap043` or `/home/ttuser/of3t_diffusion_cap` inherits a reference built this way — which
+includes the diffusion-scope floors and the D129 ratio. Whether those numbers move is **not**
+decided here and must not be guessed; what is established is that **no artifact among them carries
+the evidence that would settle it**, because the field is absent from all of them.
+
+**The fix is two lines and a check.** Record `n_unexpected` and `unexpected` beside the missing
+pair, and **assert both are empty or enumerated with a reason**. A compose guard now fails any
+capture report that carries a `checkpoint` block without an `n_unexpected` field, so a provenance
+block cannot again be silent about the half of the load where the error was.
+
+### D141 UPDATE (pass 256). Still **UNFIXED**, and sharper: this is a KNOWN architectural difference that tt-bio's own source names as *"the one architectural difference"* — the reference loader simply never asked. Both halves read from the trees, not from the row.
+
+**Our side already handles both layouts, and says so.** `tt_bio/openfold3_diffusion_transformer.py`:
+
+    :20-26  "...with a `layer_norm_z` + `linear_z` pair-bias projection. Where that
+             `layer_norm_z` lives is the one architectural difference ... (4887 shared
+             tensors, zero shape mismatches, 48 per-block `layer_norm_z` keys traded ...)"
+    :120    self.ln_z_w = self._w_tt(apb + "layer_norm_z.weight", False) if norm_z else None
+    :269    "# layer_norm_z, OF3-preview2 carries one per block. Nothing else differs."
+    :270    shared_ln = self._w.get("layer_norm_z.weight")
+
+So our port reads the per-block key **and** falls back to a shared one. The difference was known,
+written down, and coded for.
+
+**Upstream 0.4.3 carries it in BOTH places**, which is why a silent `strict=False` load is so easy
+to get wrong — verified in `/home/ttuser/of3t_refprec/of3pkg043`:
+
+    core/model/layers/diffusion_transformer.py:254   self.layer_norm_z = LayerNorm(c_z, create_offset=False)
+    core/model/layers/diffusion_transformer.py:313   z = self.layer_norm_z(z)
+    core/model/layers/attention_pair_bias.py:107     self.layer_norm_z = LayerNorm(self.c_z, ...)
+    core/model/layers/attention_pair_bias.py:156     z = self.layer_norm_z(z)
+
+Which one runs depends on how the block is constructed. Take the transformer-level path and the
+checkpoint's per-block `attention_pair_bias.layer_norm_z.weight` keys have nowhere to go — they
+become `unexpected_keys`, the field D141 shows is recorded nowhere on the diffusion side.
+
+**And the whole reference chain loads that way.** Both `perf/of3t_diffusion/sub_boundary.py:62` —
+which produces the `grad_f64` every diffusion floor divides by — and
+`perf/of3t_condtrans/floor_bf16.py:148` call `load_state_dict(sd, strict=False)` and neither
+inspects the result. So the floor's two arms are internally matched to each other and the question
+is whether they are matched to **ours**, which is what `of3t-trajwide` is measuring and what this
+entry does not claim.
+
+**One number for the row rather than for me**: our source says **48** per-block keys traded and the
+row reports **24** discarded. Both may be right — different block sets, or the atom transformers
+counted differently — and the reconciliation belongs to the row that is running the arms, not to an
+orchestrator reading two comments.
+
+**What this update adds to D141 is only this**: the knowledge was in the tree the whole time, in a
+comment calling it *the one architectural difference*, and the instrument that had to notice it was
+looking at the other half of the load.
+
+### D141 UPDATE 2 (pass 257). Still **UNFIXED** as a provenance defect, and my pass-255 blast-radius claim is WRONG and is withdrawn: the diffusion reference the floors divide by DOES carry all 24 trained per-block tensors. Measured, three times.
+
+Pass 255 said *"every diffusion-scope figure is scored against a reference built that way, including
+the D129 ratio."* That was an inference from two `strict=False` call sites, not a measurement. The
+measurement, run against the reference files themselves:
+
+    pinned_p175/arm4_bf16_autocast/grad_presence.json   4170 keys
+        diffusion_module.diffusion_transformer.blocks.{0..23}
+            .attention_pair_bias.layer_norm_z.weight     24 present, ALL True
+        diffusion_module.diffusion_transformer.layer_norm_z.weight   ABSENT
+
+    bundle_ref/grads_f64_043.pt                          4170 keys, same 24, no shared key
+
+    diffcap043/sub_boundary.pt  ["grad_f64"]              761 keys, same 24, no shared key
+        <- THIS is the denominator of the D129 ratio and of every diffusion floor
+
+**So the campaign's references are on the PER-BLOCK path, the same architecture as our port and as
+the checkpoint.** The model-scope headline (0.9592x / 0.93924x), the 0.4.3 bundle gradient and the
+diffusion capture all keep the 24 trained tensors and differentiate through them. Whatever
+`of3t-trajwide` hit is in the path its own arm builds, which is its to report and is not the shared
+chain.
+
+**What is unchanged, and is the actual subject of D141.** `capture_diffusion_boundary.py:107`,
+`sub_boundary.py:62` and `floor_bf16.py:148` still call `load_state_dict(sd, strict=False)` and
+still never read `unexpected_keys`. **The instrument still cannot show this class of error — it
+simply turns out there was no error to show in these three.** A provenance block that would read
+identically whether 0 or 24 trained tensors were dropped is a defect whether or not today's answer
+is 0, and the guard added at pass 255 stays.
+
+**I am correcting an alarming claim downward and that is the direction to be most careful in.** The
+narrowing rests on three artifact reads, not on an argument; each is a key list from the file the
+ratio actually divides by. **What would reverse it**: a capture whose `grad_f64` lacks those 24, or
+a reference module built on the transformer-level path — which is exactly what the missing
+`n_unexpected` field would reveal and which no existing artifact records. Until a capture is rebuilt
+with both halves recorded, "these three are clean" is a statement about three files, not a property
+of the chain.
+
+### D142. PROTOCOL — the document every row reads top to bottom — was teaching two verdicts the campaign no longer stands behind: a clause conditioned on a defect closed 62 passes ago, and A18's worked example calling a RESOLVED policy mismatch a "3.2x gradient defect". FOUND and FIXED by the orchestrator (pass 258). **FIXED** in place.
+
+A25's own ADDENDUM states the rule this entry applies: *"an amendment that supersedes another's
+conclusion has to say so **inside it**. A row reads PROTOCOL top to bottom and stops when it has
+what it needs; leaving the correction only in [the later clause] means [the earlier one] goes on
+teaching a failure the campaign no longer stands behind."* Two clauses were in that state.
+
+**1. A clause resting on a closed defect.** §4's coverage paragraph read *"converts **89.2106 %** of
+the squared gradient norm from unmeasurable to measurable **while D19 stays open**."* **D19 CLOSED
+at pass 196** on its own pre-registered branch. The sentence had already been maintained once — its
+parenthetical corrects a stale 91.21 % — and the condition was missed on that pass. Corrected: the
+clause no longer rests on anything, and the history is kept in the parenthetical rather than
+deleted.
+
+**2. A18's worked example, whose verdict D120 inverted.** A18's addendum teaches *"an agreeing
+forward is necessary, never sufficient"* using **D9 as "the counterexample"** — `fp32_softmax`
+moving `tri_att_start` **1.389e-01 → 4.283e-02** and `tri_att_end` **1.449e-01 → 5.239e-02**, a
+**3.2x** gradient change under forwards moving about **12 %**. **D9 was RESOLVED at pass 220 as a
+policy mismatch, not a defect**: `openfold3_trunk.py` ships `fp32_softmax=True` while 0.4.3 runs
+that softmax in bf16, so the 3.2x with the flag off is a move *toward* 0.4.3's own policy, and our
+fp32 softmax is **3.2x more accurate** than upstream's bf16 one (5.110116e-04 against 1.617567e-03).
+
+**Every number in that example is untouched, and the lesson is stronger than when it was written.**
+A 12 % forward change concealed a 3.2x gradient change that turned out **not to be a defect at
+all** — so a forward comparison cannot distinguish a defect from a deliberate policy difference, or
+even tell you which side of the reference you are on; it did not reveal that the port was the *more
+accurate* one. That is a sharper statement of "necessary, never sufficient" than the original, which
+is why the clause is corrected in place rather than deleted.
+
+**Scope of the scan, stated so the next reader knows what was NOT checked.** PROTOCOL has 36 A-clauses.
+This pass checked every clause that names a defect by number against that defect's current status,
+which is a mechanical test. It did **not** re-verify every figure in every clause against its
+artifact; A22 alone carries 25. So this closes the "teaches a stale verdict" class for defect
+references and not for figures, and the distinction matters because the figures are the ones a row
+would copy.
+
+### D143. A live artifact is named `NO_SOFTMAX_LEVER_REACHES_THE_BAR.json` and a softmax lever reaches a bar — the title claims more than the body, and the body already contains the sentence that resolves it. FOUND and FIXED by the orchestrator (pass 260). **FIXED** in place.
+
+The campaign's current answer is that `TT_BIO_SOFTMAX_BW_RENORM` takes the model-scope gradient to
+**1.0066946e-01** against A26's reachable bar of **1.0495450e-01** — **0.9592x** at 92.1568 % of the
+mass. Sitting beside it, live and unsuperseded, is a file whose **name** says no softmax lever
+reaches the bar and whose conclusion reads *"the best SHIPPABLE softmax lever leaves the arm 86x
+over bar ... no available lever reaches the bar."* A reader meeting both has every reason to think
+the record contradicts itself.
+
+**Both are right, on two distinguishing axes, and the first is written in that file's own last
+sentence.**
+
+  * **FAMILY.** Everything measured there is a **precision knob on the softmax FORWARD** —
+    `_accurate_softmax`, `precise_config`, and an exact softmax as a diagnostic. RENORM is a
+    **correctness repair of the softmax BACKWARD's row-sum invariant**: it divides `inner` by the
+    row sum. The file's conclusion ends *"what would fix it is not a precision knob"* — which turned
+    out to be **exactly right**, and is the sentence that makes the two compatible.
+  * **BAR.** The 86x and 6.9x are against the **2.0e-02 mass-weighted float64** bar. The 0.9592x is
+    against **A26's reachable bar versus upstream's own bf16 step**, which did not exist when the
+    file was written.
+
+**Fixed inside the file**, with a `CORRECTED_AT_PASS_260_THE_TITLE_OVERSTATES_THE_BODY` block giving
+both axes and the reading the title should be given — *no PRECISION lever on the softmax FORWARD
+reaches the FLOAT64 bar*. That claim stands unmodified and every number in the file stands with it.
+Same rule as PROTOCOL's A25 addendum and as *"a superseded stamp does not stop a number being
+read"*: **a title is a claim, and a reader stops when they have what they need.**
+
+**Found by applying a lesson another session wrote today** — *two rows can refute different
+configurations of one lever; check for the distinguishing variant before treating them as in
+conflict*. The check it prescribes is exactly what resolved this: grep the objecting artifact for
+the term the other one keys on. Here the objecting artifact had already written the distinguishing
+term into its own conclusion and nobody had read it against the later result.
+
+**Two neighbours checked at the same time and both are already sound**:
+`NO_DEVICE_SOFTMAX_REACHES_THE_GRADIENT_BAR.json` says **DEVICE** in its name and its headline, and
+`SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR.json` carries `WITHDRAWN_AT_PASS_158` with its data fields
+nulled. The over-broad title was the one file that had neither guard.
+
+### D144. `ONE_LEAF_IS_THE_DEFECT.json` carries a pre-repair headline, one leaf became two, and for that leaf the defect turned out not to be in the leaf. FOUND and FIXED by the orchestrator (pass 261). **FIXED** in place. The scan that found it is reported honestly: 13 universal-titled artifacts examined, **one** needed this, and no guard was shipped.
+
+Generalising D143 — *a title is a claim* — over the orchestrator's 60 assertively-named artifacts.
+**13** have universal-shaped titles (`NO_`, `EVERY_`, `ONLY_`, `X_IS_SUFFICIENT`, `X_IS_THE_Y`,
+`X_DOES_NOT_`). **Five** carry no scope-limiting or correction field. Reading those five, **one** is
+genuinely stale.
+
+**`ONE_LEAF_IS_THE_DEFECT.json`.** Its headline: *"24 tensors — one leaf,
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — are
+**25.5795 %** of the model's squared gradient norm and read mass-weighted rel_l2 **10.6980**."*
+Three things happened after it was written:
+
+  * **The number is pre-repair.** `of3t-lnaffine`'s matched same-branch A/B collapses that leaf's
+    error mass **878.8518760076167 → 2.635596280124493**, a factor of **333**, with
+    `TT_BIO_SOFTMAX_BW_RENORM` on. The 10.6980 is not comparable to any post-repair figure.
+  * **One leaf became two.** Post-repair the scope splits `attention_pair_bias.layer_norm_a…`
+    **59.510 %** and `conditioned_transition.layer_norm.layer_norm_s.weight` **28.313 %** — two
+    LayerNorm affine leaves at 87.8 %, which is what D129 was filed on.
+  * **And for the second leaf the defect is not in the leaf.** `of3t-condtrans` put all of it in the
+    **cotangent arriving** — isolation 1.5217e-03, 456x under the reading, input exact to 1.98e-08.
+    *"One leaf is the defect"* is the right name for a **localisation** and the wrong name for a
+    **cause**.
+
+**What still stands, and it is the part worth keeping**: the localisation and the arithmetic that
+produced it — 24 tensors holding 25.5795 % of the model's squared gradient norm against 523 holding
+almost exactly the same mass. That contrast is why the leaf was worth chasing and the repair does
+not touch it.
+
+**No guard was shipped, deliberately.** The mechanical test — does a universal-shaped title carry a
+scope field — flags 5 of 13, and reading them shows 4 of those 5 are fine (`EVERY_HEADLINE_RECOMPUTES`
+and `NO_CONVENTION_SATISFIES_BOTH…` are scoped by their own structure; the others state their pass
+and their population). A guard wrong 80 % of the time gets ignored, which is worse than no guard —
+the argument `assert_dispatch_card_token.py` already makes and which cost me a rewrite at pass 258.
+**The finding is that the title class is worth re-reading when the campaign's answer moves, not that
+it can be machine-checked.**
+
+### D145. The answer field quoted two different percentages for "the mass with no reading" two paragraphs apart, and named neither's denominator. FOUND and FIXED by the orchestrator (pass 262). **FIXED.**
+
+VERDICT carried, in the shipped split, *"**2.0067 %** unread"* — and then, three sentences later,
+*"**2.0150 %** of the mass has no reading."* Same words, different numbers, no denominator on
+either. A reader meets that as a typo or a contradiction; it is neither.
+
+    2.0067 %   the `unread` bucket of the SHIPPED split, against the 2.0e-02 float64
+               mass-weighted bar, from DISTANCE_TO_GO_AGAINST_THEIR_STEP.json, where it is
+               one of four terms summing to 100.0000 %
+    2.0150 %   the complement of `of3t-wholemodel`'s COMPOSED coverage:
+               100 - 97.98502156952716 = 2.014978430472837, i.e. the mass with no reading in
+               the model-scope arm
+
+**Two decompositions of the model, two denominators, and the field named neither.** They are close
+enough to look like a rounding disagreement and far enough apart to be a different measurement,
+which is the worst distance for a reader.
+
+Fixed by naming both in place: *"**2.0150 %** has no reading at model scope — the complement of the
+composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition
+against the float64 bar."*
+
+**This is A27 applied to a coverage figure rather than to a ratio.** A27 says a ratio must name how
+its denominator arm was built; the same obligation attaches to a percentage, and the campaign has
+been enforcing it on ratios while leaving coverage figures bare. Worth stating because the answer
+field carries several percentages and only this pair happened to collide visibly.
+
+### D146. PROTOCOL A15 calls its mass shares *"the ceiling that now governs every gradient figure here"* and computes all of them on the 4,147-tensor bundle that pass 91 DISQUALIFIED — the same document says so about a different number thirty-nine lines earlier. FOUND and FIXED by the orchestrator (pass 263). **FIXED** in place.
+
+D142 closed the "PROTOCOL teaches a stale verdict" class for **defect references** and said in
+writing that it did **not** check **figures**, adding *"the distinction matters because the figures
+are the ones a row would copy."* This is that gap, found by extracting every percentage in the
+document and reading each against the campaign's current value for the same quantity.
+
+A15's paragraph computes from **3,275 of 4,147 tensors**. Line 509 of the same file, thirty-nine
+lines earlier, says the **91.21 %** it used to carry *"was the 0.5.0 / 4,147 bundle that pass 91
+disqualified."* So one number was corrected for that bundle and the paragraph built on it was not.
+
+    quantity                          A15 says    the campaign now uses
+    the 48-block pairformer trunk       5.27 %          5.8282 %
+    diffusion_module                   88.54 %         89.211 %
+
+**The argument is untouched and that is why the clause is corrected rather than deleted.** Its point
+is the SHAPE — 79 % of tensors by count hold 6.54 % of the squared norm, therefore a count
+denominator is not a scope statement — and that survives to three digits under any of these
+numbers. What does not survive is a row copying **5.27 %** into a report, which a clause calling
+these *"the ceiling that now governs every gradient figure here"* actively invites.
+
+**The remaining figures are labelled rather than replaced.** 0.20 %, 13.03 %, 6.54 %, 94.44 % and
+the 0.19/1.25/15.06/43.50 count table come from the same disqualified bundle and have **no
+published 0.4.3 replacement**. Inventing one would be worse than the drift; the addendum says they
+are illustrative of the shape and that any number leaving the document must cite the current
+reference.
+
+**Method, so the next reader knows what was and was not checked.** Every percentage in PROTOCOL was
+extracted with its context and compared against the campaign's current figure for the same
+quantity. That found this cluster and confirmed 36.9462 %, 51.1358 % and the aux_heads 100.0000 %
+as current. It did **not** check non-percentage figures — the e-notation readings, the bars, the
+per-block tables — and A22's 25 numbers were examined separately and are self-consistent: its claim
+is that three powers of two agree to all six digits, which the table demonstrates internally.
+
+### D147. Main landed M18's `tri_att_sdpa_hifi` at OpenFold3's four Pairformer-family sites and the composition stopped composing — every concluded row that had appended a kwarg at one of those sites conflicted at once. FOUND and FIXED by the orchestrator (pass 265). **FIXED** by a generic resolver; per-row cases do not scale.
+
+`origin/main` moved at **2026-09-21 10:37:48 UTC** (`0de600bd7`). The next compose aborted on
+`of3t-confidence`, and clearing that one revealed `of3t-gradients` behind it, on three files. Both
+rows concluded on 09-19 and neither had changed; **main moved under them**, which
+`compose_verify.sh`'s own comment anticipates for `.gitignore` and had no answer for in code.
+
+**Three shapes, one mechanical rule each, anything else still stops the compose (exit 2).**
+
+  * **kwarg TAIL** — both sides end the call with `)`. Union the names.
+  * **kwarg FRAGMENT** — git cut the argument list mid-way, so neither side closes the call. Same
+    union; the missing case that made the first version refuse `of3t-gradients`.
+  * **IMPORT block** — both sides are nothing but imports. Same-module `from` lines are **merged**
+    rather than duplicated: keeping both parses and even runs, since the second rebinds the same
+    names, but it is not what either side wrote, and *"compiles and is not what anyone meant"* is
+    the failure this resolver exists to avoid.
+
+**On a collision, HEAD wins, and that is not a tie-break for tidiness.** At
+`openfold3_confidence.py` the contested name is **`scale_pair_bias`** — main ships **False**, both
+row branches carry **True**, and that is **D1**, a repair HELD because applying it measured
+**0.149 Å worse at rank 0** and which pin **9629** asks Moritz to decide. A union that took the
+row's value would have applied a held repair inside the composition, and the shipped-defaults assert
+would then have failed a check about something else entirely.
+
+**Every resolution is AST-parsed before it is written**, which earned its keep immediately: the
+first splitter drove the depth counter negative on the call's own closing paren, dropped the last
+two kwargs and the `)`, and the parse caught it as a SyntaxError rather than a device failing hours
+later. The splitter was then tested **offline against both real sides** before the compose ran
+again.
+
+**Result**: `openfold3_confidence.py` carries all six kwargs with `scale_pair_bias=False`, and
+`openfold3_template.py` one merged `from .tenstorrent import ...` plus `from . import ops`. Compose
+is green at **171 confirmed, 0 drifted**.
+
+### D140 UPDATE (pass 266). The two dead controls are RECOVERED and verified, and the row's own script now records an exit status unconditionally — which covers the arm dying but still not the wrapper being killed. Still **UNFIXED** until the row reports; the residual is named.
+
+Checked directly on qb2 rather than taken from the row, both conditions the pass-254 amendment asked
+it to publish — a `done rc=0` marker in the log **and** a `steplog_<arm>.json` on disk:
+
+    arm            done-marker   steplog
+    shipped        yes           yes
+    shipped_aa2    yes           yes
+    permute        yes           yes
+    stale          yes           yes
+    norebind       yes           yes      <- died silently at pass 254, recovered
+    zero           yes           yes      <- never started at pass 254, recovered
+    theirs         no            no       <- re-running after the layer_norm_z fix, k=11 of 20
+    theirs_aa2     no            no       <- queued behind it
+
+**Six of six on the `ours` side.** `zero done rc=0 2026-09-21T10:36:48Z` closes the pair that D140
+was filed on.
+
+**And the mechanism is repaired in the row's own script**, differently from what the amendment asked
+and better: `run_ours_controls.sh` runs the arm with `2>&1` into its log, captures `RC=$?`, and
+writes `=== $ARM done rc=$RC` **unconditionally** afterwards. So a crashing arm now leaves a marker
+with a non-zero status instead of silence — no separate `.err` file needed.
+
+**The residual, stated because it is exactly what happened at pass 254.** That pattern records the
+**arm's** exit. It cannot record the **wrapper's**: if the shell that runs the loop is itself killed
+— which is what the empty `ours_chain.log` indicated — no line is written by anyone, and the only
+evidence is a log that stops mid-arm with no marker. Catching that needs something outside the
+wrapper, and nothing in the campaign has it. D140 stays open until the row reports, and this
+residual is what its report should say it did or did not cover.
+
+### D148. DIRECTIVE-STATUS — the field that tracks what Moritz's own two continuation directives asked for — closed with a summary stamped *"at pass 199"* that was wrong in three of its four nouns by pass 232 and stayed on the page until pass 269. FOUND by the orchestrator (pass 269). **UNFIXED** — the five stale items are corrected in place and A30 is adopted, but a rule is not a guard, and the pass-195 audit of this same field already showed that fixing the instances does not fix the practice.
+
+Seventy passes. What the closing paragraph told a reader was left:
+
+    claim (pass 199)                                    actual, when it was read at pass 269
+    "one located defect" = the trunk's backward,        D8, REFUTED pass 232 as a NON-DEFECT:
+      92.68 % of its error mass on four LayerNorm         the four leaves read 0.747x-0.849x of
+      affine leaves                                       upstream 0.4.3's own bf16 floor, A26
+    "D8/D9's backward-only error"                       D9 RESOLVED pass 220 (a boundary-version
+                                                          policy mismatch, not a precision cost)
+    "`of3t-nanfloor` also owes one pending check"       discharged by D111 UPDATE 3 -- written
+                                                          at pass 199, the SAME PASS
+    "two questions for Moritz that block nothing"       9562 answered and built, 9597 withdrawn;
+                                                          the live ask is pin 9629's four decisions
+    "eight are closed, two are the live rows, one is    a count of thirteen items that was true
+      bounded engineering, and two are decisions"         at 199 and false at 200
+
+The memory-engineering item was the one thing still live, and it was mis-sized: 640 fits at +5.82 GB, not the 12.3 GB deficit that paragraph describes, and 768 needs a third lever.
+
+**The nanfloor row is the sharp one.** D111 UPDATE 3 discharges that pending check and is dated pass 199 — the same pass as the paragraph asserting it is owed. The field was not merely allowed to decay; it was **already wrong the day it was written**, because the summary was composed from the state at the top of the pass and the row reported inside it.
+
+**Item 3 of Directive 1 is the same failure in the numbered list, not just the summary**: it read *"D8/D9 ... OPEN"* for thirty-seven passes after D9 resolved and twenty-eight after D8 was refuted. Both closures were recorded in DEFECTS.md on the pass they happened. Nothing was hidden; nobody looked across.
+
+**Why no guard.** The natural check — "every defect this document names must carry the ledger's current status" — is the one I declined to ship at pass 261 for being 4-of-5 false positives, and DIRECTIVE-STATUS is the worst case for it: the field is a HISTORY of what directives asked, so most of its defect references are correctly frozen at the reading of their day (item 1's D90/D111 narration, item 2's D19 withdrawal, item 4's D21 closure). Only the sentences making a CURRENT claim are checkable, and *"is left"* / *"— OPEN"* / *"owes one pending check"* are not distinguishable from narration by pattern. **A30** is the honest response, adopted this pass: a summary paragraph carries the pass it was composed in, a stamp more than ten passes old is read as history and never as status, the summary is composed LAST so a row reporting inside the pass cannot outrun it, and no count of a moving ledger is restated in prose.
+
+**This is the second occurrence in this exact field.** Its own header says: *"Audited against concluded rows at pass 195, because three of them turned out to be closed while this document was still quoting the superseded reading."* Same field, same cause, three items then and five now. The pass-195 audit fixed the instances and not the practice, which is what makes this a defect rather than an update. Related: [D142](#), [D146](#) — a document teaching a superseded state — and the memory note *"a row's sentence is evidence for exactly what it says"*.
+
+### D141 UPDATE 2 (pass 269, heading restated). **UNFIXED** — and the reversal condition I pre-registered when I narrowed this defect at pass 257 has now FIRED, on a fourth reference, found by a row rather than by any instrument.
+
+At pass 255 I claimed every diffusion figure in the campaign might be scored against a reference that had silently dropped 24 trained tensors. At pass 257 I withdrew the blast radius after reading the key list of the three files the ratios actually divide by — `pinned_p175/arm4_bf16_autocast` (4170 keys), `grads_f64_043.pt` (4170) and `diffcap043/sub_boundary.pt`'s `grad_f64` (761) — each of which carries all 24 per-block `attention_pair_bias.layer_norm_z.weight` tensors and no transformer-level key. **That narrowing still stands for those three files**; nothing below touches it.
+
+What I wrote down in the same pass, because correcting an alarming claim downward is the direction to be most careful in, was what would reverse it: *"a capture whose `grad_f64` lacks the 24, or a module built on the transformer-level path"*, with the note that **neither is observable in any existing artifact, because the field that would show it is the one D141 says is never recorded.**
+
+**`of3t-trajwide`'s reference side is the second of those two.** Upstream 0.4.3's `DiffusionTransformer` (`diffusion_transformer.py:246`) carries ONE shared `layer_norm_z` where the checkpoint `of3-p2-155k.pt` stores 24 per-block ones (`attention_pair_bias.py:85`). Loading the checkpoint into their module gives **1 missing, 24 unexpected**: the shared weight got no entry and stayed at all-ones (verified directly, `their layer_norm_z.weight[:8] = [1. 1. 1. 1. 1. 1. 1. 1.]`), and the 24 trained tensors — sitting 0.2982 to 0.7355 relative away from ones, median 0.5196 — were **discarded**. The two sides then ran different architectures for pair-bias normalisation in all 24 blocks, and the row read **8.426843e-01** against that reference before finding it.
+
+**Three things this settles.**
+
+1. **The defect is not hypothetical.** The pass-257 line *"a provenance block that reads identically whether 0 or 24 trained tensors were dropped is broken whether or not today's answer happens to be 0"* was the right call for the right reason, and today's answer is no longer 0.
+2. **The instrument could not have found it, and still cannot.** `load_state_dict(strict=False)` returned the count — the row's own document notes *"`load_state_dict: 1 missing, 24 unexpected` was recorded last pass as a footnote about which tensors move"* — and it took a 20-step trajectory reading 17.7x the conditioning rung to make anyone read the footnote. The pass-255 ratchet (three reports frozen, a fourth fails the compose) is the fix, and D141's own repair — record `n_unexpected` — is what would have turned that footnote into a refusal.
+3. **It did not reach the campaign's headline numbers**, because those come from the three files above. The cost was one row's reference and the passes it spent on it, not the model-scope result.
+
+Owner unchanged. `capture_diffusion_boundary.py:107`, `sub_boundary.py:62` and `floor_bf16.py:148` still load `strict=False` and still never read `unexpected_keys`.
