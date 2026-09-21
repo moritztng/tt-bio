@@ -1,0 +1,145 @@
+{
+  "what": "Our port's trunk gradient over the captured boundary, in THEIR parameter space.",
+  "arm": "flipped",
+  "blocks": 48,
+  "tokens": 64,
+  "real_tokens": 56,
+  "boundary": "/home/ttuser/of3t_trunk043ref/boundary_c64.pt",
+  "boundary_sha256": "85015b4a2622c1d3a6ae16f49c45cafd6f575dc0dab144fe08ffa87b83498ffa",
+  "cotangent_from": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "cotangent_sha256": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5",
+  "permuted_cotangent": null,
+  "pad_perturbation": null,
+  "shipped_config": {
+    "source": "tt_bio/openfold3_trunk.py OF3Trunk.__init__, read by spying on the Pairformer constructor",
+    "kwargs": {
+      "scale_pair_bias": true,
+      "tri_att_scale_pair_bias": false,
+      "fp32_softmax": true,
+      "transpose_bias": true,
+      "accurate_softmax": false,
+      "tri_att_sdpa_hifi": true
+    }
+  },
+  "arm_config": {
+    "scale_pair_bias": true,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false,
+    "tri_att_sdpa_hifi": true
+  },
+  "s_input_dtype": "DataType.BFLOAT16",
+  "probe": {
+    "s_in_norm": 5850.166196032644,
+    "z_in_norm": 1320432.531462332,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261
+  },
+  "ours_discovery": {
+    "reachable_before_forward": 2256,
+    "reachable_after_forward": 2448,
+    "registered": 2448
+  },
+  "cotangent_on_device": {
+    "reference_cot_s_norm": 3.378536937441942e-05,
+    "device_cot_s_norm": 3.378661217220011e-05,
+    "reference_cot_z_norm": 0.0005430220033757261,
+    "device_cot_z_norm": 0.0005430278068879513,
+    "note": "a ratio away from 1 would mean the harness rescales a track on the way in"
+  },
+  "taped_backward_error": null,
+  "leaves_against_total": {
+    "total": 2448,
+    "registered": 2448,
+    "with_grad": 2160,
+    "without_grad": [
+      "blocks.0.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.0.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.0.triangle_attention_start.qkvg_weight",
+      "blocks.0.triangle_attention_start.qkvgb_weight",
+      "blocks.0.triangle_attention_end.qkvg_weight",
+      "blocks.0.triangle_attention_end.qkvgb_weight",
+      "blocks.1.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.1.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.1.triangle_attention_start.qkvg_weight",
+      "blocks.1.triangle_attention_start.qkvgb_weight",
+      "blocks.1.triangle_attention_end.qkvg_weight",
+      "blocks.1.triangle_attention_end.qkvgb_weight",
+      "blocks.2.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.2.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.2.triangle_attention_start.qkvg_weight",
+      "blocks.2.triangle_attention_start.qkvgb_weight",
+      "blocks.2.triangle_attention_end.qkvg_weight",
+      "blocks.2.triangle_attention_end.qkvgb_weight",
+      "blocks.3.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.3.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+      "blocks.3.triangle_attention_start.qkvg_weight",
+      "blocks.3.triangle_attention_start.qkvgb_weight",
+      "blocks.3.triangle_attention_end.qkvg_weight",
+      "blocks.3.triangle_attention_end.qkvgb_weight"
+    ]
+  },
+  "input_grad_ours": {
+    "ds_in_norm": 0.02178468055420902,
+    "dz_in_norm": 0.0009895733436506339
+  },
+  "bijection_by_value": {
+    "their_tensors": 2736,
+    "placed": 2496,
+    "unplaced": 240,
+    "unplaced_leaves": [
+      "attn_pair_bias.linear_z.weight",
+      "attn_pair_bias.mha.linear_k.weight",
+      "attn_pair_bias.mha.linear_q.bias",
+      "attn_pair_bias.mha.linear_q.weight",
+      "attn_pair_bias.mha.linear_v.weight"
+    ],
+    "device_unmatched": [
+      "blocks.0.attention_pair_bias.qkv_bias",
+      "blocks.0.attention_pair_bias.qkv_weight",
+      "blocks.0.attention_pair_bias.z_weight",
+      "blocks.1.attention_pair_bias.qkv_bias",
+      "blocks.1.attention_pair_bias.qkv_weight",
+      "blocks.1.attention_pair_bias.z_weight",
+      "blocks.10.attention_pair_bias.qkv_bias",
+      "blocks.10.attention_pair_bias.qkv_weight",
+      "blocks.10.attention_pair_bias.z_weight",
+      "blocks.11.attention_pair_bias.qkv_bias",
+      "blocks.11.attention_pair_bias.qkv_weight",
+      "blocks.11.attention_pair_bias.z_weight"
+    ],
+    "scope": "per block, so an all-zero tensor cannot pair across blocks"
+  },
+  "ttnn_scalar_truncation": {
+    "requested": 4.898979485566356,
+    "applied": 4.875,
+    "bf16_round_to_nearest_would_be": 4.90625,
+    "shortfall_pct": 0.4894791994333847,
+    "what": "ttnn.multiply_ by a python float on a bfloat16 tensor truncates the scalar's mantissa to bf16 rather than rounding it; on a float32 tensor it does not. Measured on a ones tile in this process."
+  },
+  "derived_placements": {
+    "count": 240,
+    "verified_by_rebuilding_their_weight": 240,
+    "bit_identical": 240,
+    "bias_scale_requested": 4.898979485566356,
+    "bias_scale_applied_by_the_card": 4.875,
+    "bias_scale_shortfall_pct": 0.4894791994333847,
+    "head_dim": 24,
+    "padded_head_dim": 32,
+    "n_heads": 16,
+    "worst_rel": 0.0,
+    "over_4e-3": [],
+    "rule": "each derived placement is checked by rebuilding the WEIGHT the placement claims to address and requiring bit identity -- the fused qkv in their layout against the checkpoint, the scaled z_weight in the device's layout with the bf16 rounding reproduced on host. Bit identity is required in both arms; a placement that cannot reproduce the weight does not carry the gradient"
+  },
+  "placed": {
+    "total_their_tensors": 2736,
+    "with_our_gradient": 2736,
+    "absent": 0,
+    "absent_detail": [],
+    "by_value": 2496,
+    "derived": 240
+  },
+  "out": "/home/ttuser/of3t_d116_verify/dev_SHIP2_c64.pt",
+  "seconds": 71.30632426200009
+}
