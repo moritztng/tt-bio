@@ -1,0 +1,64 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 183 -- a READ of of3t-adaln's committed arms, no new measurement",
+ "headline": "The campaign's largest blocker has a DIRECT measurement and I had been quoting an extrapolation for it. On one real DiT block's gradient against upstream 0.4.3 float64, the two shipped-able DEVICE softmax levers land 7.0x and 3.6x OVER the 5.0e-02 bar, and only a HOST float64 softmax clears it at 0.30x. So the 51.1358 % scope is not blocked on a throughput decision anyone can take -- there is NO on-device configuration that reaches training parity on it.",
+ "the_ladder": {
+  "source": "origin/wk/of3t-adaln, perf/of3t_adaln/dit_block_gradcheck_b8full.json -- one real DiT block (block 8, 384 tokens, 19 of 19 tensors compared), ours taped against upstream 0.4.3's own DiffusionTransformerBlock in float64, on the captured diffusion boundary's real (a, s, z, mask). Bar 5.0e-02.",
+  "rows": [
+   {
+    "rule": "shipped",
+    "mass_weighted_rel": 0.785604,
+    "x_bar": 15.71,
+    "vs_shipped": "1.00x",
+    "over_bar": "6 of 19",
+    "cost": "baseline"
+   },
+   {
+    "rule": "softmax_precise",
+    "mass_weighted_rel": 0.349441,
+    "x_bar": 6.99,
+    "vs_shipped": "2.25x",
+    "over_bar": "5 of 19",
+    "cost": "1.46x per op (precise_config)"
+   },
+   {
+    "rule": "softmax_accurate",
+    "mass_weighted_rel": 0.179144,
+    "x_bar": 3.58,
+    "vs_shipped": "4.39x",
+    "over_bar": "3 of 19",
+    "cost": "4.71x per op (_accurate_softmax)"
+   },
+   {
+    "rule": "softmax_host_f64",
+    "mass_weighted_rel": 0.014892,
+    "x_bar": 0.3,
+    "vs_shipped": "52.75x",
+    "over_bar": "2 of 19",
+    "cost": "NOT SHIPPABLE -- a host computation installed on a tape verb"
+   }
+  ],
+  "reading": "the best DEVICE lever removes 4.39x of a 15.71x gap and stops 3.58x short. The host float64 softmax removes 52.75x and clears the bar. The gap between the best device arm and the host arm is 12.0x, and nothing in the shipped stack spans it."
+ },
+ "why_this_is_better_evidence_than_what_the_campaign_was_using": "the standing claim was that both device levers are 'bounded 86x/168x short of a needed 378x'. That is an EXTRAPOLATION from per-op softmax rel_rms (of3t-softmax measured 2.029e-02 shipped, 1.646e-03 precise, 5.156e-04 accurate) to a scope-level gradient, across a coupled stack -- exactly the inference this campaign's own rule forbids (per-section-extrapolation-invalid-in-a-coupled-stack). The ladder above is the same question answered by DIRECT gradient measurement on a real block. It reaches the same verdict, which is why the extrapolation was never caught: it was right, and it was still the wrong kind of argument. Quote the ladder.",
+ "and_the_forward_is_blind_to_all_of_it": {
+  "forward_rel_across_the_four_arms": [
+   0.001954,
+   0.001521,
+   0.001254,
+   0.00127
+  ],
+  "forward_span": "1.56x",
+  "gradient_span": "52.75x",
+  "why_it_matters": "every arm's FORWARD passes comfortably and barely moves, while the gradient spans a factor of 53. This is the sharpest instance in the campaign of A18's limit -- a forward reading does not bound a gradient. Anyone screening softmax precision on forward agreement would have concluded all four arms were equivalent."
+ },
+ "what_it_does_to_the_decision_I_was_about_to_escalate": "I was going to put the 51.1358 % to Moritz as a release-gated throughput decision -- 13 s per structure against 2.5 s. That framing was wrong twice over. First, 13 s/structure is an INFERENCE fold cost and of3t-softmax's NO-GO was scored on the inference bar (0.3237 A against a 0.6250 A seed floor, 'the structure a user receives'); training is a different execution and nobody receives a structure from a training step. Second, and decisive: it is not a throughput question at all. No device setting reaches the bar, so there is nothing to trade throughput FOR. The real question is architectural -- whether a host round-trip per softmax is acceptable inside a training step -- and that has a cost nobody has measured, because the 13 s figure is a fold.",
+ "the_honest_scope_limit": "ONE DiT block (block 8) at 384 tokens, one captured boundary. The diffusion transformer is 99.6036 % of the 51.1358 % arm's error mass, so the block is representative of where the error lives, but this is not the whole arm re-scored under each lever. What would settle it at scope is the same four arms over the full 547-tensor diffusion device arm. That is a card-bound measurement and it is the one worth taking before anyone is asked to decide anything.",
+ "provenance": "of3t-orchestrator pass 183 on pc, CPU only. Every number read from of3t-adaln's committed dit_block_gradcheck_b8full.json on origin/wk/of3t-adaln. No number here is mine and none is new.",
+ "CORRECTED_AT_PASS_187_THE_PRECISE_ROW_IS_NOT_A_SHIPPABLE_OPTION": {
+  "what_changed": "of3t-softgrad ran softmax_precise at FULL SCOPE using of3t-adaln's precise_forward_rule verbatim and got all 547 gradient tensors BIT-IDENTICAL to shipped. The rule fired 1,440 times and had no effect: it installs the precise kernel config with setdefault, and every call site on the shipped diffusion path already passes compute_kernel_config explicitly, so the key is present and setdefault does nothing. Filed as D110.",
+  "so_the_row_below_labelled_softmax_precise": "measured a lever THIS PATH CANNOT EXERCISE. On of3t-adaln's block-8 harness the key was absent so setdefault won and the number moved 2.25x; at scope the shipped path fills it so setdefault loses. Same rule, different call sites -- a per-harness eligibility difference, which I published as a scope effect. The 0.349441 / 6.99x figures are real readings of block 8 and are NOT available on the real path.",
+  "what_the_headline_becomes": "of the two levers I called shippable, one is not a lever here at all. The shipped options on this scope are `_accurate_softmax` and doing nothing. The conclusion is UNCHANGED and slightly stronger: no device configuration reaches the gradient bar, and the gap to the host float64 bound is now spanned by one candidate rather than two.",
+  "what_is_untouched": "the two END arms, which of3t-softgrad reproduced to every published digit on a rebuilt 0.4.3 boundary -- shipped 7.426217 and softmax_host_f64 0.0777758. That is the reproduce-or-stop control doing its job, and it is why the middle arms are interpretable at all.",
+  "still_pending": "the softmax_accurate arm at full scope, which is the one remaining number. Its pre-registered bands were fixed before any of this."
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176",
+ "headline": "The trunk has TWO failures and only one of them is the reference. Matching the reference's bias convention removes 82 % of the PAIR-track error (0.279366 -> 0.049719, from 5.59x the bar to 0.99x, and 0.70x the A26 reachable bar) and leaves the SINGLE track completely untouched at 0.101290 -- 1.43x the reachable bar, convention-INVARIANT, and therefore ours.",
+
+ "how_this_was_found": "by reading of3t-trunkfwd's own committed TRUNK_FORWARD.json rather than the figure the campaign had been quoting from it. Every artifact downstream cited the lever arm's PAIR track (4.971863e-02 / 8.31x) and none of them cited its SINGLE track, which sits in the same JSON object two keys away and does not move.",
+
+ "the_four_numbers_that_matter": {
+  "scope": "masked to the 56 real tokens of a 64 crop; of3t-trunkfwd's own arms, our port on device against upstream's float64 reference built on 0.5.0",
+  "SHIPPED_0_4_3_orientation": {"z_masked": 0.279366, "s_masked": 0.101290},
+  "LEVER_0_5_0_orientation_matching_the_reference": {"z_masked": 0.049719, "s_masked": 0.101335},
+  "z_improves": "5.62x", "s_changes": "0.9996x -- invariant",
+  "against_the_bars": {
+   "z shipped": "5.587x the 5.0e-02 bar, 3.951x the A26 reachable bar",
+   "z at the reference's convention": "0.994x the bar, 0.703x the reachable bar -- PASSES",
+   "s either way": "2.026x the bar, 1.432x the reachable bar -- FAILS"
+  }
+ },
+
+ "which_arm_is_which_because_it_is_easy_to_invert": "tt-bio's `transpose_bias=True` is the PREVIEW2/0.4.3 orientation -- the flag names read opposite to upstream's, as openfold3_trunk.py's own comment says. So the SHIPPED arm runs the convention that is CORRECT FOR OUR of3-p2-155k CHECKPOINT, and the LEVER arm runs the convention that matches the 0.5.0 REFERENCE. The lever arm is not our port fixed; it is our port deliberately mis-set to agree with a reference built on the wrong revision. I nearly published this backwards.",
+
+ "so_what_the_trunk_actually_needs": "the arm D91 asked for and nobody has run: our SHIPPED port (0.4.3 orientation, correct for our checkpoint) against a reference built from upstream 0.4.3. The lever arm makes it very likely the pair track reads ~0.05 there, but that is an inference from a mis-set arm, not a measurement. It needs a card, so it is a dispatch, not something this row can do. What the lever arm DOES establish without inference is that the single track will not improve: it is 0.101290 in both arms.",
+
+ "and_a_187x_INSTANCE_OF_D95_WAS_ALREADY_IN_THE_ARTIFACTS": {
+  "what": "the same two arms, scored UNMASKED, read z 0.393571 and 0.393452 -- the lever improves them by 1.0003x. Masked, the same lever improves the same tensor by 5.62x.",
+  "the_padding_is_tiny": "56 real tokens of a 64 crop; 3136 of 4096 pair cells are real, so only 23.4 % of the tensor is padding.",
+  "the_correction_this_forces_to_D95": "I wrote that padding dilutes a structural difference 'by roughly the padding ratio'. That is WRONG and this refutes it: 23.4 % padding hid 82 % of a real effect. The padded region's contribution to the norm is NOT proportional to its cell count, because nothing constrains its MAGNITUDE -- here the unmasked norm ratio is 0.8085 against the masked 1.1843, so the pad is not small, it dominates. The rule is 'mask, always', not 'mask when the padding fraction is large'.",
+  "why_it_matters_that_this_was_already_there": "D95 was measured on my own arm and could be dismissed as an artefact of my 56-of-384 shape. It is reproduced here on a different row's data, a different shape, a different device and a much smaller padding fraction, and it is stronger, not weaker."
+ },
+
+ "provenance": "of3t-orchestrator pass 176 on pc, CPU only. Read from origin/wk/of3t-trunkfwd: perf/of3t_trunkfwd/TRUNK_FORWARD.json (arms SHIPPED and LEVER_transpose_bias_flipped, keys s/z/s_masked/z_masked) and READING.json. No new measurement -- this is a reading of numbers that were already committed and only half-quoted."
+}

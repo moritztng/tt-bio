@@ -1,0 +1,15 @@
+{
+ "n_weight_tensors_compared": 8,
+ "n_weight_tensors_043": 8,
+ "weights_identical_both_sides": true,
+ "dtype": "float64",
+ "rel_043_vs_050_tb_False": 0.0,
+ "rel_043_vs_050_tb_True": 0.030285417930484133,
+ "rel_050_tb_False_vs_True": 0.030285417930484133,
+ "out_finite": true,
+ "out_norms": {
+  "0.4.3": 2.018378513447644,
+  "0.5.0_tb0": 2.018378513447644,
+  "0.5.0_tb1": 2.018795470434498
+ }
+}
