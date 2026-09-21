@@ -36,6 +36,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import time
 
@@ -815,9 +816,24 @@ def scope_share(names):
     tot = sum(float(v.double().pow(2).sum()) for v in g.values() if torch.is_tensor(v))
     got = sum(float(g[n].double().pow(2).sum()) for n in names if n in g)
     missing = sorted(set(g) - set(names))
+    # Every name, not a sample. The brief asks for everything outside the scope listed NOT
+    # COVERED and why, and a list truncated at 40 of 188 answers neither question. The
+    # families carry the "why": each one is a share of the squared gradient norm, so a
+    # reader can see what the gap costs instead of counting tensors.
+    fam = {}
+    for n in missing:
+        k = re.sub(r"\.\d+\.", ".N.", n)
+        k = k[:k.index(".N.") + 3] if ".N." in k else k.rsplit(".", 1)[0]
+        e = fam.setdefault(k, {"n": 0, "sq": 0.0})
+        e["n"] += 1
+        e["sq"] += float(g[n].double().pow(2).sum())
+    for e in fam.values():
+        e["pct_of_model_sq_grad_norm"] = 100.0 * e["sq"] / MODEL_SQ_NORM
     return {"reference_tensors_at_this_boundary": len(g),
             "tensors_scored": len(names),
-            "tensors_in_reference_not_scored": missing[:40],
+            "tensors_in_reference_not_scored": missing,
+            "not_covered_families": dict(sorted(fam.items(),
+                                                key=lambda kv: -kv[1]["sq"])),
             "n_tensors_in_reference_not_scored": len(missing),
             "diffusion_module_sq_norm": tot,
             "scored_sq_norm": got,
