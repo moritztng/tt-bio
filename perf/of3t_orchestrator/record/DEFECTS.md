@@ -10002,3 +10002,86 @@ UPDATE 2 said the pre-registered reversal condition fired because `of3t-trajwide
 **What survives.** The reversal condition did fire — a module on the transformer-level path did discard 24 trained tensors and did read 8.426843e-01 off the result — and D141's point stands exactly: `load_state_dict(strict=False)` returned the count, nothing refused, and it took a 20-step trajectory to make anyone read the footnote. The pass-255 `n_unexpected` ratchet is vindicated either way; if anything more so, because the count was the ONLY visible symptom of a wrong-version import.
 
 **What does not survive** is the framing that this is a generation gap the campaign must live with and work around. It is a four-line path bug in one row, and the correct reference needs no alignment at all. I repeated the row's noun without checking which tree it named — the row's numbers were right and its label was not, which is the failure mode already on the record as *"verify the row's NOUN, not only its numbers."*
+
+### D149 UPDATE (pass 272, heading restated). **FIXED** by `of3t-trajwide` one pass after AMENDMENT 3, and the repair is better than the amendment asked for.
+
+The reference now loads at **0 missing, 0 unexpected**, and `align_layer_norm_z()` reports `realigned: []` — a no-op, which is exactly what it must be against 0.4.3, whose blocks own their own `layer_norm_z`. That line is the confirmation that the tree changed and not just the symptom.
+
+Rather than fix five files five times, the row wrote `perf/of3t_trajwide/refpath.py`: one `install()` that **appends** the dependency trees and prepends only the tree under test — the convention `of3t_foldab/convention.py` states outright — and one `assert_resolved()` that imports the package, reads `openfold3.__file__`, and refuses with the resolved path in the message. All five scripts call it. Its docstring carries the mechanism and D120's 1.94959719e-05-against-7.66979728e-01, so the next reader learns why rather than just what.
+
+**The ratchet is now EMPTY**, which is the state worth defending: `assert_path_order_ratchet.py` says no of3t script inserts paths at a fixed index in a loop without reading the resolution back, and a new one fails the compose. It found its own stale entries and refused to rust — five DRIFT lines saying *"repaired but still frozen"* — which is the shrink-only half doing its job on the first occasion it could.
+
+**Still owed by the row, and not part of this defect**: the corrected 20-step trajectory number. The reference is right now; GO condition 3 is measured when that arm finishes.
+
+### D150. The ten rows dispatched on Moritz's 9629 decision were sent out without a base branch or an artifact namespace — the two lines every other OF3T brief carries — and in two passes that produced three composition collisions. FOUND and FIXED by the orchestrator (pass 272). **FIXED** for the six live rows; the class is the dispatch path, which is not mine.
+
+Every OF3T brief before this wave ends with some form of *"namespace `perf/of3t_<slug>/`, based on `wk/of3t`, gate entry and stage hint added"*. None of the ten carries either. The consequences, all observed rather than predicted:
+
+    of3t-d10d24-unify  rewrote tt_bio/ranking.py and tests/test_sample_ranking.py from scratch;
+                       both already finished on wk/of3t-rankunify, which CONCLUDED and is what the
+                       decision means by "merge the unified rule". add/add, 7 and 2 hunks.
+    of3t-d56-renorm    edited perf/of3t_orchestrator/assert_new_levers_default_off.py -- the gate
+                       that checks its own lever -- and conflicted there in 3 hunks.
+    of3t-d1-pairbias   branched from main: 5 tt_bio/ files conflicting at once, plus add/add on
+                       perf/of3t_pairbias/attn_f64.py, the concluded row of3t-pairbias's namespace.
+
+**Base on `wk/of3t`, not main**, is the load-bearing half: `wk/of3t` is every concluded row's work merged and verified each pass, so a row branching from main re-derives what is already there and then collides with it. **Own namespace only** is the other, and it extends to `perf/of3t_orchestrator/`: a row that can edit the gate checking its own lever does not have a gate — it says in its state doc what the assertion should become instead.
+
+All six live rows now carry both rules as a STANDING section, with the concluded-row grep named as the cheap first step. The three that cannot be composed are **held out with a printed note** naming their brief, never silently dropped, and the hold is released the moment they rebase.
+
+**What is NOT fixed**: whatever writes these briefs does not add the two lines. That path is not the orchestrator's, so this entry records the requirement rather than patching the generator. The four rows of the wave that already concluded (D112, D116, D117, D122/D115) were not amended — they are done, and two of them composed cleanly.
+
+### D151. `TT_BIO_SOFTMAX_BW_RENORM` is read twice at module level in the composed tree, the two reads reach different softmax backends, and a comment at the second says there is only one flag. LATENT today — both default off — and it becomes real the moment Moritz's ask-9629 decision is shipped by flipping one of them. FOUND by the orchestrator (pass 273), owner `of3t-d56-renorm`. **UNFIXED.**
+
+    tt_bio/autograd.py:80     SOFTMAX_BW_RENORM  = env_flag("TT_BIO_SOFTMAX_BW_RENORM", False)
+      -> autograd.softmax_bw_inner: the DEVICE backward, which of3t-d116 made the one expression
+         for both triangle_attention and taped_ttnn._v_softmax
+    tt_bio/taped_ttnn.py:202  _SOFTMAX_BW_RENORM = os.environ.get("TT_BIO_SOFTMAX_BW_RENORM","0")
+      -> read at autograd.py:906: the HOST float64 backward
+
+`of3t-d56-renorm`'s branch flips **the second**. The device path — the one that runs in every taped step — keeps autograd's `False` and does not take the repair, so the decision ships to one of two backends and the flag reads ON in one place and OFF in the place that runs.
+
+**The comment is the dangerous part.** `autograd.py:906` reads *"of3t-apbgrad's repair, honoured here so ONE flag covers both softmax backends"*. That was true when it was written, before d116 introduced autograd's own read, and it is exactly the sentence that stops the next reader checking. A comment asserting the invariant is not the invariant.
+
+**How it was found**: not by reading either file, but by trial-merging a held-out row against the composition and then asking what its diff would do once merged. The row's own work is good — an AST reach proof over both read sites, negative controls, per-pid counters because a `predict` run does its device work in spawned workers, byte-identical digests on three models — and none of it could see this, because the second read only came to exist when d116 landed after it branched.
+
+**Guard shipped, and it is green on arrival**: `assert_one_flag_one_default.py` requires every `TT_BIO_*` variable read in more than one place in `tt_bio/` to carry the SAME literal default everywhere, normalising `""`/`0`/`false`/`no`/`off`/`False`. Its probe is the pending change itself — it copies the real tree, flips one of the two renorm defaults the way the row's branch does, and refuses to pass if that does not fire.
+
+**The broader rule was measured and NOT shipped.** "One read per variable" would be 8 false positives out of 9: `TT_BIO_CACHE` and `TT_BIO_EXIT_TRIM` read twice in one file, `TT_BIO_SHARED_DRAW_SEED` read by boltz2, esmfold2 and protenix. 89 % wrong is the check declined at pass 261 for the same reason. Disagreeing DEFAULTS is the property that can make two sites behave differently, and it is 0 of 166 today.
+
+**Repair** in AMENDMENT 2 on the row's brief: make `autograd.SOFTMAX_BW_RENORM` the single definition, have the host float64 backward branch on it, delete `taped_ttnn._SOFTMAX_BW_RENORM` once nothing reads it, flip the surviving default with the reach proof re-run against the unified read, and correct the comment.
+
+### D151 UPDATE (pass 274, heading restated). **FIXED**, on the row's branch and now in the composition, and the guard's own probe broke in the fixing.
+
+`of3t-d56-renorm` unified the read exactly as AMENDMENT 2 asked: `autograd.SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)` is the single definition and `taped_ttnn._SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM` is an alias, not a second `os.environ.get`. It also dropped its edit to `assert_new_levers_default_off.py`, so it merges clean and the hold is released. **The lever is ON in the composition** — the first of Moritz's four 9629 decisions to land there — and still unmerged to main.
+
+**I checked the inference constraint myself before adopting any of it**, by AST rather than on the row's word, because this is the one that touches every model: every read of the flag in the merged tree is inside a backward closure — `softmax_bw_inner` and `host_f64_softmax`'s `bw` — and both callers of `softmax_bw_inner` are `bw <- make <- triangle_attention` and `bw <- make <- _v_softmax`. No forward site reads it.
+
+**The gate change is adopted from the row rather than reverted.** Its argument is better than the one my file had: *"a guard that only catches a flag turning on stops being a guard the day a flag is meant to be on."* `assert_new_levers_default_off.py` now pins BOTH directions, the probe is inverted (the failure to catch is the silent revert to OFF), and a second probe proves the check stays quiet on a correctly-ON tree — without that, an inverted check can be a refusal rather than a check.
+
+**Two near-misses in the same pass, both caught here rather than downstream.**
+
+1. **The D151 guard's probe broke the moment the defect was repaired.** It grepped `os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0")` out of the real tree and flipped it; once that read became an alias the probe could not find its line and the guard **refused** instead of checking. Correct behaviour, wrong design — a probe should test the CHECKER, not the tree. It now builds a two-module fixture with one variable and opposite defaults, plus a second fixture proving agreeing defaults stay quiet.
+2. **The compose printed `shipped defaults: TT_BIO_SOFTMAX_BW_RENORM off` in the pass the lever went on.** The asserter verified the tree correctly and then announced a hard-coded sentence about it. That is the prose-versus-shipped-default disagreement already on the campaign's record; the line now reports the state that was verified.
+
+### D137 UPDATE (pass 275, heading restated). **FIXED in the composition and AUDITED by the orchestrator**, with one arm still unmeasured and a follow-up row dispatched to measure it.
+
+`of3t-d137-tapegate` concluded PARTIAL. I read the composed tree rather than its write-up, because this is the defect that reaches every model's inference:
+
+    tenstorrent.site_softmax(x, dim, *, host_f64=False)
+        host_f64 False -> `ttnn.softmax(x, dim=dim, **kw)` and nothing else
+        host_f64 True  -> ops.host_softmax_hook(); None -> ttnn.softmax, and the refusal COUNTED
+    ops.host_softmax_hook()
+        return _HOST_SOFTMAX if grad_hook() is not None else None
+    autograd.install / uninstall
+        ops.set_host_softmax_hook(host_f64_softmax) / (None)
+
+**Two conditions, not one, and the second is the one I would not have thought to require**: the row's own docstring says `taped_ttnn.tape()` restores the grad hook on the way out and leaves the other slots filled, so the slot ALONE would stay live for the rest of the process and *a fold after a training block could still reach the path*. Requiring `grad_hook()` too closes that. `TT_BIO_HOST_F64_SOFTMAX_AB` can no longer open the path on its own, which is exactly what the 2026-09-21 hard constraint demands, and `tests/test_host_f64_softmax_defaults.py` holds both directions.
+
+**What is measured**: the gate is free at CALL level — 21 instructions before and 21 after, one conditional jump inverted, **−3.31 ns against a 10.16 ns A/A floor**.
+
+**What is NOT measured, and the row said so instead of hedging**: the fold-level A/B with its A/A floor on OpenFold3, Protenix-v2 and OpenDDE. Its harness is written, compiles and passes its guards against a real pre-gate tree; it never ran because **the row was dispatched `card=cpu`, and a `card=cpu` line cannot reach a chip** — `fleet.log` 13:42:36 and 13:44:17 show the dispatcher wanting a card for it and falling back. That is a dispatch defect, not a row failure, and it is mine: **`of3t-d137ab` dispatched at this pass with `card=any`** to run that exact command, outputs in its own namespace.
+
+**An instrument defect it found on the way, worth more than the arm it blocked**: `perf/clocksample.py` pinned `TT_SMI` to `/home/ttuser/.local/bin/tt-smi`, which does not exist on pc, so every sample raised and `line()` reported NOT SAMPLED — a harness that runs clean and produces unclocked numbers, on a campaign where every perf claim owes a DURING-sampled AICLK. It resolves per host now and reads pc card 0 at 800 MHz idle.
+
+**Why this reads FIXED and not UNFIXED, since the heading and the body must not disagree**: D137 is *"the path is gated on an env flag rather than on the tape"*, and that is repaired and verified in the composed tree. What is open is the COST of the repair at fold scope, which is a different question and now has its own owner — `of3t-d137ab`. Filing the cost under D137 would keep a repaired defect open; filing it nowhere would lose it. It is the new row's, and *"not made slower"* is answered only at call level until that row reports.
