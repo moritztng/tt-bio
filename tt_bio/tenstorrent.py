@@ -7091,39 +7091,17 @@ _MM_CFG = env_flag("TT_BIO_QKV_MM_CONFIG", QKV_MM_CONFIG)
 _MM_DEFAULT = (8, 8, 8, 2, 2)
 
 _MM_BLOCK = {
-    (8, 24): (4, 8, 1, 4, 1),   # protenix-v2 qkv          -- unchanged, byte-identical to before
-    (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
+    # BASE widths only: one entry per operand a model actually projects. Fused concatenations are
+    # derived from these by `_mm_fused_block` below and must NOT be added here.
+    (8, 24): (4, 8, 1, 4, 1),   # protenix-v2 qkv          at c_z=256, shipped since c9bfcaef
+    (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  at c_z=256, shipped since c9bfcaef
     (4, 12): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv   at c_z=128
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
-    # qkv and gate fused on the output axis, so the normed pair tensor is read once instead of
-    # twice (`triatt_qkv.qkvg_heads`). Same K_block as the two entries above it -- which is the
-    # whole contraction at kt=4 -- so every output element is accumulated in the order the two
-    # separate matmuls accumulate it today.
-    (4, 16): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate at c_z=128
-    # ... and with the one-tile pair-bias projection on the end of it, so the normed pair tensor
-    # is read once instead of three times (`triatt_qkv.qkvgb_heads`). Same K_block again.
-    (4, 17): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate+bias at c_z=128
-    # The same two fused keys at c_z=256, which is protenix-v2's and esmfold2's tri-attention
-    # width. Their separate (8, 24) qkv and (8, 8) gate entries have shipped since c9bfcaef, but
-    # the fused pair was only ever added at kt=4, so `_qkv_mm_config` returned None for the
-    # concatenated weight and `qkvg_heads` declined 1208 of 1208 protenix-v2 calls per 512 aa fold
-    # while boltz2 served 560 of 560 (perf/pvx_eligibility/out/). Same K_block = kt = 8 = the whole
-    # contraction as the two entries it fuses, so every output element is accumulated in the order
-    # the two separate matmuls accumulate it today. protenix-v2 is the only consumer measured:
-    # esmfold2 is c_z=256 too but never reaches `_qkv_mm_config` on a 512 aa fold at all
-    # (`perf/pvx_eligibility/out/mmkey_esm512.json`, zero calls), so it is not claimed here.
-    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate      at c_z=256
-    (8, 33): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate+bias at c_z=256
-    (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
-    (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
-    # protenix-v2's template pair stack is 2 heads of 32 at c_z=64, so its qkv is 6 tiles where
-    # openfold3's is 12 and only the gate key above was shared. `perf/pvx_eligibility/mm_key_probe.py`
-    # reads the key each declining call wants: 320 calls per 512 aa fold at (2, 6), 160 at (2, 8)
-    # and 160 at (2, 9), all `key_absent`, against 160 served at (2, 2). Same K_block = kt = 2 as
-    # the two entries above.
-    (2, 6): (4, 2, 1, 4, 1),    # protenix-v2 template qkv              at c_z=64
-    (2, 8): (4, 2, 1, 4, 1),    # protenix-v2 template qkv+gate         at c_z=64
-    (2, 9): (4, 2, 1, 4, 1),    # protenix-v2 template qkv+gate+bias    at c_z=64
+    (2, 12): (4, 2, 1, 4, 1),   # openfold3 template qkv   at c_z=64
+    (2, 2): (4, 2, 1, 4, 1),    # openfold3 template gate  at c_z=64
+    # protenix-v2's template pair stack is 2 heads of 32, so its qkv is 6 tiles where openfold3's
+    # is 12 and only the gate key above was shared.
+    (2, 6): (4, 2, 1, 4, 1),    # protenix-v2 template qkv at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
     # differently from the unconfigured op, one bf16 ULP at max_abs 0.5. MEASURED at the fold, 512 aa
     # (perf/odde4x/ab_opendde_512_mm12.json): 96.578 -> 92.803 s, 1.0407x on a 0.063 s A/A floor,
@@ -7133,14 +7111,73 @@ _MM_BLOCK = {
     # full 64-hex digest with these entries live (perf/odde4x/ab_px_leak.json), so nothing else moves.
     # The byte-identical alternative at the same two keys is `_MM_DEFAULT`, worth 96.785 -> 94.523 s
     # instead; swap these two values for it and the tail guard in triatt_qkv.py turns itself on.
-    (12, 36): (4, 12, 1, 2, 1),
-    (12, 12): (8, 12, 1, 2, 1),
+    (12, 36): (4, 12, 1, 2, 1),  # opendde qkv  at c_z=384
+    (12, 12): (8, 12, 1, 2, 1),  # opendde gate at c_z=384
 }
+
+
+# A fused key is NOT a new sweep, it is two registered widths concatenated on the output axis, and
+# three ports in a row registered the separate widths and left the fused twin out: boltz2 got
+# (4, 16)/(4, 17) when K3 landed, protenix-v2 waited until pvx-eligibility for (8, 32)/(8, 33) and
+# declined 1208 of 1208 tri-attentions a fold until then, and opendde shipped (12, 36)/(12, 12) and
+# still declines 1056 of 1216 for want of (12, 48)/(12, 49). The next port will do it again, because
+# the table cannot say what it is FOR.
+#
+# It can. Every entry at a given `kt` carries `K_block = kt`, the whole contraction, and `N_block=1`,
+# so a key whose `nt` is the sum of two registered widths at that `kt` folds K exactly the way the
+# separate matmuls it replaces fold it -- which is the entire bit-exactness argument each of those
+# six literals was landed with, written once. `+ 1` is the one-tile pair-bias projection on the end
+# of the qkv+gate+bias variant. Nothing else derives: an unregistered BASE width still needs its own
+# entry and still gets no config, so this cannot silently configure an op nobody measured.
+#
+# Deriving reproduces all six deleted literals byte-for-byte (tests/mm_fused_block_test.py).
+_MM_FUSED_STATS = [0, 0]              # [derived, no registered pair at this kt]
+_MM_FUSED_DERIVED: dict = {}          # (kt, nt) -> calls, so firing is counted and not read
+
+
+def _mm_fused_block(kt: int, nt: int):
+    """The entry for a concatenation of two registered widths at `kt`, or None.
+
+    Ties break to the wider component -- the qkv operand in every fusion this serves -- so the
+    derived entry is the one the dominant matmul was swept with.
+
+    The inner loop starts at `i + 1`, so an operand pairs only with a DIFFERENT one. Letting a
+    width pair with itself invents a concatenation no kernel performs -- qkv is always 3 * heads * head_dim and
+    the gate is heads * head_dim, so a real fusion is never `a + a` -- and the self-paired form
+    configured rfdiffusion3's (2, 24) on 80 calls a fold and boltzgen's (2, 4) on 96, two models
+    this rule was never folded against, plus (12, 24)/(12, 25)/(12, 72)/(12, 73), which would have
+    inherited the two opendde entries the table records as NOT bit-exact. All six deleted literals
+    still reproduce byte-for-byte and both opendde keys survive, so the measured 1.438 s is
+    unaffected (perf/allm_orchestrator/verify_selfpair_fix.py, tests/mm_fused_block_test.py).
+    """
+    widths = sorted({n for (k, n) in _MM_BLOCK if k == kt})
+    best = None
+    for i, a in enumerate(widths):
+        for b in widths[i + 1:]:
+            if nt in (a + b, a + b + 1) and (best is None or max(a, b) > best):
+                best = max(a, b)
+    if best is None:
+        _MM_FUSED_STATS[1] += 1
+        return None
+    _MM_FUSED_STATS[0] += 1
+    _MM_FUSED_DERIVED[f"kt={kt},nt={nt}"] = _MM_FUSED_DERIVED.get(f"kt={kt},nt={nt}", 0) + 1
+    return _MM_BLOCK[(kt, best)]
+
+
+def _mm_block_at(kt: int, nt: int):
+    """The entry for this key, registered or derived. The single resolver of a (kt, nt) key.
+
+    `swiglu_fused` and `trimul_tail` hold their own allow-lists of keys their descriptors were
+    swept at and then resolve the VALUE here, so a fused key that is derived rather than written
+    down is still a key they can look up.
+    """
+    blk = _MM_BLOCK.get((kt, nt))
+    return blk if blk is not None else _mm_fused_block(kt, nt)
 
 
 def _mm_block_for(w):
     """The swept block entry for this weight, or None. The single reader of the (kt, nt) key."""
-    return _MM_BLOCK.get(((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32))
+    return _mm_block_at((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32)
 
 
 @lru_cache(maxsize=None)
