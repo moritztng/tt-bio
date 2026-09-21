@@ -51,6 +51,27 @@ if os.environ.get("OF3T_AUDIT_TREE_OK") != "1":
 _FELL_BACK: set = set()
 
 
+from defects_union import defects_text as _defects_union_text
+
+
+def _defects_text(path) -> str:
+    """The whole defect ledger, not the un-rotated tail.
+
+    `DEFECTS.md` rotates every thirty minutes past 256 KB, so at pass 324 it held 35 of 174
+    entries and 10 of 57 UNFIXED while three archives held the rest. Reading the live file alone
+    made a rotation look like a closure: the triage lost four USER-FACING defects and this
+    audit asked `VERDICT:` to restate the tail's count as the campaign's. See
+    `perf/of3t_orchestrator/defects_union.py`. Falls back to the plain read when the path is the
+    branch copy rather than the state file, because the archives only exist on pc.
+    """
+    try:
+        if str(path).startswith("/home/moritz/.coworker/state/of3t/DEFECTS.md"):
+            return _defects_union_text()
+    except Exception:
+        pass
+    return path.read_text()
+
+
 def _campaign_doc(name: str) -> Path:
     """The authoritative document if this host has it, else the copy published in the branch.
 
@@ -760,7 +781,7 @@ if _man:
 # paragraph must match the artifacts. So: check the heading line and the D20 body.
 _DEFP = _campaign_doc("DEFECTS")
 if _DEFP.is_file() and (_reach_top or j("perf/of3t_orchestrator/SECTION_MASS_MEASURED.json")):
-    _dt = _DEFP.read_text()
+    _dt = _defects_text(_DEFP)
     # Pass 151: the shares that DEFECTS must follow now come from the EXHAUSTIVE 0.4.3 table,
     # not from reach_by_norm.json, which is the 0.5.0 / 4,147 artifact pass 91 disqualified.
     # This guard demanded 91.21 % -- a share of a model the campaign does not claim -- so a
@@ -823,7 +844,7 @@ if DEF.is_file() and ORCH.is_file():
     # declaration ABOUT ANOTHER DEFECT, which is the exact false positive the paragraph above
     # says this check must not make. So a declaration counts only when the sentence carrying it
     # does not name a different defect.
-    _dt_u = DEF.read_text()
+    _dt_u = _defects_text(DEF)
     _parts = _re.split(r"(?m)^(### D\d+\b.*)$", _dt_u)
     _ents = [(_parts[i], _parts[i + 1]) for i in range(1, len(_parts) - 1, 2)]
     _decl = _re.compile(r"\*\*UNFIXED[.*]|\bUNFIXED\b\s*(?:--|\u2014|\.)")
@@ -1345,7 +1366,7 @@ if DEF.is_file() and ORCH.is_file():
 # whose evidence has already moved on, with nothing in the entry saying which.
 if DEF.is_file():
     import re as _re2
-    _txt = DEF.read_text()
+    _txt = _defects_text(DEF)
     _entries = _re2.split(r"^### (D\d+)\.", _txt, flags=_re2.M)
     _HYP = _re2.compile(r"hypothesis|is live\b|offered rather than asserted", _re2.I)
     _RES = _re2.compile(r"REFUTED|CONFIRMED|RESOLVED|settled|still open|remains open|"
@@ -1572,7 +1593,7 @@ if ORCH.is_file():
                     ok.append(f"all {_n_conc} concluded rows have a branch on origin "
                               f"(probe fires)")
     if DEF.is_file():
-        _dt = DEF.read_text()
+        _dt = _defects_text(DEF)
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
         # keys on the STRICT `### D<n>.` heading. At pass 175 D74 and D75 were written with an
         # em dash instead of the period, and all three guards silently SKIPPED them: the count
