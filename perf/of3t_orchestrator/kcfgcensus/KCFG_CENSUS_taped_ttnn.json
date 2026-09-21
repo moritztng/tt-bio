@@ -1,0 +1,23 @@
+{
+ "n_calls": 2,
+ "n_unconfigured": 1,
+ "sites": [
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+   "kind": "softmax:inner",
+   "line_now": 216,
+   "what": "inner = sum(g*y) -> x.grad = y*(g - inner) -- measured INERT at pass 222"
+  },
+  {
+   "configured": true,
+   "enclosing_def": "bw",
+   "expr": "ttnn.sum( y, dim=dim, keepdim=True, compute_kernel_config=precise_config())",
+   "kind": "other",
+   "line_now": 218,
+   "what": ""
+  }
+ ],
+ "source": "tt_bio/taped_ttnn.py"
+}
