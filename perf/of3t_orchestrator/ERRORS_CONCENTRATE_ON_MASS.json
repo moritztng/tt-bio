@@ -1,0 +1,30 @@
+{
+ "what": "cross-referencing the EXISTING device-vs-reference diffusion gradient result (device_gradient_043all.json, 547 tensors compared, all 48 structures) against the per-tensor reference mass measured this pass. No new run; both artifacts already existed and had never been read together.",
+
+ "headline": "The campaign's errors are concentrated on the tensors that carry the gradient, not scattered across the ones that do not. The ten WORST tensors by rel hold 15.7140 % of the model's squared gradient norm; the ten BEST hold 1.1650 % -- a 13.5x concentration on mass. The single worst disagreement in the campaign, rel 18.504, is on diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight, which is 8.05416 % of the model: the FOURTH-heaviest tensor in OpenFold3.",
+
+ "why_it_matters": "the run's headline statistic is median_rel = 0.16588 over 547 tensors. PROTOCOL A23 was raised this pass on the general argument that a median over tensors is a statistic about the tensors that carry no mass. This is that argument meeting data, and it lands in the UNFLATTERING direction: the median understates the damage, because the failing tensors are the heavy ones. The mass-weighted number -- which is the one a parity claim actually owes -- is still unmeasured and will be worse than 0.16588.",
+
+ "worst10_with_mass": [
+  {"rel": 18.504, "pct_of_model": 8.05416, "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  5.936, "pct_of_model": 0.02472, "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.bias"},
+  {"rel":  5.646, "pct_of_model": 0.76487, "tensor": "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  5.307, "pct_of_model": 2.86053, "tensor": "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  4.546, "pct_of_model": 0.00413, "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.weight"},
+  {"rel":  4.542, "pct_of_model": 2.43308, "tensor": "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  2.841, "pct_of_model": 1.39118, "tensor": "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  2.733, "pct_of_model": 0.18134, "tensor": "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"},
+  {"rel":  1.921, "pct_of_model": 0.00000, "tensor": "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"},
+  {"rel":  1.608, "pct_of_model": 0.00001, "tensor": "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight"}
+ ],
+ "worst10_total_pct_of_model": 15.7140,
+ "best10_total_pct_of_model": 1.1650,
+
+ "the_leaf_family": "SEVEN of the ten worst tensors are `attention_pair_bias.layer_norm_a.*` inside the diffusion transformer, and six of those are the same leaf: `layer_norm_a.layer_norm_s.weight`. That is the SAME leaf family this pass independently identified as carrying the model's gradient mass (D51: ten of the twelve heaviest tensors in the model are LayerNorm gains/biases on the single track inside diffusion_module). The campaign's mass peak and the campaign's worst errors are the same tensors. Nothing connected them before because the mass table did not exist.",
+
+ "a_hypothesis_this_does_NOT_establish": "within the six `layer_norm_a.layer_norm_s.weight` points, rel appears to rise with mass (blocks 0/6/5/7/12/8 at rel 2.73/2.84/4.54/5.31/5.65/18.50 against mass 0.18/1.39/2.43/2.86/0.76/8.05). If real, that is a signature -- rel is already a RELATIVE measure, so a fixed relative error would be independent of magnitude, and rel growing with magnitude points at something super-linear (saturation, overflow, a magnitude-dependent precision loss) rather than a uniform rounding difference. But this is six points, block 12 already breaks the ordering, and they are the SIX WORST of a family of 24 -- a selected tail, not a sample. The full family's rels are not in the artifact. THIS IS A HYPOTHESIS TO TEST, NOT A FINDING. It is written down so it is falsifiable, and the test is the per-tensor dump.",
+
+ "what_is_missing_and_what_it_costs": "device_gradient_043all.json stores aggregates plus worst10/best10 -- no per-tensor rel. So the mass-weighted headline A23 requires, the per-block DiT profile, and the mass-vs-rel test above are all underivable from what exists, and all three come free from one re-run that writes the per-tensor array. Requested of the live of3t-conditioning row as an explicitly secondary deliverable.",
+
+ "run_provenance": "device_gradient_043all.json: 547 tensors compared, 474 over the 5.0e-02 per-tensor bar, median_rel 0.16588485538135056, worst_rel 18.503974843073646, forward_rel_median 8.4748e-03, share_of_diffusion_sq_norm 0.5732029094107396, all 48 structures. Mass from bundle_min_043/grads_f64_043.pt, model squared norm 10.279642678524985. Cross-reference computed 2026-09-20 pass 151 on tt-quietbox2, CPU only, no device opened."
+}
