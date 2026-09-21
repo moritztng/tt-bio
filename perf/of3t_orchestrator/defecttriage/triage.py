@@ -162,6 +162,9 @@ TABLE = {
                    "claimed, and project.py still carries the unit error. Campaign tooling."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
+    "D129": (USER, "conditioned_transition.layer_norm.layer_norm_s.weight reads 4.388x its own "
+                   "bf16 floor and 3.10x A26's bar on 28 of 30 instances -- the first leaf to "
+                   "survive the floor check that closed D8. Measured at the 0.5.0 boundary."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
 }
