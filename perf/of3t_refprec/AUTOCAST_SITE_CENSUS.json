@@ -1,0 +1,177 @@
+{
+ "n_context_sites": 16,
+ "all_name_device_cuda": true,
+ "by_kind": {
+  "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)": {
+   "n": 7,
+   "sites": [
+    "core/loss/diffusion.py:78",
+    "core/model/feature_embedders/input_embedders.py:127",
+    "core/model/heads/prediction_heads.py:86",
+    "core/utils/geometry/kabsch_alignment.py:64",
+    "projects/of3_all_atom/model.py:384",
+    "projects/of3_all_atom/model.py:692",
+    "projects/of3_all_atom/model.py:703"
+   ]
+  },
+  "dtype=attn_dtype (variable)": {
+   "n": 1,
+   "sites": [
+    "core/model/primitives/attention.py:151"
+   ]
+  },
+  "enabled=False (faithful on CPU: autocast off either way)": {
+   "n": 4,
+   "sites": [
+    "core/model/primitives/attention.py:115",
+    "core/model/primitives/linear.py:123",
+    "core/model/primitives/linear.py:136",
+    "core/model/primitives/normalization.py:65"
+   ]
+  },
+  "dtype=cast_dtype (variable)": {
+   "n": 1,
+   "sites": [
+    "projects/of3_all_atom/model.py:418"
+   ]
+  },
+  "dtype=dtype (variable)": {
+   "n": 3,
+   "sites": [
+    "tests/test_kernels.py:488",
+    "tests/test_kernels.py:668",
+    "tests/test_kernels.py:767"
+   ]
+  }
+ },
+ "sites": [
+  {
+   "file": "core/loss/diffusion.py",
+   "line": 78,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "core/model/feature_embedders/input_embedders.py",
+   "line": 127,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "core/model/heads/prediction_heads.py",
+   "line": 86,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "core/model/primitives/attention.py",
+   "line": 151,
+   "device": "'cuda'",
+   "dtype": "attn_dtype",
+   "enabled": null,
+   "kind": "dtype=attn_dtype (variable)"
+  },
+  {
+   "file": "core/model/primitives/attention.py",
+   "line": 115,
+   "device": "'cuda'",
+   "dtype": null,
+   "enabled": "False",
+   "kind": "enabled=False (faithful on CPU: autocast off either way)"
+  },
+  {
+   "file": "core/model/primitives/linear.py",
+   "line": 123,
+   "device": "'cuda'",
+   "dtype": null,
+   "enabled": "False",
+   "kind": "enabled=False (faithful on CPU: autocast off either way)"
+  },
+  {
+   "file": "core/model/primitives/linear.py",
+   "line": 136,
+   "device": "'cuda'",
+   "dtype": null,
+   "enabled": "False",
+   "kind": "enabled=False (faithful on CPU: autocast off either way)"
+  },
+  {
+   "file": "core/model/primitives/normalization.py",
+   "line": 65,
+   "device": "'cuda'",
+   "dtype": null,
+   "enabled": "False",
+   "kind": "enabled=False (faithful on CPU: autocast off either way)"
+  },
+  {
+   "file": "core/utils/geometry/kabsch_alignment.py",
+   "line": 64,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "projects/of3_all_atom/model.py",
+   "line": 384,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "projects/of3_all_atom/model.py",
+   "line": 418,
+   "device": "'cuda'",
+   "dtype": "cast_dtype",
+   "enabled": null,
+   "kind": "dtype=cast_dtype (variable)"
+  },
+  {
+   "file": "projects/of3_all_atom/model.py",
+   "line": 692,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "projects/of3_all_atom/model.py",
+   "line": 703,
+   "device": "'cuda'",
+   "dtype": "torch.float32",
+   "enabled": null,
+   "kind": "dtype=torch.float32 (NOT faithful on CPU: no fp32 autocast target)"
+  },
+  {
+   "file": "tests/test_kernels.py",
+   "line": 488,
+   "device": "'cuda'",
+   "dtype": "dtype",
+   "enabled": null,
+   "kind": "dtype=dtype (variable)"
+  },
+  {
+   "file": "tests/test_kernels.py",
+   "line": 668,
+   "device": "'cuda'",
+   "dtype": "dtype",
+   "enabled": null,
+   "kind": "dtype=dtype (variable)"
+  },
+  {
+   "file": "tests/test_kernels.py",
+   "line": 767,
+   "device": "'cuda'",
+   "dtype": "dtype",
+   "enabled": null,
+   "kind": "dtype=dtype (variable)"
+  }
+ ]
+}
