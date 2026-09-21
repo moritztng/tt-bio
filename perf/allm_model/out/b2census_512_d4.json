@@ -1,0 +1,569 @@
+{
+ "host": "tt-quietbox2",
+ "model": "boltz2",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "82bb6224be32d3b01fe24662bd95f0aea1cbff0e",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 78,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 3,
+  "load_s": 2.97,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_boltz2_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-boltz2-1fexaboy/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 14.7947,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 64,
+    "power_w_mean": 86.1
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 560, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 280, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 560, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 528, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 560
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ]
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 14.3371,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 60,
+    "power_w_mean": 79.1
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 1120, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 560, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 1120, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 1056, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 560
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ]
+   }
+  },
+  {
+   "tag": "B:4",
+   "fold_s": 15.0155,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 65,
+    "power_w_mean": 77.8
+   },
+   "depth": 4,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 1680, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 840, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 1680, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 1584, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 560
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ]
+   },
+   "blocks": {
+    "tenstorrent.RelPosGather": {
+     "n": 2,
+     "incl_s": 0.032339,
+     "self_s": 0.032339,
+     "depths": {
+      "1": 1,
+      "2": 1
+     }
+    },
+    "tenstorrent.PairAssemblyDevice": {
+     "n": 2,
+     "incl_s": 0.110169,
+     "self_s": 0.07783,
+     "depths": {
+      "0": 1,
+      "1": 1
+     }
+    },
+    "tenstorrent.TrunkRecycle": {
+     "n": 4,
+     "incl_s": 0.009744,
+     "self_s": 0.009744,
+     "depths": {
+      "1": 4
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 16,
+     "incl_s": 0.043615,
+     "self_s": 0.043615,
+     "depths": {
+      "3": 16
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 944,
+     "incl_s": 1.709064,
+     "self_s": 1.709064,
+     "depths": {
+      "2": 400,
+      "3": 544
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 16,
+     "incl_s": 0.282745,
+     "self_s": 0.282745,
+     "depths": {
+      "3": 16
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 280,
+     "incl_s": 8.608554,
+     "self_s": 0.988992,
+     "depths": {
+      "2": 264,
+      "3": 16
+     }
+    },
+    "tenstorrent.MSALayer": {
+     "n": 16,
+     "incl_s": 0.799812,
+     "self_s": 0.010239,
+     "depths": {
+      "2": 16
+     }
+    },
+    "tenstorrent.MSA": {
+     "n": 4,
+     "incl_s": 0.801191,
+     "self_s": 0.001379,
+     "depths": {
+      "1": 4
+     }
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 528,
+     "incl_s": 3.312789,
+     "self_s": 3.312789,
+     "depths": {
+      "3": 528
+     }
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 528,
+     "incl_s": 2.375539,
+     "self_s": 2.375539,
+     "depths": {
+      "3": 528
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 264,
+     "incl_s": 0.282005,
+     "self_s": 0.282005,
+     "depths": {
+      "3": 264
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 5,
+     "incl_s": 8.1567,
+     "self_s": 0.003153,
+     "depths": {
+      "1": 5
+     }
+    },
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 8.913182,
+     "self_s": 0.143992,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairConditioningDevice": {
+     "n": 1,
+     "incl_s": 0.114835,
+     "self_s": 0.114835,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.DiffusionTransformerLayer": {
+     "n": 6000,
+     "incl_s": 3.381272,
+     "self_s": 3.381272,
+     "depths": {
+      "3": 6000
+     }
+    },
+    "tenstorrent.DiffusionTransformer": {
+     "n": 600,
+     "incl_s": 4.202749,
+     "self_s": 0.821476,
+     "depths": {
+      "2": 600
+     }
+    },
+    "tenstorrent.Diffusion": {
+     "n": 200,
+     "incl_s": 4.377828,
+     "self_s": 0.123452,
+     "depths": {
+      "1": 200
+     }
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 200,
+     "incl_s": 4.623323,
+     "self_s": 0.245495,
+     "depths": {
+      "0": 200
+     }
+    },
+    "tenstorrent.PairformerModule": {
+     "n": 1,
+     "incl_s": 0.246937,
+     "self_s": 0.001238,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.ConfidenceHeadsDevice": {
+     "n": 1,
+     "incl_s": 0.014195,
+     "self_s": 0.014195,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "fold_s": 14.5602,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 59,
+    "power_w_mean": 74.6
+   },
+   "depth": 1,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 2240, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 1120, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 2240, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 2112, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 560
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ]
+   },
+   "blocks": {
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 8.777397,
+     "self_s": 8.777397,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairConditioningDevice": {
+     "n": 1,
+     "incl_s": 0.119779,
+     "self_s": 0.119779,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 200,
+     "incl_s": 4.151868,
+     "self_s": 4.151868,
+     "depths": {
+      "0": 200
+     }
+    },
+    "tenstorrent.PairAssemblyDevice": {
+     "n": 1,
+     "incl_s": 0.048844,
+     "self_s": 0.048844,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairformerModule": {
+     "n": 1,
+     "incl_s": 0.244123,
+     "self_s": 0.244123,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.ConfidenceHeadsDevice": {
+     "n": 1,
+     "incl_s": 0.014638,
+     "self_s": 0.014638,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  }
+ ]
+}
