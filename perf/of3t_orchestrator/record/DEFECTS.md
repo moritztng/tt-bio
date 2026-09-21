@@ -8236,3 +8236,131 @@ out to be only the 0.8007 %, the bound shrinks by 78 % and that is the finding.
 sentence about path matching; I turned it into a claim about silicon. Same class as taking "the
 shipped default" at face value at pass 222 and as reading one tree at pass 220 — a row's sentence is
 evidence for exactly what it says, and the orchestrator's job is to notice when a filing widens it.
+
+### D127 UPDATE 2 (pass 228). The uncovered share is DECOMPOSED, the 2.8431 % turns out to be ONE TENSOR, and one class of names settles the mechanism by example.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/reachsplit/split_uncovered.py` reads
+`REACH_SHARE.json`'s own `top_uncovered_by_sq_norm`, which `of3t-rebind` published and nobody had
+read. The 4.8714 % the parameter walk does not fully cover:
+
+       2.8431 %  aux_heads.distogram.linear.weight
+       0.7405 %  input_embedder.atom_attn_enc.linear_q.0.weight
+       0.6734 %  diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight
+       0.0522 %  diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight
+       0.0396 %  diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight
+       0.0361 %  diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight
+       ...       nine more, all APB mha linear_q/k/v or atom_attn_enc ref-feature embedders
+       0.3598 %  tail, 1,477 further names, not enumerated by the source
+
+    by section:  aux_heads 2.8431   input_embedder 0.7531
+                 diffusion_module.atom_attn_enc 0.7493   diffusion_transformer 0.1661
+
+**The 2.8431 % is one tensor.** `aux_heads.distogram.linear.weight` — not "the aux_heads output
+projections" plural, which is a third thing my filing got wrong about a defect I wrote from two
+section headlines. One name carries 2.84 % of the model's gradient mass.
+
+**And one class settles the mechanism by example rather than by argument.** The uncovered set
+includes `diffusion_module.diffusion_transformer.blocks.{5,8,10,13}.attention_pair_bias.mha
+.linear_{q,k,v}.weight`, 0.1661 % between them. **Nobody believes the diffusion transformer's
+attention projections are host-resident** — it is this campaign's most-measured scope, and the
+entire D8/D30/D58 literature is about gradients computed there on device. So for that class, "not
+covered by the walk" is definitively a **name-matching** failure. That is an existence proof for the
+bijection hypothesis and a control any competing explanation has to fit.
+
+**Two corrections to my own numbers**, both in the direction of the record being less alarming than
+I made it: `input_embedder`'s uncovered share is **0.7531 %**, not the 0.8007 % I quoted from a
+different instrument's section table (~0.0476 % of it IS covered); and
+`diffusion_module.atom_attn_enc` contributes **0.7493 %**, which appears in D127 not at all and is
+most of the **1.2276 %** I flagged as unaccounted at pass 227.
+
+**What is still genuinely open**: whether each uncovered name is a port question or a bijection one,
+and the **0.3598 %** tail over 1,477 names that the source artifact does not enumerate. A lump that
+size is the shape of one more mis-matched family. `of3t-hostops` has this as AMENDMENT 2, with the
+diffusion-transformer names named as its control.
+
+### D107 UPDATE 3 (pass 228). FIXED on the branch, release-gated. The zero-participation step goes from 1.1025e-03 to 2.0086e-08 against upstream's own optimizer, and the arm without such a step is bit-identical before and after.
+
+`of3t-optsem` returned GO at **`cf83561d9`**, one commit touching exactly one file,
+`tt_bio/train/optim.py` — verified from git, not from its prose.
+
+**It answered the question that decides the row, and the answer is three numbers, not one.**
+The group is the confidence head and only the confidence head, the set
+`_get_sample_disabled_param_names` returns (`runner.py:363-385`) on a sample whose four confidence
+loss weights sum to zero. Parsed out of upstream's own files by `perf/of3t_optsem/fires.py`:
+
+    dataset                      sampling weight   sum of 4 confidence weights
+    weighted-pdb                 0.500             4.0e-04    head ENABLED
+    long-monomer-distillation    0.495             0.0        disabled
+    short-monomer-distillation   0.005             0.0        disabled
+    disordered-pdb               0.020             0.0        disabled
+    RNA-monomer-distillation     0.050             0.0        disabled
+
+Weights sum to 1.07, so p(a sample disables the head) = 0.57/1.07 = **0.5327103**, and the
+probability that a whole optimizer step is zero-participation collapses with the global batch:
+
+    global batch    1        2        4        8        16         32          256
+    p            0.5327   0.2838   0.0805   0.00649   4.21e-05   1.77e-09   9.59e-71
+
+**So at upstream's shipped 256-rank configuration it effectively never fires**, and in our
+`train_loop` as wired today it fires on **100 %** of steps and diverges by **exactly 0.0**. A
+refusal would have been defensible on either reading alone.
+
+**It was landed anyway, for two reasons I accept.** The fix is **provably free** — the arm with no
+zero-participation step is bit-identical over all 20 steps before and after, so nothing that runs
+today changes. And the configuration where it fires on **53.3 %** of steps (one rank, global_batch
+1, per-dataset loss weights routed per sample) is one wiring change away, with
+`of3_loss_weights(stage, dataset)` already written for that routing. Leaving a permanent 1.1e-03
+trajectory divergence behind a one-line wiring change is the more expensive option.
+
+**The durable lesson, and it is better than the fix.** *A skipped update and a zero-gradient update
+differ only when the moments are non-zero.* Adam's update on a zero gradient is `0/(sqrt(0)+eps)`,
+so "upstream steps it and we do not" has no consequence until the parameter has already trained.
+**Pricing such a defect by counting how often the skip happens gets the wrong answer in both
+directions**: our stack hits the skip on 100 % of steps and diverges by exactly 0.0, while upstream
+hits it on 9.59e-71 of steps and every hit is permanent.
+
+Release-gated; the merge gate is Moritz's. `TT_BIO_SOFTMAX_BW_RENORM` untouched.
+
+### D127 UPDATE 3 (pass 228). LARGELY FIXED: 2.8431 % now reaches the optimizer, the port goes 95.1286 % → 97.9717 %, and the bound I filed was wrong in BOTH directions.
+
+`of3t-hostops` returned GO. Verified from git: four commits, of which exactly one touches shipped
+code — `0802a53f0`, `tt_bio/openfold3_confidence.py`, *"hand the confidence heads to the tape"* — and
+it is already in the published composition, where `compose_verify.sh`'s
+`assert_confidence_forward_signature.py` still passes.
+
+**The measured reach, from `SHARE_fix.json` against `SHARE_base.json`:**
+
+    walked device tensors     3932  ->  3948
+    fully covered names       2678  ->  2693
+    sq_norm_fully_covered    9.7789 -> 10.0711   of 10.279642678524985
+    pct_fully_covered      95.1286 %-> 97.9717 %      uncovered 0.5008 -> 0.2085
+
+Inference byte-identical; the gradient is verified to **land on the leaf the shipped walk
+registers** (`land.py`, `LAND.json`) and to agree at **2.2678e-03** against upstream's float64.
+
+**The bound was wrong in both directions, which is worse than wrong in one.** I filed *"3.6438 %
+over two host scopes"*. It is **4.4524 % absent from the walk**, of which **2.8431 % was never a
+host op at all** — a weight the discovery walk could not see — and the genuine host share is
+**1.5202 %**, sitting entirely on matmuls. So the number was too small *and* its attribution was
+wrong, and pass 228's decomposition had already caught the second half.
+
+**My diffusion-transformer control is confirmed and given a mechanism.** **0.3100 %** is on the card
+inside a **fused** weight no single reference name can match: `fused.py` rebuilds 105 fusion groups
+additively — e.g. `diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha
+.linear_{q,k,v}.weight` → `sampler.dm.dit.blocks.8.qkv_w`, agreeing to **2.9e-06** on L1 — with two
+component tolerances (1e-4 on the sums, 4e-3 on the absmax, because the device fingerprints keep an
+fp32 absmax against a bf16-cast reference) whose operating point was picked by a **negative control,
+not by taste**: a SHUFFLE rebuilding the same families from members in different blocks matches
+**0 of 200**.
+
+**What is left, costed rather than asserted**: the atom-encoder legs at **1.5202 %**, needing no new
+backward and no gather, which would take reach to about **99.49 %**; then **0.3100 %** fused,
+**0.1091 %** the covering cannot resolve, and **0.0886 %** spread thinly across three stacks.
+
+**The transferable lesson, and it is the reason this defect took three filings to state correctly:**
+*a weight can be computed on the device and still be invisible to training, because the parameter
+set comes from a walk and the walk runs the **inference** forward.* Any module that materialises
+weights lazily inside a forward the walk does not take has the same hole, **and the symptom is
+indistinguishable from the weight being host-side** — which is exactly the mistake I made.
+
+Release-gated; nothing merged.

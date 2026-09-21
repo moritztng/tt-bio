@@ -98,8 +98,6 @@ TABLE = {
                   "gradient component, which the entry itself calls a port gap."),
     "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
                   "measured on two independent modules -- and the tape is shipped training code."),
-    "D107": (USER, "A parameter disabled on every sample of a step: upstream still steps it from "
-                   "decaying momentum and tt_bio's AdamW skips it -- a real update divergence."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D21": (CAMP, "Instrument A's first device reading was an instrument defect; replaced by a "
@@ -168,9 +166,6 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
-    "D127": (USER, "3.6438 % of the squared gradient norm is not device-resident at all -- "
-                   "aux_heads output projections (2.8431 %) and the input_embedder atom encoder "
-                   "(0.8007 %, host torch at openfold3_host_prep.py:222). No tape reaches it."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
