@@ -612,6 +612,14 @@ echo "--- PROTOCOL rests on no closed defect"
 "$PY" "$HERE/assert_protocol_defect_refs.py" || \
   { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
 
+# (3i) D148/A30. A summary of what the campaign still owes is composed from the state at the TOP
+# of a pass, and rows report inside it -- DIRECTIVE-STATUS's "honest shape of what is left, at pass
+# 199" was already wrong that same pass and stayed on the page for seventy more. The stamp must be
+# present AND within ten passes; presence alone would have passed all seventy.
+echo "--- summary paragraphs are stamped and fresh"
+"$PY" "$HERE/assert_summary_stamped.py" || \
+  { echo "COMPOSE: a 'what is left' summary is unstamped or more than ten passes stale -- see A30"; exit 1; }
+
 echo "--- capture provenance records unexpected_keys"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
   { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
