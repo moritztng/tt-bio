@@ -76,6 +76,7 @@ def declare_all(trunk, sampler, out):
     the optimizer would step it twice.
     """
     from tt_bio import autograd as ag
+    from tt_bio.train.lora import Parameters
     found = {}
     stats = {}
     for label, root, pre in (("trunk", trunk, "trunk."),
@@ -84,14 +85,30 @@ def declare_all(trunk, sampler, out):
         stats[label] = {"found": len(f), "walk_depth": st["max_depth"],
                         "truncated": st["truncated"]}
         found.update(f)
-    by_id, params = {}, {}
-    for n, (_o, _k, t) in sorted(found.items()):
+    # The SLOTS come with the walk: walk_weights already returns the owner object and the
+    # attribute key it found each tensor under, which is exactly what _Params.rebind needs.
+    # Building a plain dict instead is what made this harness rep 1 train nothing. AdamW.step
+    # replaces t.value, and the engine value setter re-keys the TAPE registry for it
+    # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
+    # it back closes that half.
+    by_id, flat, slots, unwritable = {}, {}, {}, []
+    for n, (o, k, t) in sorted(found.items()):
         if id(t) in by_id:
             continue
         by_id[id(t)] = n
-        params[n] = ag.parameter(t)
+        flat[n] = ag.parameter(t)
+        if isinstance(o, tuple):
+            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
+            # weight back to. Counted here rather than raised mid-arm, because a timing run
+            # that dies ten minutes into its backward tells you nothing about the timing.
+            unwritable.append(n)
+            continue
+        slots[n] = (o, k)
+    params = Parameters(flat, slots=slots)
     out["params"] = {
         "declared": len(params),
+        "slots": len(params.slots),
+        "slots_unwritable": len(unwritable),
         "elements": sum(S._numel(t.value) for t in params.values()),
         "per_root": stats,
         "duplicate_handles_dropped": len(found) - len(params),
@@ -304,6 +321,12 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--renorm-per-rep", default="",
+                    help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
+                         "THIS process. The lever is a module global read inside the "
+                         "backward closure, so an ON rep and an OFF rep can share one warm "
+                         "process and one set of weights, which is the only way to price it "
+                         "against a run-to-run spread this large")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -353,10 +376,16 @@ def main() -> int:
             # apart. Sampled again after the reps so the delta is the work's, not the import's.
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
+            plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            out["renorm"]["per_rep_plan"] = plan or None
             reps = []
             for rep in range(a.reps):
                 rng = np.random.default_rng(SEED + rep)
                 row = {"rep": rep, "cold": rep == 0}
+                if plan:
+                    ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
+                row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
+                rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
                 for t in params.values():
                     t.grad = None
                 ttnn.synchronize_device(dev)
@@ -430,6 +459,23 @@ def main() -> int:
                 if opt is not None and got:
                     t0 = time.perf_counter()
                     upd = opt.step()
+                    # Put the optimizer new weights back where the walk found them, which
+                    # is the line tt_bio/train/recipes.py:185 runs after its own opt.step().
+                    # Without it the next forward reads the pre-step handle and tapes
+                    # nothing. moved is published per rep so that is visible rather than
+                    # inferred from whether the reach counter happened to hold up.
+                    row["rebind_moved"] = params.rebind()
+                    # Does the MODEL now hold handles the tape knows as leaves? Both halves
+                    # have to hold: the value setter re-keys _PARAMS (autograd.py:248) and
+                    # rebind writes the new handle into the slot the walk found. Read here,
+                    # one rep before the next backward, so a dead rep shows up at ten
+                    # minutes instead of at twenty.
+                    live = 0
+                    for _n, (_o, _k) in params.slots.items():
+                        cur = _o[_k] if isinstance(_o, (dict, list)) else getattr(_o, _k)
+                        if ag._PARAMS.get(id(cur)) is params[_n]:
+                            live += 1
+                    row["leaves_live_after_rebind"] = f"{live} of {len(params.slots)}"
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
@@ -446,6 +492,10 @@ def main() -> int:
                 if a.no_tape:
                     row["step_s_UNTAPED"] = row.pop("step_s")
                     row["step_s"] = None
+                row["renorm_applied"] = (ag.SOFTMAX_BW_RENORM_STATS["applied"]
+                                         - rs0["applied"])
+                row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
+                                          - rs0["declined"])
                 reps.append(row)
                 out["reps"] = reps
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
@@ -454,7 +504,10 @@ def main() -> int:
                       f"backward {row['backward_s']:.2f}s  "
                       f"optimizer {row['optimizer_s']:.2f}s  = "
                       f"{(row['step_s'] or row.get('step_s_UNTAPED')):.2f}s "
-                      f"({row['params_with_grad']} weights, {row['tape_nodes']} nodes)",
+                      f"({row['params_with_grad']} weights, {row['tape_nodes']} nodes, "
+                      f"renorm {'ON' if row['renorm_flag'] else 'OFF'} "
+                      f"{row['renorm_applied']}a/{row['renorm_declined']}d, "
+                      f"leaves {row.get('leaves_live_after_rebind')})",
                       flush=True)
                 dump()
 
