@@ -6,10 +6,18 @@ float64 softmax of the same values the op's own default reads 2.029e-02, `precis
 trains in IEEE fp32 on GPU, so a host round trip is not overshooting them, it is the only route to
 what they already do. It costs a round trip per softmax and it is a training-path lever.
 
-Three properties to hold. Nothing ships it on. Every site that owns a replaceable `ttnn.softmax`
-has one, so the path cannot silently miss a site the precise lever already reaches. And with the
-site off, `site_softmax` is `ttnn.softmax` and nothing else, which is what makes a fold with the
-path present byte-identical to one without it.
+Four properties to hold. Nothing ships it on. Every site that owns a replaceable `ttnn.softmax`
+has one, so the path cannot silently miss a site the precise lever already reaches. With the site
+off, `site_softmax` is `ttnn.softmax` and nothing else, which is what makes a fold with the path
+present byte-identical to one without it.
+
+And the site being on is not enough. `TT_BIO_HOST_F64_SOFTMAX_AB` is an environment variable and
+these call sites are shared with every model's inference, so the selector alone left a
+training-only lever one `export` away from a user's fold, which is the second time a global flag
+has been the mechanism of a shared-path regression. The implementation lives in `tt_bio.autograd`
+and `site_softmax` reaches it through the hook `autograd.install` fills, so with no tape open
+there is no function to reach. Pinned in both directions below: with a tape the host path runs,
+without one it does not, and the entry point itself refuses rather than folding slower in silence.
 """
 import ast
 import pathlib
@@ -119,35 +127,135 @@ def test_site_softmax_off_is_ttnn_softmax_and_nothing_else(monkeypatch):
                                       "compute_kernel_config": "CKC"}}
 
 
-def test_site_softmax_on_does_not_reach_ttnn_softmax(monkeypatch):
+def _fake_tape(monkeypatch, fn):
+    """Fill the hook slot `autograd.install` fills, without importing the tape."""
+    import tt_bio.ops as ops
+    monkeypatch.setattr(ops, "host_softmax_hook", lambda: fn)
+
+
+def test_site_softmax_on_under_a_tape_does_not_reach_ttnn_softmax(monkeypatch):
     import tt_bio.tenstorrent as T
 
     def fake(*a, **k):
         raise AssertionError("ttnn.softmax ran with the host float64 path selected")
 
     monkeypatch.setattr(T.ttnn, "softmax", fake)
-    monkeypatch.setattr(T, "host_f64_softmax", lambda x, dim=-1: ("HOST", x, dim))
+    _fake_tape(monkeypatch, lambda x, dim=-1: ("HOST", x, dim))
     assert T.site_softmax("SC", dim=-1, compute_kernel_config="CKC",
                           host_f64=True) == ("HOST", "SC", -1)
 
 
-def test_the_census_counts_both_answers(monkeypatch):
+def test_site_softmax_on_without_a_tape_is_still_ttnn_softmax(monkeypatch):
+    """The safety property. A person can set `TT_BIO_HOST_F64_SOFTMAX_AB` and these sites are
+    every model's inference, so the selector firing with no tape open must leave the call
+    exactly what it was: `ttnn.softmax`, the caller's own arguments, nothing dropped."""
+    import tt_bio.tenstorrent as T
+
+    seen = {}
+
+    def fake(x, **kw):
+        seen["x"], seen["kw"] = x, kw
+        return "OUT"
+
+    monkeypatch.setattr(T.ttnn, "softmax", fake)
+    before = dict(T.HOST_F64_SOFTMAX_STATS)
+    out = T.site_softmax("SC", dim=-1, numeric_stable=True, compute_kernel_config="CKC",
+                         host_f64=True)
+    assert out == "OUT"
+    assert seen == {"x": "SC", "kw": {"dim": -1, "numeric_stable": True,
+                                      "compute_kernel_config": "CKC"}}
+    assert T.HOST_F64_SOFTMAX_STATS["refused"] == before["refused"] + 1
+    assert T.HOST_F64_SOFTMAX_STATS["served"] == before["served"]
+
+
+def test_the_hook_slot_is_empty_until_a_tape_installs_it():
+    """`site_softmax` gates on `ops.host_softmax_hook()`, and an inference process never fills
+    it. Reading it must not import the tape either, or the gate would drag in what it exists to
+    keep out."""
+    import subprocess
+    import sys
+
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import sys, tt_bio.ops as ops; "
+         "print(ops.host_softmax_hook(), 'tt_bio.autograd' in sys.modules)"],
+        capture_output=True, text=True, cwd=str(ROOT))
+    if out.returncode != 0:
+        pytest.skip("importing tt_bio.ops needs ttnn")
+    assert out.stdout.strip() == "None False", out.stdout.strip()
+
+
+def test_the_host_path_refuses_an_inference_tensor():
+    """The entry point states the rule once more for a caller that found it some other way. It
+    costs a host round trip per softmax and returns different numbers, so reaching it without a
+    tape is a mistake in either direction and it says so."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    assert not ag.installed(), "a tape was left installed by an earlier test"
+    with pytest.raises(RuntimeError, match="needs an open tape"):
+        ag.host_f64_softmax(object(), -1)
+
+
+def test_install_fills_the_slot_and_uninstall_empties_it():
+    """The other direction, so the gate cannot be satisfied by a hook nobody ever installs."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+
+    assert ops.host_softmax_hook() is None
+    prev = ag.install()
+    try:
+        assert ops.host_softmax_hook() is ag.host_f64_softmax
+    finally:
+        ag.uninstall()
+        ops.set_grad_hook(prev)
+    assert ops.host_softmax_hook() is None
+
+
+def test_the_census_counts_all_three_answers(monkeypatch):
     """A lever that fires and is inert is the failure mode this campaign keeps meeting, so the
-    path publishes served and declined rather than leaving either invisible."""
+    path publishes every answer rather than leaving any of them invisible. `refused` is the one
+    that matters most: it is how "the flag was set and the tape was not open" reads as a number
+    instead of as a fold that quietly did the ordinary thing."""
     import tt_bio.tenstorrent as T
 
     monkeypatch.setattr(T.ttnn, "softmax", lambda x, **kw: "OUT")
-    monkeypatch.setattr(T, "host_f64_softmax", lambda x, dim=-1: "HOST")
     before = dict(T.HOST_F64_SOFTMAX_STATS)
     T.site_softmax("SC", host_f64=False)
     T.site_softmax("SC", host_f64=True)
+    _fake_tape(monkeypatch, lambda x, dim=-1: "HOST")
+    assert T.site_softmax("SC", host_f64=True) == "HOST"
     assert T.HOST_F64_SOFTMAX_STATS["declined"] == before["declined"] + 1
+    assert T.HOST_F64_SOFTMAX_STATS["refused"] == before["refused"] + 1
+
+
+def test_a_backward_recompute_still_takes_the_host_path():
+    """The gate must not be tighter than the forward it protects.
+
+    `tape()` restores the grad hook on the way out, and a checkpointed segment recomputes its
+    forward from inside `backward`, which runs after the block has closed. `recompute_scope`
+    puts the hook back for exactly that reason. If the gate said no there, the recomputed
+    forward would run a different softmax from the taped one and the gradient would be taken
+    on values the forward never produced.
+    """
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+    from tt_bio.taped_ttnn import recompute_scope
+
+    prev = ag.install()
+    try:
+        ops.set_grad_hook(prev)                  # what `tape()` does on the way out
+        assert ops.host_softmax_hook() is None, "the slot alone must not open the path"
+        with recompute_scope():
+            assert ops.host_softmax_hook() is ag.host_f64_softmax
+        assert ops.host_softmax_hook() is None
+    finally:
+        ag.uninstall()
+        ops.set_grad_hook(prev)
 
 
 def test_the_backward_reads_the_float64_forward_not_the_device_copy():
     """The whole point of the path. Taking the Jacobian on the rounded output that went back to
     the card would put a device-precision softmax straight back into the gradient."""
-    src = (ROOT / "tt_bio/tenstorrent.py").read_text()
+    src = (ROOT / "tt_bio/autograd.py").read_text()
     fn = next(n for n in ast.walk(ast.parse(src))
               if isinstance(n, ast.FunctionDef) and n.name == "host_f64_softmax")
     bw = next(n for n in ast.walk(fn) if isinstance(n, ast.FunctionDef) and n.name == "bw")

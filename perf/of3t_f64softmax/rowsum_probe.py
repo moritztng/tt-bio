@@ -38,7 +38,8 @@ def main():
 
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
-    from tt_bio.tenstorrent import get_device, host_f64_softmax
+    from tt_bio.autograd import host_f64_softmax_values
+    from tt_bio.tenstorrent import get_device
     dev = get_device()
 
     torch.manual_seed(0)
@@ -47,7 +48,7 @@ def main():
     x = ttnn.from_torch(host, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 
     y_dev = ttnn.to_torch(ttnn.softmax(x, dim=-1)).double()
-    y_hst = ttnn.to_torch(host_f64_softmax(x, -1)).double()
+    y_hst = ttnn.to_torch(host_f64_softmax_values(x, -1)[1]).double()
     y_f64 = torch.softmax(host.double(), dim=-1)
     gd = g.double()
 

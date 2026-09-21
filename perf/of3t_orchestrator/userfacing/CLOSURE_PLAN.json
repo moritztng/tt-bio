@@ -1,0 +1,118 @@
+{
+ "by_need": {
+  "CARD": [
+   "D30",
+   "D32",
+   "D55",
+   "D58",
+   "D129"
+  ],
+  "DECISION": [
+   "D1",
+   "D10",
+   "D24"
+  ],
+  "RELEASE": [
+   "D56"
+  ]
+ },
+ "plan": {
+  "D1": {
+   "asked": "pin 9629 (2026-09-21), with a stated default: hold",
+   "closes_when": "Moritz decides whether to ship the written repair and accept the measured 0.149 A regression at rank 0, or to declare the deviation intentional and close it with that measurement as the reason",
+   "evidence_held": "the coefficient sweep fits c = 1/sqrt(24) at 6.9e-03 to 1.7e-02 on all four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written and measured; D10, its original blocker, is resolved",
+   "needs": "DECISION",
+   "one_line": "the trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value",
+   "would_a_row_help": false
+  },
+  "D10": {
+   "asked": "pin 9629, together with D24; pin 9597 answers its framing",
+   "closes_when": "Moritz decides whether to ship one consistent ranking rule on CONSISTENCY grounds. No accuracy argument is available: of3t-rankunify withdrew it",
+   "evidence_held": "+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds the WRONG way, every difference inside its seed floor, p = 0.146",
+   "needs": "DECISION",
+   "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
+   "would_a_row_help": false
+  },
+  "D129": {
+   "closes_when": "of3t-ditcot names the op carrying the flat 2.28x cotangent excess and it is repaired or shown to be a floor. Separately, the 0.4.3 ratio needs OUR arm at the 0.4.3 capture, which no artifact holds and which needs a lease",
+   "evidence_held": "isolation 1.5217e-03 (456x under the reading), input exact to 1.98e-08, substitution reproduces the reference gradient at 8.877e-09; the 0.4.3 bar is 2.2530588761e-01, 0.73 % from the 0.5.0 one",
+   "needs": "CARD",
+   "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",
+   "row": "of3t-ditcot",
+   "shares_object_with": [
+    "D30",
+    "D58"
+   ],
+   "would_a_row_help": true
+  },
+  "D24": {
+   "asked": "pin 9629, together with D10",
+   "closes_when": "the same decision as D10, followed by a merge",
+   "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
+   "needs": "DECISION",
+   "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
+   "would_a_row_help": false
+  },
+  "D30": {
+   "closes_when": "the cause of the backward-over-forward amplification is located. D58 already moved this from a diffusion-module property to a property of the tape, and of3t-ditcot is measuring the same object one level down",
+   "evidence_held": "forward median 8.34e-03, gradient median 1.6588e-01, ratio 19.6x over 48 structures against the rebuilt 0.4.3 reference",
+   "needs": "CARD",
+   "one_line": "the diffusion module's backward costs 19.6x the forward it is taken at",
+   "row": "of3t-ditcot",
+   "shares_object_with": [
+    "D58",
+    "D129"
+   ],
+   "would_a_row_help": true
+  },
+  "D32": {
+   "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
+   "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384",
+   "needs": "CARD",
+   "one_line": "21 sites in 9 shipped modules route differently while a tape is open, so no training throughput can be projected from inference",
+   "row": null,
+   "would_a_row_help": true
+  },
+  "D55": {
+   "closes_when": "all four are pulled together with a LoFi break control. Six of the ten are already measured inert with reach proven, so this is one arm, not a study",
+   "evidence_held": "the pass-237 AST census, keyed by symbol; dn_mean x4 inert at 2736/2736 with the break control moving 2733; softmax:inner x2 inert",
+   "needs": "CARD",
+   "one_line": "four of the tape's ten reductions still lack the precise kernel config, two of them inside the LayerNorm cancellation the rule's own comment is about",
+   "row": "of3t-ditcot",
+   "would_a_row_help": true
+  },
+  "D56": {
+   "asked": "pin 9629, with a stated default: stays gated",
+   "closes_when": "TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is that the SHIPPED configuration is still the unrepaired one",
+   "evidence_held": "matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms",
+   "needs": "RELEASE",
+   "one_line": "a diffusion-scope concentration that the softmax-backward repair collapses 333x",
+   "what_it_costs": "read from taped_ttnn.py at pass 259, because the ask should not have gone out without it. The lever adds EXACTLY TWO OPS inside the softmax backward rule -- one `ttnn.sum(y, dim, keepdim=True, compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the shapes the existing `inner` reduction already uses. It lives in `bw`, so it runs ONLY under the tape: an inference fold cannot execute it and the inference cost is zero STRUCTURALLY, not by measurement. The training cost is unmeasured, and there is no baseline to measure it against -- that is D32, `no training throughput can be projected`. So the decision does not wait on a number: nothing it could cost is currently knowable, and nothing it could cost reaches a user's fold.",
+   "would_a_row_help": false
+  },
+  "D58": {
+   "closes_when": "the same locating measurement as D30. Two independent sightings make it a property to explain rather than a coincidence to chase",
+   "evidence_held": "diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- different ops, different track, same factor to two significant figures",
+   "needs": "CARD",
+   "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
+   "row": "of3t-ditcot",
+   "shares_object_with": [
+    "D30",
+    "D129"
+   ],
+   "would_a_row_help": true
+  }
+ },
+ "user_facing": [
+  "D1",
+  "D10",
+  "D24",
+  "D30",
+  "D32",
+  "D55",
+  "D56",
+  "D58",
+  "D129"
+ ],
+ "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
+}

@@ -1,0 +1,140 @@
+{
+  "upstream": {
+    "openfold3": "/home/ttuser/of3t_gradients/of3pkg/openfold3",
+    "collator": {
+      "file": "/home/ttuser/of3t_gradients/of3pkg/openfold3/core/data/framework/data_module.py",
+      "lines": "716-752",
+      "sha256": "f4c0c1ac73b35e6b"
+    },
+    "reshape_per_sample_inputs": "/home/ttuser/of3t_gradients/of3pkg/openfold3/core/utils/permutation_alignment.py:1675",
+    "torch": "2.8.0+cpu"
+  },
+  "contract": {
+    "value_type": "list",
+    "len": 2,
+    "batch_size": 2,
+    "entry_type": "dict",
+    "entry_keys": [
+      0,
+      1,
+      2
+    ],
+    "entry_key_type": "int",
+    "perm_shapes": {
+      "0": [
+        1,
+        4
+      ],
+      "1": [
+        2,
+        4
+      ],
+      "2": [
+        3,
+        4
+      ]
+    },
+    "ref_space_uid_shape": [
+      2,
+      12
+    ]
+  },
+  "arms": [
+    {
+      "arm": "P_upstream_collate",
+      "what": "upstream collator, consumed once",
+      "contract_check": "pass",
+      "outcome": "COMPLETED",
+      "error": null
+    },
+    {
+      "arm": "A_pop_then_second_forward",
+      "what": "model.py:674-676 sample-dim expansion, two forwards over one caller dict",
+      "contract_check": "FLAGGED: ref_space_uid_to_perm is missing from a batch that requires it",
+      "outcome": "FELL BACK",
+      "error": "KeyError: 'ref_space_uid_to_perm'",
+      "traceback_tail": [
+        "    mapping = batch[PERM_KEY][i]",
+        "              ~~~~~^^^^^^^^^^",
+        "KeyError: 'ref_space_uid_to_perm'"
+      ]
+    },
+    {
+      "arm": "A2_reshape_per_sample_inputs_twice",
+      "what": "openfold3's own reshape_per_sample_inputs called twice on one batch",
+      "contract_check": "FLAGGED: ref_space_uid_to_perm is missing from a batch that requires it",
+      "outcome": "FELL BACK",
+      "error": "KeyError: 'ref_space_uid_to_perm'",
+      "traceback_tail": [
+        "    mapping = batch[PERM_KEY][i]",
+        "              ~~~~~^^^^^^^^^^",
+        "KeyError: 'ref_space_uid_to_perm'"
+      ]
+    },
+    {
+      "arm": "B_collate_recursed",
+      "what": "collate with the special case removed, so dict_multimap recurses",
+      "contract_check": "FLAGGED: ref_space_uid_to_perm must be a list of 2 per-sample mappings, got dict -- a tree map descended into it",
+      "outcome": "FELL BACK",
+      "error": "IndexError: index 2 is out of bounds for dimension 0 with size 2",
+      "traceback_tail": [
+        "    perms = mapping[uid.item()]",
+        "            ~~~~~~~^^^^^^^^^^^^",
+        "IndexError: index 2 is out of bounds for dimension 0 with size 2"
+      ]
+    },
+    {
+      "arm": "FIX_A_map_batch_tensors_twice",
+      "what": "tt_bio.openfold3_batch.map_batch_tensors applied twice to one dict",
+      "contract_check": "pass",
+      "outcome": "COMPLETED",
+      "error": null
+    },
+    {
+      "arm": "FIX_A2_fresh_mapped_dict_per_forward",
+      "what": "map_batch_tensors before each reshape_per_sample_inputs, twice",
+      "contract_check": "pass",
+      "outcome": "COMPLETED",
+      "error": null
+    },
+    {
+      "arm": "FIX_B_collate_list_axis",
+      "what": "tt_bio.openfold3_batch.collate_list_axis then the generic stacking collate",
+      "contract_check": "pass",
+      "outcome": "COMPLETED",
+      "error": null
+    }
+  ],
+  "equivalence": {
+    "keys_match": true,
+    "bit_exact": true,
+    "shapes": {
+      "atom_positions": [
+        2,
+        1,
+        12,
+        3
+      ],
+      "ref_space_uid": [
+        2,
+        1,
+        12
+      ],
+      "residue_index": [
+        2,
+        1,
+        6
+      ]
+    }
+  },
+  "guards": {
+    "workaround_copies_outside_owner": [],
+    "inference_disables_the_feature": true
+  },
+  "check_control": {
+    "check_on_valid_batch": "pass",
+    "check_on_dropped_key": "FLAGGED: ref_space_uid_to_perm is missing from a batch that requires it",
+    "check_on_recursed": "FLAGGED: ref_space_uid_to_perm must be a list of 2 per-sample mappings, got dict -- a tree map descended into it",
+    "check_ignores_absent_key_when_not_required": "pass"
+  }
+}
