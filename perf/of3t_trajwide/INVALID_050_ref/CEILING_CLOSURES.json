@@ -1,0 +1,94 @@
+{
+ "points": [
+  {
+   "n_token": 128,
+   "blocks_per_ckpt": null,
+   "forward_s": 1.4176604747772217,
+   "backward_s": 2.82539701461792,
+   "one_fwd_bwd_s": 4.243057489395142,
+   "rss_before_build_gb": 0.73012,
+   "rss_after_build_gb": 0.875684,
+   "peak_rss_gb": 2.512272,
+   "activation_gb_above_build": 1.6365879999999997
+  },
+  {
+   "n_token": 256,
+   "blocks_per_ckpt": null,
+   "forward_s": 7.0491344928741455,
+   "backward_s": 16.490782260894775,
+   "one_fwd_bwd_s": 23.53991675376892,
+   "rss_before_build_gb": 0.730508,
+   "rss_after_build_gb": 0.876124,
+   "peak_rss_gb": 6.584904,
+   "activation_gb_above_build": 5.70878
+  },
+  {
+   "n_token": 384,
+   "blocks_per_ckpt": null,
+   "forward_s": 17.407926321029663,
+   "backward_s": 41.512107133865356,
+   "one_fwd_bwd_s": 58.92003345489502,
+   "rss_before_build_gb": 0.731272,
+   "rss_after_build_gb": 0.876688,
+   "peak_rss_gb": 14.9132,
+   "activation_gb_above_build": 14.036512
+  },
+  {
+   "n_token": 384,
+   "blocks_per_ckpt": 1,
+   "forward_s": 17.585987329483032,
+   "backward_s": 56.19585990905762,
+   "one_fwd_bwd_s": 73.78184723854065,
+   "rss_before_build_gb": 0.731068,
+   "rss_after_build_gb": 0.87652,
+   "peak_rss_gb": 14.949948,
+   "activation_gb_above_build": 14.073428
+  }
+ ],
+ "n_blocks_full": 48,
+ "activation_scaling_exponent_in_n_token": [
+  {
+   "against_n": 128,
+   "exponent": 1.9561481061530535
+  },
+  {
+   "against_n": 256,
+   "exponent": 2.2188261729551813
+  }
+ ],
+ "closures": {
+  "chunked_float64_reference": {
+   "how": "blocks_per_ckpt = 1, upstream's own activation checkpointing, so one block's activations live at a time and the backward recomputes each block's forward",
+   "measured_one_block_peak_gb": 14.949948,
+   "measured_one_block_fwd_bwd_s": 73.78184723854065,
+   "time_penalty_vs_unchunked": 1.252237022150077,
+   "projected_stack_high_water_gb": 14.950116,
+   "projected_20_step_h": 78.70063705444336
+  },
+  "smaller_crop": {
+   "how": "the same block at fewer tokens; the exponent above says what a crop buys",
+   "points": [
+    {
+     "n_token": 128,
+     "activation_gb": 1.6365879999999997,
+     "fwd_bwd_s": 4.243057489395142
+    },
+    {
+     "n_token": 256,
+     "activation_gb": 5.70878,
+     "fwd_bwd_s": 23.53991675376892
+    },
+    {
+     "n_token": 384,
+     "activation_gb": 14.036512,
+     "fwd_bwd_s": 58.92003345489502
+    }
+   ]
+  },
+  "bigger_host": {
+   "how": "no code change; the projection is the requirement",
+   "projected_stack_high_water_gb": 674.6292639999999,
+   "this_host_gb": 249.0
+  }
+ }
+}

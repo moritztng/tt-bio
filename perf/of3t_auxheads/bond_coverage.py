@@ -52,23 +52,42 @@ def collate1(x, ref=None):
         return x.unsqueeze(0) if x.dim() + 1 == ref.dim() else x
     if isinstance(x, dict):
         r = ref if isinstance(ref, dict) else {}
-        return {k: collate1(v, r.get(k)) for k, v in x.items()}
-    # Same rule for the non-tensor features. `ref_space_uid_to_perm` is already a
-    # per-sample list in the emitted sample, so wrapping it again gives upstream a list of
-    # one list and its `[ref_space_uid.item()]` indexes a length-1 object with a uid.
+        # `ref_space_uid_to_perm` is a per-sample MAPPING {ref-space uid -> [n_perm, n_atom]}
+        # and its batch axis is a plain python list, not a tensor dimension: upstream's
+        # `expand_batch_to_per_sample` does `ref_space_uid_to_perm[i]` over the batch
+        # (permutation_alignment.py:1693-1702). Recursing into it instead unsqueezes every
+        # permutation tensor and hands `single_batch["ref_space_uid_to_perm"]` the entry for
+        # uid 0 rather than the mapping, so the first uid above 0 raises IndexError, upstream
+        # catches it and silently falls back to NAIVE alignment. Found on 4G5J, whose crop has
+        # 199 ref spaces; a crop with one would never have shown it.
+        return {k: ([v] if k == "ref_space_uid_to_perm" else collate1(v, r.get(k)))
+                for k, v in x.items()}
+    # Same rule for the non-tensor features.
     if isinstance(ref, list) and isinstance(x, list):
         return x
     return [x]
 
 
 def snapshot(model):
-    return {n: (p.grad.detach().double().clone() if p.grad is not None else None)
+    """Clone the gradients at the parameter's own dtype, not at float64.
+
+    Two float64 snapshots of a 570 M-parameter model are 9.2 GB that carry no information the
+    float32 gradients did not already have; the comparison below upcasts per tensor, so the
+    accumulated sums are float64 either way. Measured on pc: with this and the checkpoint freed,
+    the crop-384 run peaks around 13 GB instead of being OOM-killed at 22 GB.
+    """
+    return {n: (p.grad.detach().clone() if p.grad is not None else None)
             for n, p in model.named_parameters()}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", required=True, type=Path)
+    ap.add_argument("--package", default="tt_bio._vendor.openfold3",
+                    help="package the dataset classes come from")
+    ap.add_argument("--cache-file", type=Path,
+                    help="subset cache to use instead of the seeded 8-structure sample; "
+                         "needed to reach a corpus built with build_of3_subset.py --ids")
     ap.add_argument("--checkpoint", required=True, type=Path)
     ap.add_argument("--stage", default="finetune_1")
     ap.add_argument("--crop", type=int, default=384,
@@ -87,16 +106,26 @@ def main() -> int:
     t0 = time.time()
 
     BD.seed_everything(a.seed)
-    ds = BD.build_dataset("tt_bio._vendor.openfold3", a.data_dir, 4,
-                          token_budget=a.crop, split="train", stage=a.stage)
+    ds = BD.build_dataset(a.package, a.data_dir, 4,
+                          token_budget=a.crop, split="train", stage=a.stage,
+                          cache_file=a.cache_file)
     guard = BD.install_retry_guard(ds)
+    dp = ds.datapoint_cache.iloc[a.index]
     sample = ds[a.index]
     if guard["retries"]:
         raise SystemExit(f"{guard['retries']} silent sample substitutions; this is not the "
                          f"target it claims to be")
     nnz = int((sample["token_bonds"] != 0).sum())
     w_bond = float(sample["loss_weights"]["bond"])
-    print(f"target {a.index}: token_bonds nnz {nnz} ({nnz // 2} pairs), "
+    # The term is polymer-ligand, so `token_bonds` alone does not say it can fire: the 8
+    # corpus targets all carry inter-token bonds and none carries a polymer-ligand one,
+    # which is why `bond_loss` read 0.0 on every one of them. Report the mask the loss
+    # actually sums over, computed with its own expression (diffusion.py:205-210).
+    is_polymer = sample["is_protein"] + sample["is_dna"] + sample["is_rna"]
+    mask_nnz = int((sample["token_bonds"]
+                    * (is_polymer[..., None, :] * sample["is_ligand"][..., None]) != 0).sum())
+    print(f"target {a.index} ({dp['pdb_id']} {dp['preferred_chain_or_interface']}): "
+          f"token_bonds nnz {nnz} ({nnz // 2} pairs), bond_mask nnz {mask_nnz}, "
           f"loss_weights.bond {w_bond}, crop {a.crop}", flush=True)
     if nnz == 0:
         raise SystemExit("this crop carries no inter-token bond; pick another index")
@@ -114,6 +143,8 @@ def main() -> int:
     inc = model.load_state_dict(sd, strict=False)
     if inc.unexpected_keys:
         raise SystemExit(f"KEY GATE FAILED: {len(inc.unexpected_keys)} unexpected tensors")
+    # The checkpoint and its recast copy are another 4.6 GB held for the whole run.
+    del ck, sd
 
     tmpl = torch.load(a.rank_template, weights_only=False) if a.rank_template else None
     batch = BM.move(collate1(sample, tmpl), "cpu", dtype)
@@ -151,6 +182,8 @@ def main() -> int:
         v0 = g0.get(n)
         if v4 is None:
             continue
+        v4 = v4.double()
+        v0 = None if v0 is None else v0.double()
         s4 = float((v4 ** 2).sum())
         d = v4 if v0 is None else v4 - v0
         sd_ = float((d ** 2).sum())
@@ -168,8 +201,11 @@ def main() -> int:
         "instrument": "PROTOCOL SS6: bond term fires, with its gradient contribution measured",
         "stage": a.stage, "dataset": "weighted-pdb", "crop": a.crop, "index": a.index,
         "dtype": a.dtype, "seed": a.seed,
-        "target": {"token_bonds_nnz": nnz, "token_bonds_pairs": nnz // 2,
-                   "loss_weight_bond": w_bond,
+        "package": a.package, "cache_file": str(a.cache_file) if a.cache_file else None,
+        "target": {"pdb_id": str(dp["pdb_id"]),
+                   "datapoint": str(dp["preferred_chain_or_interface"]),
+                   "token_bonds_nnz": nnz, "token_bonds_pairs": nnz // 2,
+                   "bond_mask_nnz": mask_nnz, "loss_weight_bond": w_bond,
                    "n_tokens_real": int(sample["token_mask"].sum())},
         "arms": {k: {kk: vv for kk, vv in v.items() if kk != "grads"} for k, v in arms.items()},
         "bond_gradient_contribution": {

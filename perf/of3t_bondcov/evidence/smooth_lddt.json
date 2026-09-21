@@ -1,0 +1,12 @@
+{
+ "term": "smooth_lddt",
+ "stage": "initial_training",
+ "dataset": "RNA-monomer-distillation",
+ "target": "5nw3",
+ "quantity": "norm of the gradient seeded into the model outputs",
+ "value": 0.015226004021220181,
+ "n_pairs_firing": 5,
+ "weight": 4.0,
+ "term_value": 0.39330048659953687,
+ "source": "coverage_census.json"
+}
