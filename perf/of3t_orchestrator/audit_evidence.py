@@ -897,6 +897,49 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+    # --- a defect whose headings NEVER declare a status is invisible to all of the above -------
+    # Pass 240. D87 was closed in a word the parser cannot READ. This is the other half: a defect
+    # whose headings carry NO status word at all. The parser's clause is deliberately conservative
+    # -- a status-free heading must not drop a live defect -- but a defect that has NEVER declared
+    # one simply never enters `_last`, so it is absent from `unfixed`, from UNFIXED_TRIAGE.json,
+    # from GAP's naming requirement, and therefore from GO condition 5 and the USER-FACING gate
+    # clause. D120 sat in that state for 29 passes while GAP's prose called it UNFIXED; so did
+    # D121, which GAP calls "UNFIXED as a standing rule". 29 of 132 defects were in it when this
+    # check was written.
+    #
+    # Failing on all 29 at once would abort every compose until someone triages them in a hurry,
+    # which is how a defect gets a status word chosen for convenience. So this is a RATCHET: the
+    # list is frozen in state/of3t/STATUSLESS_BACKLOG.json and the check fails on anything NOT in
+    # it, and equally on an entry that has since acquired a status. The list can only shrink.
+    _sl_p = Path("/home/moritz/.coworker/state/of3t/STATUSLESS_BACKLOG.json")
+    _seen_d, _has_d = set(), set()
+    for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
+        _seen_d.add(_m.group(1))
+        if _STATUS_RE.findall(_m.group(2)):
+            _has_d.add(_m.group(1))
+    _statusless = sorted(_seen_d - _has_d, key=lambda d: int(d[1:]))
+    if not _sl_p.is_file():
+        bad.append(f"state/of3t/STATUSLESS_BACKLOG.json is absent and {len(_statusless)} "
+                   f"defect(s) declare no status on any heading -- they are invisible to the "
+                   f"UNFIXED set and to every gate clause built on it")
+    else:
+        _frozen = set(json.loads(_sl_p.read_text()).get("defects", []))
+        _new = [d for d in _statusless if d not in _frozen]
+        _healed = sorted(_frozen - set(_statusless), key=lambda d: int(d[1:]))
+        if _new:
+            bad.append(f"defect(s) with NO status word on any heading and not in the frozen "
+                       f"backlog: {', '.join(_new)} -- they are invisible to `unfixed`, to "
+                       f"UNFIXED_TRIAGE.json and to GAP's naming requirement. Write a word from "
+                       f"the vocabulary on a heading, or add them to the backlog with a reason")
+        elif _healed:
+            bad.append(f"STATUSLESS_BACKLOG.json still lists {', '.join(_healed)}, which now "
+                       f"declare a status -- the ratchet only counts if it is tightened; drop "
+                       f"them from the file")
+        else:
+            ok.append(f"no defect declares a status only outside the vocabulary, and the "
+                      f"statusless backlog is exactly its frozen {len(_frozen)} "
+                      f"({len(_seen_d)} defects total)")
+
     # --- the TRIAGE SPLIT the summary quotes, against the file the GATE reads -------------------
     # Pass 237. The summary states "N scope-excluded, M USER-FACING, K campaign-internal" in the
     # field Moritz reads as the answer, and nothing checked it. It had drifted to 4/10/33 while
