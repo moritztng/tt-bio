@@ -8364,3 +8364,49 @@ weights lazily inside a forward the walk does not take has the same hole, **and 
 indistinguishable from the weight being host-side** — which is exactly the mistake I made.
 
 Release-gated; nothing merged.
+
+### D8 UPDATE 2 (pass 229). My own "the next row starts at block 46" is WRONG, caught before a card was spent on it: block 46 dominates the MASS and carries only 4.2786 % of the ERROR.
+
+Pass 222's re-statement ended *"the next row starts at block 46"*, because block 46 reads **2.8742x**
+upstream's own bf16 while holding **41.333 %** of the stack's reference mass. Reading
+`SCOPE_c64.json`'s `block_share_of_the_error_mass` before dispatching, that is the wrong target.
+
+    block_share_of_the_error_mass, RENORM arm, top of the list
+      block  0   15.6468 %
+      block 44   15.3753 %
+      block  4   13.2235 %
+      block 46    4.2786 %
+      block 47    3.7442 %
+
+**Blocks 0, 44 and 4 carry 44.2 % of the error mass between them; block 46 carries 4.3 %.**
+
+**Why block 46's ratio is bad anyway, which is the interesting part.** Its own upstream bf16 floor
+is **4.290723e-02**, against 1.778804e-01 at block 47, 3.177203e-01 at block 45 and 7.977211e-01 at
+block 44. **Upstream is roughly 7x more accurate at block 46 than at its neighbours**, and our
+1.233246e-01 there is in absolute terms *better* than our 3.135741e-01 at 47 or 7.480381e-01 at 44.
+So block 46 is not where our gradient is worst — it is where **upstream's is unusually good** and
+ours is ordinary. A ratio whose denominator moves 7x between adjacent blocks is a ratio whose
+denominator is the finding.
+
+**This is A23 and `worst-tensor-names-the-tail-not-the-locus` turned on my own re-statement.** I
+ranked by ratio-times-mass and called the heaviest block the locus; error mass is the statistic that
+answers "where is the error", and it says something different. The re-statement's substance stands —
+22 of 48 blocks outside A26 holding 66.67 % of the reference mass — but its closing instruction did
+not.
+
+**Where the error actually is, by leaf**, from the same artifact, over all 48 blocks:
+
+    leaf                                        share of error mass   mass    rel
+    attn_pair_bias.layer_norm_a.weight                  20.21 %      0.32 %   3.04
+    pair_stack.pair_transition.layer_norm.bias          14.13 %     18.78 %   0.332
+    attn_pair_bias.layer_norm_a.bias                    12.64 %      0.54 %   1.86
+    pair_stack.pair_transition.layer_norm.weight        12.64 %     51.89 %   0.189
+    single_transition.layer_norm.bias                    8.09 %      0.64 %   1.36
+
+**The top four leaves are 59.6 % of the error mass and all four are LayerNorm affine terms**, which
+is D120's *"its residual is a LayerNorm-gradient class"* measured rather than asserted. And
+`attn_pair_bias.layer_norm_a.weight` alone is **20.21 % of the error on 0.32 % of the mass** at rel
+**3.04** — the sharpest single target the trunk has.
+
+The next row on D8 starts at `attn_pair_bias.layer_norm_a.{weight,bias}` and at blocks 0, 44 and 4,
+not at block 46. Corrected before dispatch rather than after.
