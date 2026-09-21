@@ -681,25 +681,7 @@ fp32-softmax route at all. OpenDDE's refiner genuinely does produce fully-masked
 effectively every fold and they come out uniform. So the models are immune **by arithmetic**, not
 by the absence of field failures, which is what pass 190 had. The -60 floor is committed
 (`f84e232af`) and has never run; its **backward** is unmeasured and has its own hazard, `1/s**2`
-on a ~1.1e-24 sum being past fp32's range. **D113 (FIXED in code, UNEXECUTED — no card has run it; that is the whole of what is left)**: the
-compute kernel config never reached the chain from either `_fp32_softmax_tail` call site, and
-`softmax_accurate`'s 1.323x — one of the four arms the NO-GO rested on — was measured through
-that. Both repairs are release-gated on this branch; `of3t-nanfloor` owns executing them.
-
-**D91 and D99's owed arm are DELIVERED, and D90 is now fully resolved (pass 195).** D99 closed
-with "still owed: D91's arm, SHIPPED against a 0.4.3-built reference -- needs a card".
-`of3t-trunk043ref` ran it: 2 of 2 release trees built and run in full, 2736 of 2736 tensors loaded
-into each, whole-tree digests pinned before loading (`1b27f575` for 0.4.3 against `092fb575` for
-0.5.0, the latter byte-identical to the sdist), the digest routine given a break control first.
-Pair track **4.947045e-02** (passes), single track **1.065338e-01** (fails). `of3t-foldab` settled
-the orientation from upstream's own source and then measured it: 0.4.3 == 0.5.0-with-the-flag-off
-at **rel_l2 0.000000e+00**, with drawn weights because OpenFold zero-initialises `mha.linear_o` and
-a fresh layer makes every rel_l2 a 0/0 that cannot fail. **tt-bio ships the right orientation for
-`of3-p2-155k`; OpenBind gets 0.5.0's; each checkpoint gets its own release's convention.** The
-Angstrom the flip costs is 0.435 A on 1UBQ and 1.332 A on a shallow-MSA 117 aa target — both
-measuring what applying the WRONG release's convention costs, not damage the shipped path carries.
-
-**D114 (ROOT-CAUSED AND CLOSED as a precision defect, by `of3t-trunkcliff` — and my first draft
+on a ~1.1e-24 sum being past fp32's range. **D114 (ROOT-CAUSED AND CLOSED as a precision defect, by `of3t-trunkcliff` — and my first draft
 of this entry dispatched a duplicate row to re-find it, caught before it queued).** The trunk's
 single-track forward is a **9.22 % magnitude deficit made in blocks 45 to 47 of 48** — a cliff,
 not an accumulation, norm ratio falling 0.9920 → 0.9576 → 0.9113 → 0.9078 at cos 0.998430, so
@@ -797,6 +779,8 @@ record its own.
 `scale_pair_bias=False, tri_att_scale_pair_bias=False` assertion still holds, so the D77-class hazard of two rows editing `taped_ttnn.py` did not materialise.
 
 **D120 (UNFIXED as a hand-off, and it corrects D118 which is mine)**: `of3t-fp32islands` priced every fp32 island in upstream's bf16-mixed step against float64 and found our port **within 1.8x of upstream at 0.4.3 on every island** and **19,000-30,000x away at 0.5.0**, with nothing about our arithmetic different between those two sentences. 0.4.3 runs LayerNorm and the attention softmax in **bf16** by explicitly disabling autocast; 0.5.0 restores both to fp32. **So the silicon ceiling is real and mostly irrelevant** — it does not bite wherever upstream rounds the island back to bf16, which is every single-op forward island at both versions, and there `precise_config()` already has us at the floor. **D9 is RESOLVED as a policy mismatch** whose resolution inverts the fp32 story: our fp32 softmax is **3.2x MORE accurate** than upstream's bf16 one, and exceeding the reference is what makes the gradient worse against it. **D8's attention hypothesis is RETIRED at 0.4.3** (our 4-op attention region 7.192778e-03 against upstream's own 7.259395e-03, ratio 0.99); its residual is a LayerNorm-gradient class. **D118's attributed list was wrong on exactly those two**, which is the failure D118's own text warned about — a mechanism explains a SIGNATURE, not a defect. The campaign-wide action is mine and is done at the head of VERDICT: every gradient figure names the revision its reference was built on.
+
+**D120's ranking carries a positive result the record did not (pass 211).** On the **most-executed island in the model** — LayerNorm's affine and input gradients, 8 pair-shaped and 2 single-shaped sites per pairformer block × 48 blocks plus the DiT stack — we read 4.256869e-03 against a **0.5.0** boundary where upstream reads 1.407498e-07, a factor of **30,245**; **against a 0.4.3 boundary it INVERTS and we are 1.55x MORE accurate on d(gamma)**. The campaign has treated LayerNorm as its weak point throughout — D51's 84.6 % of the gradient mass in 1-D LayerNorm vectors, D116's four affine leaves, D56's worst component — and on the boundary the served checkpoint is bound to, it is a place our port is **ahead**. **And one class deliberately NOT dispatched**: inference sites with no `compute_kernel_config` read 14x upstream's bf16 and one argument closes them, but `of3t-softmax` already took that lever to fold level and concluded NO-GO because it moves a delivered structure **less than a seed change does**. A 4.1x matmul config is a priori weaker than a 12.3x softmax config that already failed that test. What is open is that the class has only ever been rejected one site-family at a time — recorded as a candidate for an idle card, not a row taken from `of3t-f64softmax`.
 
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
@@ -941,6 +925,26 @@ distance-to-go shares in its first 2,000: they had been pushed to offsets 2016-2
 check reported them MISSING when they were present. D66 recurring against me, with the twist
 that the field did not just get long, it buried its own numbers under narrative added later.
 What was removed, verbatim:
+
+**From GAP at pass 211, D113's narrative — it is FIXED in code and measured inert at scope, so its argument belongs here:**
+
+**D113 (FIXED in code, UNEXECUTED — no card has run it; that is the whole of what is left)**: the
+compute kernel config never reached the chain from either `_fp32_softmax_tail` call site, and
+`softmax_accurate`'s 1.323x — one of the four arms the NO-GO rested on — was measured through
+that. Both repairs are release-gated on this branch; `of3t-nanfloor` owns executing them.
+
+**D91 and D99's owed arm are DELIVERED, and D90 is now fully resolved (pass 195).** D99 closed
+with "still owed: D91's arm, SHIPPED against a 0.4.3-built reference -- needs a card".
+`of3t-trunk043ref` ran it: 2 of 2 release trees built and run in full, 2736 of 2736 tensors loaded
+into each, whole-tree digests pinned before loading (`1b27f575` for 0.4.3 against `092fb575` for
+0.5.0, the latter byte-identical to the sdist), the digest routine given a break control first.
+Pair track **4.947045e-02** (passes), single track **1.065338e-01** (fails). `of3t-foldab` settled
+the orientation from upstream's own source and then measured it: 0.4.3 == 0.5.0-with-the-flag-off
+at **rel_l2 0.000000e+00**, with drawn weights because OpenFold zero-initialises `mha.linear_o` and
+a fresh layer makes every rel_l2 a 0/0 that cannot fail. **tt-bio ships the right orientation for
+`of3-p2-155k`; OpenBind gets 0.5.0's; each checkpoint gets its own release's convention.** The
+Angstrom the flip costs is 0.435 A on 1UBQ and 1.332 A on a shallow-MSA 117 aa target — both
+measuring what applying the WRONG release's convention costs, not damage the shipped path carries.
 
 **From GAP at pass 207, D86's narrative:**
 

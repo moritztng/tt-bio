@@ -7284,3 +7284,43 @@ built on.
 
 **Durable lesson**: an upstream version bump can move a precision island, and **a port compared
 against the wrong version's boundary shows a 30,000x gradient gap with no defect present**.
+
+### D120 UPDATE (pass 211). Two things in `of3t-fp32islands`' ranking that the campaign record did not carry, and one dispatch deliberately NOT made.
+
+**1. Against the right boundary we BEAT upstream on the most-executed island in the model.** The
+ranking's item 2 is LayerNorm's affine and input gradients — 8 pair-shaped and 2 single-shaped sites
+per pairformer block × 48 blocks, plus the DiT stack. Against a **0.5.0** boundary they read
+4.256869e-03 and 4.273497e-03 against upstream's 1.407498e-07 and 6.971753e-08, a factor of
+**30,245**. **Against a 0.4.3 boundary it inverts: we are 1.55x MORE accurate on d(gamma).**
+
+That recontextualises a lot of this campaign's own framing. D51 established that **84.6 %** of the
+gradient's mass sits in 1-D LayerNorm vectors; D116's four leaves are LayerNorm affines; D56's worst
+component is a LayerNorm reduction. The campaign has treated LayerNorm as its weak point. On the
+boundary the served checkpoint is actually bound to, it is a place where our port is **ahead**.
+
+**2. The missing-`compute_kernel_config` class is broader than the softmax, and it is NOT dispatched.**
+Item 5: inference sites that pass no `compute_kernel_config` read **2.268879e-02**, **14x** upstream's
+own bf16 softmax and 13x our own precise arm, and **one argument closes it** — and the matmul control
+shows the same defect at **4.1x**, so it is a *missing-config class* rather than a softmax property.
+
+**Why no row.** `of3t-softmax` already took the softmax half of this class to **fold level** and
+concluded **NO-GO**: the lever is real and 12.3x more accurate per op, and it moves the structure a
+user receives **by less than re-running with a different seed moves it**. An op-level accuracy gain
+that does not clear the seed floor is not defensible, which is the campaign's own standing rule. A
+4.1x matmul config is *a priori* weaker than a 12.3x softmax config that already failed that test.
+
+**What is genuinely open, recorded as a candidate and not a dispatch**: the class has only ever been
+rejected **one site-family at a time**, and nobody has measured *all* of the missing-config sites
+together at fold level. That is the `dismissed-as-too-small-lever-grows-as-others-shrink` shape. It
+is worth a row when a card is idle and it is not worth taking one from `of3t-f64softmax` now.
+
+**3. A near-miss of my own, recorded because the check was two commands.** `of3t-fp32islands` says
+`softmax_no_cast` keeps the attention softmax in bf16 **at both versions**, and I was about to amend
+the live `of3t-f64softmax` row on the inference that a float64 softmax therefore overshoots upstream
+— the D9 trap, being *more* precise than the reference. It does not apply: at 0.4.3 the
+`autocast(fp32)` region at `attention.py:150-163` is enabled for the **input embedder** and the
+**diffusion module** (`model.py:209`, `model.py:500`), and only 0.5.0 adds the trunk
+(`pairformer.py:199`). So the diffusion scope — the one that row is measuring — **is** an fp32 region
+at 0.4.3, and the row's premise holds. The same row's item 3 says so directly: the multi-op fp32
+regions are "executed once or a few times per step, which is what makes a host round trip
+affordable."
