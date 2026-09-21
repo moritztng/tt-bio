@@ -2265,6 +2265,16 @@ _TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
+#: HiFi4, math_approx off, fp32 destination accumulation -- ``ComputeKernelConfig::precise()``.
+#: What ``ttnn.softmax`` needs to make its denominator match its own numerators; see
+#: ``softmax_precise_site``.
+_SOFTMAX_PRECISE_CKC = ttnn.WormholeComputeKernelConfig(
+    math_fidelity=ttnn.MathFidelity.HiFi4,
+    math_approx_mode=False,
+    fp32_dest_acc_en=True,
+    packer_l1_acc=True,
+)
+
 # Configs whose program the device refused, keyed on the FULL config -- (q_len, k_len, q_chunk,
 # k_chunk, kv_buffer_factor) -- not on q_chunk alone. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`:
 # writing a refusal into the shared memo would retire a q_chunk the stock ladder runs perfectly
@@ -3513,6 +3523,39 @@ def triatt_sdpa_hifi_site(token: str, default: bool = False) -> bool:
     return _site_flag("TT_BIO_TRIATT_SDPA_HIFI_AB", token, default)
 
 
+def softmax_precise_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` passes a compute kernel config to ``ttnn.softmax``.
+
+    Called with no config the op runs the kernel's default (HiFi2, math_approx on, no fp32
+    destination accumulation) and its row sums miss 1 by a percent or two. Measured on this
+    card at [1,16,384,384] fp32, rel_rms against a float64 softmax on the same values
+    (perf/of3t_softmax/softmax_cost_qb2c0.json):
+
+        no config                 2.029e-02      0.0543 ms
+        this config               1.646e-03      0.0789 ms     12.3x better, 1.46x the cost
+        _accurate_softmax         5.156e-04      0.2556 ms     39.4x better, 4.71x the cost
+
+    So the config is most of the accuracy of the 5-op chain for a third of its cost -- but
+    only where the softmax runs in fp32. On a bf16 input the same three arms read 2.480e-02
+    / 1.266e-02 / 1.266e-02: bf16 storage is then the floor and neither lever goes under it.
+    Check the dtype at a site before expecting this to do anything there.
+
+    Per site and overridable in both directions by ``TT_BIO_SOFTMAX_PRECISE_AB`` with the
+    grammar ``accurate_softmax_site`` uses, for the same reason: this changes the forward on
+    every model that reaches the site, so it stays A/B-able without a checkout.
+    """
+    return _site_flag("TT_BIO_SOFTMAX_PRECISE_AB", token, default)
+
+
+def softmax_ckc(token: str, default: bool = False):
+    """``softmax_precise_site``'s answer as the argument the call site actually passes.
+
+    ``None`` is the op's own default, so a site reads the same either way and the lever is one
+    argument at the call rather than a branch around it.
+    """
+    return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
+
+
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
 
@@ -3557,8 +3600,11 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     0.027317 against a fp64 softmax, at every logit range tested (within-row spread 1
     through 135). max/subtract/exp/sum/divide on the same input scores 0.000446, and the
     residual 6x of that is the fused kernel's approximate SFPU exp, since `ttnn.exp`
-    defaults to the accurate one. `numeric_stable` and a compute kernel config change
-    nothing (perf/rf3/results/sm_variants_53b.json).
+    defaults to the accurate one. `numeric_stable` is not the term -- but a compute kernel
+    config is, and an earlier version of this docstring said it changed nothing. It does. On
+    [1,16,384,384] fp32 on a p300c, `precise_config()` turns 2.029e-02 into 1.646e-03 for
+    1.46x the fused kernel's cost, where this chain buys 5.156e-04 for 4.71x
+    (perf/of3t_softmax/softmax_cost_qb2c0.json). Reach for the config first.
 
     Why it matters more than 2.4% looks: a uniform row deficit is a multiplicative error
     on every weight in the row, so unlike the fused kernel's argmax jitter it does not
@@ -8109,10 +8155,14 @@ class AttentionPairBias(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         accurate_softmax: bool = False,
+        softmax_site: str = "default",
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
         self.accurate_softmax = accurate_softmax
+        # None is the op's own kernel default, which is what this site shipped with; see
+        # `softmax_precise_site` for what the other answer costs and buys.
+        self._softmax_ckc = softmax_ckc(softmax_site)
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -8453,7 +8503,7 @@ class AttentionPairBias(Module):
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
-                attn = ttnn.softmax(sc, dim=-1)
+                attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
@@ -9063,6 +9113,7 @@ class PairformerLayer(Module):
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
                 accurate_softmax=accurate_softmax,
+                softmax_site="pairformer",
             )
             self.transition_s = Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -9805,6 +9856,7 @@ class MiniformerLayer(Module):
             False,
             self.scope("attention"),
             compute_kernel_config,
+            softmax_site="miniformer",
         )
         self.transition_s = Transition(self.scope("transition_s"), compute_kernel_config)
 
@@ -10097,6 +10149,7 @@ class DiffusionTransformerLayer(Module):
             state_dict=self.scope("pair_bias_attn"),
             compute_kernel_config=compute_kernel_config,
             fp32_softmax=fp32_softmax,
+            softmax_site="diffusion_transformer.atom" if atom_level else "diffusion_transformer.token",
         )
         self.attn_pair_bias.token_dit = not atom_level
         self.output_projection_weight = self.torch_to_tt(
