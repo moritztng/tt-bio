@@ -8911,6 +8911,7 @@ class PairformerLayer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
@@ -8934,6 +8935,17 @@ class PairformerLayer(Module):
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer has
+        # two kernels that do different things with it, so one value cannot serve both.
+        # `AttentionPairBias` folds the bias inside the score scale -- (q@k^T + z) * d**-0.5 --
+        # so a bias the reference adds UNSCALED has to arrive pre-baked by sqrt(d), which is
+        # what scale_pair_bias=True does. `TriangleAttention` adds it outside the scale, so the
+        # same reference convention wants False there. OpenFold3 is the model that needs both,
+        # and before the split its single False left the token pair bias at 1/sqrt(24) = 0.204
+        # of the reference value in every fold. `None` follows `scale_pair_bias`, so every
+        # other caller is byte-identical. LEDGER K34: a flag named after the reference rather
+        # than the kernel is right at whichever of its sites happens to match.
+        tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
         )
@@ -8947,7 +8959,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_start", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
@@ -8960,7 +8972,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_end", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
@@ -9078,6 +9090,7 @@ class Pairformer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
@@ -9100,6 +9113,7 @@ class Pairformer(Module):
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
+                tri_att_scale_pair_bias=tri_att_scale_pair_bias,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
                 s_fp32_residual=s_fp32_residual,

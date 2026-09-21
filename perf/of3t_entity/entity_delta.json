@@ -1,0 +1,511 @@
+{
+ "af2": {
+  "all_protein_mol_type": {
+   "bit_identical_to_bare": true,
+   "derived": {
+    "convention": "af3",
+    "counts": {
+     "is_dna": 0,
+     "is_ligand": 0,
+     "is_rna": 0
+    },
+    "resolved": false
+   },
+   "value": 0.9004617187629984
+  },
+  "bare": {
+   "value": 0.9004617187629984,
+   "without": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  },
+  "flags_present_and_zero": {
+   "bit_identical_to_bare": true,
+   "value": 0.9004617187629984,
+   "without": null
+  },
+  "label": "SYNTHETIC coordinates; AF2 carries no molecule-type feature at all, so there is no real column to take",
+  "n_tokens": 64,
+  "pass": true,
+  "weighting_is_vacuous": true,
+  "without_firing_is_correct": true
+ },
+ "arm_reference": {
+  "fd": {
+   "bar": 0.00011,
+   "bar_source": "the published reference bundle's own max_rel_err at the same h and the same sampling rule (MANIFEST.finite_difference_validation)",
+   "entries": [
+    {
+     "analytic": 0.034233641655795205,
+     "atom": 420,
+     "axis": 0,
+     "is_ligand_atom": true,
+     "numeric": 0.03423364166588172,
+     "rel": 2.9463751052375334e-10
+    },
+    {
+     "analytic": 0.009963784851119133,
+     "atom": 420,
+     "axis": 1,
+     "is_ligand_atom": true,
+     "numeric": 0.009963784841637846,
+     "rel": 9.515748717738814e-10
+    },
+    {
+     "analytic": 0.03663003685323728,
+     "atom": 420,
+     "axis": 2,
+     "is_ligand_atom": true,
+     "numeric": 0.03663003685927535,
+     "rel": 1.6483938694113657e-10
+    },
+    {
+     "analytic": 0.004823753460481676,
+     "atom": 421,
+     "axis": 0,
+     "is_ligand_atom": true,
+     "numeric": 0.004823753463334413,
+     "rel": 5.913934652868615e-10
+    },
+    {
+     "analytic": -0.023998130470685504,
+     "atom": 421,
+     "axis": 1,
+     "is_ligand_atom": true,
+     "numeric": -0.02399813050502075,
+     "rel": 1.430746717724299e-09
+    },
+    {
+     "analytic": 0.0009729018539005539,
+     "atom": 421,
+     "axis": 2,
+     "is_ligand_atom": true,
+     "numeric": 0.000972901847973162,
+     "rel": 6.092486961808173e-09
+    },
+    {
+     "analytic": 0.0001960708999848545,
+     "atom": 366,
+     "axis": 1,
+     "is_ligand_atom": false,
+     "numeric": 0.000196070903957235,
+     "rel": 2.0259918339261988e-08
+    },
+    {
+     "analytic": 0.0010462465577734663,
+     "atom": 165,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": 0.0010462465560578948,
+     "rel": 1.6397391880024379e-09
+    },
+    {
+     "analytic": -0.003027158981622717,
+     "atom": 131,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": -0.0030271589568364727,
+     "rel": 8.187955964998881e-09
+    },
+    {
+     "analytic": 1.727762396218228e-05,
+     "atom": 374,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": 1.727763487835432e-05,
+     "rel": 6.318093949915844e-07
+    },
+    {
+     "analytic": 0.0005970475829752231,
+     "atom": 50,
+     "axis": 1,
+     "is_ligand_atom": false,
+     "numeric": 0.0005970475780436857,
+     "rel": 8.25987335796084e-09
+    },
+    {
+     "analytic": -0.0017573791430383664,
+     "atom": 149,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": -0.0017573791533109782,
+     "rel": 5.845415734525861e-09
+    },
+    {
+     "analytic": -0.0010839899037718155,
+     "atom": 78,
+     "axis": 2,
+     "is_ligand_atom": false,
+     "numeric": -0.001083989897843196,
+     "rel": 5.469257019268694e-09
+    },
+    {
+     "analytic": -0.0004258523562800336,
+     "atom": 352,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": -0.00042585233117620186,
+     "rel": 5.894961676084469e-08
+    },
+    {
+     "analytic": 0.0032599817423596073,
+     "atom": 158,
+     "axis": 2,
+     "is_ligand_atom": false,
+     "numeric": 0.003259981729009098,
+     "rel": 4.095271265232235e-09
+    },
+    {
+     "analytic": 0.0007835465005496261,
+     "atom": 404,
+     "axis": 2,
+     "is_ligand_atom": false,
+     "numeric": 0.0007835464721495099,
+     "rel": 3.624560540128024e-08
+    },
+    {
+     "analytic": 0.0003009269677593158,
+     "atom": 145,
+     "axis": 2,
+     "is_ligand_atom": false,
+     "numeric": 0.0003009269611276011,
+     "rel": 2.2037622298058325e-08
+    },
+    {
+     "analytic": 0.0002960387492464771,
+     "atom": 161,
+     "axis": 0,
+     "is_ligand_atom": false,
+     "numeric": 0.00029603874907024874,
+     "rel": 5.952880690906176e-10
+    }
+   ],
+   "h": 1e-05,
+   "h_sweep_on_worst_entry": {
+    "1e-03": 2.0828325776029313e-09,
+    "1e-04": 1.1774696838119697e-07,
+    "1e-05": 6.318097941749483e-07,
+    "1e-06": 6.41501658435465e-06,
+    "1e-07": 0.0001092275817431049
+   },
+   "ligand_entries": 6,
+   "median_rel": 5.657336376897278e-09,
+   "n": 18,
+   "sampling_rule": "|analytic| >= 1e-6, the published bundle's own rule",
+   "worst_entry": {
+    "analytic": 1.727762396218228e-05,
+    "atom": 374,
+    "axis": 0,
+    "is_ligand_atom": false,
+    "numeric": 1.727763487835432e-05,
+    "rel": 6.318093949915844e-07
+   },
+   "worst_rel": 6.318093949915844e-07
+  },
+  "max_elementwise_rel_grad": 2.15868113996761e-12,
+  "n_atoms": 422,
+  "n_ligand_atoms": 2,
+  "n_tokens_padded": 384,
+  "pass": true,
+  "rel_grad": 3.662141705890694e-15,
+  "rel_value": 6.057483991567378e-16,
+  "scope": "atom, 422 atoms, float64 both sides",
+  "their_source": "/home/moritz/.coworker/scratch/of3t-reference/upstream050/openfold3/core/loss/diffusion.py",
+  "their_source_sha256": "12619f7d0f4ac6a833397bb25bc256ed0783a2b9c745ad649f138ce5bcb2467e",
+  "value_ours": 1.0996872888189524,
+  "value_theirs": 1.099687288818953,
+  "worst_element": {
+   "atom": 421,
+   "axis": 1,
+   "ours": -0.0239981304706854,
+   "theirs": -0.023998130470685504
+  }
+ },
+ "batch": {
+  "file": "/tmp/of3t/of3t-updaterule/batch_step003.pt",
+  "frames": "the token triple (i-1, i, i+1), clamped at the ends",
+  "n_atoms": 422,
+  "n_ligand_tokens": 2,
+  "n_nucleotide_tokens": 0,
+  "n_resolved_atoms": 422,
+  "n_resolved_tokens": 56,
+  "n_token_bonds": 0,
+  "n_tokens": 56,
+  "pdb_id": [
+   "5nw3"
+  ],
+  "representative_atom": "ground_truth.start_atom_index, each token's first atom",
+  "scope": "token, one representative atom per token",
+  "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+ },
+ "control": {
+  "absent_flag_detector": {
+   "absent": {
+    "value": 0.8546881740355878,
+    "without": [
+     "is_dna",
+     "is_rna",
+     "is_ligand"
+    ]
+   },
+   "derived_from_mol_type": {
+    "derived": {
+     "convention": "boltz",
+     "counts": {
+      "is_dna": 8,
+      "is_ligand": 31,
+      "is_rna": 8
+     },
+     "resolved": true
+    },
+    "value": 6.561415536850288,
+    "without": null
+   },
+   "what": "the check no number can do -- a protein-only batch and a featuriser that never produced the flags are bit-identical",
+   "what_separates_them": "`without` names the absent labels and fires only when neither the flags nor mol_type are there; `derived` fires only when the flags came from a mol_type column, so a native batch, a derived one and a blind one are three distinguishable reports and not one number",
+   "zeroed": {
+    "value": 0.8546881740355878,
+    "without": null
+   },
+   "zeroed_is_bit_identical_to_absent": true
+  },
+  "answers": "which check fails if the mapping is wrong? the value moves 0.3712 and the seed 0.4324, both by the ratio the weights predict. Which fails if the model is replaced by zeros? the value collapses to the zero-prediction loss and the seed norm with it, measured in of3t-updaterule's own control. Which fails if the featuriser produced nothing? ONLY `without` -- no number moves, and that is why the reporting half is not cosmetic.",
+  "batch": "boltz-2's own measured mol_type column, 57 tokens, 31 ligand, synthetic coordinates",
+  "n_ligand_tokens": 31,
+  "pass": true,
+  "perturbation": {
+   "alignment": "frozen, so the prediction is closed form; unfrozen the weighted Kabsch moves too and the total is not a pure weight ratio",
+   "measured_value_ratio": 0.6288281900980327,
+   "measured_value_rel_move": 0.37117180990196724,
+   "per_token_seed_ratio_matches_weight_ratio": true,
+   "predicted_value_ratio": 0.6288281900980326,
+   "seed_rel_move": 0.4324361553626909,
+   "value_broken_mapping": 4.1260030565186785,
+   "value_correct_mapping": 6.561415536850288,
+   "value_prediction_rel_error": 1.765542706429996e-16,
+   "weight_ratio_on_a_ligand_token": 0.5454545454545454,
+   "what": "ligand re-pointed at the rna class, so those tokens weigh 1+5.0 instead of 1+10.0. The MAPPING is broken, not the plumbing",
+   "worst_per_token_seed_ratio_error": 2.220446049250313e-16
+  }
+ },
+ "defect": "D16 -- protenix-v2, boltz-2 and boltzgen emit `mol_type`, so the entity weighting D12 restored never reached them",
+ "delta_moltype_stacks": {
+  "_convention_disagreement_in_the_data": {
+   "columns_elementwise_equal": false,
+   "loss_is_identical_anyway": true,
+   "n_tokens_that_differ": 16,
+   "they_differ_only_on_nucleic_acid_tokens": true,
+   "why": "upstream weights dna and rna both at 5.0, so swapping them leaves w unchanged. The ligand class, which is the one weighted differently at 10.0, is at 3 in both conventions"
+  },
+  "boltz-2": {
+   "convention": "boltz",
+   "delta": {
+    "derived_after": {
+     "convention": "af3",
+     "counts": {
+      "is_dna": 8,
+      "is_ligand": 31,
+      "is_rna": 8
+     },
+     "resolved": false
+    },
+    "rel_seed": 0.9008886419943194,
+    "rel_total": 0.869740276433419,
+    "rel_value": 0.869740276433419,
+    "value_after": 6.561415536850288,
+    "value_before": 0.8546881740355878,
+    "without_after": null,
+    "without_before": [
+     "is_dna",
+     "is_rna",
+     "is_ligand"
+    ]
+   },
+   "label": "REAL mol_type column from this stack's own featuriser, SYNTHETIC coordinates -- no training batch exists for this model and tt_bio.train.catalogue ships empty",
+   "n_dna": 8,
+   "n_ligand": 31,
+   "n_rna": 8,
+   "n_tokens": 57,
+   "naming_the_convention_changes_nothing": true,
+   "resolved_when_named": true,
+   "resolved_when_unnamed": false
+  },
+  "boltzgen": {
+   "convention": "boltz",
+   "delta": {
+    "derived_after": {
+     "convention": "af3",
+     "counts": {
+      "is_dna": 8,
+      "is_ligand": 31,
+      "is_rna": 8
+     },
+     "resolved": false
+    },
+    "rel_seed": 0.8981038214816643,
+    "rel_total": 0.8651116903880804,
+    "rel_value": 0.8651116903880804,
+    "value_after": 6.0785715086925665,
+    "value_before": 0.8199282356627158,
+    "without_after": null,
+    "without_before": [
+     "is_dna",
+     "is_rna",
+     "is_ligand"
+    ]
+   },
+   "label": "REAL mol_type column from this stack's own featuriser, SYNTHETIC coordinates -- no training batch exists for this model and tt_bio.train.catalogue ships empty",
+   "n_dna": 8,
+   "n_ligand": 31,
+   "n_rna": 8,
+   "n_tokens": 65,
+   "naming_the_convention_changes_nothing": true,
+   "resolved_when_named": true,
+   "resolved_when_unnamed": false
+  },
+  "protenix-v2": {
+   "convention": "af3",
+   "delta": {
+    "derived_after": {
+     "convention": "af3",
+     "counts": {
+      "is_dna": 8,
+      "is_ligand": 31,
+      "is_rna": 8
+     },
+     "resolved": false
+    },
+    "rel_seed": 0.9008886419943194,
+    "rel_total": 0.869740276433419,
+    "rel_value": 0.869740276433419,
+    "value_after": 6.561415536850288,
+    "value_before": 0.8546881740355878,
+    "without_after": null,
+    "without_before": [
+     "is_dna",
+     "is_rna",
+     "is_ligand"
+    ]
+   },
+   "label": "REAL mol_type column from this stack's own featuriser, SYNTHETIC coordinates -- no training batch exists for this model and tt_bio.train.catalogue ships empty",
+   "n_dna": 8,
+   "n_ligand": 31,
+   "n_rna": 8,
+   "n_tokens": 57,
+   "naming_the_convention_changes_nothing": true,
+   "resolved_when_named": true,
+   "resolved_when_unnamed": false
+  }
+ },
+ "delta_openfold3": {
+  "derived_from_mol_type": {
+   "af3": {
+    "bit_identical_seed": true,
+    "bit_identical_value": true,
+    "derived": {
+     "convention": "af3",
+     "counts": {
+      "is_dna": 0,
+      "is_ligand": 2,
+      "is_rna": 0
+     },
+     "resolved": true
+    },
+    "rel_seed_vs_native": 0.0,
+    "rel_value_vs_native": 0.0,
+    "value": 1.407684903716911
+   },
+   "boltz": {
+    "bit_identical_seed": true,
+    "bit_identical_value": true,
+    "derived": {
+     "convention": "boltz",
+     "counts": {
+      "is_dna": 0,
+      "is_ligand": 2,
+      "is_rna": 0
+     },
+     "resolved": true
+    },
+    "rel_seed_vs_native": 0.0,
+    "rel_value_vs_native": 0.0,
+    "value": 1.407684903716911
+   }
+  },
+  "flags_dropped": {
+   "derived_after": null,
+   "rel_seed": 0.7636994469305252,
+   "rel_total": 0.17923152401127657,
+   "rel_value": 0.23344546565807414,
+   "value_after": 1.407684903716911,
+   "value_before": 1.0790672458688755,
+   "without_after": null,
+   "without_before": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  },
+  "label": "REAL -- of3t-reference's frozen 5nw3 batch, token scope",
+  "native_flags": {
+   "value": 1.407684903716911,
+   "without": null
+  },
+  "pass": true,
+  "unnamed_convention": {
+   "bit_identical_to_native": true,
+   "derived": {
+    "convention": "af3",
+    "counts": {
+     "is_dna": 0,
+     "is_ligand": 2,
+     "is_rna": 0
+    },
+    "resolved": false
+   },
+   "value": 1.407684903716911
+  }
+ },
+ "fix": "tt_bio/train/objectives.py: one mol_type -> three-flag derivation in af3_loss, the site every model's batch already takes",
+ "inference": {
+  "af2": {
+   "module": "tt_bio.af2",
+   "n_loaded": 0,
+   "reaches_objectives": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "boltz-2": {
+   "module": "tt_bio.boltz2",
+   "n_loaded": 0,
+   "reaches_objectives": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "boltzgen": {
+   "module": "tt_bio.boltzgen",
+   "n_loaded": 0,
+   "reaches_objectives": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "openfold3": {
+   "module": "tt_bio.openfold3_fold",
+   "n_loaded": 0,
+   "reaches_objectives": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "protenix-v2": {
+   "module": "tt_bio.protenix",
+   "n_loaded": 0,
+   "reaches_objectives": false,
+   "tt_bio_train_modules_loaded": []
+  }
+ },
+ "pass": true,
+ "torch": "2.8.0+cpu",
+ "upstream_weights": {
+  "dna": 5.0,
+  "ligand": 10.0,
+  "rna": 5.0
+ }
+}
