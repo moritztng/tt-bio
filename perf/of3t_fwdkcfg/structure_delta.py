@@ -56,6 +56,8 @@ def main():
     ap.add_argument("--python", required=True)
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--card", default="0")
+    ap.add_argument("--board", default="p300c", help="the board this card is, named in the "
+                                                     "artifact: qb1 is p150a, qb2 p300c")
     ap.add_argument("--workdir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--lever-env", default="TT_BIO_SOFTMAX_PRECISE_AB")
@@ -68,6 +70,7 @@ def main():
                          "128-token target's two seeds land 106 A apart, and a floor that size "
                          "passes anything")
     a = ap.parse_args()
+    BOARD = a.board
 
     if os.environ.get("TT_VISIBLE_DEVICES") != a.card:
         raise SystemExit("export TT_VISIBLE_DEVICES=%s here too: the AICLK sampler reads "
@@ -76,6 +79,18 @@ def main():
     from ca_rmsd import ca_rmsd
     wd = Path(a.workdir); wd.mkdir(parents=True, exist_ok=True)
     rows = {}
+
+    def write(clk):
+        # Written after every case, not once at the end: a 512-token cell is six folds deep and
+        # a run that is cut short still has to leave the models it finished.
+        Path(a.out).write_text(json.dumps(
+            {"what": "Angstrom move of the forward softmax config, beside the seed floor",
+             "host": socket.gethostname(), "card": a.card, "board": BOARD,
+             "host_card": "%s card %s" % (socket.gethostname(), a.card),
+             "fixture": a.fixture, "lever_env": a.lever_env,
+             "clock_aiclk_during": clk.summary(), "clock_line": clk.line(0),
+             "models": rows}, indent=1, sort_keys=True))
+
     with clocksample.during(period=5.0) as clk:
         for case in a.case:
             model, _, token = case.partition("=")
@@ -103,14 +118,9 @@ def main():
             }
             print("  %s lever %.4f A | seed floor %.4f A | bar %.2f A"
                   % (model, lever_a, floor_a, a.kill_bar), flush=True)
+            write(clk)
 
-    rep = {"what": "Angstrom move of the forward softmax config, beside the seed floor",
-           "host": socket.gethostname(), "card": a.card, "board": "p300c",
-           "host_card": "%s card %s" % (socket.gethostname(), a.card),
-           "fixture": a.fixture, "lever_env": a.lever_env,
-           "clock_aiclk_during": clk.summary(), "clock_line": clk.line(0),
-           "models": rows}
-    Path(a.out).write_text(json.dumps(rep, indent=1, sort_keys=True))
+    write(clk)
     print(clk.line(0))
     print("wrote", a.out)
 
