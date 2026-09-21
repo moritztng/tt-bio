@@ -1780,3 +1780,123 @@ carried must still follow the artifacts, so they are stated here instead, from
 model's squared gradient mass and `aux_heads` holds 2.8431 %**. On the pass-324 model-scope arm
 `aux_heads` reads rel_l2 0.0023 over its 180 tensors
 (`perf/of3t_modelboundary/sidecar_modelboundary/renorm_vs_FLOAT64.json`).
+
+### D174 UPDATE, pass 325. **REFUTED** as a correctness defect: the pad cannot reach the real block, so the missing mask cannot be what costs the trunk
+
+Two CPU controls on `tt_bio/reference.py` as shipped, 48 blocks, no card
+(`perf/of3t_orchestrator/padleak/`). The decisive one has no reduction-extent confound: at a
+FIXED width of 384, filling the pad with 0.7 against -3.1 moves the pad output by
+**7.7862e+02** and leaves the real block **bit-identical, absdiff exactly 0.0** on both the
+single and the pair track, at 8 blocks and at 48. The width control agrees: the same 56 real
+tokens padded to 64 against 384 move the real block **9.088062e-07** (s) and **6.316006e-07**
+(z) at 48 blocks, growing about linearly from 6.09e-08 at one block, which is the fp32
+reduction-order floor.
+
+Both controls are non-vacuous by construction, which is the part that took the work. Every
+zero-initialised parameter and every LayerNorm bias is forced non-zero first, because
+`of3t-ditmodel` found its own control vacuous twice: a freshly built `Transition` has a zero
+LayerNorm bias and an `init.final_init_` fc3, so it returns exactly 0 on a zero pad row whatever
+the mask does, and both arms read a clean 0.0 that means nothing. The served checkpoint carries
+104 pairformer transition LayerNorm biases with norms 1.11648 to 5.73926.
+
+**So our pairformer's masking is semantically correct and the transition mask is inference-neutral
+on the real block by construction** -- it zeroes pad cells, and pad cells provably do not reach
+real ones at any depth. That is our own reference reproducing `of3t-auxfind`'s arm P, which had
+upstream's `_mask_trans` False against True at exactly 0.0 on the real block, and it reproduces
+`of3t-ditmodel`'s `REFCHECK` at 48 blocks rather than one.
+
+**The code fact stands and is not the defect.** Upstream ends `_transition` with
+`x = self.linear_out(x) * mask` and hard-codes `_mask_trans=True` at seven call sites; our
+`Transition.__call__` (`tenstorrent.py:8533`) has no mask parameter. That divergence is real,
+worth closing for fidelity, and it changes no real-token answer.
+
+**What this does NOT show, stated because the symmetric overclaim is the easy one to make here.**
+This is a FORWARD result on the torch reference with non-degenerate random weights. A parameter
+gradient reduces over pad positions, so masking could still suppress a DEVICE-side contamination
+of `dgamma`/`dbeta`; the device's pad cotangent is known to be exactly zero only AT THE BOUNDARY
+(measured twice, pad share 0.000000 %, `sum_ALL == sum_REAL` bit-for-bit). Whether it stays zero
+through 48 blocks of ttnn ops is unmeasured, and that is what the MASKON arm decides. The
+`TT_BIO_MASK_TRANS` lever at `d3daa9317` therefore survives as a possible numerics MITIGATION, not
+as a correctness fix, and it would have to earn its place on a measurement.
+
+My pass-324 entry said the mechanism "predicts all five measured facts". It does not: it is
+consistent with four of them and is now refuted on the one that matters.
+
+### D175. The device's trunk gradient depends on PAD EXTENT where the model's semantics say it cannot. FOUND by `of3t-orchestrator`, pass 325. **UNFIXED**, and it is D174's residue and the campaign's real object.
+
+The trunk gradient norm reads **12.3912543630 with 8 pad rows** (c64) and **43.2103398400 with
+328** (n384), a ratio of **3.487164**, with all 2,736 tensors differing. Pass 325 closed both ways
+out of it:
+
+  * the inputs are the same. `boundary_c64.pt` and `boundary_n384.pt` are **bit-identical on the
+    real block**, s_in norm 5.6235488078e+03 and z_in norm 6.4263673501e+04 on both, so this is
+    not two different problems being compared;
+  * the model cannot produce it. In torch the pad does not reach the real block at 48 blocks, and
+    pad extent moves it 9.088062e-07 (D174 UPDATE above);
+  * the driving cotangent is exactly zero on every padded position at the boundary, measured
+    twice independently.
+
+So a device arm is doing something the model does not describe, and the most likely shape is that
+the pad cotangent or pad activations stop being exactly zero somewhere inside the 48-block
+backward, after which every parameter gradient's token-axis reduction sums 144,320 near-zero pad
+terms at n384 against 960 at c64.
+
+**The measurement that decides it, and it is one capture rather than a campaign:** take the device
+cotangent at a mid-stack block boundary (say 24) at n384 and ask whether its pad part is exactly
+zero, the way the block-47 boundary's is. If it is non-zero, D175 is located and `TT_BIO_MASK_TRANS`
+is a candidate mitigation with a mechanism. If it is exactly zero, the contamination is in the
+parameter-gradient reduction itself rather than in the transported cotangent, and the next place to
+look is `_sum_leading` and the matmul backwards at `tt_bio/autograd.py:432`.
+
+### D174 UPDATE, pass 325 (second). Still **REFUTED** as the gradient mechanism, now on DEVICE and bit-exactly — and it is a real fidelity defect on padded outputs
+
+`of3t-ditmodel` concluded GO during this pass and its device result is stronger than my CPU one.
+All three n384 arms read the trunk at **2.159527121735274**, identical to sixteen digits, with
+r 2.1021 and cos 0.1796 unchanged:
+
+    MASKOFF                 2.159527121735274
+    MASKON      96 blocks   2.159527121735274
+    MASKONES    all-ones    2.159527121735274
+
+The lever is proven live — 96 blocks across 2 stacks — and it **swings the pad ACTIVATIONS by
+6.43e+06 at every block of the stack** and still moves **0 of 2,736** parameter gradients. That is
+a far stronger control than `--pad-scale 0`, which only scaled the pad INPUT.
+
+**So pad CONTENT is excluded as the cause of the pad-extent scaling, everywhere in the forward,
+bit-exactly.** My CPU controls said the pad cannot reach the real block in torch; this says the
+device gradients do not depend on pad activations at all, which is the same conclusion reached
+where it counts.
+
+**What D174 IS:** a real fidelity defect on PADDED OUTPUTS, 2.7428 against upstream falling to
+0.0690 with the mask. The fix is committed at `d3daa9317`, default-off under `TT_BIO_MASK_TRANS`,
+unmerged, and owes an inference fold A/B on five models before any ship decision, which is
+Moritz's. Its user impact is small — padded positions are discarded when a structure is written —
+but the divergence from upstream is real and the lever closes it.
+
+### D175 UPDATE, pass 325. The question is narrower than when it was opened: what depends on the padded SHAPE while being independent of everything in the padded CELLS
+
+Opened above with two candidate homes. The first is now closed: a mid-stack cotangent capture was
+going to ask whether pad content leaks into the backward, and `of3t-ditmodel`'s 6.43e+06 activation
+swing with a bit-exact null answers that without it. **Gradients do not depend on pad content
+anywhere.** So do not spend a capture on it.
+
+**What is left is shape alone.** Something selects or computes differently at 384 padded tokens
+than at 64 while being blind to what those tokens hold. The candidates, in the order I would look:
+
+  1. **shape-keyed kernel or config selection.** A dispatch table keyed on tensor shape picks a
+     different kernel, tile layout or accumulation mode at the two widths. This campaign already
+     holds `shape-keyed-dispatch-table-silently-gates-by-model` as a standing lesson, and the
+     trunk's shipped config carries `tri_att_sdpa_hifi`, `transpose_bias` and `fp32_softmax`,
+     every one of which is a per-shape decision somewhere below;
+  2. **reduction blocking.** `_sum_leading` (`tt_bio/autograd.py:432`) reduces 147,456 leading
+     coordinates at n384 against 4,096 at c64. The extra terms are exactly zero, so the SUM is
+     exact, but the tiling, the core count and the accumulation ORDER are not the same, and the
+     matmul backwards have the same property;
+  3. **the softmax denominator's masked extent**, where 328 masked keys are added before the
+     scale rather than after.
+
+**The measurement that discriminates, and it is a sweep rather than a capture:** run the same 56
+real tokens at widths 64, 128, 256 and 384 and read the trunk gradient norm at each. A smooth
+dependence on width or on tile count points at (2); a step at a power-of-two or tile boundary
+points at (1); either way it costs four short arms on one card and it names the shape law before
+anyone reads a kernel. Pre-register which shape is expected.
