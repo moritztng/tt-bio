@@ -5,8 +5,11 @@ import json, os, sys, time, resource
 NT = int(sys.argv[1]); NS = int(sys.argv[2])
 os.environ["OMP_NUM_THREADS"] = str(NT); os.environ["MKL_NUM_THREADS"] = str(NT)
 sys.path.insert(0, os.getcwd())
-for _p in ("/home/ttuser/of3t_refprec/of3pkg043", "/home/ttuser/of3t_refprec/deps", "/home/ttuser/of3t_refprec/pylibs"):
-    sys.path.insert(1, _p)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.append(_HERE)
+import refpath                                                            # noqa: E402
+refpath.install()
 import torch
 torch.set_num_threads(NT)
 DIFFCAP = "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt"
