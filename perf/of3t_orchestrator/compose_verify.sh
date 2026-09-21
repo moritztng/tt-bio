@@ -68,7 +68,12 @@ done
 #                 scratch; both already exist finished on `wk/of3t-rankunify`, which CONCLUDED and
 #                 is what Moritz's 9629 decision means by "merge the unified rule". add/add, 7 and
 #                 2 hunks. AMENDMENT 1 tells it to rebase onto rankunify and keep ITS files.
-HELD_OUT="d10d24-unify"
+#   d56-renorm    pass 271. Edits `perf/of3t_orchestrator/assert_new_levers_default_off.py` --
+#                 the instrument that checks its own lever, which is the one file a row may not
+#                 change -- and conflicts there in 3 hunks plus 2 in tt_bio/ from a stale base.
+#                 AMENDMENT 1 tells it to flip the default in its own namespace, say what the
+#                 assert must become, and rebase onto d116's unified helper.
+HELD_OUT="d10d24-unify d56-renorm"
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
