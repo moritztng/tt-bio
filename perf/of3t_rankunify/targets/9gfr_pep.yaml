@@ -1,0 +1,13 @@
+version: 1
+# 9gfr chain E folded alone: the monomer that exercises the AF3 RASA disorder term.
+#
+# disorder_probe.py reads the term off 40 experimental structures. It is 0.0 on 30 of them,
+# including a 1772-residue monomer, and fires only on short extended chains. This 85-residue
+# collagen-like peptide reads 0.80 in the 9gfr crystal, the highest single chain in the set.
+# Folded on its own there is no interface, so this is the branch the unified rule changes AND
+# the only target in the campaign where the 0.5*disorder term has any leverage on it.
+# Ground truth: chain E of examples/ground_truth_structures/9gfr.cif, extracted beside this file.
+sequences:
+  - protein:
+      id: A
+      sequence: HMGPPGPPGPPGPPGPPGASGDRGPPGPVGPPGLTGPAGEPGPPGPPGPPGPPGPPGSGYIPEAPRDGQAYVRKDGEWVLLSTFL
