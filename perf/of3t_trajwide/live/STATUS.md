@@ -1,17 +1,17 @@
 # of3t-trajwide live run
 
-Written by `recorder.py` at 2026-09-21T14:37:21Z.
+Written by `recorder.py` at 2026-09-21T14:40:23Z.
 Check liveness by the rung counter moving and `log_age_s` staying small, not by
 the clock. An arm with a marker whose rc is not 0 is FAILED, not finished.
 
     arm           rungs  status      log age  marker
-    shipped       17/20  RUNNING        119 s  
+    shipped       18/20  RUNNING        121 s  
     shipped_aa2    0/20  not started   None s  
     permute        0/20  not started   None s  
     stale          0/20  not started   None s  
     norebind       0/20  not started   None s  
-    zero          17/20  RUNNING        144 s  
-    theirs         6/20  RUNNING        118 s  
+    zero          18/20  RUNNING        153 s  
+    theirs         6/20  RUNNING        300 s  
     theirs_aa2     0/20  not started   None s  
 
 Reference tree resolved in-process (D149): /home/ttuser/of3t_refprec/of3pkg043
