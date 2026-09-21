@@ -10380,3 +10380,32 @@ So the summary is ahead of the evidence by one model and nine of the twenty-seve
 **What the row already has, verified and worth keeping whatever it decides.** The gate is inert where it matters: `off == on` byte-identical on openfold3 and opendde, 6 folds each, every arm digest-stable within itself, which is the property pc card 0 could not give. And the one inequality is separated from the gate three ways: openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed after `of3t-d137ab` measured; `git log 777fd3b63..HEAD -- tt_bio/` is exactly that fix and its merge; opendde `base == off` across the same span; and `off == on` holds on openfold3 itself, so the gate's flag is inert on the very model whose digest moved.
 
 **Its hardware identification is the best in the campaign and should be copied.** Full card identity rather than a number — host `tt-quietbox` (qb1), UMD chip 3, PCI `0000:c1:00.0`, device node `/dev/tenstorrent/0`, board `00000403319140aa`, Blackhole p150a — plus the **UMD-chip-to-device-node mapping read out of sysfs** (0→1, 1→2, 2→3, **3→0**, so the node number is not the chip number on that box), an AER census over the full 3d21h uptime that chose card 3 on evidence (2 lines against 8, 9 and 10; last one a day earlier; the only chip with no open fd), and the distinction that matters here: **PCIe AER and DPC containment are transport faults that wedge or kill a process, while pc card 0's fault is a compute fault that returns wrong values silently — not the same risk to a digest.**
+
+### D157 UPDATE (pass 289, heading restated). **FIXED** — the row took the harder of the two exits and ran the model rather than trimming the claim.
+
+The placeholders are gone and `INFERENCE_AB_protenix-v2.json` exists. It chose to run protenix-v2 rather than conclude on two models, which was the better answer and not the cheaper one.
+
+### D155 UPDATE 2 (pass 289, heading restated). **WITHDRAWN**, and now confirmed by the positive control rather than only by the hardware record.
+
+At pass 282 I withdrew *"protenix-v2 inference is non-deterministic at a fixed seed"* on the strength of the 2026-08-17 root cause: the nine folds behind it ran on pc card 0, a faulty card. That was an argument from provenance. `of3t-d137digest` has now supplied the measurement:
+
+    host            folds   distinct digests   moved
+    pc card 0          18                 3+   3 of 18, across two runs
+    qb1 card 3          9                  1   0 of 9
+
+Nine folds, three arms, **one digest — `39bce7750297a920`**, which is the same value pc's base arm held four times before it wobbled. So the instability is the card doing exactly what the root cause says it does — matmul-only, location-keyed, probabilistic — and **protenix-v2 is deterministic at this fixture on healthy hardware**. The row says the same in its own words: *"it is not a protenix-v2 defect. Any filing that says otherwise should be corrected"* — which is the filing I had already corrected, now with the control it was missing.
+
+### D137 UPDATE 5 (pass 289, heading restated). **FIXED**, and the last thing it owed is delivered: the digest half is answered on all three models, on hardware whose digests mean something.
+
+    model        base              off               on                stable within arm
+    openfold3    35d36fb149583ae5  b2f94fa1b430518c  b2f94fa1b430518c   3/3, 3/3, 3/3
+    opendde      0cc1cdf1d31e74c5  0cc1cdf1d31e74c5  0cc1cdf1d31e74c5   3/3, 3/3, 3/3
+    protenix-v2  39bce7750297a920  39bce7750297a920  39bce7750297a920   3/3, 3/3, 3/3
+
+**`off == on` on all three, byte-identical, six folds each**, with `digest_stable_within_arm` true everywhere. That is the arm Moritz's constraint is about: one tree, one env var apart, `TT_BIO_HOST_F64_SOFTMAX_AB=all` set and refused by the tape gate. **The flag a person can set reaches inference and changes nothing**, and that is now measured rather than argued.
+
+Both halves of the constraint are therefore answered: *"not changed"* by identical digests on three models on a clean card, and *"not made slower"* free at call level (−3.31 ns against a 10.16 ns floor) and bounded at fold level.
+
+**The one inequality is D1 landing, not the gate.** openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed on `wk/of3t` after `of3t-d137ab` measured — so this run independently confirms that **D1's repair moves the served structure**, which is its entire purpose. Three controls separate it from the gate: `git log 777fd3b63..HEAD -- tt_bio/` is exactly that fix and its merge; opendde `base == off` across the same span; and `off == on` holds on openfold3 itself, so the gate's flag is inert on the very model whose digest moved.
+
+**And the artifact schema is repaired at the source**: it now records `host` and `host_card` alongside `card`, which is what the pass-282 ratchet asked for and what makes a digest claim attributable at all.

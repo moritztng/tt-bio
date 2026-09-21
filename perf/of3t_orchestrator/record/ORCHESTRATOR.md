@@ -635,7 +635,7 @@ record its own.
 
 **D136 (UNFIXED as a record correction; in PASSLOG)**: GO condition 3's headline — **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape resolutions — is the **`repin`** arm, which `of3t-modeltraj` recorded as *default-off, unmerged*, while the arm named `shipped` moved **zero weight** over twenty steps and resolved **0 of 26** (that is **D126**, not a trajectory). The repair is live on main by a **different mechanism** — re-keying inside the value setter rather than re-pinning from the caller — so the two giving the same trajectory is an **inference**. `of3t-trajwide` is running the real shipped arm now, at ~89.2 % instead of 36.9462 %, and closes it on report.
 
-**D137 (FIXED; audited 275, cost answered 281, digest re-taken 288; in PASSLOG)**: the host float64 softmax is gated on **the tape** — `site_softmax` -> `ops.host_softmax_hook()`, which returns the hook only when `grad_hook()` is live, so an env flag alone cannot reach a fold. **Not made slower**: free at CALL level (**−3.31 ns** vs a 10.16 ns floor), bounded at fold level. **Not changed**: re-taken on qb1 card 3, `off == on` **byte-identical** on openfold3 and opendde, 6 folds each, every arm stable within itself — the property pc card 0 could not give. The flag a user can set reaches inference and changes nothing. protenix-v2 is **not yet run** (D157).
+**D137 (FIXED, both halves answered at pass 289; in PASSLOG)**: the host float64 softmax is gated on **the tape** — `site_softmax` -> `ops.host_softmax_hook()`, which returns the hook only when `grad_hook()` is live, so an env flag alone cannot reach a fold. **Not changed**: on qb1 card 3, `off == on` **byte-identical on all three models**, six folds each, `digest_stable_within_arm` true everywhere. **Not made slower**: free at CALL level (**−3.31 ns** against a 10.16 ns floor), bounded at fold level. The one inequality, openfold3 `base != off`, is **D1's sqrt(24) fix landing**, separated from the gate by three controls.
 
 **D140 (UNFIXED; in PASSLOG)**: two of `of3t-trajwide`'s arms — **`norebind` and `zero`, both CONTROLS** — died with no error and no done-marker while the row was between passes, and the run script now writes `=== <arm> done rc=$RC` unconditionally so a crashing arm leaves a non-zero marker instead of silence. The residual it cannot cover is the WRAPPER's own death, which is what **D152** then demonstrated at fleet scale.
 
@@ -651,11 +651,11 @@ record its own.
 
 **D153 (FIXED, verified at pass 284; in PASSLOG)**: **43 scripts across eleven namespaces** — not the 24 across eight I counted — named `/home/ttuser/of3t_rebase/`, which went with its row's worktree. A missing preferred path resolves nothing, so `import openfold3` fell through to 0.5.0: correct insert ORDER degrading anyway, which is why **only the resolution is evidence**. Repointed at the restored tree (bit-identical, digest `1b27f5754b32b8e3`) with `refpath.assert_resolved()`, and two no-survivor cases made to refuse rather than skip. **Nothing banked is poisoned**, re-checked independently: **zero** artifacts record `pylibs/openfold3`. Two of the namespaces I named, including **my own**, were substring false positives — `origin/wk/of3t-rebase` and `perf/of3t_rebase/*.json`, a branch and a repo-relative path.
 
-**D155 (WITHDRAWN same pass, before it reached a summary field; in PASSLOG)**: I filed *"protenix-v2 is non-deterministic at a fixed seed"* as USER-FACING on nine folds from **pc card 0** — a card root-caused FAULTY on 2026-08-17 by a row called `protenix-v2-nondeterminism-rootcause`, with a matched qb1 control **15/15 clean** and a standing rule that it must not host bit-exact gating for any model at any size. **The check I should have run is one line**: name the card before attributing a digest instability to a model.
+**D155 (WITHDRAWN, confirmed by control at pass 289; in PASSLOG)**: I filed *"protenix-v2 is non-deterministic at a fixed seed"* as USER-FACING on nine folds from **pc card 0**, a card root-caused faulty on 2026-08-17. Now measured rather than argued: on qb1 card 3 it is **9 folds, 3 arms, ONE digest** (`39bce7750297a920` — the value pc's base arm held four times before it wobbled), 0 of 9 moved against pc's 3 of 18. The card, not the model.
 
 **D10 (UNFIXED where it ships; measured end to end at pass 285; in PASSLOG)**: our pTM/ipTM reduction differs from upstream's only where a token is **frameless**. The ligand case reorders **[3,4,2,1,0]** to upstream's **[3,4,1,2,0]**, mask worth **3.853e-03**; monomer and complex read **0.0**. End to end on two real OpenBind co-folds it rejects exactly the single-atom ZN chain and none of 106 standard residues, and is **inert in outcome** over ten samples. **The row retracted its own pass-1 claim**: `--model openfold3` refuses a ligand at the front door (`capabilities.py:91`). **Live residual**: a modified residue IS atomized (`tokenization.py:208`), so the mask can fire there and no such target was folded.
 
-**D157 (UNFIXED, owner `of3t-d137digest`, caught mid-pass; in PASSLOG)**: the row's draft VERDICT says twice that *"on all three models the `on` arm is byte-identical to the `off` arm"* and counts *"27 folds, 3 models x 3 arms x 3 reps"*, while its own table reads `PROTENIX_BASE / PROTENIX_OFF / PROTENIX_ON` and its branch has **no protenix artifact**. The summary is ahead of the evidence by one model and nine folds. In a draft that is nothing; concluded it would put a third model into the answer to Moritz's inference constraint on a run that did not happen. Amendment sent: run it, or conclude on two models and say *"protenix-v2 not run"*. **What it already has is verified**: `off == on` byte-identical on openfold3 and opendde, 6 folds each, every arm stable within itself, on qb1 card 3 identified in full.
+**D157 (FIXED at pass 289; in PASSLOG)**: the row's draft VERDICT claimed three models while protenix-v2 had not run and had no artifact — caught before it concluded. It took the harder exit and **ran the model** rather than trimming the claim.
 
 **D119 (UNFIXED, mine)**: the observational floor I built for the crop ladder is close to vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so the control tests only that a projection exceeds the card and cannot separate two that both do. Plus a unit error under it: the card is 34,225,520,128 B (**34.2255 decimal GB = 31.875 GiB**) and `project.py` compares against 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; it does not change 640's GO, and it is why 768 is closed on a measured lower bound rather than on a projection.
 
@@ -847,13 +847,38 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five still need a card**, three
   (D30, D58, D129) one object — the tape's backward, `of3t-ditcot`'s. The condition itself stays
-  defective (**D122**): a keyword test on GAP's prose. Triaged: **4 scope-excluded, 8 USER-FACING, 42 campaign-internal**.
+  defective (**D122**): a keyword test on GAP's prose. Triaged: **4 scope-excluded, 8 USER-FACING, 41 campaign-internal**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Eighty dispatched, seventy-three concluded, seven live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-seven defects, fifty-four UNFIXED; seventy-five of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty dispatched, seventy-three concluded, seven live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-seven defects, fifty-three UNFIXED; seventy-five of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 288 — the gate does not move a fold, re-taken on hardware whose digests mean something; and the row reporting it claims three models while one of them has not run.**
+PASSLOG: **Pass 289 — protenix-v2 is deterministic on a healthy card, which turns last pass's withdrawal from an argument into a measurement, and the gate is now proved inert on all three models.**
+
+`of3t-d137digest` took the harder of the two exits I offered and **ran protenix-v2** rather than trimming its claim to two models. The result is the one that changes something:
+
+    host            folds   distinct digests   moved
+    pc card 0          18                 3+   3 of 18, across two runs
+    qb1 card 3          9                  1   0 of 9
+
+Nine folds, three arms, **one digest — `39bce7750297a920`** — which is the same value pc's base arm held four times before it wobbled. At pass 282 I withdrew *"protenix-v2 inference is non-deterministic at a fixed seed"* on the strength of the 2026-08-17 root cause; that was an argument from provenance. **This is the control it was missing.** The row puts it plainly: *"it is not a protenix-v2 defect. Any filing that says otherwise should be corrected"* — which was already done, and is now right for a better reason.
+
+**D137's digest half is delivered on all three models:**
+
+    model        base              off               on                stable within arm
+    openfold3    35d36fb149583ae5  b2f94fa1b430518c  b2f94fa1b430518c   3/3, 3/3, 3/3
+    opendde      0cc1cdf1d31e74c5  0cc1cdf1d31e74c5  0cc1cdf1d31e74c5   3/3, 3/3, 3/3
+    protenix-v2  39bce7750297a920  39bce7750297a920  39bce7750297a920   3/3, 3/3, 3/3
+
+`off == on` byte-identical everywhere, six folds each, `digest_stable_within_arm` true on all three. **Both halves of Moritz's constraint are now answered**: *"not changed"* by identical digests on clean hardware, *"not made slower"* free at call level and bounded at fold level. The flag a person can set reaches inference and changes nothing, measured rather than argued.
+
+**The one inequality is D1 landing.** openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed after `of3t-d137ab` measured — independent confirmation that D1's repair moves the served structure, which is its purpose. Three controls separate it from the gate.
+
+**And the artifact schema is repaired at the source**: it now records `host` and `host_card` beside `card`, which is what the pass-282 ratchet asked for. The ratchet still shows three frozen entries — those are `of3t-d137ab`'s, a concluded row's evidence, which stay frozen rather than rewritten; the new row's artifacts are not among them, which is the ratchet shrinking the only way it is allowed to.
+
+**A row given two honest exits took the more expensive one.** Worth recording as a fact about how these rows behave under an amendment, not as praise: the cheap exit was fully available and explicitly blessed.
+
+**Pass 288 —  the gate does not move a fold, re-taken on hardware whose digests mean something; and the row reporting it claims three models while one of them has not run.**
 
 `of3t-d137digest` re-took D137's digest half on **qb1 card 3**, and the result is the one Moritz's constraint asks for:
 
