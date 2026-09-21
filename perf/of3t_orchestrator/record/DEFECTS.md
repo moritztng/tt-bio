@@ -10030,3 +10030,23 @@ Every OF3T brief before this wave ends with some form of *"namespace `perf/of3t_
 All six live rows now carry both rules as a STANDING section, with the concluded-row grep named as the cheap first step. The three that cannot be composed are **held out with a printed note** naming their brief, never silently dropped, and the hold is released the moment they rebase.
 
 **What is NOT fixed**: whatever writes these briefs does not add the two lines. That path is not the orchestrator's, so this entry records the requirement rather than patching the generator. The four rows of the wave that already concluded (D112, D116, D117, D122/D115) were not amended — they are done, and two of them composed cleanly.
+
+### D151. `TT_BIO_SOFTMAX_BW_RENORM` is read twice at module level in the composed tree, the two reads reach different softmax backends, and a comment at the second says there is only one flag. LATENT today — both default off — and it becomes real the moment Moritz's ask-9629 decision is shipped by flipping one of them. FOUND by the orchestrator (pass 273), owner `of3t-d56-renorm`. **UNFIXED.**
+
+    tt_bio/autograd.py:80     SOFTMAX_BW_RENORM  = env_flag("TT_BIO_SOFTMAX_BW_RENORM", False)
+      -> autograd.softmax_bw_inner: the DEVICE backward, which of3t-d116 made the one expression
+         for both triangle_attention and taped_ttnn._v_softmax
+    tt_bio/taped_ttnn.py:202  _SOFTMAX_BW_RENORM = os.environ.get("TT_BIO_SOFTMAX_BW_RENORM","0")
+      -> read at autograd.py:906: the HOST float64 backward
+
+`of3t-d56-renorm`'s branch flips **the second**. The device path — the one that runs in every taped step — keeps autograd's `False` and does not take the repair, so the decision ships to one of two backends and the flag reads ON in one place and OFF in the place that runs.
+
+**The comment is the dangerous part.** `autograd.py:906` reads *"of3t-apbgrad's repair, honoured here so ONE flag covers both softmax backends"*. That was true when it was written, before d116 introduced autograd's own read, and it is exactly the sentence that stops the next reader checking. A comment asserting the invariant is not the invariant.
+
+**How it was found**: not by reading either file, but by trial-merging a held-out row against the composition and then asking what its diff would do once merged. The row's own work is good — an AST reach proof over both read sites, negative controls, per-pid counters because a `predict` run does its device work in spawned workers, byte-identical digests on three models — and none of it could see this, because the second read only came to exist when d116 landed after it branched.
+
+**Guard shipped, and it is green on arrival**: `assert_one_flag_one_default.py` requires every `TT_BIO_*` variable read in more than one place in `tt_bio/` to carry the SAME literal default everywhere, normalising `""`/`0`/`false`/`no`/`off`/`False`. Its probe is the pending change itself — it copies the real tree, flips one of the two renorm defaults the way the row's branch does, and refuses to pass if that does not fire.
+
+**The broader rule was measured and NOT shipped.** "One read per variable" would be 8 false positives out of 9: `TT_BIO_CACHE` and `TT_BIO_EXIT_TRIM` read twice in one file, `TT_BIO_SHARED_DRAW_SEED` read by boltz2, esmfold2 and protenix. 89 % wrong is the check declined at pass 261 for the same reason. Disagreeing DEFAULTS is the property that can make two sites behave differently, and it is 0 of 166 today.
+
+**Repair** in AMENDMENT 2 on the row's brief: make `autograd.SOFTMAX_BW_RENORM` the single definition, have the host float64 backward branch on it, delete `taped_ttnn._SOFTMAX_BW_RENORM` once nothing reads it, flip the surviving default with the reach proof re-run against the unified read, and correct the comment.
