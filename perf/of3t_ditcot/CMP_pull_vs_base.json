@@ -1,0 +1,10 @@
+{
+ "a": "/tmp/of3t/ditcot/kcfg_base1.pt",
+ "b": "/tmp/of3t/ditcot/kcfg_pull.pt",
+ "compared": 547,
+ "bit_identical": 547,
+ "moved": 0,
+ "bit_identical_frac": 1.0,
+ "max_rel": 0.0,
+ "top_moved": []
+}
