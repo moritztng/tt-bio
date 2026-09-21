@@ -710,7 +710,7 @@ record its own.
 
 **`of3t-rankunify` concluded GO ON CONSISTENCY, ACCURACY CLAIM WITHDRAWN — a decision for Moritz (pass 235); argued in full in PASSLOG.** The family now computes **one** ranking rule. **No rule of six is distinguishable on accuracy**: spread **0.0103 A** against a **0.089 A** smallest seed floor, 40 of 52 folds unchanged, **p = 0.146**. The unified rule is what **3 of 5** sites already compute; the interface branch is provably unchanged (45 of 45 bit-identical, with a working negative control). **The counter-finding is stated as a blocker**: opendde and rf3 are nominally worse (**+0.046 A**, **+0.020 A**), **9 of 12** changed folds the wrong way — inside their seed floors, not significant, but worse, and **Moritz should decide**. **D128**, found on the way and fixed: `rf3/confidence.py` ordered samples on a **rounded** score, so non-ties decided which structure a user got, and **four copies of one rule hid it**. **D10 and D24 stay UNFIXED**: nothing merged, and *"no rule is better"* is not *"ours is right"*.
 
-**D129 (UNFIXED, USER-FACING; `of3t-condtrans` CONCLUDED, pass 237; in PASSLOG)**: a real defect, and 100 % of it is the cotangent ARRIVING at the leaf. `conditioned_transition.layer_norm.layer_norm_s.weight` reads mass-weighted **0.693974** against upstream 0.5.0's own bf16 floor of **0.158156** — **4.388x** the floor, **3.10x** A26's bar, 28 of 30 instances outside it. Settled by three measurements: conditioning bounds a bf16-class evaluation at 0.0328 and the reading is **20.2x** it; isolation puts our own contraction at **1.5217e-03**, 456x under; substituting upstream's cotangent reproduces the reference gradient at **8.877e-09**. So the leaf's arithmetic and its input are innocent, and what is ours is a **flat 2.35x** excess on the incoming cotangent, uniform across all 24 DiT blocks. **Still at 0.5.0**; `of3t-cond043` holds the 0.4.3 question, and `of3t-ditcot` owns the object.
+**D129 (UNFIXED, USER-FACING; denominator settled at pass 293; in PASSLOG)**: a real defect, and 100 % of it is the cotangent ARRIVING at the leaf. `conditioned_transition.layer_norm.layer_norm_s.weight` reads mass-weighted **0.693974**, **4.388x** upstream 0.5.0's own bf16 floor and **3.10x** A26's bar, 28 of 30 instances outside. Settled by three measurements: conditioning bounds a bf16-class evaluation at 0.0328 and the reading is 20.2x it; isolation puts our contraction at **1.5217e-03**, 456x under; substituting upstream's cotangent reproduces the reference gradient at **8.877e-09**. What is ours is a **flat 2.35x** excess on the incoming cotangent, uniform across 24 DiT blocks. **At 0.4.3 the bar is 2.2530588761e-01 — it moves 0.73 %** (`of3t-cond043`), so this does not dissolve at the boundary; our own arm there is card-bound and the ratio is **deliberately uncomputed** rather than formed across versions. `of3t-ditcot` owns it and now has the numbers.
 
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Each line
 says who closed it, or what is left. **Audited against concluded rows four times — pass 195, pass 269,
@@ -856,7 +856,27 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty dispatched, seventy-five concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-eight defects, fifty-four UNFIXED; seventy-seven of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 292 — audited every line-number citation in the ledger for decay; none is demonstrably stale, and the single hit was my own checker conflating two files with the same name.**
+PASSLOG: **Pass 293 — D129's denominator at the boundary that matters is measured, and it moves 0.73 %: the defect does not dissolve at 0.4.3, which is where it was most likely to.**
+
+`of3t-cond043` concluded GO on exactly the half it was scoped to:
+
+    upstream 0.4.3's own bf16 floor on conditioned_transition.layer_norm.layer_norm_s.weight
+        1.5931532097e-01   over 30 instances, reference mass 1.5969832003e+00
+    the same floor at 0.5.0
+        1.5815634233e-01
+    A26's bar (sqrt(2) x floor)   0.4.3  2.2530588761e-01     0.5.0  0.223667
+
+D129 reads **0.693974** — 4.388x the 0.5.0 floor, 3.10x the bar, 28 of 30 instances outside. **The bar moves 0.73 % across the version boundary.** The denominator was the obvious place for this defect to dissolve, and it does not dissolve there: if our own arm at 0.4.3 lands near where it lands at 0.5.0, the verdict survives essentially unchanged.
+
+**What the row refused to do is the better part.** `0.693974 / 1.5931532097e-01` is **not** formed. Our arm at the 0.4.3 capture is card-bound and the row was dispatched without a card, so rather than divide a 0.5.0 numerator by a 0.4.3 denominator it left the ratio uncomputed and said why: A27 — *"a ratio names how its denominator arm was built"* — is a hard refusal here rather than a convention. Two of its own figures would have produced the number; it declined to produce it.
+
+**Handed to the owner, which was the gap.** `of3t-ditcot` holds D129's object and its brief dates from **pass 239**, before any of this existed — so on launch it would have re-derived the bar or scored against 0.5.0's. AMENDMENT 3 gives it the numbers, the 0.73 % reading, the provenance (package derived not declared, capture revalidated to every digit, f32 instrument floor four orders below, break control that moves the reading, bit-identical A/A, A16 exactly 1.0, A14 clean), and an explicit instruction **not** to complete the division from the two figures — take our arm at 0.4.3 on the card it will have and divide like for like.
+
+**And its method is worth copying, not only its number**: it registered its prediction before measuring and reported it honestly — right on D129's leaf, **wrong on the other two entries**, with its own judgement that the miss matters more than the hit. `of3t-ditcot` is told to register its own prediction the same way, since its brief already asserts the 2.28x is one op.
+
+**`of3t-trajwide`'s reference arm is measured rather than guessed at**: k06 14:35:14, k07 14:44:30, k08 14:52:36 — **8-9 minutes per rung** at 877 % CPU, against the ~4 min/rung the row's own re-pricing implied. Twelve rungs left, so the condition-3 answer lands about an hour and three quarters later than the 1.34 h estimate. Device side is complete (`shipped` 20/20, `zero` 20/20).
+
+**Pass 292 —  audited every line-number citation in the ledger for decay; none is demonstrably stale, and the single hit was my own checker conflating two files with the same name.**
 
 D32's pass-222 update records *"5 of 21 line numbers stale — the `defect-located-only-by-line-number-decays` trap a third time in this file"*, so I checked all of them. **140 distinct `file.py:NNN` citations**, resolved against the composition:
 

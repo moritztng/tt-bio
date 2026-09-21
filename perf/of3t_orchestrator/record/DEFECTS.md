@@ -10440,3 +10440,23 @@ D32's pass-222 update records *"5 of 21 line numbers stale — the `defect-locat
 **What is worth it is the convention, and one clause in this file already does it right.** Line 123 writes *"`attention.py:314` in 0.4.3, `:321` in 0.5.0"* — the citation names its tree and its two revisions. Everything the campaign has learned about references says the same thing in a different place: D149 (a constant is not a resolution), D153 (a path that no longer exists resolves to the wrong tree silently), D112 (the same arms re-scored against 0.4.3 flip four of six). **A citation that does not name its tree is the same defect at documentation scale**, and this campaign reads both trees constantly.
 
 **Not filed as a guard.** Requiring a tree on all 140 would be a retrofit with no way to verify the answer, and the pass-261 threshold applies. Recorded as the convention new entries should follow: name the tree when the filename exists in both.
+
+### D129 UPDATE (pass 293, heading restated). **UNFIXED, USER-FACING** — and its denominator at the boundary that matters is now measured: the bar moves **0.73 %**, so the reading is not a version artifact on that side.
+
+`of3t-cond043` concluded GO on exactly the half it was scoped to:
+
+    upstream 0.4.3's own bf16 floor on `conditioned_transition.layer_norm.layer_norm_s.weight`
+        1.5931532097e-01   over 30 instances, reference mass 1.5969832003e+00
+    the same floor at 0.5.0
+        1.5815634233e-01
+    A26's bar (sqrt(2) x floor)   0.4.3  2.2530588761e-01     0.5.0  0.223667
+
+**The bar moves 0.73 %**, which cuts against the comfortable story. D129 reads 0.693974 against the 0.5.0 floor — 4.388x it, 3.10x the bar, 28 of 30 instances outside. If our own arm at 0.4.3 lands anywhere near where it lands at 0.5.0, that verdict survives the boundary change essentially unchanged. The denominator was the obvious place for this defect to dissolve, and it does not dissolve there.
+
+**What is still uncomputed, deliberately.** `0.693974 / 1.5931532097e-01` is **not** formed. Our arm at the 0.4.3 capture is card-bound and the row was dispatched without a card, so it refused to divide a 0.5.0 numerator by a 0.4.3 denominator. A27 — *"a ratio names how its denominator arm was built"* — is a hard refusal here rather than a convention, and the row said so instead of quietly producing the number two of its own figures would have made available.
+
+**Provenance, because a floor is only as good as its capture**: package derived rather than declared, capture revalidated to every digit, an f32 instrument floor four orders below the reading, a break control that moves it, a bit-identical A/A, an A16 reading exactly 1.0, and an A14 with nothing near the denominator floor.
+
+**Handed to the owner.** `of3t-ditcot` holds D129's object and its brief was written at pass 239, before any of this existed — so it would have re-derived the bar or, worse, scored against 0.5.0's. AMENDMENT 3 gives it the numbers, the 0.73 % reading, and an explicit instruction **not** to complete the division from the two figures: take our arm at 0.4.3 on the card it will have, and divide like for like.
+
+**And the row's method is worth copying, not just its number**: it registered its prediction before measuring and reported it honestly — right on D129's leaf, **wrong on the other two entries**, with its own judgement that the miss matters more than the hit.
