@@ -139,8 +139,12 @@ def main() -> int:
     struct_dir = Path(meta["struct_dir"])
     res["grid"] = list(T.COMPUTE_GRID_MAIN)
 
-    set_arm("cand")
-    print(f"=== {a.model} {a.size}: cold fold (arm cand) ===", flush=True)
+    # Cold on the FIRST arm of the list, not always `cand`. `--arms main,main,main` must be a
+    # process that never runs the candidate at all: the candidate's cold fold throws L1 and latches
+    # `_L1_OUT_REFUSED` for the whole process, so a cand-cold contaminates every later main leg.
+    cold_arm = a.arms.split(",")[0]
+    set_arm(cold_arm)
+    print(f"=== {a.model} {a.size}: cold fold (arm {cold_arm}) ===", flush=True)
     cold_s, _ = one_fold()
     res["cold_s"] = round(cold_s, 3)
     print(f"  cold {cold_s:.2f}s", flush=True)

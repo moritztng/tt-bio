@@ -1,0 +1,231 @@
+{
+ "model": "opendde",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "main,cand,main,cand,main,cand",
+ "control": "main = six deleted literals restored + derivation disabled",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T02:02:57Z",
+ "loadavg": [
+  3.33837890625,
+  9.46826171875,
+  12.2177734375
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "main",
+   "fold_s": 85.232,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg0_main"
+  },
+  {
+   "i": 1,
+   "arm": "cand",
+   "fold_s": 84.226,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 39
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 39 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    2432,
+    0
+   ],
+   "fused_derived": {
+    "kt=2,nt=9": 320,
+    "kt=12,nt=49": 2112
+   },
+   "qkvg": [
+    1216,
+    0
+   ],
+   "qkvgb": [
+    1216,
+    0
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg1_cand"
+  },
+  {
+   "i": 2,
+   "arm": "main",
+   "fold_s": 85.082,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg2_main"
+  },
+  {
+   "i": 3,
+   "arm": "cand",
+   "fold_s": 84.306,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 39
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 39 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    2432,
+    0
+   ],
+   "fused_derived": {
+    "kt=2,nt=9": 320,
+    "kt=12,nt=49": 2112
+   },
+   "qkvg": [
+    1216,
+    0
+   ],
+   "qkvgb": [
+    1216,
+    0
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg3_cand"
+  },
+  {
+   "i": 4,
+   "arm": "main",
+   "fold_s": 85.167,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 39
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 39 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg4_main"
+  },
+  {
+   "i": 5,
+   "arm": "cand",
+   "fold_s": 83.921,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 39
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 39 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    2432,
+    0
+   ],
+   "fused_derived": {
+    "kt=2,nt=9": 320,
+    "kt=12,nt=49": 2112
+   },
+   "qkvg": [
+    1216,
+    0
+   ],
+   "qkvgb": [
+    1216,
+    0
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg5_cand"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 90.701,
+ "medians": {
+  "main": 85.167,
+  "cand": 84.226
+ },
+ "aa_floor": {
+  "main": 0.15000000000000568,
+  "cand": 0.3849999999999909
+ },
+ "digests": {
+  "main": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ],
+  "cand": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ]
+ },
+ "ratio": 1.01117,
+ "delta_s": 0.941
+}
