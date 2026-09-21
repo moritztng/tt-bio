@@ -115,6 +115,31 @@ def main() -> int:
         print(f"    with reserve 0: {p150a_per_core * cores:,} B -> "
               f"{'ADMITS' if nbytes <= p150a_per_core * cores else 'DECLINES'}")
 
+    # THE SIZE SWEEP, added 04:05Z, and it re-prices this lever downward.
+    print("\nACROSS THE SIZE LADDER -- the pair tensor grows as N^2 and L1 does not")
+    print(f"  {'N':>6} {'nbytes':>15} {'verdict now':>12}   largest reserve that would admit")
+    cap0 = p150a_per_core * 110
+    crossover = None
+    for N in (256, 384, 512, 544, 576, 640, 768, 896, 1024, 1408):
+        nb = padded_bytes([1, N, N, 256], 2)
+        avail = max(p150a_per_core - reserve, 0) * 110
+        rmax = p150a_per_core - -(-nb // 110)
+        note = f"{rmax:,} B" if rmax > 0 else "IMPOSSIBLE at any reserve, even 0"
+        if rmax <= 0 and crossover is None:
+            crossover = N
+        print(f"  {N:>6} {nb:>15,} {'ADMITS' if nb <= avail else 'declines':>12}   {note}")
+    print(f"\n  At reserve 0 the whole grid holds {cap0:,} B, so the lever is arithmetically")
+    print(f"  capped near N = 573 (2*N^2*256 bytes <= that). The first ladder rung it can never")
+    print(f"  reach on this part is {crossover}, and 130 cores does not rescue it either:")
+    print(f"  {p150a_per_core*130:,} B against {padded_bytes([1,640,640,256],2):,} B at 640 aa.")
+    print("""
+  SO THE RESERVE FIX BUYS EXACTLY ONE RUNG. 256 and 384 already admit under the shipped 640 KB;
+  512 is the only size where changing the constant changes the answer; 640 and up are refused by
+  arithmetic no constant can move. This corrects the orchestrator's own pass-28/30 framing, which
+  called it the best-aimed unblocked item on the strength of ESMFold2's 45.61 % trimul share --
+  true at 512 aa, and not a general trimul unlock. A lever whose gate is an L1 budget and whose
+  operand grows as N^2 has a size ceiling, and the ceiling is the result, not the constant.""")
+
     print("""
 WHAT THIS SETTLES AND WHAT IT DOES NOT
   Settles: the decline is the RESERVE, not the shape and not a model predicate. The shipped
