@@ -346,8 +346,43 @@ done
 # which is exactly why its failure must be loud: a conflict here silently drops the orchestrator's
 # corrections from the branch that goes to the merge gate, and the compose would still print
 # "clean". Found pass 92 while reverting a default flip through this very merge.
-git merge --no-edit -q wk/of3t-orchestrator \
-  || { echo "CONFLICT merging wk/of3t-orchestrator:"; git diff --name-only --diff-filter=U; exit 1; }
+if ! git merge --no-edit -q wk/of3t-orchestrator; then
+  # One conflict shape is resolvable here and exactly one: an add/add inside
+  # `perf/of3t_orchestrator/`, the orchestrator's OWN artifact namespace. D171, pass 319. The
+  # charter evaluator was written by `of3t-d122-d115` INTO this namespace and reached every tree
+  # through that row's branch, never through the owner's, so when the owner finally carried it
+  # the two copies had no merge base. Namespace ownership is the thing this campaign arbitrates
+  # (`sibling-perf-campaigns-need-namespaced-output-paths`), so the owner's copy is the answer by
+  # definition -- the other side is a row that wrote outside its own namespace.
+  #
+  # Narrow on purpose: ONLY add/add (both sides added, no base), ONLY under this one prefix, and
+  # any other conflicted path still stops the composition. And it is self-verifying rather than
+  # trusted -- everything under this prefix is an instrument the compose RUNS a few lines below,
+  # so a resolution that dropped something load-bearing fails the run it is resolving. That is
+  # the property, not the intention: `charter_evidence.py` refuses to publish if its own break
+  # and negative controls do not pass.
+  _u="$(git diff --name-only --diff-filter=U)"
+  _bad="$(printf '%s\n' "$_u" | grep -v '^perf/of3t_orchestrator/' || true)"
+  _notaa="$(for _f in $_u; do git ls-files -u -- "$_f" | awk '{print $3}' | grep -qx 1 \
+              && printf '%s\n' "$_f"; done)"
+  if [ -n "$_u" ] && [ -z "$_bad" ] && [ -z "$_notaa" ]; then
+    for _f in $_u; do
+      # HEAD here is the accumulated composition and `wk/of3t-orchestrator` is what is being
+      # merged, so the owner's copy is THEIRS, not OURS. Getting this backwards would silently
+      # keep the row's stale copy and print the reassuring note anyway.
+      git checkout --theirs -- "$_f" && git add -- "$_f"
+      echo "  NOTE wk/of3t-orchestrator: add/add on $_f resolved to the NAMESPACE OWNER's copy"\
+           " (D171); it is an instrument this compose runs, so a wrong resolution fails below"
+    done
+    git commit --no-edit -q
+  else
+    echo "CONFLICT merging wk/of3t-orchestrator:"; printf '%s\n' "$_u"
+    [ -n "$_bad" ] && echo "  (outside perf/of3t_orchestrator/ -- not the D171 shape)"
+    [ -n "$_notaa" ] && echo "  (has a merge base, so it is a real disagreement, not add/add:"\
+                             " $_notaa)"
+    exit 1
+  fi
+fi
 
 # (1) ancestry, asserted AFTER the merges
 for r in $PRESENT; do
