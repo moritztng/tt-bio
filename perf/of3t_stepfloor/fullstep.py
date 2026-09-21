@@ -347,6 +347,12 @@ def main() -> int:
                                 "params": 0 if opt is None else len(opt.params)}
             dump()
 
+            # D56's lever, read off the module rather than off the environment, with its own
+            # REACH counter beside it: a flag that is set and never fires is the fleet's
+            # standing  case and the counter is what tells them
+            # apart. Sampled again after the reps so the delta is the work's, not the import's.
+            out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
+                             "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             reps = []
             for rep in range(a.reps):
                 rng = np.random.default_rng(SEED + rep)
@@ -452,6 +458,13 @@ def main() -> int:
                       flush=True)
                 dump()
 
+            out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
+            out["renorm"]["applied_during_reps"] = (
+                out["renorm"]["stats_after"]["applied"]
+                - out["renorm"]["stats_before"]["applied"])
+            out["renorm"]["declined_during_reps"] = (
+                out["renorm"]["stats_after"]["declined"]
+                - out["renorm"]["stats_before"]["declined"])
             key = "step_s_UNTAPED" if a.no_tape else "step_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
