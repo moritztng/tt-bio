@@ -502,6 +502,13 @@ echo "--- dispatch card tokens"
 # diffusion capture recorded missing_keys and not unexpected_keys, so 24 trained layer_norm_z
 # tensors were dropped while the report read "1 missing, version_tensor". Three existing reports
 # are frozen; a fourth must never ship blind.
+# (3h) D142. PROTOCOL is read top to bottom by every row, so a clause conditioned on a defect
+# that has since closed teaches a verdict the campaign no longer stands behind. Live conditions
+# only -- ordinary provenance ("Record: D96") stays correct after a defect closes.
+echo "--- PROTOCOL rests on no closed defect"
+"$PY" "$HERE/assert_protocol_defect_refs.py" || \
+  { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
+
 echo "--- capture provenance records unexpected_keys"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
   { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
