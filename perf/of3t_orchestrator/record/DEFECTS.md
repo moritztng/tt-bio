@@ -9096,3 +9096,132 @@ twenty-nine at pass 240. The audit fails on any statusless defect **not** in tha
 on any entry that has **since acquired** a status, so the list can only shrink and cannot quietly
 absorb new ones. Failing on all twenty-nine at once would have aborted every compose until they were
 triaged in a hurry, which is how a status word gets chosen for convenience rather than measured.
+
+### D25 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a cross-box upstream-against-upstream replay, corrected by `of3t-rebase` the same night. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D34 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a classification of every compared tensor by leaf op. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D36 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a second statistic already in the files, read. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D38 UPDATE (pass 241). **RECORDED** — a finding, not a defect: three mechanisms eliminated by code reading, so no run is spent on them. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D39 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the block-boundary ladder, captured and read. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D40 UPDATE (pass 241). **RECORDED** — a finding, not a defect: seven blocks measured at one config. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D41 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the one variable that separates block 47, measured across seven blocks. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D43 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a chain that aborted correctly on its first use of the failure-stop. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D44 UPDATE (pass 241). **RECORDED** — a finding, not a defect: block 47 priced against the model's gradient mass. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D45 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a protocol error of mine that made an arm vacuous, caught before it was believed. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D47 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the contiguous 40-47 bracket, measured. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D50 UPDATE (pass 241). **RECORDED** — a finding, not a defect: an inverted premise in a brief of mine, caught against the measurement. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D52 UPDATE (pass 241). **RECORDED** — a finding, not a defect: an item recorded as blocked for eleven passes that was already unblocked. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D65 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a depth trend measured and pre-registered for test. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D70 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the campaign's bar priced against OpenFold3's own training dtypes. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D72 UPDATE (pass 241). **RECORDED** — a finding, not a defect: the model re-scored against upstream's own bf16 floor. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D74 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a row list that was a comment rather than code. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D75 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a reference being overwritten underneath a measurement. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D76 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a pre-registered branch that was arithmetically unreachable. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D109 UPDATE (pass 241). **RECORDED** — a finding, not a defect: a brief of mine whose instrument could not have answered its question. Nothing is pending on it.
+
+Status assigned under the vocabulary extended at pass 241 (**D135**). This entry declared no status on any heading, so it was invisible to the UNFIXED set, to `state/of3t/UNFIXED_TRIAGE.json` and to GAP's naming requirement (**D133**). RECORDED asserts there is nothing to repair; it is fenced so that a defect which ever declared UNFIXED can never be restated into it, and this one never did.
+
+### D49 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: `fp32_softmax=False` improves gradient parity on five of seven trunk blocks and the shipped default is still the other way, so there is a decision outstanding.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D110 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: a lever that fires 1,440 times and cannot take effect is still a lever that does not work.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D121 UPDATE (pass 241). **UNFIXED** — declared, because something is still outstanding: it asks for two counters where the instruments have one, which is work not yet done.
+
+This entry declared no status on any heading and was therefore absent from the UNFIXED set for its whole life (**D133**). It is labelled UNFIXED rather than RECORDED deliberately: where a reader could reasonably think something should be done, the conservative word is the honest one.
+
+### D135. The status vocabulary had no word for a FINDING, was written out five times across four files, and was applied by a parser that read English prose as a declaration. FOUND and FIXED by the orchestrator (pass 241). **FIXED.**
+
+Reading D133's twenty-nine statusless entries showed why they had no status: **most are not
+defects.** *"Block 47 is worth about one per cent of the model's gradient mass"*, *"I briefed a row
+to separate two variables that were rank-identical on the ladder I specified"* — there is nothing to
+repair, so FIXED is false and UNFIXED is false, and their authors reached for words outside the
+vocabulary (*"MEASURED"*, *"recorded"*) exactly as pass 196 reached for SUPERSEDED.
+
+**RECORDED added, and it is not the SUPERSEDED mistake.** SUPERSEDED was refused because it is
+genuinely ambiguous — D87 meant its CLAIM was superseded, D119 meant its NUMBERS were, and one is a
+closure while the other is not. RECORDED asserts one thing: this entry is a finding, so nothing is
+pending. **It is fenced**: a defect that has EVER declared UNFIXED may not later be restated
+RECORDED, which is the retirement-by-relabelling move the word would otherwise enable, and the
+audit refuses it rather than judging it.
+
+**Applied**: twenty entries are now RECORDED, and **three are UNFIXED instead** — **D49** (the
+shipped default is still the other way and a decision is outstanding), **D110** (a lever that fires
+1,440 times and cannot take effect is a lever that does not work) and **D121** (it asks for two
+counters where the instruments have one). Where a reader could reasonably think something should be
+done, the conservative word is the honest one. The statusless backlog goes **29 → 6**; the six that
+remain are real code defects whose repair state needs reading one at a time.
+
+**One definition, not five.** `audit_evidence.py` carried the pattern twice, `triage.py` and
+`defecttriage/gate_is_a_keyword_test.py` once each, and `_of3t_donecheck.py` once — the shape of
+half the defects this campaign has filed against its own instruments. The four in this tree now
+import `perf/of3t_orchestrator/status_vocab.py`. The gate runs from a different checkout and cannot
+import it, so its literal is **compared** against `PATTERN` on every compose and the compose fails
+if they drift.
+
+**And the parser now applies the rule the pass-240 guard only reported.** D134 added a check that
+a status must be UPPER-CASE and unnegated, but `_last` went on matching against `heading.upper()`,
+so the guard and the parse gave two answers to one question. The moment RECORDED joined the
+vocabulary that hole re-read four entries silently — **D3**'s heading is *"UNFIXED, out of scope,
+recorded so it is not lost"*, and its last lower-case word would have retired it, along with D117,
+D123 and D124. Case matters, the house convention is capitals, and `statuses_by_defect` now enforces
+it with a self-test carrying D3's, D116's and D69's exact shapes.
