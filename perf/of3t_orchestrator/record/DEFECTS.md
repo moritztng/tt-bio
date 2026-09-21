@@ -8451,3 +8451,47 @@ chasing them as two defects in two scopes for seventy passes.
 `of3t-lnaffine` was dispatched one pass ago for the trunk half. Its brief is amended to cover both
 stacks and to take D56 with it: the same leaf, the same question, and one row rather than two
 editing one backward.
+
+### D56 UPDATE 3 (pass 231). Two corrections to my own pass-230 reading: the error is BLOCK-SELECTIVE rather than a uniform scale factor, and the entire picture is PRE-REPAIR and unmeasured since.
+
+**Correction 1: not a factor.** At pass 230 I read `norm_ratio` 19.2415 at `cos` +0.7494 on the one
+worst tensor, called it a scale error and told `of3t-lnaffine` to look for a missing or doubled
+normalisation factor first. Reading all **24** diffusion-transformer instances of the leaf instead of
+the worst one refutes that:
+
+    block    0      1      2      3      4      5      6      7      8      9     10     11
+    r     1.869  1.823  0.710  0.726  0.851  5.521  1.974  5.198 19.242  1.109  0.907  1.092
+    cos  -0.796 +0.996 +0.998 -0.169 +0.977 +0.982 -0.805 -0.014 +0.749 +0.998 +0.616 +0.996
+    block   12     13     14     15     16     17     18     19     20     21     22     23
+    r     6.076  1.124  1.435  1.286  1.401  1.032  1.042  0.843  1.509  0.757  0.874  1.705
+    cos  +0.497 +0.992 +0.994 +0.735 +0.782 +0.997 +0.941 +0.989 +0.664 +0.929 +0.992 +0.830
+
+**Ten of twenty-four blocks are healthy** — cos ≥ 0.95 and r in [0.5, 2.0] — and carry **0.0316 %**
+of the leaf's error mass. **Blocks 5, 7, 8 and 12 carry 99.5003 %**, all at r > 5. A uniform factor
+would be constant across all 24 instances; it is not. Separately, blocks **0, 3 and 6** are
+anti-correlated (cos −0.796, −0.169, −0.805) at r near 1, which is a **second, different** failure
+mode in the same leaf. The right question is what distinguishes those blocks, and it is not a factor.
+
+**Correction 2, and it is the bigger one: the whole picture is PRE-REPAIR.**
+`perf/of3t_adaln/device_gradient_real043_pertensor.json` records **no arm and no flag** — it predates
+`TT_BIO_SOFTMAX_BW_RENORM` entirely. I checked every post-repair artifact in the composition
+(`of3t-wholemodel`'s `device_cond_gradient_wm_{shipped,renorm,renormf64}`, `of3t-apbgrad`'s
+`DEV_SCOPE_*`) and **none carries this leaf**. So **whether the repair moved the 99.5 % concentration
+has never been measured**, and I quoted it twice as current.
+
+**And there is strong reason to expect it did.** D57 records that **`of3t-adaln`'s float64-softmax
+arm puts blocks 8, 0 and 12 all inside the bar** — two of the four worst blocks plus one of the
+anti-correlated ones — and `of3t-apbgrad`'s renorm repair takes **99.6 %** of the float64 arm's
+ground at a tenth of the cost. **So the campaign's "the diffusion module is 16.6 % out", and D30's
+and D58's amplification figures at that scope, may all be pre-repair numbers on a leaf a shipped
+lever already moves.**
+
+`of3t-lnaffine`'s AMENDMENT 1 is withdrawn and its deliverable zero is now re-measuring this leaf's
+24 blocks on the **renorm** arm. Its trunk half is from `SCOPE_c64.json`'s RENORM arm and is already
+post-repair, so the two halves are not currently comparable — making them comparable is part of the
+job.
+
+**The recurring shape, fourth instance and the first two caught in consecutive passes**: an aggregate
+read as a mechanism. The worst tensor named a scale error; the 24 rows behind it name a
+block-selective one. `worst-tensor-names-the-tail-not-the-locus` applies to *signatures* as well as
+to magnitudes.
