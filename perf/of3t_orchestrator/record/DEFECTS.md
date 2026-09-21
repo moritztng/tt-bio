@@ -8918,3 +8918,39 @@ excess of 2.35x in the DiT block's backward, with no depth structure and no outl
 first time this campaign has reduced a diffusion-scope finding to a single uniform factor. And the
 boundary caveat is untouched: all of this is measured at **0.5.0**, and `of3t-cond043` holds the
 0.4.3 question.
+
+### D132. Two rows edit the campaign's only diffusion-scope floor instrument in OVERLAPPING hunks, and the merge that would silently keep one side had not happened yet. FOUND by the orchestrator (pass 238), caught before the collision. **FIXED** as a declared co-edit with a both-sides assert; the resolution itself is the live row's.
+
+`perf/of3t_condtrans/floor_bf16.py` is the only artifact in this campaign that produces an
+upstream-bf16 floor at diffusion scope. Two rows change it:
+
+| row | change | state |
+|---|---|---|
+| `of3t-condtrans` | the **`f64`** policy and **`--capture-ln`**, which re-derive the REFERENCE operands at named LayerNorm sites (`618b27903`) | CONCLUDED at `b6cc90acc`, frozen |
+| `of3t-cond043` | **`--expect-version`**, reading the version off the imported module's own directory and hard-failing a mismatch (+92/−14) | LIVE, **not pushed** |
+
+`of3t-cond043` branched from `a2d76a243`, which carries the file at `ee601c106` — *before*
+condtrans's addition. Both edits land in the same argparse block and the same docstring, so the
+hunks **overlap**; disjointness is not available as an argument. Nothing has collided yet only
+because the live row has not pushed.
+
+**The orchestrator's first instruction was the wrong fix and is withdrawn.** AMENDMENT 1 told
+`of3t-cond043` to copy the file into its own namespace. That forks the campaign's only floor
+instrument into two drifting versions — the standing UNIFIED rule is against exactly that — and
+`--expect-version` is a provenance guard every arm should carry, not a 0.4.3 special case.
+AMENDMENT 2 replaces it: **merge** `origin/wk/of3t` (not rebase, the row has jobs executing out of
+that worktree), keep both sides, and prove the resolution **executes** — `--help` listing all four
+policies, one completed arm reproducing its published JSON, and `--expect-version 0.5.0` against the
+0.4.3 tree failing. A hand-resolved merge needs execution, not a syntax check.
+
+**And the compose asserts it rather than trusting the declaration.** The file joins
+`ALLOWED_COEDIT` with the treatment `tt_bio/openfold3_trunk.py` already gets — declared as
+OVERLAPPING, then checked — and aborts with `CO-EDIT LOST A SIDE` naming whichever of `f64`,
+`--capture-ln` or `--expect-version` the merged file lost. **Conditional on both rows being in the
+composition**, because until the live row pushes only one side exists and an unconditional assert
+would abort every compose on a collision that has not happened.
+
+**Negative control, all three arms exercised**: the composed file as it stands reports *lost
+cond043's --expect-version* (its side is genuinely absent today, which is why the flag is
+conditional); with that flag added, both sides present; deleting `--capture-ln` reports it lost;
+renaming `"f64"` reports the f64 policy lost. No arm of the check is vacuous.
