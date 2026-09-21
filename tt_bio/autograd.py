@@ -88,6 +88,15 @@ class _Node:
         self.parents = parents
 
 
+# Whether `_tape` may pin only the parents a closure actually READS. Off restores the
+# behaviour every verb had before there was a way to say otherwise -- pin everything -- and
+# is the control arm for the measurement, not a fallback: with it on, no gradient changes,
+# no op changes and no accumulation order changes, because the only difference is which dead
+# buffers the card gets back. Release-gated all the same: it moves memory, and memory is what
+# this campaign is measuring.
+DROP_DEAD_VALUES = True
+
+
 class Tensor:
     """A ttnn tensor plus its place on the tape. The value stays on device throughout.
 
@@ -159,28 +168,48 @@ class Tensor:
         later, and the crash that follows a premature free surfaces in an unrelated op
         several layers away. A leaf parameter is never freed either -- it is not an
         intermediate, and its gradient lands on it.
+
+        PINNED and REQUIRES_GRAD are two different questions, and the release turns on the
+        first. Every intermediate in the middle of the graph requires a gradient -- that is
+        what makes the chain continue -- while its VALUE may be read by no backward at all:
+        `typecast`'s closure keeps the source dtype rather than the source, and `softmax`'s
+        reads y. Those bytes go back to the card here and the `Tensor` stays exactly where
+        it is, so the gradient still lands on it.
         """
         if not self.evictable:
             return
-        if not self.pinned and not self.requires_grad:
+        if not self.pinned and (self.node is not None or not self.requires_grad):
             ttnn.deallocate(self.value)
-        elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:
-            # EVICT rather than refuse. The tuned forward puts an activation in L1 and then
-            # frees it the moment its consumer has read it, and the next kernel's circular
-            # buffers are sized against the room that leaves. A tape that simply declines
-            # the free keeps the room occupied and the next kernel cannot lay out: measured
-            # on the shipped Transition at a [1,256,256,128] pair track, "Statically
-            # allocated circular buffers in program 11 clash with L1 buffers ... L1 buffer
-            # allocated at 692224 and static circular buffer region ends at 893440".
-            #
-            # The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
-            # DRAM gives both, and it is the honest price of a gradient: one DRAM write per
-            # L1-resident activation that inference does not pay.
-            old = self.value
-            self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
-            ttnn.deallocate(old)
-            if self.box is not None:
-                self.box[0] = self.value
+        else:
+            self.evict()
+
+    def evict(self) -> None:
+        """Give an L1-resident value its PLACE back without giving up its bytes.
+
+        EVICT rather than refuse. The tuned forward puts an activation in L1 and then
+        frees it the moment its consumer has read it, and the next kernel's circular
+        buffers are sized against the room that leaves. A tape that simply declines
+        the free keeps the room occupied and the next kernel cannot lay out: measured
+        on the shipped Transition at a [1,256,256,128] pair track, "Statically
+        allocated circular buffers in program 11 clash with L1 buffers ... L1 buffer
+        allocated at 692224 and static circular buffer region ends at 893440".
+
+        The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
+        DRAM gives both, and it is the honest price of a gradient: one DRAM write per
+        L1-resident activation that inference does not pay.
+        """
+        if not self.evictable:
+            return
+        try:
+            if self.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                return
+        except Exception:                                        # noqa: BLE001
+            return                                               # host tensor, or no buffer
+        old = self.value
+        self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(old)
+        if self.box is not None:
+            self.box[0] = self.value
 
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
@@ -350,7 +379,7 @@ def _reverse_topo(roots) -> list:
     return order
 
 
-def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
+def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     """Wrap ``out_value`` and tape ``make_fn(out)`` if any parent wants a gradient.
 
     Skipping the node when no parent requires one is tt-train's branch pruning
@@ -390,12 +419,27 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         # loop died of OOM at step 2 at 256 aa and inside 410 steps at 128 aa, on a 34.23 GB
         # card, with a per-step tape that fits several times over.
         out.node = _Node(make_fn(), list(parents))
-        # A closure is now live over these values, so nothing may free them. Pinning the
-        # output too costs nothing -- an intermediate is some later node's parent anyway --
-        # and covers the backwards that read their own output (softmax, sigmoid, relu).
-        out.pinned = True
-        for p in parents:
-            p.pinned = True
+        # A closure is now live over the values it READS, and those are the ones nothing may
+        # free. `reads` names them -- parent indices, plus "out" for the backwards that read
+        # their own output (softmax, sigmoid, relu, max). `reads=None` pins everything, which
+        # is what every verb did before there was a way to say otherwise, and it stays the
+        # default so a verb that has not thought about it cannot get this wrong.
+        #
+        # The saving is not a corner case. OpenFold3's fp32-softmax tail is
+        # `typecast -> add_ -> softmax_in_place -> typecast`, and of the five tensors a row
+        # block leaves behind only two are ever read again; the other three -- two fp32 score
+        # copies and the bf16 scores under them -- were held purely because `_tape` pinned
+        # every parent it was handed.
+        if reads is None or not DROP_DEAD_VALUES:
+            out.pinned = True
+            for p in parents:
+                p.pinned = True
+        else:
+            sel = set(reads)
+            out.pinned = "out" in sel
+            for i, p in enumerate(parents):
+                if i in sel:
+                    p.pinned = True
         _evict_read_parents(parents)
     return out
 
@@ -424,6 +468,11 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     tensor sharing storage with another taped one, or one whose backward closure holds the raw
     handle, is marked non-evictable and is left alone.
 
+    It calls `evict` and never `free`, and that is load-bearing rather than tidy. `free` now
+    RELEASES an unpinned intermediate, and "this op has read it" is not "the forward is done
+    with it" -- a tensor two ops consume would lose its buffer to the first one. Only the
+    shipped `ttnn.deallocate` says the forward is finished, and only that path releases.
+
     LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
     shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
     weight to DRAM permanently on the first step of training.
@@ -441,7 +490,7 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
                 continue
         except Exception:                                        # noqa: BLE001
             continue                                             # host tensor, or no buffer
-        p.free()
+        p.evict()
 
 
 def _flat2d(t):
