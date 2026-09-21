@@ -1,0 +1,178 @@
+{
+ "model": "rf3",
+ "size": 298,
+ "lever": "both",
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "off,on,off,on",
+ "control": "off = the shipped default for both flags, so off IS main",
+ "recycling_steps": 10,
+ "sampling_steps": 50,
+ "started_utc": "2026-09-21T03:45:57Z",
+ "loadavg": [
+  6.68359375,
+  4.2841796875,
+  5.2412109375
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 33.32,
+   "plddt": 0.807827,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1088,
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "site": 1088
+   },
+   "cif_dir": "perf/allm_safety/out/cif_rf3_298_both_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 33.233,
+   "plddt": 0.807827,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1088,
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "site": 1088
+   },
+   "cif_dir": "perf/allm_safety/out/cif_rf3_298_both_leg1_on"
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 33.371,
+   "plddt": 0.807827,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1088,
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "site": 1088
+   },
+   "cif_dir": "perf/allm_safety/out/cif_rf3_298_both_leg2_off"
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 33.206,
+   "plddt": 0.807827,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1088,
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "site": 1088
+   },
+   "cif_dir": "perf/allm_safety/out/cif_rf3_298_both_leg3_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 219.31,
+ "medians": {
+  "off": 33.3455,
+  "on": 33.2195
+ },
+ "aa_floor": {
+  "off": 0.05100000000000193,
+  "on": 0.026999999999993918
+ },
+ "digests": {
+  "off": [
+   "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046"
+  ],
+  "on": [
+   "9ced35d3fd1535a080be555ee68bb75082803ed59bab1ba53aa8c48f34697046"
+  ]
+ },
+ "ratio": 1.00379,
+ "delta_s": 0.126,
+ "resolvable": true,
+ "firing": {
+  "on_arm_served": {
+   "gate": [
+    0,
+    0
+   ],
+   "fuse": [
+    0,
+    0
+   ]
+  },
+  "off_arm_served": {
+   "gate": [
+    0,
+    0
+   ],
+   "fuse": [
+    0,
+    0
+   ]
+  },
+  "inert_on_this_model": {
+   "gate": true,
+   "fuse": true
+  },
+  "served_stable_across_on_legs": {
+   "gate": true,
+   "fuse": true
+  }
+ }
+}

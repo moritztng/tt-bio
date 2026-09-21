@@ -110,8 +110,20 @@ def preflight(row_grant=None, holder=None):
     except DeviceInUseError as e:
         print(f"card_guard: {e}", flush=True)
         sys.exit(REFUSE_EXIT)
+    # HAND THE LEASE OVER to the module that would otherwise take it again.
+    # `tenstorrent.get_device` does `if _device_lease is None: _device_lease = CardSetLease()...`
+    # (tenstorrent.py:5285). Without this the guard's flock and tt_bio's acquire are two holders of
+    # the same card IN ONE PROCESS, and the second one blocks on the first for the full timeout and
+    # then refuses with "in use by worker:allm-safety (pid <me>)" -- the process refusing itself.
+    # Measured: that is exactly what the first wired run did. Pre-populating the global makes the
+    # later open reuse this lease instead of contending with it, and `release_device` still frees
+    # it on the normal path.
+    import tt_bio.tenstorrent as _T
+    if _T._device_lease is None:
+        _T._device_lease = _held[0]
     print(f"card_guard: holding {sorted(want)} as {holder} since "
-          f"{time.strftime('%H:%M:%SZ', time.gmtime())}, for the whole launch.", flush=True)
+          f"{time.strftime('%H:%M:%SZ', time.gmtime())}, for the whole launch "
+          f"(handed to tenstorrent._device_lease).", flush=True)
     return _held[0]
 
 
