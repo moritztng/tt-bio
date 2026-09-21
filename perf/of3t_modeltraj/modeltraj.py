@@ -153,7 +153,16 @@ def score_step(names, k, wo, wt, W0, nw0):
 
 def growth(rows, lo=2):
     """S7b: the SHAPE over k = 2..20 in log-log. Linear or sub-linear passes; super-linear
-    fails at any magnitude, including when every per-step reading sits inside its bar."""
+    fails at any magnitude, including when every per-step reading sits inside its bar.
+
+    THE MOVEMENT PRECONDITION (added by `of3t-trajretake`). The fit above is satisfied
+    PERFECTLY by an arm that never moves: with `d_ours_norm` pinned at 0, `rel_d` is the
+    constant 1.0 at every rung, so the log-log fit returns exponent 0.0, intercept 0.0 and
+    r2 1.0, and the old `perf/of3t_modeltraj/traj_shipped.json` published `shape:
+    "sub-linear"` beside it. That field reads as a pass and carries no shape information at
+    all -- the fit is of a flat line, not of a trajectory. The `moves` clause catches the
+    arm elsewhere, but a reader taking this field as evidence would be reading nothing, so
+    the shape is `undefined` unless OUR SIDE MOVED at every fitted rung."""
     live = [r for r in rows if r["k"] >= lo and r["rel_d"] > 0.0]
     if len(live) < 2:
         return {"exponent": None, "note": "fewer than two live rungs"}
@@ -161,13 +170,25 @@ def growth(rows, lo=2):
     y = np.log([r["rel_d"] for r in live])
     slope, icpt = np.polyfit(x, y, 1)
     resid = y - (slope * x + icpt)
-    return {"exponent": float(slope), "intercept": float(icpt),
-            "r2": float(1.0 - resid.var() / y.var()) if y.var() > 0 else 1.0,
-            "fitted_over_k": [r["k"] for r in live],
-            "shape": ("super-linear" if slope > 1.0
-                      else "linear" if slope >= 0.9 else "sub-linear"),
-            "rungs_dropped_bit_identical": sum(1 for r in rows
-                                               if r["k"] >= lo and r["rel_d"] == 0.0)}
+    moved = [r for r in live if float(r.get("d_ours_norm") or 0.0) > 0.0]
+    out = {"exponent": float(slope), "intercept": float(icpt),
+           "r2": float(1.0 - resid.var() / y.var()) if y.var() > 0 else 1.0,
+           "fitted_over_k": [r["k"] for r in live],
+           "shape": ("super-linear" if slope > 1.0
+                     else "linear" if slope >= 0.9 else "sub-linear"),
+           "rungs_dropped_bit_identical": sum(1 for r in rows
+                                              if r["k"] >= lo and r["rel_d"] == 0.0)}
+    if len(moved) < len(live):
+        out["shape_before_movement_precondition"] = out["shape"]
+        out["shape"] = "undefined"
+        out["movement_precondition"] = (
+            "NOT MET: d_ours_norm > 0 at %d of %d fitted rungs. The growth law is UNDEFINED on "
+            "a stationary arm, not sub-linear: rel_d is a constant there and the fit reports "
+            "the shape of that constant." % (len(moved), len(live)))
+    else:
+        out["movement_precondition"] = (
+            "met: d_ours_norm > 0 at all %d fitted rungs" % len(moved))
+    return out
 
 
 # --------------------------------------------------------------------------------- their side
@@ -193,6 +214,22 @@ def build_theirs(dtype):
     own = {k[len(PREFIX):]: (v.to(dtype) if torch.is_tensor(v) and v.is_floating_point() else v)
            for k, v in sd.items() if k.startswith(PREFIX)}
     inc = dc.load_state_dict(own, strict=False)
+    # WHICH openfold3 ANSWERED, read back in the process that imported it. `of3t-refsweep`
+    # repointed reference trees under this campaign and `/home/ttuser/of3t_refprec/pylibs`
+    # carries a 0.5.0 `openfold3` beside the `ml_collections` this module needs, so a path a
+    # file NAMES is not the tree it GETS (D149/D153). `strict=False` above is the other half:
+    # a checkpoint whose keys upstream declares incompatible loads silently (D23/R126), so both
+    # key sets are recorded as numbers rather than inferred from the run not crashing.
+    import openfold3 as _of3
+    build_theirs.last = {
+        "openfold3___file__": getattr(_of3, "__file__", None),
+        "openfold3___version__": getattr(_of3, "__version__", None),
+        "module_named_parameters": len(list(dc.named_parameters())),
+        "checkpoint_tensors_offered": len(own),
+        "missing_keys": len(inc.missing_keys),
+        "unexpected_keys": len(inc.unexpected_keys),
+    }
+    print("reference: %s" % json.dumps(build_theirs.last), flush=True)
     del ck, sd
     return dc, own, inc
 
@@ -658,6 +695,7 @@ def main() -> int:
     tt = sys.modules.get("tt_bio.tenstorrent")
     if tt is not None:
         ev["HOST_F64_SOFTMAX_STATS"] = dict(tt.HOST_F64_SOFTMAX_STATS)
+    ev["reference_resolution"] = getattr(build_theirs, "last", None)
 
     res = {
         "arm": a.arm,
