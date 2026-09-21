@@ -42,10 +42,50 @@
     4
    ],
    "wall_s": 339.7755208015442
+  },
+  {
+   "k": 3,
+   "lr": 3.6e-06,
+   "grad_norm": 4.156886039339877,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 496.74786901474
+  },
+  {
+   "k": 4,
+   "lr": 5.4e-06,
+   "grad_norm": 3.5729808085181674,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 646.7284767627716
   }
  ],
  "evidence": null,
- "n_steps": 2,
+ "n_steps": 4,
  "complete": false,
- "wall_s": 356.88987255096436
+ "wall_s": 664.1914772987366
 }
