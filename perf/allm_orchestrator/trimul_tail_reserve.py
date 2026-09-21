@@ -89,7 +89,15 @@ def main() -> int:
 
     # The admission test, solved. `headroom * nbytes <= max(per_core - reserve, 0) * cores`.
     print("\nTHE ADMISSION TEST, SOLVED for the call that is being declined")
-    print("  protenix-v2, 512 aa, c_z=256: x[1,512,512] x out_p_weight[...,256], elem 2")
+    print("  Both declining models present the SAME key. `trimul_tail`'s allow-list is {(8, 8)},")
+    print("  i.e. nt = 8 tiles = c_z 256, and the run-time census counts protenix-v2 at 0/1048 and")
+    print("  esmfold2 at 0/1084 on it -- so one calculation answers for both:")
+    print("    protenix-v2, 512 aa, c_z=256   0 admitted / 1048 declined")
+    print("    esmfold2,    512 aa, c_z=256   0 admitted / 1084 declined  <- and `tenstorrent.")
+    print("      TriangleMultiplication` is 12.5142 s of its 27.4394 s fold, 45.61 %, measured by")
+    print("      allm-model over 1064 calls and reproduced on three legs across two sessions.")
+    print("      This reserve is refused on 100 % of the calls of the class that IS that 45.61 %.")
+    print("  x[1,512,512] x out_p_weight[...,256], elem 2")
     padded_bytes = padded_bytes_from_tree(tt_src)
     nbytes = padded_bytes([1, 512, 512, 256], 2)
     print(f"  nbytes = {nbytes:,} B ({nbytes / 2**20:.0f} MiB)")
