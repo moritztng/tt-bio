@@ -76,13 +76,36 @@ def main() -> int:
 
     SHIPPED = T._mm_fused_block
 
-    def off(kt, nt):
-        T._MM_FUSED_STATS[1] += 1
-        return None
+    # The baseline arm is origin/main's TABLE, not "no derivation at all". `_MM_BLOCK` carried six
+    # fused literals before this change, and (2, 9) is one of them -- opendde presents it 320 times
+    # a fold. An arm that returns None for every key therefore measures the derivation PLUS the
+    # removal of a config main already had, which overstates what merging delivers. The first run
+    # of this harness did exactly that and read 1.01975x; these are the values read out of
+    # `git show origin/main:tt_bio/tenstorrent.py`, so `main` serves what main serves and nothing
+    # else. `off` is kept for the separate question of what the whole fused table is worth.
+    MAIN_FUSED = {(4, 16): (4, 4, 1, 4, 1), (4, 17): (4, 4, 1, 4, 1),
+                  (8, 32): (4, 8, 1, 4, 1), (8, 33): (4, 8, 1, 4, 1),
+                  (2, 8): (4, 2, 1, 4, 1), (2, 9): (4, 2, 1, 4, 1)}
+
+    def _count(kt, nt, blk):
+        if blk is None:
+            T._MM_FUSED_STATS[1] += 1
+            return None
+        T._MM_FUSED_STATS[0] += 1
+        k = f"kt={kt},nt={nt}"
+        T._MM_FUSED_DERIVED[k] = T._MM_FUSED_DERIVED.get(k, 0) + 1
+        return blk
+
+    def main_arm(kt, nt):
+        return _count(kt, nt, MAIN_FUSED.get((kt, nt)))
+
+    def off_arm(kt, nt):
+        return _count(kt, nt, None)
+
+    ARM_FN = {"on": SHIPPED, "main": main_arm, "off": off_arm}
 
     def set_arm(name):
-        assert name in ("off", "on"), name
-        T._mm_fused_block = SHIPPED if name == "on" else off
+        T._mm_fused_block = ARM_FN[name]
         T._MM_FUSED_STATS[0] = T._MM_FUSED_STATS[1] = 0
         T._MM_FUSED_DERIVED.clear()
 
@@ -138,9 +161,11 @@ def main() -> int:
     res["aa_floor"] = {k: (max(v) - min(v)) for k, v in by.items()}
     res["digests"] = {k: sorted({leg["digest"] for leg in res["legs"] if leg["arm"] == k})
                       for k in by}
-    if "off" in res["medians"] and "on" in res["medians"]:
-        res["ratio"] = round(res["medians"]["off"] / res["medians"]["on"], 5)
-        res["delta_s"] = round(res["medians"]["off"] - res["medians"]["on"], 3)
+    base = "main" if "main" in res["medians"] else "off"
+    if base in res["medians"] and "on" in res["medians"]:
+        res["baseline_arm"] = base
+        res["ratio"] = round(res["medians"][base] / res["medians"]["on"], 5)
+        res["delta_s"] = round(res["medians"][base] - res["medians"]["on"], 3)
     a.out.write_text(json.dumps(res, indent=1))
     print(json.dumps({k: res[k] for k in ("medians", "aa_floor", "digests", "ratio", "delta_s")
                       if k in res}, indent=1), flush=True)

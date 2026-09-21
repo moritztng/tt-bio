@@ -84,5 +84,14 @@ def main() -> int:
     return 1 if bad else 0
 
 
+def test_mm_fused_block():
+    """`main` is a script entry point, so pytest collected this file and ran nothing.
+
+    A file under tests/ that reports "no tests ran" is a vacuous pass: the suite goes green whether
+    the rule holds or not. This is the collected name; it asserts on the same check.
+    """
+    assert main() == 0
+
+
 if __name__ == "__main__":
     sys.exit(main())
