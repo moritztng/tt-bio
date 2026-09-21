@@ -1,0 +1,35 @@
+{
+ "a24_vindicated_past_its_own_argument": "the pin was taken to stop a reader loading a half-written file. What it actually did was preserve the only remaining copy of the reference this campaign's fp32 numbers were scored against -- the live arm2 changed underneath, exactly as D75 warned. Without pinned_p175/arm2_f32_upstream/grads_f64.pt the provenance of 3.117006e-05 would be gone rather than merely unmeasured.",
+ "all_four_sizes_equal": "2,947,844,653 bytes in every case, which is why size is the trap and not the reassurance -- an artifact's identity is its digest",
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "digests": [
+  {
+   "arm": "arm4_bf16_autocast",
+   "pinned": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "relaunched": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "verdict": "IDENTICAL"
+  },
+  {
+   "arm": "arm2_f32_upstream",
+   "pinned": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+   "relaunched": "0343f86cbfa81e64c85a66da89add6186c7bdd3014802975bc333b25ab81f330",
+   "verdict": "DIFFERENT"
+  },
+  {
+   "arm": "arm3_f32_removed",
+   "pinned": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+   "relaunched": "0343f86cbfa81e64c85a66da89add6186c7bdd3014802975bc333b25ab81f330",
+   "verdict": "DIFFERENT, and still byte-identical to arm2 -- D69 confirmed independently"
+  }
+ ],
+ "dispatched": "of3t-refprec, to score relaunched arm2 against pinned arm2 mass-weighted under A23 on both the 547-tensor scope and whole-model. Pre-registered in its brief: far below 3.117006e-05 means the conclusion stands and is now measured rather than assumed; within ~10x means 'upstream's own fp32 reproduces its float64 gradient' is a statement about one run and must be restated, to be reported as prominently as the favourable outcome.",
+ "headline": "the bf16 arm reproduces byte-for-byte across launches; the fp32 arms do NOT. So 3.117006e-05 -- 'upstream's own fp32 reproduces its float64 gradient, therefore the 7.5692 gap is ours' -- was scored against a file the live path no longer holds, and the figure's own reproducibility is unmeasured.",
+ "hypothesis_not_finding": "most likely an order-dependent reduction inside an fp32 kernel: the relaunch ran four arms concurrently at ~1400 % of 16 cores, so thread count and machine load both differed, and bf16 plausibly rounds the difference away. This is offered as a hypothesis with a decisive test -- scoring relaunched arm2 against pinned arm2 -- and NOT as a mechanism this artifact establishes.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Digests computed with sha256sum on qb2 over /home/ttuser/of3t_refprec/{pinned_p175,run}/. The relaunched files were written 09:06-09:18Z with no arm still executing when hashed.",
+ "what": "whether upstream OpenFold3's reference arms reproduce byte-for-byte across launches, measured by digesting the pass-175 pins against of3t-refprec's it2 relaunch of the same four arms with the same seed, the same replayed draws and the same code.",
+ "what_it_does_and_does_not_change": {
+  "at_risk": "3.117006e-05, and the 'the bar is achievable, so the gap is ours' framing built on it. The measurement is not wrong; its reproducibility is simply unmeasured, and the run-to-run floor of an fp32 arm has to be read beside it.",
+  "corrected_over_generalisation": "of3t-trajectory wrote 'the seeded fixed-draw arms give the same file across launches' from arm4 alone, and said so -- it noted arm2 had not yet landed. The scoped claim stands, verified twice. The general one is refuted by counter-example.",
+  "unaffected": "every number scored against arm4, which is all of D72, the bf16 floor 5.852018e-02 and of3t-trajectory's 7.426742 and 1.172914e-01. arm4's byte-identity across these two launches is also the POSITIVE CONTROL: the pipeline is capable of exact reproduction, so arm2's difference is not a property of the harness."
+ }
+}
