@@ -52,6 +52,11 @@ REF_TREE = None
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 PREFIX = "diffusion_module."
 SCRATCH = "/tmp/of3t/trajwide"
+# The RECORD does not live in /tmp. qb2 rebooted on 2026-09-21 at 12:48Z and took a 20-step
+# reference run, every steplog and every done-marker with it, because /tmp is wiped on boot on
+# this host. The w_k dumps are too large for git (one rung is ~190 MB), so they go on the root
+# filesystem, which survives a reboot, and the steplogs are mirrored into the branch.
+RUNS = "/home/ttuser/of3t_runs/trajwide"
 
 MODEL_SQ_NORM = 10.279642678524981          # `of3t-wholemodel`, grads_f64_043.pt
 
@@ -66,6 +71,9 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_tape"))
 
 import numpy as np                                                       # noqa: E402
+
+
+import resume as _resume
 
 
 def sha256(path):
@@ -99,11 +107,16 @@ def wdir(out_dir, side_arm):
     return d
 
 
+STEPLOG_SINK = None      # set by main(): writes the steplog after every rung, not at the end
+
+
 def save_step(d, k, w):
     """Atomic: `np.savez` appends `.npz`, so the part file has to end in it too."""
     tmp = os.path.join(d, f"k{k:02d}.part.npz")
     np.savez(tmp, **w)
     os.replace(tmp, os.path.join(d, f"k{k:02d}.npz"))
+    if STEPLOG_SINK is not None:
+        STEPLOG_SINK()
 
 
 def have_steps(d):
@@ -387,7 +400,11 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
         return dict(lr=lr_now, coefs=coefs, grad_norm_last_sample=gn,
                     n_disabled_last_sample=len(disabled), participation_spread=spreads)
 
-    for k in range(1, steps + 1):
+    k0 = _resume.load_theirs(d_out, A, B, log, aa_rows)
+    if k0:
+        t0 -= log[-1]["wall_s"]          # wall_s stays cumulative across a resumed arm
+        print(f"theirs: resuming at k={k0 + 1}", flush=True)
+    for k in range(k0 + 1, steps + 1):
         row = one_step(A, k)
         wa = {n: p.detach().to(torch.float64).numpy().astype(np.float32)
               for n, p in A["params"].items()}
@@ -404,6 +421,7 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
         row.update(k=k, wall_s=time.time() - t0)
         log.append(row)
         save_step(d_out, k, wa)
+        _resume.save_theirs(d_out, k, A, B, log, aa_rows)
         print(f"[{time.time()-t0:.0f}s] their k={k:2d} lr={row['lr']:.6e} "
               f"clip={row['coefs']} spread={row['participation_spread']}", flush=True)
 
@@ -682,7 +700,12 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
     t0 = time.time()
     stale_hold = None
     fwd_rel = None
-    for k in range(1, steps + 1):
+    k0, stale_hold, fwd_rel = _resume.load_ours(d_out, opt, params, _to_device, log,
+                                                master_in_checkpoint_orientation)
+    if k0:
+        t0 -= log[-1]["wall_s"]          # wall_s stays cumulative across a resumed arm
+        print(f"ours: resuming at k={k0 + 1}", flush=True)
+    for k in range(k0 + 1, steps + 1):
         coefs = []
         for s, idx in enumerate(blocks[k]):
             for j in idx:
@@ -727,6 +750,7 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
                     "tape_resolves_after_step": resolved, "of_walked": len(params.slots),
                     "participation_spread": spread, "wall_s": time.time() - t0})
         save_step(d_out, k, master_in_checkpoint_orientation())
+        _resume.save_ours(d_out, k, opt, log, stale_hold, fwd_rel)
         print(f"[{time.time()-t0:.0f}s] our k={k:2d} lr={opt.last_lr:.6e} "
               f"grad_norm={opt.last_grad_norm} resolves={resolved}/{len(params.slots)} "
               f"rebound={moved} spread={spread}", flush=True)
@@ -812,7 +836,7 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--warmup", type=int, default=SCHED["warmup_no_steps"])
     ap.add_argument("--threads", type=int, default=12)
-    ap.add_argument("--out-dir", default=SCRATCH, dest="out_dir")
+    ap.add_argument("--out-dir", default=RUNS, dest="out_dir")
     ap.add_argument("--score", action="store_true")
     ap.add_argument("--w0", default="ckpt", choices=["ckpt", "own"],
                     help="baseline for d_k = w_k - w_0. `ckpt` is the inherited form, both "
@@ -842,6 +866,25 @@ def main() -> int:
           flush=True)
 
     log = []
+
+    # The steplog is written after EVERY rung, not once at the end. A reset at k=14 used to
+    # leave fourteen w_k dumps on disk and no record that they were taken, which is how the
+    # 2026-09-21 reboot turned a nearly finished arm into nothing.
+    def write_steplog(evidence=None):
+        if not a.side:
+            return
+        sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
+        tmp = sl + ".part"
+        json.dump({"arm": a.arm, "side": a.side, "ref_tree": REF_TREE,
+                   "steps": log, "evidence": evidence, "n_steps": len(log),
+                   "complete": evidence is not None,
+                   "wall_s": time.time() - t0}, open(tmp, "w"), indent=1, default=str)
+        os.replace(tmp, sl)
+        return sl
+
+    global STEPLOG_SINK
+    STEPLOG_SINK = write_steplog
+
     if a.side == "theirs":
         d_out = wdir(a.out_dir, a.arm)
         kwv = {k: (v.to(torch.float64) if torch.is_tensor(v) and v.is_floating_point() else v)
@@ -864,10 +907,8 @@ def main() -> int:
         side_ev = None
 
     if a.side:
-        sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
-        json.dump({"arm": a.arm, "side": a.side, "ref_tree": REF_TREE,
-                   "steps": log, "evidence": side_ev,
-                   "wall_s": time.time() - t0}, open(sl, "w"), indent=1, default=str)
+        STEPLOG_SINK = None
+        sl = write_steplog(side_ev)
         print(f"wrote {sl} ({len(log)} steps, {time.time()-t0:.0f}s)", flush=True)
 
     if not a.score:
