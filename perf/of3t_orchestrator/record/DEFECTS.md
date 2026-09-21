@@ -7719,3 +7719,49 @@ of upstream's own recipe too, and therefore empty — to **"22 of 48 blocks are 
 bar against upstream's own bf16, holding two thirds of the stack's mass, and the heaviest block in
 the model is the worst one at 2.87x"**. The next row on D8 should start at block 46 and should not
 spend a pass on the per-tensor float64 bar, which nothing bf16 reaches.
+
+### D56 UPDATE (pass 222). UNFIXED, and MORE open than before: the ~2,172x floor's denominator is a precision OpenFold3 0.4.3 does not use, so the second of D56's two candidate explanations is removed and the magnitude it was invoked to explain is now unexplained by either.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/d56restate/restate_d56.py` reads
+`perf/of3t_fp32islands/version_split.json`. D118 bucketed seven defects under the fp32 ceiling and
+called **D56 the strongest**; D120 then corrected D9 and half of D8 and left D56 untouched. This is
+the same correction applied to it, and like D120's it is a **denominator**, not a measurement.
+
+D56's surviving claim after D62 withdrew its conditioning mechanism is: *"the 25.5795 % sits on a
+constant ~2,172x device arithmetic floor against torch fp32, which is a port gap and not a property
+of the arithmetic."* **Both halves of that last clause are wrong.**
+
+D56's construct `g_γ = Σ_i (dL/d ln_out)_i · ŝ_i` is the LayerNorm affine WEIGHT gradient — row
+`layer_norm BACKWARD d(gamma) [384]` in `version_split.json`. Different harness from D56's synthetic
+K-ladder (this is the real island at crop-384 shapes), so what follows re-states which denominator
+is the right one; it does not re-measure D56's ratio.
+
+    0.4.3 (bf16), upstream's own        6.603603e-03
+    0.5.0 (fp32), upstream's own        1.407498e-07
+    ours bf16 (as shipped)              4.256869e-03
+    ours fp32 storage                   1.426218e-03
+
+**Against 0.4.3 — the boundary the served checkpoint is bound to — we are 1.5513x MORE accurate
+than upstream on exactly this construct.** `normalization.py:64-75` runs LayerNorm in bf16 with
+autocast explicitly disabled, so torch fp32 is not what upstream computes here and a ratio against
+it does not describe a gap with upstream at all. **Against 0.5.0** our shipped arm is 30,244x and
+our fp32 arm 10,133x away — and *that* is a property of the arithmetic, not a port gap: TT fp32 is
+not IEEE fp32. So the clause is inverted on both counts, and D56's decision question — *"whether
+25.5795 % of the model is retired as unfixable"* — is answered for this island: at 0.4.3 there is
+nothing to fix, because we are ahead.
+
+**This makes D56 MORE open, not less, and that is the honest reading.** D56 exists to explain why
+the real tensor reads **18.504**. Two explanations have now been removed: conditioning (D62 measured
+K directly at **172.60** where D56 interpolated 1.3e+06 off the curve it was explaining, and at
+172.60 the ladder predicts ~6e-03 — a ~3,000x shortfall), and now the fp32 ceiling, which does not
+bite at the revision we target. A third partial explanation is also bounded rather than free: the
+18.504 is against **float64**, and D8's re-statement this pass shows that reference is one
+upstream's own bf16 fails on 2,713 of 2,736 tensors — but upstream's own worst tensor by error mass
+reads **3.4262**, so reference choice cannot carry a factor of five beyond it.
+
+**What the same data does say, and it is new**: on `blocks.4.attn_pair_bias.layer_norm_a.weight`,
+the single tensor carrying the most error mass for **upstream's own bf16 step**, upstream reads rel
+**3.4262** at cos **−0.021** against float64 and we read **2.5326** at cos **−0.149**. Same tensor,
+same scorer. **Upstream's own recipe produces a gradient essentially orthogonal to the float64 one
+there**, and ours is 26 % closer. Whatever produces 18.504 is not a place our port is behind
+upstream; it is a place both are far from float64 and nobody has explained why.
