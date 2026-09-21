@@ -1,0 +1,12 @@
+{
+ "term": "plddt",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "target": "5nw3",
+ "quantity": "norm of the gradient seeded into the model outputs",
+ "value": 1.3268274652696933e-05,
+ "n_pairs_firing": 4,
+ "weight": 0.0001,
+ "term_value": 4.026955970962178,
+ "source": "coverage_census.json"
+}

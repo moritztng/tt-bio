@@ -30,6 +30,6 @@
  "what_it_does_and_does_not_change": {
   "at_risk": "3.117006e-05, and the 'the bar is achievable, so the gap is ours' framing built on it. The measurement is not wrong; its reproducibility is simply unmeasured, and the run-to-run floor of an fp32 arm has to be read beside it.",
   "corrected_over_generalisation": "of3t-trajectory wrote 'the seeded fixed-draw arms give the same file across launches' from arm4 alone, and said so -- it noted arm2 had not yet landed. The scoped claim stands, verified twice. The general one is refuted by counter-example.",
-  "unaffected": "every number scored against arm4, which is all of D72, the bf16 floor 5.852018e-02 and of3t-trajectory's 7.426742 and 1.172914e-01. arm4's byte-identity across these two launches is also the POSITIVE CONTROL: the pipeline is capable of exact reproduction, so arm2's difference is not a property of the harness."
+  "unaffected": "every number scored against arm4, which is all of D72, the bf16 floor 5.852018e-02 and of3t-trajectory's 7.426742 and 1.172914e-01 (both PRE-D86 as published at the time, which is what makes them the right names for this provenance claim; on the D86-corrected arm they read 7.426217 and 7.777580e-02, and those are the live figures). arm4's byte-identity across these two launches is also the POSITIVE CONTROL: the pipeline is capable of exact reproduction, so arm2's difference is not a property of the harness."
  }
 }
