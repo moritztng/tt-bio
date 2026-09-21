@@ -861,7 +861,23 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Seventy-seven dispatched, seventy-one concluded, six live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-three defects, fifty-five UNFIXED; seventy-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 277 — three of D8's own paragraphs were scored against openfold3 0.5.0, and at the right boundary four of six arms flip, `shipped` and `tb-off` swap roles, and the end/start asymmetry does not shrink — it inverts.**
+PASSLOG: **Pass 278 — audited the claim Moritz's decision actually bought: every serving path that picks a user's structure now goes through one ranking rule, and I checked it in the tree, including the model the row's own counter-finding said moves the wrong way.**
+
+`of3t-d10d24-unify` concluded GO with *"the family now computes one ranking rule."* Verified against the composition rather than the summary:
+
+    tt_bio/openfold3_fold.py:295   rank.ranking_score(...)
+    tt_bio/rf3/confidence.py:20    from tt_bio import ranking as rank
+    tt_bio/worker.py:1068          rank.ranking_score(...) inside _protenix_emit
+
+The one that needed checking is `_protenix_emit`, because its name says protenix and its callers do not: `_predict_protenix_one`, `predict_many`, and **`_predict_opendde_one`**. OpenDDE is covered through the shared emit rather than by a fourth copy — and OpenDDE is precisely the model the row flagged as nominally worse (+0.046 A), so a private copy there would have been the expensive kind of miss.
+
+**A fourth ranking-shaped rule does exist, and I am recording why it is out of scope rather than leaving it for someone to rediscover as an alarm.** `boltzgen/task/analyze/analyze_utils.py:98` picks `argmax(0.8*design_to_target_iptm + 0.2*design_ptm)` — no pLDDT, no disorder, no clash. It is vendored upstream BoltzGen, its inputs are design-specific rather than the generic confidences, and it is **not on a serving path**: `get_best_folding_sample` is called only inside `boltzgen/task/analyze/`, and nothing outside that subtree imports it. It chooses which sample a design's ANALYSIS reports, not what a user is served.
+
+**So the row's sentence is true and narrower than it reads**, which is the distinction this campaign keeps paying for: *"the family computes one rule"* means the AF3-lineage serving paths do. D10 and D24 stay UNFIXED because nothing is merged — the rule is in the composition and on the row's branch, and `main` still carries three.
+
+**The three live rows are working and there was nothing to audit in them.** `of3t-trajwide` has now written the D149 finding as its own verdict, in its own words, and called its published 8.426843e-01 **void rather than corrected** — the right word, since the number was taken against a different function and not a coarser one. `of3t-d137ab` is on pc-card0 for the fold-level A/B; `of3t-refsweep` started at 15:08 on the 24 stale reference paths.
+
+**Pass 277 —  three of D8's own paragraphs were scored against openfold3 0.5.0, and at the right boundary four of six arms flip, `shipped` and `tb-off` swap roles, and the end/start asymmetry does not shrink — it inverts.**
 
 `of3t-d112` restored the 0.4.3 reference — manifested, digest-verified against a fresh PyPI download on both hosts, in paths no prune mechanism reaches — re-scored D8's arms against it, and handed the ledger edit to me because *"a defect entry is its file"*. Same scorer, same bars, A14 filter at 1e-12 (`perf/of3t_d112/D8_AT_043.json`):
 

@@ -10156,3 +10156,29 @@ All six live rows now carry both rules as a STANDING section, with the concluded
 **Nothing published is invalidated by this.** These are scripts, not readings: artifacts already taken carry their own reference digests, and `of3t-d112` re-scored the affected D8 arms against the restored 0.4.3 tree (D8 UPDATE 5). The exposure is the NEXT run of any of those 24 scripts — which is live, because `of3t-d112` itself notes the sweep *"belongs with whoever next needs one of those rows to run"*.
 
 **The repair is mechanical and has an owner-shaped hole**: point them at `/home/ttuser/of3t-campaign-refs/`, and add the resolution assertion. It spans eight namespaces including the orchestrator's, so no single row owns it. Dispatched as its own row rather than attached to whichever row trips over it first.
+
+### D10 UPDATE (pass 278, heading restated). **UNFIXED where it ships** and the unification is now VERIFIED IN THE TREE rather than in a write-up — with its scope stated, because one ranking-shaped rule is deliberately outside it. D24 is the same finding and carries its own heading below.
+
+`of3t-d10d24-unify` concluded GO: *"the family now computes one ranking rule."* That sentence is load-bearing — it is what Moritz's ask-9629 decision bought — so I read the composed tree instead of the row's summary.
+
+**Every serving path that picks which structure a user gets routes through `tt_bio/ranking.py`:**
+
+    tt_bio/openfold3_fold.py:295   rank.ranking_score(iptm=, ptm=, plddt=, ...)
+    tt_bio/rf3/confidence.py:20    from tt_bio import ranking as rank
+    tt_bio/worker.py:1068          rank.ranking_score(...) inside _protenix_emit
+
+and `_protenix_emit` is reached by **three** callers, not one: `_predict_protenix_one` (1157), `predict_many` (1179) and **`_predict_opendde_one` (1004)**. So OpenDDE is covered by the same rule through the shared emit rather than by a fourth copy — which is the thing worth checking, since OpenDDE is the model the row's own counter-finding said moves the wrong way. Three importers of the module, three models, no private copy on any serving path.
+
+**A fourth ranking-shaped rule exists and is OUT of scope, said here so the next reader does not rediscover it as an alarm.** `tt_bio/boltzgen/task/analyze/analyze_utils.py:98` —
+
+    def get_best_folding_sample(folded):
+        confidence = 0.8 * folded["design_to_target_iptm"] + 0.2 * folded["design_ptm"]
+        best_idx = np.argmax(confidence)
+
+— picks a sample with a formula that is not the unified one: no pLDDT term, no disorder, no clash penalty. Three reasons it is excluded rather than a miss: it is **vendored upstream BoltzGen**, not one of our ports; its inputs are design-specific (`design_to_target_iptm`, `design_ptm`) rather than the generic confidences the unified rule takes; and it is **not on a serving path** — `get_best_folding_sample` is called only within `boltzgen/task/analyze/`, and nothing outside that subtree imports it (`filter.py` imports a different function). It chooses which folding sample a design's ANALYSIS reports, not which structure is served.
+
+**So the claim is true as stated and narrower than it reads.** *"The family now computes one ranking rule"* means the AF3-lineage serving paths do. If BoltzGen's design analysis is ever asked to agree with them, that is a new decision and not a regression of this one.
+
+**Both defects stay UNFIXED because nothing is merged**, which is the standing distinction: the unified rule is in the composition and on `wk/of3t-d10d24-unify`, and `main` still carries the three. The decision to unify is made; the landing is not done.
+
+### D24 UPDATE (pass 278, heading restated). **UNFIXED where it ships.** Same verification as D10 UPDATE (pass 278), which carries the evidence: all three serving paths route through `tt_bio/ranking.py`, OpenDDE included via `_predict_opendde_one` -> `_protenix_emit`, and BoltzGen's `get_best_folding_sample` is out of scope because it is vendored, design-specific and not on a serving path. Unmerged, so `main` still carries the old rules.
