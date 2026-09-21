@@ -8019,3 +8019,57 @@ falls back to (`worker.py`)"* pLDDT. `worker.py:1070` reads `return ptm if ptm >
 pLDDT is thinner than the docstring claims. It does not touch the measurement (nine seeds x five
 samples on 1UBQ, where the collapsed rule selects worse than random and pLDDT beats it); it touches
 the argument from convention that sits beside it. Dispatched as `of3t-rankunify`.
+
+### D107 UPDATE 2 (pass 225). UNFIXED and now MEASURED: on a step where a parameter is disabled on every sample, our optimizer leaves it where it is and upstream moves it on decaying momentum — 11,441x the floating-point floor, and the divergence persists.
+
+From `of3t-rebind`'s pushed artifact `perf/of3t_rebind/D107.json` at commit **`899287ff1`**, read by
+the orchestrator from the branch rather than from the row's prose. **The row is still live**, so this
+is its evidence and not yet its verdict; the artifact is committed, which is what makes it citable.
+
+D107 has said since pass 182 that it is *"real in the code, inert in the instrument that found it"*,
+because §7's harness never produces a participation count of 0. Its own closing line named the cheap
+closure — construct a step whose samples all disable one parameter group — and that is what ran.
+Six steps, a 4x4 parameter, lr 1.8e-03, betas (0.9, 0.95):
+
+    k   grad        rel (ours vs upstream)   ours_norm           theirs_norm
+    1   present     3.350108e-08             4.965406636763408   4.965406594575970
+    2   present     4.030463e-08             4.965110793859716   4.965110709946089
+    3   NONE        6.836649e-04             4.965110793859716   4.964881662637578
+    4   present     6.442301e-04             4.964722230288729   4.964504061206159
+    6   present     5.903567e-04             4.964664818082127   4.964445647210251
+
+At k=3 **our norm does not change at all** — 4.965110793859716, the same digits as k=2 — while
+upstream's moves. The control arm, identical but with no zero-participation step, holds at
+**3.3e-08 to 5.2e-08** for all six rungs, so the scorer's floor is the float64 one and the effect is
+**11,441x** it (`ratio_over_control`). And it does not wash out: k=4, 5 and 6 still read ~6e-04
+after the gradient comes back, because the momentum state has diverged.
+
+So the code-reading of pass 182 and pass 223 is confirmed by measurement, and the "unmeasured" half
+of D107 is closed. What remains open is D107's own second question, which the artifact does not
+answer: **whether a step with a participation count of 0 actually occurs under the sampler**, given
+`initial_training.yml` sets a zero confidence weight on 4 of its 5 datasets.
+
+### D126 UPDATE 2 (pass 225). Still UNFIXED, and the guard question is ANSWERED: `check_displacement()` WOULD have caught `of3t-modeltraj`'s arm, on the `nan` branch, exactly as the amendment predicted.
+
+Also from `of3t-rebind` at **`899287ff1`**, two arms run through the library's own guard:
+
+    perf/of3t_rebind/traj_baseline_guard5.json   (no rebind -- modeltraj's configuration)
+      check_displacement raised:
+        AssertionError: the master has not moved after 5 steps (displacement 0.000e+00),
+        so nothing was learned.
+      master 0.0   device 0.0   ratio nan
+
+    perf/of3t_rebind/traj_shipped_guard5.json    (with the rebind)
+      check_displacement raised: None
+      master 0.02717582276909179   device 0.02717582276909179   ratio 1.0
+
+**The guard fires, and it fires on the branch I guessed**: the master does not move either, so it is
+the `nan` clause — *"the master has not moved after N steps"* — and not the master-moved-but-device-
+did-not clause the docstring leads with. Ratio is exactly **1.0** on the healthy arm.
+
+So the library both **handles** the defect (`recipes.py:186`) and **detects** it
+(`check_displacement()` at the end of `train_loop`). D126's remaining question narrows to one:
+**does every training entry point reach `recipes.py:186`** — and, now, whether every one of them
+also reaches the guard. `of3t-rebind` owns both and is live. Noted for completeness: the two arms
+ran on different cards (`TT_VISIBLE_DEVICES` 0 and 2), which does not confound a raise/no-raise
+reading but would confound a timing one.
