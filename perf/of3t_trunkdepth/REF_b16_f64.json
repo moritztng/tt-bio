@@ -1,0 +1,76 @@
+{
+  "what": "One upstream release tree's 48-block pairformer trunk GRADIENT over the captured boundary.",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "f64",
+  "tb": "keep",
+  "blocks": 1,
+  "crop": 64,
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "first_block": 16,
+  "boundary": {
+    "inputs_from_block": 16,
+    "cotangent_from_block": 16,
+    "block_first": "/home/ttuser/of3t_trunkdepth/cap_ladder/block16_boundary.pt",
+    "block_last": "/home/ttuser/of3t_trunkdepth/cap_ladder/block16_boundary.pt",
+    "tokens": 64,
+    "real_tokens": 56,
+    "padding_fraction_single": 0.125,
+    "padding_fraction_pair": 0.234375,
+    "s_in_norm": 1476948.0040580654,
+    "z_in_norm": 1320586.8754388113,
+    "cot_s_norm": 1.794607947618971e-05,
+    "cot_z_norm": 0.00047565863338536055
+  },
+  "dtype_policy": "every parameter and every activation float64; checkpoint upcast once at load; no cast on the path; upstream's CUDA-autocast contexts are inert on CPU so use_high_precision_attention cannot fire",
+  "zero_pad": null,
+  "their_dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "their_load": {
+    "blocks": 1,
+    "tensors": 57,
+    "missing": 0,
+    "unexpected": 0
+  },
+  "forward": {
+    "loss": 0.034735101578852165,
+    "s_out_norm": 1481678.8402678203,
+    "z_out_norm": 1320133.8605197463,
+    "seconds": 0.17972877500142204,
+    "vs_captured_050": {
+      "s": 2.3480934128247257e-06,
+      "z": 0.0014742237992023135,
+      "s_masked": 2.3598698212240438e-06,
+      "z_masked": 0.013858555470374224
+    }
+  },
+  "gradient": {
+    "with_grad": 57,
+    "without_grad": 0,
+    "absent": [],
+    "global_norm": 0.07559930164624423,
+    "squared_norm": 0.005715254409399827
+  },
+  "input_grad": {
+    "file": "/home/ttuser/of3t_trunkdepth/REF_b16_f64_ig.pt",
+    "ds_in_norm": 1.7944454156667805e-05,
+    "dz_in_norm": 0.00047545430417801653
+  },
+  "out": "/home/ttuser/of3t_trunkdepth/REF_b16_f64.pt",
+  "out_sha256": "e3a2d5e7639110c21fc8d70e9e6c245e650fbbbf88b9a46a2178eb5ba4465081",
+  "forward_out": "/home/ttuser/of3t_trunkdepth/REF_b16_f64_fwd.pt",
+  "forward_out_sha256": "85db913abe5b32174bb3d6bee3ed0dd9fd780869bf57ac169738cca4931310e0",
+  "seconds": 2.895948776997102
+}

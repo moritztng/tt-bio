@@ -1,5 +1,6 @@
 {
  "CORRECTED_SAME_PASS": "The branch call below is WRONG and branch A, not B, is the right reading. I computed R by dividing my revision distance by MY bf16 arm (full bf16, 0.02441) and compared it against of3t-trunkfwd's 46.67x, which was taken against ITS bf16 arm -- upstream's AUTOCAST bf16, 0.005985. Autocast keeps LayerNorm and softmax in fp32, so the two 'bf16' denominators are different constructions and differ by 4.08x. 'x upstream's own bf16' is not a unit unless both sides build bf16 the same way, and I had a memory saying exactly this about denominators.",
+ "SUPERSEDED_BY_MEASUREMENT": "The 85.6 % share in THE_CORRECTED_READING was a TRIANGLE-BOUND ESTIMATE from three distances. of3t-trunk043ref has since measured it directly by rebuilding the reference at 0.4.3: the answer is 92.08 %, and the shipped port reads 4.947045e-02 against that reference -- UNDER the 5.0e-02 bar. My estimate was in the right region and low. Use 92.08 %; this file's 85.6 % is kept only so the reasoning that produced it stays auditable.",
  "THE_CORRECTED_READING": {
   "compared_in_a_common_unit": "absolute masked pair-track relative L2, all three on the same 56 real tokens",
   "inside_the_bound": true,
@@ -7,7 +8,7 @@
   "port_vs_0_4_3_convention_trunkfwd": 0.0497186,
   "port_vs_0_5_0_reference_trunkfwd_observed": 0.2793661,
   "pure_revision_difference_mine": 0.2104,
-  "share_the_flag_accounts_for": "85.6 %",
+  "share_the_flag_accounts_for": "85.6 % -- SUPERSEDED, see SUPERSEDED_BY_MEASUREMENT. Measured directly: 92.08 %.",
   "so": "the orientation flag accounts for the OVERWHELMING MAJORITY of of3t-trunkfwd's trunk disagreement, and the three measurements are mutually consistent under the triangle inequality. Branch A fired. There is no 2.8x gap to explain -- that number was an artefact of the unit error.",
   "triangle_bound_from_the_other_two": [
    0.1607,

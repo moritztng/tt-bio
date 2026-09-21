@@ -1,0 +1,19 @@
+{
+ "term": "bond",
+ "stage": "finetune_1",
+ "dataset": "weighted-pdb",
+ "target": "4g5j 1",
+ "quantity": "share of the squared parameter-gradient norm",
+ "value": 0.1469017168959787,
+ "squared_norm_of_difference": 0.2137645687351699,
+ "squared_norm_with_bond": 1.4551536445726967,
+ "n_params_moved": 3924,
+ "n_params": 4170,
+ "bond_mask_nnz": 1,
+ "token_bonds_nnz": 120,
+ "crop": 256,
+ "loss_with_term": 0.3135363757610321,
+ "loss_without_term": 0.30956944823265076,
+ "term_loss": 0.0012424831511452794,
+ "source": "bond_gradient_4g5j_c1.json"
+}

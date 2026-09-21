@@ -1,0 +1,24 @@
+{
+ "what": "of3t-permalign refutes the `multichain_permutation` NOT COVERED entry in the SS6 coverage census.",
+ "where": {
+  "file": "perf/of3t_gradients/coverage_census.py",
+  "symbol": "the `multichain_permutation` key of the coverage dict returned by the census",
+  "committed_json": "perf/of3t_gradients/coverage_census.json",
+  "note": "located by symbol, not by line number, because line refs decay"
+ },
+ "current_text": {
+  "covered": false,
+  "reason": "upstream raises KeyError 'ref_space_uid_to_perm' and falls back to naive alignment"
+ },
+ "why_it_is_wrong": [
+  "The census has no model forward at all -- it says so in its own `model_forward` entry -- so it never called `safe_multi_chain_permutation_alignment` and never observed the KeyError. The reason string is a quotation of of3t-reference's observation, not a measurement this instrument made.",
+  "of3t-reference's observation was made with two forwards over ONE batch dict. `model.py:670` pops `ref_space_uid_to_perm` off the caller's dict and restores it onto a NEW one, so the caller's copy loses the key permanently and the second forward raises. That is a harness defect, and the deep copy in `perf/of3t_reference/bundle_min.py` `forward_loss` already fixes it.",
+  "Measured here: the alignment COMPLETES on the reference's own frozen batch inside the real checkpointed forward (arm I, 8 ground-truth atoms moved) and on 4G5J at crop 256 (arm H, 74 atoms moved)."
+ ],
+ "proposed_text": {
+  "covered": true,
+  "evidence": "perf/of3t_permalign/runs/I_frozen5nw3_via_forward.json and .../H_4g5j_via_forward.json: upstream's `safe_multi_chain_permutation_alignment` completes inside the real checkpointed forward on the frozen 5nw3 batch (56 ref spaces, 8 with alternatives, 8 GT atoms moved) and on 4g5j chain 1 at crop 256 (197 ref spaces, 58 with alternatives, 74 GT atoms moved)."
+ },
+ "not_edited_here_because": "the census's BUNDLE constant is `/home/ttuser/of3t/bundle_min`, a qb2 path that does not exist on pc, so `coverage_census.json` cannot be regenerated on this host. Editing the .py alone would leave the committed .json disagreeing with it, which is the failure mode the campaign already records for table provenance. The owning row should make the edit and re-run the census on the host that has the bundle.",
+ "owner": "of3t-gradients"
+}

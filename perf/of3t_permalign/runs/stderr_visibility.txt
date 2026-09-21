@@ -1,0 +1,23 @@
+# Does upstream's fallback line reach a log with no logging configuration installed?
+#
+# Run: a batch with ref_space_uid_to_perm deleted, straight into
+# safe_multi_chain_permutation_alignment, NO handler attached by us. Python's handler of
+# last resort sends WARNING and above to stderr, so this is what a harness that never calls
+# logging.basicConfig -- every harness in this campaign -- actually gets on its stderr.
+#
+# stdout:
+#   returned normally
+#
+# stderr, verbatim, first 12 lines:
+Caught error during multi-chain permutation alignment, falling back to naive alignment: 'ref_space_uid_to_perm'
+Traceback (most recent call last):
+  File "/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py", line 1773, in safe_multi_chain_permutation_alignment
+    new_gt_features = multi_chain_permutation_alignment(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py", line 1547, in multi_chain_permutation_alignment
+    gt_atom_index = single_batch_multi_chain_permutation_alignment(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py", line 1412, in single_batch_multi_chain_permutation_alignment
+    pred_ref_space_uid_to_perm = single_batch["ref_space_uid_to_perm"]
+                                 ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'ref_space_uid_to_perm'

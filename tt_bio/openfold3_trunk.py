@@ -41,6 +41,8 @@ Fully-device scope (see docs/openfold3-port.md):
 """
 from __future__ import annotations
 
+import os
+
 import ttnn
 
 from .tenstorrent import (Module, Pairformer, accurate_softmax_site,
@@ -133,6 +135,13 @@ class OF3Trunk(Module):
         # ours describes the bias following the pair transpose, theirs describes
         # undoing it. No weights change, so the checkpoint has to select it.
         tri_att_end_bias_follows_pair = not is_openbind(state_dict)
+        # Measurement lever, of3t-foldab. Unset -- the only state any shipped path is in --
+        # leaves the line above untouched; "1"/"0" force the orientation so a seeded fold A/B
+        # can attribute an Angstrom delta to this flag alone. Nothing else reads the variable
+        # and no default moves with it. RELEASE-GATED: branch only.
+        _forced = os.environ.get("TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR")
+        if _forced is not None:
+            tri_att_end_bias_follows_pair = _forced == "1"
         # openfold3 adds both pair biases UNSCALED (q is pre-scaled by 1/sqrt(d) in the
         # reference Attention), and the two kernels under this one layer need opposite flags
         # to deliver that. `AttentionPairBias` folds the bias inside its own score scale, so
