@@ -735,6 +735,14 @@ echo "--- publish the charter evaluation from the composition"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/charter/charter_evidence.py ) || \
   { echo "COMPOSE: charter_evidence.py refused to publish -- see its break control"; exit 1; }
 
+# (3m) D155. A digest-equality claim that does not name its host cannot be attributed to healthy
+# hardware, and pc card 0 is a faulty card root-caused 2026-08-17 that must not host bit-exact
+# gating for any model at any size. Three of3t artifacts are in that state and are frozen; a new
+# one fails. The list may only shrink.
+echo "--- digest claims name their hardware (D155)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
+  { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
+
 echo "--- one flag, one default (D151)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
   { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }

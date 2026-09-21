@@ -28,18 +28,10 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 
 PLAN = {
-    "D155": {
-        "needs": CARD,
-        "one_line": "protenix-v2 inference is non-deterministic at a fixed seed",
-        "closes_when": ("the cause is separated -- device non-determinism, a host RNG not seeded "
-                        "by --seed, or a data-path dependence outside the fixture -- and either "
-                        "fixed or recorded as a property of the model with its magnitude measured"),
-        "evidence_held": ("five interleaved folds per tree, same fixture/card/command: base moved "
-                          "on 1 of 9 and the gated tree on 2 of 9, and the base tree has none of "
-                          "this campaign's changes in it (of3t-d137ab, DETERMINISM_PROBE)"),
-        "would_a_row_help": True,
-        "asked": None,
-    },
+    # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
+    # non-determinism is pc card 0, a faulty card root-caused 2026-08-17, not a protenix
+    # property. Filing it USER-FACING was my error -- a row reporting a digest instability
+    # from that card has not measured determinism, and the exclusion is standing.
     # D1 was here until pass 280 and is gone because it CLOSED, not because the plan shrank:
     # Moritz decided it on ask 9629 ("fix it everywhere"), of3t-d1-pairbias concluded GO against
     # his one reopen condition (4 targets, 6 seeds, 48 folds, sign test p = 0.541, pooled median
