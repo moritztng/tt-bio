@@ -1,0 +1,25 @@
+{
+  "what": "Cut the trunk boundary out of the captured step once, so every arm reads the same bytes.",
+  "crop": 64,
+  "blocks": 48,
+  "tokens": 64,
+  "real_tokens": 56,
+  "padding_fraction_single": 0.125,
+  "real_over_total_single": "56 of 64",
+  "pair_real_cells": 3136,
+  "pair_total_cells": 4096,
+  "real_over_total_pair": "3136 of 4096",
+  "padding_fraction_pair": 0.234375,
+  "norms": {
+    "s_in": 5850.166196032644,
+    "z_in": 1320432.531462332,
+    "s_ref_050_captured": 2170026.667410284,
+    "z_ref_050_captured": 1287378.165529395
+  },
+  "source_sha256": {
+    "/home/ttuser/of3t_gradients/cap/block0_boundary.pt": "21e10e3d7b106777a7da32e9f30e429f81bf3427fe617f927ce7a1de2a381ef3",
+    "/home/ttuser/of3t_gradients/cap/block47_boundary.pt": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5"
+  },
+  "out": "/home/ttuser/of3t_trunk043ref/boundary_c64.pt",
+  "out_sha256": "85015b4a2622c1d3a6ae16f49c45cafd6f575dc0dab144fe08ffa87b83498ffa"
+}
