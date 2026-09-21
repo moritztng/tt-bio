@@ -160,6 +160,14 @@ TABLE = {
                    "It is a set of follow-ups, and D120 already refuted two of its attributions."),
     "D119": (CAMP, "The observational floor built for the crop ladder does not test what it "
                    "claimed, and project.py still carries the unit error. Campaign tooling."),
+    "D69": (CAMP, "Upstream's own single precision reproduces its float64 gradient to 8.107441e-05, "
+                  "247x inside the bar, so the share our device failed is a port gap and not a bar "
+                  "problem. A statement about this campaign's bar, never disposed of; it changes "
+                  "nothing a user of the shipped tree gets."),
+    "D120": (CAMP, "0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, not two "
+                   "roundings of one, so a cross-version difference there measures a model change "
+                   "and a precision change at once. A reading discipline for this campaign's own "
+                   "figures; it changes nothing a user of the shipped tree gets."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D129": (USER, "conditioned_transition.layer_norm.layer_norm_s.weight reads 4.388x its own "

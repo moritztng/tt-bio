@@ -814,12 +814,40 @@ if DEF.is_file() and ORCH.is_file():
     # a FAILURE rather than a silent exclusion. The pattern is a status DECLARATION, not any
     # mention of the word -- D66's body discusses other defects' UNFIXED status and must not
     # trip it.
+    #
+    # Pass 240, two false positives in one compose, both from the same root: the split was on
+    # `### D\d+\.` only, so an `### Dn UPDATE ...` heading did NOT start a new entry and its body
+    # was charged to whichever `.`-heading came before it. D132's "body" therefore swallowed
+    # D129 UPDATE 2's `**UNFIXED**`. Split on every heading. And after that, D134's own body still
+    # tripped it on the sentence "Only D69's status actually moves, to **UNFIXED**" -- a
+    # declaration ABOUT ANOTHER DEFECT, which is the exact false positive the paragraph above
+    # says this check must not make. So a declaration counts only when the sentence carrying it
+    # does not name a different defect.
     _dt_u = DEF.read_text()
-    _parts = _re.split(r"(?m)^(### D\d+\..*)$", _dt_u)
+    _parts = _re.split(r"(?m)^(### D\d+\b.*)$", _dt_u)
     _ents = [(_parts[i], _parts[i + 1]) for i in range(1, len(_parts) - 1, 2)]
     _decl = _re.compile(r"\*\*UNFIXED[.*]|\bUNFIXED\b\s*(?:--|\u2014|\.)")
-    _bodyonly = [_re.match(r"### (D\d+)\.", h).group(1) for h, b in _ents
-                 if "UNFIXED" not in h and _decl.search(b)]
+
+    def _declares_own_unfixed(head, body):
+        """True when BODY declares UNFIXED about THIS defect rather than about another one."""
+        _me = _re.match(r"### (D\d+)\b", head).group(1)
+        for _m in _decl.finditer(body):
+            _lo = body.rfind(".", 0, max(0, _m.start() - 1)) + 1
+            _hi = body.find(".", _m.end())
+            _sent = body[_lo: _hi if _hi != -1 else len(body)]
+            _others = {d for d in _re.findall(r"\bD\d+\b", _sent) if d != _me}
+            if not _others:
+                return True
+        return False
+
+    # Probe: a body-only declaration must still fire, and one about another defect must not.
+    _bo_probe = [_declares_own_unfixed("### D1. FIXED.", "It stays UNFIXED. More text."),
+                 _declares_own_unfixed("### D2. FIXED.", "Only D69's status moves, to **UNFIXED**.")]
+    if _bo_probe != [True, False]:
+        bad.append("the body-only-UNFIXED probe did not fire on both shapes -- the check is "
+                   "either inert or it is flagging talk about other defects (pass-240 shape)")
+    _bodyonly = [_re.match(r"### (D\d+)\b", h).group(1) for h, b in _ents
+                 if "UNFIXED" not in h and _declares_own_unfixed(h, b)]
     if _bodyonly:
         bad.append("defect(s) declare UNFIXED in the BODY but not on the heading, where this "
                    "audit and GAP's coverage check read it, so they are invisible to both: "
@@ -897,6 +925,57 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+    # --- a status read out of ORDINARY PROSE, or out of a NEGATION ----------------------------
+    # Pass 240, and it is D87's mirror image. `_last` uppercases the whole heading before matching,
+    # so an English word does the work of a declaration:
+    #   D69  "...against a reading fixed before the arm produced output"  -> reads FIXED
+    #   D116 "...and D8 is NOT closed by it"                              -> reads CLOSED
+    # Nobody ever closed either one. D69 is a live finding recorded as FIXED because of a past
+    # participle, and D116's heading says the OPPOSITE of what the parser stored, because a
+    # word-level regex cannot see a negation. D87 was a real closure the parser could not read;
+    # this is a non-closure the parser reads as a closure, and it is the more dangerous direction
+    # because it removes a defect from `unfixed` silently.
+    #
+    # The house convention already writes the status in CAPITALS, usually bolded. So the rule is:
+    # a status declaration must be upper-case in the source, and must not be immediately preceded
+    # by a negation. This does not decide any defect's status -- it refuses to read one out of
+    # prose, which is what D87's guard does from the other side.
+    _NEG = _re.compile(r"\b(?:NOT|NEVER|NO LONGER|ISN'T|IS NOT|WAS NOT)\s+$", _re.I)
+
+    def _prose_statuses(doc):
+        """(defect, word, why) for headings whose only status match is prose or negated."""
+        out = []
+        for m in _re.finditer(r"^### (D\d+)\b(.*)$", doc, _re.M):
+            h = m.group(2)
+            up = _STATUS_RE.findall(h.upper())
+            if not up:
+                continue
+            exact = list(_STATUS_RE.finditer(h))        # genuine upper-case occurrences
+            good = [x for x in exact if not _NEG.search(h[:x.start()])]
+            if not good:
+                why = "lower-case prose" if not exact else "negated"
+                bad_word = exact[-1].group(0) if exact else up[-1]
+                out.append((m.group(1), bad_word, why))
+        return out
+
+    # Probe, run every time: two synthetic headings in exactly the shapes D69 and D116 had.
+    _pp = _prose_statuses("### D1. a reading fixed before the arm ran.\n"
+                          "### D2. and D8 is NOT CLOSED by it.\n"
+                          "### D3. UNFIXED, and here is why.\n")
+    if [x[0] for x in _pp] != ["D1", "D2"]:
+        bad.append("the prose-status probe did not fire -- this check is inert, which is how "
+                   "D69 read FIXED off an adjective for seventy passes")
+    else:
+        _prose = _prose_statuses(_dt_u)
+        if _prose:
+            bad.append("defect(s) whose latest heading declares a status only in prose or under "
+                       "a negation, so the parser stored something nobody wrote: "
+                       + "; ".join(f"{n} ({w}, {why})" for n, w, why in _prose)
+                       + " -- write the status in CAPITALS and unnegated on a heading")
+        else:
+            ok.append("no defect's status is read out of lower-case prose or out of a negation "
+                      "(probe fires on both shapes)")
+
     # --- a defect whose headings NEVER declare a status is invisible to all of the above -------
     # Pass 240. D87 was closed in a word the parser cannot READ. This is the other half: a defect
     # whose headings carry NO status word at all. The parser's clause is deliberately conservative
@@ -915,8 +994,8 @@ if DEF.is_file() and ORCH.is_file():
     _seen_d, _has_d = set(), set()
     for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
         _seen_d.add(_m.group(1))
-        if _STATUS_RE.findall(_m.group(2)):
-            _has_d.add(_m.group(1))
+        if _STATUS_RE.findall(_m.group(2).upper()):     # .upper() exactly as `_last` does it,
+            _has_d.add(_m.group(1))                     # or this check answers a different question
     _statusless = sorted(_seen_d - _has_d, key=lambda d: int(d[1:]))
     if not _sl_p.is_file():
         bad.append(f"state/of3t/STATUSLESS_BACKLOG.json is absent and {len(_statusless)} "
