@@ -8073,3 +8073,123 @@ So the library both **handles** the defect (`recipes.py:186`) and **detects** it
 also reaches the guard. `of3t-rebind` owns both and is live. Noted for completeness: the two arms
 ran on different cards (`TT_VISIBLE_DEVICES` 0 and 2), which does not confound a raise/no-raise
 reading but would confound a timing one.
+
+### D117 UPDATE (pass 225). REFUTED. Upstream's multi-chain permutation alignment COMPLETES on both batches this campaign holds, inside the real checkpointed forward. The capability gap was two of our own harness defects, and the note that recorded it was stale on the day it was written.
+
+`of3t-permalign` returned GO. Verified by the orchestrator from its pushed artifacts at
+**`13cd2c7bd`** — one commit, eighteen files, all under `perf/of3t_permalign/`, **nothing under
+`tt_bio/` and nothing in upstream's `permutation_alignment.py` or `model.py`**.
+
+**It completes, in the path that matters.** The two `via_forward` arms call the alignment from
+`model.py:694` with positions the 570 M checkpoint predicted itself — nothing about the prediction
+is ours there:
+
+    arm I   frozen 5nw3 (the batch the NOT COVERED note was written about)
+            56 ref spaces, 8 with an alternative permutation -> COMPLETES, 8 GT atoms moved
+    arm H   4G5J chain 1, crop 256, from OpenFold3's own training cache
+            197 ref spaces, 58 with alternatives        -> COMPLETES, 74 GT atoms moved
+
+**And completing is worth something.** Handed a prediction that is the ground truth with
+permutation 1 applied inside each symmetric ref space, the alignment selects the non-identity and
+recovers **24 of 76** reordered atoms on 5nw3 and **146 of 540** on 4G5J, leaving a ground truth
+differing from the naive fallback's by up to **2.386 A**. On 4G5J the plain-noise arm already
+differs from naive on 2 atoms by up to 2.106 A. **Taking the fallback silently is not free.**
+
+**Both mechanisms are ours, and both were reproduced rather than argued.** Control **J** runs two
+real forwards over one dict with the deep copy withheld: pass 1 completes, pass 2 raises
+`KeyError: 'ref_space_uid_to_perm'` at `permutation_alignment.py:1412` — because `model.py:670`
+pops the key off the caller's dict and restores it onto a **NEW** one. Control **F** recurses
+`collate1` into the per-sample mapping and raises `IndexError` at `:1175`. Control **B** deletes the
+key outright. Three controls, three fallbacks reported.
+
+**And the note was stale the day it was written**, settled by timestamps rather than argument:
+`of3t-reference`'s deep-copy fix is in `bundle_min.py`'s FIRST commit (`f898ca3c`, 13:57:49 UTC);
+the census entry landed **47 minutes later** (`c624a889`, 14:44:45) and the LEDGER copy **6h 01m**
+later (`6adc428b`, 19:59:11). The census **cannot** have observed the KeyError — it has no model
+forward at all and says so in its own `model_forward` entry. Both later entries inherited an
+observation instead of re-running it.
+
+**The fallback is loud and unread, not silent**: one `logger.error` plus a traceback, and with no
+logging configuration installed Python's handler of last resort sends it to stderr, verified
+directly. Zero of the 304 committed logs carry the line — and that proves less than it looks,
+because the only three rows that ever ran an OF3 forward committed no run logs at all. So a run in
+this campaign could have taken the fallback unnoticed, and at least two did.
+
+**What is owed, and why it was not done here.** `perf/of3t_gradients/coverage_census.py`'s
+`multichain_permutation` entry still says `covered: False`. The row published the correction as
+`perf/of3t_permalign/census_correction.json` — **located by symbol rather than by line number,
+citing this campaign's own decay lesson** — and did not make the edit, because the census's `BUNDLE`
+constant is a qb2 path that does not exist on pc and editing the `.py` alone would leave the
+committed `.json` disagreeing with it. That is the right call and the orchestrator's to place: it is
+one edit plus a census re-run **on the host that has the bundle**, small enough that dispatching a
+row for it alone is disproportionate, so it rides with the next qb2 row that needs that tree.
+
+### D126 UPDATE 3 (pass 225). FIXED on the composition, LIVE on main, and USER-FACING after all — my pass-223 correction was wrong in the other direction, and the evidence was in the artifact I had already read.
+
+`of3t-rebind` returned GO and settled it, at `6af02c4f6`. I record the correction against myself
+first, because it is the part that generalises.
+
+**At pass 222 I filed D126 as user-facing. At pass 223 I withdrew that**, having found
+`recipes.py:186` calling `params.rebind()` and concluded that `of3t-modeltraj`'s "shipped" arm must
+therefore be its own loop without the repair. **The second half does not follow from the first, and
+`traj_shipped.json` says so in the line next to the one I quoted:**
+
+    k=1   rebound 26   tape_resolves_after_step 0 / 26   grad_norm 4.935345e-01
+
+**`rebind()` ran — 26 of 26 — and the tape still resolved none of them.** I read
+`tape_resolves_after_step` out of that record at pass 222 and did not read `rebound` beside it.
+Checking the library was the right instinct; stopping once it produced a satisfying answer was not.
+
+**The seam, which is neither of the places I looked.** `autograd.py` keys `_PARAMS` on `id(raw)`,
+the identity of the raw ttnn handle, and `parameter_for` additionally tests `t.value is raw`. That
+key is DERIVED from a value which **three callers legitimately replace**, and none re-keyed it:
+
+    tt_bio/train/optim.py:253       AdamW.step        every step, every parameter
+    tt_bio/train/checkpoint.py:70   load_adapter      every RESUME -- a restarted run trains ZERO steps
+    tt_bio/autograd.py:180          Tensor.free       L1 eviction; the only one that can fire mid-tape
+
+`lora.py:434`'s `rebind()` is **not** the seam: it correctly writes the new handle into the model
+slot and it was already being called. **The model slot and the tape registry are two holders of the
+same handle; rebind maintained one and nothing maintained the other.**
+
+**Rebind coverage was never the gap, enumerated rather than argued.** There is exactly one
+`opt.step()` call site and one `rebind()` call site in `tt_bio/` and they are adjacent
+(`recipes.py:181` and `:186`); `_RECIPES = {"default": train_loop}` is the whole recipe table and
+`train.cli`, `train.launcher` and `train.dryrun` all route through it. Every recipe-driven run
+reaches `rebind()`. A hand-written Tier-2 loop that omits it is a **real second failure** — the one
+`rebind()` exists to prevent and the one the `norebind` control still reproduces at 1.000000e+00 —
+but it is not this defect.
+
+**Per tree, which is the discipline I keep relearning.** `origin/wk/of3t:tt_bio/autograd.py:167-168`
+now carries `del _PARAMS[id(old)]; _PARAMS[id(new)] = self`. `origin/main` does not. So **D126 is
+fixed where it is gated and live where it ships**, and on main today *a training run produces one
+gradient and then zero forever, and a run resumed from a checkpoint produces none at all.*
+
+**What the fix buys, measured**: the shipped default reads **4.763338e-02** at k=20 with **26 of 26**
+tape resolutions at every step, against the A16 zero baseline's 1.000000e+00 before; reach goes
+**0 of 3,932 → 3,932 of 3,932** walked parameters, **95.1286 %** of the squared gradient norm;
+inference byte-identical; the regression test **fails on the current tree and passes on the branch,
+with no card**; and `norebind` still saturates at 1.0, so the fix is what was tested.
+
+**RELEASE-GATED. It changes shipped code and the merge gate is Moritz's.** Four of the five commits
+are already in the composition (`965c24f52`, `f68bf7ebe`, `96adb9797`, `899287ff1` at
+`origin/wk/of3t`); `6af02c4f6` lands on the next compose. Nothing has gone to main.
+
+### D127. 3.6438 % of OpenFold3's squared gradient norm is not device-resident in this port at all, so no device-side training loop can reach it however the tape is keyed. FOUND by `of3t-rebind` (pass 225) while measuring D126's reach. **UNFIXED, and it bounds the charter independently of every gradient number the campaign has.**
+
+Two scopes, both named at file and line:
+
+  * **`aux_heads` output projections — 2.8431 %.** Zero walked paths match
+    `distogram`/`pae`/`plddt`/`pde`/`resolved`.
+  * **`input_embedder` atom encoder — 0.8007 %.** Host torch at `openfold3_host_prep.py:222`.
+
+The row found this as a **ceiling on its own REACH figure** (3,932 of 3,932 walked parameters is
+95.1286 % of the norm, and the missing 4.8714 % is this plus rounding) and explicitly did not fix
+it. It is worth recording as its own defect because it is the one bound that **does not move with
+any tape, optimizer or precision work**: those parameters have no device gradient to carry.
+`of3t-auxheads` already reported the second one from its own side — *"92.4879 % of `input_embedder`
+sits on a weight our shipped path applies on the host after a `ttnn.to_torch`"* (D58's body) — and
+the campaign has been quoting reach denominators that exclude it without saying so.
+
+Any claim that this stack can train OpenFold3 is bounded by 3.6438 % of the gradient it cannot
+compute on device, and the remedy is porting those ops, not repairing a gradient.
