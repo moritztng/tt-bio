@@ -8410,3 +8410,44 @@ is D120's *"its residual is a LayerNorm-gradient class"* measured rather than as
 
 The next row on D8 starts at `attn_pair_bias.layer_norm_a.{weight,bias}` and at blocks 0, 44 and 4,
 not at block 46. Corrected before dispatch rather than after.
+
+### D56 UPDATE 2 (pass 230). The explanandum is ONE leaf family carrying 99.925 % of the diffusion scope's error mass, it is NOT an A14 artefact, its signature is a SCALE error rather than the conditioning one — and it is the SAME leaf as D8's residual in the trunk.
+
+CPU only, no card, no new run: read out of `perf/of3t_adaln/device_gradient_real043_pertensor.json`,
+547 tensors, which has carried all of this since pass 155.
+
+**It is not a near-zero artefact.** I went looking for one — the campaign has a 1.66e+14 on the
+record from exactly that shape — and the answer is the opposite. The 18.504 tensor is
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` with
+`ref_norm` **9.0991e-01**, which is **79.98x the median reference norm** of 1.137623e-02 over the
+same 547. It is one of the *heaviest* references in the set. D56's explanandum is real.
+
+**And it is one leaf family, not a scope.** Grouping the diffusion scope's error mass by leaf:
+
+    99.925 %  attention_pair_bias.layer_norm_a.layer_norm_s.weight
+     0.030 %  attention_pair_bias.layer_norm_a.linear_g.bias
+     0.018 %  conditioned_transition.layer_norm.layer_norm_s.weight
+     0.007 %  attention_pair_bias.mha.linear_o.weight
+
+The single worst tensor is **2.83e+02** of error mass against **8.28e+00** for the next — a factor of
+**34**. "The diffusion module is 16.6 % out" has always been one leaf wearing a module's name.
+
+**The signature is a SCALE error, and it does not match D56's own ladder.** The worst tensor reads
+`norm_ratio` **19.2415** at `cos` **+0.7494**, device norm 17.508 against a reference norm of 0.9099.
+Our gradient points substantially the right way and is **19x too big**. D56's synthetic K-ladder says
+the high-K signature is *r rising while cos collapses* — at K = 2.1e+06 it measured r 26.5 at cos
+**0.162**. Here r is high and **cos has not collapsed**. That is a second refutation of the
+conditioning mechanism, independent of D62's direct measurement of K at 172.60, and it points
+somewhere specific: a missing or doubled normalisation factor is a scale error with preserved
+direction; ill-conditioned cancellation is not.
+
+**And the unification, which the campaign has never stated.** The trunk's worst leaf by error mass is
+`attn_pair_bias.layer_norm_a.weight` — **20.21 %** of the trunk's error on 0.32 % of its mass at rel
+3.04 (D8 UPDATE 2, pass 229). The diffusion transformer's is
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight` at **99.925 %**. **They are the same leaf in
+two stacks.** D8's residual and D56's explanandum are one construct, and the campaign has been
+chasing them as two defects in two scopes for seventy passes.
+
+`of3t-lnaffine` was dispatched one pass ago for the trunk half. Its brief is amended to cover both
+stacks and to take D56 with it: the same leaf, the same question, and one row rather than two
+editing one backward.
