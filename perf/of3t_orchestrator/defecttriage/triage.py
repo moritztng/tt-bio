@@ -180,9 +180,6 @@ TABLE = {
                    "was /tmp, and the row was parked on a clock rather than on liveness. A defect "
                    "in how this campaign stores and waits on its own long runs; no shipped "
                    "behaviour depends on it."),
-    "D157": (CAMP, "of3t-d137digest's draft verdict claims three models while protenix-v2 has "
-                   "not run and has no artifact. A defect in this campaign's own reporting, "
-                   "caught before the row concluded; no shipped behaviour depends on it."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "
