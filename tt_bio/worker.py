@@ -1325,8 +1325,16 @@ class _WorkerState:
             plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
             summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
                                              atom_array, coord)
-            return {"d": d, "coord": got["X_L"][d], "plddt": plddt,
-                    "summary": summary, "score": summary["ranking_score"]}
+            # Order on the full-precision score, not on summary["ranking_score"], which is
+            # rounded to 4 decimals for the published summary_confidences.json. Two samples
+            # whose scores differ below 1e-4 round to the same value and were then ordered by
+            # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
+            # against 0.7630, and it is the only site in the family that sorted on a rounded
+            # number.
+            return {"d": d, "coord": got["X_L"][d], "plddt": plddt, "summary": summary,
+                    "score": rf3_confidence.ranking_score(
+                        summary["iptm"], summary["ptm"], float(plddt.mean()),
+                        summary["has_clash"])}
 
         samples = sorted((one(d) for d in range(n_sample)),
                          key=lambda r: -r["score"])
