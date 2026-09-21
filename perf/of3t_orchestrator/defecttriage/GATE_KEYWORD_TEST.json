@@ -1,7 +1,7 @@
 {
   "gate_source": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
   "gate_gap_pattern": "inference users get today|unfixed|still open|remains? open",
-  "unfixed_named": 45,
+  "unfixed_named": 43,
   "honest": {
     "names_every_unfixed_defect": true,
     "gate_refuses_GO": true

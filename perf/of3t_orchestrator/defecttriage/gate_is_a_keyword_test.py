@@ -43,7 +43,9 @@ GATE = D / "workstreams" / "_of3t_donecheck.py"
 DEFECTS = D / "state" / "of3t" / "DEFECTS.md"
 OUT = Path(__file__).with_name("GATE_KEYWORD_TEST.json")
 
-STATUS_RE = re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+import sys as _sys_vocab
+_sys_vocab.path.insert(0, __file__.rsplit("/", 2)[0])
+from status_vocab import STATUS_RE          # the ONE definition; see that file (pass 241)
 
 
 def live_unfixed():
