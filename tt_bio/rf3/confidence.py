@@ -111,10 +111,13 @@ def ranking_score(iptm_v: float | None, ptm_v: float | None,
                   plddt_v: float, clash: bool) -> float:
     """The family rule, `tt_bio.ranking.ranking_score`.
 
-    Upstream RF3's `compute_ranking_score` substitutes pTM for ipTM on a monomer, which makes
-    the score 1.2*pTM and orders the samples by pTM alone -- the worst-ordering output the
-    confidence head produces, measured against true Ca-RMSD. RF3 computes no RASA disorder
-    term, so 0.0 goes in for it and the interface branch stays byte-identical to upstream's.
+    Upstream RF3's `compute_ranking_score` substitutes pTM for its MISSING ipTM on a monomer,
+    not for a zero one, so the score is 0.8*pTM + 0.2*pTM = 1.0*pTM. That is exactly the
+    Protenix/OpenDDE site's rule, and it orders the samples on pTM alone -- the worst-ordering
+    output the confidence head produces, measured against true Ca-RMSD.
+
+    RF3 computes no RASA disorder term, so 0.0 goes in for it and the interface branch stays
+    byte-identical to upstream's.
     """
     return rank.ranking_score(iptm=iptm_v, ptm=ptm_v or 0.0, plddt=plddt_v,
                               has_clash=float(clash))

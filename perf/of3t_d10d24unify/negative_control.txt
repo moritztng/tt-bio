@@ -1,0 +1,3 @@
+openfold3 site reverted to its own expression: rc=1  2 failed, 2 passed in 2.88s
+openfold3 site restored:                       rc=0  4 passed in 2.86s
+NEGATIVE CONTROL PASS - the guards decide on the site

@@ -28,8 +28,8 @@ import torch
 import ttnn
 
 from perf import clocksample
-from tt_bio.autograd import precise_config
-from tt_bio.tenstorrent import _accurate_softmax, host_f64_softmax
+from tt_bio.autograd import host_f64_softmax_values, precise_config
+from tt_bio.tenstorrent import _accurate_softmax
 
 
 def f64_softmax(x: torch.Tensor) -> torch.Tensor:
@@ -47,7 +47,7 @@ ARMS = {
     # accuracy come from one run like the other three. This is the FORWARD round trip: under a
     # tape the backward pays a second one, and the both-ways figure is the scope cost in
     # perf/of3t_f64softmax/COST_ON_THE_REAL_ARM.json rather than anything here.
-    "host_f64": lambda x, cfg: host_f64_softmax(x, -1),
+    "host_f64": lambda x, cfg: host_f64_softmax_values(x, -1)[1],
 }
 
 
