@@ -170,6 +170,24 @@ single track's growth collapses `|q.k|max` from 13916.7 to 873.5 over blocks 8 t
 dominant at 3 %. Genuine bf16 excess after the flip is **2.48x** upstream's own composed bf16,
 35x smaller than the convention was.
 
+**The closing measurement, RE-DERIVED by the orchestrator from the committed artifact rather than
+from the row's prose (pass 248).** After three attribution errors in a week — D127's bound, D129's
+share, D136's arm — the campaign's central number was the one thing nobody had checked twice. Read
+straight out of `perf/of3t_wholemodel/MODEL_arms.json`, it holds to every digit:
+
+    A26 reachable bar vs upstream's own bf16      1.0495450e-01
+    renorm      1.0066946e-01   0.9592x the bar    92.1568 % of the model's mass
+    renormf64   8.5269824e-02   0.8124x            (the host float64 softmax arm)
+    SHIPPED     5.5518403e+00   52.898x            same reference, same mass
+    break       2.0091005e+01   191.43x
+    A16 zero model                                 0.9999999997
+    instrument floor, upstream f32 vs float64      7.6086e-05
+
+and the trunk-composed figure likewise: **1.5286636e-01** against a composed bar of
+**1.6275505e-01**, **0.93924x**, at **97.98502 %** of the model's mass. **The shipped arm at
+52.898x is the companion the headline needs** and did not carry: on one reference, at one coverage,
+the repaired configuration reads 0.9592x and the tree as it ships reads **52.9x the same bar**.
+
 Recomputed from the artifacts on every compose (171 checks, 0 drifted); that total is a claim about this audit and it is now audited where it is EVALUABLE only — **D130** (pass 236, found and fixed the same pass): the total was computed from confirmations, so any *other* guard that drifted took it down by one and the count guard then reported the lower number as *"the count drifted when checks were added"* — the wrong cause, twice in one session and once in each direction. When another check is down the guard now announces that it could not run and says why; clean runs behave exactly as before, and a genuinely stale count still fires. The probe `perf/of3t_orchestrator/countstable/count_is_not_evaluable_while_drifted.py` **lifts the block out of the live audit** rather than restating it, shows all three states, prints the old rule's false message verbatim beside the new refusal, and fails both assertions when the repair is reverted. **D131** (pass 237) added the 167th: the summary's own triage split — *"N scope-excluded, M USER-FACING, K campaign-internal"* — is now checked against `state/of3t/UNFIXED_TRIAGE.json`, the file the GATE reads, and against the UNFIXED total two sentences above it. It had drifted to **4/10/33** while the file held **4/8/32**, three defects stale and not even summing to the 44 stated beside it. **D133** and **D134** (pass 240) added the 168th and 169th, and both are about the ledger's own readability: a defect that declares **no** status on any heading is invisible to `unfixed`, to the triage and to GAP's naming requirement (**29 of 132** were, frozen as a shrink-only ratchet in `state/of3t/STATUSLESS_BACKLOG.json`), and a status read out of **lower-case prose or a negation** is not a declaration — **D69** read FIXED off the words *"a reading fixed before the arm produced output"* for seventy-one passes, and **D116**'s *"D8 is NOT closed by it"* was stored as CLOSED. **D135** (pass 241) added the 170th and 171st: **RECORDED** may not retire a defect that ever declared UNFIXED, and the gate's own literal copy of the status vocabulary — it runs from `~/.coworker` and cannot import `status_vocab.py` — is **compared** against `PATTERN` on every compose rather than trusted.
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
@@ -794,7 +812,24 @@ an **identity** at relative difference **0.0**.
 
 Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-eight defects, fifty-two UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 247 — I was one step from hand-clearing a correct defer and filing a defect against a row that had done nothing wrong, because the fleet stamps CEST and the rows stamp UTC (D138).** The two lines, read together, say a row parked itself for two hours and nine minutes fifteen seconds after its job finished:
+PASSLOG: **Pass 248 — I re-derived the campaign's central number from the artifact instead of from the row that produced it, and it holds to every digit.** Three attribution errors in a week — D127's bound wrong in both directions, D129's share moving on a collapsing denominator, D136's headline belonging to an arm the row called default-off — all had the same shape: a figure quoted from prose that the artifact next to it did not say. The closing measurement was the one number nobody had checked twice, and it is the one everything else rests on.
+
+Read straight out of `perf/of3t_wholemodel/MODEL_arms.json`:
+
+    A26 reachable bar vs upstream's own bf16      1.0495450e-01
+    renorm      1.0066946e-01   0.9592x    92.1568 % of the model's mass
+    renormf64   8.5269824e-02   0.8124x
+    SHIPPED     5.5518403e+00   52.898x    same reference, same coverage
+    break       2.0091005e+01   191.43x
+    A16 zero model 0.9999999997;  instrument floor 7.6086e-05
+
+and the composed figure: **1.5286636e-01** against **1.6275505e-01**, **0.93924x**, at **97.98502 %**. VERDICT quotes 1.006695e-01, 1.049545e-01, 0.9592x, 97.9850 % and 0.9392x — every one correct, and correctly attributed to the `renorm` arm, which is what D136 found missing in the trajectory claim and is present here.
+
+**What the record was missing is the companion, and I have added it.** The **shipped** arm reads **5.5518403e+00 — 52.898x the same bar, on the same reference, at the same 92.1568 % of the mass.** The campaign has been carrying "0.9592x" next to a shipped-tree split expressed against a *different* bar (the 2.0e-02 float64 one), so the two were never directly comparable and the gap never had a single number. It does now: **repaired 0.9592x, shipped 52.9x**. That is the honest one-line statement of what the flag is worth and of how far the shipped tree is from it, and it belongs beside the headline rather than three fields away.
+
+**Nothing is wrong, and that is worth recording too.** A verification that confirms is not a wasted pass — it is the difference between a number the campaign believes and a number the campaign has checked, and after this week the distinction has cost enough to be worth paying for once.
+
+**Pass 247 — I was one step from hand-clearing a correct defer and filing a defect against a row that had done nothing wrong, because the fleet stamps CEST and the rows stamp UTC (D138).** The two lines, read together, say a row parked itself for two hours and nine minutes fifteen seconds after its job finished:
 
     fleet.log   2026-09-21 08:36:09  DEFER of3t-trajwide until 2026-09-21 10:45:00
     theirs.log  2026-09-21T08:35:54Z  === theirs done rc=0
