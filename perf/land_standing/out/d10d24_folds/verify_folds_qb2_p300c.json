@@ -1,0 +1,35 @@
+[
+ {
+  "tag": "opendde__ubq__s1",
+  "model": "opendde",
+  "board": "p300c",
+  "score_key": "confidence_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 0,
+  "main_would_serve_another": false,
+  "served_file": "ubq.cif"
+ },
+ {
+  "tag": "openfold3__ubq__s1",
+  "model": "openfold3",
+  "board": "p300c",
+  "score_key": "confidence_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 0,
+  "main_would_serve_another": false,
+  "served_file": "ubq.cif"
+ },
+ {
+  "tag": "rf3__ubq__s1",
+  "model": "rf3",
+  "board": "p300c",
+  "score_key": "ranking_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 0,
+  "main_would_serve_another": false,
+  "served_file": "ubq.cif"
+ }
+]

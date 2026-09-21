@@ -1,0 +1,22 @@
+{
+  "tag": "openfold3__ubq__s1",
+  "model": "openfold3",
+  "target": "examples/ubq.yaml",
+  "seed": 1,
+  "card": 0,
+  "board": "p300c",
+  "host": "qb2",
+  "wall_s": 178.2,
+  "score_key": "confidence_score",
+  "scores_by_rank": [
+    0.709634,
+    0.709488,
+    0.706557,
+    0.702007,
+    0.699897
+  ],
+  "rows_in_rank_order": true,
+  "rule_mismatches": [],
+  "served_file": "ubq.cif",
+  "iptm_of_rank0": 0.0
+}

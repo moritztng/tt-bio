@@ -1,0 +1,3 @@
+opendde__ubq__s1         ordered=True mismatches=0  main would serve rank 0
+openfold3__ubq__s1       ordered=True mismatches=0  main would serve rank 0
+rf3__ubq__s1             ordered=True mismatches=0  main would serve rank 0

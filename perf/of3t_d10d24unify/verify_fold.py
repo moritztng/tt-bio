@@ -25,6 +25,8 @@ ap.add_argument("--model", required=True)
 ap.add_argument("--target", required=True)
 ap.add_argument("--seed", type=int, default=1)
 ap.add_argument("--card", type=int, default=2)
+ap.add_argument("--board", default="p150a")
+ap.add_argument("--host", default="qb1")
 ap.add_argument("--samples", type=int, default=5)
 ap.add_argument("--out-root", default=os.path.expanduser("~/of3t_d10d24_out"))
 ap.add_argument("--msa-dir", default=os.path.expanduser("~/of3t_rankunify_msa"))
@@ -104,7 +106,7 @@ struct = next(out.rglob("structures"))
 served = [p for p in struct.iterdir() if p.stem == stem]
 
 payload = {"tag": tag, "model": a.model, "target": a.target, "seed": a.seed,
-           "card": a.card, "board": "p150a", "host": "qb1", "wall_s": round(time.time() - t0, 1),
+           "card": a.card, "board": a.board, "host": a.host, "wall_s": round(time.time() - t0, 1),
            "score_key": key, "scores_by_rank": scores, "rows_in_rank_order": ordered,
            "rule_mismatches": bad, "served_file": served[0].name if served else None,
            "iptm_of_rank0": runs[0].get("iptm")}
