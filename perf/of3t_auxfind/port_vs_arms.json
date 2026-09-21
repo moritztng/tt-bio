@@ -1,0 +1,187 @@
+{
+ "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+ "n_tokens": 384,
+ "n_tokens_real": 56,
+ "bar": 0.05,
+ "key_gate": {
+  "loaded": 244,
+  "missing": 0,
+  "unexpected": 0
+ },
+ "control_same_function": {
+  "plddt_logits": 0.0,
+  "experimentally_resolved_logits": 0.0,
+  "pae_logits": 0.0,
+  "pde_logits": 0.0,
+  "distogram_logits": 0.0
+ },
+ "dtype_policy_A27": {
+  "R and U": "upstream 0.4.3, float64 parameters and activations, no cast; autocast('cuda') inert on CPU",
+  "port": "host fp32 s-path and heads, device bf16 z-path, HiFi4 + fp32 dest acc"
+ },
+ "heads": [
+  {
+   "head": "plddt_logits",
+   "scope": "atom-gathered, 422 of 422 atoms",
+   "padding_fraction": 0.0,
+   "port_nomask_vs_R": {
+    "rel_l2": 0.3650479026256241,
+    "r": 0.7517932322174165,
+    "cos": 0.9523450274838527
+   },
+   "port_nomask_vs_U": {
+    "rel_l2": 0.003376649215362391,
+    "r": 1.0003406558085393,
+    "cos": 0.9999943590648432
+   },
+   "port_mask_vs_R": {
+    "rel_l2": 0.0020550708930021475,
+    "r": 1.0000117172249396,
+    "cos": 0.9999978884351985
+   },
+   "port_mask_vs_U": {
+    "rel_l2": 0.48678709689123056,
+    "r": 1.3306216844683176,
+    "cos": 0.9520333311304265
+   },
+   "U_vs_R": {
+    "rel_l2": 0.36563453999391987,
+    "r": 0.7515372166992145,
+    "cos": 0.9521282109839992
+   },
+   "A16_zero_model_vs_R": 1.0
+  },
+  {
+   "head": "experimentally_resolved_logits",
+   "scope": "atom-gathered, 422 of 422 atoms",
+   "padding_fraction": 0.0,
+   "port_nomask_vs_R": {
+    "rel_l2": 0.3313193772510705,
+    "r": 0.6984407870855153,
+    "cos": 0.9865167017758036
+   },
+   "port_nomask_vs_U": {
+    "rel_l2": 0.005505921799133921,
+    "r": 1.0009232564038268,
+    "cos": 0.9999852822020665
+   },
+   "port_mask_vs_R": {
+    "rel_l2": 0.0038656476999654192,
+    "r": 1.0024804872499007,
+    "cos": 0.9999956156677093
+   },
+   "port_mask_vs_U": {
+    "rel_l2": 0.4782190494511116,
+    "r": 1.43663722441887,
+    "cos": 0.9867602645737183
+   },
+   "U_vs_R": {
+    "rel_l2": 0.3314998205719988,
+    "r": 0.6977965419595829,
+    "cos": 0.9866972678486299
+   },
+   "A16_zero_model_vs_R": 1.0
+  },
+  {
+   "head": "pae_logits",
+   "scope": "pair, real block 56x56 of 384x384",
+   "padding_fraction": 0.8541666666666666,
+   "port_nomask_vs_R": {
+    "rel_l2": 0.5174367694393983,
+    "r": 0.6710625268309575,
+    "cos": 0.8811281045102577
+   },
+   "port_nomask_vs_U": {
+    "rel_l2": 0.008309721940729448,
+    "r": 1.002629019687416,
+    "cos": 0.9999690116019792
+   },
+   "port_mask_vs_R": {
+    "rel_l2": 0.0038241492884047877,
+    "r": 1.000759667244899,
+    "cos": 0.9999929818197282
+   },
+   "port_mask_vs_U": {
+    "rel_l2": 0.7778531520064991,
+    "r": 1.4952268141851026,
+    "cos": 0.8796818231236954
+   },
+   "U_vs_R": {
+    "rel_l2": 0.5201185104113915,
+    "r": 0.6693029162871936,
+    "cos": 0.879604062843156
+   },
+   "A16_zero_model_vs_R": 1.0
+  },
+  {
+   "head": "pde_logits",
+   "scope": "pair, real block 56x56 of 384x384",
+   "padding_fraction": 0.8541666666666666,
+   "port_nomask_vs_R": {
+    "rel_l2": 0.30153913253388104,
+    "r": 0.7508598078734756,
+    "cos": 0.9807853524626651
+   },
+   "port_nomask_vs_U": {
+    "rel_l2": 0.00357111458911774,
+    "r": 1.000223433836023,
+    "cos": 0.9999936499504191
+   },
+   "port_mask_vs_R": {
+    "rel_l2": 0.002457701805341246,
+    "r": 1.0010490303386252,
+    "cos": 0.9999975326715175
+   },
+   "port_mask_vs_U": {
+    "rel_l2": 0.4041504029354049,
+    "r": 1.3335015246044986,
+    "cos": 0.9804596094125629
+   },
+   "U_vs_R": {
+    "rel_l2": 0.30222944696193466,
+    "r": 0.7506920778628468,
+    "cos": 0.9805591404043664
+   },
+   "A16_zero_model_vs_R": 1.0
+  },
+  {
+   "head": "distogram_logits",
+   "scope": "pair, real block 56x56 of 384x384",
+   "padding_fraction": 0.8541666666666666,
+   "port_nomask_vs_R": {
+    "rel_l2": 1.3976191315377513e-07,
+    "r": 0.9999999969112721,
+    "cos": 0.9999999999999756
+   },
+   "port_nomask_vs_U": {
+    "rel_l2": 1.3976191315377513e-07,
+    "r": 0.9999999969112721,
+    "cos": 0.9999999999999756
+   },
+   "port_mask_vs_R": {
+    "rel_l2": 1.3976191315377513e-07,
+    "r": 0.9999999969112721,
+    "cos": 0.9999999999999756
+   },
+   "port_mask_vs_U": {
+    "rel_l2": 1.3976191315377513e-07,
+    "r": 0.9999999969112721,
+    "cos": 0.9999999999999756
+   },
+   "U_vs_R": {
+    "rel_l2": 0.0,
+    "r": 1.0,
+    "cos": 1.0000000000000022
+   },
+   "A16_zero_model_vs_R": 1.0
+  }
+ ],
+ "a18_nomask": {
+  "n_over_bar": 4,
+  "worst": 0.5174367694393983
+ },
+ "a18_mask": {
+  "n_over_bar": 0,
+  "worst": 0.0038656476999654192
+ }
+}
