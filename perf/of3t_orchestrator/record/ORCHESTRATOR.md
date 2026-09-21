@@ -633,7 +633,7 @@ record its own.
 
 **D1 (FIXED in the composition at pass 280, UNMERGED; in PASSLOG)**: the OF3 trunk shipped its token pair bias at **0.204 of reference** in all 48 blocks of every fold served — one shared `scale_pair_bias=False` where the two kernels under one PairformerLayer need opposite flags. Moritz decided it (ask 9629, *"fix it everywhere"*) and `of3t-d1-pairbias` met his reopen test rather than dodging it: **4 targets, 6 seeds, 48 folds**, 10 of 24 paired folds regress, sign test **p = 0.541**, pooled median negative, and the sole regressor is **1UBQ** — the target the earlier 0.463 A objection was built on. Per-residue confidence rises **24 of 24** with no overlap at zero. `main` still carries the old value, so nothing a user runs has moved.
 
-**D136 (UNFIXED as a record correction; in PASSLOG)**: GO condition 3's headline — **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape resolutions — is the **`repin`** arm, which `of3t-modeltraj` recorded as *default-off, unmerged*, while the arm named `shipped` moved **zero weight** over twenty steps and resolved **0 of 26** (that is **D126**, not a trajectory). The repair is live on main by a **different mechanism** — re-keying inside the value setter rather than re-pinning from the caller — so the two giving the same trajectory is an **inference**. `of3t-trajwide` is running the real shipped arm now, at ~89.2 % instead of 36.9462 %, and closes it on report.
+**D136 (UNFIXED as a record correction; guard verified armed at pass 291; in PASSLOG)**: GO condition 3's headline — **4.763338e-02** at k=20 — is a **`repin`-arm** figure on a CONFIGURATION, not the shipped model, and the arm named `shipped` moved **zero weight** (D126). The pass-267 guard fails the compose the moment `of3t-trajwide` concludes while VERDICT still reads *"on a CONFIGURATION (D136)"*; I have rewritten that bullet four times since, so this pass **checked the token is still there** rather than assuming — a guard watching a string its subject edited away is the silent kind. **Pre-registered**: the bullet may not quote the new number unless it carries the reference (resolved, not the constant), the arm, the scope with its mass (A23), how the denominator was built (A27), and agreement AND accuracy (A25/A26). Otherwise it says what is missing and stays owed.
 
 **D137 (FIXED, both halves answered at pass 289; in PASSLOG)**: the host float64 softmax is gated on **the tape** — `site_softmax` -> `ops.host_softmax_hook()`, which returns the hook only when `grad_hook()` is live, so an env flag alone cannot reach a fold. **Not changed**: on qb1 card 3, `off == on` **byte-identical on all three models**, six folds each, `digest_stable_within_arm` true everywhere. **Not made slower**: free at CALL level (**−3.31 ns** against a 10.16 ns floor), bounded at fold level. The one inequality, openfold3 `base != off`, is **D1's sqrt(24) fix landing**, separated from the gate by three controls.
 
@@ -711,10 +711,9 @@ record its own.
 **D129 (UNFIXED, USER-FACING; `of3t-condtrans` CONCLUDED, pass 237; in PASSLOG)**: a real defect, and 100 % of it is the cotangent ARRIVING at the leaf. `conditioned_transition.layer_norm.layer_norm_s.weight` reads mass-weighted **0.693974** against upstream 0.5.0's own bf16 floor of **0.158156** — **4.388x** the floor, **3.10x** A26's bar, 28 of 30 instances outside it. Settled by three measurements: conditioning bounds a bf16-class evaluation at 0.0328 and the reading is **20.2x** it; isolation puts our own contraction at **1.5217e-03**, 456x under; substituting upstream's cotangent reproduces the reference gradient at **8.877e-09**. So the leaf's arithmetic and its input are innocent, and what is ours is a **flat 2.35x** excess on the incoming cotangent, uniform across all 24 DiT blocks. **Still at 0.5.0**; `of3t-cond043` holds the 0.4.3 question, and `of3t-ditcot` owns the object.
 
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Each line
-says who closed it, or what is left. **Audited against concluded rows three times — pass 195,
-pass 269 and pass 280 — because the first two times items had closed while this document was
-still quoting the superseded reading (three then, five at 269: D148). The third was not drift:
-A30's guard asked for it on schedule, eleven passes after the second.** Per **A30** every summary paragraph below carries the pass
+says who closed it, or what is left. **Audited against concluded rows four times — pass 195, pass 269,
+pass 280 and pass 291. The first two were drift (three stale items then, five at 269: D148); the
+last two were A30's guard asking on schedule, eleven passes apart each time.** Per **A30** every summary paragraph below carries the pass
 it was composed in, and a stamp more than ten passes old is history, not status.
 
 **Directive 1.**
@@ -803,7 +802,9 @@ it was composed in, and a stamp more than ten passes old is history, not status.
    in the record changes; the ask was stale on arrival and has been retired rather than left
    claiming Moritz's attention.
 
-**The shape of what is left, RE-AUDITED at pass 280** — on A30's schedule rather than after a drift; the pass-269 text is in PASSLOG and the pass-199 text under it. **Moritz's four decisions are answered and three of them are in the composition**: D1's trunk pair bias computes `scale_pair_bias=True` instead of 0.204 of reference, D10/D24's unified ranking rule is the one rule every serving path calls, and D56's softmax-backward renorm ships ON, verified backward-only by AST. **D137 is FIXED and audited** — the float64 softmax is gated on the tape, two conditions, so an env flag cannot reach a fold. **Main carries none of it**, which is the standing distinction and Moritz's gate to open.
+**The shape of what is left, RE-AUDITED at pass 291** — A30's schedule again, not a drift. **Moritz's four decisions are answered and all four are built**: D1's trunk pair bias computes `scale_pair_bias=True` instead of 0.204 of reference, D10/D24's unified ranking rule is the one rule every serving path calls, D56's softmax-backward renorm ships ON, and **D137 is closed on both halves of the inference constraint** — the float64 softmax is gated on the tape (two conditions, so an env flag cannot reach a fold), `off == on` byte-identical on all three models over six folds each on clean hardware, and the cost is free at call level and bounded at fold level. **Main carries none of it**, which is Moritz's gate to open.
+
+What is left at pass 291 is short. **GO condition 3** is being measured by `of3t-trajwide` against a reference that is right for the first time (D149), at 52 of its k-files; its bullet is pre-registered so the number cannot be quoted without its reference, arm, scope, denominator and bar. **GO condition 4** is NO-GO and costed, structural on Lightning. **Condition 5** has no open question: three defects (D10, D24, D56) are decided and built and wait only on a merge — which is not a measurement this campaign can take — and five need a card, three of them (D30, D58, D129) the same object, the tape's backward, owned by `of3t-ditcot`. Plus the crop lever for 768 and **D55's priced forward config**, which is worth 13.2x on the forward and would make the renorm lever a wash.
 
 What is actually left: **GO condition 3**, being re-measured by `of3t-trajwide` against a reference that is right for the first time (D149); **GO condition 4**, NO-GO and costed, structural on Lightning; **the fold-scope half of D137's cost**, owned by `of3t-d137ab` on a card; **the crop lever** for 768; **`of3t-ditcot`**, held, which owns the last user-facing measurement (D129); and the five user-facing defects that need a card. The decision half of condition 5 is closed.
 
@@ -853,7 +854,23 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty dispatched, seventy-four concluded, six live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-seven defects, fifty-three UNFIXED; seventy-six of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 290 — the field that tells Moritz what GO condition 5 still needs said three defects were waiting on a decision he made a day ago, and said one of them ships in the state opposite to the one it ships in.**
+PASSLOG: **Pass 291 — verified that the guard waiting for the campaign's biggest outstanding measurement is still watching a string that exists, and pre-registered what the answer must carry before I am allowed to quote it.**
+
+The pass-267 guard holds one declared pair: `of3t-trajwide` -> `"on a CONFIGURATION (D136)"`. It fails the compose when that row has a concluded marker while VERDICT still carries the token. **I have rewritten that bullet four times since it was declared** — passes 271, 274, 283, 289 — and a guard watching a string its own subject has edited away is the silent kind, which is the failure this campaign has filed against itself more than once. So: checked rather than assumed. The token is present, the marker glob matches the plain name the fleet writes, and the row is at **52** of its k-files with five processes alive. It will fire.
+
+**Pre-registered, because the rewrite will otherwise be done under the pressure of a fresh headline.** When the row lands, the condition-3 bullet may not quote its number unless all five are present:
+
+  1. **which reference** — 0.4.3 from `of3pkg043`, with the resolved tree read back (D149), not the named constant;
+  2. **which arm** — `shipped`, not `repin`. The current 4.763338e-02 is a `repin`-arm figure whose own row called that arm *default-off, unmerged*, while `shipped` moved **zero weight** (D126);
+  3. **which scope, bound to its mass** (A23);
+  4. **how the denominator arm was built** (A27) — "x upstream's own bf16" is not a unit; full-cast and autocast differ by 4.08x on the same tensor;
+  5. **agreement AND accuracy both** (A25), with the reachable bar named (A26).
+
+If what arrives cannot carry all five, the bullet says which are missing and stays **owed**. A figure arriving without its denominator is exactly how D136 happened: a trajectory headline that was true of a configuration, read as being about the model, for 25 passes.
+
+**`of3t-d137digest` concluded**, and its content was audited last pass while it was still live — the three-model digest table, the full card identity, and the protenix-v2 control. Nothing in the concluded version changes what was recorded.
+
+**Pass 290 —  the field that tells Moritz what GO condition 5 still needs said three defects were waiting on a decision he made a day ago, and said one of them ships in the state opposite to the one it ships in.**
 
 `closure_plan.py` still filed **D10** and **D24** as DECISION — *"Moritz decides whether to ship one consistent ranking rule"* — and **D56** as RELEASE with *"asked: pin 9629, with a stated default: stays gated"*. All three were decided on 2026-09-21, all three are built, and D56 is **default-ON in the composition since pass 274**. The plan was asserting the opposite of what the tree ships, in the one artifact whose job is to tell Moritz what is left.
 

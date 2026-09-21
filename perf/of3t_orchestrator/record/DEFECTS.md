@@ -10409,3 +10409,17 @@ Both halves of the constraint are therefore answered: *"not changed"* by identic
 **The one inequality is D1 landing, not the gate.** openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed on `wk/of3t` after `of3t-d137ab` measured — so this run independently confirms that **D1's repair moves the served structure**, which is its entire purpose. Three controls separate it from the gate: `git log 777fd3b63..HEAD -- tt_bio/` is exactly that fix and its merge; opendde `base == off` across the same span; and `off == on` holds on openfold3 itself, so the gate's flag is inert on the very model whose digest moved.
 
 **And the artifact schema is repaired at the source**: it now records `host` and `host_card` alongside `card`, which is what the pass-282 ratchet asked for and what makes a digest claim attributable at all.
+
+### D136 UPDATE (pass 291, heading restated). **UNFIXED**, and the guard that will catch it is verified armed rather than assumed to be: the token it watches is still in VERDICT, so the compose fails the moment `of3t-trajwide` concludes.
+
+The pass-267 guard holds one declared pair — `of3t-trajwide` -> `"on a CONFIGURATION (D136)"` — and fails when the row has a concluded marker while VERDICT still carries that string. I have rewritten the condition-3 bullet four times since (passes 271, 274, 283, 289), and a guard watching a string its subject has edited away is the silent kind. **Checked this pass: the token is present, the marker glob matches the plain marker name the fleet writes, and the row is at 52 of its k-files.** It will fire.
+
+**Pre-registered, so the rewrite is a fill-in rather than a paraphrase written under the pressure of a fresh headline.** When the row lands, the bullet may not quote its number unless all five are present:
+
+  1. **which reference** — 0.4.3 from `of3pkg043`, with the resolved tree read back (D149), not the constant;
+  2. **which arm** — `shipped`, not `repin`; the current bullet's 4.763338e-02 is a `repin`-arm figure and the row that produced it called that arm *default-off, unmerged*, while `shipped` moved **zero weight** (D126);
+  3. **which scope and its mass** — the % of the model squared gradient norm the rung covers, bound to the figure (A23);
+  4. **how the denominator arm was built** (A27) — "x upstream's own bf16" is not a unit, and a full-cast and an autocast arm differ by 4.08x on the same tensor;
+  5. **agreement AND accuracy, both** (A25), with the reachable bar named (A26).
+
+If the row reports a number that cannot carry all five, the bullet says what is missing and stays **owed**. A figure that arrives without its denominator is how D136 happened in the first place: a trajectory headline that was right about a configuration and read as being about the model, for 25 passes.
