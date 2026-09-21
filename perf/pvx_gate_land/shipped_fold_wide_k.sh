@@ -1,10 +1,15 @@
 #!/bin/bash
 # The SHIPPED measurement for TT_BIO_SDPA_WIDE_K, to be run ON origin/main AFTER the merge.
 #
-# WHY IT REFUSES TO RUN ANYWHERE ELSE. The number that enters SHIPPED: is the one a user gets, and
-# a branch is not what a user gets (verify-the-deployed-artifact-not-your-own-change). So this
-# asserts HEAD is exactly origin/main and that the imported default is already True, and exits
-# without folding if either is false. Run it on a checkout of main, not on wk/pvx-gate-land.
+# WHY IT REFUSES TO RUN ON THE WRONG ENGINE. The number that enters SHIPPED: is the one a user
+# gets (verify-the-deployed-artifact-not-your-own-change). The folds below import tt_bio from $WT
+# through PYTHONPATH, so what actually gets scored is the WORKING TREE, not the commit HEAD points
+# at. The first version of this guard compared `git rev-parse HEAD` to origin/main, which is the
+# wrong object in both directions: it PASSES with uncommitted edits to tt_bio/ sitting in the tree
+# (scoring code no user has), and it REFUSES a worktree whose engine is byte-identical to main
+# because its HEAD is a branch. The guard now diffs the working tree against origin/main over the
+# engine paths, which is the claim "this is what a user gets" stated about the files that will be
+# imported. The default is checked separately, from the package that import resolves.
 #
 # WHY 352 AND 1088 AND NOT 512. The flag changes the k-chunk pick only at the twenty padded lengths
 # whose shipped chunk does not divide them, and 512 is not one: _dividing_sdpa_chunk_size
@@ -31,8 +36,12 @@ WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY=${PY:-/home/ttuser/tt-bio-dev/env/bin/python3}
 BL=/home/ttuser/.coworker/scripts/benchlock.sh
 CARD=${CARD:-1}
+HOLDER=${HOLDER:-worker:land-standing}
 RUNGS=${RUNGS:-352,1088}
 REPS=${REPS:-2}
+# Sample fast enough that the SHORTEST scored fold contains two samples spanning
+# half of it. 30 s was the size-ladder setting and cannot see a 25 s 352 aa fold.
+SAMPLE_INTERVAL=${SAMPLE_INTERVAL:-5}
 OUT="$WT/perf/pvx_gate_land/shipped_fold_wide_k.json"
 LOG="$WT/perf/pvx_gate_land/shipped_fold_wide_k.log"
 CONT="$WT/perf/pvx_gate_land/shipped_fold_contention.jsonl"
@@ -40,11 +49,13 @@ CONT="$WT/perf/pvx_gate_land/shipped_fold_contention.jsonl"
 cd "$WT" || exit 1
 
 git fetch -q origin || exit 1
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-  echo "REFUSING: HEAD $(git rev-parse --short HEAD) is not origin/main $(git rev-parse --short origin/main)."
-  echo "The shipped number is measured on what a user gets. Merge first, then run this on main."
+if ! git diff --quiet origin/main -- tt_bio scripts; then
+  echo "REFUSING: the engine in $WT is not origin/main's. Differences that would be scored:"
+  git diff --stat origin/main -- tt_bio scripts
+  echo "The shipped number is measured on what a user gets. Land the change first, then run this."
   exit 1
 fi
+echo "engine check: tt_bio and scripts in $WT are byte-identical to origin/main $(git rev-parse --short origin/main)"
 
 PYTHONPATH="$WT" $PY - "$RUNGS" <<'PYEOF' || exit 1
 import sys
@@ -81,13 +92,20 @@ if bad:
 print(f"wide-k default on, {len(affected)} affected lengths, every requested rung fires")
 PYEOF
 
-$PY "$WT/perf/pvx_gate_land/sample_contention.py" > "$CONT" 2>/dev/null &
+# sample_contention.py writes its records to the file it is given, NOT to stdout, and its default
+# is a pvx_arms path. Redirecting stdout therefore produced a 0-byte $CONT while the AICLK went
+# somewhere else, and a fold A/B with no during-sampled clock is not a measurement at all on this
+# box. Name the file the sampler actually writes, and keep its stderr.
+rm -f "$CONT"
+$PY "$WT/perf/pvx_gate_land/sample_contention.py" \
+  --out "$CONT" --interval "$SAMPLE_INTERVAL" \
+  > "$CONT.sampler.log" 2>&1 &
 SAMPLER=$!
 trap 'kill '"$SAMPLER"' 2>/dev/null' EXIT
 
-TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:pvx-gate-land \
+TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=$HOLDER \
 TT_BIO_AICLK=1350 PYTHONPATH="$WT" \
-  bash "$BL" pvx-gate-land -- "$PY" perf/xmsoftmax/fold_ab_flip.py \
+  bash "$BL" land-standing -- "$PY" perf/xmsoftmax/fold_ab_flip.py \
     --models protenix-v2 --rungs "$RUNGS" --reps "$REPS" \
     --flag TT_BIO_SDPA_WIDE_K --off-value 0 \
     --workdir /tmp/widek_shipped --out "$OUT" 2>&1 | tee "$LOG"
@@ -106,5 +124,14 @@ for c in d["cells"]:
           f"A/A {c['aa_spread_pct']:+.3f}%  A/B {c['ab_median_pct']:+.3f}%  "
           f"{'INSIDE THE FLOOR -> 0.0000 s' if c['inside_aa'] else 'outside the floor'}")
 PYEOF
-echo "AICLK during the folds (every card, sampled every 30 s): $CONT"
+kill $SAMPLER 2>/dev/null
+# The clock is not an optional annex to the number. Refuse to present a timing with no clock.
+[ -s "$CONT" ] || { echo "NO CLOCK RECORD at $CONT -- the timings above are unreportable"; \
+  cat "$CONT.sampler.log" 2>/dev/null; exit 1; }
+# The clock is scored PER FOLD, not over the run window. A run alternates folding and idling and
+# this card sits at 800 between folds, so a whole-run min/max reports "min 800 max 1350" for folds
+# that never left 1350 -- which is exactly the reading that made 2026-09-20 unreportable.
+# clock_during.py intersects each scored fold's own [t_start, t_end] with the samples and exits
+# non-zero rather than presenting a timing it cannot evidence.
+$PY "$WT/perf/pvx_gate_land/clock_during.py" "$OUT" "$CONT" "$CARD" || rc=1
 exit $rc
