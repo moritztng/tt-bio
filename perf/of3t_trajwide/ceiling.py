@@ -20,9 +20,11 @@ import time
 
 NT = int(os.environ.get("OMP_NUM_THREADS", "4"))
 sys.path.insert(0, os.getcwd())
-for _p in ("/home/ttuser/of3t_refprec/of3pkg043", "/home/ttuser/of3t_refprec/deps",
-           "/home/ttuser/of3t_refprec/pylibs"):
-    sys.path.insert(1, _p)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.append(_HERE)
+import refpath                                                            # noqa: E402
+refpath.install()
 
 import torch                                                              # noqa: E402
 
