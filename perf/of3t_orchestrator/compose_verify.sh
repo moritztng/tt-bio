@@ -77,7 +77,14 @@ done
 #                 it created `perf/of3t_pairbias/attn_f64.py` -- the concluded row of3t-pairbias's
 #                 namespace -- add/add. Its brief now carries the STANDING base-on-wk/of3t and
 #                 own-namespace rules that the whole 9629 dispatch wave was sent out without.
-HELD_OUT="d10d24-unify d56-renorm d1-pairbias"
+# RELEASED pass 273: d10d24-unify rebased onto wk/of3t and now merges clean (`git merge-tree`
+# against the published composition), so the hold is lifted. A hold that outlives the thing it was
+# for is the same rust the D149 ratchet refuses.
+# RELEASED pass 274: d56-renorm unified the flag (autograd.SOFTMAX_BW_RENORM is now the single
+# definition and taped_ttnn._SOFTMAX_BW_RENORM an alias -- D151 repaired), dropped its edit to
+# assert_new_levers_default_off.py, and merges clean. That gate change is adopted here instead,
+# in the same pass, so the assert and the shipped default move together.
+HELD_OUT="d1-pairbias"
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
@@ -681,6 +688,13 @@ echo "--- capture provenance records unexpected_keys"
 # prose said 0.4.3, because three `sys.path.insert(1, p)` calls reverse the order they were written
 # to set. Narrow on purpose: the reversing LOOP, not the absence of a resolution read -- the broad
 # version flagged 18 further files whose second insert is `os.getcwd()`.
+# (3k) D151. One env var, two module-level reads, two backends -- and a comment asserting there
+# is only one flag. Both default off today, so this is green when it lands; it goes red the moment
+# a row flips one of the two, which is what of3t-d56-renorm's branch does.
+echo "--- one flag, one default (D151)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
+  { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }
+
 echo "--- sys.path order: no new tree-resolution trust (D149)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_path_order_ratchet.py . ) || \
   { echo "COMPOSE: a new of3t script trusts a package-path constant instead of the resolution"; exit 1; }
@@ -871,12 +885,15 @@ git worktree remove --force "$BASE"
   || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
 
 # The THIRD and FOURTH shipped defaults, added pass 209 after both pass-207 repairs landed in the
-# composition. Neither can ride in live: TT_BIO_SOFTMAX_BW_RENORM moves every taped gradient (it is
-# what takes the trunk from 9.025172e+00 to 3.833066e-01) and the host float64 softmax moves fold
-# output and costs a round trip at any site where it is on. The asserter reads the composed tree and
-# checks BOTH halves per lever -- the default exists as off, AND no construction site overrides it to
-# True -- because a selector defaulting False says nothing when a site passes default=True, which is
-# exactly how opendde.refiner ships the accurate-softmax chain ON.
+# composition, and REVERSED for one of them at pass 274. TT_BIO_SOFTMAX_BW_RENORM now rides in LIVE
+# on Moritz's ask-9629 ruling -- it moves every taped gradient (it is what takes the trunk from
+# 9.025172e+00 to 3.833066e-01) and it cannot move a fold, because every read of it is inside a
+# backward closure, checked by AST rather than asserted. The host float64 softmax still may not: it
+# moves fold output and costs a round trip at any site where it is on, and D137 says it is gated on
+# an env flag rather than on the tape. So the asserter pins BOTH directions -- renorm ON, host path
+# OFF -- and for the host path checks both halves, the default AND that no construction site
+# overrides it to True, because a selector defaulting False says nothing when a site passes
+# default=True, which is exactly how opendde.refiner ships the accurate-softmax chain ON.
 "$PY" "$HERE/assert_new_levers_default_off.py" "$CO" \
   || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
 
