@@ -41,6 +41,34 @@ PLAN = {
     # is in the composition with the shipped-default assertion moved to match. The plan refused
     # to publish while it still listed D1 -- "the plan and the live USER-FACING set disagree" --
     # which is the check doing its job rather than an inconvenience.
+    "D174": {
+        "needs": CARD,
+        "one_line": "our port omits the transition output mask upstream hard-codes, so a padded batch's pad rows get the transition's own bias",
+        "closes_when": ("`of3t-ditmodel` reports the masked n384 trunk arm either way. Upstream ends "
+                        "`_transition` with `x = self.linear_out(x) * mask` and passes "
+                        "`_mask_trans=True` hard-coded at seven call sites; our "
+                        "`Transition.__call__` (tenstorrent.py:8533) has no mask parameter. The "
+                        "lever is built and pushed (d3daa9317, OFF by default under "
+                        "TT_BIO_MASK_TRANS with an all-ones negative control). It closes on a "
+                        "MEASUREMENT, not on the mechanism being plausible -- and the row holds a "
+                        "live refutation risk: `of3t-auxfind`'s arm P measured upstream's own "
+                        "_mask_trans False against True at EXACTLY 0.0 on the real block, so if "
+                        "our backward keeps the boundary cotangent's exact pad zero all the way "
+                        "down, an output mask cannot move any parameter gradient and the "
+                        "pad-extent scaling has another cause"),
+        "evidence_held": ("the trunk reads 2.1595 at model scope on the model's own batch against "
+                          "upstream's own bf16 0.3148, per-block ratio median 6.57x with min 3.40x "
+                          "and no depth trend, invariant to pad VALUES bit-exactly (0 of 2,736 "
+                          "tensors moved at --pad-scale 0) and sensitive to pad EXTENT (12.391 at "
+                          "c64 against 43.210 at n384, 3.487164x); it costs the model-scope "
+                          "headline 0.083010 over 92.1568 % (1.1031x upstream) -> 0.532795 over "
+                          "97.98499 % (5.0301x)"),
+        "would_a_row_help": False,
+        "asked": ("not asked. The mechanism is a measurement, not a decision. What WILL need "
+                  "Moritz is shipping it: it changes inference numerics on the five modules that "
+                  "instantiate PairformerLayer, so it owes an inference fold A/B against an A/A "
+                  "floor showing accuracy improved and time not regressed"),
+    },
     "D10": {
         "needs": MERGE,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
