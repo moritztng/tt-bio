@@ -30,6 +30,9 @@ _SHAPES = collections.Counter()
 _SPEC = {}
 _CHECKED = set()
 _WIDE = [False]
+#: Decline the split below this ``per_core_M``.  0 disables the gate, which is the default,
+#: so nothing about the shipped behaviour changes unless it is asked for.
+_MIN_PCM = [0]
 _VERIFY = [0]
 _SEEN = collections.Counter()
 _VERDICT = {}
@@ -166,6 +169,15 @@ def _route(name, device, split, x, w, kw):
         return None
 
     pc, mcast_in0 = systolic_1d_config(x, w, grid, fp32, out_dtype)
+    if pc is not None and split and _MIN_PCM[0] and pc[6] < _MIN_PCM[0]:
+        # per_core_M is how many output row-blocks each core writes, so it is how much writing
+        # there is for the relocated writer to overlap with the in1 fetch.  Measured over three
+        # sessions on six signatures, per_core_M = 2 loses (0.4879x, 0.7475x, 0.9666x) and
+        # per_core_M = 6 or 7 wins (1.4048x, 1.5164x, 1.0564x), with no case in between yet
+        # observed.  Below the threshold the second thread costs more synchronisation than the
+        # write it takes over.
+        _STATS["skip:per_core_M_below_gate"] += 1
+        return None
     if pc is None or mcast_in0:
         _STATS["skip:no_config"] += 1
         return None
@@ -276,7 +288,7 @@ def _route(name, device, split, x, w, kw):
     return r
 
 
-def install(device, split, wide=False, verify=0, selfcheck=True):
+def install(device, split, wide=False, verify=0, selfcheck=True, min_per_core_m=0):
     """Wrap ttnn.matmul and ttnn.linear.  Idempotent; `remove()` puts the originals back."""
     remove()
     _STATS.clear()
@@ -289,6 +301,7 @@ def install(device, split, wide=False, verify=0, selfcheck=True):
     _WIDE[0] = bool(wide)
     _VERIFY[0] = int(verify)
     _SELFCHECK[0] = bool(selfcheck)
+    _MIN_PCM[0] = int(min_per_core_m)
     for name in ("matmul", "linear"):
         _ORIG[name] = getattr(ttnn, name)
 

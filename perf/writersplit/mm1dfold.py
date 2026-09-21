@@ -78,6 +78,8 @@ def main() -> int:
                     help="compare routed against native for the first N calls of each signature")
     ap.add_argument("--wide", action="store_true",
                     help="also route L1-interleaved operands; moves the digest, see mm1droute")
+    ap.add_argument("--min-per-core-m", type=int, default=0,
+                    help="decline the split below this per_core_M; 0 disables the gate")
     ap.add_argument("--out", default=str(HERE / "mm1dfold.jsonl"))
     a = ap.parse_args()
 
@@ -112,7 +114,8 @@ def main() -> int:
             return 2
         print("nodes %r forced to %d MHz" % (held, a.clock), flush=True)
 
-    rec = {"tag": a.tag, "arm": a.arm, "host": socket.gethostname(), "model": a.model,
+    rec = {"tag": a.tag, "arm": a.arm, "min_per_core_m": a.min_per_core_m,
+           "host": socket.gethostname(), "model": a.model,
            "size": a.size, "pid": os.getpid(), "t_start": time.time(),
            "clock_forced": a.clock or None, "wide": bool(a.wide),
            "git_head": os.popen("git -C %s rev-parse HEAD" % ROOT).read().strip(),
@@ -120,7 +123,8 @@ def main() -> int:
 
     if a.arm != "ship":
         mm1droute.install(T.get_device(), split=(a.arm == "split"), wide=a.wide,
-                          verify=a.verify, selfcheck=not a.no_selfcheck)
+                          verify=a.verify, selfcheck=not a.no_selfcheck,
+                          min_per_core_m=a.min_per_core_m)
 
     for i in range(a.folds + 1):
         cs = ClockSampler(held) if held else None
