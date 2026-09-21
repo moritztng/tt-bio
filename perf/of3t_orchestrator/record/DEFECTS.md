@@ -9959,3 +9959,46 @@ Owner unchanged. `capture_diffusion_boundary.py:107`, `sub_boundary.py:62` and `
 **What is still not mechanical, and the class stays open for it**: whether a stamped, fresh paragraph is TRUE. That is the pass-261 check, 4-of-5 false positives, still not shipped. The guard bounds how long a reader can be misled; it does not stop them being misled inside the window.
 
 **A paragraph-level scan of the other campaign documents found no second live instance** (pass 270). The `DEFECTS.md` hits are all narration under dated `### Dn UPDATE (pass N)` headings — D140's *"what is still alive is the reference side"* is the pass-254 reading, correct frozen — and the concluded rows' documents are stamped by their own conclusion markers. Two unstamped GAP paragraphs were stamped in place.
+
+### D149. `of3t-trajwide`'s reference side — the arm measuring GO condition 3 — imports openfold3 **0.5.0** while every line of its prose, its own constant `OF3PKG`, and the campaign's condition-3 headline call it 0.4.3. Three `sys.path.insert(1, p)` calls reverse the order they were written to establish. FOUND by the orchestrator (pass 271), owner `of3t-trajwide`. **UNFIXED.**
+
+Measured on qb2, CPU only, no card, building the module both ways from the same checkpoint (`of3-p2-155k.pt`, `diffusion_module.` prefix, 763 tensors):
+
+    tree                                         params  missing  unexpected  block owns norm
+    /home/ttuser/of3t_refprec/of3pkg043  0.4.3       761        0           0  yes
+    /home/ttuser/of3t_refprec/pylibs     0.5.0       738        1          24  no
+
+**The checkpoint loads TOTALLY into 0.4.3** — 0 missing, 0 unexpected, 761 parameters, no rewiring. The 1 missing / 24 unexpected, the all-ones shared `layer_norm_z` and the discarded 24 trained tensors occur **only** against 0.5.0. `pylibs` carries `openfold3-0.5.0.dist-info`; `of3pkg043` is the 0.4.3 source tree. In 0.4.3, `AttentionPairBias` owns `layer_norm_z` (`attention_pair_bias.py:107`, applied at 156) and `DiffusionTransformer` has no shared one; `DiffusionAttentionPairBias` — the class the row's docstring cites at line 212 — exists only in 0.5.0.
+
+**The mechanism, in FIVE files** (`trajwide.py:821-823`, `price_ref.py:8-9`, `ceiling.py:23-25`, `ceiling_closures.py:25-27`, `val_ref.py:6-7` — the fifth found by an AST sweep, not by reading, which is why the sweep is now a ratchet):
+
+    for p in (OF3PKG,) + REFDEPS:          # (of3pkg043, deps, pylibs)
+        if p not in sys.path:
+            sys.path.insert(1, p)
+
+Three inserts at the SAME index reverse precedence: `pylibs` goes in last and lands at index 1, ahead of `of3pkg043` at index 3. Replicated verbatim — `openfold3.__file__` resolves to `/home/ttuser/of3t_refprec/pylibs/openfold3/__init__.py`. **The row's own log is the process-level proof**: 1 missing / 24 unexpected is impossible against 0.4.3.
+
+**Why it is not cosmetic.** D120 measured these two at this exact boundary as DIFFERENT FUNCTIONS, not two roundings: f32 against f32, **1.94959719e-05 (0.5.0) against 7.66979728e-01 (0.4.3)**. So `align_layer_norm_z()` — which repairs 23 parameters — leaves the reference the wrong function, and the `theirs` / `theirs_aa2` arms in flight at k=18 are measuring against 0.5.0 whatever their prose says. GO condition 3 stays unmeasured.
+
+**Blast radius, checked rather than assumed — this row's four files and nothing else.**
+
+    of3t_adaln/{dit_block_gradcheck,transition_gradcheck,adaln_micro}.py   deps THEN pkg  CORRECT
+    of3t_foldab/convention.py       appends 0.5.0, purges sys.modules, inserts the tree under test
+                                    at 0 per load, and says why in a comment                CORRECT
+    of3t_modeltraj/scope_ladder.py  no pylibs on its path; its SCOPE_LADDER.json reports
+                                    n_parameters 761, which is 0.4.3's count                CORRECT
+    of3t_trajwide/{trajwide,price_ref,ceiling,ceiling_closures,val_ref}.py                    BROKEN
+
+The campaign's published float64 gradients are on the right tree: `grads_f64_043.pt` carries 761 tensors at this boundary, 0.4.3's count exactly.
+
+**The rule this breaks, and the row that already wrote it down.** `of3t_foldab/convention.py:29-31`: *"0.4.3 is an unpacked tree with no vendored deps; 0.5.0's pylibs carries ml_collections and absl. Appended, never prepended, so `openfold3` always resolves from the version under test."* The hazard was known, written in a comment, in this campaign, and not carried across. A named constant is not a resolution. See also the standing note that `importlib.metadata` reports a dist-info further back on `sys.path` rather than the module that imported.
+
+**The repair** is in AMENDMENT 3 on the row's brief: fix the order in all four files, assert the RESOLVED tree against `OF3PKG` and refuse with the resolved path in the message, record it in every artifact (A24), archive the in-flight arms with the tree they came from, then re-run. `align_layer_norm_z()` self-disables on 0.4.3 and can stay; the total-load assertion beside it is what caught this and must stay.
+
+### D141 UPDATE 3 (pass 271, heading restated). **UNFIXED** — and UPDATE 2's ROOT CAUSE was wrong, in my favour and in the direction that made the defect look unavoidable.
+
+UPDATE 2 said the pre-registered reversal condition fired because `of3t-trajwide`'s reference is *"a module built on the transformer-level path"*, and attributed that to upstream 0.4.3 shipping one shared `layer_norm_z`. **Upstream 0.4.3 ships no such thing** (D149, measured): 0.4.3's `DiffusionTransformer` has no shared norm and its blocks own theirs, and this checkpoint loads into it at 0 missing / 0 unexpected. The module on the transformer-level path was **0.5.0**, imported by accident.
+
+**What survives.** The reversal condition did fire — a module on the transformer-level path did discard 24 trained tensors and did read 8.426843e-01 off the result — and D141's point stands exactly: `load_state_dict(strict=False)` returned the count, nothing refused, and it took a 20-step trajectory to make anyone read the footnote. The pass-255 `n_unexpected` ratchet is vindicated either way; if anything more so, because the count was the ONLY visible symptom of a wrong-version import.
+
+**What does not survive** is the framing that this is a generation gap the campaign must live with and work around. It is a four-line path bug in one row, and the correct reference needs no alignment at all. I repeated the row's noun without checking which tree it named — the row's numbers were right and its label was not, which is the failure mode already on the record as *"verify the row's NOUN, not only its numbers."*
