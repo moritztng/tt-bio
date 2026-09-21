@@ -1,0 +1,83 @@
+{
+ "scenario": "single",
+ "bar": "1e-06 relative per parameter per step",
+ "grads": "out/grads_single.npz",
+ "upstream_file": "/home/ttuser/of3t_refprec/of3pkg043/openfold3/core/utils/grad_manager.py",
+ "samples_clipped": 79,
+ "samples_total": 80,
+ "zero_participation_steps": [
+  3
+ ],
+ "arms": [
+  {
+   "arm": "ours_pre",
+   "reference": "up64 (upstream float64)",
+   "worst_rel": 0.001102541604612053,
+   "worst_row": {
+    "k": 3,
+    "param": "conf.b",
+    "participation": 0
+   },
+   "worst_zero_baseline": 0.003871577188922075,
+   "worst_rel_at_zero_participation": 0.001102541604612053,
+   "n_readings": 60,
+   "n_over_1e-06": 36
+  },
+  {
+   "arm": "ours_post",
+   "reference": "up64 (upstream float64)",
+   "worst_rel": 1.4953280951246908e-07,
+   "worst_row": {
+    "k": 8,
+    "param": "conf.b",
+    "participation": 4
+   },
+   "worst_zero_baseline": 0.007839484810308247,
+   "worst_rel_at_zero_participation": 7.153202622984503e-08,
+   "n_readings": 60,
+   "n_over_1e-06": 0
+  },
+  {
+   "arm": "ours_post",
+   "reference": "up32 (upstream float32, our own precision)",
+   "worst_rel": 2.008602765560849e-08,
+   "worst_row": {
+    "k": 20,
+    "param": "conf.w",
+    "participation": 4
+   },
+   "worst_zero_baseline": 0.013436748824937256,
+   "worst_rel_at_zero_participation": 0.0,
+   "n_readings": 60,
+   "n_over_1e-06": 0
+  }
+ ],
+ "reference_selfcheck": {
+  "arm": "np64 (independent float64)",
+  "reference": "up64 (upstream float64)",
+  "worst_rel": 4.0237871614258155e-10,
+  "worst_row": {
+   "k": 15,
+   "param": "conf.w",
+   "participation": 4
+  },
+  "worst_zero_baseline": 0.011746591659155824,
+  "worst_rel_at_zero_participation": 9.85426247417485e-11,
+  "n_readings": 60,
+  "n_over_1e-06": 0
+ },
+ "reference_fp32_cost": {
+  "arm": "up32 (upstream float32)",
+  "reference": "up64 (upstream float64)",
+  "worst_rel": 1.4953280951246908e-07,
+  "worst_row": {
+   "k": 8,
+   "param": "conf.b",
+   "participation": 4
+  },
+  "worst_zero_baseline": 0.007839484810308247,
+  "worst_rel_at_zero_participation": 7.153202622984503e-08,
+  "n_readings": 60,
+  "n_over_1e-06": 0
+ }
+}
