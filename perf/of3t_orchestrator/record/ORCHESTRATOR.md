@@ -639,6 +639,8 @@ record its own.
 **A gate gap closed prophylactically (pass 224; argued in full in PASSLOG).** `compose_verify.sh` skipped a missing row branch with a note meant for a LIVE row, so a **concluded** row could land its marker, claim artifacts and pass its DONE_CHECK on the state doc alone with none of its evidence in the composition. `audit_evidence.py` now fails on that, from one `ls-remote`, with a probe so it cannot ship inert. No concluded row was in that state, which is the only time a guard is cheap to add.
 
 **D107 (FIXED on the branch at pass 228, release-gated; argued in full in PASSLOG)**: `of3t-optsem` GO at **`cf83561d9`**, one commit, one file. The zero-participation step goes **1.1025e-03 → 2.0086e-08** against upstream's own optimizer, inside PROTOCOL §5's 1e-06, and the arm with no such step is **bit-identical** over all 20 steps. p(a sample disables the confidence head) = 0.57/1.07 = **0.5327103** from upstream's own files; p(a whole step) falls from 0.5327 at global batch 1 to **9.59e-71** at their shipped 256, while our `train_loop` hits it on 100 % of steps and diverges by **exactly 0.0**. Landed because the fix is provably free and the 53.3 % configuration is one wiring change away. **The lesson**: *a skipped update and a zero-gradient update differ only when the moments are non-zero*, so pricing by how often the skip fires is wrong in both directions.
+**The repair collapses the whole diffusion scope 198.95x, and the concentration REDISTRIBUTES rather than just shrinking (pass 234).** CPU only, from the two per-tensor dumps `of3t-lnaffine` pushed for its matched A/B; `perf/of3t_orchestrator/difscope/`. Error mass **8.811072e+02 → 4.428806e+00** (**198.95x**), mass-weighted rel **1.030631e+01 → 7.306882e-01** (**14.10x better**), reference mass identical across arms at relative difference exactly 0.0. **The caveat is as important as the headline**: the median moves only **0.7316 → 0.7055** and **523 of 523 tensors are over the 5.0e-02 per-tensor bar on BOTH arms** — the repair removes a concentration, it does not move the broad floor, and quoting 198.95x without that is A23's error run backwards. **And the leaf ranking changes**: `attention_pair_bias.layer_norm_a.layer_norm_s.weight` falls 99.744 % → **59.510 %** of the scope's error while `conditioned_transition.layer_norm.layer_norm_s.weight` rises 0.150 % → **28.313 %**. Post-repair the diffusion error is **two** LayerNorm affine leaves totalling 87.8 %, not one. **The new second place is a leaf the campaign named and never owned**: D57's displaced item reads *"the 23.8917 % of the model no softmax lever touches … whose largest member is `conditioned_transition.layer_norm.layer_norm_s.weight` at 15.5125 % — unowned"*, and seventy passes later it is the second-largest error in the scope holding 89.2 % of the model's gradient. **D30 and D58** are pre-repair framings of that scope; `of3t-tapediverge` already re-measured the amplification post-repair at 11.03x and 10.90x, so that half is current and the magnitude now is too. Neither closes — the floor is untouched and the shipped default is still off.
+
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
 document was still quoting the superseded reading. Each line says who closed it, or what is left.
@@ -789,7 +791,31 @@ stability over 100k steps or convergence. **2.0150 %** of the mass has no readin
 
 Sixty dispatched, fifty-eight concluded, two live (this row and `of3t-rankunify`); one hundred twenty-seven defects, forty-three UNFIXED; fifty-nine of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 233 — the diffusion leaf collapses 333x under a repair that already shipped behind a flag, and the row refused the comparison I told it to make.** `of3t-lnaffine` concluded. From `perf/of3t_lnaffine/DIT24_AB_c64.json` at **`21ce9073f`**, three commits, none touching `tt_bio/`:
+PASSLOG: **Pass 234 — the repair collapses the whole diffusion scope 198.95x, and the concentration redistributes rather than just shrinking.** `of3t-lnaffine` reported **333x** on one leaf, which is the right headline for the question I asked it. Two scope-level questions it left open are what D30, D58 and D56 all turn on, and both were three lines away on the same branch:
+
+    arm       error mass     mass-weighted rel   median rel   over 5.0e-02
+    CTRL     8.811072e+02      1.030631e+01       0.731637      523 / 523
+    RENORM   4.428806e+00      7.306882e-01       0.705544      523 / 523
+
+    error mass 198.95x     mass-weighted rel 14.10x better
+    reference mass identical across arms, relative difference exactly 0.0
+
+**The caveat matters as much as the number.** The median moves only **0.7316 → 0.7055** and **523 of 523 tensors are over the per-tensor bar on BOTH arms**. The repair removes a **concentration**; it does not move the **floor**. Quoting 198.95x without that is A23's error run backwards — a mass-weighted statistic hiding a per-tensor one — and this campaign has made the mistake in the other direction often enough to owe the symmetry.
+
+**And the ranking changes, which is the part nobody would have predicted:**
+
+    share of each arm's OWN error mass        CTRL      RENORM
+    attention_pair_bias.layer_norm_a...       99.744 %   59.510 %
+    conditioned_transition.layer_norm...       0.150 %   28.313 %
+    atom_attn_enc.noisy_position_embedder      0.021 %    3.426 %
+
+Post-repair the diffusion error is **two** LayerNorm affine leaves totalling 87.8 %, not one. The new second place was **0.150 %** before and is **28.313 %** now — invisible pre-repair, and the obvious next target.
+
+**It is a leaf the campaign named and never owned.** D57's displaced item reads: *"the 23.8917 % of the model no softmax lever touches, at mass-weighted 0.1855, whose largest member is `conditioned_transition.layer_norm.layer_norm_s.weight` at 15.5125 % — unowned."* Seventy passes on it is the second-largest error in the scope that holds 89.2 % of the model's gradient, and it is still unowned. **A defect parked as "unowned" does not stay the same size while nobody owns it** — the repairs around it changed its rank by two orders of magnitude, and the record kept quoting its old share.
+
+**Method note.** The row's 333x and this 198.95x are the same measurement asked two different questions: one leaf versus the scope. Both are honest and neither substitutes for the other, which is why the script asserts the two arms score the same reference — identical to relative difference 0.0 — before it will report a ratio at all. That assertion is the thing `of3t-lnaffine` had to apply by hand against the pass-155 artifact one pass ago, now mechanical.
+
+**Pass 233 — the diffusion leaf collapses 333x under a repair that already shipped behind a flag, and the row refused the comparison I told it to make.** `of3t-lnaffine` concluded. From `perf/of3t_lnaffine/DIT24_AB_c64.json` at **`21ce9073f`**, three commits, none touching `tt_bio/`:
 
     leaf_error_mass_total        pre 878.8518760076167  ->  renorm 2.635596280124493   (333x)
     blocks 5,7,8,12 as a share       0.9892529          ->  0.2977056

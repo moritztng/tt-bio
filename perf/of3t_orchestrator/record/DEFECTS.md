@@ -8615,3 +8615,47 @@ default-off one, which is the same position as every other repair this campaign 
 norm ratio as **19.2415** from the pass-155 artifact. This row's control reads **87.643** for the
 same block on its own branch. Both are correct for their own run and **neither is comparable to the
 other** — exactly the trap the row avoided. My table should be read as pass-155's, not as current.
+
+### D30 UPDATE 2 / D58 UPDATE 2 (pass 234). The repair collapses the WHOLE diffusion scope's error mass 198.95x and its mass-weighted reading 14.10x — and leaves the median and the per-tensor bar almost untouched. It fixes the concentration, not the floor.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/difscope/scope_ab.py` reads the two
+per-tensor dumps `of3t-lnaffine` pushed for its matched A/B. The row reported **333x** on one leaf,
+which is the right headline for the question it was asked; these are the two scope-level questions
+D30, D58 and D56 all turn on, and both were three lines away on the same branch.
+
+    arm       error mass     mass-weighted rel   median rel   over 5.0e-02
+    CTRL     8.811072e+02      1.030631e+01       0.731637      523 / 523
+    RENORM   4.428806e+00      7.306882e-01       0.705544      523 / 523
+
+    error mass        198.95x          mass-weighted rel   14.10x better
+    reference mass identical across arms, relative difference exactly 0.0
+
+**The caveat is as important as the headline.** The median moves **0.7316 → 0.7055** and **523 of
+523 tensors are over the 5.0e-02 per-tensor bar on BOTH arms**. The repair removes a concentration;
+it does not move the broad floor. Quoting 198.95x without that is A23's error run backwards — a
+mass-weighted statistic hiding a per-tensor one — and this campaign has made the mistake in the
+other direction often enough to owe the symmetry.
+
+**And the concentration does not just shrink, it redistributes**:
+
+    share of each arm's OWN error mass        CTRL      RENORM
+    attention_pair_bias.layer_norm_a...       99.744 %   59.510 %
+    conditioned_transition.layer_norm...       0.150 %   28.313 %
+    atom_attn_enc.noisy_position_embedder      0.021 %    3.426 %
+
+**Post-repair the diffusion error is two leaves, not one** — 59.5 % + 28.3 % = 87.8 %, both
+LayerNorm affine terms. The new second place, `conditioned_transition.layer_norm.layer_norm_s.weight`,
+was **0.150 %** pre-repair and is **28.313 %** now: invisible before, and the obvious next target.
+
+**It is also a leaf the campaign already named and never owned.** D57's displaced item reads: *"the
+23.8917 % of the model no softmax lever touches, at mass-weighted 0.1855, whose largest member is
+`conditioned_transition.layer_norm.layer_norm_s.weight` at 15.5125 % — unowned."* Seventy passes
+later it is the second-largest error in the scope that holds 89.2 % of the model's gradient, and it
+is still unowned.
+
+**What this does to D30 and D58.** D30's *"the diffusion module's forward agrees to 0.85 % and its
+gradient is 16.6 % out"* and D58's amplification are both pre-repair framings of a scope whose
+mass-weighted error is 14.10x smaller on the repaired arm. `of3t-tapediverge` already re-measured
+the amplification post-repair at **11.03x** and **10.90x** from one harness, so that half is current;
+what was not current is the magnitude, and now it is. Neither defect closes: the floor is untouched,
+523 of 523 are still over the per-tensor bar, and the shipped default remains off.
