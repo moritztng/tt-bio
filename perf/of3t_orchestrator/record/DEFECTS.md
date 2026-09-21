@@ -9949,3 +9949,13 @@ What I wrote down in the same pass, because correcting an alarming claim downwar
 3. **It did not reach the campaign's headline numbers**, because those come from the three files above. The cost was one row's reference and the passes it spent on it, not the model-scope result.
 
 Owner unchanged. `capture_diffusion_boundary.py:107`, `sub_boundary.py:62` and `floor_bf16.py:148` still load `strict=False` and still never read `unexpected_keys`.
+
+### D148 UPDATE (pass 270, heading restated). Still **UNFIXED** as a class, but A30's stamp half is now mechanical and it was built to fail the one test that mattered.
+
+`assert_summary_stamped.py`, on every compose: the orchestrator's live fields (PASSLOG excluded — it is a log and holds superseded text on purpose) may not carry a *"what is left"* paragraph that is unstamped, or stamped more than ten passes behind the document's own latest PASSLOG pass.
+
+**The test it had to pass first: would it have caught D148?** The pass-199 paragraph WAS stamped, so a presence-only check would have read clean on every one of the seventy passes it was wrong. The probe is therefore that paragraph verbatim inside a pass-269 document, and there is a negative control on the real thing — reconstructing the pre-269 state doc makes it fire at *"stamped pass 199, 70 passes behind this document's pass 269 — re-audit it against the ledger and re-stamp it, or move it to PASSLOG"*, and the repaired document clears. A third probe checks it stops firing once the paragraph is re-stamped, so it is not simply a refusal to write summaries.
+
+**What is still not mechanical, and the class stays open for it**: whether a stamped, fresh paragraph is TRUE. That is the pass-261 check, 4-of-5 false positives, still not shipped. The guard bounds how long a reader can be misled; it does not stop them being misled inside the window.
+
+**A paragraph-level scan of the other campaign documents found no second live instance** (pass 270). The `DEFECTS.md` hits are all narration under dated `### Dn UPDATE (pass N)` headings — D140's *"what is still alive is the reference side"* is the pass-254 reading, correct frozen — and the concluded rows' documents are stamped by their own conclusion markers. Two unstamped GAP paragraphs were stamped in place.

@@ -1445,6 +1445,19 @@ and how each item was answered. Only the sentences making a CURRENT claim are ch
 *"is left"*, *"— OPEN"*, *"owes one pending check"* cannot be told from narration by pattern. So the
 burden goes on the reader, and the stamp is what tells the reader to pick it up.
 
+**A30 ADDENDUM — 2026-09-21, same pass +1 (pass 270). The STAMP half is mechanised; the TRUTH half
+still is not, and the difference is the whole design.** `assert_summary_stamped.py` runs on every
+compose and fails the orchestrator's live fields if a "what is left" paragraph is unstamped, or
+stamped more than ten passes behind the document's own latest PASSLOG pass. It does not read the
+ledger and does not judge whether the paragraph is right.
+
+**Its first test was whether it would have caught D148, because the pass-199 paragraph WAS stamped**
+— a presence-only check passes it on all seventy passes, and a guard that cannot catch its own
+motivating defect is ceremony. The probe is therefore D148's own sentence verbatim in a pass-269
+document, and the negative control replays the real pre-269 state doc: it fires at *"stamped pass
+199, 70 passes behind this document's pass 269"* and clears on the repaired document. What it costs
+is re-reading each summary once per ten passes, which is the obligation A30 states.
+
 **Three consequences.**
 1. Compose the summary LAST, after the pass's rows have reported — the D111 case is a within-pass
    loss, not a decay.
