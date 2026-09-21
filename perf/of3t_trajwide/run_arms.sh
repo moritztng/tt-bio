@@ -16,7 +16,7 @@ CARD=$1; shift
 ARMS="$*"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 R=/home/ttuser/of3t_runs/trajwide
-G=perf/of3t_trajwide/runs
+G=$R
 mkdir -p "$R" "$G"
 C="$R/chain_card${CARD}.log"
 say() { echo "$(date -u +%FT%TZ) [card $CARD] $*" >> "$C"; }
@@ -41,7 +41,7 @@ done_ok() {
 import json, os, sys
 arm = sys.argv[1]
 sl = f"/home/ttuser/of3t_runs/trajwide/steplog_{arm}.json"
-mk = f"perf/of3t_trajwide/runs/{arm}.done"
+mk = f"/home/ttuser/of3t_runs/trajwide/{arm}.done"
 try:
     d = json.load(open(sl))
 except Exception:

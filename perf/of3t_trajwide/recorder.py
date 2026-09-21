@@ -4,7 +4,7 @@ that survives a qb2 reboot.
 
 qb2 rebooted on 2026-09-21 at 12:48Z and wiped /tmp, which held every steplog, every
 done-marker and the archive of the pre-D149 arms. The w_k dumps are ~190 MB a rung and cannot
-go in git; the RECORD can. This copies each arm's steplog into `perf/of3t_trajwide/runs/`,
+go in git; the RECORD can. This copies each arm's steplog into `perf/of3t_trajwide/live/`,
 writes a STATUS.md a reader can check liveness against (rung counter, log mtime, pid), and
 commits and pushes when anything changed. One writer, so three chains cannot race the index.
 """
@@ -17,7 +17,7 @@ import sys
 import time
 
 R = "/home/ttuser/of3t_runs/trajwide"
-G = "perf/of3t_trajwide/runs"
+G = "perf/of3t_trajwide/live"
 ARMS = ["shipped", "shipped_aa2", "permute", "stale", "norebind", "zero",
         "theirs", "theirs_aa2"]
 
@@ -33,7 +33,7 @@ def alive(pat):
 
 def row(arm):
     sl = os.path.join(R, f"steplog_{arm}.json")
-    mk = os.path.join(G, f"{arm}.done")
+    mk = os.path.join(R, f"{arm}.done")
     log = os.path.join(R, (f"ours_{arm}.log" if not arm.startswith("theirs") else f"{arm}.log"))
     d = {}
     if os.path.exists(sl):
@@ -41,7 +41,15 @@ def row(arm):
             d = json.load(open(sl))
         except Exception:
             d = {}
-    marker = open(mk).read().strip() if os.path.exists(mk) else ""
+    marker = ""
+    for cand in (mk, os.path.join("perf/of3t_trajwide/runs", f"{arm}.done")):
+        if os.path.exists(cand):
+            marker = open(cand).read().strip()
+            if cand != mk:                      # chains launched 13:02Z wrote the old path
+                open(mk, "w").write(marker + "\n")
+            break
+    if marker:
+        open(os.path.join(G, f"{arm}.done"), "w").write(marker + "\n")
     age = int(time.time() - os.path.getmtime(log)) if os.path.exists(log) else None
     n = len(d.get("steps") or [])
     if d.get("complete") and n == 20 and "rc=0" in marker:

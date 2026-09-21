@@ -5,13 +5,13 @@
 #   run 2  arm `theirs_aa2`  the cross-process A/A
 # CPU only, 10 threads, which leaves the two device chains their 3 each on a 16-core box.
 #
-# The chain records its OWN exit, per arm, and drops a marker under perf/of3t_trajwide/runs/.
+# The chain records its OWN exit, per arm, and drops a marker under perf/of3t_trajwide/live/.
 # An arm with a log and no marker is a FAILED arm, not a finished one (D140).
 set -u
 cd "$(dirname "$0")/../.."
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 R=/home/ttuser/of3t_runs/trajwide
-G=perf/of3t_trajwide/runs
+G=$R
 mkdir -p "$R" "$G"
 C="$R/chain_theirs.log"
 say() { echo "$(date -u +%FT%TZ) $*" >> "$C"; }
