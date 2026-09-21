@@ -842,6 +842,51 @@ if DEF.is_file() and ORCH.is_file():
             _last[_m.group(1)] = _t[-1]
     unfixed = sorted((n for n, st in _last.items() if st == "UNFIXED"),
                      key=lambda d: int(d[1:]))
+
+    # --- a closure word OUTSIDE the vocabulary silently keeps the old status --------------------
+    # The conservative clause above is right (a heading with no status word must not drop a live
+    # defect), but it has a blind spot the campaign walked into: pass 196 closed D87 with the word
+    # **SUPERSEDED**, which is not in `_STATUS_RE`, so D87 kept UNFIXED for twenty-four passes
+    # while its own latest entry said the claim is false against the revision the checkpoint is
+    # bound to (pair track 4.947045e-02, under the 5.0e-02 bar). Found pass 220 by scanning for
+    # exactly this shape, which is why it is now a check and not a scan.
+    #
+    # The fix is NOT to add SUPERSEDED to the vocabulary: it is genuinely ambiguous. D119's UPDATE
+    # also says "superseded", but of its NUMBERS, and D119 is correctly still UNFIXED because
+    # `project.py` still carries the unit error. So the guard refuses the ambiguity instead of
+    # resolving it -- write a word from the vocabulary, or say UNFIXED and why.
+    _AMBIG = _re.compile(r"\b(?:SUPERSEDED|OBSOLETE|VOID|MOOT|DISSOLVED|OVERTAKEN|"
+                         r"NO LONGER (?:TRUE|OPEN|A DEFECT)|DUPLICATE OF)\b")
+
+    def _ambiguous_closures(doc_upper):
+        """Defects whose LATEST heading closes them with a word the parser cannot read."""
+        latest_head = {}
+        for m in _re.finditer(r"^### (D\d+)\b(.*)$", doc_upper, _re.M):
+            latest_head[m.group(1)] = m.group(2)
+        out = []
+        for n, h in latest_head.items():
+            if not _STATUS_RE.search(h) and _AMBIG.search(h):
+                out.append(f"{n} (says {_AMBIG.search(h).group(0)})")
+        return sorted(out, key=lambda x: int(x.split()[0][1:]))
+
+    # Break control, run every time: a guard that cannot fire has tested nothing, and three of
+    # this file's guards have shipped inert (the "FIXED" is a substring of "UNFIXED" one most
+    # recently). The probe is a two-heading synthetic in exactly the shape D87 had.
+    _probe = _ambiguous_closures("### D1. UNFIXED.\n### D1 UPDATE (PASS 2). SUPERSEDED. NO.\n")
+    if _probe != ["D1 (says SUPERSEDED)"]:
+        bad.append("the ambiguous-closure probe did not fire -- this check is inert and is "
+                   "reporting nothing, which is how D87 survived twenty-four passes")
+    else:
+        _ambig = _ambiguous_closures(_dt_u)
+        if _ambig:
+            bad.append("these defects' LATEST heading carries a closure-sounding word that is NOT "
+                       "in the status vocabulary, so the parser conservatively keeps the PREVIOUS "
+                       "status and the defect is mis-counted: " + ", ".join(_ambig)
+                       + " -- write FIXED, REFUTED, CLOSED, RESOLVED, WITHDRAWN, ROOT-CAUSED or "
+                         "UNFIXED on the heading")
+        else:
+            ok.append("no defect's latest heading closes it with a word the status parser "
+                      "cannot read (probe fires)")
     o = ORCH.read_text()
     g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
     gap = g.group(1) if g else ""
@@ -851,6 +896,45 @@ if DEF.is_file() and ORCH.is_file():
                    f"-- the summary has drifted from DEFECTS.md")
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
+
+    # --- the TRIAGE SPLIT the summary quotes, against the file the GATE reads -------------------
+    # Pass 237. The summary states "N scope-excluded, M USER-FACING, K campaign-internal" in the
+    # field Moritz reads as the answer, and nothing checked it. It had drifted to 4/10/33 while
+    # `state/of3t/UNFIXED_TRIAGE.json` held 4/8/32 -- three defects stale, and the stated split did
+    # not even sum to the UNFIXED total quoted two sentences above it (47 against 44). That file is
+    # not decoration: `_of3t_donecheck.py` refuses GO while its USER-FACING class is non-empty, so
+    # the number in the prose and the number the gate obeys were two different numbers.
+    #
+    # Same shape as the check-count guard (D130) and as pass 133: a figure recomputed somewhere
+    # else, quoted by hand, and never reconciled. Both directions fail here -- a split that
+    # disagrees with the file, and a split that disagrees with itself.
+    _tri_p = Path("/home/moritz/.coworker/state/of3t/UNFIXED_TRIAGE.json")
+    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
+    if not _tri_p.is_file():
+        warn.append("UNFIXED_TRIAGE.json is absent, so the triage split the gate reads cannot be "
+                    "checked against the split the summary states")
+    elif _tri_m is None:
+        bad.append("the summary states no triage split as 'N scope-excluded, M USER-FACING, "
+                   "K campaign-internal' -- the gate refuses GO on that file's USER-FACING class "
+                   "and nothing in the answer field is pinned to it")
+    else:
+        _cl = json.loads(_tri_p.read_text()).get("classes", {})
+        _live = (len(_cl.get("SCOPE-EXCLUDED", [])), len(_cl.get("USER-FACING", [])),
+                 len(_cl.get("CAMPAIGN-INTERNAL", [])))
+        _said = tuple(int(x) for x in _tri_m.groups())
+        if _said != _live:
+            bad.append(f"the summary states a triage split of {_said[0]}/{_said[1]}/{_said[2]} "
+                       f"(scope-excluded/USER-FACING/campaign-internal) but "
+                       f"UNFIXED_TRIAGE.json, which the GATE reads, holds "
+                       f"{_live[0]}/{_live[1]}/{_live[2]}")
+        elif sum(_said) != len(unfixed):
+            bad.append(f"the triage split {_said[0]}/{_said[1]}/{_said[2]} sums to {sum(_said)} "
+                       f"but DEFECTS.md has {len(unfixed)} UNFIXED defects -- the split and the "
+                       f"total in the same field disagree")
+        else:
+            ok.append(f"the triage split the summary states ({_said[0]}/{_said[1]}/{_said[2]}) "
+                      f"matches UNFIXED_TRIAGE.json and sums to the {len(unfixed)} UNFIXED "
+                      f"defects in DEFECTS.md")
 
     # --- and the REVERSE direction, which the check above never had -------------------------
     # The coverage check is one-way: every UNFIXED defect must be NAMED in GAP. It says nothing
@@ -1091,6 +1175,57 @@ if ORCH.is_file():
                            f"(excluding this row's own) -- i.e. '{_wd}' and '{_wc}'")
             else:
                 ok.append(f"ROWS matches the briefs on disk ({_wd} dispatched, {_wc} concluded)")
+
+        # --- a CONCLUDED row must have pushed a branch -----------------------------------------
+        # `compose_verify.sh` merges `origin/wk/of3t-$r` only `if` the ref exists and otherwise
+        # prints "dispatched but has not pushed a branch yet, skipped". That note is right for a
+        # LIVE row and silently wrong for a concluded one: the marker lands, the state doc claims
+        # artifacts under `perf/<namespace>/`, the DONE_CHECK passes on the doc alone, and none of
+        # the evidence is ever in the composition. Nothing checked the difference.
+        #
+        # Added pass 224 after watching `of3t-permalign` sit on 128K of untracked artifacts with a
+        # finished GO verdict in its state doc. It is prophylactic -- no concluded row is in that
+        # state today -- which is the only time a guard is cheap to add.
+        #
+        # Deliberately NOT a check that the branch is in the composition: a row can legitimately be
+        # excluded from `wk/of3t` (superseded, or held for a conflict). What cannot be legitimate is
+        # a concluded row whose work exists nowhere but one host's disk.
+        import subprocess as _sp
+        # ONE ls-remote for every row, not one per row: authoritative (a local ref can be stale
+        # or absent) and a single round trip.
+        _ls = _sp.run(["git", "ls-remote", "--heads", "origin"], capture_output=True, text=True)
+        if _ls.returncode != 0:
+            warn.append("concluded-rows-have-a-branch not checked: `git ls-remote origin` failed, "
+                        "so there is no authoritative list to check against here")
+        else:
+            _heads = {ln.split("refs/heads/", 1)[1]
+                      for ln in _ls.stdout.splitlines() if "refs/heads/" in ln}
+
+            def _orphaned(concluded_names, heads):
+                """Concluded row slugs with no wk/<slug> branch on origin."""
+                out = []
+                for n in sorted(concluded_names):
+                    if "of3t" not in n or "of3t-orchestrator" in n:
+                        continue
+                    slug = n.split(".")[0]          # strip .falseconclude-<date>, .reopened-<date>
+                    if f"wk/{slug}" not in heads:
+                        out.append(slug)
+                return sorted(set(out))
+
+            # Break control, every run: a guard that cannot fire has tested nothing, and this file
+            # has shipped three inert ones.
+            _probe = _orphaned(["of3t-ghost"], {"wk/of3t-real"})
+            if _probe != ["of3t-ghost"]:
+                bad.append("the concluded-branch probe did not fire -- this check is inert")
+            else:
+                _orphans = _orphaned([d.name for d in _CON.iterdir()], _heads)
+                if _orphans:
+                    bad.append("these rows are CONCLUDED and have no branch on origin, so their "
+                               "evidence exists only on one host's disk and the compose skipped "
+                               "them with a note meant for a LIVE row: " + ", ".join(_orphans))
+                else:
+                    ok.append(f"all {_n_conc} concluded rows have a branch on origin "
+                              f"(probe fires)")
     if DEF.is_file():
         _dt = DEF.read_text()
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
@@ -1375,6 +1510,24 @@ if ORCH.is_file():
     # on a field that was inside it, and the fix for the wrong field would have been to delete
     # real content. Same class as the heading form widened above -- the guard's pattern was
     # narrower than the document's own conventions.
+    # --- DOESNOT must say that the repairs are a CONFIGURATION, not the shipped port -----------
+    # Pass 212. Every headline repair this campaign has produced is behind a default-off,
+    # release-gated, unmerged lever: the trunk's 1.0251x needs TT_BIO_SOFTMAX_BW_RENORM on, the
+    # 51.1358 % bound needs the host float64 softmax on, and compose_verify.sh asserts on every
+    # compose that both stay off. PROVES and DOESNOT -- the two fields a reader treats as the
+    # campaign's claim -- said none of that; the distinction lived only in VERDICT and in the rows'
+    # own docs. "off by default is not a landed win" is already written down twice on this fleet,
+    # and the place it would be lost is a closing summary, so it is checked where the summary is.
+    _dn = _re.search(r"^DOESNOT:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
+    _dnt = (_dn.group(1) if _dn else "").lower()
+    _want_any = ("default off", "default-off", "unmerged", "release-gated", "not shipped")
+    if not any(w in _dnt for w in _want_any):
+        bad.append("DOESNOT does not say the repairs are a CONFIGURATION rather than the shipped "
+                   "port -- every headline fix here is behind a default-off unmerged lever, and a "
+                   "reader of this field cannot tell that nothing a user gets has changed")
+    else:
+        ok.append("DOESNOT states that the repairs are configured, not shipped")
+
     _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000,
              "DIRECTIVE-STATUS": 12000}
     _over = []
@@ -1474,10 +1627,26 @@ if ORCH.is_file():
     # So the total counted here is checks that RAN plus checks that ANNOUNCED they could not,
     # which is stable across hosts. The stated number must equal that total; a run where a
     # probe silently disappeared still fails, because it would lower both terms.
-    _n_ran = len(ok) + 1                       # +1 for the ok this check is about to append
-    _n_now = _n_ran + len(warn)
-    _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
-    if _cm is None:
+    #
+    # Pass 236: and the total is computed from CONFIRMATIONS, so any OTHER guard that drifts
+    # silently lowers it by one -- and this check then reports the lower number under a message
+    # that names the wrong cause, "the count drifted when checks were added". It did that to me
+    # twice in one session: GAP went one paragraph over its cap, and the audit told me a check
+    # had gone missing. A count built out of passes cannot be audited while passes are failing,
+    # so say that instead of diagnosing it wrong. K60: a check that cannot run says so.
+    if bad:
+        warn.append(f"PROVES check count NOT EVALUABLE this run: {len(bad)} other check(s) "
+                    f"drifted, and this total counts confirmations, so it would report "
+                    f"'the count drifted when checks were added' for a failure that added "
+                    f"nothing. Clear the other drift(s) and re-run.")
+        _cm = None
+    else:
+        _n_ran = len(ok) + 1                   # +1 for the ok this check is about to append
+        _n_now = _n_ran + len(warn)
+        _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
+    if _cm is None and bad:
+        pass
+    elif _cm is None:
         bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
                    "audit reports a total that nothing in the summary is pinned to")
     elif int(_cm.group(1)) != _n_now:
@@ -1489,6 +1658,26 @@ if ORCH.is_file():
                   f"+ {len(warn)} skipped-and-said-so)")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
+
+# Publish the NAMES, not only the count. Pass 221: the executed-check total fell from 166 to 165
+# and the number alone could not say which check stopped firing -- the script was byte-identical
+# across the two runs, so it was data-dependent, and there was nothing to diff. A bare integer is a
+# drift DETECTOR and not a drift LOCATOR, which is the same shape as this campaign's own A15 (a
+# count denominator is not a scope statement). From here every compose writes the sorted list, so
+# the next time the count moves the answer is one `diff`.
+try:
+    # Into the campaign state dir, NOT next to this script: the audit runs from the COMPOSED
+    # tree under /tmp, so a sibling file is discarded the moment the compose is rebuilt and
+    # nothing is ever diffable. D112 is a concluded row's worktree being pruned and taking the
+    # campaign's reference with it; this is the same trap one directory over.
+    (Path("/home/moritz/.coworker/state/of3t/CHECKS_RUN.txt")).write_text(
+        "# every check this audit CONFIRMED, one per line, sorted. Regenerated on every compose.\n"
+        "# Diff two of these to find out which check stopped firing when the count moves; the\n"
+        "# count alone cannot tell you (pass 221).\n"
+        + "".join(f"{line}\n" for line in sorted(ok)))
+except Exception as _e:                                        # never fail the audit over a write
+    print(f"  WARN  could not write CHECKS_RUN.txt ({_e})")
+
 for line in ok:
     print(f"  ok    {line}")
 for line in warn:
