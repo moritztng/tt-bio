@@ -18,6 +18,42 @@
    "window_start_epoch": 1789947365,
    "x_shipped_r1": 1.448979591836735
   },
+  "bw_renorm": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1318,
+    "min_mhz": 800,
+    "n": 34
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_renorm.log",
+   "seconds_per_structure_max": 2.1,
+   "seconds_per_structure_mean": 1.2854166666666667,
+   "seconds_per_structure_median": 1.2,
+   "seconds_per_structure_min": 1.2,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 68,
+   "window_end_epoch": 1789948804,
+   "window_start_epoch": 1789948736,
+   "x_shipped_r1": 1.0493197278911566
+  },
+  "host_f64_renorm": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1326,
+    "min_mhz": 800,
+    "n": 47
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_sitef64rn.log",
+   "seconds_per_structure_max": 2.6,
+   "seconds_per_structure_mean": 1.8375000000000001,
+   "seconds_per_structure_median": 1.8,
+   "seconds_per_structure_min": 1.7,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 94,
+   "window_end_epoch": 1789948905,
+   "window_start_epoch": 1789948811,
+   "x_shipped_r1": 1.5000000000000002
+  },
   "shipped_r1": {
    "aiclk_during_the_window": {
     "max_mhz": 1350,

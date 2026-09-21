@@ -473,6 +473,16 @@ The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` an
 Predictions are untouched. With the flag unset, OpenFold3, Protenix-v2 and OpenDDE each write a
 structure byte-identical to the one they wrote before this path existed, same card and same seed.
 
+**Try the cheap fix first.** `TT_BIO_SOFTMAX_BW_RENORM` divides the softmax backward's inner sum
+by the row sum, two extra ops and no change to any forward. It exists because `d_logits = y(g - Σ
+g·y)` is only row-sum-free when the row sums to one, and `ttnn.softmax` returns rows that miss it
+by up to 3.9e-02. On the same OpenFold3 gradient it reads 1.057023e-01 against upstream's bf16 step
+for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
+cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
+softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
+pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+bit-identical gradient.
+
 ## Opt-in, and inert when off
 
 Importing `tt_bio` does not reach the tape, the optimizer or the loss set, and

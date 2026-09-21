@@ -3570,6 +3570,12 @@ def host_f64_softmax_site(token: str, default: bool = False) -> bool:
     and a fold with the path present and off is byte-identical to one without it, measured by
     digest on OpenFold3, Protenix-v2 and OpenDDE.
 
+    Reach for ``TT_BIO_SOFTMAX_BW_RENORM`` before this. Two ops in the softmax backward get
+    1.057023e-01 on the same gradient for 1.049x, which is 99.6 % of what the round trip buys at
+    a tenth of the cost; what this path still has over it is the FORWARD, which no backward fix
+    can reach. The two compose, and on this path the renormalisation is exactly a no-op because a
+    float64 softmax already sums to one.
+
     Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
     ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
     reaches, so it stays A/B-able without a checkout.
@@ -3591,6 +3597,7 @@ def host_f64_softmax(x, dim: int = -1):
     import torch
 
     from . import autograd as ag
+    from . import taped_ttnn as TT
 
     xt = x if isinstance(x, ag.Tensor) else None
     v = xt.value if xt is not None else x
@@ -3605,7 +3612,17 @@ def host_f64_softmax(x, dim: int = -1):
     def make():
         def bw(g):
             g64 = ttnn.to_torch(g).double()
-            d = y64 * (g64 - (g64 * y64).sum(dim=dim, keepdim=True))
+            inner = (g64 * y64).sum(dim=dim, keepdim=True)
+            if TT._SOFTMAX_BW_RENORM:
+                # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
+                # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
+                # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
+                # restores the identity. On THIS path the row already sums to one to float64
+                # round-off, so the division is arithmetically a no-op -- which is the point.
+                # It is the consistency check between two independently derived repairs, and
+                # it is why the flag reaches here instead of stopping at the tape verb.
+                inner = inner / y64.sum(dim=dim, keepdim=True)
+            d = y64 * (g64 - inner)
             xt.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=g.device(),
                                         dtype=g.dtype, memory_config=g.memory_config()))
         return bw

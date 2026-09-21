@@ -7,6 +7,8 @@ Card 3 on qb2 (p300c, Blackhole). Branch `wk/of3t-f64softmax`, based on `wk/of3t
     perf/of3t_f64softmax/devgrad_f64.sh shipped      # CONTROL, must read 7.426217e+00
     perf/of3t_f64softmax/devgrad_f64.sh sitef64      # the code path
     perf/of3t_f64softmax/devgrad_f64.sh sitef64pc    # BREAK control, permuted cotangent
+    perf/of3t_f64softmax/devgrad_f64.sh renorm       # AMENDMENT 1 Arm A, apbgrad's repair alone
+    perf/of3t_f64softmax/devgrad_f64.sh sitef64rn    # AMENDMENT 1 Arm B, repair on the host path
 
 `sitef64` sets `TT_BIO_HOST_F64_SOFTMAX_AB=all` through `device_gradient.py --softmax-site-f64`,
 before the first `tt_bio` import — the selector is resolved at module construction, so an
@@ -38,6 +40,32 @@ tape the backward pays a second one, and the both-ways figure is the scope cost.
 The base tree is made with `git worktree add --detach <path> 4fda3ccf6` and removed afterwards.
 Three arms — base, off, on — and the `on` arm is the control: a digest that could not see the
 softmax would report byte-identity whatever the path did.
+
+## AMENDMENT 1
+
+`wk/of3t-apbgrad` is merged for its 19 lines in `tt_bio/taped_ttnn.py`, so the provenance of the
+repair stays intact rather than being transcribed. `--softmax-bw-renorm` sets
+`TT_BIO_SOFTMAX_BW_RENORM=1` before the first `tt_bio` import and the run publishes the value the
+module actually read, because a flag consumed at import time is a flag a late `os.environ` write
+cannot reach.
+
+`tenstorrent.host_f64_softmax` honours the same flag. That is deliberate: it makes Arm B a
+property of the code rather than of a harness patch, and without it the flag would stop at the
+tape verb and never reach the host path at all — the host path does not call `ttnn.softmax`, so
+`_v_softmax` is never entered and the renormalisation could not fire even in principle. A
+structural no-op would not have answered the amendment's question, which is numerical.
+
+    perf/of3t_f64softmax/rowsum_probe.py    -> ROWSUM_PROBE.json
+
+measures both halves of the mechanism on the DiT's own softmax shape: the row sums each softmax
+returns, and the `d_logits` row sums the repair exists to make vanish, with the repair off and on.
+It is an accuracy probe, not a timing, so it carries no clock claim.
+
+    controls.py --a <host_f64.pt>  --b <host_f64_renorm.pt>   -> CONTROLS_ARM_B.json
+    controls.py --a <shipped.pt>   --b <bw_renorm.pt>         -> CONTROLS_RENORM_FIRES.json
+
+The second pair is the firing census for Arm A. A lever that changed nothing would come back 547
+of 547 bit-identical, which is exactly the shape of a relabelled shipped arm.
 
 ## Reading the numbers
 

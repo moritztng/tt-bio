@@ -4,6 +4,8 @@
 #   devgrad_f64.sh shipped     CONTROL, must reproduce 7.426217e+00 against upstream's step
 #   devgrad_f64.sh sitef64     the CODE PATH, selected by TT_BIO_HOST_F64_SOFTMAX_AB
 #   devgrad_f64.sh sitef64pc   the BREAK control, the same path with structure k+1's cotangent
+#   devgrad_f64.sh renorm      AMENDMENT 1 Arm A, of3t-apbgrad's backward repair ALONE
+#   devgrad_f64.sh sitef64rn   AMENDMENT 1 Arm B, the repair ON TOP of the host path (a control)
 #
 # of3t-softgrad measured the same bound as a rule installed over the tape verb and read
 # 7.777580e-02. This row measures the shipped call sites with the site flag on. The two are
@@ -25,7 +27,9 @@ case "${1:-}" in
   shipped)   TAG=_f64shipped; PT=_shipped; EXTRA="" ;;
   sitef64)   TAG=_f64site;    PT=_sitef64; EXTRA="--softmax-site-f64" ;;
   sitef64pc) TAG=_f64sitepc;  PT=_sitepc;  EXTRA="--softmax-site-f64 --permute-cot" ;;
-  *) echo "usage: devgrad_f64.sh {shipped|sitef64|sitef64pc}"; exit 2 ;;
+  renorm)    TAG=_f64renorm; PT=_renorm;  EXTRA="--softmax-bw-renorm" ;;
+  sitef64rn) TAG=_f64sitern; PT=_sitern;  EXTRA="--softmax-site-f64 --softmax-bw-renorm" ;;
+  *) echo "usage: devgrad_f64.sh {shipped|sitef64|sitef64pc|renorm|sitef64rn}"; exit 2 ;;
 esac
 S=$(date +%s)
 echo "=== of3t-f64softmax arm ${1}, 48 structures, tag $TAG, card $CARD  $(date -u +%FT%TZ) ==="

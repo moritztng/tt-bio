@@ -3,7 +3,49 @@
  "a28_floor_mass_over_bar_pct": 41.6989151931996,
  "a28_floor_over_bar": 441,
  "arms": {
-  "host_f64_path": {
+  "break_control": {
+   "float64": {
+    "mass_over_bar_pct": 100.0,
+    "mass_weighted_rel_l2": 1.572714978550677,
+    "median_rel_l2": 1.5769266221687899,
+    "of": 547,
+    "over_bar": 547,
+    "worst_rel_l2": 19.811592709821852,
+    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+   },
+   "path": "/home/ttuser/of3t_f64softmax/device_grads_043all_sitepc.pt",
+   "their_step": {
+    "mass_over_bar_pct": 100.0,
+    "mass_weighted_rel_l2": 1.5540750121257518,
+    "median_rel_l2": 1.5630727848601593,
+    "of": 547,
+    "over_bar": 547,
+    "worst_rel_l2": 21.408914398612282,
+    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+   }
+  },
+  "bw_renorm": {
+   "float64": {
+    "mass_over_bar_pct": 78.83797662455122,
+    "mass_weighted_rel_l2": 0.1103720036988948,
+    "median_rel_l2": 0.09344246380757325,
+    "of": 547,
+    "over_bar": 407,
+    "worst_rel_l2": 0.5523992247843221,
+    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+   },
+   "path": "/home/ttuser/of3t_f64softmax/device_grads_043all_renorm.pt",
+   "their_step": {
+    "mass_over_bar_pct": 82.01968274648296,
+    "mass_weighted_rel_l2": 0.10570231583061436,
+    "median_rel_l2": 0.11242250895224849,
+    "of": 547,
+    "over_bar": 493,
+    "worst_rel_l2": 0.6212992504785223,
+    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.bias"
+   }
+  },
+  "host_f64": {
    "float64": {
     "mass_over_bar_pct": 52.08282402688232,
     "mass_weighted_rel_l2": 0.0593066369704669,
@@ -24,7 +66,7 @@
     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight"
    }
   },
-  "host_f64_tapeverb": {
+  "host_f64_renorm": {
    "float64": {
     "mass_over_bar_pct": 52.08282402688232,
     "mass_weighted_rel_l2": 0.0593066369704669,
@@ -34,7 +76,7 @@
     "worst_rel_l2": 0.26181324886719926,
     "worst_tensor": "diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
    },
-   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_sm64.pt",
+   "path": "/home/ttuser/of3t_f64softmax/device_grads_043all_sitern.pt",
    "their_step": {
     "mass_over_bar_pct": 85.42920173241697,
     "mass_weighted_rel_l2": 0.0777757962892486,
@@ -43,27 +85,6 @@
     "over_bar": 472,
     "worst_rel_l2": 0.4463192139926835,
     "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight"
-   }
-  },
-  "path_permuted_cot": {
-   "float64": {
-    "mass_over_bar_pct": 100.0,
-    "mass_weighted_rel_l2": 1.572714978550677,
-    "median_rel_l2": 1.5769266221687899,
-    "of": 547,
-    "over_bar": 547,
-    "worst_rel_l2": 19.811592709821852,
-    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
-   },
-   "path": "/home/ttuser/of3t_f64softmax/device_grads_043all_sitepc.pt",
-   "their_step": {
-    "mass_over_bar_pct": 100.0,
-    "mass_weighted_rel_l2": 1.5540750121257518,
-    "median_rel_l2": 1.5630727848601593,
-    "of": 547,
-    "over_bar": 547,
-    "worst_rel_l2": 21.408914398612282,
-    "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
    }
   },
   "shipped": {
