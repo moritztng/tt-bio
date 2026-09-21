@@ -317,13 +317,19 @@ def do_score(a):
             if a.w0 == "own" else None
         P["rows"] = []
 
-    ks = sorted(set(TW.have_steps(ref_dir)))
+    # Per PAIR, not one global intersection. A 3-rung determinism arm scored beside a 20-rung
+    # treatment used to drag the treatment down to 3 rungs, and the summary line still said
+    # "k=20" because it was a literal. Both halves of that are fixed here: each pair gets its own
+    # rung list, and every summary prints the k it actually reached.
     for P in pairs:
-        ks = [k for k in ks if k in set(TW.have_steps(P["arm_dir"]))]
-    print(f"scoring k = {ks}", flush=True)
+        P["ks"] = sorted(set(TW.have_steps(ref_dir)) & set(TW.have_steps(P["arm_dir"])))
+        print(f"pair {P['tag']}: scoring k = {P['ks']}", flush=True)
+    ks = sorted({k for P in pairs for k in P["ks"]})
     for k in ks:
         wt = TW.load_w(ref_dir, k)
         for P in pairs:
+            if k not in P["ks"]:
+                continue
             wo = TW.load_w(P["arm_dir"], k)
             r = TW.score_step(P["names"], k, wo, wt, P["W0"], P["nw0"], P["W0o"])
             P["rows"].append(r)
@@ -341,7 +347,7 @@ def do_score(a):
         rows = P["rows"]
         out["scored"][P["tag"]] = {
             "arm_dir": P["arm_dir"], "restrict_dir": P["restrict"],
-            "n_tensors": len(P["names"]), "w0_norm": P["nw0"],
+            "n_tensors": len(P["names"]), "w0_norm": P["nw0"], "steps_scored": P["ks"],
             "scope": TW.scope_share(P["names"]),
             "d1": {"arm_norm": rows[0]["d_ours_norm"], "ref_norm": rows[0]["d_theirs_norm"],
                    "rel_d": rows[0]["rel_d"],
@@ -350,9 +356,10 @@ def do_score(a):
             "per_step": rows,
         }
         g = out["scored"][P["tag"]]["growth_k2_20"]
-        print(f"== {P['tag']:16s} {len(P['names'])} tensors  k=20 rel_d={rows[-1]['rel_d']:.6e}  "
+        print(f"== {P['tag']:28s} {len(P['names'])} tensors  rungs {rows[0]['k']}..{rows[-1]['k']}"
+              f"  rel_d(k={rows[-1]['k']})={rows[-1]['rel_d']:.6e}  "
               f"exponent={g.get('exponent')}  intercept={g.get('intercept')}  r2={g.get('r2')}  "
-              f"{g.get('shape')}", flush=True)
+              f"{g.get('shape')}  fitted_over_k={g.get('fitted_over_k')}", flush=True)
 
     for tag, arm in (("bf16mixed", "bf16mixed"), ("bf16mixed_aa2", "bf16mixed_aa2")):
         sl = os.path.join(a.out_dir, f"steplog_{arm}.json")
