@@ -19,17 +19,21 @@
 # of the stack, so both of its tracks are actually readable.
 
 set -uo pipefail
-W=/home/ttuser/of3t_rebase/wt
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/ref:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_CODE" "$REF_PYLIBS")"
 export OMP_NUM_THREADS=8
+R=${OF3T_REBASE_RUN:-$HOME/of3t_rebase_run}
+mkdir -p "$R"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-B=/home/ttuser/of3t_rebase/bundle_min_043
+ref_assert "$PY"
+B=$REF_BUNDLE
 echo "=== weight-ramp capture (blocks 42..46) at 0.4.3  $(date -u +%FT%TZ) ==="
 "$PY" perf/of3t_gradients/capture_trunk_boundary.py \
     --bundle "$B" --manifest-json "$B/MANIFEST.json" --grads grads_f64_043.pt \
     --blocks 42,43,44,45,46 --no-dropout \
-    --out /home/ttuser/of3t_rebase/cap043_ramp \
+    --out "$R/cap043_ramp" \
     --report perf/of3t_rebase/capture_trunk_boundary_043_ramp.json
 echo "=== capture exit $? $(date -u +%FT%TZ) ==="
 echo "CAPRAMP_ALLDONE $(date -u +%FT%TZ)"

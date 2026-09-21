@@ -18,11 +18,13 @@
 set -uo pipefail
 W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_refprec/of3pkg043:/home/ttuser/of3t_gradients/ref:/home/ttuser/of3t_gradients/deps:$W/perf/of3t_gradients:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_CODE" "$W/perf/of3t_gradients" "$W")"
 export OMP_NUM_THREADS=8
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-B=/home/ttuser/of3t_refprec/bundle_ref
-C=/home/ttuser/of3t_softgrad/diffcap043
+ref_assert "$PY"
+B=$REF_BUNDLE
+C=$REF_DIFFCAP
 mkdir -p "$C"
 
 echo "=== diffusion boundary at 0.4.3, rebuilt  $(date -u +%FT%TZ) ==="

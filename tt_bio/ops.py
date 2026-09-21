@@ -38,7 +38,8 @@ from .dispatch import OpSurface
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
            "set_recycle_hook", "recycle_region", "taping",
-           "set_checkpoint_hook", "checkpoint_segment"]
+           "set_checkpoint_hook", "checkpoint_segment",
+           "set_host_softmax_hook", "host_softmax_hook"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -81,6 +82,35 @@ def taping():
     at all in inference, where `grad_hook()` is None.
     """
     return grad_hook() is not None
+
+
+# The host float64 softmax a construction site may ask for, injected the same way and for the
+# same reason as the hooks above: `tt_bio/autograd.py` owns the implementation and nothing on
+# the inference path imports it, so with no tape open there is no function to reach.
+_HOST_SOFTMAX = None
+
+
+def set_host_softmax_hook(fn):
+    """Install the host float64 softmax. Returns the old one."""
+    global _HOST_SOFTMAX
+    prev, _HOST_SOFTMAX = _HOST_SOFTMAX, fn
+    return prev
+
+
+def host_softmax_hook():
+    """The host float64 softmax if a tape is open to want it, otherwise None.
+
+    `tenstorrent.site_softmax` asks here, and None is the whole of what keeps the path off
+    inference. The site selector reads an environment variable and the call sites it decides are
+    shared with every model's inference, so gating on the selector alone left a training-only
+    lever one `export` away from a user's fold. The path buys gradient fidelity and costs a host
+    round trip per softmax, so there was never an inference reading to gain either.
+
+    Two conditions rather than one. `taped_ttnn.tape()` restores the grad hook on the way out
+    and leaves the other slots filled, so the slot on its own would stay live for the rest of
+    the process and a fold after a training block could still reach the path.
+    """
+    return _HOST_SOFTMAX if grad_hook() is not None else None
 
 
 _CHECKPOINT = None

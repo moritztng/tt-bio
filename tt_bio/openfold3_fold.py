@@ -268,8 +268,24 @@ class OpenFold3(Module):
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
         from .protenix import ConfidenceHead
+        # pTM and ipTM are a max over ALIGNMENT FRAMES, not over tokens, and a token that
+        # has no frame can win that max and set the score a user's structure is ranked by.
+        # Upstream builds the mask from the predicted coordinates and zeroes the row
+        # (`sample_ranking.py:60-70` -> `confidence.py:154`); `get_token_frame_atoms` is
+        # the same vendored function it calls, so this is their rule and not a second one.
+        # Every token of a structure built from standard residues has a frame, so the mask
+        # is all-ones on a protein-only target and the reading does not move there; it is
+        # ligands and modified residues, which arrive ATOMIZED and must clear an angle
+        # constraint, that it is about.
+        has_frame = None
+        if aux.get("frame_batch") is not None:
+            from ._vendor.openfold3.core.utils.atomize_utils import get_token_frame_atoms
+            _, has_frame = get_token_frame_atoms(
+                batch=aux["frame_batch"], x=sample.float(),
+                atom_mask=aux["frame_batch"]["atom_mask"].float())
+            has_frame = has_frame.bool()
         ptm, iptm = ConfidenceHead._ptm_iptm(
-            out["pae_logits"], aux.get("asym_id"))
+            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
         has_clash = 0.0
         if all(k in aux for k in ("asym_id", "atom_to_token_index", "atom_mask", "polymer_mask")):

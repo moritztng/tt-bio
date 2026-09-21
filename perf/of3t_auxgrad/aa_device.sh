@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # The A/A on forward_device: origin/wk/of3t's file against this branch's, masks unset.
 set -uo pipefail
-W=/home/ttuser/.coworker/wt/of3t-auxgrad
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 CAP=/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W/perf/of3t_confidence:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W/perf/of3t_confidence" "$W")"
+ref_assert "$PY"
 export OMP_NUM_THREADS=8
 CARD=${CARD:-1}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=1,$CARD TT_BIO_LEASE_HOLDER=worker:of3t-auxgrad

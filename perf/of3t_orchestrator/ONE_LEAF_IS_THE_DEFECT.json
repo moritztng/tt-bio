@@ -1,55 +1,19 @@
 {
- "what": "the OpenFold3 gradient defect, localised to ONE leaf, from device_gradient_043pt.json's per-tensor array (547 tensors: rel_l2, norm_ratio, cos, ref_norm, device_norm) cross-referenced against the per-tensor reference mass. No new run -- both artifacts already existed on qb2 and had never been read together.",
+ "CORRECTED_AT_PASS_261_THE_HEADLINE_IS_A_PRE_REPAIR_READING": {
+  "and_one_leaf_became_two": "Post-repair the diffusion scope's error splits attention_pair_bias.layer_norm_a... 59.510 % and conditioned_transition.layer_norm.layer_norm_s.weight 28.313 % -- two LayerNorm affine leaves at 87.8 %, which is what D129 was filed on. The title's 'ONE leaf' was true of the arm it measured.",
+  "and_the_object_moved_again": "`of3t-condtrans` then located D129 entirely in the cotangent ARRIVING at the leaf -- isolation 1.5217e-03, 456x under the reading, input exact to 1.98e-08 -- so for that leaf the defect is not in the leaf at all. 'ONE LEAF IS THE DEFECT' is the right name for a localisation and the wrong name for a cause.",
+  "what_moved": "The leaf this file names -- diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight -- is still the single largest contributor, but its headline number is from the UNREPAIRED arm. `of3t-lnaffine`'s matched same-branch A/B collapses that leaf's error mass 878.8518760076167 -> 2.635596280124493, a factor of 333, with TT_BIO_SOFTMAX_BW_RENORM on. The mass-weighted rel_l2 of 10.6980 quoted here is pre-repair and is not comparable to any post-repair figure.",
+  "what_still_stands": "The localisation itself, and the arithmetic that produced it: 24 tensors holding 25.5795 % of the model's squared gradient norm against 523 holding almost exactly the same mass. That contrast is why the leaf was worth chasing and it is unaffected by the repair.",
+  "why_this_is_written_INSIDE_the_file": "A title is a claim and a reader stops when they have what they need -- the same rule applied to NO_SOFTMAX_LEVER_REACHES_THE_BAR.json at pass 260. Recorded as D144."
+ },
+ "d53_hypothesis_REFUTED": "D53 filed, as an explicitly open hypothesis with its own falsification condition, that rel rises with mass inside this family. Over all 24 blocks the log-log slope is 0.1657 with Pearson 0.3067. REFUTED. The six points that suggested it were the six worst of 24 -- a selected tail, exactly the failure mode D53 predicted for itself.",
  "headline": "24 tensors -- one leaf, diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight -- are 25.5795 % of the model's squared gradient norm and read mass-weighted rel_l2 10.6980 with norm ratio 7.8658. The other 523 compared tensors, holding almost exactly the same mass (25.5563 %), read 0.2929. Strip that one leaf and the arm's mass-weighted rel falls from 7.5692 to 0.2929.",
- "the_control_that_came_free": {
-  "claim": "there are TWO instances of tenstorrent.AdaLN per DiT block, built from the same class with the same code and driven with the same (a, s). One fails 59x worse than the other.",
-  "attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
-   "n": 24,
-   "pct_of_model": 25.5795,
-   "mass_weighted_rel": 10.698,
-   "mass_weighted_norm_ratio": 7.8658,
-   "mass_weighted_cos": 0.653
-  },
-  "conditioned_transition.layer_norm.layer_norm_s.weight": {
-   "n": 24,
-   "pct_of_model": 15.513,
-   "mass_weighted_rel": 0.1828,
-   "mass_weighted_norm_ratio": 0.9988,
-   "mass_weighted_cos": 0.9894
-  },
-  "what_it_settles": "a defect in the AdaLN class's backward -- including the sigmoid-gated multiply, which pass 152 called the last surviving candidate -- would hit BOTH instances. It hits one. The class is exonerated by the model's own natural A/B and the defect is in what the block does around adaln_a."
- },
- "the_arm_in_one_table": {
-  "whole compared set": {
-   "n": 547,
-   "pct_of_model": 51.1358,
-   "mass_weighted_rel": 7.5692,
-   "median_over_tensors": 0.1659,
-   "note": "the mass-weighted figure is 45.6x the median the campaign has been quoting. PROTOCOL A23's argument, at the largest scale available."
-  },
-  "the one leaf": {
-   "n": 24,
-   "pct_of_model": 25.5795,
-   "mass_weighted_rel": 10.698
-  },
-  "everything else": {
-   "n": 523,
-   "pct_of_model": 25.5563,
-   "mass_weighted_rel": 0.2929,
-   "inside_5e-2_per_tensor_bar": {
-    "n": 73,
-    "pct_of_model": 2.794
-   }
-  }
- },
+ "leads_not_findings": [
+  "layer_norm_a.linear_s.weight reads mass-weighted norm ratio 1.0980 while linear_g reads ~5 and the gain 7.87. In AdaLN, out = a_norm * sigmoid(s_scale) + s_bias, so d/d s_bias = g_out directly while d/d s_scale = g_out * a_norm * sigmoid'. linear_s being near-right says the cotangent ARRIVING at the AdaLN output is essentially correct, and the error is in the a_norm * sigmoid' factor -- or in a_norm itself, which the tape RECOMPUTES in the backward rather than retaining.",
+  "a_ln is consumed twice on the attention side (the fused padded QKV projection at openfold3_diffusion_transformer.py:189, head_dim 48 -> 64, and the query gate at :218), and that path also carries nlp_create_qkv_heads and the slice o[:, :, :, :HEAD_DIM] that drops the 16 padding channels. a_t is consumed twice too, so multiple consumption is not the difference -- but the padded head dim and the slice that undoes it exist ONLY on the failing side. A backward that does not zero the padding region would inject structure rather than noise, vary per block, and produce negative cosines.",
+  "these are leads. Nothing here measures either of them."
+ ],
  "magnitude_or_direction": {
-  "mass_weighted_norm_ratio_whole_arm": 4.442,
-  "mass_weighted_cos_whole_arm": 0.8159,
-  "top_20_by_mass": {
-   "pct_of_model": 41.353,
-   "norm_ratio": 5.2268,
-   "cos": 0.8058
-  },
   "by_mass": {
    "cos < 0 (anti-correlated)": {
     "n": 21,
@@ -59,178 +23,221 @@
     "n": 116,
     "pct_of_model": 15.0269
    },
-   "cos >= 0.9 but |r-1| > 0.2 (scale)": {
-    "n": 11,
-    "pct_of_model": 6.4353
-   },
    "cos >= 0.9 and r in [0.8, 1.2]": {
     "n": 420,
     "pct_of_model": 29.6735
+   },
+   "cos >= 0.9 but |r-1| > 0.2 (scale)": {
+    "n": 11,
+    "pct_of_model": 6.4353
    }
   },
-  "reading": "dominantly MAGNITUDE -- our diffusion gradient is ~4.4x too large by mass, ~5.2x across the twenty heaviest tensors -- with a substantial direction component on 15.03 % of the model and outright anti-correlation on 4.81 %."
- },
- "the_worst_tensor_in_full": {
-  "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
-  "pct_of_model": 8.05416,
-  "rel": 18.504,
-  "norm_ratio": 19.2415,
-  "cos": 0.749414,
-  "reading": "19.24x too large AND 41 degrees off. Not precision."
+  "mass_weighted_cos_whole_arm": 0.8159,
+  "mass_weighted_norm_ratio_whole_arm": 4.442,
+  "reading": "dominantly MAGNITUDE -- our diffusion gradient is ~4.4x too large by mass, ~5.2x across the twenty heaviest tensors -- with a substantial direction component on 15.03 % of the model and outright anti-correlation on 4.81 %.",
+  "top_20_by_mass": {
+   "cos": 0.8058,
+   "norm_ratio": 5.2268,
+   "pct_of_model": 41.353
+  }
  },
  "per_block_inside_the_failing_leaf": {
   "0": {
-   "pct_of_model": 0.18134,
-   "rel": 2.7329,
+   "cos": -0.79583,
    "norm_ratio": 1.8691,
-   "cos": -0.79583
+   "pct_of_model": 0.18134,
+   "rel": 2.7329
   },
   "1": {
-   "pct_of_model": 0.67164,
-   "rel": 0.8326,
+   "cos": 0.99546,
    "norm_ratio": 1.8225,
-   "cos": 0.99546
-  },
-  "2": {
-   "pct_of_model": 2.69418,
-   "rel": 0.2959,
-   "norm_ratio": 0.7097,
-   "cos": 0.99768
-  },
-  "3": {
-   "pct_of_model": 0.31115,
-   "rel": 1.3314,
-   "norm_ratio": 0.7261,
-   "cos": -0.16902
-  },
-  "4": {
-   "pct_of_model": 0.29514,
-   "rel": 0.2461,
-   "norm_ratio": 0.851,
-   "cos": 0.97744
-  },
-  "5": {
-   "pct_of_model": 2.43308,
-   "rel": 4.5419,
-   "norm_ratio": 5.5205,
-   "cos": 0.98243
-  },
-  "6": {
-   "pct_of_model": 1.39118,
-   "rel": 2.8408,
-   "norm_ratio": 1.9735,
-   "cos": -0.80457
-  },
-  "7": {
-   "pct_of_model": 2.86053,
-   "rel": 5.3071,
-   "norm_ratio": 5.1979,
-   "cos": -0.01417
-  },
-  "8": {
-   "pct_of_model": 8.05416,
-   "rel": 18.504,
-   "norm_ratio": 19.2415,
-   "cos": 0.74941
-  },
-  "9": {
-   "pct_of_model": 3.03037,
-   "rel": 0.1237,
-   "norm_ratio": 1.1089,
-   "cos": 0.99845
+   "pct_of_model": 0.67164,
+   "rel": 0.8326
   },
   "10": {
-   "pct_of_model": 0.71613,
-   "rel": 0.8392,
+   "cos": 0.61639,
    "norm_ratio": 0.9067,
-   "cos": 0.61639
+   "pct_of_model": 0.71613,
+   "rel": 0.8392
   },
   "11": {
-   "pct_of_model": 0.85075,
-   "rel": 0.132,
+   "cos": 0.99592,
    "norm_ratio": 1.0923,
-   "cos": 0.99592
+   "pct_of_model": 0.85075,
+   "rel": 0.132
   },
   "12": {
-   "pct_of_model": 0.76487,
-   "rel": 5.6459,
+   "cos": 0.49668,
    "norm_ratio": 6.0755,
-   "cos": 0.49668
+   "pct_of_model": 0.76487,
+   "rel": 5.6459
   },
   "13": {
-   "pct_of_model": 0.46316,
-   "rel": 0.1847,
+   "cos": 0.99164,
    "norm_ratio": 1.1238,
-   "cos": 0.99164
+   "pct_of_model": 0.46316,
+   "rel": 0.1847
   },
   "14": {
-   "pct_of_model": 0.5908,
-   "rel": 0.4548,
+   "cos": 0.99387,
    "norm_ratio": 1.435,
-   "cos": 0.99387
+   "pct_of_model": 0.5908,
+   "rel": 0.4548
   },
   "15": {
-   "pct_of_model": 0.04203,
-   "rel": 0.8742,
+   "cos": 0.73474,
    "norm_ratio": 1.2862,
-   "cos": 0.73474
+   "pct_of_model": 0.04203,
+   "rel": 0.8742
   },
   "16": {
-   "pct_of_model": 0.03923,
-   "rel": 0.8779,
+   "cos": 0.78236,
    "norm_ratio": 1.4011,
-   "cos": 0.78236
+   "pct_of_model": 0.03923,
+   "rel": 0.8779
   },
   "17": {
-   "pct_of_model": 0.01894,
-   "rel": 0.0868,
+   "cos": 0.99683,
    "norm_ratio": 1.0316,
-   "cos": 0.99683
+   "pct_of_model": 0.01894,
+   "rel": 0.0868
   },
   "18": {
-   "pct_of_model": 0.00402,
-   "rel": 0.3531,
+   "cos": 0.94106,
    "norm_ratio": 1.0423,
-   "cos": 0.94106
+   "pct_of_model": 0.00402,
+   "rel": 0.3531
   },
   "19": {
-   "pct_of_model": 0.14676,
-   "rel": 0.2093,
+   "cos": 0.98859,
    "norm_ratio": 0.8432,
-   "cos": 0.98859
+   "pct_of_model": 0.14676,
+   "rel": 0.2093
+  },
+  "2": {
+   "cos": 0.99768,
+   "norm_ratio": 0.7097,
+   "pct_of_model": 2.69418,
+   "rel": 0.2959
   },
   "20": {
-   "pct_of_model": 0.00091,
-   "rel": 1.1293,
+   "cos": 0.66352,
    "norm_ratio": 1.5094,
-   "cos": 0.66352
+   "pct_of_model": 0.00091,
+   "rel": 1.1293
   },
   "21": {
-   "pct_of_model": 0.00297,
-   "rel": 0.4081,
+   "cos": 0.92896,
    "norm_ratio": 0.7571,
-   "cos": 0.92896
+   "pct_of_model": 0.00297,
+   "rel": 0.4081
   },
   "22": {
-   "pct_of_model": 0.01434,
-   "rel": 0.1757,
+   "cos": 0.99145,
    "norm_ratio": 0.8737,
-   "cos": 0.99145
+   "pct_of_model": 0.01434,
+   "rel": 0.1757
   },
   "23": {
-   "pct_of_model": 0.00181,
-   "rel": 1.0383,
+   "cos": 0.82974,
    "norm_ratio": 1.7053,
-   "cos": 0.82974
+   "pct_of_model": 0.00181,
+   "rel": 1.0383
+  },
+  "3": {
+   "cos": -0.16902,
+   "norm_ratio": 0.7261,
+   "pct_of_model": 0.31115,
+   "rel": 1.3314
+  },
+  "4": {
+   "cos": 0.97744,
+   "norm_ratio": 0.851,
+   "pct_of_model": 0.29514,
+   "rel": 0.2461
+  },
+  "5": {
+   "cos": 0.98243,
+   "norm_ratio": 5.5205,
+   "pct_of_model": 2.43308,
+   "rel": 4.5419
+  },
+  "6": {
+   "cos": -0.80457,
+   "norm_ratio": 1.9735,
+   "pct_of_model": 1.39118,
+   "rel": 2.8408
+  },
+  "7": {
+   "cos": -0.01417,
+   "norm_ratio": 5.1979,
+   "pct_of_model": 2.86053,
+   "rel": 5.3071
+  },
+  "8": {
+   "cos": 0.74941,
+   "norm_ratio": 19.2415,
+   "pct_of_model": 8.05416,
+   "rel": 18.504
+  },
+  "9": {
+   "cos": 0.99845,
+   "norm_ratio": 1.1089,
+   "pct_of_model": 3.03037,
+   "rel": 0.1237
   }
  },
  "per_block_reading": "not a gradient of severity -- qualitative. norm_ratio runs 0.71 to 19.24 and cos runs -0.80 to +0.998, with FOUR blocks anti-correlated (0: -0.796, 3: -0.169, 6: -0.805, 7: -0.014) and nine above 0.97 with r near unity. Some blocks are fine and some have gradients pointing the wrong way, in the same leaf.",
- "d53_hypothesis_REFUTED": "D53 filed, as an explicitly open hypothesis with its own falsification condition, that rel rises with mass inside this family. Over all 24 blocks the log-log slope is 0.1657 with Pearson 0.3067. REFUTED. The six points that suggested it were the six worst of 24 -- a selected tail, exactly the failure mode D53 predicted for itself.",
- "leads_not_findings": [
-  "layer_norm_a.linear_s.weight reads mass-weighted norm ratio 1.0980 while linear_g reads ~5 and the gain 7.87. In AdaLN, out = a_norm * sigmoid(s_scale) + s_bias, so d/d s_bias = g_out directly while d/d s_scale = g_out * a_norm * sigmoid'. linear_s being near-right says the cotangent ARRIVING at the AdaLN output is essentially correct, and the error is in the a_norm * sigmoid' factor -- or in a_norm itself, which the tape RECOMPUTES in the backward rather than retaining.",
-  "a_ln is consumed twice on the attention side (the fused padded QKV projection at openfold3_diffusion_transformer.py:189, head_dim 48 -> 64, and the query gate at :218), and that path also carries nlp_create_qkv_heads and the slice o[:, :, :, :HEAD_DIM] that drops the 16 padding channels. a_t is consumed twice too, so multiple consumption is not the difference -- but the padded head dim and the slice that undoes it exist ONLY on the failing side. A backward that does not zero the padding region would inject structure rather than noise, vary per block, and produce negative cosines.",
-  "these are leads. Nothing here measures either of them."
- ],
- "what_this_does_not_establish": "it does not name the defect, and it does not say the 523 other tensors are acceptable -- at mass-weighted 0.2929 they are still 14.6x the 2.0e-02 bar, and only 2.7940 % of the model is inside the 5.0e-02 per-tensor bar. It says where 25.5795 % of the model's gradient goes wrong and that the AdaLN class itself is not the cause. One batch, one r = 0 step, one crop.",
- "provenance": "computed 2026-09-20 pass 153 by of3t-orchestrator on pc, CPU only, no device opened, from device_gradient_043pt.json (qb2, written 05:18:47 UTC, 547 per-tensor entries, all 48 structures, share_of_diffusion_sq_norm 0.5732029094107396) and bundle_min_043/grads_f64_043.pt (4,170 tensors, model squared norm 10.279642678524985). All 547 entries matched a reference tensor; 0 unmatched."
+ "provenance": "computed 2026-09-20 pass 153 by of3t-orchestrator on pc, CPU only, no device opened, from device_gradient_043pt.json (qb2, written 05:18:47 UTC, 547 per-tensor entries, all 48 structures, share_of_diffusion_sq_norm 0.5732029094107396) and bundle_min_043/grads_f64_043.pt (4,170 tensors, model squared norm 10.279642678524985). All 547 entries matched a reference tensor; 0 unmatched.",
+ "the_arm_in_one_table": {
+  "everything else": {
+   "inside_5e-2_per_tensor_bar": {
+    "n": 73,
+    "pct_of_model": 2.794
+   },
+   "mass_weighted_rel": 0.2929,
+   "n": 523,
+   "pct_of_model": 25.5563
+  },
+  "the one leaf": {
+   "mass_weighted_rel": 10.698,
+   "n": 24,
+   "pct_of_model": 25.5795
+  },
+  "whole compared set": {
+   "mass_weighted_rel": 7.5692,
+   "median_over_tensors": 0.1659,
+   "n": 547,
+   "note": "the mass-weighted figure is 45.6x the median the campaign has been quoting. PROTOCOL A23's argument, at the largest scale available.",
+   "pct_of_model": 51.1358
+  }
+ },
+ "the_control_that_came_free": {
+  "attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+   "mass_weighted_cos": 0.653,
+   "mass_weighted_norm_ratio": 7.8658,
+   "mass_weighted_rel": 10.698,
+   "n": 24,
+   "pct_of_model": 25.5795
+  },
+  "claim": "there are TWO instances of tenstorrent.AdaLN per DiT block, built from the same class with the same code and driven with the same (a, s). One fails 59x worse than the other.",
+  "conditioned_transition.layer_norm.layer_norm_s.weight": {
+   "mass_weighted_cos": 0.9894,
+   "mass_weighted_norm_ratio": 0.9988,
+   "mass_weighted_rel": 0.1828,
+   "n": 24,
+   "pct_of_model": 15.513
+  },
+  "what_it_settles": "a defect in the AdaLN class's backward -- including the sigmoid-gated multiply, which pass 152 called the last surviving candidate -- would hit BOTH instances. It hits one. The class is exonerated by the model's own natural A/B and the defect is in what the block does around adaln_a."
+ },
+ "the_worst_tensor_in_full": {
+  "cos": 0.749414,
+  "norm_ratio": 19.2415,
+  "pct_of_model": 8.05416,
+  "reading": "19.24x too large AND 41 degrees off. Not precision.",
+  "rel": 18.504,
+  "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+ },
+ "what": "the OpenFold3 gradient defect, localised to ONE leaf, from device_gradient_043pt.json's per-tensor array (547 tensors: rel_l2, norm_ratio, cos, ref_norm, device_norm) cross-referenced against the per-tensor reference mass. No new run -- both artifacts already existed on qb2 and had never been read together.",
+ "what_this_does_not_establish": "it does not name the defect, and it does not say the 523 other tensors are acceptable -- at mass-weighted 0.2929 they are still 14.6x the 2.0e-02 bar, and only 2.7940 % of the model is inside the 5.0e-02 per-tensor bar. It says where 25.5795 % of the model's gradient goes wrong and that the AdaLN class itself is not the cause. One batch, one r = 0 step, one crop."
 }

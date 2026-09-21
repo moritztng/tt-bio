@@ -3583,9 +3583,11 @@ def softmax_ckc(token: str, default: bool = False):
 
 
 # Calls served by the host float64 softmax, so an arm cannot silently decline. `declined` counts
-# calls that reached `site_softmax` with the site off, which is what makes "the flag fired and
-# nothing happened" readable instead of invisible.
-HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "elements": 0}
+# calls that reached `site_softmax` with the site off and `refused` those that reached it with
+# the site on and no tape open to serve them, which is what makes "the flag fired and nothing
+# happened" readable instead of invisible. `served` and `elements` are bumped by
+# `autograd.host_f64_softmax`, which is where the round trip is.
+HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0}
 
 
 def host_f64_softmax_site(token: str, default: bool = False) -> bool:
@@ -3619,56 +3621,11 @@ def host_f64_softmax_site(token: str, default: bool = False) -> bool:
 
     Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
     ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
-    reaches, so it stays A/B-able without a checkout.
+    reaches, so it stays A/B-able without a checkout. Selecting a site is not enough to open the
+    path: `site_softmax` also needs a tape open, so the variable cannot move an inference fold
+    whatever it is set to.
     """
     return _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
-
-
-def host_f64_softmax(x, dim: int = -1):
-    """``softmax(x, dim)`` computed on the host in float64, differentiable under the tape.
-
-    The backward is the softmax Jacobian in float64 as well, ``dx = y * (g - (g * y).sum(dim))``,
-    applied to the float64 forward output rather than to the rounded copy that went back to the
-    card. Reading the rounded copy would put a device-precision softmax straight back into the
-    gradient this path exists to take out of it.
-
-    `x` may be a raw ttnn tensor (inference) or a taped `autograd.Tensor` (training); the only
-    difference is whether a tape node is created.
-    """
-    import torch
-
-    from . import autograd as ag
-    from . import taped_ttnn as TT
-
-    xt = x if isinstance(x, ag.Tensor) else None
-    v = xt.value if xt is not None else x
-    y64 = torch.softmax(ttnn.to_torch(v).double(), dim=dim)
-    HOST_F64_SOFTMAX_STATS["served"] += 1
-    HOST_F64_SOFTMAX_STATS["elements"] += int(y64.numel())
-    y = ttnn.from_torch(y64.float(), layout=v.layout, device=v.device(), dtype=v.dtype,
-                        memory_config=v.memory_config())
-    if xt is None:
-        return y
-
-    def make():
-        def bw(g):
-            g64 = ttnn.to_torch(g).double()
-            inner = (g64 * y64).sum(dim=dim, keepdim=True)
-            if TT._SOFTMAX_BW_RENORM:
-                # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
-                # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
-                # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
-                # restores the identity. On THIS path the row already sums to one to float64
-                # round-off, so the division is arithmetically a no-op -- which is the point.
-                # It is the consistency check between two independently derived repairs, and
-                # it is why the flag reaches here instead of stopping at the tape verb.
-                inner = inner / y64.sum(dim=dim, keepdim=True)
-            d = y64 * (g64 - inner)
-            xt.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=g.device(),
-                                        dtype=g.dtype, memory_config=g.memory_config()))
-        return bw
-
-    return ag._tape(y, [xt], make)
 
 
 def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
@@ -3678,11 +3635,27 @@ def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
     what makes the path bit-identical when off. With it True the kernel arguments -- a compute
     kernel config, ``numeric_stable`` -- describe a kernel that does not run, so they are
     dropped: the host computes the softmax exactly and has no use for either.
+
+    The site selector does not on its own open the path. ``TT_BIO_HOST_F64_SOFTMAX_AB`` is an
+    environment variable, these call sites are shared with every model's inference, and the path
+    costs a host round trip per softmax for gradient fidelity inference has no use for. So the
+    implementation lives in `tt_bio.autograd` and the call goes through the hook
+    `autograd.install` fills: with no tape open `ops.host_softmax_hook()` is None, this is
+    `ttnn.softmax` exactly as if the selector were unset, and the refusal is counted rather than
+    silent. `tests/test_host_f64_softmax_defaults.py` holds both directions.
+
+    Off, the selector costs nothing but the argument test it already was: nothing is imported
+    and no hook is read.
     """
-    if not host_f64:
+    if host_f64:
+        from . import ops
+        host = ops.host_softmax_hook()
+        if host is not None:
+            return host(x, dim)
+        HOST_F64_SOFTMAX_STATS["refused"] += 1
+    else:
         HOST_F64_SOFTMAX_STATS["declined"] += 1
-        return ttnn.softmax(x, dim=dim, **kw)
-    return host_f64_softmax(x, dim)
+    return ttnn.softmax(x, dim=dim, **kw)
 
 
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
@@ -9162,16 +9135,15 @@ class PairformerLayer(Module):
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
-        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer has
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer holds
         # two kernels that do different things with it, so one value cannot serve both.
-        # `AttentionPairBias` folds the bias inside the score scale -- (q@k^T + z) * d**-0.5 --
-        # so a bias the reference adds UNSCALED has to arrive pre-baked by sqrt(d), which is
-        # what scale_pair_bias=True does. `TriangleAttention` adds it outside the scale, so the
-        # same reference convention wants False there. OpenFold3 is the model that needs both,
-        # and before the split its single False left the token pair bias at 1/sqrt(24) = 0.204
-        # of the reference value in every fold. `None` follows `scale_pair_bias`, so every
-        # other caller is byte-identical. LEDGER K34: a flag named after the reference rather
-        # than the kernel is right at whichever of its sites happens to match.
+        # `AttentionPairBias` adds the bias INSIDE its score scale -- (q@k^T + z) * d**-0.5 -- so
+        # a reference that adds z unscaled to an already-scaled q needs z to arrive pre-baked by
+        # sqrt(d), which is what scale_pair_bias=True does. `TriangleAttention` scales q@k^T alone
+        # and divides the bake back out before its add, so the same reference convention wants
+        # False there. OpenFold3 is the model that needs both, and one shared False left its token
+        # pair bias at 1/sqrt(24) = 0.204 of the reference value in all 48 trunk blocks. `None`
+        # follows `scale_pair_bias`, so every caller that does not name it is unchanged.
         tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
