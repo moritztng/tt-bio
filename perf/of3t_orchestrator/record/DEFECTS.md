@@ -7981,3 +7981,41 @@ Still not measured, and D107 says so itself: §7's harness never produces a part
 cheap closure — construct a step whose samples all disable one parameter group and run both
 optimizers — and that is now `of3t-rebind`'s deliverable 4, because sending a second row into the
 same method is how two branches independently fix one defect and a merge silently picks one.
+
+### D24 UPDATE 2 (pass 224). UNFIXED on main, REPAIRED on the composition, and the repair has made the family inconsistent — three shipped models now give three different answers to one question.
+
+My pass-220 note said D24 is *"live in the shipped tree at `openfold3_fold.py:277`"*. That is right
+for **`origin/main`**, which is what a user gets, and it is incomplete: I read my own branch and
+main and not the composition. On **`wk/of3t`** the rule has been factored into
+`sample_ranking_score` at `openfold3_fold.py:92-121` by `of3t-confhead` (`5588d889a`) and repaired:
+
+    if iptm > 0.0:
+        return 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
+    return 0.8 * plddt + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
+
+So D24 is **unfixed where it ships and fixed where it is gated**, which is the same position as
+every other repair this campaign holds. Verified by reading all three trees rather than one:
+`origin/main:277` and `wk/of3t-orchestrator:277` carry the inline rule, `wk/of3t:92` carries the
+function. **Third pass running that I have had to check which tree a claim is about**, which is why
+that is now a memory and not a resolution.
+
+**And the repair introduced a family inconsistency.** Three shipped rankers, three different
+answers to *"what happens to ipTM's weight when there is no interface"*:
+
+    tt_bio/openfold3_fold.py:92-121   0.8*ipTM ... -> 0.8*pLDDT + 0.2*pTM + 0.5*dis - 100*clash
+    tt_bio/rf3/confidence.py:108-113  0.8*ipTM ... -> ipTM <- pTM, i.e. 1.0*pTM - 100*clash
+    tt_bio/worker.py:1066-1070        0.8*ipTM ... -> pTM if pTM > 0 else pLDDT
+
+That is the STANDING `unified-solution-not-per-model-patches` rule, and the fix is on the wrong side
+of it. `of3t-confhead` saw it coming and said so — *"the unified answer is one shared ranking
+function all four sites call. This row does not make that change: it would move the served structure
+of three models it has not folded, on evidence from one 76-residue target."* Correctly deferred, and
+now owed.
+
+**One correction to the repair's own justification, worth recording because it is load-bearing for
+the choice of pLDDT.** `sample_ranking_score`'s docstring says *"the shared Protenix/OpenDDE ranker
+falls back to (`worker.py`)"* pLDDT. `worker.py:1070` reads `return ptm if ptm > 0.0 else c["plddt"]`
+— it falls back to **pTM**, and reaches pLDDT only when pTM is zero too. The family precedent for
+pLDDT is thinner than the docstring claims. It does not touch the measurement (nine seeds x five
+samples on 1UBQ, where the collapsed rule selects worse than random and pLDDT beats it); it touches
+the argument from convention that sits beside it. Dispatched as `of3t-rankunify`.
