@@ -184,10 +184,6 @@ TABLE = {
                    "a load that drops 24 trained tensors reads clean in every artifact derived "
                    "from it. An instrument-provenance defect in this campaign's own reference "
                    "chain; it changes nothing a user of the shipped tree gets."),
-    "D149": (CAMP, "of3t-trajwide's reference side imports openfold3 0.5.0 while its constant and "
-                   "its prose say 0.4.3, because three sys.path.insert(1, p) calls reverse the "
-                   "order. A defect in this campaign's own measurement harness; the shipped tree "
-                   "does not import either tree, and no user-visible behaviour depends on it."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "
