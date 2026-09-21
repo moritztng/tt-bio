@@ -1,0 +1,23 @@
+{
+ "what": "independent recompute by of3t-orchestrator of the row's fp32_softmax finding, from its own SMOFF and LADDER bundles",
+ "bar": {"median": 0.02, "per_tensor": 0.05},
+ "per_block": {
+  "0":  {"on": 0.01214, "off": 0.00949, "ratio": 0.782, "on_pass": true,  "off_pass": true},
+  "8":  {"on": 0.03025, "off": 0.01297, "ratio": 0.429, "on_pass": false, "off_pass": true},
+  "16": {"on": 0.02162, "off": 0.01399, "ratio": 0.647, "on_pass": false, "off_pass": true},
+  "23": {"on": 0.01919, "off": 0.01513, "ratio": 0.788, "on_pass": true,  "off_pass": true},
+  "32": {"on": 0.09679, "off": 0.01679, "ratio": 0.173, "on_pass": false, "off_pass": true},
+  "40": {"on": 0.02118, "off": 0.02127, "ratio": 1.004, "on_pass": false, "off_pass": false},
+  "47": {"on": 0.20129, "off": 0.20311, "ratio": 1.009, "on_pass": false, "off_pass": false}
+ },
+ "verified": "the row's claim reproduces exactly: better at 5 of 7 blocks, 3 cross the median bar. Config fields confirm fp32_softmax False in every SMOFF bundle and True in every LADDER bundle.",
+ "headline": "with fp32_softmax=False, FIVE of seven measured trunk blocks pass the 2.0e-02 median bar, against TWO with it on. This is the campaign's first lever that improves gradient parity.",
+ "block_32_is_explained": "block 32 -- the 'magnitude right, direction wrong' block I flagged at pass 136 with median 0.09679, norm_ratio 1.0002 and cos 0.99563 -- improves 5.8x to 0.01679 and crosses the bar. fp32_softmax accounts for it.",
+ "and_it_does_nothing_for_40_and_47": "blocks 40 and 47 read 1.004x and 1.009x -- unchanged. So the lever acts on blocks 0-32 and not on the end of the stack, which is independent evidence that block 47's per-track factor is a different mechanism.",
+ "what_it_does_NOT_settle": [
+  "fp32_softmax=True was set for FORWARD accuracy. This arm is trunk backward only, one crop, one boundary, and says nothing about the forward argument that set it. It is a gradient-versus-forward tradeoff, not a free win.",
+  "it is RELEASE-GATED: flipping it changes shipped accuracy. The row reported it and did not flip it, and the default stays True. That is correct.",
+  "seven blocks of forty-eight, at crop 64 against one captured boundary."
+ ],
+ "what_it_licenses": "a pre-registered A/B on the forward: if fp32_softmax=False costs nothing measurable on fold accuracy at shipped sizes, it becomes a candidate default change worth 3 of 7 blocks crossing the bar. If it costs forward accuracy, the campaign has found a real tension between forward and gradient parity and should say so -- that is a finding either way."
+}
