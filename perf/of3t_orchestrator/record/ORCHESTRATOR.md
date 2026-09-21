@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, thirty amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (**99 KB** as of pass 287 — the 30 KB this line read until then was three times stale, thirty amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -341,6 +341,8 @@ Recomputed from the artifacts on every compose (173 checks, 0 drifted); that tot
   control-vs-arm2 agrees with control-vs-reference to seven figures, so the comparison is shown
   capable of failing.
 
+
+**And the method's own argument has a receipt (pass 287).** The protocol's reason for N = 20 rather than 2000 is that an injected drive isolates each state-free factor and *"reaches the corner cases a real batch never happens to hit — the clip threshold, the warmup knee, a zero gradient, **a disabled parameter**"*. **D107 is that last item**: on a step where a parameter is disabled on every sample our optimizer left it where it was and upstream's did not, **1.1025e-03 → 2.0086e-08** after a one-file repair. p(a sample disables the confidence head) = 0.5327103 from upstream's own files, but p(a whole STEP does) is **9.59e-71** at their shipped global batch 256 — so a real 2000-step trajectory would never have reached it, while the injected drive hits it by construction. The design predicted the class of defect it then found, in writing, before it was found.
 DOESNOT: **Nothing a user gets today has changed, and every headline repair in PROVES is a
 CONFIGURATION rather than the shipped port.** This is the first line of this field because it is the
 sentence most likely to be lost in a summary. The trunk's 1.0251x is measured with
@@ -847,9 +849,21 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Eighty dispatched, seventy-three concluded, seven live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-five defects, fifty-three UNFIXED; seventy-five of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty dispatched, seventy-three concluded, seven live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-six defects, fifty-three UNFIXED; seventy-five of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 286 — the lever Moritz shipped ON is worth 4x only because a forward site is missing one argument; add the argument and it becomes a wash.**
+PASSLOG: **Pass 287 — audited the one part of the document that has no guard on it, the header, and found one stale fact and one result worth promoting: the protocol predicted, in writing, the class of defect it later found.**
+
+**The stale fact.** The header reads *"PROTOCOL: … (30 KB, thirty amendments …)"*, immediately followed by *"Originally 16 KB"*. The file is **99 KB**. The pairing is what makes it misread — two numbers side by side look like growth measured now, not a pass-1 figure next to a pass-20 one. Filed as **D156** rather than silently corrected, because it is the first fifteen lines a reader sees, before VERDICT, and because every summary field in this document is checked against its source while the preamble describing the protocol is not.
+
+**The rest of the header holds, checked rather than assumed.** §9 does what it claims: each amendment records the date, the row that asked, the change, the reason, and whether a number already existed — *"No number existed yet"* on A1 and the same form throughout. The thirty-amendment count is the one `audit_evidence.py` already verifies; a raw grep returns 40 because it counts `A26-SCOPE`, `A24-AMENDMENT` and the addenda, a different unit rather than a discrepancy.
+
+**The result worth promoting, and it is the opposite of this campaign's usual finding.** The header's argument for N = 20 rather than 2000 is that an injected drive isolates each state-free factor and *"reaches the corner cases a real batch never happens to hit — the clip threshold, the warmup knee, a zero gradient, **a disabled parameter**"*. **D107 is that last item, exactly**: on a step where a parameter is disabled on every sample our optimizer left it where it was and upstream's did not, **1.1025e-03 → 2.0086e-08** after a one-file repair. p(a sample disables the confidence head) = 0.5327103 from upstream's own files; p(a whole STEP does) is **9.59e-71** at their shipped global batch 256 — so a real 2000-step trajectory would never have reached it, while the injected drive hits it by construction.
+
+The campaign has spent many passes recording where its own instruments were wrong, which is the right emphasis and also a biased sample. **This is the same standard of evidence pointing the other way**: the design's stated reason for existing produced the thing it said it would, and the corner case it named by name is the one that fired. Promoted into PROVES, because it is a claim about the method rather than about a defect.
+
+**Both card rows still advancing**: `of3t-trajwide` at **28** k-files, five processes; `of3t-d137digest` on qb1 card 3, no state doc yet.
+
+**Pass 286 —  the lever Moritz shipped ON is worth 4x only because a forward site is missing one argument; add the argument and it becomes a wash.**
 
 `of3t-d116` concluded PARTIAL and its most consequential number is not about D116. Same shape, same draw, same reference:
 
