@@ -206,12 +206,27 @@ the row's own published table** — exponent, intercept and r2 reproduce to all 
 ratios to 0.01 % (display rounding on a 4-figure floor). This **supersedes the 36.9462 % /
 4.763338e-02 / -0.2482 reading** and retires D136.
 
-**Four of D136's five pre-registered fields are met and the fifth has no reading** — reference
-resolved in-process (not from the constant) at 0.4.3 with 0 missing / 0 unexpected, arm `shipped`,
+**All five of D136's pre-registered fields are now met (pass 315)** — reference resolved
+in-process (not from the constant) at 0.4.3 with 0 missing / 0 unexpected, arm `shipped`,
 scope-with-mass 88.0819 %, denominator construction published with the uncovered 11.9181 % split
-tensor-by-tensor and summing to 100 %. The fifth, **agreement-and-accuracy against the reachable
-bar**, is the one field this campaign never built the instrument for, and it is in DOESNOT rather
-than here.
+tensor-by-tensor and summing to 100 %, and the fifth — **agreement-and-accuracy against the
+reachable bar** — supplied by `of3t-trajbar`.
+
+**The bar, and it is the number that turns a shape result into a reproduction claim.** Upstream
+0.4.3 **bf16-mixed** against upstream 0.4.3 **float64**, which is what upstream actually ships:
+same capture, same noise partition, same `PerSampleGradManager` / `Adam` / `AlphaFoldLRScheduler`
+in `runner.py:449-470` order, same twenty steps, same `--w0 own`, scored on `of3t-trajwide`'s
+**identical 573 tensors** at the **identical 88.0819 %** by the same driver in the same process.
+It reads **1.762065e-01** at k = 20, exponent **-0.357018**, intercept **-0.644892**, r2
+**0.987778**, SUB-LINEAR, monotone at all nineteen rungs, `d_1` exactly zero on both sides.
+
+**Our 2.564253e-01 is 1.4553x it.** Both are distances from the *same* float64 ideal, which is
+what makes the ratio meaningful: upstream's own shipped precision is already **17.6 %** away at
+k = 20 and we are **45.5 % further**. Under **1.5x at every one of the nineteen rungs** — min
+**1.1688** at k = 2, max **1.4942** at k = 10. I refit the bar from its own published table and
+the exponent, intercept and r2 reproduce to **all six digits**, the ratio exactly. Pre-registered
+outcome **2 of 3**, committed at `8c9390e2a` before the arm was half done, all five predicted
+fields inside their intervals.
 
 **The closing measurement, RE-DERIVED by the orchestrator from the committed artifact rather than
 from the row's prose (pass 248).** After three attribution errors in a week — D127's bound, D129's
@@ -400,15 +415,17 @@ merely large.**
   reference side's in-process A/A reads exactly **0.000e+00**, 761 of 761 bit-identical at every
   rung. The two sides move by almost the same AMOUNT in materially different DIRECTIONS: at k = 20,
   ||d_ours|| **3.2167e+00** against ||d_theirs|| **3.2163e+00**, a **0.012 %** difference in
-  magnitude carrying a 25.6 % difference in the vector. **Whether 25.6 % is acceptable is a
-  question this campaign cannot currently answer**, because A26's 1.0495450e-01 is a single-STEP
-  GRADIENT bar and does not transfer through Adam's sqrt(v) normalisation — there is no reachable
-  bar for a 20-step TRAJECTORY anywhere on this record. `of3t-trajbar` (dispatched pass 307,
-  launched 19:38 CEST pass 308, CPU-only) is building it: upstream's own bf16-mixed loop against
-  upstream's own float64 loop, same init, same order, same 573-tensor denominator. **Until it
-  lands, the honest form of condition 3 is "our update rule does not diverge from theirs at an
-  accelerating rate over twenty steps, at 88.0819 % of the model", and not "our weights track
-  theirs".** And twenty rungs is twenty: a sub-linear law here is consistent with a run that
+  magnitude carrying a 25.6 % difference in the vector. **ANSWERED at pass 315: 25.6 % is 1.4553x what upstream's own
+  production precision already costs them.** `of3t-trajbar` built the comparator — upstream
+  bf16-mixed against upstream float64, measured as a distance from the *same* float64 ideal, on
+  the same 573 tensors over the same twenty steps by the same driver — and it reads
+  **1.762065e-01** at k = 20 against our 2.564253e-01. So the 25.6 % is not 25.6 % of avoidable
+  error: **upstream's own shipped recipe is already 17.6 % away from float64 at k = 20**, and we
+  are **45.5 % further than that**, with the same sub-linear shape (-0.277 against their -0.357)
+  and under 1.5x at every rung. **The honest form of condition 3 is now: our twenty-step update
+  rule tracks upstream's to within 1.4553x of what their own bf16-mixed training already deviates
+  from the float64 ideal, over 88.0819 % of the model.** That is a bounded claim with a
+  comparator, and it is strictly stronger than the shape result alone. And twenty rungs is twenty: a sub-linear law here is consistent with a run that
   converges together AND with one that separates at step 5,000.
 
 - **Measured directly against upstream's own training step, we do not reproduce it.** The
@@ -939,9 +956,11 @@ it — **this document is no longer a reliable index of its own campaign**, and 
 stands between that and burning a row per pass.
 
 VERDICT: PARTIAL — **OpenFold3's training step reproduces per-parameter at model scope at parity
-with upstream's own bf16 recipe, and as of pass 307 a 20-step weight trajectory on the SHIPPED
-default diverges SUB-LINEARLY over 88.0819 % of the model; three of the gate's five conditions are
-met and the campaign still does not meet its own GO bar.** I wrote GO at pass 218; the gate refused
+with upstream's own bf16 recipe, and over twenty steps on the SHIPPED default our weight
+trajectory tracks theirs to within 1.4553x of what upstream's OWN bf16-mixed training already
+deviates from the float64 ideal — sub-linearly, over 88.0819 % of the model, under 1.5x at every
+one of nineteen rungs. Three of the gate's five conditions are met and the campaign still does not
+meet its own GO bar.** I wrote GO at pass 218; the gate refused
 it and was right.
 
 **The two remaining conditions are different in kind, and only one of them is work.** Condition 4
@@ -986,8 +1005,19 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   denominator construction (A27) — **MET**, 573 tensors at 9.054509065596104 of the boundary's
   9.170528876862544 over the campaign's 10.279642678524981, with the uncovered 11.9181 % split
   into 1.1286 % named tensor-by-tensor and 10.7894 % outside the boundary, summing to 100 %;
-  **agreement-and-accuracy against the reachable bar (A25/A26) — NOT MET, and not the row's
-  fault: no reachable bar for a 20-step TRAJECTORY exists anywhere on this campaign's record.**
+  **agreement-and-accuracy against the reachable bar (A25/A26) — MET at pass 315.**
+  `of3t-trajbar` built the bar that did not exist: **upstream 0.4.3 bf16-mixed against upstream
+  0.4.3 float64**, same capture, same partition, same optimiser objects in `runner.py:449-470`
+  order, same twenty steps, same `--w0 own`, scored on `of3t-trajwide`'s **identical 573 tensors**
+  and identical **88.0819 %**, by the same driver in the same process, reference tree asserted
+  in-process at `of3pkg043` with 0 missing / 0 unexpected. The bar reads **1.762065e-01** at
+  k = 20, exponent **-0.357018** (r2 0.987778), SUB-LINEAR, `d_1` exactly zero both sides. **Our
+  2.564253e-01 is 1.4553x it, and under 1.5x at every one of the nineteen rungs** (min 1.1688 at
+  k = 2, max 1.4942 at k = 10). I refit the bar from its own published table: exponent, intercept
+  and r2 reproduce to **all six digits**, the ratio exactly, the monotonicity and the
+  under-1.5x claim both confirmed. Pre-registered outcome **2 of 3**, registered at `8c9390e2a`
+  before the arm was half done, all five predicted fields inside their intervals. **So all five of
+  D136's fields are met and condition 3 is complete as specified.**
   A26's 1.0495450e-01 is a single-step GRADIENT bar. The row says so itself and declines to
   settle it — *"it is not a claim about the magnitude: 2.564253e-01 at k = 20 is large"* — and
   25.6 % is five times the per-tensor gradient bar with the reference side's in-process A/A at
@@ -1008,7 +1038,25 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
-Eighty-four dispatched, seventy-eight concluded, six live (this row; `of3t-ditcot` **CONCLUDED STOP 20:0x CEST** on a 6.62x denominator defect, closing D55's backward half and orphaning D30, D58 and D129 — successor `of3t-ditref` dispatched this pass and confirmed in `queue.tsv`; `of3t-stepfloor` PARTIAL with the steady step landed at 507.02 s and only D56's step-scope pair owed; `of3t-trajbar` running with its prediction registered and its scorer reproducing `of3t-trajwide` bit for bit; `of3t-fwdkcfg` HELD, and it now owns D55's forward half alone); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty-four dispatched, seventy-nine concluded, five live (this row; **`of3t-trajbar` CONCLUDED GO this pass**, supplying the bar that completes D136's fifth field; `of3t-stepfloor` on card 3 with only D56's step-scope pair owed; `of3t-ditref` on card 1 repairing the 6.62x denominator; `of3t-fwdkcfg` on card 0 with D55's forward half); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+
+PASSLOG: **Pass 315 — the comparator exists, and it turns the campaign's trajectory result from a shape into a reproduction claim: our twenty-step weights track upstream's to within 1.4553x of what upstream's OWN bf16-mixed training already costs them.**
+
+`of3t-trajbar` concluded **GO** and built the instrument this campaign had never had. Upstream 0.4.3 **bf16-mixed** against upstream 0.4.3 **float64** — which is what upstream actually ships — same `diffusion_boundary.pt` capture, same noise partition, same `PerSampleGradManager` / `Adam` / `AlphaFoldLRScheduler` in `runner.py:449-470` order, same twenty steps, same `--w0 own`, scored on `of3t-trajwide`'s **identical 573 tensors** at the **identical 88.0819 %** by the same driver in the same process, reference tree asserted in-process at `of3pkg043`, 761 parameters, 0 missing, 0 unexpected.
+
+    bar (theirs bf16 vs theirs f64)   1.762065e-01 at k=20   exponent -0.357018  r2 0.987778
+    ours (vs the same f64 ideal)      2.564253e-01 at k=20   exponent -0.277240  r2 0.905000
+    ratio                             1.4553x, and under 1.5x at every one of nineteen rungs
+
+**Verified before quoting, and it holds to six digits.** I refit the bar from its own published table: exponent **-0.357018**, intercept **-0.644892**, r2 **0.987778**, every digit. The ratio at k = 20 is **1.4553** exactly; the per-rung ratios run **1.1688** at k = 2 to **1.4942** at k = 10, so "under 1.5x at every rung" is confirmed rather than asserted, and the bar falls monotonically at all nineteen. `bar/floor` 1204.42 against the published 1204.53 is display rounding on a 4-figure floor, the same 0.01 % artefact as `of3t-trajwide`'s.
+
+**Why the ratio is the right statistic and not a rhetorical one.** Both numbers are distances from the **same** float64 ideal, taken by the same driver in one process. So this is not "we are 25.6 % off" against an implied zero: **upstream's own shipped precision is already 17.6 % away at k = 20**, and we are **45.5 % further than that**. The shapes agree too — both sub-linear, ours -0.277 against theirs -0.357. Pre-registered **outcome 2 of 3**, committed at `8c9390e2a` before the arm was half done, with all five predicted fields inside their intervals.
+
+**So all five of D136's pre-registered fields are met and GO condition 3 is complete as specified.** PROVES, DOESNOT and VERDICT all carry the comparator now; the honest form of the claim is *"our twenty-step update rule tracks upstream's to within 1.4553x of what their own bf16-mixed training already deviates from the float64 ideal, over 88.0819 % of the model"* — bounded, with a comparator, and strictly stronger than the shape result alone.
+
+**And a guard I armed six passes ago closed its loop this pass, which is the first time one of these has.** At pass 309 I wrote a claim-limiting sentence into DOESNOT — *"no reachable bar for a 20-step TRAJECTORY exists anywhere on this record"* — **knowing `of3t-trajbar` had been dispatched to falsify it**, and added it to `audit_evidence.py`'s `_SUPERSEDES` table so the compose would fail the moment the row concluded with the sentence still standing. `of3t-trajbar`'s marker landed **during this pass**, between my orientation check and my verification. The sentence was already corrected, so the guard stays green — but it was live, and without it that sentence would have sat in the campaign's honest-scope field asserting the absence of a number the campaign had just measured. **Writing the guard at the same time as the claim is what made that a non-event.**
+
+**Nothing landed on `origin/main`; it still reads `56ad6c0e0`.** Four rows remain: `of3t-stepfloor` (D56's step-scope pair), `of3t-ditref` (the 6.62x denominator), `of3t-fwdkcfg` (D55's forward half), and this one.
 
 PASSLOG: **Pass 314 — the oldest unclosed line on either of Moritz's continuation directives is closed: of the 2.0067 % with no reading, 89.1 % of the closable part now has an enumeration and a cause, and the permanently unreadable piece finally has its mechanism written down instead of asserted.**
 
