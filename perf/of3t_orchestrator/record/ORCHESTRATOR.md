@@ -355,8 +355,14 @@ Moritz's, not this campaign's.
 **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
 
-- **Measured directly against upstream's own training step, we do not reproduce it: 7.426217**
-  mass-weighted over the 547 tensors the device arm covers (51.1358 % of the model), **126.9x
+- **Measured directly against upstream's own training step, we do not reproduce it.** The
+  current, widest reading of that is the SHIPPED arm at model scope: **5.5518403e+00**, which is
+  **52.898x** A26's reachable bar of 1.0495450e-01, over **92.1568 %** of the squared gradient
+  norm (`perf/of3t_wholemodel/MODEL_arms.json`, re-derived by the orchestrator at pass 248). The
+  0.9592x VERDICT quotes is the **repaired configuration** on that same reference and coverage;
+  the shipped tree is the number above. **The pass-175 reading below is narrower and older and is
+  kept because it carries the geometry**: **7.426217** mass-weighted over the 547 tensors the
+  device arm covers (51.1358 % of the model), **126.9x
   upstream's own distance from the float64 ideal**. (That is the D86-CORRECTED arm; this field
   quoted the pre-D86 published 7.426742 until pass 186 — the two differ by 0.007 % because the
   softmax error swamps the transpose contribution, so the 126.9x is unchanged, but the live
@@ -824,7 +830,17 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-seven defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 267 — the campaign's two longest-lived record defects share one shape, and nothing was watching for it.** D136: a measurement landed and GO condition 3's headline went on quoting the arm it superseded, for **25 passes**. D146: A15's mass shares were computed on a bundle the same document said was disqualified, for over **100**. Both were found by **reading**, which is not a mechanism and does not survive the next orchestrator being busier.
+PASSLOG: **Pass 268 — audited DOESNOT, the one summary field I had never checked, and it was understating the port rather than overstating it.** DOESNOT is the field that protects against over-claiming, so a drift there is dangerous in a way the others are not: a caveat that is too weak lets a wrong claim stand, and a caveat that is too strong makes the campaign's own result unreadable.
+
+**It was the second.** Its headline bullet read *"Measured directly against upstream's own training step, we do not reproduce it: **7.426217** mass-weighted over the 547 tensors the device arm covers (51.1358 % of the model)"* — a **pass-175, diffusion-scope, pre-repair** reading, correctly scoped and correctly attributed, but the widest and most current statement of the same thing is now the **SHIPPED arm at model scope**: **5.5518403e+00**, **52.898x** A26's reachable bar, over **92.1568 %** of the squared gradient norm, which I re-derived from `MODEL_arms.json` at pass 248. A reader meeting only 7.426217 takes the campaign's answer to be a number from a narrower scope on an older arm.
+
+**Fixed by adding, not replacing.** The current shipped figure leads; the pass-175 reading is kept and labelled *"narrower and older … kept because it carries the geometry"* — the cos ~ 0.20 orthogonality, the per-section floors, `layer_norm_a` at 0.95x inside its floor. Deleting it would lose the only place those live.
+
+**And DOESNOT corroborates D146 from the other side, which is worth recording.** Its section shares already read *"on the correct **4,170** basis: `diffusion_module` **89.211 %**, `pairformer_stack` **5.828 %**"* — the current figures — while PROTOCOL's A15 was still teaching **88.54 %** and **5.27 %** from the 4,147 bundle. **The record knew and the protocol did not**, which is exactly why a document rows read top to bottom needs its own audit rather than inheriting the record's.
+
+**`of3t-trajwide` advanced to k=12 of 20** at 1018 % CPU — about an hour out, and the pass-267 guard will fail the compose if its conclusion lands while VERDICT still reads *"on a CONFIGURATION (D136)"*.
+
+**Pass 267 — the campaign's two longest-lived record defects share one shape, and nothing was watching for it.** D136: a measurement landed and GO condition 3's headline went on quoting the arm it superseded, for **25 passes**. D146: A15's mass shares were computed on a bundle the same document said was disqualified, for over **100**. Both were found by **reading**, which is not a mechanism and does not survive the next orchestrator being busier.
 
 **So one declared entry, and deliberately only one.** When `of3t-trajwide` has a concluded marker and VERDICT still reads *"on a CONFIGURATION (D136)"*, the compose fails, with the reason printed: that row measures the **real shipped arm at ~89.2 %** scope, which either replaces the repin-arm figure the bullet quotes or blocks it — and either way the bullet cannot still read as it does now.
 
