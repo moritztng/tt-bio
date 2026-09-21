@@ -1,0 +1,28 @@
+{
+ "question": "pass 146 left open: why did the all-48 diffusion run compare 57.32 % of the diffusion mass when 98.735 % is carriable?",
+ "answer": "ANSWERED. The run did not include diffusion_conditioning -- 26 tensors, ZERO of them uncarried, holding 41.415 % of the diffusion module's gradient mass.",
+ "measured_sub_module_mass": {
+  "diffusion_transformer":  {"n": 552, "uncarried": 96, "pct_of_diffusion": 49.202},
+  "diffusion_conditioning": {"n": 26,  "uncarried": 0,  "pct_of_diffusion": 41.415},
+  "atom_attn_enc":          {"n": 98,  "uncarried": 50, "pct_of_diffusion": 6.231},
+  "atom_attn_dec":          {"n": 82,  "uncarried": 42, "pct_of_diffusion": 1.477},
+  "layer_norm_s":           {"n": 1,   "uncarried": 0,  "pct_of_diffusion": 1.102},
+  "layer_norm_a":           {"n": 1,   "uncarried": 0,  "pct_of_diffusion": 0.299},
+  "linear_s":               {"n": 1,   "uncarried": 0,  "pct_of_diffusion": 0.274}
+ },
+ "the_arithmetic_closes_exactly": [
+  "carried diffusion tensors = 761 - 188 = 573; the run compared 547; 573 - 547 = 26",
+  "diffusion_conditioning has exactly 26 tensors and exactly 0 uncarried",
+  "98.735 % carriable - 41.415 % (diffusion_conditioning) = 57.320 %, which is the run's own share_of_diffusion_sq_norm = 0.5732",
+  "so the 26 tensors the run omitted ARE diffusion_conditioning, to three digits"
+ ],
+ "what_it_is_worth": {
+  "diffusion_conditioning_pct_of_MODEL": 36.95,
+  "current_measured_coverage_pct_of_model": 51.14,
+  "coverage_if_those_26_are_included_pct_of_model": 88.08,
+  "cross_check": "51.14 + 36.95 = 88.09, which equals the measured carried-diffusion share of the model (88.082 %) plus rounding -- the two routes agree"
+ },
+ "why_this_is_the_best_available_lever": "it is 26 tensors. They are CARRIED -- our port builds them, 0 uncarried -- and the finite-difference run already validated the reference on two of them (diffusion_conditioning.transition_s.1.layer_norm.bias at 5.088e-03 and transition_s.0.layer_norm.weight at 1.501e-05). Including them roughly DOUBLES the campaign's measured gradient coverage, from 51.14 % to about 88.08 % of the model, without touching the port.",
+ "what_is_NOT_claimed": "that they will PASS. Coverage is not parity -- including them could easily make the model-scope median worse, and given they are the most concentrated block in the section that already fails at 1.6588e-01 median, that is the likely outcome. The claim is that they are measurable and currently unmeasured, which is a different and prior thing.",
+ "history": "the campaign recorded at pass 59-ish that diffusion_conditioning's 26 tensors carry '33.61 % of the diffusion magnitude' and sit outside our DiffusionModule boundary. That figure was computed on the 0.5.0 model; on the correct 0.4.3 basis it is 41.415 %. The observation was right and was never followed up."
+}
