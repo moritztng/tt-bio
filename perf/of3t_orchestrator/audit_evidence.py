@@ -1041,6 +1041,36 @@ if DEF.is_file() and ORCH.is_file():
             ok.append("no defect's status is read out of lower-case prose or out of a negation "
                       "(probe fires on both shapes)")
 
+    # --- a row CONCLUDES and the field its result supersedes still carries the old one --------
+    # This campaign's two longest-lived record defects are the same shape: a measurement landed
+    # and the answer field went on saying what it said before. D136's trajectory headline was
+    # wrong for 25 passes; A15's mass shares were computed on a disqualified bundle for over 100
+    # (D146). Both were found by reading, which is not a mechanism.
+    #
+    # So: a SMALL hand-declared table of (row, token that its conclusion supersedes, why). When
+    # the row has a concluded marker and VERDICT still carries the token, this fails. The table
+    # is deliberately tiny and every entry names its reason -- a big one would rot, and a rotted
+    # table of expectations is worse than none.
+    _SUPERSEDES = {
+        "of3t-trajwide": ("on a CONFIGURATION (D136)",
+                          "it measures the REAL shipped arm at ~89.2 % scope, which either "
+                          "replaces the repin-arm figure GO condition 3 quotes or blocks it; "
+                          "either way the bullet cannot still read as it does now"),
+    }
+    _conc = Path("/home/moritz/.coworker/state/concluded")
+    _vtxt = _re.search(r"^VERDICT:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
+    _vtxt = _vtxt.group(1) if _vtxt else ""
+    _late = []
+    for _row, (_tok, _why) in _SUPERSEDES.items():
+        if _conc.is_dir() and list(_conc.glob(_row)) and _tok in _vtxt:
+            _late.append(f"{_row} has concluded and VERDICT still says \"{_tok}\" -- {_why}")
+    if _late:
+        bad.append("a row's conclusion supersedes a figure the answer field still carries: "
+                   + "; ".join(_late))
+    else:
+        ok.append(f"no concluded row leaves a superseded figure in VERDICT "
+                  f"({len(_SUPERSEDES)} declared)")
+
     # --- a defect whose headings NEVER declare a status is invisible to all of the above -------
     # Pass 240. D87 was closed in a word the parser cannot READ. This is the other half: a defect
     # whose headings carry NO status word at all. The parser's clause is deliberately conservative
