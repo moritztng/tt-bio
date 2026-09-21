@@ -89,14 +89,26 @@ def _identity_grad(shipped, args, kwargs, cast=False):
     typecast, to_layout, to_memory_config, clone and reallocate are all this: the value is
     whatever the shipped verb produced and the gradient passes straight through. They are
     the ops a tuned forward is mostly made of, and none of them is a no-op on device.
+
+    "Straight through" is about the VALUE, not the container. The cotangent arrives in the
+    output's layout, and a parent that was tiled before a `to_layout(..., ROW_MAJOR)` needs
+    it tiled again: hand it back row-major and the first matmul upstream dies with "Inputs
+    to matmul must be tilized", several ops away from the op that caused it. The invariant
+    every closure here keeps is that a parent receives its cotangent in ITS OWN layout and
+    dtype -- the layout half was missing, and the OF3 diffusion module's atom broadcast is
+    where it first ran, because that is a `to_layout -> reshape -> embedding` chain whose
+    gradient comes back through the layout change.
     """
     x = _wrap(args[0])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
     src_dtype = x.value.dtype
+    src_layout = x.value.layout
 
     def make():
         def bw(g):
+            if g.layout != src_layout:
+                g = ttnn.to_layout(g, src_layout)
             x.add_grad(ttnn.typecast(g, src_dtype) if cast and g.dtype != src_dtype else g)
         return bw
 
@@ -608,6 +620,11 @@ def _sliced(x: "Tensor", out_v, starts, ends):
 
     def make():
         def bw(g):
+            # `ttnn.concat` is tile-only, and a slice of a row-major tensor hands this
+            # closure a row-major cotangent. Tile once here rather than per axis;
+            # `add_grad` puts it back into the parent's layout.
+            if g.layout != ttnn.TILE_LAYOUT:
+                g = ttnn.to_layout(g, ttnn.TILE_LAYOUT)
             for ax in range(len(shape)):
                 before, after = starts[ax], shape[ax] - ends[ax]
                 if not before and not after:
@@ -831,6 +848,56 @@ def _v_create_qkv_heads(shipped, args, kwargs):
 
     return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
 
+
+@_verb("embedding")
+def _v_embedding(shipped, args, kwargs):
+    """A gather by row index. Its gradient is a scatter-add back into the table.
+
+    `ttnn.embedding(indices, table)` is the broadcast every atom-level model makes: OF3's
+    diffusion module fans a per-token single onto 601 atoms, its atom transformer fans the
+    same tensor onto 19 key blocks, and the pair branch gathers a [96,96] map into blocked
+    windows. The INDICES are host-precomputed and carry no gradient; the TABLE is the taped
+    activation, and since many rows read the same table entry the backward accumulates
+    rather than assigns. A closure that assigned would be exactly right on a permutation
+    and silently wrong here, which is why the test drives it with duplicates.
+
+    `ttnn.embedding_bw` is that scatter-add, with two constraints the shipped signature
+    does not advertise: the cotangent must be rank 4 with both leading dims 1, and it must
+    be bf16 or bfp8 (it refuses fp32 outright). Neither costs accuracy here, because the
+    forward is already bf16 at this point -- every shipped call site downcasts the table
+    before the gather, since `ttnn.embedding` is bf16-only too. Measured against float64
+    index_add at the shapes OF3 runs: 1.03e-2 relative at [96,384] from 608 rows, 1.35e-2
+    at [9216,128] from 77824. That is the kernel's own bf16 accumulation, not the input
+    rounding -- splitting the cotangent into bf16 high and residual and running it twice
+    moves 1.354e-2 to 1.344e-2, so there is nothing to buy there. It grows with rows per
+    table entry: 6.2e-2 at 43 duplicates, over §3d's per-tensor bar. If a table ever gets
+    that crowded the escape is a one-hot matmul, which accumulates in the fp32 dest
+    register; at OF3's ~8 rows per entry it is not needed and would cost a [77824, 9216]
+    intermediate.
+    """
+    idx = _unwrap(args[0])
+    w = _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    w_shape, w_dtype, w_layout = w.value.shape, w.value.dtype, w.value.layout
+    V, C = int(w_shape[-2]), int(w_shape[-1])
+
+    def make():
+        def bw(g):
+            flat = ttnn.reshape(ttnn.to_layout(g, ttnn.ROW_MAJOR_LAYOUT), (1, 1, -1, C))
+            gb = ttnn.to_layout(flat, ttnn.TILE_LAYOUT)
+            if gb.dtype != ttnn.bfloat16:
+                gb = ttnn.typecast(gb, ttnn.bfloat16)
+            gw = ttnn.embedding_bw(idx, w.value, gb)
+            gw = ttnn.reshape(ttnn.to_layout(gw, ttnn.ROW_MAJOR_LAYOUT), tuple(w_shape))
+            if w_layout != ttnn.ROW_MAJOR_LAYOUT:
+                gw = ttnn.to_layout(gw, w_layout)
+            if gw.dtype != w_dtype:
+                gw = ttnn.typecast(gw, w_dtype)
+            w.add_grad(gw)
+        return bw
+
+    return _tape(out_v, [w], make)
 
 # --- placement and lifetime --------------------------------------------------------------
 
