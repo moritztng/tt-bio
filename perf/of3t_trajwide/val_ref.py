@@ -3,10 +3,10 @@ sys.argv = ["x"]
 spec = importlib.util.spec_from_file_location(
     "tw", "/home/ttuser/.coworker/wt/of3t-trajwide/perf/of3t_trajwide/trajwide.py")
 tw = importlib.util.module_from_spec(spec); spec.loader.exec_module(tw)
-for p in (tw.OF3PKG,) + tw.REFDEPS:
-    if p not in sys.path: sys.path.insert(1, p)
+tw.refpath.install()
 # stub is applied AFTER build_theirs in the real path
 m, own, inc, moved = tw.build_theirs(torch.float64)
+print("reference tree resolved:", tw.REF_TREE)
 print("load is TOTAL: %d missing, %d unexpected" % (len(inc.missing_keys), len(inc.unexpected_keys)))
 print("layer_norm_z realigned:", moved)
 np_ = dict(m.named_parameters())
