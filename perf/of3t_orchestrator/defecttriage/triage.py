@@ -72,6 +72,11 @@ TABLE = {
                    "campaign's scope' and asks for its own row."),
     "D3":  (SCOPE, "RFdiffusion3's three rfd3_bias entry points return a tensor rather than an "
                    "optional; the entry says 'out of scope, recorded so it is not lost'."),
+    "D123": (SCOPE, "UPSTREAM: their yaml generator leaves the custom-kernel flags on for EVAL "
+                    "while disabling them for TRAIN, so their training test cannot start without "
+                    "Triton. Not in our tree and not ours to fix."),
+    "D124": (SCOPE, "UPSTREAM: 7kud_A.npz is in their own subset manifest and 404s on their S3, "
+                    "and the sdist's train_pdb_subset.yaml is stale against its own generator."),
 
     # --- ships to users: inference -----------------------------------------------------------
     "D10": (USER, "The confidence head mis-ranks diffusion samples on the SHIPPED selector, "
