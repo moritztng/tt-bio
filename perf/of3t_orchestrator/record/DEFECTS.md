@@ -9635,3 +9635,40 @@ orchestrator reading two comments.
 **What this update adds to D141 is only this**: the knowledge was in the tree the whole time, in a
 comment calling it *the one architectural difference*, and the instrument that had to notice it was
 looking at the other half of the load.
+
+### D141 UPDATE 2 (pass 257). Still **UNFIXED** as a provenance defect, and my pass-255 blast-radius claim is WRONG and is withdrawn: the diffusion reference the floors divide by DOES carry all 24 trained per-block tensors. Measured, three times.
+
+Pass 255 said *"every diffusion-scope figure is scored against a reference built that way, including
+the D129 ratio."* That was an inference from two `strict=False` call sites, not a measurement. The
+measurement, run against the reference files themselves:
+
+    pinned_p175/arm4_bf16_autocast/grad_presence.json   4170 keys
+        diffusion_module.diffusion_transformer.blocks.{0..23}
+            .attention_pair_bias.layer_norm_z.weight     24 present, ALL True
+        diffusion_module.diffusion_transformer.layer_norm_z.weight   ABSENT
+
+    bundle_ref/grads_f64_043.pt                          4170 keys, same 24, no shared key
+
+    diffcap043/sub_boundary.pt  ["grad_f64"]              761 keys, same 24, no shared key
+        <- THIS is the denominator of the D129 ratio and of every diffusion floor
+
+**So the campaign's references are on the PER-BLOCK path, the same architecture as our port and as
+the checkpoint.** The model-scope headline (0.9592x / 0.93924x), the 0.4.3 bundle gradient and the
+diffusion capture all keep the 24 trained tensors and differentiate through them. Whatever
+`of3t-trajwide` hit is in the path its own arm builds, which is its to report and is not the shared
+chain.
+
+**What is unchanged, and is the actual subject of D141.** `capture_diffusion_boundary.py:107`,
+`sub_boundary.py:62` and `floor_bf16.py:148` still call `load_state_dict(sd, strict=False)` and
+still never read `unexpected_keys`. **The instrument still cannot show this class of error — it
+simply turns out there was no error to show in these three.** A provenance block that would read
+identically whether 0 or 24 trained tensors were dropped is a defect whether or not today's answer
+is 0, and the guard added at pass 255 stays.
+
+**I am correcting an alarming claim downward and that is the direction to be most careful in.** The
+narrowing rests on three artifact reads, not on an argument; each is a key list from the file the
+ratio actually divides by. **What would reverse it**: a capture whose `grad_f64` lacks those 24, or
+a reference module built on the transformer-level path — which is exactly what the missing
+`n_unexpected` field would reveal and which no existing artifact records. Until a capture is rebuilt
+with both halves recorded, "these three are clean" is a statement about three files, not a property
+of the chain.
