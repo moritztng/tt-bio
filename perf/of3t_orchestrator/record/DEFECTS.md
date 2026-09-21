@@ -10050,3 +10050,16 @@ All six live rows now carry both rules as a STANDING section, with the concluded
 **The broader rule was measured and NOT shipped.** "One read per variable" would be 8 false positives out of 9: `TT_BIO_CACHE` and `TT_BIO_EXIT_TRIM` read twice in one file, `TT_BIO_SHARED_DRAW_SEED` read by boltz2, esmfold2 and protenix. 89 % wrong is the check declined at pass 261 for the same reason. Disagreeing DEFAULTS is the property that can make two sites behave differently, and it is 0 of 166 today.
 
 **Repair** in AMENDMENT 2 on the row's brief: make `autograd.SOFTMAX_BW_RENORM` the single definition, have the host float64 backward branch on it, delete `taped_ttnn._SOFTMAX_BW_RENORM` once nothing reads it, flip the surviving default with the reach proof re-run against the unified read, and correct the comment.
+
+### D151 UPDATE (pass 274, heading restated). **FIXED**, on the row's branch and now in the composition, and the guard's own probe broke in the fixing.
+
+`of3t-d56-renorm` unified the read exactly as AMENDMENT 2 asked: `autograd.SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)` is the single definition and `taped_ttnn._SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM` is an alias, not a second `os.environ.get`. It also dropped its edit to `assert_new_levers_default_off.py`, so it merges clean and the hold is released. **The lever is ON in the composition** — the first of Moritz's four 9629 decisions to land there — and still unmerged to main.
+
+**I checked the inference constraint myself before adopting any of it**, by AST rather than on the row's word, because this is the one that touches every model: every read of the flag in the merged tree is inside a backward closure — `softmax_bw_inner` and `host_f64_softmax`'s `bw` — and both callers of `softmax_bw_inner` are `bw <- make <- triangle_attention` and `bw <- make <- _v_softmax`. No forward site reads it.
+
+**The gate change is adopted from the row rather than reverted.** Its argument is better than the one my file had: *"a guard that only catches a flag turning on stops being a guard the day a flag is meant to be on."* `assert_new_levers_default_off.py` now pins BOTH directions, the probe is inverted (the failure to catch is the silent revert to OFF), and a second probe proves the check stays quiet on a correctly-ON tree — without that, an inverted check can be a refusal rather than a check.
+
+**Two near-misses in the same pass, both caught here rather than downstream.**
+
+1. **The D151 guard's probe broke the moment the defect was repaired.** It grepped `os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0")` out of the real tree and flipped it; once that read became an alias the probe could not find its line and the guard **refused** instead of checking. Correct behaviour, wrong design — a probe should test the CHECKER, not the tree. It now builds a two-module fixture with one variable and opposite defaults, plus a second fixture proving agreeing defaults stay quiet.
+2. **The compose printed `shipped defaults: TT_BIO_SOFTMAX_BW_RENORM off` in the pass the lever went on.** The asserter verified the tree correctly and then announced a hard-coded sentence about it. That is the prose-versus-shipped-default disagreement already on the campaign's record; the line now reports the state that was verified.
