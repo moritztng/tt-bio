@@ -1,0 +1,12 @@
+{
+ "term": "mse",
+ "stage": "initial_training",
+ "dataset": "RNA-monomer-distillation",
+ "target": "5nw3",
+ "quantity": "norm of the gradient seeded into the model outputs",
+ "value": 0.641149927225203,
+ "n_pairs_firing": 15,
+ "weight": 4.0,
+ "term_value": 1.0790672458688757,
+ "source": "coverage_census.json"
+}

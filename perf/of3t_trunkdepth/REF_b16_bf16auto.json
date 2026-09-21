@@ -1,0 +1,76 @@
+{
+  "what": "One upstream release tree's 48-block pairformer trunk GRADIENT over the captured boundary.",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "bf16auto",
+  "tb": "keep",
+  "blocks": 1,
+  "crop": 64,
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "first_block": 16,
+  "boundary": {
+    "inputs_from_block": 16,
+    "cotangent_from_block": 16,
+    "block_first": "/home/ttuser/of3t_trunkdepth/cap_ladder/block16_boundary.pt",
+    "block_last": "/home/ttuser/of3t_trunkdepth/cap_ladder/block16_boundary.pt",
+    "tokens": 64,
+    "real_tokens": 56,
+    "padding_fraction_single": 0.125,
+    "padding_fraction_pair": 0.234375,
+    "s_in_norm": 1476948.0040580654,
+    "z_in_norm": 1320586.8754388113,
+    "cot_s_norm": 1.794607947618971e-05,
+    "cot_z_norm": 0.00047565863338536055
+  },
+  "dtype_policy": "float32 parameters under torch.autocast('cpu', bfloat16) -- upstream's own training recipe",
+  "zero_pad": null,
+  "their_dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "their_load": {
+    "blocks": 1,
+    "tensors": 57,
+    "missing": 0,
+    "unexpected": 0
+  },
+  "forward": {
+    "loss": 0.03484905299582614,
+    "s_out_norm": 1481675.1724458104,
+    "z_out_norm": 1320123.5787638682,
+    "seconds": 0.07656355700237327,
+    "vs_captured_050": {
+      "s": 6.8431955501651106e-06,
+      "z": 0.001492949007510086,
+      "s_masked": 6.608761630076582e-06,
+      "z_masked": 0.013863746002521719
+    }
+  },
+  "gradient": {
+    "with_grad": 57,
+    "without_grad": 0,
+    "absent": [],
+    "global_norm": 0.07565768282548123,
+    "squared_norm": 0.0057240849705211165
+  },
+  "input_grad": {
+    "file": "/home/ttuser/of3t_trunkdepth/REF_b16_bf16auto_ig.pt",
+    "ds_in_norm": 1.794443872247922e-05,
+    "dz_in_norm": 0.0004754445953544704
+  },
+  "out": "/home/ttuser/of3t_trunkdepth/REF_b16_bf16auto.pt",
+  "out_sha256": "f9bfb914daf5e6df966b4108c39935f741032e8b3f46cb1c3a0db23482f60392",
+  "forward_out": "/home/ttuser/of3t_trunkdepth/REF_b16_bf16auto_fwd.pt",
+  "forward_out_sha256": "6442602cba8fd2eeeaabdae4182e429f4a86c33ed985895897947d0fe1745451",
+  "seconds": 2.8765094820009836
+}
