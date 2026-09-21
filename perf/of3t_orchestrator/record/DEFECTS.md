@@ -10200,3 +10200,20 @@ and `_protenix_emit` is reached by **three** callers, not one: `_predict_proteni
 **Fixed in `compose_verify.sh`**: `charter_evidence.py` now runs from the composition on every compose, before the audit, writing both copies. The evaluation the gate reads is therefore of `wk/of3t` and is never older than the compose that blessed it; `tree` now reads the composition path. The instrument refuses to publish if its own break control fails — *"publishing an evaluation whose own controls failed would let the gate read UNMET off a broken instrument"* — and that refusal now stops the compose rather than being nobody's job.
 
 **Standing note for whoever reaches GO**: the four charter clauses have never executed in anger. `charter_evidence.py`'s own docstring makes the point — no orchestrator document has ever carried a THEIR-TEST, GRADIENTS, TRAJECTORY or COVERAGE field, so those regexes *"first run on the one pass that ends the campaign."* This instrument is the only thing that has ever exercised them.
+
+### D1 UPDATE (pass 280, heading restated). **FIXED in the composition** — the trunk pair bias now computes `scale_pair_bias=True` and no longer ships at 0.204 of the value the architecture specifies. Still UNMERGED to main.
+
+`of3t-d1-pairbias` concluded GO and I landed it, which required deciding between two rows that reached opposite conclusions on the same lines. That is not a stale-base conflict and it is recorded rather than quietly resolved:
+
+  * `of3t-pairbias` (earlier) held the default at False and wrote its reasoning into the file: over nine seeds on **1UBQ**, the corrected bias buys 0.050 A of best-of-5 and costs **0.463 A** on the structure a user receives, against that target's own 0.324 A seed floor. It named its own release condition — *"the fix must ship with a selector fix or not at all"*.
+  * `of3t-d1-pairbias` flips it everywhere.
+
+**Four reasons the row's side wins**, all checkable: Moritz decided it (*"FIX IT. Match upstream, everywhere"*); he set exactly one reopen condition, *"reliably worse across targets and seeds — not one target"*, and the row measured it — **4 targets, 6 seeds, 48 folds, 10 of 24 paired folds regress, two-sided sign test p = 0.541, pooled median negative**; the sole regressing target is **1UBQ at 0.12x–0.24x its own seed floor on two of six seeds**, and 1UBQ is the earlier reading's own target, which makes the 0.463 A the overfitting Moritz named rather than a rebuttal to it; and the earlier row's release condition is now satisfied, because the unified ranking rule (D10/D24) is in this composition.
+
+Independently: the model's own per-residue confidence rises in **24 of 24 paired folds with no overlap at zero** while the global pTM readout stays flat.
+
+**The first resolution attempt was wrong and the compose caught it.** Taking the row's side wholesale dropped two other rows' declared contributions that share the hunk — `of3t-foldab`'s `TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR` measurement lever and `of3t-trunkcliff`'s pair-bias note — and the co-edit assertion failed with *"CO-EDIT LOST A SIDE"*. The resolver is surgical now: it keeps HEAD's hunk, applies the one token the decision changes, and refuses unless all four of the repair, the 0.204 provenance, foldab's lever and trunkcliff's note are present afterwards.
+
+**The shipped-default assertion moved in the same commit**, which is what the previous version of that block instructed should happen: *"If Moritz approves it anyway, change `_want` in this script in the same commit that flips the default."* `_want` is now `scale_pair_bias=True`, and a revert to False is the drift the compose reports, with the reopen instruction beside it.
+
+**Not merged to main**, so nothing a user runs has changed yet. The merge gate is Moritz's.

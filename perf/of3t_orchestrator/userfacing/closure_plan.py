@@ -28,18 +28,13 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 
 PLAN = {
-    "D1": {
-        "needs": DECISION,
-        "one_line": "the trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value",
-        "closes_when": ("Moritz decides whether to ship the written repair and accept the measured "
-                        "0.149 A regression at rank 0, or to declare the deviation intentional and "
-                        "close it with that measurement as the reason"),
-        "evidence_held": ("the coefficient sweep fits c = 1/sqrt(24) at 6.9e-03 to 1.7e-02 on all "
-                          "four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written "
-                          "and measured; D10, its original blocker, is resolved"),
-        "would_a_row_help": False,
-        "asked": "pin 9629 (2026-09-21), with a stated default: hold",
-    },
+    # D1 was here until pass 280 and is gone because it CLOSED, not because the plan shrank:
+    # Moritz decided it on ask 9629 ("fix it everywhere"), of3t-d1-pairbias concluded GO against
+    # his one reopen condition (4 targets, 6 seeds, 48 folds, sign test p = 0.541, pooled median
+    # negative, sole regressor 1UBQ which is the earlier objection's own target), and the repair
+    # is in the composition with the shipped-default assertion moved to match. The plan refused
+    # to publish while it still listed D1 -- "the plan and the live USER-FACING set disagree" --
+    # which is the check doing its job rather than an inconvenience.
     "D10": {
         "needs": DECISION,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
