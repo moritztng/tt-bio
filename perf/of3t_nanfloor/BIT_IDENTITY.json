@@ -1,0 +1,29 @@
+{
+ "ckc_vs_nockc": {
+  "bit_identical": 547,
+  "of": 547,
+  "only_in_a": [],
+  "only_in_b": [],
+  "tensors": 547,
+  "worst_abs_diff": 0.0,
+  "worst_tensor": null
+ },
+ "my_accckc_vs_softgrad_accurate": {
+  "bit_identical": 547,
+  "of": 547,
+  "only_in_a": [],
+  "only_in_b": [],
+  "tensors": 547,
+  "worst_abs_diff": 0.0,
+  "worst_tensor": null
+ },
+ "my_shipped_vs_softgrad_shipped": {
+  "bit_identical": 547,
+  "of": 547,
+  "only_in_a": [],
+  "only_in_b": [],
+  "tensors": 547,
+  "worst_abs_diff": 0.0,
+  "worst_tensor": null
+ }
+}
