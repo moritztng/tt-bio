@@ -307,6 +307,21 @@ _ASSERT
             # HEAD's box read and `__all__`, take d116's helper call and its new name. The
             # resolver refuses the moment the hunk stops having that exact shape.
             git add "$_f"
+          elif "$PY" "$HERE/resolve_prose_only_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            # Both sides differ only in comments and docstrings -- a row based on an older
+            # wk/of3t reflowed a comment, or carries a wording main has since sharpened. HEAD's
+            # prose wins, and the safety is checked not argued: both sides are reconstructed,
+            # parsed, stripped of docstrings and compared as ASTs, so any executable difference
+            # anywhere refuses and stops the compose.
+            git add "$_f"
+          elif "$PY" "$HERE/resolve_softmax_inner_box.py" "$_f" "origin/wk/of3t-$r"; then
+            # The BOX memory policy against D56's shared `softmax_bw_inner`, in either
+            # orientation. Two repairs on the same three lines, neither aware of the other, and
+            # they compose: read the handle through the box, then call the helper. Taking HEAD
+            # alone leaves `y` unbound and the backward raises NameError the first time it runs,
+            # which a collection-only compose cannot see. Generalises d116's literal, whose
+            # orientation flipped the moment D56 landed on main.
+            git add "$_f"
           elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             git add "$_f"
           else
