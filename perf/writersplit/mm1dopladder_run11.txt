@@ -1,0 +1,105 @@
+01:45:51Z card 0 (node 1) held by pid 2896949, skipping
+01:45:52Z card 1 (node 2) looks free -- taking it
+nodes [2] forced to 1350 MHz (host_quiet=False)
+  [1, 140, 32, 128] x [128, 256]  n=3600   cfg=(1, 2, 2, 2, 8, 2, 8)  bit-exact generic True split True
+  [1, 47, 512, 128] x [128, 512]  n=2800   cfg=(1, 1, 4, 7, 16, 7, 16)  bit-exact generic True split True
+  [1, 47, 512, 512] x [512, 128]  n=2800   cfg=(1, 1, 4, 7, 4, 7, 4)  bit-exact generic True split True
+  [1, 140, 32, 128] x [128, 128]  n=2400   cfg=(1, 2, 2, 2, 4, 2, 4)  bit-exact generic True split True
+  [1, 140, 128, 128] x [128, 256]  n=1200   cfg=(1, 2, 2, 6, 8, 6, 8)  bit-exact generic True split True
+  [1, 140, 32, 256] x [256, 128]  n=1200   cfg=(1, 2, 2, 2, 4, 2, 4)  bit-exact generic True split True
+  [1, 140, 32, 128]        per-call ~0.0680 ms -> ladder n = (1, 2, 4, 8, 16, 32, 64)
+  [1, 47, 512, 128]        per-call ~0.2001 ms -> ladder n = (1, 2, 4, 8, 16)
+  [1, 47, 512, 512]        per-call ~0.2534 ms -> ladder n = (1, 2, 4, 8, 16)
+  [1, 140, 32, 128]        per-call ~0.0591 ms -> ladder n = (1, 2, 4, 8, 16, 32, 64)
+  [1, 140, 128, 128]       per-call ~0.1043 ms -> ladder n = (1, 2, 4, 8, 16, 32)
+  [1, 140, 32, 256]        per-call ~0.0707 ms -> ladder n = (1, 2, 4, 8, 16, 32, 64)
+  native         [1, 140, 32, 128]        c = 0.02419 ms  L = 0.06693  resid 0.01308
+  native         [1, 47, 512, 128]        c = 0.17815 ms  L = 0.03904  resid 0.00821
+  native         [1, 47, 512, 512]        c = 0.23061 ms  L = 0.04592  resid 0.01049
+  native         [1, 140, 32, 128]        c = 0.01501 ms  L = 0.10587  resid 0.13604
+  native         [1, 140, 128, 128]       c = 0.08216 ms  L = 0.03087  resid 0.01076
+  native         [1, 140, 32, 256]        c = 0.03139 ms  L = 0.05115  resid 0.00463
+  generic        [1, 140, 32, 128]        c = 0.03281 ms  L = 0.05748  resid 0.03103
+  generic        [1, 47, 512, 128]        c = 0.18049 ms  L = 0.05157  resid 0.01455
+  generic        [1, 47, 512, 512]        c = 0.23031 ms  L = 0.09384  resid 0.00314
+  generic        [1, 140, 32, 128]        c = 0.03070 ms  L = 0.12555  resid 0.14553
+  generic        [1, 140, 128, 128]       c = 0.08227 ms  L = 0.04765  resid 0.00801
+  generic        [1, 140, 32, 256]        c = 0.03143 ms  L = 0.08970  resid 0.05948
+  split          [1, 140, 32, 128]        c = 0.03289 ms  L = 0.03417  resid 0.00382
+  split          [1, 47, 512, 128]        c = 0.11652 ms  L = 0.05904  resid 0.00146
+  split          [1, 47, 512, 512]        c = 0.21813 ms  L = 0.05875  resid 0.00202
+  split          [1, 140, 32, 128]        c = 0.03303 ms  L = 0.02926  resid 0.00574
+  split          [1, 140, 128, 128]       c = 0.05789 ms  L = 0.05181  resid 0.00121
+  split          [1, 140, 32, 256]        c = 0.03281 ms  L = 0.04263  resid 0.00514
+  native_aa      [1, 140, 32, 128]        c = 0.02485 ms  L = 0.03144  resid 0.00064
+  native_aa      [1, 47, 512, 128]        c = 0.17868 ms  L = 0.03596  resid 0.00908
+  native_aa      [1, 47, 512, 512]        c = 0.23057 ms  L = 0.03798  resid 0.01402
+  native_aa      [1, 140, 32, 128]        c = 0.01588 ms  L = 0.03215  resid 0.00211
+  native_aa      [1, 140, 128, 128]       c = 0.08121 ms  L = 0.03360  resid 0.00214
+  native_aa      [1, 140, 32, 256]        c = 0.03160 ms  L = 0.03146  resid 0.00320
+  native         [1, 140, 32, 128]        c = 0.02476 ms  L = 0.03306  resid 0.00129
+  native         [1, 47, 512, 128]        c = 0.17681 ms  L = 0.03628  resid 0.00164
+  native         [1, 47, 512, 512]        c = 0.23020 ms  L = 0.03683  resid 0.00093
+  native         [1, 140, 32, 128]        c = 0.01586 ms  L = 0.03493  resid 0.00318
+  native         [1, 140, 128, 128]       c = 0.08116 ms  L = 0.03452  resid 0.00135
+  native         [1, 140, 32, 256]        c = 0.03155 ms  L = 0.03219  resid 0.00168
+  generic        [1, 140, 32, 128]        c = 0.03225 ms  L = 0.04347  resid 0.00801
+  generic        [1, 47, 512, 128]        c = 0.17705 ms  L = 0.05746  resid 0.00263
+  generic        [1, 47, 512, 512]        c = 0.23041 ms  L = 0.05900  resid 0.00134
+  generic        [1, 140, 32, 128]        c = 0.03305 ms  L = 0.03040  resid 0.00488
+  generic        [1, 140, 128, 128]       c = 0.08161 ms  L = 0.05283  resid 0.00125
+  generic        [1, 140, 32, 256]        c = 0.03211 ms  L = 0.08968  resid 0.05868
+  split          [1, 140, 32, 128]        c = 0.03262 ms  L = 0.03376  resid 0.00205
+  split          [1, 47, 512, 128]        c = 0.11833 ms  L = 0.05188  resid 0.01043
+  split          [1, 47, 512, 512]        c = 0.21821 ms  L = 0.08277  resid 0.00164
+  split          [1, 140, 32, 128]        c = 0.03128 ms  L = 0.10823  resid 0.08273
+  split          [1, 140, 128, 128]       c = 0.05789 ms  L = 0.05138  resid 0.00185
+  split          [1, 140, 32, 256]        c = 0.03248 ms  L = 0.04346  resid 0.00857
+  native_aa      [1, 140, 32, 128]        c = 0.02485 ms  L = 0.03156  resid 0.00165
+  native_aa      [1, 47, 512, 128]        c = 0.17836 ms  L = 0.03680  resid 0.00799
+  native_aa      [1, 47, 512, 512]        c = 0.23091 ms  L = 0.05082  resid 0.00206
+  native_aa      [1, 140, 32, 128]        c = 0.01629 ms  L = 0.12428  resid 0.19808
+  native_aa      [1, 140, 128, 128]       c = 0.08198 ms  L = 0.03307  resid 0.00820
+  native_aa      [1, 140, 32, 256]        c = 0.03147 ms  L = 0.05108  resid 0.00264
+  native         [1, 140, 32, 128]        c = 0.02450 ms  L = 0.04425  resid 0.00873
+  native         [1, 47, 512, 128]        c = 0.17819 ms  L = 0.03754  resid 0.01104
+  native         [1, 47, 512, 512]        c = 0.23070 ms  L = 0.05062  resid 0.00211
+  native         [1, 140, 32, 128]        c = 0.01630 ms  L = 0.12086  resid 0.19160
+  native         [1, 140, 128, 128]       c = 0.08154 ms  L = 0.03762  resid 0.00981
+  native         [1, 140, 32, 256]        c = 0.03154 ms  L = 0.04358  resid 0.00479
+  generic        [1, 140, 32, 128]        c = 0.03209 ms  L = 0.05312  resid 0.03344
+  generic        [1, 47, 512, 128]        c = 0.18015 ms  L = 0.05034  resid 0.01210
+  generic        [1, 47, 512, 512]        c = 0.23078 ms  L = 0.09431  resid 0.00187
+  generic        [1, 140, 32, 128]        c = 0.03049 ms  L = 0.13148  resid 0.16592
+  generic        [1, 140, 128, 128]       c = 0.08206 ms  L = 0.04811  resid 0.00804
+  generic        [1, 140, 32, 256]        c = 0.03209 ms  L = 0.08262  resid 0.05886
+  split          [1, 140, 32, 128]        c = 0.03270 ms  L = 0.03268  resid 0.00122
+  split          [1, 47, 512, 128]        c = 0.11850 ms  L = 0.05097  resid 0.01230
+  split          [1, 47, 512, 512]        c = 0.21780 ms  L = 0.09577  resid 0.00367
+  split          [1, 140, 32, 128]        c = 0.03108 ms  L = 0.11720  resid 0.11188
+  split          [1, 140, 128, 128]       c = 0.05788 ms  L = 0.05155  resid 0.00036
+  split          [1, 140, 32, 256]        c = 0.03252 ms  L = 0.04275  resid 0.00593
+  native_aa      [1, 140, 32, 128]        c = 0.02486 ms  L = 0.03239  resid 0.00131
+  native_aa      [1, 47, 512, 128]        c = 0.17789 ms  L = 0.03894  resid 0.00937
+  native_aa      [1, 47, 512, 512]        c = 0.22988 ms  L = 0.05536  resid 0.00519
+  native_aa      [1, 140, 32, 128]        c = 0.01497 ms  L = 0.10401  resid 0.13699
+  native_aa      [1, 140, 128, 128]       c = 0.08194 ms  L = 0.03101  resid 0.01017
+  native_aa      [1, 140, 32, 256]        c = 0.03159 ms  L = 0.04860  resid 0.00291
+AICLK during: {'n': 8028, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+[1, 140, 32, 128]        n=3600   native 0.02419 generic 0.03209 split 0.03262 ms | gen/nat 1.3266x  nat/split 0.7416x  gen/split 0.9838x  A/A 2.640 % REFUSED
+[1, 47, 512, 128]        n=2800   native 0.17681 generic 0.17705 split 0.11652 ms | gen/nat 1.0013x  nat/split 1.5175x  gen/split 1.5195x  A/A 0.608 % REFUSED
+[1, 47, 512, 512]        n=2800   native 0.23020 generic 0.23031 split 0.21780 ms | gen/nat 1.0005x  nat/split 1.0569x  gen/split 1.0574x  A/A 0.138 % OK
+[1, 140, 32, 128]        n=2400   native 0.01501 generic 0.03049 split 0.03108 ms | gen/nat 2.0311x  nat/split 0.4830x  gen/split 0.9810x  A/A 0.244 % OK
+[1, 140, 128, 128]       n=1200   native 0.08116 generic 0.08161 split 0.05788 ms | gen/nat 1.0055x  nat/split 1.4022x  gen/split 1.4099x  A/A 0.066 % OK
+[1, 140, 32, 256]        n=1200   native 0.03139 generic 0.03143 split 0.03248 ms | gen/nat 1.0012x  nat/split 0.9666x  gen/split 0.9677x  A/A 0.231 % OK
+
+4 of 6 signatures inside the 0.500 % A/A bar (worst 2.640 %); host_quiet=False; stat=min
+  REFUSED    [1, 140, 32, 128]      A/A 2.640 %  -- no ratio from this signature this session
+  REFUSED    [1, 47, 512, 128]      A/A 0.608 %  -- no ratio from this signature this session
+  CERTIFIED  [1, 47, 512, 512]      A/A 0.138 %  nat/split 1.0569x  gen/nat 1.0005x
+  CERTIFIED  [1, 140, 32, 128]      A/A 0.244 %  nat/split 0.4830x  gen/nat 2.0311x
+  CERTIFIED  [1, 140, 128, 128]     A/A 0.066 %  nat/split 1.4022x  gen/nat 1.0055x
+  CERTIFIED  [1, 140, 32, 256]      A/A 0.231 %  nat/split 0.9666x  gen/nat 1.0012x
+The weighted per-fold total is NOT reported: a sum needs every term, and 2 signature(s) were refused.
+01:46:15Z exit=0 on card 1
+DRIVER_DONE rc=0 card=1
