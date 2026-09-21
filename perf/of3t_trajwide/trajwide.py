@@ -228,14 +228,35 @@ def _stub_upstream_deps():
 def align_layer_norm_z(m, own, dtype):
     """Put the pair LayerNorm where THIS checkpoint keeps it, before the state dict loads.
 
-    `of3-p2-155k.pt` is OF3-preview2, which carries a weight-only `layer_norm_z` inside every
-    `DiffusionTransformer` block. Upstream 0.4.3 and 0.5.0 are the OpenBind generation, which
-    hoists that norm into one shared pre-stack `LayerNorm` (`diffusion_transformer.py:246`,
-    applied at 303) and drops it from `DiffusionAttentionPairBias` entirely
-    (`attention_pair_bias.py:212`, which has no `layer_norm_z`). Loading preview-2 weights into
-    OpenBind code with `strict=False` therefore left the shared norm at its all-ones init and
-    silently DISCARDED 24 trained per-block tensors that sit 0.2982 to 0.7355 relative away from
-    ones -- a different model, not a different precision.
+    ON THE TREE WE ACTUALLY BUILD FROM THIS IS A NO-OP, and the `theirs` arm records that:
+    `layer_norm_z_realigned = []`, 0 missing, 0 unexpected, 761 parameters. The paths below are
+    the ones `refpath.assert_resolved()` returns, `<tree>/openfold3/core/model/layers/...`, with
+    the line numbers read off each tree separately rather than shared between them.
+
+    of3pkg043, upstream 0.4.3, THE TREE UNDER TEST:
+      `AttentionPairBias` (attention_pair_bias.py:34) owns its own `layer_norm_z` at :107 and
+      applies it at :156, which is exactly where `of3-p2-155k.pt` keeps its 24 per-block
+      tensors, so the checkpoint loads TOTALLY with no rewiring. `DiffusionTransformer`
+      (diffusion_transformer.py:190) does build a shared `layer_norm_z` at :254 applied at :313,
+      but only `if self.use_cross_attention`, i.e. when `n_query is not None` -- the atom
+      attention enc/dec stacks, which is what the comment above :312 says. The token-level
+      `diffusion_transformer` passes `n_query = None`, so it has no shared norm and the loop
+      below never reaches it. The atom transformers DO reach the guard, and are skipped one line
+      later by the shared-variant test, because the checkpoint carries
+      `atom_attn_enc/dec.atom_transformer.layer_norm_z.weight` (16 wide) for them. So `moved` is
+      empty for two different reasons, not one.
+
+    pylibs, upstream 0.5.0, NOT under test and present only as a dep tree:
+      the norm is hoisted unconditionally (`diffusion_transformer.py:246`, applied at :303) and
+      a separate `DiffusionAttentionPairBias` (`attention_pair_bias.py:212`) has none. Loading
+      preview-2 weights there with `strict=False` leaves the shared norm at its all-ones init
+      and silently DISCARDS 24 trained per-block tensors sitting 0.2982 to 0.7355 relative away
+      from ones -- a different model, not a different precision. That is the 1 missing / 24
+      unexpected this row measured and reported before D149, and it happened because three
+      `sys.path.insert(1, ...)` calls put `pylibs` ahead of `of3pkg043`. The mechanism was the
+      PATH, not an architecture gap: same checkpoint, same code here, 0.4.3 takes it whole.
+      This function stays because it is what proves that, and the total-load assertion below is
+      what caught it.
 
     The rule here is the one our own port already applies
     (`tt_bio/openfold3_diffusion_transformer.py:270-275`): the state dict picks the variant, per
