@@ -7,20 +7,18 @@
    "D58",
    "D129"
   ],
-  "DECISION": [
+  "MERGE": [
    "D10",
-   "D24"
-  ],
-  "RELEASE": [
+   "D24",
    "D56"
   ]
  },
  "plan": {
   "D10": {
-   "asked": "pin 9629, together with D24; pin 9597 answers its framing",
-   "closes_when": "Moritz decides whether to ship one consistent ranking rule on CONSISTENCY grounds. No accuracy argument is available: of3t-rankunify withdrew it",
+   "asked": "pin 9629, together with D24 -- ANSWERED 2026-09-21 (state/ask-9629-decision.md)",
+   "closes_when": "it lands on main. DECIDED 2026-09-21 on ask 9629: unify, on consistency grounds, because no accuracy argument survives either way -- of3t-rankunify withdrew it. Built, verified in the tree at pass 278, not merged",
    "evidence_held": "+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds the WRONG way, every difference inside its seed floor, p = 0.146",
-   "needs": "DECISION",
+   "needs": "MERGE",
    "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
    "would_a_row_help": false
   },
@@ -37,10 +35,10 @@
    "would_a_row_help": true
   },
   "D24": {
-   "asked": "pin 9629, together with D10",
-   "closes_when": "the same decision as D10, followed by a merge",
+   "asked": "pin 9629, together with D10 -- ANSWERED 2026-09-21",
+   "closes_when": "the same as D10: the decision is made and the merge is not",
    "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
-   "needs": "DECISION",
+   "needs": "MERGE",
    "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
    "would_a_row_help": false
   },
@@ -73,10 +71,10 @@
    "would_a_row_help": true
   },
   "D56": {
-   "asked": "pin 9629, with a stated default: stays gated",
+   "asked": "pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the composition since pass 274, verified backward-only by AST, and not merged",
    "closes_when": "TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is that the SHIPPED configuration is still the unrepaired one",
    "evidence_held": "matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms",
-   "needs": "RELEASE",
+   "needs": "MERGE",
    "one_line": "a diffusion-scope concentration that the softmax-backward repair collapses 333x",
    "what_it_costs": "read from taped_ttnn.py at pass 259, because the ask should not have gone out without it. The lever adds EXACTLY TWO OPS inside the softmax backward rule -- one `ttnn.sum(y, dim, keepdim=True, compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the shapes the existing `inner` reduction already uses. It lives in `bw`, so it runs ONLY under the tape: an inference fold cannot execute it and the inference cost is zero STRUCTURALLY, not by measurement. The training cost is unmeasured, and there is no baseline to measure it against -- that is D32, `no training throughput can be projected`. So the decision does not wait on a number: nothing it could cost is currently knowable, and nothing it could cost reaches a user's fold.",
    "would_a_row_help": false

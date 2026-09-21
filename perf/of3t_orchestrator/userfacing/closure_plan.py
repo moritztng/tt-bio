@@ -26,6 +26,8 @@ OUT = Path(__file__).resolve().parent / "CLOSURE_PLAN.json"
 DECISION = "DECISION"      # Moritz's call; no measurement will move it
 CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
+MERGE = "MERGE"            # DECIDED by Moritz and built; what is left is landing it on main,
+                           # which is his gate and not a measurement this campaign can take
 
 PLAN = {
     # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
@@ -40,25 +42,26 @@ PLAN = {
     # to publish while it still listed D1 -- "the plan and the live USER-FACING set disagree" --
     # which is the check doing its job rather than an inconvenience.
     "D10": {
-        "needs": DECISION,
+        "needs": MERGE,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
-        "closes_when": ("Moritz decides whether to ship one consistent ranking rule on CONSISTENCY "
-                        "grounds. No accuracy argument is available: of3t-rankunify withdrew it"),
+        "closes_when": ("it lands on main. DECIDED 2026-09-21 on ask 9629: unify, on consistency "
+                        "grounds, because no accuracy argument survives either way -- of3t-rankunify "
+                        "withdrew it. Built, verified in the tree at pass 278, not merged"),
         "evidence_held": ("+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds "
                           "the WRONG way, every difference inside its seed floor, p = 0.146"),
         "would_a_row_help": False,
-        "asked": "pin 9629, together with D24; pin 9597 answers its framing",
+        "asked": "pin 9629, together with D24 -- ANSWERED 2026-09-21 (state/ask-9629-decision.md)",
     },
     "D24": {
-        "needs": DECISION,
+        "needs": MERGE,
         "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
-        "closes_when": "the same decision as D10, followed by a merge",
+        "closes_when": "the same as D10: the decision is made and the merge is not",
         "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
         "would_a_row_help": False,
-        "asked": "pin 9629, together with D10",
+        "asked": "pin 9629, together with D10 -- ANSWERED 2026-09-21",
     },
     "D56": {
-        "needs": RELEASE,
+        "needs": MERGE,
         "one_line": "a diffusion-scope concentration that the softmax-backward repair collapses 333x",
         "closes_when": ("TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted "
                         "and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is "
@@ -77,7 +80,8 @@ PLAN = {
                           "does not wait on a number: nothing it could cost is currently knowable, "
                           "and nothing it could cost reaches a user's fold."),
         "would_a_row_help": False,
-        "asked": "pin 9629, with a stated default: stays gated",
+        "asked": ("pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the "
+                  "composition since pass 274, verified backward-only by AST, and not merged"),
     },
     "D30": {
         "needs": CARD,
@@ -159,7 +163,7 @@ def main() -> int:
 
     print(f"GO condition 5: {len(order)} USER-FACING defects, and they are not "
           f"{len(order)} problems.\n")
-    for need in (DECISION, RELEASE, CARD):
+    for need in (MERGE, DECISION, RELEASE, CARD):
         ns = by_need.get(need, [])
         if not ns:
             continue
@@ -180,10 +184,19 @@ def main() -> int:
         print()
 
     dec = by_need.get(DECISION, []) + by_need.get(RELEASE, [])
+    mrg = by_need.get(MERGE, [])
     card = by_need.get(CARD, [])
     shared = [n for n in card if PLAN[n].get("shares_object_with")]
-    print(f"SUMMARY. {len(dec)} of {len(order)} need a DECISION or a RELEASE and no measurement "
-          f"will move them: {', '.join(dec)}.")
+    if dec:
+        print(f"SUMMARY. {len(dec)} of {len(order)} need a DECISION or a RELEASE and no "
+              f"measurement will move them: {', '.join(dec)}.")
+    else:
+        print(f"SUMMARY. NONE of the {len(order)} is waiting on a decision -- that half closed on "
+              f"2026-09-21 when Moritz answered pin 9629.")
+    if mrg:
+        print(f"{len(mrg)} are DECIDED and BUILT and wait only to be merged: {', '.join(mrg)}. "
+              f"That is not a measurement this campaign can take: the merge gate is Moritz's, and "
+              f"it is now on the critical path to condition 5 rather than beside it.")
     print(f"{len(card)} need a card: {', '.join(card)}. Of those, {len(shared)} "
           f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
           f"`of3t-ditcot` is dispatched against it and held until a card frees.")
