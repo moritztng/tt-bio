@@ -1,0 +1,59 @@
+{
+ "samples": [
+  {
+   "default": {
+    "plddt_mean": 0.577368438243866,
+    "ptm": 0.288313,
+    "iptm": 0.0
+   },
+   "masked": {
+    "plddt_mean": 0.577368438243866,
+    "ptm": 0.288313,
+    "iptm": 0.0,
+    "d_plddt_mean": 0.0,
+    "d_ptm": 0.0,
+    "d_iptm": 0.0,
+    "plddt_atom_max_abs_delta": 0.0,
+    "plddt_atom_bit_equal": true,
+    "pae_logits_max_abs_delta": 0.0,
+    "pae_logits_bit_equal": true,
+    "plddt_logits_max_abs_delta": 0.0
+   },
+   "negctl": {
+    "plddt_mean": 0.5763346552848816,
+    "ptm": 0.286524,
+    "iptm": 0.0,
+    "d_plddt_mean": -0.001033782958984375,
+    "d_ptm": -0.001788999999999985,
+    "d_iptm": 0.0,
+    "plddt_atom_max_abs_delta": 0.059067726135253906,
+    "plddt_atom_bit_equal": false,
+    "pae_logits_max_abs_delta": 8.647727727890015,
+    "pae_logits_bit_equal": false,
+    "plddt_logits_max_abs_delta": 2.5283193588256836
+   }
+  }
+ ],
+ "mask_stats": {
+  "source": "aux['repr_batch']['token_mask'] == features['token_mask'] as the shipped CLI builds it",
+  "n_token": 76,
+  "min": 1.0,
+  "max": 1.0,
+  "n_zero": 0,
+  "padding_fraction": 0.0,
+  "n_token_at_confidence_head": 76,
+  "zij_trunk_token_axis": 76,
+  "repr_x_mask_n_zero": 0,
+  "repr_x_mask_equals_token_mask": true,
+  "bucket_enabled": true,
+  "bucket_multiple": 32,
+  "trunk_token_axis_padded_to": 96,
+  "trunk_tok_pad": 20
+ },
+ "arms": [
+  "default",
+  "masked",
+  "negctl"
+ ],
+ "pid": 298327
+}
