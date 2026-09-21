@@ -277,13 +277,20 @@ Recomputed from the artifacts on every compose (165 checks, 0 drifted):
 - **`diffusion_conditioning` was never blocked**, and proving that is most of the jump above. Its
   reference side — inputs, the cotangent at its output, and float64 gradients for all 26 tensors
   — had been complete on qb2 since 01:43; only our side was missing (D52).
-- **The bar is achievable in single precision, so every remaining gap is ours** (pass 169,
-  D69). Upstream OpenFold3 0.4.3 at **float32 with its own autocast and `.float()` calls left
+- **The bar is achievable in single precision** (pass 169, D69) — **but "so every remaining gap
+  is ours", which this bullet asserted until pass 214, is WITHDRAWN by D120.** Against the 0.4.3
+  boundary the served checkpoint is bound to, our port is within **1.8x** of upstream on every fp32
+  island and **1.55x MORE accurate** on d(gamma); the gap that made "ours" look like the whole story
+  was a 0.5.0-flavoured comparison. The measurement below stands; the inference drawn from it does
+  not. Upstream OpenFold3 0.4.3 at **float32 with its own autocast and `.float()` calls left
   in** — the precision the recipe actually runs — reproduces its own float64 gradient at
   **8.107441e-05 mass-weighted**, **247x inside the 2.0e-02 bar**, median over tensors
   2.215005e-05, on the same weights, batch, draws and step. On the model's fourth-heaviest
-  tensor (8.05416 %) it reads **rel 1.178860e-05, r 1.000004, cos 1.000000** where our device
-  reads 18.504 / 19.2415 / 0.74941 — **1.57 million times worse**. The reading was fixed in
+  tensor (8.05416 %) it reads **rel 1.178860e-05, r 1.000004, cos 1.000000** where our **pre-repair** device arm read
+  18.504 / 19.2415 / 0.74941. The ratio this bullet used to draw between those two numbers is gone:
+  that device figure is the shipped arm before `TT_BIO_SOFTMAX_BW_RENORM`, the tensor sits in the
+  DiT stack whose scope now reads **1.057023e-01** with the repair on, and a ratio against a
+  superseded arm is not a statement about the port. The reading was fixed in
   writing before the arm produced output. This ends every "may not be computable" argument the
   campaign has entertained.
 - **And the bar is stricter than upstream's own training** (pass 170, D70). Scope-matched to the
