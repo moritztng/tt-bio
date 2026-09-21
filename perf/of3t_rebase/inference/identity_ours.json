@@ -1,0 +1,133 @@
+{
+ "argv": [
+  "--repo",
+  "/home/ttuser/of3t_rebase/wt",
+  "--out",
+  "run/identity_ours.json"
+ ],
+ "repo": "/home/ttuser/of3t_rebase/wt",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "head": "cd870be5b3b5a460eff41cb01cea4765b6477a74",
+  "branch": "HEAD",
+  "started_utc": "2026-09-20T01:17:24Z",
+  "tt_bio_file": "/home/ttuser/of3t_rebase/wt/tt_bio/__init__.py",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "control": "ABSENT",
+ "checkpoints": {
+  "p2-155k": {
+   "file": "of3-p2-155k.pt",
+   "is_openbind": false,
+   "tri_att_end_bias_follows_pair": true,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "dit_has_shared_layer_norm_z": false,
+   "dit_per_block_layer_norm_z": true,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "tri_att_scale_pair_bias": false,
+     "fp32_softmax": true,
+     "transpose_bias": true
+    },
+    "dropped_this_tree_has_no_such_kwarg": []
+   },
+   "pairformer": {
+    "s_sha256": "557f4c3e4e86655a960be97f08469cda51a905a5ddd7e3f69e8299e54083f206",
+    "z_sha256": "f152589bf20a6b219374aec66642e2369156c80dd4b714ef0a444e8efdd2ffab",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "9818b18f7397a9ffd114a8bb74959a1b9e07d590c04b426bc2a93396de3c07b0",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  },
+  "openbind-174k": {
+   "file": "of3-ob-2025-06-30-174k.pt",
+   "is_openbind": true,
+   "tri_att_end_bias_follows_pair": false,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "dit_has_shared_layer_norm_z": true,
+   "dit_per_block_layer_norm_z": false,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "tri_att_scale_pair_bias": false,
+     "fp32_softmax": true,
+     "transpose_bias": false
+    },
+    "dropped_this_tree_has_no_such_kwarg": []
+   },
+   "pairformer": {
+    "s_sha256": "f6dec53022f42edb357718d7dcc8b799fdc9d84298a738286c630987f8403bfa",
+    "z_sha256": "4ee51d551a4df2626e8314eff4b627b43896af01fb757695e9ecb33c1b696b0a",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "2860ecffecc3f0e99d0bc69e651df9ac0f6cf4d249085f9d3349748f5667e7f8",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  }
+ },
+ "bindings_differ_between_checkpoints": true,
+ "ok": true
+}

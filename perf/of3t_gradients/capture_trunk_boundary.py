@@ -63,11 +63,12 @@ def manifest_from_git() -> dict:
     return json.loads(out.stdout)
 
 
-def verify(man: dict, names: list[str]) -> dict:
+def verify(man: dict, names: list[str], bundle: Path = BUNDLE,
+           manifest_src: str = f"{REF_BRANCH}:{MANIFEST_GIT}") -> dict:
     decl = {a["file"]: a for a in man["artifacts"] if "sha256" in a}
     rep = {}
     for n in names:
-        p = BUNDLE / n
+        p = bundle / n
         want = decl.get(n, {}).get("sha256")
         got = sha256_file(p)
         rep[n] = {"bytes": p.stat().st_size, "sha256": got, "declared": want,
@@ -76,7 +77,7 @@ def verify(man: dict, names: list[str]) -> dict:
             raise SystemExit(f"{n}: sha256 {got} != manifest {want} -- a drifted bundle still "
                              f"produces numbers, which is worse than no bundle")
         if want is None:
-            raise SystemExit(f"{n}: not declared in {REF_BRANCH}:{MANIFEST_GIT}")
+            raise SystemExit(f"{n}: not declared in {manifest_src}")
     return rep
 
 
@@ -147,6 +148,16 @@ def main() -> int:
     ap.add_argument("--report", type=Path,
                     default=Path("perf/of3t_gradients/capture_trunk_boundary.json"))
     ap.add_argument("--seed", type=int, default=20260919)
+    # D23/R126: the published bundle is upstream 0.5.0 running a checkpoint 0.5.0 declares
+    # incompatible. A capture is only as good as the bundle it verifies against, so the bundle
+    # and its manifest are arguments rather than constants, and `of3t-rebase` points them at the
+    # 0.4.3 rebuild. The default is still the published one, so nothing already taken moves.
+    ap.add_argument("--bundle", type=Path, default=BUNDLE)
+    ap.add_argument("--manifest-json", type=Path, default=None,
+                    help="manifest to hash against. Default is the published one read out of "
+                         f"{REF_BRANCH}, never a working-tree copy.")
+    ap.add_argument("--grads", default="grads_f64_recycles0.pt",
+                    help="which gradient file in --bundle the capture is checked against")
     a = ap.parse_args()
     want_blocks = [int(x) for x in a.blocks.split(",") if x != ""]
     a.out.mkdir(parents=True, exist_ok=True)
@@ -158,15 +169,20 @@ def main() -> int:
     sys.path.insert(0, "/home/ttuser/of3t_gradients/ref")
     import bundle_min as BM
 
-    man = manifest_from_git()
-    files = ["batch_step003.pt", "draws_recycles0.pt", "grads_f64_recycles0.pt",
-             "grad_presence_recycles0.json"]
+    if a.manifest_json is not None:
+        man = json.loads(a.manifest_json.read_text())
+        man_src = str(a.manifest_json)
+    else:
+        man = manifest_from_git()
+        man_src = f"{REF_BRANCH}:{MANIFEST_GIT}"
+    pres = ("grad_presence" + a.grads[len("grads_f64"):]).replace(".pt", ".json")
+    files = ["batch_step003.pt", "draws_recycles0.pt", a.grads, pres]
     rep = {"instrument": "capture of the pairformer block boundary of BUNDLE-MIN's own step",
-           "manifest": f"{REF_BRANCH}:{MANIFEST_GIT}",
+           "manifest": man_src,
            "manifest_commit": subprocess.run(["git", "rev-parse", REF_BRANCH],
                                              capture_output=True, text=True).stdout.strip(),
-           "bundle_dir": str(BUNDLE), "blocks": want_blocks}
-    rep["hashes"] = verify(man, files)
+           "bundle_dir": str(a.bundle), "blocks": want_blocks}
+    rep["hashes"] = verify(man, files, a.bundle, man_src)
     vg = man["validated_gradient"]
     rep["reference"] = {"file": vg["file"], "num_recycles": vg["num_recycles"],
                         "loss": vg["loss"], "global_norm": vg["gradient_global_norm"],
@@ -176,8 +192,8 @@ def main() -> int:
     print(f"[{time.time()-t0:.0f}s] bundle verified, {len(files)} files", flush=True)
 
     dtype = torch.float64
-    raw = torch.load(BUNDLE / "batch_step003.pt", weights_only=False)
-    draws = torch.load(BUNDLE / "draws_recycles0.pt", map_location="cpu", weights_only=False)
+    raw = torch.load(a.bundle / "batch_step003.pt", weights_only=False)
+    draws = torch.load(a.bundle / "draws_recycles0.pt", map_location="cpu", weights_only=False)
     rep["draws"] = {"num_recycles": int(draws["num_recycles"]),
                     "n_torch_randn": len(draws["torch_randn"]),
                     "n_python_random": len(draws["python_random"])}
@@ -273,7 +289,7 @@ def main() -> int:
     print(f"[{time.time()-t0:.0f}s] backward {rep['backward_seconds']:.0f}s", flush=True)
 
     # ---- the capture is checked against the bundle, not asserted ---------------------------
-    ref = torch.load(BUNDLE / "grads_f64_recycles0.pt", map_location="cpu", weights_only=False)
+    ref = torch.load(a.bundle / a.grads, map_location="cpu", weights_only=False)
     ours_here = {n: (p.grad.detach().clone() if p.grad is not None else None)
                  for n, p in model.named_parameters()}
     def rel(a_, b_):
