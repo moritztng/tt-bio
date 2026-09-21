@@ -76,6 +76,30 @@ def test_one(doc, key, op, bar):
                      if not (isinstance(v, dict) and v.get(leaf) is bar))
         return (not bad), (f"{len(d) - len(bad)} of {len(d)}"
                            + (f", missing: {', '.join(bad)}" if bad else ""))
+    if op == "moves":
+        # "the two arms actually MOVED" -- D169. The clause this replaces read `d1`, and step 1
+        # of an OpenFold3 training run cannot move: upstream's own AlphaFoldLRScheduler warms up
+        # linearly from base_lr=0.0, so lr(0) == 0.0 exactly and both sides are bit-identical
+        # after it even with a non-zero gradient. Read the whole trajectory instead and require
+        # OUR side to move at every step where THEIRS does. A step where neither moves is
+        # agreement under their schedule, not two stationary weight vectors.
+        ref_k, our_k = bar
+        found, rows = dig(doc, key)
+        if not found or not isinstance(rows, list) or not rows:
+            return False, f"{key} is not a non-empty list of steps"
+
+        def num(r, k):
+            v = r.get(k) if isinstance(r, dict) else None
+            return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        ref_moving = [r for r in rows if (num(r, ref_k) or 0) > 0]
+        if not ref_moving:
+            return False, (f"the reference never moves in {len(rows)} step(s) -- two stationary "
+                           f"weight vectors prove nothing about the update rule")
+        stuck = [r.get("k") for r in ref_moving if not (num(r, our_k) or 0) > 0]
+        return (not stuck), (f"{len(ref_moving)} of {len(rows)} step(s) move upstream-side"
+                             + (f", ours stationary at k = {stuck}" if stuck
+                                else ", ours moves at every one"))
     found, v = dig(doc, key)
     if not found:
         return False, "key absent"
@@ -135,6 +159,17 @@ def break_control(spec) -> list[str]:
                 head, leaf = key.split(".*.")
                 doc.setdefault(head, {})["synthetic"] = {leaf: bar}
                 continue
+            if op == "moves":
+                ref_k, our_k = bar
+                cur, parts = doc, key.split(".")
+                for part in parts[:-1]:
+                    cur = cur.setdefault(part, {})
+                # k = 1 is the warmup no-op on BOTH sides on purpose: the synthetic artifact
+                # that has to report MET is the shape a FAITHFUL reproduction produces, which is
+                # the whole content of D169.
+                cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
+                                  {"k": 2, ref_k: 1.0, our_k: 1.0}]
+                continue
             cur, parts = doc, key.split(".")
             for part in parts[:-1]:
                 cur = cur.setdefault(part, {})
@@ -149,19 +184,69 @@ def break_control(spec) -> list[str]:
     return bad
 
 
+def negative_control(spec) -> list[str]:
+    """And each clause must be able to say NOT MET for the RIGHT reason.
+
+    `break_control` above proves a clause can report MET. That is only half of it: a clause
+    hard-wired to pass would also satisfy it on a real artifact, and a clause that reports UNMET
+    for a reason unrelated to its subject is worse than one that never fires. So for every
+    requirement, build the artifact that violates exactly that requirement and nothing else, and
+    demand the evaluator refuse it.
+
+    Added at pass 319 with the `moves` op (D169), because that op is the first one whose failing
+    case is not "a value is wrong" but "one side of the comparison stood still", and a control
+    that only ever builds a passing artifact cannot tell those apart.
+    """
+    bad = []
+    for cond in spec:
+        for key, op, bar, _ in cond["require"]:
+            doc: dict = {}
+            if op == "all":
+                head, leaf = key.split(".*.")
+                doc[head] = {"synthetic": {leaf: (not bar) if isinstance(bar, bool) else None}}
+            elif op == "moves":
+                ref_k, our_k = bar
+                cur, parts = doc, key.split(".")
+                for part in parts[:-1]:
+                    cur = cur.setdefault(part, {})
+                # theirs moves, ours does not -- the one thing this clause exists to catch
+                cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
+                                  {"k": 2, ref_k: 1.0, our_k: 0.0}]
+            else:
+                if op == "present":
+                    v = None
+                elif isinstance(bar, bool):
+                    v = not bar
+                elif isinstance(bar, (int, float)):
+                    v = bar + 1 if op in ("is", "<=") else bar - 1
+                else:
+                    v = "not-the-bar"
+                cur, parts = doc, key.split(".")
+                for part in parts[:-1]:
+                    cur = cur.setdefault(part, {})
+                cur[parts[-1]] = v
+            passed, actual = test_one(doc, key, op, bar)
+            if passed:
+                bad.append(f"{cond['field']}: an artifact built to VIOLATE `{key} {op} {bar!r}` "
+                           f"still passes it (evaluator read {actual}) -- this clause cannot "
+                           f"report NOT MET, so its MET would mean nothing")
+    return bad
+
+
 def main() -> int:
     src = GATE.read_text()
     spec = lift_spec(src)
     spec_sha = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
 
-    broken = break_control(spec)
+    broken = break_control(spec) + negative_control(spec)
     conds = evaluate(spec, ROOT)
     payload = {
         "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
         "spec_lifted_from": str(GATE),
         "spec_sha256": spec_sha,
         "tree": str(ROOT),
-        "break_control": ("every condition can report MET on a synthetic artifact"
+        "break_control": ("every condition can report MET on a synthetic artifact, and every "
+                          "requirement reports NOT MET on one built to violate it"
                           if not broken else broken),
         "n_met": sum(c["met"] for c in conds),
         "n_conditions": len(conds),
@@ -186,7 +271,8 @@ def main() -> int:
         for m in c["misses"]:
             print(f"             - {m}")
     print(f"\n{payload['n_met']} of {payload['n_conditions']} charter conditions met. "
-          f"Break control: all {len(conds)} clauses can report MET on a synthetic artifact.")
+          f"Break control: all {len(conds)} clauses can report MET on a synthetic artifact, "
+          f"and every requirement reports NOT MET on one built to violate it.")
     print(f"written: {HERE}\n         {STATE}")
     return 0
 

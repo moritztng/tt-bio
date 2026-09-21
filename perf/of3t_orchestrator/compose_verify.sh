@@ -307,6 +307,21 @@ _ASSERT
             # HEAD's box read and `__all__`, take d116's helper call and its new name. The
             # resolver refuses the moment the hunk stops having that exact shape.
             git add "$_f"
+          elif "$PY" "$HERE/resolve_prose_only_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            # Both sides differ only in comments and docstrings -- a row based on an older
+            # wk/of3t reflowed a comment, or carries a wording main has since sharpened. HEAD's
+            # prose wins, and the safety is checked not argued: both sides are reconstructed,
+            # parsed, stripped of docstrings and compared as ASTs, so any executable difference
+            # anywhere refuses and stops the compose.
+            git add "$_f"
+          elif "$PY" "$HERE/resolve_softmax_inner_box.py" "$_f" "origin/wk/of3t-$r"; then
+            # The BOX memory policy against D56's shared `softmax_bw_inner`, in either
+            # orientation. Two repairs on the same three lines, neither aware of the other, and
+            # they compose: read the handle through the box, then call the helper. Taking HEAD
+            # alone leaves `y` unbound and the backward raises NameError the first time it runs,
+            # which a collection-only compose cannot see. Generalises d116's literal, whose
+            # orientation flipped the moment D56 landed on main.
+            git add "$_f"
           elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             git add "$_f"
           else
@@ -331,8 +346,46 @@ done
 # which is exactly why its failure must be loud: a conflict here silently drops the orchestrator's
 # corrections from the branch that goes to the merge gate, and the compose would still print
 # "clean". Found pass 92 while reverting a default flip through this very merge.
-git merge --no-edit -q wk/of3t-orchestrator \
-  || { echo "CONFLICT merging wk/of3t-orchestrator:"; git diff --name-only --diff-filter=U; exit 1; }
+if ! git merge --no-edit -q wk/of3t-orchestrator; then
+  # One conflict shape is resolvable here and exactly one: an add/add inside
+  # `perf/of3t_orchestrator/`, the orchestrator's OWN artifact namespace. D171, pass 319. The
+  # charter evaluator was written by `of3t-d122-d115` INTO this namespace and reached every tree
+  # through that row's branch, never through the owner's, so when the owner finally carried it
+  # the two copies had no merge base. Namespace ownership is the thing this campaign arbitrates
+  # (`sibling-perf-campaigns-need-namespaced-output-paths`), so the owner's copy is the answer by
+  # definition -- the other side is a row that wrote outside its own namespace.
+  #
+  # Narrow on purpose: ONLY add/add (both sides added, no base), ONLY under this one prefix, and
+  # any other conflicted path still stops the composition. And it is self-verifying rather than
+  # trusted -- everything under this prefix is an instrument the compose RUNS a few lines below,
+  # so a resolution that dropped something load-bearing fails the run it is resolving. That is
+  # the property, not the intention: `charter_evidence.py` refuses to publish if its own break
+  # and negative controls do not pass.
+  _u="$(git diff --name-only --diff-filter=U)"
+  _bad="$(printf '%s\n' "$_u" | grep -v '^perf/of3t_orchestrator/' || true)"
+  _notaa="$(for _f in $_u; do
+              if git ls-files -u -- "$_f" | awk '{print $3}' | grep -qx 1; then
+                printf '%s\n' "$_f"
+              fi
+            done; :)"
+  if [ -n "$_u" ] && [ -z "$_bad" ] && [ -z "$_notaa" ]; then
+    for _f in $_u; do
+      # HEAD here is the accumulated composition and `wk/of3t-orchestrator` is what is being
+      # merged, so the owner's copy is THEIRS, not OURS. Getting this backwards would silently
+      # keep the row's stale copy and print the reassuring note anyway.
+      git checkout --theirs -- "$_f" && git add -- "$_f"
+      echo "  NOTE wk/of3t-orchestrator: add/add on $_f resolved to the NAMESPACE OWNER's copy"\
+           " (D171); it is an instrument this compose runs, so a wrong resolution fails below"
+    done
+    git commit --no-edit -q
+  else
+    echo "CONFLICT merging wk/of3t-orchestrator:"; printf '%s\n' "$_u"
+    [ -n "$_bad" ] && echo "  (outside perf/of3t_orchestrator/ -- not the D171 shape)"
+    [ -n "$_notaa" ] && echo "  (has a merge base, so it is a real disagreement, not add/add:"\
+                             " $_notaa)"
+    exit 1
+  fi
+fi
 
 # (1) ancestry, asserted AFTER the merges
 for r in $PRESENT; do
@@ -705,6 +758,15 @@ echo "--- PROTOCOL rests on no closed defect"
 "$PY" "$HERE/assert_protocol_defect_refs.py" || \
   { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
 
+# (3h-bis) D166. Every closure, ratchet and GAP line in this campaign addresses a defect BY
+# NUMBER, so two entries opening one D-number make a status word written for either read as the
+# other's. Pass 308 did exactly that -- appended `### D165.` next to an existing `### D165.`,
+# having picked the number off a `sort -n | tail` that printed 164. UPDATE headings are excluded
+# deliberately: `### D164 UPDATE 1` is one defect, and the campaign uses that form on purpose.
+echo "--- every defect D-number is opened exactly once"
+"$PY" "$HERE/assert_defect_ids_unique.py" || \
+  { echo "COMPOSE: two defect entries open the same D-number"; exit 1; }
+
 # (3i) D148/A30. A summary of what the campaign still owes is composed from the state at the TOP
 # of a pass, and rows report inside it -- DIRECTIVE-STATUS's "honest shape of what is left, at pass
 # 199" was already wrong that same pass and stayed on the page for seventy more. The stamp must be
@@ -851,8 +913,14 @@ for _f in PROTOCOL DEFECTS EVIDENCE LEDGER ORCHESTRATOR; do
   _src="/home/moritz/.coworker/state/of3t/$_f.md"
   [ "$_f" = ORCHESTRATOR ] && _src="/home/moritz/.coworker/state/of3t-orchestrator.md"
   [ -f "$_src" ] || continue
+  # The header names the SOURCE THIS COPY WAS TAKEN FROM, derived from $_src rather than
+  # re-typed from the loop variable. Until pass 307 it printed `state/of3t/$_f.md` for every
+  # document including ORCHESTRATOR, whose source is special-cased one line above and whose
+  # advertised path DOES NOT EXIST -- so the one instruction the header gives, "edit that one",
+  # pointed a reader at nothing, or at a second live copy they would have had to create. That
+  # is the defect the next two lines warn about, committed by the warning itself.
   { echo "<!-- PUBLISHED COPY, regenerated by compose_verify.sh on every compose."
-    echo "     AUTHORITATIVE SOURCE: ~/.coworker/state/of3t/$_f.md on pc."
+    echo "     AUTHORITATIVE SOURCE: $_src on pc."
     echo "     Edit that one. An edit here is overwritten on the next compose, and two live"
     echo "     copies of one document is the defect this campaign spent four passes fixing."
     echo "     Published so that wk/of3t carries the reasoning and not only the artifacts:"
@@ -870,6 +938,8 @@ echo "record: $_recn campaign documents published into the branch ($(du -sh "$_R
 # first. Same drift class this campaign audits everywhere else, in a document I own. The prose
 # stays authored; the numbers are written here, into $REPO so the branch carries them.
 _DOC="$REPO/perf/of3t_orchestrator/COMPOSITION.md"
+_PROTO="/home/moritz/.coworker/state/of3t/PROTOCOL.md"
+_ORCH="/home/moritz/.coworker/state/of3t-orchestrator.md"
 if [ -f "$_DOC" ] && grep -q '<!-- BEGIN GENERATED' "$_DOC"; then
   {
     echo "<!-- BEGIN GENERATED by compose_verify.sh -- do not edit between these markers -->"
@@ -877,6 +947,22 @@ if [ -f "$_DOC" ] && grep -q '<!-- BEGIN GENERATED' "$_DOC"; then
     echo "Composed $(date -u +%F\ %TZ) from \`origin/main\` at \`$(git rev-parse --short origin/main)\`."
     echo "Head \`$(git -C "$CO" rev-parse --short HEAD)\`, **$(git -C "$CO" rev-list --count origin/main..HEAD) commits ahead**,"
     echo "carrying **$(set -- $PRESENT; echo $#) of $(set -- $ROWS; echo $#) rows**."
+    echo
+    # Pass 313. Three numbers in this file's AUTHORED prose had drifted: "seventeen amendments"
+    # when PROTOCOL carries 30, "146 scoreboard figures", and -- the expensive one -- a closing
+    # summary saying the model-dependent half was measured "at one Pairformer block, where it
+    # FAILED, on a scope holding 0.20 % of the gradient's magnitude", written early and still
+    # there with the campaign at 92.1568 %. The file's own opening paragraph warns about exactly
+    # this class and then commits it three times, because it drew the authored/generated line in
+    # the wrong place: it generated the TABLE and left the CLAIMS in prose. A claim with a number
+    # in it is data. These three are derived here so they cannot drift again.
+    echo "PROTOCOL carries **$(grep -oE '^\*\*A[0-9]+' "$_PROTO" 2>/dev/null | sort -u | wc -l | tr -d ' ') amendments**,"
+    echo "each marked for whether a number already existed when it was written."
+    echo
+    echo "Campaign headline, copied verbatim from \`state/of3t-orchestrator.md\`'s \`VERDICT:\` so"
+    echo "this file cannot state a different one:"
+    echo
+    sed -n 's/^VERDICT: /> **VERDICT:** /p' "$_ORCH" 2>/dev/null | head -1
     echo
     echo "| row | branch head | files reachable ONLY from this row |"
     echo "|---|---|---|"
