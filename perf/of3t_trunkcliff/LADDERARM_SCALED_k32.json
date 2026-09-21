@@ -1,0 +1,26 @@
+{
+  "blocks": 32,
+  "config": {
+    "scale_pair_bias": true,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false
+  },
+  "shipped_config": {
+    "scale_pair_bias": false,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false
+  },
+  "overrides": [
+    "scale_pair_bias=true"
+  ],
+  "permuted": false,
+  "tokens": 64,
+  "real_tokens": 56,
+  "s_norm": 1605615.5102755274,
+  "z_norm": 1507538.457407621,
+  "seconds": 2.453153129000384
+}
