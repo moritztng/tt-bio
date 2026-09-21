@@ -1,0 +1,146 @@
+{
+ "what": "the shape of the reference gradient itself: which KIND of parameter carries OpenFold3's gradient mass. Summed directly from bundle_min_043/grads_f64_043.pt on qb2 (4,170 tensors, 368,296,732 parameters, model squared norm 10.279642678524985). CPU only, no device opened.",
+ "basis": "upstream OpenFold3 0.4.3, the revision this campaign claims. Not the 0.5.0 / 4,147 bundle.",
+ "headline": "84.6253 % of the model's squared gradient norm sits in 1-D tensors -- LayerNorm gains and biases -- that hold 0.0952 % of its parameters. 350,588 scalars out of 368,296,732 carry five sixths of the gradient. A parity claim about OpenFold3's gradient is, to first order, a claim about LayerNorm backward on the single track.",
+ "by_kind": {
+  "all 1-D tensors": {
+   "n_tensors": 1514,
+   "n_params": 350588,
+   "pct_of_params": 0.0952,
+   "pct_of_mass": 84.6253
+  },
+  "all .bias tensors": {
+   "n_tensors": 817,
+   "n_params": 220992,
+   "pct_of_params": 0.06,
+   "pct_of_mass": 23.0692
+  },
+  "layer_norm name family": {
+   "n_tensors": 1509,
+   "n_params": 29467644,
+   "pct_of_params": 8.0011,
+   "pct_of_mass": 85.3118
+  }
+ },
+ "top_12_tensors_pct_of_model": [
+  [
+   10.38237,
+   "(384,)",
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias"
+  ],
+  [
+   9.29095,
+   "(384,)",
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias"
+  ],
+  [
+   8.80266,
+   "(384,)",
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.weight"
+  ],
+  [
+   8.05416,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  ],
+  [
+   5.45946,
+   "(833,)",
+   "diffusion_module.diffusion_conditioning.layer_norm_s.weight"
+  ],
+  [
+   3.3866,
+   "(128, 384)",
+   "diffusion_module.atom_attn_enc.noisy_position_embedder.linear_s.weight"
+  ],
+  [
+   3.03037,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  ],
+  [
+   2.86053,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  ],
+  [
+   2.84314,
+   "(64, 128)",
+   "aux_heads.distogram.linear.weight"
+  ],
+  [
+   2.69418,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  ],
+  [
+   2.43308,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  ],
+  [
+   2.40567,
+   "(384,)",
+   "diffusion_module.diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight"
+  ]
+ ],
+ "top_12_reading": "ten of the twelve are LayerNorm gain/bias vectors on the single (s) track inside diffusion_module. Only two matrices appear at all, and the larger of them is 3.39 %.",
+ "the_tractable_target": {
+  "claim": "diffusion_conditioning is 36.9462 % of the model over 26 tensors -- but FOUR of those tensors are 33.9354 % on their own, 91.85 % of the section. The remaining 22 tensors are 3.0107 % of the model between them.",
+  "the_four": [
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias   (384,)  10.38237 %",
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias   (384,)   9.29095 %",
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.weight (384,)   8.80266 %",
+   "diffusion_module.diffusion_conditioning.layer_norm_s.weight             (833,)   5.45946 %"
+  ],
+  "scale": "1,985 scalars. 0.000539 % of the model's parameters. A third of the gradient.",
+  "why_it_matters": "the campaign's largest open item has been diffusion_conditioning, blocked on moving device_gradient.py's walked boundary. At 1,985 scalars the dominant part of it does not need the full module arm to be checked -- four float64 vectors can be compared exhaustively, entry by entry, on a host."
+ },
+ "is_this_just_a_dimension_artifact": "partly, but not mostly. Per-entry rms: 5.272e-02 for the heaviest LayerNorm bias (384 entries) against 2.661e-03 for the heaviest matrix in the top twelve (49,152 entries) -- the LayerNorm entries are individually ~20x larger, and there are ~128x fewer of them. Both effects are real and they compound in the same direction. Mechanically this is expected: a LayerNorm gain/bias gradient is a sum over every token and every sample of the normalized activation, so it accumulates a very large number of terms into a short vector, while a matrix gradient is an outer product spread across many entries.",
+ "does_the_share_matter": "for this campaign's question, yes. The question is whether our gradient IS the reference gradient -- a statement about one vector in parameter space -- so the squared-norm share is the right denominator, and it is also what a global grad-norm clip sees. It is NOT the right denominator for per-parameter-adaptive optimisers: Adam divides each coordinate by its own second moment, which removes most of this concentration from the actual step. A parity failure concentrated in these vectors would show up loudly in a gradient-norm comparison and quietly in an Adam trajectory. Both facts should be stated whenever this table is quoted.",
+ "what_this_does_not_establish": "mass is not error. Nothing here says the LayerNorm gradients are where our port is wrong -- no arm has been run at this cut. It says where a given amount of error costs most, and therefore which arm is worth building next. One batch (batch_step003, 5nw3, 56 real tokens), one r = 0 step; the stability of these shares across batches is unmeasured.",
+ "provenance": "measured 2026-09-20 pass 151 on tt-quietbox2, torch.load + per-tensor float64 sum-of-squares, /home/ttuser/tt-bio-dev/env/bin/python, no Tenstorrent device opened, nice -n 15 alongside the live of3t-auxheads row.",
+ "concentration": {
+  "tensors_to_reach": {
+   "50%": 8,
+   "90%": 52,
+   "99%": 628,
+   "99.9%": 1814
+  },
+  "pct_by_count": {
+   "50%": 0.19,
+   "90%": 1.25,
+   "99%": 15.06,
+   "99.9%": 43.5
+  },
+  "median_tensor_holds_pct_of_model": 0.0001305,
+  "median_tensor": "pairformer_stack.blocks.37.pair_stack.tri_att_start.mha.linear_o.weight",
+  "lightest_half_2085_tensors_hold_pct": 0.05746,
+  "what_it_means_for_the_campaigns_bar": "the 2.0e-02 median-over-tensors bar is evaluated on the half of the gradient that holds one part in 1,740 of its mass. It is a good per-tensor safety net and it cannot be the headline. Filed as PROTOCOL A23 and D51.",
+  "a14_threshold_gap": {
+   "ref_norm<1e-12": {
+    "n": 86,
+    "pct_of_mass": 1.095e-23
+   },
+   "ref_norm<1e-9": {
+    "n": 100,
+    "pct_of_mass": 3.159e-17
+   },
+   "ref_norm<1e-6": {
+    "n": 196,
+    "pct_of_mass": 1.988e-10
+   },
+   "note": "A14 excludes only the first row. The other 96 tensors are nonzero by norm and zero by mass. The fix is to weight by mass, not to raise the epsilon."
+  }
+ },
+ "aux_heads_is_one_tensor": {
+  "section_pct_of_model": 2.843136,
+  "aux_heads.distogram.linear.weight": {
+   "pct_of_model": 2.843135,
+   "pct_of_section": 100.0,
+   "shape": "(64, 128)"
+  },
+  "other_243_tensors_pct_of_model": 1e-06,
+  "note": "measured, not rounded: the distogram linear weight is 100.0000 % of aux_heads' gradient mass. A median over the section's 244 tensors is a median over 243 numbers with no mass behind them. It is also one of the eight tensors the reference's finite-difference axis validated directly (rel 1.387e-05), so a disagreement found on it is unambiguously ours."
+ }
+}

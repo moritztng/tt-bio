@@ -1,0 +1,52 @@
+{
+ "forward": [
+  {
+   "in_dtype": "bf16",
+   "numeric_stable": true,
+   "kernel_config": "default",
+   "forward_rel": 0.02291104989016793
+  },
+  {
+   "in_dtype": "bf16",
+   "numeric_stable": true,
+   "kernel_config": "precise",
+   "forward_rel": 0.001809101828625802
+  },
+  {
+   "in_dtype": "bf16",
+   "numeric_stable": false,
+   "kernel_config": "default",
+   "forward_rel": 0.019462219017967613
+  },
+  {
+   "in_dtype": "bf16",
+   "numeric_stable": false,
+   "kernel_config": "precise",
+   "forward_rel": 0.0017516767113190457
+  },
+  {
+   "in_dtype": "fp32",
+   "numeric_stable": true,
+   "kernel_config": "default",
+   "forward_rel": 0.02274754501645873
+  },
+  {
+   "in_dtype": "fp32",
+   "numeric_stable": true,
+   "kernel_config": "precise",
+   "forward_rel": 0.000688815000783016
+  },
+  {
+   "in_dtype": "fp32",
+   "numeric_stable": false,
+   "kernel_config": "default",
+   "forward_rel": 0.017462344460256206
+  },
+  {
+   "in_dtype": "fp32",
+   "numeric_stable": false,
+   "kernel_config": "precise",
+   "forward_rel": 0.0005583553899335796
+  }
+ ]
+}
