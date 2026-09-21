@@ -511,8 +511,9 @@ precondition is the whole of it and must be checked, not assumed — a parameter
 feeds another path makes the captured cotangent an incomplete gradient, and the comparison
 would be wrong in the flattering direction.
 
-Applied here it converts **91.21 %** of the squared gradient norm from unmeasurable to
-measurable while D19 stays open.
+Applied here it converts **89.2106 %** of the squared gradient norm from unmeasurable to
+measurable while D19 stays open. (Measured on the 0.4.3 reference at pass 151; the 91.21 %
+this sentence used to carry was the 0.5.0 / 4,147 bundle that pass 91 disqualified.)
 
 **A16 — 2026-09-19, raised by `of3t-orchestrator` from `of3t-gradients`' stack-scope run, §3d
 and §3e gain a reporting requirement. No bar moves; what a FAILING number is allowed to mean
@@ -842,3 +843,162 @@ the triangle-attention weight gradient under a **12 %** change in the correspond
 2e-02 forward does not imply a 2e-02 gradient. Whatever the discriminator reads is reported
 *beside* the gradient as its floor and never *as* an expectation for it.
 
+
+**A20 — 2026-09-20, raised by `of3t-orchestrator` (pass 118), A15's denominator rule. No number
+changes; one number is restated.** A15 says reach must be reported as a share of squared gradient
+norm rather than as a count of tensors. It did not say what happens to a tensor the instrument
+could not compare at all. Instrument A currently drops such tensors into `absent`, and `absent`
+leaves the denominator, so the reported share is a share of what the instrument happened to see
+rather than of what it was asked to cover.
+
+This is not hypothetical. At pairformer block 47,
+`attn_pair_bias.linear_z.weight` carries 26.12 % of the block's reference gradient mass; under
+`scale_pair_bias=False` it is compared and fails at 0.811, and under the shipped
+`scale_pair_bias=True` the value-bijection cannot place it and it becomes `absent`. The reported
+reach of 12.336 % is a reach of **9.114 %** against the full block. The lever changed what the
+measurement could see, in the direction that flatters it, and nothing in the output said so.
+
+**The rule.** A reach figure must name its denominator, and the denominator is the **full
+reference mass in scope**, not the compared subset. A tensor present in the reference and absent
+from the comparison counts as **unreached**, never as not-there. Where a reference norm for an
+absent tensor genuinely cannot be obtained, the reach must be published as a bound — *"at most X %
+of the scope was compared"* — and the uncompared share stated alongside.
+
+**Why it is a protocol rule and not a row's bug.** Every instrument in this campaign reports a
+bijection with an `absent` list, and every one of them computes its share over the placed
+tensors. The failure mode is structural: the harder a transform is to match by value, the more
+likely its tensors are to vanish from the denominator, so the instrument is least able to see
+exactly the changes most likely to be wrong.
+
+Consequence for figures already on the record: block-level reach figures quoted before pass 118
+are reaches of the compared set. They are not retracted — they are correct statements about the
+set they describe — but they are upper bounds on reach against the full scope, and any figure
+used to argue that a section is covered must be restated against the full denominator first.
+
+**A21 — 2026-09-20, raised by `of3t-orchestrator` (pass 138), the homogeneity test and what it
+does and does not establish. No number changes; one claim of mine is narrowed.** A backward pass
+is linear in the output cotangent for a fixed forward, and the forward recomputations inside it do
+not depend on the cotangent. So scaling the injected cotangent by `k` and the stored reference by
+the same `k` leaves `norm_ratio` and `cos` **invariant in exact arithmetic**.
+
+**[THIS PARAGRAPH IS WRONG AND IS REPLACED BY A22. The sentence it carried — "choose `k` a power
+of two and the test has no noise floor" — is removed rather than annotated, because a wrong
+instruction sitting in a protocol gets followed. Powers of two make the arm VACUOUS: shifting
+every exponent and leaving every mantissa untouched means the result is invariant *by the
+arithmetic*, whatever the defect is, so the arm cannot fail. See A22.]**
+
+**What movement establishes, and what it does not.** It establishes that the backward is **not
+homogeneous**. Three mechanisms do that and they are different defects: denormal flush or
+underflow; overflow or saturation; and a **fixed additive epsilon, clamp or threshold**, which
+breaks homogeneity at *any* magnitude and has nothing to do with the arm being large. Pass 137's
+wording — *"any movement is finite-precision magnitude dependence"* — is **narrowed here**: it
+excludes the third, and the third is the one that would be a plain bug rather than a precision
+limit.
+
+**Separating them costs one ladder rather than one point.** Run `k` both ways — 8, 4, 2, 1, 1/2,
+1/4, 1/8, 1/16. Movement only as `k` falls is underflow; only as `k` rises is saturation; movement
+in both directions that *shrinks* as `|log k|` grows is a fixed epsilon, because an additive term
+is relatively largest when the signal is smallest.
+
+**And a homogeneity test needs a passing control.** Run the same ladder at a block the instrument
+calls clean. If the clean block also moves, the non-homogeneity is everywhere and the failing
+block merely has enough of it to show; if the clean block is bit-identical across the ladder and
+the failing one is not, the non-homogeneity is specific to it. Without the control a positive
+result at the failing block alone cannot distinguish those, and the stronger reading is the one
+that would be quoted.
+
+
+**A22 — 2026-09-20, raised by `of3t-rebase` and confirmed by `of3t-orchestrator` (pass 142). A21's
+central instruction was backwards. One number changes: none; one arm is re-read as empty.**
+
+A21 said to choose `k` a power of two so the scaling is exact and the test has no noise floor.
+**That is exactly the choice that makes the arm incapable of failing.** Scaling every input of a
+linear floating-point computation by `2^n` shifts exponents only: every mantissa and every
+rounding decision is untouched, so the result is invariant **by the arithmetic**, whatever defect
+is present. The same holds for bf16 and for block-float formats with a per-tile shared exponent.
+Ordinary rounding error is *relative*, so it is exactly scale-invariant under `2^n` — which means
+a power-of-two ladder cannot see the magnitude-dependent rounding the test was written to find.
+
+**Measured, at block 47:**
+
+| `k` | power of two | median `rel` | pair `r` | single `r` | `cos` |
+|---|---|---|---|---|---|
+| 1.0 | yes | 0.201289 | 1.183174 | 0.886707 | 0.997679 |
+| 0.125 | yes | 0.201289 | 1.183174 | 0.886707 | 0.997679 |
+| 0.015625 | yes | 0.201289 | 1.183174 | 0.886707 | 0.997679 |
+| 0.1 | **no** | 0.202049 | 1.183496 | 0.887574 | 0.997702 |
+| 0.0137 | **no** | 0.201675 | 1.183135 | 0.885709 | 0.997708 |
+
+The three powers of two agree to **all six digits across a 64x range**. That is the vacuity, and
+it is visible in the artifact.
+
+**The rule.** Scale-invariance arms use scales with **dirty mantissas** — 0.1, 0.0137, 3.7. Keep
+the powers of two as a separate **arithmetic control**: they *must* read bit-identical, and if
+they do not, the computation is not linear in that input and nothing else in the experiment can
+be read. Here they did, so linearity is established and the non-power arms are interpretable.
+
+**The failure mode this belongs to.** Choosing the scale for exactness selects exactly the case
+that cannot fail. It is a negative control that does not break what the check reads, arriving from
+the opposite direction — the *positive* arm was made incapable of moving.
+
+**What survives.** The conclusion is unchanged and now rests on evidence: across a **73x** range
+(1.0 to 0.0137) the pair factor moves **0.03 %** and the single **0.2 %**, while they sit **18 %**
+and **11 %** from unity. **Gradient magnitude does not drive the block-47 factors.** The
+pass-141 reading stands; the pass-138 evidence for it was empty.
+---
+
+**A23 — 2026-09-20, raised by `of3t-orchestrator` (pass 151). A median over tensors is a
+statistic about the tensors that carry no mass. Every set statistic must be reported with the
+fraction of reference mass its set holds, and a mass-concentrated scope may not be headlined by
+a median-over-tensors.**
+
+Measured exhaustively on the 0.4.3 reference (4,170 tensors, model squared gradient norm
+10.279642678524985):
+
+| reaching | tensors | % by count |
+|---|---|---|
+| 50 % of the gradient's mass | **8** | 0.19 % |
+| 90 % | **52** | 1.25 % |
+| 99 % | 628 | 15.06 % |
+| 99.9 % | 1,814 | 43.50 % |
+
+The **median** tensor holds **1.305e-04 %** of the model's mass. The 2,085 tensors at or below
+the median — the half a median-over-tensors statistic is centred on — hold **0.05746 %** of the
+mass between them, one part in 1,740.
+
+**So the campaign's own 2.0e-02 median-over-tensors bar is a bar evaluated where the gradient
+is not.** That is not a reason to drop it: it is a good per-tensor safety net, it catches
+structural breakage, and it is scope-independent. It is a reason it cannot be the headline. A
+change that moves the median-over-tensors and leaves the heavy tensors alone has changed
+almost nothing about the gradient vector; a change that moves one of the top eight and leaves
+the median alone has changed half of it.
+
+**The rule.**
+
+1. Any statistic computed over a set of tensors is reported **with the fraction of the
+   reference's squared norm that set holds**. "median 7.11e-01 over 98 tensors" becomes
+   "median 7.11e-01 over 98 tensors holding 5.5589 % of the model".
+2. For any scope, the **headline** number is a mass-weighted one — `rel_l2` over the
+   concatenated set, or the mass-weighted share in agreement. The median-over-tensors is
+   reported **beside** it, never instead of it.
+3. When a scope's mass is concentrated in a few tensors, **name them and give their individual
+   results**. `aux_heads` is the extreme case: `aux_heads.distogram.linear.weight` is
+   **100.0000 %** of that section's mass and the other 243 tensors hold 0.000001 % of the model
+   between them. A median over those 244 is a median over 243 numbers that mean nothing.
+
+**And it exposes a gap in A14.** A14 excludes tensors with `ref_norm < 1e-12`. That removes 86
+tensors holding 1.1e-23 % of the mass — the exact zeros. It does **not** remove the 196 tensors
+with `ref_norm < 1e-6`, which hold 2.0e-10 % of the mass and are, for every purpose a parity
+claim has, also zero. A14's threshold was set to avoid dividing by zero. The threshold that
+matters is **mass**, not norm, and it is rule 1 above, not a larger epsilon: do not exclude
+them, **weight** them.
+
+**What this re-scores.** D49's `fp32_softmax=False` result was scored as "three blocks cross the
+median bar, 5 of 7 pass against 2". Those seven pairformer blocks hold roughly 0.5 % of the
+model's mass between them, and the statistic that moved was the median-over-tensors within each.
+The measurement stands exactly as taken; what it licenses is narrower than the phrasing
+suggested, and the lever's effect on the model's gradient as a vector is **unmeasured**. The same
+applies to every per-block §3d figure this campaign has produced.
+
+Record: `perf/of3t_orchestrator/WHERE_THE_GRADIENT_MASS_LIVES.json`,
+`perf/of3t_orchestrator/BLOCK_MASS_PROFILE.json`. Filed as D51.
