@@ -1,18 +1,18 @@
 # of3t-trajwide live run
 
-Written by `recorder.py` at 2026-09-21T18:31:06Z.
+Written by `recorder.py` at 2026-09-21T18:34:08Z.
 Check liveness by the rung counter moving and `log_age_s` staying small, not by
 the clock. An arm with a marker whose rc is not 0 is FAILED, not finished.
 
     arm           rungs  status      log age  marker
-    shipped       20/20  COMPLETE     13623 s  arm=shipped rc=0 card=1 at=2026-09-21T14:44:02Z
-    shipped_aa2   20/20  COMPLETE     10146 s  arm=shipped_aa2 rc=0 card=1 at=2026-09-21T15:41:59Z
-    permute       20/20  COMPLETE      7561 s  arm=permute rc=0 card=0 at=2026-09-21T16:25:05Z
-    stale         20/20  COMPLETE     10450 s  arm=stale rc=0 card=0 at=2026-09-21T15:36:56Z
-    norebind      20/20  COMPLETE     13081 s  arm=norebind rc=0 card=0 at=2026-09-21T14:53:04Z
-    zero          20/20  COMPLETE     13645 s  arm=zero rc=0 card=0 at=2026-09-21T14:43:41Z
-    theirs        20/20  COMPLETE      7782 s  arm=theirs rc=0 side=theirs at=2026-09-21T16:21:24Z
-    theirs_aa2    20/20  COMPLETE      3030 s  arm=theirs_aa2 rc=0 side=theirs at=2026-09-21T17:40:36Z
+    shipped       20/20  COMPLETE     13805 s  arm=shipped rc=0 card=1 at=2026-09-21T14:44:02Z
+    shipped_aa2   20/20  COMPLETE     10328 s  arm=shipped_aa2 rc=0 card=1 at=2026-09-21T15:41:59Z
+    permute       20/20  COMPLETE      7743 s  arm=permute rc=0 card=0 at=2026-09-21T16:25:05Z
+    stale         20/20  COMPLETE     10632 s  arm=stale rc=0 card=0 at=2026-09-21T15:36:56Z
+    norebind      20/20  COMPLETE     13263 s  arm=norebind rc=0 card=0 at=2026-09-21T14:53:04Z
+    zero          20/20  COMPLETE     13827 s  arm=zero rc=0 card=0 at=2026-09-21T14:43:41Z
+    theirs        20/20  COMPLETE      7964 s  arm=theirs rc=0 side=theirs at=2026-09-21T16:21:24Z
+    theirs_aa2    20/20  COMPLETE      3212 s  arm=theirs_aa2 rc=0 side=theirs at=2026-09-21T17:40:36Z
 
 Reference tree resolved in-process (D149): /home/ttuser/of3t_refprec/of3pkg043
 
