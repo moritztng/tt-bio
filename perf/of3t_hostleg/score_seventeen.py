@@ -46,7 +46,14 @@ def main():
     ap.add_argument("--f64", default=F64)
     ap.add_argument("--expect-f64", default=F64_SHA)
     ap.add_argument("--boundary-ref", default="/home/ttuser/of3t_hostleg/diffcap043/sub_boundary.pt",
-                    help="the arm's OWN reference, compared per tensor against the bundle's")
+                    help="the diffusion arm's OWN reference, compared per tensor against the "
+                         "bundle's")
+    ap.add_argument("--ie-boundary", default="/home/ttuser/of3t_hostleg/ie_boundary.pt",
+                    help="the input-embedder capture, whose own parameter gradients are "
+                         "compared per tensor against the bundle's. A capture that reproduces "
+                         "the pinned reference's gradients is running the function the "
+                         "reference was taken at; one that does not is a different function and "
+                         "its cotangent seeds nothing comparable.")
     ap.add_argument("--out", default=str(Path(__file__).with_name("SEVENTEEN.json")))
     ap.add_argument("--sidecar-dir", default=str(Path(__file__).parent / "sidecar"))
     a = ap.parse_args()
@@ -85,6 +92,23 @@ def main():
                     float(torch.linalg.vector_norm(x - y) / (torch.linalg.vector_norm(y) + 1e-300)),
             }
         del S, gb
+    ie_check = {}
+    if Path(a.ie_boundary).is_file():
+        E = torch.load(a.ie_boundary, map_location="cpu", weights_only=False)
+        ie_check["capture"] = {"path": a.ie_boundary, "dtype": E.get("dtype"),
+                               "loss": E.get("loss")}
+        for n in names:
+            v = E.get("grad_f64", {}).get(n)
+            if v is None or mass[n] is None:
+                continue
+            x, y = v.double().reshape(-1), mass[n]
+            ie_check[n] = {
+                "capture_norm": float(torch.linalg.vector_norm(x)),
+                "bundle_norm": float(torch.linalg.vector_norm(y)),
+                "rel_l2_between_the_two_references":
+                    float(torch.linalg.vector_norm(x - y) / (torch.linalg.vector_norm(y) + 1e-300)),
+            }
+        del E
 
     out = {
         "instrument": "of3t-hostleg score_seventeen.py -- the 17 HOST_APPLIED tensors against "
@@ -97,6 +121,7 @@ def main():
         "names": names,
         "per_tensor_bar": agreement.PER_TENSOR_BAR,
         "two_references_compared": bnd_check,
+        "input_embedder_capture_vs_bundle_reference": ie_check,
         "arms": {},
     }
     Path(a.sidecar_dir).mkdir(parents=True, exist_ok=True)
