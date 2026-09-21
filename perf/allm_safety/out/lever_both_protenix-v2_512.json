@@ -1,0 +1,178 @@
+{
+ "model": "protenix-v2",
+ "size": 512,
+ "lever": "both",
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "off,on,off,on",
+ "control": "off = the shipped default for both flags, so off IS main",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T01:54:05Z",
+ "loadavg": [
+  10.65673828125,
+  12.00634765625,
+  13.1435546875
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 51.525,
+   "plddt": 0.810599,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "digest": "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1208,
+   "fuse_served": -1208,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 1208
+   },
+   "cif_dir": "perf/allm_safety/out/cif_protenix-v2_512_both_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 55.22,
+   "plddt": 0.810599,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "digest": "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea",
+   "gate_served": 1208,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1208,
+   "fuse_served": -1208,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 1208
+   },
+   "cif_dir": "perf/allm_safety/out/cif_protenix-v2_512_both_leg1_on"
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 51.648,
+   "plddt": 0.810599,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "digest": "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1208,
+   "fuse_served": -1208,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 1208
+   },
+   "cif_dir": "perf/allm_safety/out/cif_protenix-v2_512_both_leg2_off"
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 51.464,
+   "plddt": 0.810599,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "digest": "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea",
+   "gate_served": 1208,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_calls": 0,
+   "fuse_rejected": 1208,
+   "fuse_served": -1208,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 1208
+   },
+   "cif_dir": "perf/allm_safety/out/cif_protenix-v2_512_both_leg3_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 63.545,
+ "medians": {
+  "off": 51.5865,
+  "on": 53.342
+ },
+ "aa_floor": {
+  "off": 0.12300000000000466,
+  "on": 3.7560000000000002
+ },
+ "digests": {
+  "off": [
+   "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea"
+  ],
+  "on": [
+   "3d1c37cc19bf105ec5906d3f243f4f1ecd03aaf7a1465f1915e5a9c5a14aaaea"
+  ]
+ },
+ "ratio": 0.96709,
+ "delta_s": -1.755,
+ "resolvable": false,
+ "firing": {
+  "on_arm_served": {
+   "gate": [
+    1208,
+    1208
+   ],
+   "fuse": [
+    -1208,
+    -1208
+   ]
+  },
+  "off_arm_served": {
+   "gate": [
+    0,
+    0
+   ],
+   "fuse": [
+    -1208,
+    -1208
+   ]
+  },
+  "inert_on_this_model": {
+   "gate": false,
+   "fuse": false
+  },
+  "served_stable_across_on_legs": {
+   "gate": true,
+   "fuse": true
+  }
+ }
+}

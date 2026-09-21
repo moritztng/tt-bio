@@ -39,6 +39,20 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 sys.path.insert(0, str(ROOT / "perf"))
 
 
+# `_fuse_reject` is called from BOTH sides of the wrapper: these three reasons are raised in
+# `tenstorrent.py`, BEFORE `sdpa_fused_qkv` is entered, and every other reason is raised inside it.
+# So served = calls - the rejects raised inside. Subtracting the total instead reads protenix-v2 as
+# -1208, because all 1208 of its rejects are the outside kind and it never enters the function.
+_FUSE_REJECT_OUTSIDE = ("qkv_already_fused_with_gate", "site", "no_full_S_chunk")
+
+
+def _fuse_served(rejects, calls):
+    inside = sum(v for k, v in rejects.items() if k not in _FUSE_REJECT_OUTSIDE)
+    served = calls - inside
+    assert served >= 0, f"negative serves: calls={calls} inside={inside} rejects={dict(rejects)}"
+    return served
+
+
 def digest(struct_dir: Path) -> str:
     h = hashlib.sha256()
     for f in sorted(struct_dir.glob("**/*")):
@@ -150,7 +164,7 @@ def main() -> int:
                "gate_rejects": {f"{r}|{s}": n for (r, s), n in TS.GATE_REJECTS.items()},
                "fuse_calls": FUSE_CALLS[0],
                "fuse_rejected": sum(TS.FUSE_REJECTS.values()),
-               "fuse_served": FUSE_CALLS[0] - sum(TS.FUSE_REJECTS.values()),
+               "fuse_served": _fuse_served(TS.FUSE_REJECTS, FUSE_CALLS[0]),
                "fuse_rejects": dict(TS.FUSE_REJECTS)}
         keep = a.out.parent / f"cif_{a.model}_{a.size}_{a.lever}_leg{i}_{arm}"
         keep.mkdir(parents=True, exist_ok=True)
