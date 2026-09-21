@@ -1,0 +1,34 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 184 -- read from the two upstream release trees and from our own port, on pc, CPU only",
+
+ "headline": "The diffusion transformer carrying 51.1358 % of the campaign's gradient mass is NOT revision-inert. 0.4.3 gives every DiT block its OWN learned layer_norm_z on the pair bias; 0.5.0 deletes all of them and hoists a SINGLE shared norm in front of the stack. That is a structural difference and a state_dict difference, and the campaign's record calls the module inert. It changes no measurement -- every figure on this scope was taken against 0.4.3, and our port detects and handles both variants from the state dict.",
+
+ "why_I_looked": "THE_POSITIVE_RESULT_SURVIVES_THE_AUDIT.json says in its own what-this-does-NOT-say: it 'does not re-verify the DIFFUSION TRANSFORMER, which D22 read and judged inert and which carries the 51.1358 % ... still D22's reading rather than mine.' That was the largest unverified characterisation left in the campaign, and D90 already cost the trunk an escalation for exactly this error -- 92.08 % of its disagreement turned out to be the reference revision.",
+
+ "what_the_two_trees_actually_do": {
+  "0_4_3": {
+   "caller": "DiffusionTransformer constructs layer_norm_z ONLY `if self.use_cross_attention` (line 254) and applies it only under the same guard (line 313). The main DiT path has n_query=None, so use_cross_attention is False and the caller does NOT normalise z.",
+   "block": "each block's AttentionPairBias constructs layer_norm_z UNCONDITIONALLY (line 73, not gated on use_ada_layer_norm) and _prep_bias does `z = self.layer_norm_z(z)` then `z = self.linear_z(z)`.",
+   "net": "z is normalised inside every block, by that block's own learned LayerNorm"
+  },
+  "0_5_0": {
+   "caller": "DiffusionTransformer constructs layer_norm_z UNCONDITIONALLY (line 246) and applies it unconditionally before the block loop (line 303).",
+   "block": "AttentionPairBias was SPLIT into AttentionPairBias (no AdaLN) and a new DiffusionAttentionPairBias (AdaLN), and the new class has no layer_norm_z at all -- _prep_bias goes straight to `z = self.linear_z(z)`.",
+   "net": "z is normalised ONCE, before the stack, by a single shared LayerNorm"
+  },
+  "why_they_are_not_equivalent": "z is fixed across DiT blocks, so normalising once and normalising per block would coincide IF the per-block norms were identical. They are not -- they are independently learned parameters. One shared norm is a different function from N distinct ones."
+ },
+
+ "the_part_of_the_refactor_that_IS_inert": "the class split itself. Comparing 0.4.3's AttentionPairBias.forward against 0.5.0's DiffusionAttentionPairBias.forward line by line, the only differences are that `a = self.layer_norm_a(a, s) if self.use_ada_layer_norm else self.layer_norm_a(a)` becomes the unconditional `a = self.layer_norm_a(a, s)`, the guarded `a = self.sigmoid(self.linear_ada_out(s)) * a` loses its guard, and `s: torch.Tensor | None = None` tightens to `s: torch.Tensor`. With use_ada_layer_norm=True those are the same function. 0.5.0 hoisted a bool into the type system. The layer_norm_z move is a separate change that rode along with it.",
+
+ "why_it_changes_nothing_here": {
+  "the_measurements_are_on_0_4_3": "of3t-residual's scope source is `device_grads_043all_shipped.pt` and of3t-adaln's DiT-block gradcheck names `of3pkg043` as its reference. The checkpoint `of3-p2-155k` binds to 0.4.3, and the rows scored against 0.4.3. Nothing on this scope was read against a 0.5.0 reference.",
+  "and_the_port_already_handles_both": "tt_bio/openfold3_diffusion_transformer.py knows this exactly and says so in its own docstring: 'Where that layer_norm_z lives is the one architectural difference between the two checkpoints this module serves ... (4887 shared tensors, zero shape mismatches, 48 per-block layer_norm_z keys traded for 1 shared one), so the state dict selects the variant on its own and no flag is threaded in.' Construction reads `shared_ln = self._w.get('layer_norm_z.weight')` and passes `norm_z=shared_ln is None` to each block. State-dict-selected, no flag -- which is also why no UNIFIED-NOT-PER-MODEL objection arises."
+ },
+
+ "what_to_change": "the WORD, not any number. Anywhere the record says the diffusion transformer is revision-INERT it should say revision-DIFFERENT-BUT-HANDLED: the difference is real and structural, it is the ONLY weight-key difference between the two checkpoints, our port selects the variant from the state dict, and every measurement on this scope is on 0.4.3. 'Inert' invites someone to build a 0.5.0 reference for this scope on the belief that it cannot matter; it can, and under a strict=False load the 0.4.3 checkpoint's per-block keys would be dropped in silence.",
+
+ "the_third_instance_this_week_of_the_same_pattern": "numbers get audited on every compose -- 162 checks, 0 drifted -- and characterisations do not. This pass alone: an inference fold cost quoted as the price of training parity, 'fused-qkv' for 240 leaves with nothing establishing it, and now 'inert' for a module that is not. Two were harmless, one nearly reached Moritz as a decision. A number can be recomputed from an artifact so a guard can own it; a word has only an author.",
+
+ "provenance": "of3t-orchestrator pass 184 on pc, CPU only, no device. Read directly: ~/.coworker/scratch/of3t-reference/upstream{,050}/openfold3/core/model/layers/{diffusion_transformer,attention_pair_bias}.py, and tt_bio/openfold3_diffusion_transformer.py on this branch. No figure taken from an artifact."
+}
