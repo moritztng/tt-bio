@@ -17,9 +17,16 @@ The rule, and both halves matter:
     **0.149 A worse at rank 0** and which pin 9629 asks Moritz to decide. A union that took the
     row's value would apply a held repair inside the composition.
 
+Three shapes are handled and the file is named after the first: a keyword-argument tail, an
+import list, and an `__all__` export list. All three are "both sides appended to a shared
+sequence"; anything else is a real disagreement.
+
 PRECONDITION, checked and refused rather than assumed: both sides must end the call with `)` and
 every top-level segment must be a `name=value`. A conflict that is not purely a kwarg tail is a
-real disagreement and must stop the compose, which is what the caller does when this exits 2.
+real disagreement and must stop the compose, which is what the caller does when this exits 2. The
+`__all__` rule carries its own precondition on top: every unioned name must be BOUND at module
+level in the merged file, because an exported name nothing defines breaks `import *` and survives
+the whole compose to fail in a user's session.
 
 usage: resolve_kwarg_tail_conflict.py <file> <their-ref>     e.g. origin/wk/of3t-gradients
 exit 0 resolved | 2 precondition not met (caller should fail) | 1 error
@@ -60,6 +67,78 @@ def split_kwargs(text: str):
     if not out:
         return None
     return out, closing
+
+
+def only_string_list(text: str):
+    """A slice of a list of string literals, as `__all__` conflicts produce.
+
+    Returns (values, closing) where closing is "" for an interior fragment and the bracket that
+    ends the statement otherwise, or None if any top-level element is not a plain string.
+    """
+    t = text.strip()
+    closing = ""
+    if t.endswith(")") or t.endswith("]"):
+        closing, t = t[-1], t[:-1]
+    t = t.rstrip().rstrip(",")
+    if not t:
+        return None
+    try:
+        node = ast.parse("(" + t + ",)", mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(node, ast.Tuple) or not node.elts:
+        return None
+    vals = []
+    for e in node.elts:
+        if not (isinstance(e, ast.Constant) and isinstance(e.value, str)):
+            return None
+        vals.append(e.value)
+    return vals, closing
+
+
+def _module_all(mod: ast.Module):
+    """The module-level `__all__` as a list of strings, or None if there is not exactly one."""
+    found = None
+    for node in mod.body:
+        targets = node.targets if isinstance(node, ast.Assign) else (
+            [node.target] if isinstance(node, ast.AnnAssign) else [])
+        if not any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets):
+            continue
+        if found is not None:
+            return None
+        v = node.value
+        if not isinstance(v, (ast.List, ast.Tuple)):
+            return None
+        if not all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in v.elts):
+            return None
+        found = [e.value for e in v.elts]
+    return found
+
+
+def _module_bindings(mod: ast.Module) -> set:
+    """Every name bound at module level: def, class, assignment, import."""
+    names = set()
+    for node in mod.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                for n in ast.walk(t):
+                    if isinstance(n, ast.Name):
+                        names.add(n.id)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            if isinstance(node.target, ast.Name):
+                names.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for al in node.names:
+                names.add(al.asname or al.name.split(".")[0])
+        elif isinstance(node, (ast.If, ast.Try)):
+            # a conditional import or definition still binds at module level
+            body = list(getattr(node, "body", [])) + list(getattr(node, "orelse", []))
+            for h in getattr(node, "handlers", []):
+                body += list(h.body)
+            names |= _module_bindings(ast.Module(body=body, type_ignores=[]))
+    return names
 
 
 def resolve(path: pathlib.Path, theirs_ref: str) -> int:
@@ -127,6 +206,64 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
             return 1
         path.write_text(new)
         print(f"  {path.name}: union of {len(lines)} import line(s)")
+        return 0
+
+    # An `__all__` conflict is the third shape a shared module produces, and it arrived when
+    # D56 landed `softmax_bw_inner` on main while of3t-leaves was adding `parameter_for` and
+    # `untaped` to the same export list. Both sides append; nobody deletes. The union is the only
+    # resolution either side would recognise, and taking one side silently un-exports a name the
+    # other just added -- which is a runtime failure only at the first `import *`.
+    #
+    # It is narrower than the kwarg rule on purpose. Unioning arbitrary string lists is not safe;
+    # unioning `__all__` is, PROVIDED every unioned name is actually bound in the merged module,
+    # which is checked below rather than assumed. A name in `__all__` that nothing defines breaks
+    # `from x import *` and nothing else, so it is exactly the kind of defect that survives a
+    # compose and fails in a user's session.
+    sa, sb = only_string_list(ours), only_string_list(theirs)
+    if sa is not None and sb is not None:
+        (va, ca), (vb, cb) = sa, sb
+        if ca != cb:
+            print(f"  {path}: one side closes the list and the other does not", file=sys.stderr)
+            return 2
+        order = va + [v for v in vb if v not in va]
+        indent = re.match(r"\s*", ours).group(0)
+        lines, cur = [], indent
+        for n, v in enumerate(order):
+            piece = f'"{v}",' + ("" if n == len(order) - 1 else " ")
+            if len(cur) + len(piece) > 96 and cur.strip():
+                lines.append(cur.rstrip())
+                cur = indent
+            cur += piece
+        if cur.strip():
+            lines.append(cur.rstrip())
+        body = "\n".join(lines).rstrip(",") if ca else "\n".join(lines)
+        if ca:
+            body = "\n".join(lines) + ca
+        new = s[:i] + body + "\n" + s[k + len(end):]
+        try:
+            mod = ast.parse(new)
+        except SyntaxError as e:
+            print(f"  {path}: the merged list does not parse -- {e}", file=sys.stderr)
+            return 1
+        exported = _module_all(mod)
+        if exported is None:
+            print(f"  {path}: a string-list conflict outside a module-level __all__ is a real "
+                  f"disagreement, not an append on both sides", file=sys.stderr)
+            return 2
+        missing_from_all = [v for v in order if v not in exported]
+        if missing_from_all:
+            print(f"  {path}: {missing_from_all} unioned but absent from the merged __all__",
+                  file=sys.stderr)
+            return 2
+        unbound = [v for v in order if v not in _module_bindings(mod)]
+        if unbound:
+            print(f"  {path}: __all__ would export {unbound}, which nothing in the module binds",
+                  file=sys.stderr)
+            return 2
+        path.write_text(new)
+        added = [v for v in vb if v not in va]
+        print(f"  {path.name}: union of {len(order)} __all__ entries"
+              + (f"; took {', '.join(added)} from theirs" if added else "; no new names"))
         return 0
 
     pa, pb = split_kwargs(ours), split_kwargs(theirs)
