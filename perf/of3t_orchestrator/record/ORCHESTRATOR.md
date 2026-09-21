@@ -850,10 +850,14 @@ three unmasked submodules -- their leaves read 7.10x upstream against the masked
 The narrower claim was the attractive one and it is wrong; it is recorded here so no row rebuilds
 it.
 
-**D174 is also an inference defect users get today**, on five modules that instantiate
-`PairformerLayer`, and a live candidate for **D19**'s forward error. It changes inference numerics
-on a shared path, so it is release-gated: `of3t-ditmodel` owns it, default-gated, not merged, and
-it owes an inference fold A/B against an A/A floor before `land-standing`.
+**D174, corrected pass 326.** Its gradient mechanism is REFUTED (see the pass-325 entries) and it
+is NOT a candidate for D19, which has been closed as a port defect since pass 196 — the 2x2 at
+crop 64 has each arm agreeing with its OWN convention's reference to 0.50 % (4.947045e-02 against
+4.971863e-02), so the 2.792e-01 is a cross-convention figure and not our error. What D174 is: a
+fidelity defect on PADDED outputs, 2.7428 against upstream falling to 0.0690, on five modules
+that instantiate `PairformerLayer`. It changes inference numerics on a shared path, so it stays
+release-gated, default-off and unmerged, owing an inference fold A/B against an A/A floor.
+`of3t-ditmodel` concluded, so it needs a lander, not an investigator.
 
 **What would change this field to a yes:** D174 fixed and the trunk re-taken at n384 on
 `of3t-modelboundary`'s own instrument, `of3t-pathcov` turning coverage from an argument into a
@@ -863,7 +867,7 @@ gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random
 missing term, not rounding.
 
 VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety** of3t rows concluded, **one hundred seventy-five defects** filed,
+**Ninety** of3t rows concluded, **one hundred seventy-seven defects** filed,
 **fifty-seven UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
 archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
 reading the tail as the ledger cost.
@@ -1891,3 +1895,75 @@ tile boundary points at shape-keyed kernel selection.
 entries were compressed in place rather than deleted: D9's policy argument, D21's instrument
 history and D164's ladder narrative. Each keeps its verdict, its numbers and its defect number;
 the argument for each is in PASSLOG and in the defect's own entry, which is where A30 puts it.
+
+### Pass 326 — a GO clause the reference fails harder than we do, and the artifact had both numbers all along
+
+No card held; `of3t-padshape` and `of3t-hostleg` hold the two live objects. **D176.** GO condition
+GRADIENTS required `n_over_per_tensor_bar is 0`, and on the artifact that clause reads:
+
+    our shipped arm         678 of 900 over the 5.0e-02 per-tensor bar
+    upstream's OWN bf16      791 of 900     -- worse than ours
+    upstream's OWN fp32      175 of 900     -- even fp32 does not clear it
+
+Recomputed over the wider 3,588-tensor union from `of3t-modelboundary`'s sidecars: ours 3,311,
+upstream's bf16 3,478, upstream's fp32 175; on the trunk, ours 2,688 of 2,688 against their 2,687.
+
+**PROTOCOL §3d already governed this and the gate contradicted it** — *"when a reference's own
+replay of a scope exceeds the bar at that scope, a §3d comparison against the published artifact
+there is void, not pessimistic"*. So no tolerance moved: 5.0e-02 stands, every tensor over it is
+still counted and located, and the GO comparison now reads against the reference's own measured
+floor through a new `<=key` op whose bar is another path in the same artifact. Added to BOTH
+readers, both controls passing. A bar that is a measured property of the reference cannot be
+widened by whoever writes the clause, which is what makes it safe to change after numbers exist.
+Recorded in PROTOCOL §9 as A-D176, saying outright that numbers already existed.
+
+**The honesty test, run before committing:** the charter still reads **0 of 3** and GRADIENTS is
+still NOT MET, on the A26 clause (5.551840268986491 against 0.1049544980174316) and on coverage
+(92.1568 against 99.2594). The only clause that flips is the per-tensor count, 678 against 791 —
+the one place the campaign was being marked down for doing better than upstream.
+
+**And the statistic was not even directionally informative**, which is the part worth keeping: we
+have fewer tensors over the bar than upstream's own bf16 in every bucket while being 5.03x worse
+mass-weighted (0.532795 against 0.105921). Our error concentrates in high-mass tensors, theirs
+spreads over many small ones, so the gate's chosen statistic ranked us ahead of the reference on
+exactly the axis where we are behind it.
+
+**Third of a kind, so the remedy is standing rather than a patch.** THEIR-TEST needed a torch
+backend that does not exist; D169's `zero_both_sides` required movement at a step upstream's own
+warmup makes stationary; this required better-than-upstream per-tensor agreement. All three were
+written before the quantity they govern had been measured. **A GO clause must be evaluated against
+the REFERENCE's own artifact on the pass it is written**; if the reference fails it, it is void on
+arrival and must be recorded as void then.
+
+**Also corrected pass 326:** one line still called D174 "a live candidate for D19's forward error".
+Both halves are wrong — D174's gradient mechanism is refuted, and D19 has been closed as a port
+defect since pass 196, where the crop-64 2x2 has each arm agreeing with its OWN convention's
+reference to 0.50 % (4.947045e-02 against 4.971863e-02), making the 2.792e-01 a cross-convention
+figure rather than our error. That also exposed the gap `of3t-padshape` was amended to fill: at
+crop 64 both the forward and the gradient are known good, at n384 **only the gradient has ever
+been read**, and the forward at each width is the discriminator between a backward-only defect and
+a shape-following forward op.
+
+**Pass 326, second finding. D177: the charter was grading a configuration nobody ships.** GRADIENTS
+read `MODEL_shipped.json`, the **pre-D56** arm, while `TT_BIO_SOFTMAX_BW_RENORM` has defaulted True
+on main since `1aa7070f5` and the compose asserts that default every run. Repointed to
+`of3t-ditmodel`'s `MODEL_d56_retake.json`, which is demonstrably the same instrument: same float64
+digest, same denominator, same bars, `scope_only: false`, and its d56off arm reproduces the old
+headline to six digits (5.551840268594777 against 5.551840268986491).
+
+**On the arm we actually ship:**
+
+    d56on vs upstream's own bf16    0.10066947293993027   against the A26 bar 0.1049544980174316
+    d56on over the per-tensor bar   623 of 907            against upstream's own 791
+    coverage                        92.15682156952718     against 99.2594
+
+So the gradient is **inside the reachable bar at 0.9592x** and **no worse per-tensor than
+upstream's own step**, and GRADIENTS now fails on **coverage alone** — which `of3t-hostleg` is live
+on, and which `of3t-modelboundary`'s +5.82817 plus hostleg's +1.52024 reach at 99.50523 %.
+
+**Two clauses moved in one pass, both from fail to pass, both by me.** That is the pattern that
+should draw scrutiny, so the guard is written into PROTOCOL §9 rather than left implicit: the test
+each had to survive is *does this let the campaign declare GO*, and neither does — coverage reads
+92.1568 in the old artifact and the new one alike, so GRADIENTS is NOT MET either way and the
+charter still reads **0 of 3**. A third adjustment in this area should be treated as the gate being
+fitted to the result.

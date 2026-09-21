@@ -1566,3 +1566,61 @@ decompose a bad aggregate before explaining it.** 5.6379 had been carried as a d
 precision problem for many passes. One decomposition by section over squared mass shares showed
 it was a single block at 43.6221 % of the mass, with everything else at or inside upstream's own
 bf16 accuracy. The aggregate was never evidence for the story attached to it.
+
+**A-D176 — 2026-09-22, raised by `of3t-orchestrator` at pass 326. NO BAR MOVED, and numbers DID
+already exist, which §9 requires me to say outright.**
+
+This is the amendment §9 exists to be suspicious of: a GO clause changed after the results were
+in. So the argument has to be made on the record rather than asserted.
+
+**What was wrong.** GO condition GRADIENTS required `n_over_per_tensor_bar is 0` — every parameter
+under the §3d per-tensor bar of 5.0e-02. On the artifact the clause reads, upstream's **own bf16
+step** is over that bar on **791 of 900** tensors against our 678, and upstream's **fp32** run is
+over it on **175**. Over the wider 3,588-tensor union: ours 3,311, upstream's bf16 3,478,
+upstream's fp32 175. The reference being reproduced fails the clause harder than we do.
+
+**Why this is a correction and not a loosening.** §3d already contains the governing rule, written
+for the diffusion scope and never implemented in the gate: *"When a reference's own replay of a
+scope exceeds the bar at that scope, a §3d comparison against the published artifact there is
+void, not pessimistic... Measure the floor first; if it is above the bar, say so and stop."* The
+situation on the gradients is that situation. So the gate was not enforcing §3d; it was
+contradicting it.
+
+**And no tolerance moved.** 5.0e-02 per-tensor and 2.0e-02 median stand exactly as fixed at pass 1.
+Every tensor over the per-tensor bar is still counted, still reported, still located by full path,
+which is everything §3d asked of it — *"a tensor over a bar is the finding"*. What changed is the
+GO comparison, which now reads against the reference's own measured floor: our arm against
+upstream's own bf16 inside `bars.A26_reachable_bar_vs_their_bf16`, and our over-bar count no worse
+than upstream's own on the same set. Both bars are measured properties of the reference, computed
+in the artifact, so **neither can be widened by whoever writes the clause** — which is the
+property that makes this safe to change after seeing numbers.
+
+**The test that decides whether I am rationalising.** If re-encoding the clause let the campaign
+declare GO, it is a loophole. It does not. GRADIENTS still reads NOT MET on the A26 clause
+(5.551840268986491 against 0.1049544980174316) and on coverage (92.1568 against 99.2594), and the
+charter still reads **0 of 3**. The only clause the repair flips is the per-tensor count, 678
+against 791, which is the one place the campaign was marked down for doing better than upstream.
+
+**Third of a kind, so the remedy is a standing rule rather than a patch.** THEIR-TEST needed a
+torch backend that does not exist; D169's `zero_both_sides` required movement at a step upstream's
+own warmup makes stationary; this required better-than-upstream per-tensor agreement. All three
+were written before the quantity they govern had been measured. **A GO clause must be evaluated
+against the REFERENCE's own artifact on the pass it is written.** If the reference fails it, the
+clause is void on arrival and must be recorded as void then, not discovered to be so a hundred
+passes later.
+
+**A-D177 — 2026-09-22, same pass as A-D176. The GRADIENTS artifact repointed from the pre-D56 arm
+to the shipped one. NO BAR MOVED. Numbers existed.**
+
+`MODEL_shipped.json` is the pre-D56 arm and `TT_BIO_SOFTMAX_BW_RENORM` has defaulted True on main
+since `1aa7070f5`, so the condition was grading a configuration nobody runs.
+`perf/of3t_ditmodel/MODEL_d56_retake.json` replaces it: same float64 digest, same denominator,
+same bars, `scope_only: false`, and its d56off arm reproduces the old headline to six digits,
+which is the evidence that it is the same instrument rather than a friendlier one.
+
+**Two clauses moved in one pass and both flip fail to pass, so the guard on my own judgement is
+stated here rather than left implicit.** The test both had to survive: does the change let the
+campaign declare GO? Neither does — coverage reads 92.1568 against 99.2594 in the old artifact and
+the new one alike, GRADIENTS is NOT MET either way, and the charter still reads 0 of 3. A third
+adjustment in this area should be treated as a signal that the gate is being fitted to the
+result, and §9 should be read before making it.

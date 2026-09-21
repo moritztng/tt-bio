@@ -1900,3 +1900,94 @@ real tokens at widths 64, 128, 256 and 384 and read the trunk gradient norm at e
 dependence on width or on tile count points at (2); a step at a power-of-two or tile boundary
 points at (1); either way it costs four short arms on one card and it names the shape law before
 anyone reads a kernel. Pre-register which shape is expected.
+
+### D176. GO condition GRADIENTS required something upstream's own training step fails HARDER than we do, and the artifact carried both numbers side by side the whole time. FOUND by `of3t-orchestrator`, pass 326. **FIXED** this pass, in the gate rather than in the tolerances.
+
+The clause read `stats.shipped_vs_FLOAT64.n_over_per_tensor_bar is 0` — no parameter over the
+campaign's 5.0e-02 per-tensor bar. On `MODEL_shipped.json`, the artifact the clause reads:
+
+    our shipped arm          678 of 900 over the 5.0e-02 bar
+    upstream's OWN bf16      791 of 900      -- WORSE than ours
+    upstream's OWN fp32      175 of 900      -- even fp32 does not clear it
+
+Recomputed independently this pass over the wider 3,588-tensor union from
+`of3t-modelboundary`'s sidecars: ours **3,311**, upstream's bf16 **3,478**, upstream's fp32
+**175**. On the trunk alone it is ours 2,688 of 2,688 against upstream's 2,687 of 2,688.
+
+**So the clause is not merely hard, it is VOID**, and PROTOCOL said so before this campaign
+measured it. §3d, written for the diffusion scope: *"When a reference's own replay of a scope
+exceeds the bar at that scope, a §3d comparison against the published artifact there is void, not
+pessimistic... Measure the floor first; if it is above the bar, say so and stop."* The gate never
+implemented that rule. A clause that no faithful bf16 reproduction can satisfy makes GO
+unreachable, which is exactly why THEIR-TEST was removed on 2026-09-21 — the same failure, one
+condition over.
+
+**And the count was not even directionally informative.** We have FEWER tensors over the bar than
+upstream's own bf16 step in every bucket, while being 5.03x worse mass-weighted (0.532795 against
+0.105921 over the union). Our error is concentrated in high-mass tensors and theirs is spread over
+many small ones, so the statistic the gate chose ranked us ahead of the thing we are reproducing
+on precisely the axis where we are behind it.
+
+**The repair, and why it is not a tolerance change.** No number in PROTOCOL moved. 5.0e-02 stays,
+every tensor over it is still counted, reported and located by full path, which is all §3d ever
+asked for. What changed is the GO comparison, now against the reference's own MEASURED floor:
+
+    stats.shipped_vs_UPSTREAM_BF16.mass_weighted_rel_l2  <=key  bars.A26_reachable_bar_vs_their_bf16
+    stats.shipped_vs_FLOAT64.n_over_per_tensor_bar       <=key  stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar
+
+`<=key` is a new op whose bar is another path in the same artifact rather than a literal, added to
+BOTH readers — the gate's spec and `charter/charter_evidence.py` — because a spec only one reader
+understands has one reader. Both its controls are in place and pass: a synthetic artifact flips
+the condition to MET, and one built to violate the clause (ours worse than the reference's floor)
+is refused. **A bar that is a measured property of the reference cannot be loosened by whoever
+writes the clause**, which is the whole reason to prefer it to a literal.
+
+**The honesty test, run before this was committed.** If re-encoding a clause let the campaign
+declare victory, it would be a loophole and not a repair. It does not: GRADIENTS still reads NOT
+MET, failing the A26 clause on the shipped arm (5.551840268986491 against a bar of
+0.1049544980174316) and coverage at 92.1568 against 99.2594. The second per-tensor clause now
+PASSES at 678 against 791, which is the one place the campaign was being marked down for
+something it does better than upstream. 0 of 3 conditions met, unchanged.
+
+**The class.** This is the third clause in this campaign found to be unsatisfiable by a faithful
+reproduction rather than by a defective one: THEIR-TEST needed a torch backend that does not
+exist, D169's `zero_both_sides` required movement at a step upstream's own warmup makes
+stationary, and now this. All three were written before the thing they measure had been measured.
+The standing remedy: **a GO clause must be checked against the REFERENCE's own artifact, not only
+against ours, on the pass it is written** — if the reference fails it, the clause is void on
+arrival and the gate should say so instead of the campaign discovering it 150 passes later.
+
+### D177. The charter graded GO condition GRADIENTS on a configuration the composition does not ship. FOUND by `of3t-orchestrator`, pass 326. **FIXED** this pass.
+
+GRADIENTS read `perf/of3t_wholemodel/MODEL_shipped.json`, which is the **pre-D56** arm.
+`TT_BIO_SOFTMAX_BW_RENORM` has defaulted True on `origin/main` since `1aa7070f5` and the compose
+asserts that default every run, so for every pass since D56 landed the campaign's central GO
+condition has been graded on an arm **nobody executes**. This is
+`which-tree-is-the-claim-about` turned on the gate itself.
+
+`of3t-ditmodel`'s `perf/of3t_ditmodel/MODEL_d56_retake.json` is the same instrument at the same
+scope, and that is checkable rather than asserted: same float64 reference digest
+`1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4`, same denominator, same `bars`
+block, `scope_only: false`, and its **d56off arm reproduces `MODEL_shipped`'s headline to six
+digits** — 5.551840268594777 against 5.551840268986491. A re-take, not a second instrument.
+
+**What the shipped arm actually reads**, which is the point:
+
+    d56on vs upstream's own bf16    0.10066947293993027   against the A26 bar 0.1049544980174316
+    d56on over the per-tensor bar   623 of 907            against upstream's own 791
+    coverage                        92.15682156952718     against 99.2594
+
+So on the configuration we ship, **the gradient is inside the reachable bar at 0.9592x and is no
+worse per-tensor than upstream's own step**, and what GRADIENTS is missing is coverage alone.
+
+**Two clauses moved in one pass, by one row, and that deserves saying out loud rather than
+burying.** D176 re-encoded the per-tensor clause and D177 repointed the artifact; both flip a
+clause from fail to pass. The invariant that makes them corrections rather than gate-shopping is
+that **neither produces a GO**: coverage is 92.1568 in both artifacts, so GRADIENTS is NOT MET
+either way, and the charter still reads **0 of 3**. If a future pass finds a third clause to
+adjust, it should be held to the same test and the pattern itself treated as suspicious.
+
+**What is left on GRADIENTS is one number and it has an owner.** `of3t-hostleg` is live on the
++1.52024 host-applied leg and `of3t-modelboundary` already landed +5.82817; together they reach
+99.50523 % against the 99.2594 % bar. The re-take's coverage field will need re-deriving at that
+point, because 92.1568 is this artifact's union and not the campaign's reachable one.
