@@ -1,25 +1,21 @@
 # of3t-trajwide live run
 
-Written by `recorder.py` at 2026-09-21T14:19:08Z.
+Written by `recorder.py` at 2026-09-21T16:29:43Z.
 Check liveness by the rung counter moving and `log_age_s` staying small, not by
 the clock. An arm with a marker whose rc is not 0 is FAILED, not finished.
 
     arm           rungs  status      log age  marker
-    shipped       11/20  RUNNING         45 s  
-    shipped_aa2    0/20  not started   None s  
-    permute        0/20  not started   None s  
-    stale          0/20  not started   None s  
-    norebind       0/20  not started   None s  
-    zero          11/20  RUNNING        100 s  
-    theirs         3/20  RUNNING        390 s  
-    theirs_aa2     0/20  not started   None s  
+    shipped       20/20  COMPLETE      6340 s  arm=shipped rc=0 card=1 at=2026-09-21T14:44:02Z
+    shipped_aa2   20/20  COMPLETE      2863 s  arm=shipped_aa2 rc=0 card=1 at=2026-09-21T15:41:59Z
+    permute       20/20  COMPLETE       277 s  arm=permute rc=0 card=0 at=2026-09-21T16:25:05Z
+    stale         20/20  COMPLETE      3167 s  arm=stale rc=0 card=0 at=2026-09-21T15:36:56Z
+    norebind      20/20  COMPLETE      5798 s  arm=norebind rc=0 card=0 at=2026-09-21T14:53:04Z
+    zero          20/20  COMPLETE      6362 s  arm=zero rc=0 card=0 at=2026-09-21T14:43:41Z
+    theirs        20/20  COMPLETE       499 s  arm=theirs rc=0 side=theirs at=2026-09-21T16:21:24Z
+    theirs_aa2     2/20  RUNNING         96 s  
 
 Reference tree resolved in-process (D149): /home/ttuser/of3t_refprec/of3pkg043
 
 Live `trajwide.py` processes:
 
-    26558 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side ours --arm shipped --threads 3
-    26568 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side ours --arm zero --threads 3
-    26605 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side ours --arm zero --threads 3
-    26606 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side ours --arm shipped --threads 3
-    37142 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side theirs --arm theirs --threads 10 --aa-in-process
+    163014 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trajwide/trajwide.py --side theirs --arm theirs_aa2 --threads 10

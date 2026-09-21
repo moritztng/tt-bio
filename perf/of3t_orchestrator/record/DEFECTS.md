@@ -10330,3 +10330,304 @@ The mask rejects exactly what the code reading predicted — the single-atom ZN 
 **The live residual, named by the row rather than left implicit**: `openfold3` honours modified residues and **a modified residue IS atomized** (`tokenization.py:208`), so the mask can fire on `--model openfold3` by that route — and **no such target was folded**. So "latent, not a live accuracy change" is true of everything measured and untested on the one path that could falsify it. The test is one fold of a modified-residue target on `--model openfold3`, checking whether any token comes out frameless.
 
 **Why this matters beyond the defect**: D10 is USER-FACING and Moritz's ask-9629 ruling cited its framing. The ruling is unaffected — it turned on consistency between three ranking rules, not on this mask — but a reader comparing the ledger to the row would have found the ledger carrying the larger, retracted claim.
+
+### D55 UPDATE (pass 286, heading restated). **UNFIXED** — and `of3t-d116` priced the missing argument: one `compute_kernel_config` is worth **13.8x** on the softmax row sum, **13.2x** on the forward and **5.5x** on the backward, and it makes the lever Moritz just shipped ON a **wash on device**.
+
+Same shape, same draw, same reference (`of3t-d116`):
+
+    compute kernel config                    mean row sum   rms dev from 1   y rel L2 vs f64   dx rel L2 on device
+    none, as `_v_softmax` passes it through      0.993457        1.196e-02          2.281e-02             2.0183e-02
+    precise_config() (HiFi4 + fp32 dest acc)     0.999714        8.664e-04          1.722e-03             3.6605e-03
+    HiFi4 without fp32 dest acc                  1.000328        6.051e-03          6.352e-03             7.8949e-03
+    HiFi2                                        0.997497        7.201e-03          7.343e-03             8.4023e-03
+    LoFi                                         0.993591        8.957e-03          1.019e-02             1.2852e-02
+
+**The no-config call behaves like LoFi.** Its 2.281e-02 forward figure independently reproduces `of3t-fp32islands`' **2.268879e-02** for the same sites on a different draw at the same shape — the defect that row ranked fifth and said *"one argument closes it"*.
+
+**The part that changes a decision already taken.** `TT_BIO_SOFTMAX_BW_RENORM` ships ON in the composition on Moritz's ask-9629 ruling, and its value depends on the forward it corrects:
+
+  * **with no config** the renormalisation is worth real money — at peaked logits (std 12) the shipped rule reads 7.5768e-02 against the renormalised 1.7372e-02 in exact arithmetic (**4.4x**), and 7.6076e-02 against 1.9157e-02 on device (**4.0x**);
+  * **with `precise_config()`** the row sum is already 0.99971 and the renormalisation is **a wash on device** — 3.6605e-03 against 3.7217e-03 — because the extra reduction's own bf16 error is the same size as the leak it removes. In exact arithmetic it still zeroes the row sum at every config.
+
+So the renorm is a real repair **of a forward that is missing an argument**, and the larger, cheaper fix is upstream of it. Nothing here argues for reverting D56: the lever is a 4x win in the tree as it stands, and the tree as it stands is what ships. What it does say is that the justification changes the moment the forward sites are configured, and whoever lands that must re-price the lever rather than inherit the 4x.
+
+**Why this is not simply "add the argument".** These are **FORWARD** sites. Configuring them moves fold output — 13.2x closer to float64, which is very likely an improvement, but a change — so it is release-gated, owes the inference A/B against an A/A floor on every model that executes the site, and falls under the 2026-09-21 constraint: an accuracy improvement that costs inference time is a regression. The backward-only renorm needed none of that, which is exactly why it landed first.
+
+**Scope correction carried forward**: D55's heading says *four* reductions; the pass-237 AST census (`census_reduction_config.py`, keyed by symbol) found **ten**. The four no-config forward sites `of3t-d116` names are inside that ten and are *"named but untouched"* by its own verdict.
+
+### D156. The campaign document's own header described PROTOCOL as "30 KB" while the file is **99 KB**, and the line reads as a current measurement because it is immediately followed by "Originally 16 KB". FOUND and FIXED by the orchestrator (pass 287). **FIXED.**
+
+Small, and filed rather than silently corrected for two reasons. It is the **header** — the first fifteen lines a new reader sees, before VERDICT — and it is the one place in the document with no guard on it: every summary field is checked against its source, and the preamble that describes the protocol is not. The "Originally 16 KB" clause is what makes it misread: a pair of numbers reads as growth measured now, not as a figure from pass 1 next to a figure from pass 20.
+
+**Audited the rest of the header at the same time, and the substance holds.** §9 does what the header says it does — each amendment records the date, the row that asked, the change, the reason, and whether a number already existed (*"No number existed yet"* on A1, and the same form throughout). The thirty-amendment count is what `audit_evidence.py` already checks and it passes; a raw grep for bold `A<n>` headings returns 40 because it also counts `A26-SCOPE`, `A24-AMENDMENT` and the addenda, which is a different unit and not a discrepancy.
+
+### D107 UPDATE 4 (pass 287, heading restated). Still **FIXED**, and recorded here as a POSITIVE result about the method rather than about the defect: the protocol's central argument predicted this defect's class, in writing, before it was found.
+
+The header's argument for why N is 20 rather than 2000 is that driving the state-free factors with a controlled input beats a trajectory, because *"a trajectory that agrees cannot say which factor was right, while an injected drive isolates each one and reaches the corner cases a real batch never happens to hit — the clip threshold, the warmup knee, a zero gradient, **a disabled parameter**."*
+
+D107 is exactly that last item: *"on a step where a parameter is disabled on every sample, our optimizer leaves it where it is and upstream's does not"*, found by the injected drive and measured at **1.1025e-03 → 2.0086e-08** after the one-file repair. p(a sample disables the confidence head) = 0.5327103 from upstream's own files, but p(a whole step does) is **9.59e-71** at their shipped global batch 256 — so a real 2000-step trajectory would never have hit it, while our `train_loop` hits it on 100 % of steps.
+
+**Why this is worth stating rather than leaving implicit**: the campaign has spent many passes recording where its own instruments were wrong, which is the right emphasis and also a biased sample. This is the opposite case with a receipt — the method's stated reason for existing produced the thing it said it would, and the corner case it named is the one that fired.
+
+### D157. `of3t-d137digest`'s draft VERDICT claims a result on three models while protenix-v2 has not run and has no artifact — caught mid-pass, before the row concluded. FOUND by the orchestrator (pass 288). **UNFIXED**, owner `of3t-d137digest`, amendment sent.
+
+Its state doc says, twice, *"on all three models the `on` arm is byte-identical to the `off` arm"* and *"`off == on` on all three models, across 6 folds each"*, with a header count of *"27 folds, 3 models x 3 arms x 3 reps"*. Its own table reads `PROTENIX_BASE / PROTENIX_OFF / PROTENIX_ON / PROTENIX_STABLE`, and the timing paragraph carries `PROTENIX_FLOOR`, `PROTENIX_ONOFF`, `PROTENIX_OFFBASE`. On `wk/of3t-d137digest` there is `INFERENCE_AB_openfold3.json` and `INFERENCE_AB_opendde.json` and **no protenix artifact**.
+
+So the summary is ahead of the evidence by one model and nine of the twenty-seven folds it counts. **In a draft that is nothing**; concluded, it would put a third model into the campaign's answer to Moritz's inference constraint on a run that did not happen. Filed against the row rather than the person, and filed at all because the same shape has appeared before: a verdict stating what its artifacts do not carry.
+
+**Either resolution is honest and the amendment says so**: run protenix-v2 and fill the placeholders — a refusal on `digest_stable_within_arm` would now be a real finding about the model rather than about a faulty card — or conclude on two models and say *"protenix-v2 not run"* in those words. Two models on clean hardware is a good result and a smaller one than three.
+
+**What the row already has, verified and worth keeping whatever it decides.** The gate is inert where it matters: `off == on` byte-identical on openfold3 and opendde, 6 folds each, every arm digest-stable within itself, which is the property pc card 0 could not give. And the one inequality is separated from the gate three ways: openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed after `of3t-d137ab` measured; `git log 777fd3b63..HEAD -- tt_bio/` is exactly that fix and its merge; opendde `base == off` across the same span; and `off == on` holds on openfold3 itself, so the gate's flag is inert on the very model whose digest moved.
+
+**Its hardware identification is the best in the campaign and should be copied.** Full card identity rather than a number — host `tt-quietbox` (qb1), UMD chip 3, PCI `0000:c1:00.0`, device node `/dev/tenstorrent/0`, board `00000403319140aa`, Blackhole p150a — plus the **UMD-chip-to-device-node mapping read out of sysfs** (0→1, 1→2, 2→3, **3→0**, so the node number is not the chip number on that box), an AER census over the full 3d21h uptime that chose card 3 on evidence (2 lines against 8, 9 and 10; last one a day earlier; the only chip with no open fd), and the distinction that matters here: **PCIe AER and DPC containment are transport faults that wedge or kill a process, while pc card 0's fault is a compute fault that returns wrong values silently — not the same risk to a digest.**
+
+### D157 UPDATE (pass 289, heading restated). **FIXED** — the row took the harder of the two exits and ran the model rather than trimming the claim.
+
+The placeholders are gone and `INFERENCE_AB_protenix-v2.json` exists. It chose to run protenix-v2 rather than conclude on two models, which was the better answer and not the cheaper one.
+
+### D155 UPDATE 2 (pass 289, heading restated). **WITHDRAWN**, and now confirmed by the positive control rather than only by the hardware record.
+
+At pass 282 I withdrew *"protenix-v2 inference is non-deterministic at a fixed seed"* on the strength of the 2026-08-17 root cause: the nine folds behind it ran on pc card 0, a faulty card. That was an argument from provenance. `of3t-d137digest` has now supplied the measurement:
+
+    host            folds   distinct digests   moved
+    pc card 0          18                 3+   3 of 18, across two runs
+    qb1 card 3          9                  1   0 of 9
+
+Nine folds, three arms, **one digest — `39bce7750297a920`**, which is the same value pc's base arm held four times before it wobbled. So the instability is the card doing exactly what the root cause says it does — matmul-only, location-keyed, probabilistic — and **protenix-v2 is deterministic at this fixture on healthy hardware**. The row says the same in its own words: *"it is not a protenix-v2 defect. Any filing that says otherwise should be corrected"* — which is the filing I had already corrected, now with the control it was missing.
+
+### D137 UPDATE 5 (pass 289, heading restated). **FIXED**, and the last thing it owed is delivered: the digest half is answered on all three models, on hardware whose digests mean something.
+
+    model        base              off               on                stable within arm
+    openfold3    35d36fb149583ae5  b2f94fa1b430518c  b2f94fa1b430518c   3/3, 3/3, 3/3
+    opendde      0cc1cdf1d31e74c5  0cc1cdf1d31e74c5  0cc1cdf1d31e74c5   3/3, 3/3, 3/3
+    protenix-v2  39bce7750297a920  39bce7750297a920  39bce7750297a920   3/3, 3/3, 3/3
+
+**`off == on` on all three, byte-identical, six folds each**, with `digest_stable_within_arm` true everywhere. That is the arm Moritz's constraint is about: one tree, one env var apart, `TT_BIO_HOST_F64_SOFTMAX_AB=all` set and refused by the tape gate. **The flag a person can set reaches inference and changes nothing**, and that is now measured rather than argued.
+
+Both halves of the constraint are therefore answered: *"not changed"* by identical digests on three models on a clean card, and *"not made slower"* free at call level (−3.31 ns against a 10.16 ns floor) and bounded at fold level.
+
+**The one inequality is D1 landing, not the gate.** openfold3 `base != off` is `701ddcf63`, the trunk sqrt(24) pair-bias fix that landed on `wk/of3t` after `of3t-d137ab` measured — so this run independently confirms that **D1's repair moves the served structure**, which is its entire purpose. Three controls separate it from the gate: `git log 777fd3b63..HEAD -- tt_bio/` is exactly that fix and its merge; opendde `base == off` across the same span; and `off == on` holds on openfold3 itself, so the gate's flag is inert on the very model whose digest moved.
+
+**And the artifact schema is repaired at the source**: it now records `host` and `host_card` alongside `card`, which is what the pass-282 ratchet asked for and what makes a digest claim attributable at all.
+
+### D136 UPDATE (pass 291, heading restated). **UNFIXED**, and the guard that will catch it is verified armed rather than assumed to be: the token it watches is still in VERDICT, so the compose fails the moment `of3t-trajwide` concludes.
+
+The pass-267 guard holds one declared pair — `of3t-trajwide` -> `"on a CONFIGURATION (D136)"` — and fails when the row has a concluded marker while VERDICT still carries that string. I have rewritten the condition-3 bullet four times since (passes 271, 274, 283, 289), and a guard watching a string its subject has edited away is the silent kind. **Checked this pass: the token is present, the marker glob matches the plain marker name the fleet writes, and the row is at 52 of its k-files.** It will fire.
+
+**Pre-registered, so the rewrite is a fill-in rather than a paraphrase written under the pressure of a fresh headline.** When the row lands, the bullet may not quote its number unless all five are present:
+
+  1. **which reference** — 0.4.3 from `of3pkg043`, with the resolved tree read back (D149), not the constant;
+  2. **which arm** — `shipped`, not `repin`; the current bullet's 4.763338e-02 is a `repin`-arm figure and the row that produced it called that arm *default-off, unmerged*, while `shipped` moved **zero weight** (D126);
+  3. **which scope and its mass** — the % of the model squared gradient norm the rung covers, bound to the figure (A23);
+  4. **how the denominator arm was built** (A27) — "x upstream's own bf16" is not a unit, and a full-cast and an autocast arm differ by 4.08x on the same tensor;
+  5. **agreement AND accuracy, both** (A25), with the reachable bar named (A26).
+
+If the row reports a number that cannot carry all five, the bullet says what is missing and stays **owed**. A figure that arrives without its denominator is how D136 happened in the first place: a trajectory headline that was right about a configuration and read as being about the model, for 25 passes.
+
+### D158. Source citations in this ledger do not say WHICH TREE they are in, and `attention.py`, `pairformer.py` and `normalization.py` all exist in both tt-bio and upstream openfold3. FOUND by the orchestrator (pass 292) while auditing for stale line numbers. **UNFIXED as a convention; no stale citation found.**
+
+D32's pass-222 update records *"5 of 21 line numbers stale — the `defect-located-only-by-line-number-decays` trap a third time in this file"*, so I audited all of them: **140 distinct `file.py:NNN` citations** in `DEFECTS.md`, resolved against the composition.
+
+    resolvable and within the file          119
+    file not in the composition              20   all upstream openfold3 paths (core/model/...)
+                                                  and _of3t_donecheck.py, which live outside it
+    line past end of file                     1   and it is my checker's error, not a citation's
+
+**The one hit is a false positive and looking at it is the finding.** `attention.py:314` is cited as *"`attention.py:314` in 0.4.3, `:321` in 0.5.0"* — an **upstream** file. My check resolved it by basename against the composition, found **tt-bio's own** `attention.py` at 313 lines, and called it out of range. Two different files, same name. That is the pass-284 substring-inventory mistake in a new costume: **a name that looks like a location**, and this time I caught it before filing rather than after.
+
+**So no citation in the ledger is demonstrably stale by this test, and the test is weaker than it looks.** It can only catch a line past EOF; a line that MOVED inside a file it still fits in is invisible, which is exactly the decay D32 hit. Detecting that needs the cited snippet recorded beside the number, and 140 retrofits is not worth it.
+
+**What is worth it is the convention, and one clause in this file already does it right.** Line 123 writes *"`attention.py:314` in 0.4.3, `:321` in 0.5.0"* — the citation names its tree and its two revisions. Everything the campaign has learned about references says the same thing in a different place: D149 (a constant is not a resolution), D153 (a path that no longer exists resolves to the wrong tree silently), D112 (the same arms re-scored against 0.4.3 flip four of six). **A citation that does not name its tree is the same defect at documentation scale**, and this campaign reads both trees constantly.
+
+**Not filed as a guard.** Requiring a tree on all 140 would be a retrofit with no way to verify the answer, and the pass-261 threshold applies. Recorded as the convention new entries should follow: name the tree when the filename exists in both.
+
+### D129 UPDATE (pass 293, heading restated). **UNFIXED, USER-FACING** — and its denominator at the boundary that matters is now measured: the bar moves **0.73 %**, so the reading is not a version artifact on that side.
+
+`of3t-cond043` concluded GO on exactly the half it was scoped to:
+
+    upstream 0.4.3's own bf16 floor on `conditioned_transition.layer_norm.layer_norm_s.weight`
+        1.5931532097e-01   over 30 instances, reference mass 1.5969832003e+00
+    the same floor at 0.5.0
+        1.5815634233e-01
+    A26's bar (sqrt(2) x floor)   0.4.3  2.2530588761e-01     0.5.0  0.223667
+
+**The bar moves 0.73 %**, which cuts against the comfortable story. D129 reads 0.693974 against the 0.5.0 floor — 4.388x it, 3.10x the bar, 28 of 30 instances outside. If our own arm at 0.4.3 lands anywhere near where it lands at 0.5.0, that verdict survives the boundary change essentially unchanged. The denominator was the obvious place for this defect to dissolve, and it does not dissolve there.
+
+**What is still uncomputed, deliberately.** `0.693974 / 1.5931532097e-01` is **not** formed. Our arm at the 0.4.3 capture is card-bound and the row was dispatched without a card, so it refused to divide a 0.5.0 numerator by a 0.4.3 denominator. A27 — *"a ratio names how its denominator arm was built"* — is a hard refusal here rather than a convention, and the row said so instead of quietly producing the number two of its own figures would have made available.
+
+**Provenance, because a floor is only as good as its capture**: package derived rather than declared, capture revalidated to every digit, an f32 instrument floor four orders below the reading, a break control that moves it, a bit-identical A/A, an A16 reading exactly 1.0, and an A14 with nothing near the denominator floor.
+
+**Handed to the owner.** `of3t-ditcot` holds D129's object and its brief was written at pass 239, before any of this existed — so it would have re-derived the bar or, worse, scored against 0.5.0's. AMENDMENT 3 gives it the numbers, the 0.73 % reading, and an explicit instruction **not** to complete the division from the two figures: take our arm at 0.4.3 on the card it will have, and divide like for like.
+
+**And the row's method is worth copying, not just its number**: it registered its prediction before measuring and reported it honestly — right on D129's leaf, **wrong on the other two entries**, with its own judgement that the miss matters more than the hit.
+
+### D159. GO condition 4 says *"their own `test_training_full.py`"* and never says WHICH upstream version, and every piece of evidence behind its NO-GO is **0.5.0's** copy — while the campaign reproduces the **0.4.3** boundary. FOUND by the orchestrator (pass 294). **UNFIXED as a scope statement; the NO-GO itself survives either reading.**
+
+The charter clause, lifted from the gate's own literal, requires `executed`, `not skipped`, `exit_code == 0` and `ran_on_our_backend` on *"their own test_training_full.py"*. **No version appears in it.** The evidence is unambiguous about which one it used: `BLOCKERS.md` opens *"Upstream openfold3 **0.5.0**, sdist `openfold3-0.5.0.tar.gz` sha256 `a43357fd…`"*, and on qb2 the only sdist present is `of3t_theirtest_env/src/openfold3-0.5.0.tar.gz`, whose tree carries `openfold3-0.5.0/openfold3/tests/test_training_full.py`.
+
+**Whether 0.4.3 ships an equivalent test is UNKNOWN, not "no".** The three unpacked 0.4.3 trees on qb2 (`of3t_refprec/of3pkg043`, `of3t-campaign-refs/of3pkg043`, `of3t_gradients/of3pkg`) contain `openfold3/` and `PKG-INFO` and no `tests/` at all — but that is what an unpacked *package* looks like; tests live in the sdist, and **no 0.4.3 sdist is on the host**. I checked before concluding, because the obvious reading of three empty `tests/` directories is the wrong one.
+
+**This does not overturn the NO-GO, and saying so is part of the finding.** The binding constraint is on OUR side and is version-independent: Lightning dispatches by torch device and `tt_bio/` is not one, so reaching `ran_on_our_backend` needs a PrivateUse1 backend with a Lightning Accelerator that does not exist. Upstream's A1 CUDA skip gate is likewise present in any version that has the test. Both closures costed in `BLOCKERS.md` are unaffected by which sdist the test came from.
+
+**What it does mean** is that the campaign's most emphatic *"we cannot"* rests on a clause that does not say what it is about, in a campaign where **which tree the claim is about** has produced D120 (0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, 4.5 orders apart f32-against-f32), D149 (a row measuring against 0.5.0 while reporting 0.4.3), D153 (a dead path resolving silently to 0.5.0) and D112 (four of six D8 arms flipping when re-scored at 0.4.3). Every one of those was the same sentence: a reference that did not name its version.
+
+**The repair is one clause, and it is not mine to write unilaterally** — the charter's wording is what the gate lifts, and editing it changes what ends the campaign. Recorded here with the recommendation: condition 4 should say **which upstream revision's test** it means, and if the answer is "the one the served checkpoint belongs to" then the 0.4.3 sdist has to be fetched before the condition can be said to have been tested at all. If the answer is "whatever upstream currently ships", the existing evidence is exactly right and the clause should say that too.
+
+### D160. I published "of3t-trajwide's device side is DONE" from three arms' k-file counts while the row has **six** arms and two of them were mid-run holding both qb2 cards. FOUND and CORRECTED by the orchestrator (pass 295). **FIXED** in the record.
+
+At pass 292 I wrote *"the device side is complete (`shipped` 20/20, `zero` 20/20)"*, and repeated the claim at 293 and 294. I had been counting the three arms I happened to name in an earlier check. The row runs six:
+
+    norebind       20/20      shipped        20/20      zero        20/20
+    shipped_aa2    10/20      stale           9/20      theirs      10/20
+
+`shipped_aa2` (the A/A repeat) and `stale` (a control) are **device arms and they are running now**, holding `/dev/tenstorrent/1` and `/dev/tenstorrent/0` — verified by `lsof` on the device nodes, pids 88301 and 101686, not by reading the row's prose.
+
+**Three arms complete is not "the device side complete"**, and the difference is not cosmetic: I was one step from acting on it. The reasoning I had started was *"the remaining arm is the CPU-bound float64 reference, so the card is free, so `of3t-ditcot` can be released from its `DEPENDS_ON` early and save ~85 minutes of card time."* Every step of that follows from the false premise. Releasing ditcot would have put a card-hungry row against two live device arms on a two-card host.
+
+**What the check should have been, and now is**: ask the device, not the directory listing. `lsof /dev/tenstorrent/*` names the pids holding each chip in one line. A k-file count tells you what has been written, never what is running — and this row deliberately writes its k-files outside `/tmp` precisely so the two questions stay separable (D152).
+
+**Same shape as the campaign's recurring finding, turned on myself**: *a row's sentence is evidence for exactly what it says*. Mine said three arms and I read it as a side. The correction is in the PASSLOG entries that carried it, and `of3t-ditcot` stays held.
+
+### D159 UPDATE (pass 296, heading restated). **FIXED as a question of fact, not of wording: 0.4.3 has no `test_training_full.py` at all.** The clause could only ever have meant 0.5.0's, and the NO-GO's scope is unambiguous in practice.
+
+I fetched the 0.4.3 sdist rather than leaving the question open — `pip download --no-deps --no-binary :all: openfold3==0.4.3`, sha256 `d7374552a1776f2fe88b96780e024831740ee200e5bceb44560c2bb298ac5461`, 33,068,394 bytes. It carries **206 files under `tests/`** and **no `test_training_full.py`**. The end-to-end training test was **added in 0.5.0**.
+
+So the ambiguity I raised at pass 294 resolves by fact: *"their own `test_training_full.py`"* can only denote the 0.5.0 file, because the revision our checkpoint belongs to does not have one. `of3t-theirtest` used the only copy that exists. **No artifact needs re-running and no conclusion moves** — the wording remains imprecise, and the recommendation to name the revision stands as a cheap clarity fix rather than a correctness one.
+
+**An unexamined upstream artifact fell out of the check, and it is at the RIGHT revision.** 0.4.3 ships **`openfold3/tests/test_inference_full.py`** — 163 lines, `TestInferenceRun`, two cases `test_protein_only` and `test_protein_and_ligand`. The campaign has never mentioned it. It is upstream's own end-to-end test at the boundary the served checkpoint is bound to, on the side of the model this campaign has spent the last several passes proving unmoved (D137's digests on three models).
+
+**Stated with its gate so nobody reads it as a free win**: it is decorated `@skip_unless_cuda_available()` at line 91, the same A1-class gate that blocks the training test, and it runs through `InferenceExperimentRunner`, so it inherits the same Lightning-dispatches-by-torch-device problem. It is not a shortcut to condition 4 — condition 4 is about TRAINING — and it is not free. What it is: a second upstream end-to-end artifact, at 0.4.3, that nobody has costed, on the half of the port that is in the best shape.
+
+Recorded rather than dispatched: the campaign's card time is committed to `of3t-trajwide` and then `of3t-ditcot`, and a new row against a CUDA-gated inference test is not worth displacing either.
+
+### D55 UPDATE 2 (pass 297, heading restated). **UNFIXED**, and its forward half now has an owner — plus a count discrepancy that has to be settled before anyone edits code.
+
+`of3t-fwdkcfg` is dispatched, **held behind `of3t-ditcot`** because that row owns the DiT backward and will be editing the same file; two rows in `openfold3_diffusion_transformer.py` at once is a collision the composition has already paid for twice.
+
+**The discrepancy, stated rather than resolved by guess.** `of3t-d116`'s verdict says *"the four no-config forward sites are named but untouched"*. Grepping the composition I find **one** `site_softmax` call passing no `compute_kernel_config` — `openfold3_diffusion_transformer.py:211`, the DiT attention softmax — while `openfold3_atom_transformer.py:186`, `protenix.py:570`, `protenix.py:667` and `tenstorrent.py:8604` all pass `compute_kernel_config=self._softmax_ckc`. One of us is counting something the other is not: four instances of one site across block types, sites at a different level, or three configured after d116 measured. **The brief's first task is to settle it**, using the AST census in `perf/of3t_orchestrator/kcfgcensus/` extended to forward calls rather than grep — since grep is what produced my number and a census keyed by symbol is what the campaign built for exactly this.
+
+**Why the row is card-bound and release-gated rather than a one-line patch.** These are FORWARD sites: configuring them moves fold output. The 2026-09-21 constraint binds — the row owes the inference fold A/B **with its A/A floor**, per model, floor reported first, and is told that an accuracy improvement costing inference time is a regression and should stop rather than be argued small. It is also told not to run it on pc card 0 and to name host and card in full, with `of3t-d137digest` as the model.
+
+**And it must re-price what it makes redundant.** With no config the backward renorm is worth **4.0x** on device; with `precise_config()` the row sum is already 0.99971 and it is a **wash** (3.6605e-03 against 3.7217e-03). The row is instructed to re-measure `TT_BIO_SOFTMAX_BW_RENORM` against the new forward and report both together — and explicitly **not** to turn the lever off on its own, because that was Moritz's decision and not a measurement.
+
+### D55 UPDATE 3 (pass 298, heading restated). **UNFIXED** — and my own pass-297 framing of its forward half was wrong: the argument is not missing, it is passed with the value `None`, and the lever it gates costs **1.46x on the op**.
+
+**The grep error, first, because it is the third costume of the same mistake.** At pass 297 I reported *"one `site_softmax` call passes no `compute_kernel_config` — `openfold3_diffusion_transformer.py:211`"*. It does pass one; the call spans two lines and the argument is on the second. An AST census over `tt_bio/`, keyed by symbol, finds **67 softmax-family forward calls** and **every `site_softmax` site carries the argument**. The campaign has now made this shape three times in a fortnight — a substring read as a path (D153), a filename read as a location (D158), a call read as one line (here) — and each time the fix was to ask the parser instead of the pattern.
+
+**What is actually there is a lever, which is a better finding than an omission:**
+
+    softmax_ckc(token, default=False):
+        return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
+
+`softmax_precise_site` defaults **False**, so the shipped path passes `compute_kernel_config=None` — the op's own default, and exactly the "no config" row `of3t-d116` measured. The sites are wired and the lever is off, so the change is a **shipped-default flip per site**, in the family `assert_new_levers_default_off.py` polices, and not a code addition.
+
+**And the cost was already in the tree, unquoted by me when I dispatched.** From `softmax_precise_site`'s own docstring (`perf/of3t_softmax/softmax_cost_qb2c0.json`, [1,16,384,384] fp32, against a float64 softmax on the same values):
+
+    no config          2.029e-02      0.0543 ms
+    this config        1.646e-03      0.0789 ms     12.3x better, 1.46x the cost
+    _accurate_softmax  5.156e-04      0.2556 ms     39.4x better, 4.71x the cost
+
+**1.46x on the op reframes the question.** It is not "land a free argument" but "is 46 % more on one op visible in a fold, and is 12.3x accuracy worth it if it is" — which is exactly the A/B against an A/A floor the row was already told to run, now with a prediction worth registering in advance: against `of3t-d137ab`'s measured fold floors of 13-35 s on a noisy host, an op-level 1.46x on softmax may be **unreadable**, and unreadable is the honest finding rather than free.
+
+**The brief is corrected in place** with its premise withdrawn rather than edited away, so the row sees what I got wrong and why. Everything else in it stands: the inference constraint binds, not pc card 0, host and card in full, and re-price the backward renorm against whichever forward it lands on.
+
+### D161. Three claims in a fortnight rested on a text pattern answering a narrower question than the claim, and each time the AST was available and slower to type. FOUND and MITIGATED by the orchestrator (pass 299). **FIXED** as a tool; the habit is not fixable by one.
+
+    D153  substring `of3t_rebase` read as a path -- two hits were `origin/wk/of3t-rebase` (a branch)
+          and `perf/of3t_rebase/*.json` (a repo-relative path). Two namespaces wrongly reported
+          broken, one of them mine.
+    D158  `attention.py:314` resolved by basename to tt-bio's file when the citation was about
+          UPSTREAM's file of the same name. A stale-citation report that was not one.
+    D55   `site_softmax(...)` reported as passing no `compute_kernel_config` because the call spans
+          two lines and grep stopped at the first. A row dispatched to add an argument already there.
+
+Every one is the same shape: **a question about the code answered against the text**. The campaign already owns AST tooling for this — `census_reduction_config.py` is keyed by symbol precisely because line numbers decay — and I reached for `grep` anyway, three times, because it was one line and the census was ten.
+
+**So the correct query is now the fast one.** `perf/of3t_orchestrator/kwarg_at_site.py <file-or-dir> <callee> [kwarg]` parses and reports every call, its enclosing def, its keywords and, when a keyword is named, PASSES or MISSING with the argument's expression. Its probe is D55's own case: a two-line call must read PASSES and a one-line call without the argument must read MISSING.
+
+Re-running this pass's claim through it:
+
+    5 call(s) to 'site_softmax'; 5 pass 'compute_kernel_config', 0 do not
+      openfold3_atom_transformer.py:186  = self._softmax_ckc
+      openfold3_diffusion_transformer.py:211  = self._softmax_ckc
+      protenix.py:570 / protenix.py:667 / tenstorrent.py:8604  = self._softmax_ckc
+
+**It is a QUERY and deliberately not a check.** Exit is 0 whatever it finds: a tool that fails the build on a question is one people stop asking, and the failure here was never a missing gate — it was reaching for the wrong instrument. Adding a guard would police the symptom in one file and leave the habit.
+
+**And it carries its own limit in its output**, because the limit is what this pass turned on: *"PASSES means the argument is AT THE CALL. It says nothing about its value."* D55's whole reframing was a passed argument whose value is `None` unless a per-site lever is on. A tool that answered "is the argument there" and let a reader hear "is it configured" would have replaced one truncation with another.
+
+### D55 UPDATE 4 (pass 300, heading restated). **UNFIXED** — I priced the lever from one rung of a four-rung ladder, and the full table says the trade is size-dependent and **inverts on bf16**.
+
+At pass 298 I quoted *"12.3x better, 1.46x the cost"* from `softmax_precise_site`'s docstring. That is one line about one shape. The artifact it cites, `perf/of3t_softmax/softmax_cost_qb2c0.json`, carries five rows — qb2 card 0, 30 iters, 6 rounds, AICLK pinned 1350 MHz:
+
+    shape                dtype     accuracy x    ms none    ms precise    cost x
+    [1, 16,  384,  384]  fp32          12.33     0.0543       0.0789       1.45
+    [1, 16,  512,  512]  fp32          12.01     0.0909       0.1367       1.50
+    [1, 16,  768,  768]  fp32          11.38     0.1975       0.2733       1.38
+    [1, 16, 1024, 1024]  fp32          11.17     0.3418       0.4615       1.35
+    [1, 16,  384,  384]  bf16           1.96     0.0284       0.0657       2.32
+
+**Two things the single line hid.**
+
+1. **Both numbers drift with size, in opposite directions from the quote.** Accuracy falls 12.33x -> 11.17x and cost falls 1.45x -> 1.35x as the token axis grows 384 -> 1024. The figure I published was the best accuracy rung AND near the worst cost rung, so the trade is slightly better at the sizes that matter for long targets than I said. Not a large correction — but it is the difference between a measured range and a headline.
+2. **On bf16 the trade inverts and the lever is close to worthless**: **1.96x** accuracy for **2.32x** cost, against 12.33x for 1.45x at the same shape in fp32. The config buys most of its accuracy by having somewhere to accumulate; hand it a bf16 tensor and it mostly buys cost.
+
+**This is directly actionable for `of3t-fwdkcfg` and I have amended its brief.** The DiT site typecasts to fp32 immediately before the call — `sc = ttnn.typecast(sc, ttnn.float32)` at `openfold3_diffusion_transformer.py:210` — so the fp32 rows are the right ones there. **Any other site must have its dtype checked before its lever is flipped**, because at bf16 the same flip is a 2.32x cost for almost nothing. A per-site lever with a dtype-dependent payoff cannot be swept.
+
+**And the method note, because this is the second time in three passes**: price a lever from the measuring row's full table, never from the line that quotes it. The docstring was not wrong — it says what it measured — but a single row read as "the cost of the lever" is how a range becomes a headline and a headline becomes a plan.
+
+### D162. Five per-site levers resolve at the CONSTRUCTION SITE, so their shipped default is an argument and not a module constant — and a census that walks flags to a resolved value has no row for the family at all. FOUND and MITIGATED by the orchestrator (pass 301). **FIXED** for the four that were uncovered.
+
+`tt_bio.tenstorrent` builds five levers on `_site_flag`:
+
+    accurate_softmax_site   TT_BIO_ACCURATE_SOFTMAX_AB
+    triatt_sdpa_hifi_site   TT_BIO_TRIATT_SDPA_HIFI_AB
+    softmax_precise_site    TT_BIO_SOFTMAX_PRECISE_AB
+    host_f64_softmax_site   TT_BIO_HOST_F64_SOFTMAX_AB
+    sdpa_ragged_pad_site    TT_BIO_SDPA_RAGGED_PAD_AB
+
+Each resolves per site with its default passed **at the call**, so there is no single place holding the shipped value. A census built to catch a default flip does not report "off" for these — it reports **nothing**, because it has no row for the family. The fleet has already paid for this once: `openfold3.trunk` flipped to the fused HiFi SDPA path by default in `3a31dcdd1` (+11.564 s at 512 aa, **1.5123x**) and the lever census was silent.
+
+**My own gate covered one of the five.** `assert_new_levers_default_off.py` checks `host_f64_softmax_site`'s signature default AND that no call site overrides it to True — the right shape, applied to one member of a family of five. The other four had nothing.
+
+**Censused by AST across the composition, three sites ship a lever ON by call-site default:**
+
+    tt_bio/opendde.py:419        accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:1467      accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:2511      accurate_softmax_site(..., default=True)
+
+`opendde.refiner` is known — `assert_new_levers_default_off.py`'s own docstring cites it as the worked example of a selector defaulting off while a construction site passes True. **The two protenix sites are not in the campaign's record anywhere I can find.** They are not an OF3 model, so whether ON is right there is outside this campaign's scope to judge; what is in scope is that protenix-v2 carries digest claims from D137 and D155, and a lever shipping ON at two of its construction sites should not be invisible while those claims stand.
+
+**`assert_site_flag_defaults.py`** pins the three as a shrink-only ratchet: a NEW default-ON site fails the compose, a pinned one that disappears must be removed. Its probe is synthetic — `default=True` must be seen, `default=False` and a bare call must not. It deliberately does **not** judge whether ON is correct; it refuses a default-ON site arriving unseen, which is the whole failure mode.
+
+**Relevant to a live dispatch.** `of3t-fwdkcfg` is briefed to flip `softmax_precise_site` per site. That lever is in this family, so its flips will now be visible to the compose rather than resolving silently at five call sites.
+
+### D163. `INFERENCE_AB_openfold3.json`'s own `verdict` field reads **"FAIL: the gate changed the fold output"** — and the gate did not. The row caught it and said so in prose; the artifact still carries the sentence. FOUND by the orchestrator (pass 302). **UNFIXED** in the artifact, which belongs to a concluded row.
+
+    verdict          FAIL: the gate changed the fold output (base==off False, base==on False)
+    base_equals_off  False
+    base_equals_on   False
+    host             tt-quietbox          host_card  tt-quietbox card 3
+
+**What actually happened** is `of3t-d137digest`'s central finding: openfold3's `base != off` is `701ddcf63`, D1's trunk sqrt(24) pair-bias fix, which landed on `wk/of3t` after the base commit. The row proved it with an **18-fold isolation arm** on top of its 27-fold main run and states outright that the harness's verdict text *"is wrong about the cause, not about the fact"*.
+
+**The artifact does not say that, and it omits the one comparison the constraint is about.** `off == on` is True for openfold3 — both arms digest `b2f94fa1b430518c` — which is the arm Moritz's constraint concerns: same tree, one env var apart. The `verdict` field mentions only the two base comparisons and names the gate as the cause of both.
+
+**Why this is worth a defect rather than a shrug.** Artifacts outlive prose and get grepped. Anyone reading `INFERENCE_AB_openfold3.json` alone — a future row, a release gate, me in thirty passes — gets a sentence saying the tape gate changed a fold, which is the precise claim Moritz's hard constraint forbids and the precise claim this campaign spent four passes disproving. It is the shape already on the record twice: a verdict field disagreeing with the finding it belongs to.
+
+**Not repaired here.** The artifact is `of3t-d137digest`'s and that row has concluded; rewriting another row's evidence to make the record read better is worse than the defect. The repair belongs in the harness — `inference_ab_with_aa_floor.py` should not attribute a `base != off` difference to the gate, because the base tree differs from the test tree by every commit between them, and the gate is the `off -> on` axis alone. Two fields would do it: one verdict for the gate axis, one for the tree axis.
+
+**Handed forward to the row that will run the same harness.** `of3t-fwdkcfg` is dispatched to do an inference A/B of exactly this shape for the forward kernel config, where `base != off` will again be true and again not be the lever under test. Its brief is amended to fix the verdict fields before it runs, so the next artifact says what it means.
+
+### D136 UPDATE 2 (pass 303, heading restated). **UNFIXED** — and the corrected trajectory now has a partial reading, a named break control, and an arm count I have had wrong twice.
+
+**Eight arms, not the three I called "the device side" at pass 292 or the seven the directory showed at 301.** `of3t-trajwide`'s own table says *"three of eight arms have completed"*; `theirs_aa2` has not created its directory yet, which is why a listing undercounts. Current state, read from the host:
+
+    norebind 20/20   shipped 20/20   zero 20/20   stale 20/20   shipped_aa2 20/20
+    theirs 16/20     permute 7/20    theirs_aa2 not started
+
+**`permute` is the break control and it is the reason nothing is scored yet.** It must MOVE the reading: at conditioning scope it took **4.763338e-02 → 1.405424e+03**, four orders. The row's rule is explicit — *"a trajectory verdict whose controls did not run is the one outcome this campaign will not take, so nothing is scored to a GO until `permute` and both A/A arms carry their markers."* That is A17's discipline applied by the row to itself, without being asked.
+
+**The first partial reading of the corrected measurement**, recorded here as partial and not as a result: `shipped` reads **0.4538 at k=2 falling to 0.3817 at k=8**, a growth exponent of **−0.13415 over k = 2..9** at **88.0819 %** of the model squared gradient norm. It carries its scope and its mass (A23) and it is explicitly not a k=2..20 fit. **It may not be quoted into VERDICT** — the pass-291 pre-registration requires reference, arm, scope-with-mass, denominator construction (A27) and agreement-and-accuracy against the reachable bar (A25/A26), and a k=2..9 exponent with two controls outstanding has three of the five.
+
+**And it settles the card question I was tempted by.** One chip freed when `shipped_aa2` finished, and the row's own table says of `permute`: *"first card to free takes it"* — so the free chip is that arm's, not idle capacity, and releasing `of3t-ditcot` early would contend rather than fill a gap. At pass 295 I nearly did exactly that on an inference; this time the answer comes from the row's scheduling note plus `lsof`, which is the pairing that should have been used then.

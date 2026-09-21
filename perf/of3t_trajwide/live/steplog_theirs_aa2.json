@@ -1,0 +1,43 @@
+{
+ "arm": "theirs_aa2",
+ "side": "theirs",
+ "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "steps": [
+  {
+   "lr": 0.0,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.056923747062683,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 1,
+   "wall_s": 197.00603032112122
+  },
+  {
+   "lr": 1.8e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.7255219221115112,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 2,
+   "wall_s": 380.91395235061646
+  }
+ ],
+ "evidence": null,
+ "n_steps": 2,
+ "complete": false,
+ "wall_s": 399.3678526878357
+}
