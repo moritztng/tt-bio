@@ -7141,8 +7141,8 @@ def _mm_fused_block(kt: int, nt: int):
     Ties break to the wider component -- the qkv operand in every fusion this serves -- so the
     derived entry is the one the dominant matmul was swept with.
 
-    `widths[i + 1:]`, not `widths[i:]`: an operand must pair with a DIFFERENT one. Pairing a width
-    with itself invents a concatenation no kernel performs -- qkv is always 3 * heads * head_dim and
+    The inner loop starts at `i + 1`, so an operand pairs only with a DIFFERENT one. Letting a
+    width pair with itself invents a concatenation no kernel performs -- qkv is always 3 * heads * head_dim and
     the gate is heads * head_dim, so a real fusion is never `a + a` -- and the self-paired form
     configured rfdiffusion3's (2, 24) on 80 calls a fold and boltzgen's (2, 4) on 96, two models
     this rule was never folded against, plus (12, 24)/(12, 25)/(12, 72)/(12, 73), which would have
