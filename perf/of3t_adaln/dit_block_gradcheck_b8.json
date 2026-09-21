@@ -1,0 +1,214 @@
+{
+ "arms": [
+  {
+   "block": 8,
+   "compared": "8 of 8",
+   "forward_rel": 0.0019540680112847984,
+   "mass_weighted_rel": 0.7933780690142959,
+   "over_bar": 4,
+   "reference_keys": {
+    "missing": 0,
+    "missing_names": [],
+    "unexpected": 0,
+    "unexpected_names": []
+   },
+   "rule": "shipped",
+   "tensors": [
+    {
+     "cos": 0.990819317585868,
+     "device_norm": 166678.88157069468,
+     "norm_ratio": 1.7854868689268928,
+     "over_bar": true,
+     "ref_norm": 93352.06238221817,
+     "rel_l2": 0.8060853534539731,
+     "tensor": "attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9926600385529213,
+     "device_norm": 2890.95076690648,
+     "norm_ratio": 1.0919544532935188,
+     "over_bar": true,
+     "ref_norm": 2647.5012379746104,
+     "rel_l2": 0.15647820505998147,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_g.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9925350953265529,
+     "device_norm": 9043.270760887492,
+     "norm_ratio": 1.096894070198653,
+     "over_bar": true,
+     "ref_norm": 8244.43399466068,
+     "rel_l2": 0.16051442359322204,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_g.bias",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9980542661265326,
+     "device_norm": 10450.320022723417,
+     "norm_ratio": 0.9865892581016454,
+     "over_bar": true,
+     "ref_norm": 10592.371584129645,
+     "rel_l2": 0.06339659514240704,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9995462813316591,
+     "device_norm": 9707.66560864826,
+     "norm_ratio": 0.9955744095893557,
+     "over_bar": false,
+     "ref_norm": 9750.818738553533,
+     "rel_l2": 0.03038103423500968,
+     "tensor": "conditioned_transition.layer_norm.layer_norm_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.999642979660524,
+     "device_norm": 42.923053367424004,
+     "norm_ratio": 0.9891694704418726,
+     "over_bar": false,
+     "ref_norm": 43.393022783294974,
+     "rel_l2": 0.028698564612479865,
+     "tensor": "conditioned_transition.layer_norm.linear_g.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9996458705820287,
+     "device_norm": 520.7565757756264,
+     "norm_ratio": 0.9907321930914612,
+     "over_bar": false,
+     "ref_norm": 525.6279945346964,
+     "rel_l2": 0.028063981804152118,
+     "tensor": "conditioned_transition.layer_norm.linear_g.bias",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9997870224567325,
+     "device_norm": 1651.0326252451098,
+     "norm_ratio": 0.9916377156777083,
+     "over_bar": false,
+     "ref_norm": 1664.9554561534155,
+     "rel_l2": 0.022188306111580184,
+     "tensor": "conditioned_transition.layer_norm.linear_s.weight",
+     "zero_model_rel": 1.0
+    }
+   ],
+   "tokens": 384
+  },
+  {
+   "block": 8,
+   "compared": "8 of 8",
+   "forward_rel": 0.0015207439188866302,
+   "mass_weighted_rel": 0.35289490108669613,
+   "over_bar": 3,
+   "reference_keys": {
+    "missing": 0,
+    "missing_names": [],
+    "unexpected": 0,
+    "unexpected_names": []
+   },
+   "rule": "softmax_precise",
+   "tensors": [
+    {
+     "cos": 0.987114854252645,
+     "device_norm": 62195.280219582186,
+     "norm_ratio": 0.6662443081860528,
+     "over_bar": true,
+     "ref_norm": 93352.06238221817,
+     "rel_l2": 0.35855567468226285,
+     "tensor": "attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9977416525617522,
+     "device_norm": 2634.9522555384883,
+     "norm_ratio": 0.9952600655077607,
+     "over_bar": true,
+     "ref_norm": 2647.5012379746104,
+     "rel_l2": 0.067214232255092,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_g.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9978976450229124,
+     "device_norm": 8207.77182733793,
+     "norm_ratio": 0.9955531007530058,
+     "over_bar": true,
+     "ref_norm": 8244.43399466068,
+     "rel_l2": 0.0648520388697161,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_g.bias",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9998615229957165,
+     "device_norm": 10527.464775495713,
+     "norm_ratio": 0.9938723062990746,
+     "over_bar": false,
+     "ref_norm": 10592.371584129645,
+     "rel_l2": 0.017686309658436407,
+     "tensor": "attention_pair_bias.layer_norm_a.linear_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9995794230601496,
+     "device_norm": 9736.987019654445,
+     "norm_ratio": 0.9985814812817309,
+     "over_bar": false,
+     "ref_norm": 9750.818738553533,
+     "rel_l2": 0.029016768988493095,
+     "tensor": "conditioned_transition.layer_norm.layer_norm_s.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9997316840685669,
+     "device_norm": 42.91746610965048,
+     "norm_ratio": 0.9890407110834517,
+     "over_bar": false,
+     "ref_norm": 43.393022783294974,
+     "rel_l2": 0.02551189473229987,
+     "tensor": "conditioned_transition.layer_norm.linear_g.weight",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.999733467793713,
+     "device_norm": 520.6388421664966,
+     "norm_ratio": 0.9905082065261452,
+     "over_bar": false,
+     "ref_norm": 525.6279945346964,
+     "rel_l2": 0.024861593243642045,
+     "tensor": "conditioned_transition.layer_norm.linear_g.bias",
+     "zero_model_rel": 1.0
+    },
+    {
+     "cos": 0.9998563981050914,
+     "device_norm": 1653.2315003357144,
+     "norm_ratio": 0.9929583967100314,
+     "over_bar": false,
+     "ref_norm": 1664.9554561534155,
+     "rel_l2": 0.018296600547077362,
+     "tensor": "conditioned_transition.layer_norm.linear_s.weight",
+     "zero_model_rel": 1.0
+    }
+   ],
+   "tokens": 384
+  }
+ ],
+ "bar": 0.05,
+ "capture": "/home/ttuser/of3t_diffusion_cap/sub_boundary.pt",
+ "reference": {
+  "class": "openfold3.core.model.layers.diffusion_transformer.DiffusionTransformerBlock",
+  "dtype": "float64",
+  "keys": {
+   "missing": 0,
+   "missing_names": [],
+   "unexpected": 0,
+   "unexpected_names": []
+  },
+  "source": "/home/ttuser/of3t_rebase/of3pkg043/openfold3",
+  "version": "0.4.3"
+ },
+ "seconds": 23.548741065002105,
+ "what": "one real DiT block, ours taped against upstream 0.4.3's own in float64, on the captured diffusion boundary's real (a, s, z, mask), with and without precise_config() on the FORWARD softmax."
+}
