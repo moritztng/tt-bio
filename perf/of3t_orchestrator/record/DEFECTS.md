@@ -10217,3 +10217,39 @@ Independently: the model's own per-residue confidence rises in **24 of 24 paired
 **The shipped-default assertion moved in the same commit**, which is what the previous version of that block instructed should happen: *"If Moritz approves it anyway, change `_want` in this script in the same commit that flips the default."* `_want` is now `scale_pair_bias=True`, and a revert to False is the drift the compose reports, with the reopen instruction beside it.
 
 **Not merged to main**, so nothing a user runs has changed yet. The merge gate is Moritz's.
+
+### D137 UPDATE 2 (pass 281, heading restated). **FIXED**, and the cost half of Moritz's constraint is now answered as far as this host can answer it — which is a bound, not a measurement, and the row said so.
+
+`of3t-d137ab` ran the fold-level A/B with its A/A floor on all three models that execute the shared softmax site. Base = `6d7f32dc0` (no gate), off = the gated tree, on = the gated tree with `TT_BIO_HOST_F64_SOFTMAX_AB=all`; fixture `cdk2x2_128`, seed 0, six sampling steps, interleaved, AICLK pinned at 1350 MHz and sampled during each fold.
+
+    model         A/A floor   off - base   on - off    median base/off/on (s)
+    openfold3       13.63 s      -0.46 s     -1.02 s    33.98 / 33.52 / 32.50
+    protenix-v2     30.27 s      -1.07 s     -0.89 s    25.19 / 24.12 / 23.23
+    opendde         35.08 s      +7.76 s     -6.83 s    32.40 / 40.16 / 33.33
+
+**Every A/B is inside its own A/A floor**, and on two of three models both deltas point the wrong way for a regression — the gated tree folds FASTER by a fraction of the noise. opendde's +7.76 s is the only positive reading and sits **4.5x inside its own floor**, on an arm whose four folds ran 21.39, 52.50, 27.83 and 56.47 s.
+
+**The honest statement, which is the row's own**: *"A gate the call-level row priced at −3.31 ns against a 10.16 ns floor is orders below what a fold on this host can resolve, and that is the finding: not that the cost is small, that it is unreadable."* So *"not made slower"* is **measured free at call level** (21 instructions either side, one conditional jump inverted, −3.31 ns against a 10.16 ns floor) and **bounded at fold level** (no regression resolvable against floors of 13–35 s). Those are different claims and the record keeps them apart.
+
+**`openfold3` and `opendde` are byte-identical across base, off and on**, twelve folds each — so *"not changed"* is answered by digest and not by tolerance on the two models where digests are stable at all.
+
+**Standing measurement limit, worth more than this row**: fold times on pc ran **21 to 56 s at a pinned 1350 MHz**, with 50-plus-second outliers on BOTH trees. Fold-scope A/B on this host cannot resolve anything below roughly 13 s. Any future claim of the form "this change costs nothing at fold scope" on pc is a bound of that size unless the floor is reported with it.
+
+### D155. `protenix-v2` inference is NON-DETERMINISTIC at a fixed seed — the same fixture, the same card, the same command, different output digests — and it is pre-existing, not caused by anything this campaign built. FOUND by `of3t-d137ab` (pass 281). **UNFIXED, USER-FACING.**
+
+Five interleaved folds per tree, no flag set on either, `cdk2x2_128`, `--single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0`, pc card 0:
+
+    rep  base (6d7f32dc0)    off (wk/of3t + gate)
+    1    39bce7750297a920    39bce7750297a920
+    2    39bce7750297a920    39bce7750297a920
+    3    39bce7750297a920    39bce7750297a920
+    4    8259d0f1588b3b5f    2e04732083519965
+    5    39bce7750297a920    39bce7750297a920
+
+**The base tree has no tape gate in it at all and it still moves.** Counting the A/B run's folds too, base moved on **1 of 9** and the gated tree on **2 of 9**.
+
+**Why it is USER-FACING rather than an instrument defect**: a user folding the same input twice, at the same seed, can receive a different structure. Nothing here says how different — the digest is binary — and that is the first thing anyone picking this up should measure rather than assume, because "non-deterministic" spans a last-bit wobble and a different pose.
+
+**What it invalidates immediately**: any digest-equality claim on protenix-v2. `inference_ab_with_aa_floor.py` refused the model on `digest_stable_within_arm`, which is the refusal working — it declined to report FREE from an arm whose own repeats disagree. **Checked rather than asserted**: no live compose check makes a protenix digest claim, so nothing in the gate chain is resting on this. Where it IS claimed is in prose — `state/ask-9629-decision.md` records *"byte-identical digests verified on OpenFold3, Protenix-v2 and OpenDDE"*, and on this evidence the protenix-v2 third of that sentence held on the reps that were run rather than as a property. It is a weaker sentence than it reads, and Moritz's D137 ruling does not depend on it — the ruling turned on a flag being settable, not on the digests.
+
+**Not diagnosed here, deliberately.** The row's subject was D137's cost and it stopped at the boundary of its question after proving the refusal was about the model rather than about the gate. Candidate causes worth separating before anything else: a device non-determinism (reduction order, an uninitialised buffer), a host-side RNG not seeded by `--seed`, or a data-path dependence on something not in the fixture.

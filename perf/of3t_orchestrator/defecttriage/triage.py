@@ -183,6 +183,10 @@ TABLE = {
     "D153": (CAMP, "24 scripts hard-code a reference tree that no longer exists, behind which sits "
                    "openfold3 0.5.0. A defect in this campaign's own measurement scripts; the "
                    "shipped tree imports neither path and no user-visible behaviour depends on it."),
+    "D155": (USER, "protenix-v2 inference is non-deterministic at a fixed seed: same fixture, "
+                   "same card, same command, different output digests, on a tree with none of "
+                   "this campaign's changes in it. A user folding the same input twice can "
+                   "receive a different structure."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "

@@ -5,7 +5,8 @@
    "D32",
    "D55",
    "D58",
-   "D129"
+   "D129",
+   "D155"
   ],
   "DECISION": [
    "D10",
@@ -34,6 +35,14 @@
     "D30",
     "D58"
    ],
+   "would_a_row_help": true
+  },
+  "D155": {
+   "asked": null,
+   "closes_when": "the cause is separated -- device non-determinism, a host RNG not seeded by --seed, or a data-path dependence outside the fixture -- and either fixed or recorded as a property of the model with its magnitude measured",
+   "evidence_held": "five interleaved folds per tree, same fixture/card/command: base moved on 1 of 9 and the gated tree on 2 of 9, and the base tree has none of this campaign's changes in it (of3t-d137ab, DETERMINISM_PROBE)",
+   "needs": "CARD",
+   "one_line": "protenix-v2 inference is non-deterministic at a fixed seed",
    "would_a_row_help": true
   },
   "D24": {
@@ -102,7 +111,8 @@
   "D55",
   "D56",
   "D58",
-  "D129"
+  "D129",
+  "D155"
  ],
  "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
 }

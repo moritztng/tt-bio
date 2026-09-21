@@ -28,6 +28,18 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 
 PLAN = {
+    "D155": {
+        "needs": CARD,
+        "one_line": "protenix-v2 inference is non-deterministic at a fixed seed",
+        "closes_when": ("the cause is separated -- device non-determinism, a host RNG not seeded "
+                        "by --seed, or a data-path dependence outside the fixture -- and either "
+                        "fixed or recorded as a property of the model with its magnitude measured"),
+        "evidence_held": ("five interleaved folds per tree, same fixture/card/command: base moved "
+                          "on 1 of 9 and the gated tree on 2 of 9, and the base tree has none of "
+                          "this campaign's changes in it (of3t-d137ab, DETERMINISM_PROBE)"),
+        "would_a_row_help": True,
+        "asked": None,
+    },
     # D1 was here until pass 280 and is gone because it CLOSED, not because the plan shrank:
     # Moritz decided it on ask 9629 ("fix it everywhere"), of3t-d1-pairbias concluded GO against
     # his one reopen condition (4 targets, 6 seeds, 48 folds, sign test p = 0.541, pooled median
@@ -184,13 +196,14 @@ def main() -> int:
           f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
           f"`of3t-ditcot` is dispatched against it and held until a card frees.")
     asked = [n for n in order if PLAN[n].get("asked")]
-    print(f"All {len(asked)} of the decision/release items are ASKED as one bundle (pin 9629), each "
-          f"with a default I apply if no answer comes -- hold, which is the current state. Asking "
-          f"rather than assuming a saturated channel: the pending-input queue is 46 records, 16 "
-          f"open and 30 resolved, so roughly two thirds of asks get answered.")
-    print("So condition 5 is one decision bundle and one measurement, not nine investigations. "
-          "Stated as a plan, not a promise: naming a closure condition is not meeting it, and an "
-          "asked question is not an answered one.")
+    print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
+          f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "
+          f"own judgement. and do the right thing.\" The calls are recorded with their reasoning in "
+          f"state/ask-9629-decision.md. So these are no longer waiting on him -- they are waiting "
+          f"on a MERGE, which is a different gate and still his.")
+    print("So condition 5 is now one merge, one card-bound measurement each for the rest, and no "
+          "open question. Stated as a plan, not a promise: naming a closure condition is not "
+          "meeting it, and a decided defect is not a merged one.")
 
     OUT.write_text(json.dumps({
         "what": ("What it would take to clear GO condition 5, per USER-FACING defect. Asserted "
