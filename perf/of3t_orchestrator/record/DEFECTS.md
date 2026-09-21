@@ -10555,3 +10555,23 @@ Re-running this pass's claim through it:
 **It is a QUERY and deliberately not a check.** Exit is 0 whatever it finds: a tool that fails the build on a question is one people stop asking, and the failure here was never a missing gate — it was reaching for the wrong instrument. Adding a guard would police the symptom in one file and leave the habit.
 
 **And it carries its own limit in its output**, because the limit is what this pass turned on: *"PASSES means the argument is AT THE CALL. It says nothing about its value."* D55's whole reframing was a passed argument whose value is `None` unless a per-site lever is on. A tool that answered "is the argument there" and let a reader hear "is it configured" would have replaced one truncation with another.
+
+### D55 UPDATE 4 (pass 300, heading restated). **UNFIXED** — I priced the lever from one rung of a four-rung ladder, and the full table says the trade is size-dependent and **inverts on bf16**.
+
+At pass 298 I quoted *"12.3x better, 1.46x the cost"* from `softmax_precise_site`'s docstring. That is one line about one shape. The artifact it cites, `perf/of3t_softmax/softmax_cost_qb2c0.json`, carries five rows — qb2 card 0, 30 iters, 6 rounds, AICLK pinned 1350 MHz:
+
+    shape                dtype     accuracy x    ms none    ms precise    cost x
+    [1, 16,  384,  384]  fp32          12.33     0.0543       0.0789       1.45
+    [1, 16,  512,  512]  fp32          12.01     0.0909       0.1367       1.50
+    [1, 16,  768,  768]  fp32          11.38     0.1975       0.2733       1.38
+    [1, 16, 1024, 1024]  fp32          11.17     0.3418       0.4615       1.35
+    [1, 16,  384,  384]  bf16           1.96     0.0284       0.0657       2.32
+
+**Two things the single line hid.**
+
+1. **Both numbers drift with size, in opposite directions from the quote.** Accuracy falls 12.33x -> 11.17x and cost falls 1.45x -> 1.35x as the token axis grows 384 -> 1024. The figure I published was the best accuracy rung AND near the worst cost rung, so the trade is slightly better at the sizes that matter for long targets than I said. Not a large correction — but it is the difference between a measured range and a headline.
+2. **On bf16 the trade inverts and the lever is close to worthless**: **1.96x** accuracy for **2.32x** cost, against 12.33x for 1.45x at the same shape in fp32. The config buys most of its accuracy by having somewhere to accumulate; hand it a bf16 tensor and it mostly buys cost.
+
+**This is directly actionable for `of3t-fwdkcfg` and I have amended its brief.** The DiT site typecasts to fp32 immediately before the call — `sc = ttnn.typecast(sc, ttnn.float32)` at `openfold3_diffusion_transformer.py:210` — so the fp32 rows are the right ones there. **Any other site must have its dtype checked before its lever is flipped**, because at bf16 the same flip is a 2.32x cost for almost nothing. A per-site lever with a dtype-dependent payoff cannot be swept.
+
+**And the method note, because this is the second time in three passes**: price a lever from the measuring row's full table, never from the line that quotes it. The docstring was not wrong — it says what it measured — but a single row read as "the cost of the lever" is how a range becomes a headline and a headline becomes a plan.

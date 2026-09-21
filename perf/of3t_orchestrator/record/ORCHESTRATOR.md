@@ -625,7 +625,7 @@ record its own.
 
 **D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched against every open defect, in both directions. **One cause (7)**: D56, D8, D9, D55, D62, D116 and the 51.1358 % headline — D56 is the strongest, its own heading already naming a **~2,000x device arithmetic floor** it could not explain, and the composition now closes (conditioning amplifies whatever floor it is handed, and IEEE fp32 against device fp32 are four orders apart). D55 is **downgraded, not explained away**: `precise_config()` is still worth 12x and should be installed, but even installed everywhere it cannot close a cancellation. **Adjacent (3)**: D28, D30, D93. **Explicitly NOT this cause (7)** and that half is load-bearing: D31 (the tape differentiates a different function — precision cannot fix it), D59/D86 (transpose wiring), D117 (harness collation), D107 (update-rule semantics), D78 (our own order-dependent sum), D112 (infrastructure), D2/D3/D10/D24. It reallocates effort and **retires nothing**.
 
-**D55 (UNFIXED, PRICED 286, OWNED 297, REFRAMED 298; in PASSLOG)**: the tape withholds its precise kernel config from the reductions inside near-cancellations — four by D55's heading, **ten** by the pass-237 census. On the FORWARD half `of3t-d116` priced it at **13.8x** on the row sum and **13.2x** on the forward. **Corrected at pass 298**: the argument is not missing — all five `site_softmax` sites pass it, my pass-297 grep truncated a two-line call — its VALUE is `None` because `softmax_precise_site` defaults False. So it is a **shipped-default flip**, and it **costs 1.46x on the op** (0.0543 → 0.0789 ms at [1,16,384,384] fp32, for 12.3x accuracy). `of3t-fwdkcfg` owns it, held behind `of3t-ditcot`, and must answer whether 46 % on one op is readable in a fold against 13-35 s floors. It also re-prices the backward renorm: **4.0x** against a no-config forward, a **wash** against a configured one.
+**D55 (UNFIXED; PRICED 286, OWNED 297, REFRAMED 298, RE-PRICED 300; in PASSLOG)**: the tape withholds its precise kernel config from reductions inside near-cancellations — four by the heading, **ten** by the pass-237 census. On the FORWARD half the argument is **passed with the value `None`** (`softmax_precise_site` defaults False), so it is a shipped-default flip, not an omission — my pass-297 "missing argument" was a grep truncating a two-line call. Priced from the **full** artifact rather than the docstring line: on fp32 **11.2–12.3x accuracy for 1.35–1.50x cost** across 384→1024, both drifting down with size; **on bf16 the trade inverts — 1.96x for 2.32x**, so it cannot be swept and each site's arriving dtype decides. `of3t-fwdkcfg` owns it, held behind `of3t-ditcot`, and must also re-price the backward renorm (**4.0x** against a no-config forward, a **wash** against a configured one).
 
 **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
 
@@ -856,7 +856,26 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty-one defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 299 — three wrong claims in a fortnight had one cause: a question about the code answered against the text, with the parser available and slower to type. The correct query is now the fast one.**
+PASSLOG: **Pass 300 — I priced a lever from one rung of a four-rung ladder two passes ago; the full table says the trade drifts with size and INVERTS on bf16.**
+
+At pass 298 I quoted *"12.3x better, 1.46x the cost"* out of `softmax_precise_site`'s docstring. The artifact behind it, `perf/of3t_softmax/softmax_cost_qb2c0.json`, has five rows — qb2 card 0, 30 iters, 6 rounds, AICLK pinned 1350 MHz:
+
+    shape                dtype     accuracy x    ms none    ms precise    cost x
+    [1, 16,  384,  384]  fp32          12.33     0.0543       0.0789       1.45
+    [1, 16,  512,  512]  fp32          12.01     0.0909       0.1367       1.50
+    [1, 16,  768,  768]  fp32          11.38     0.1975       0.2733       1.38
+    [1, 16, 1024, 1024]  fp32          11.17     0.3418       0.4615       1.35
+    [1, 16,  384,  384]  bf16           1.96     0.0284       0.0657       2.32
+
+**The single line hid two things.** Accuracy falls 12.33x → 11.17x and cost falls 1.45x → 1.35x as the token axis grows, so my figure was the best accuracy rung and near the worst cost rung at once — the honest statement is a **range**, 11.2–12.3x for 1.35–1.50x. And **on bf16 the lever is 1.96x for 2.32x**: it mostly buys cost, because the config earns its accuracy by having somewhere to accumulate and a bf16 tensor has little.
+
+**That changes `of3t-fwdkcfg`'s plan, not just its numbers, so I amended it.** This cannot be a sweep. The DiT site is safe — `openfold3_diffusion_transformer.py:210` typecasts to fp32 immediately before the call, so the fp32 rows price it — but the row must read the **arriving dtype at each of the other four sites** and say which row of the table prices each. A site arriving in bf16 should probably not be flipped, and saying so with the dtype beside it is a better outcome than flipping it.
+
+**Second time in three passes I have taken a headline for a measurement**, and the fleet's own note names it: price a lever from the measuring row's full TABLE, not from the line that quotes it. The docstring was not wrong — it says what it measured. A single row read as "the cost of the lever" is how a range becomes a headline and a headline becomes a plan.
+
+**`of3t-trajwide`**: `theirs` 12/20, `stale` 17/20, `shipped_aa2` 15/20, three arms complete.
+
+**Pass 299 —  three wrong claims in a fortnight had one cause: a question about the code answered against the text, with the parser available and slower to type. The correct query is now the fast one.**
 
     D153  substring `of3t_rebase` read as a path -- two hits were `origin/wk/of3t-rebase`, a branch,
           and `perf/of3t_rebase/*.json`, a repo-relative path. Two namespaces wrongly reported
