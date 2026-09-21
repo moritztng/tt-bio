@@ -31,7 +31,12 @@ for ARM in off on; do
   if [ "$ARM" = on ]; then export TT_BIO_TRIATT_SDPA_HIFI_AB="openfold3.trunk"
   else                     export TT_BIO_TRIATT_SDPA_HIFI_AB="-openfold3.trunk"; fi
   echo "=== 7ROA arm=$ARM  TT_BIO_TRIATT_SDPA_HIFI_AB=$TT_BIO_TRIATT_SDPA_HIFI_AB $(date -u +%FT%TZ) ==="
-  $PY -u scripts/release_gate.py --model openfold3 --keep 2>&1 | tee "$OUT/gate_$ARM.log"
+  # --load-ceiling is raised deliberately. This leg scores CA-RMSD/TM against the DEPOSITED
+  # structure, which host load cannot move; the gate's ceiling exists to protect TIMED runs
+  # and no second is quoted from here. Refusing to score accuracy because a co-tenant is
+  # busy would leave the lever undecided for a reason unrelated to the measurement.
+  $PY -u scripts/release_gate.py --model openfold3 --keep \
+      --load-ceiling "${M18_LOAD_CEILING:-128}" 2>&1 | tee "$OUT/gate_$ARM.log"
   echo "rc=${PIPESTATUS[0]} arm=$ARM"
 done
 
