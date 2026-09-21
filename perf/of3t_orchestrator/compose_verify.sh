@@ -395,7 +395,17 @@ done
 #   are wanted in the one tape, and the merged result is ASSERTED below to carry both rather than
 #   assumed. Added pass 271. NOTE of3t-d116 is based on a main from before `_v_softmax` moved to
 #   the box pattern; `resolve_d116_softmax_inner.py` bridges that and the row is told to rebase.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py"
+#   perf/of3t_trajwide/{trajwide,price_ref,ceiling,ceiling_closures}.py: of3t-trajwide owns the
+#   measurement; of3t-refsweep owns the PATH LINES, by dispatch (D153) -- it repoints 43 scripts
+#   in 11 namespaces off `/home/ttuser/of3t_rebase/`, which went with of3t-rebase's worktree, and
+#   a sys.path entry that does not exist resolves nothing so `import openfold3` falls through to
+#   0.5.0. A per-row sweep was not possible: the roots span namespaces whose rows have concluded.
+#   The hunks are disjoint by construction -- the sweep's edit to each of these four files is the
+#   three lines that move `refpath` from the row's directory to `perf/`, which it did because
+#   eight namespaces import it now. Checked at pass 279: bit-identical tree behind the new path
+#   (digest 1b27f5754b32b8e3 over 293 .py files, reproduced by a fresh pip download), so no number
+#   moves. Asserted below rather than assumed.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py"
 _coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
@@ -433,6 +443,19 @@ if [ -z "$dup" ]; then
     echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
   fi
   echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
+  # The fourth: of3t-refsweep's path sweep over of3t-trajwide's live scripts. Prove the sweep
+  # kept the row's substance rather than assuming a path-only diff stayed path-only.
+  if printf '%s ' $PRESENT | grep -q "refsweep " && printf '%s ' $PRESENT | grep -q "trajwide "; then
+    _tw="$CO/perf/of3t_trajwide/trajwide.py"
+    _twmiss=""
+    grep -q "def align_layer_norm_z" "$_tw" || _twmiss="$_twmiss trajwide's align_layer_norm_z"
+    grep -q "assert_resolved" "$_tw" || _twmiss="$_twmiss trajwide's resolved-tree assertion (D149)"
+    [ -f "$CO/perf/refpath.py" ] || _twmiss="$_twmiss the shared perf/refpath.py the sweep moved it to"
+    if [ -n "$_twmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in perf/of3t_trajwide/trajwide.py --$_twmiss"; exit 1
+    fi
+    echo "co-edit: trajwide.py keeps its align_layer_norm_z and its D149 resolved-tree assertion after refsweep's path move"
+  fi
   # The third overlapping co-edit, asserted only when both rows are in this composition.
   if printf '%s ' $PRESENT | grep -q "d116 " && printf '%s ' $PRESENT | grep -q "d137-tapegate "; then
     _af="$CO/tt_bio/autograd.py"
