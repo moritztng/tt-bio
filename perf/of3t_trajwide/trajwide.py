@@ -205,6 +205,47 @@ def _stub_upstream_deps():
     sys.modules.setdefault("pytorch_lightning", pl)
 
 
+def align_layer_norm_z(m, own, dtype):
+    """Put the pair LayerNorm where THIS checkpoint keeps it, before the state dict loads.
+
+    `of3-p2-155k.pt` is OF3-preview2, which carries a weight-only `layer_norm_z` inside every
+    `DiffusionTransformer` block. Upstream 0.4.3 and 0.5.0 are the OpenBind generation, which
+    hoists that norm into one shared pre-stack `LayerNorm` (`diffusion_transformer.py:246`,
+    applied at 303) and drops it from `DiffusionAttentionPairBias` entirely
+    (`attention_pair_bias.py:212`, which has no `layer_norm_z`). Loading preview-2 weights into
+    OpenBind code with `strict=False` therefore left the shared norm at its all-ones init and
+    silently DISCARDED 24 trained per-block tensors that sit 0.2982 to 0.7355 relative away from
+    ones -- a different model, not a different precision.
+
+    The rule here is the one our own port already applies
+    (`tt_bio/openfold3_diffusion_transformer.py:270-275`): the state dict picks the variant, per
+    transformer instance. The atom transformers DO ship a shared norm in this checkpoint
+    (`atom_attn_enc/dec.atom_transformer.layer_norm_z.weight`, 16 wide) and are left untouched;
+    only the main `diffusion_transformer` is rewired. No math of upstream's is replaced: their
+    `LayerNorm`, `Linear` and `Attention` still run, the norm just sits where the weights say.
+    """
+    import torch.nn as nn
+    from openfold3.core.model.primitives.normalization import LayerNorm
+    moved = []
+    for p, mod in m.named_modules():
+        if not (hasattr(mod, "layer_norm_z") and hasattr(mod, "blocks")):
+            continue
+        q = f"{p}." if p else ""
+        if f"{q}layer_norm_z.weight" in own:
+            continue                                  # shared variant, as upstream expects
+        if f"{q}blocks.0.attention_pair_bias.layer_norm_z.weight" not in own:
+            continue                                  # neither variant present, leave alone
+        mod.layer_norm_z = nn.Identity()              # stop the hoisted pre-stack norm
+        for b in mod.blocks:
+            apb = b.attention_pair_bias
+            apb.layer_norm_z = LayerNorm(apb.c_z, create_offset=False).to(dtype=dtype)
+            def _prep(a, z, mask, _apb=apb, _orig=apb._prep_bias):
+                return _orig(a=a, z=_apb.layer_norm_z(z), mask=mask)
+            apb._prep_bias = _prep
+        moved.append((p, len(mod.blocks)))
+    return moved
+
+
 def build_theirs(dtype):
     """Upstream 0.4.3 own `DiffusionModule`, standalone, at the captured boundary.
     `scope_ladder.build_diff` verbatim, which is `of3_all_atom/model.py:102` construction:
@@ -221,9 +262,20 @@ def build_theirs(dtype):
     sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
     own = {k[len(PREFIX):]: (v.to(dtype) if torch.is_tensor(v) and v.is_floating_point() else v)
            for k, v in sd.items() if k.startswith(PREFIX)}
+    moved = align_layer_norm_z(m, own, dtype)
     inc = m.load_state_dict(own, strict=False)
+    # A reference built by loading a checkpoint into a DIFFERENT generation's module must prove
+    # the load was TOTAL before any number taken against it means anything. This was a printed
+    # count for a whole pass while the reference ran an untrained all-ones LayerNorm in 24 blocks.
+    if inc.missing_keys or inc.unexpected_keys:
+        raise SystemExit(
+            f"reference load is not total: {len(inc.missing_keys)} missing, "
+            f"{len(inc.unexpected_keys)} unexpected. missing={list(inc.missing_keys)[:8]} "
+            f"unexpected={list(inc.unexpected_keys)[:8]}. The module and the checkpoint are "
+            f"different architecture generations; fix align_layer_norm_z rather than relaxing "
+            f"this check.")
     del ck, sd
-    return m, own, inc
+    return m, own, inc, moved
 
 
 def dropout_census(m):
@@ -258,7 +310,7 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "12")))
 
     def assemble():
-        m, _own, inc = build_theirs(dtype)
+        m, _own, inc, zn_moved = build_theirs(dtype)
         _stub_upstream_deps()
         gm_mod = load_by_path("of3_grad_manager",
                               "/home/ttuser/of3t_traj20/upstream/grad_manager.py")
@@ -286,11 +338,13 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
             opt, last_epoch=-1, max_lr=OPT["learning_rate"], base_lr=SCHED["base_lr"],
             warmup_no_steps=warmup, start_decay_after_n_steps=SCHED["start_decay_after_n_steps"],
             decay_every_n_steps=SCHED["decay_every_n_steps"], decay_factor=SCHED["decay_factor"])
-        return dict(m=m, inc=inc, gm=gm, gm_mod=gm_mod, opt=opt, sch=sch, params=params)
+        return dict(m=m, inc=inc, zn_moved=zn_moved, gm=gm, gm_mod=gm_mod, opt=opt,
+                    sch=sch, params=params)
 
     A = assemble()
     census = dropout_census(A["m"])
     print(f"dropout census: {json.dumps(census)}", flush=True)
+    print(f"layer_norm_z realigned to the checkpoint's variant: {A['zn_moved']}", flush=True)
     print(f"load_state_dict: {len(A['inc'].missing_keys)} missing, "
           f"{len(A['inc'].unexpected_keys)} unexpected", flush=True)
     B = assemble() if also_second else None
@@ -348,7 +402,8 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
     run_theirs.last = {
         "n_parameters": len(A["params"]),
         "n_elements": int(sum(p.numel() for p in A["params"].values())),
-        "dropout": census, "missing_keys": len(A["inc"].missing_keys),
+        "dropout": census, "layer_norm_z_realigned": A["zn_moved"],
+        "missing_keys": len(A["inc"].missing_keys),
         "unexpected_keys": len(A["inc"].unexpected_keys), "aa_in_process": aa_rows}
 
 
