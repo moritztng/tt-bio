@@ -10303,3 +10303,30 @@ The standing instruction is explicit: **pc card 0 must not host hash-equality or
 `of3t_adaln` is the clearest case the row found: its instruments derive `ref_src` from `openfold3.__file__` rather than from the constant, so all nine of its artifacts record the real path — **the resolution was recorded because the instrument read it back**, which is the rule this whole defect family produced.
 
 **Repair as landed**: repointed at `/home/ttuser/of3t-campaign-refs/` (bit-identical to the tree the scripts used — digest `1b27f5754b32b8e3` over 293 `.py` files, reproduced by a fresh `pip download openfold3==0.4.3`), `refpath.py` moved to `perf/refpath.py` because eight namespaces import it, `perf/refpath.sh` added for shell callers, and the two cases with no surviving tree made to **refuse rather than skip**. Every namespace proves its resolution by running, not by grep.
+
+### D10 UPDATE 2 (pass 285, heading restated). **UNFIXED where it ships** — and `of3t-d10-d107` shrank its own pass-1 claim on both halves, which the ledger had not recorded at all.
+
+**Unit level**, our rule against upstream's on identical logits, float64, 76 tokens, 5 samples:
+
+    case      ours vs upstream   ours+has_frame   mask worth   orders agree
+    monomer   4.432e-07          4.432e-07        0.0          yes / yes
+    complex   4.432e-07          4.432e-07        0.0          yes / yes
+    ligand    3.853e-03          4.432e-07        3.853e-03    NO  / yes
+
+The `ligand` row is the defect and the fix in one line: before the mask our order is **[3,4,2,1,0]** against upstream's **[3,4,1,2,0]**; after it, ours is upstream's. The two 0.0 rows are the no-regression control for every model that passes no mask, and the mask is live rather than vacuously all-ones — a negative control straightens four ligand atoms into a line and takes it from 0 rejected to 4, never touching the 12 standard residues.
+
+**End to end**, two real OpenBind co-folds, 5 samples x 200 sampling steps, both arms off the SAME samples:
+
+    target        atomized   frameless   frameless standard   d(pTM)   d(ipTM)   order
+    FKBP + SB3          33           0                    0      0.0       0.0    same
+    FKBP + ZN            1           1                    0      0.0       0.0    same
+
+The mask rejects exactly what the code reading predicted — the single-atom ZN chain, whose two other frame atoms could only come from another chain — and **never one of the 106 standard residues**. It is **inert in outcome** on both: the rejected token was not the argmax of the max-over-i, so pTM, ipTM, the order and the served structure are bit-identical with the fix and without it over ten real samples.
+
+**Cost**: 110 ms per sample at 832-864 atoms, 0.37 % and 0.46 % of the two folds. Quadratic and fitted rather than asserted — 2.44 / 11.02 / 61.66 / 224.14 / 749.57 ms at 512 / 1024 / 2048 / 4096 / 8192 atoms, log-log exponent **2.066** over the ladder and 1.742 over the top two rungs, so ~3.7 s per 5-sample fold at 8192 atoms. Measured on a host `host_quiet.py` called **RED**, so it is an upper bound and wants one repeat on a quiet box before it is quoted otherwise.
+
+**The row retracted its own pass-1 claim on both halves, and that is the part the ledger was missing.** Pass 1 said the change *"changes what OpenFold3 serves for any target carrying a ligand or a modified residue"*. Neither half survives: **`--model openfold3` refuses a ligand at the front door** — preview2 is polymer-only, `capabilities.py:91` — so that path was never reachable there, and `openbind` is the OF3-family model that honours one and runs the same `_confidence`; and *"changes what it serves"* came from **constructed logits where a frameless token had been handed the winning row on purpose**. On a real co-fold it changed nothing.
+
+**The live residual, named by the row rather than left implicit**: `openfold3` honours modified residues and **a modified residue IS atomized** (`tokenization.py:208`), so the mask can fire on `--model openfold3` by that route — and **no such target was folded**. So "latent, not a live accuracy change" is true of everything measured and untested on the one path that could falsify it. The test is one fold of a modified-residue target on `--model openfold3`, checking whether any token comes out frameless.
+
+**Why this matters beyond the defect**: D10 is USER-FACING and Moritz's ask-9629 ruling cited its framing. The ruling is unaffected — it turned on consistency between three ranking rules, not on this mask — but a reader comparing the ledger to the row would have found the ledger carrying the larger, retracted claim.
