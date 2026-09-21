@@ -1,0 +1,158 @@
+{
+ "doc": "Where an OpenFold3 training step spends its time, stage by stage, before any lever.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "3",
+  "--no-tape",
+  "--out",
+  "perf/of3t_perf/stages_384_notape_qb2c3.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "commit": "0b807f3244ee5e24ed08492bf992e5ffb0f51397",
+  "started_utc": "2026-09-19T14:31:34Z",
+  "loadavg": [
+   4.40478515625,
+   7.37646484375,
+   7.6005859375
+  ],
+  "arch": "Arch.BLACKHOLE"
+ },
+ "their_step": {
+  "per_rank_batch": 1,
+  "crop": 384,
+  "trunk_cycles_pinned": 4,
+  "grad_on_final_cycle_only": true,
+  "mini_rollout_steps": 20,
+  "diffusion_half": "EXCLUDED: 5 ttnn.embedding gathers have no tape entry (perf/of3t_perf/verb_census.json)"
+ },
+ "tape_gap": "ttnn.add_ with a fused MUL_UNARY_SFPU params=[0.25] on input_tensor_a_activations has no backward in tt_bio.taped_ttnn (_activation, taped_ttnn.py:270). Raised at tenstorrent.py:3758 in _fp32_softmax_tail, reached from the OF3 trunk's pairformer at crop 384. SHARED path, not an OF3 file, and owned by of3t-tape.",
+ "build_fold_s": 3.07,
+ "prep_to_sampler_s": 12.41,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.759,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "dram": {
+  "after_prep": 1544926208
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "stages": [
+  {
+   "rep": 0,
+   "forward_nograd_prefix_s": 7.199552853999194,
+   "forward_taped_cycle_s": 2.4319964120004443,
+   "dram_after_taped_forward": 1583035392,
+   "download_s": 0.025943549000658095,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.07133172899921192,
+   "root_was_taped": false,
+   "tape_nodes_from_root": 0,
+   "device_backward_s": 0.0,
+   "params_with_grad": "0 of 2531",
+   "backward_valid": false,
+   "backward_note": "NOT MEASURED -- --no-tape was passed, so this cycle ran under no_grad and no backward was attempted. Not a zero and not a failure",
+   "forward_taped_cycle_s_note": "this is the cycle run UNTAPED, so it is the forward's own cost without the tape's retention; it is a floor for the taped cycle, not a measurement of it",
+   "dram_after_backward": 1620784128,
+   "trunk_step_s_PARTIAL": 9.728824543999508,
+   "trunk_step_s": null,
+   "trunk_step_note": "PARTIAL: forward + download only. The taped cycle's retention cost and the device backward are both missing, so this is a LOWER BOUND on the trunk's step time, not the step time"
+  },
+  {
+   "rep": 1,
+   "forward_nograd_prefix_s": 7.197544171001937,
+   "forward_taped_cycle_s": 2.431159812003898,
+   "dram_after_taped_forward": 1658532864,
+   "download_s": 0.02927165899745887,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.07274846600193996,
+   "root_was_taped": false,
+   "tape_nodes_from_root": 0,
+   "device_backward_s": 0.0,
+   "params_with_grad": "0 of 2531",
+   "backward_valid": false,
+   "backward_note": "NOT MEASURED -- --no-tape was passed, so this cycle ran under no_grad and no backward was attempted. Not a zero and not a failure",
+   "forward_taped_cycle_s_note": "this is the cycle run UNTAPED, so it is the forward's own cost without the tape's retention; it is a floor for the taped cycle, not a measurement of it",
+   "dram_after_backward": 1620784128,
+   "trunk_step_s_PARTIAL": 9.730724108005234,
+   "trunk_step_s": null,
+   "trunk_step_note": "PARTIAL: forward + download only. The taped cycle's retention cost and the device backward are both missing, so this is a LOWER BOUND on the trunk's step time, not the step time"
+  },
+  {
+   "rep": 2,
+   "forward_nograd_prefix_s": 7.195709028004785,
+   "forward_taped_cycle_s": 2.43303945200023,
+   "dram_after_taped_forward": 1658532864,
+   "download_s": 0.0311989430047106,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.07528710899350699,
+   "root_was_taped": false,
+   "tape_nodes_from_root": 0,
+   "device_backward_s": 0.0,
+   "params_with_grad": "0 of 2531",
+   "backward_valid": false,
+   "backward_note": "NOT MEASURED -- --no-tape was passed, so this cycle ran under no_grad and no backward was attempted. Not a zero and not a failure",
+   "forward_taped_cycle_s_note": "this is the cycle run UNTAPED, so it is the forward's own cost without the tape's retention; it is a floor for the taped cycle, not a measurement of it",
+   "dram_after_backward": 1620784128,
+   "trunk_step_s_PARTIAL": 9.735234532003233,
+   "trunk_step_s": null,
+   "trunk_step_note": "PARTIAL: forward + download only. The taped cycle's retention cost and the device backward are both missing, so this is a LOWER BOUND on the trunk's step time, not the step time"
+  }
+ ],
+ "rollout": {
+  "rungs": [
+   {
+    "steps": 4,
+    "s": 0.286
+   },
+   {
+    "steps": 12,
+    "s": 0.669
+   },
+   {
+    "steps": 20,
+    "s": 1.08
+   }
+  ],
+  "full_schedule_steps": 200,
+  "warmup_discarded_s": 0.875,
+  "full_schedule_note": "our shipped sampler's schedule is this many steps; their mini rollout is 20, so the 20-step rung IS their rollout and the longer rungs are not part of their step",
+  "per_step_s": 0.0496,
+  "fixed_s": 0.083,
+  "fit_max_residual_s": 0.009,
+  "fit_monotonic": true,
+  "fit_valid": true,
+  "their_mini_rollout_20_s": 1.075,
+  "their_mini_rollout_20_s_DIRECT": 1.08
+ },
+ "clock": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 22
+  }
+ }
+}
