@@ -1,0 +1,94 @@
+{
+ "instrument": "of3t-hostleg ie_arm.py -- the input-embedder atom-encoder leg on the card, seeded with upstream 0.4.3's cotangent at its own two boundaries",
+ "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
+ "boundary": "/home/ttuser/of3t_hostleg/ie_boundary_f32.pt",
+ "boundary_loss": 1.2675981521606445,
+ "break_cot": true,
+ "act": "fp32",
+ "n_atom": 422,
+ "n_token": 384,
+ "forward_rel_at_the_boundary": {
+  "cl": 0.0007586677990322238,
+  "plm": 0.0010214836076011388,
+  "ai": 0.0020961918293217097
+ },
+ "n_gradients": 9,
+ "n_measurable": 9,
+ "n_over_5e-2": 8,
+ "worst_rel_l2": 1.3167966549447376,
+ "worst_tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+ "per_tensor": [
+  {
+   "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+   "ref_norm": 0.27589925799413195,
+   "device_norm": 0.29263319195322135,
+   "rel_l2": 0.3610247883371986,
+   "norm_ratio": 1.0606523340466734,
+   "cos": 0.9402913715914024
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+   "ref_norm": 2.1119808157530867e-11,
+   "device_norm": 1.3774822385316865e-34,
+   "rel_l2": 1.0,
+   "norm_ratio": 6.522228934359454e-24,
+   "cos": -0.02735833770528518
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   "ref_norm": 0.035919888192813186,
+   "device_norm": 0.03619621703959486,
+   "rel_l2": 0.6398138792069392,
+   "norm_ratio": 1.0076929205708651,
+   "cos": 0.7969110377559027
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+   "ref_norm": 0.006267672795940572,
+   "device_norm": 0.0020970696284023076,
+   "rel_l2": 0.815406065869614,
+   "norm_ratio": 0.33458505200854316,
+   "cos": 0.6680814072339121
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   "ref_norm": 0.019740960295280927,
+   "device_norm": 0.01814283340192048,
+   "rel_l2": 0.8546664679627884,
+   "norm_ratio": 0.9190451290385059,
+   "cos": 0.6061667390126244
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   "ref_norm": 0.022723067695257306,
+   "device_norm": 0.02270078714393355,
+   "rel_l2": 0.0010744638052275575,
+   "norm_ratio": 0.9990194743235128,
+   "cos": 0.9999999033843325
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+   "ref_norm": 1.056822056894126e-09,
+   "device_norm": 3.2293245326934983e-34,
+   "rel_l2": 1.0,
+   "norm_ratio": 3.055693729731662e-25,
+   "cos": 0.06091017997591208
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "ref_norm": 0.022549172584254366,
+   "device_norm": 0.03106893174768195,
+   "rel_l2": 1.3167966549447376,
+   "norm_ratio": 1.3778302344174154,
+   "cos": 0.42257119030831347
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+   "ref_norm": 2.939950047286372e-10,
+   "device_norm": 5.149284818991511e-34,
+   "rel_l2": 1.0,
+   "norm_ratio": 1.751487180452061e-24,
+   "cos": -0.019952366059435265
+  }
+ ]
+}

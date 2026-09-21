@@ -130,11 +130,22 @@ def sample_rotation(dtype=torch.float32):
 def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
                         npe_q_indices, npe_k_indices, zij_mask, key_block_idxs,
                         invalid_mask, mask_trunked, atom_to_token_mean,
-                        token_mask, n_atom, n_token, nb, NP, n_tok_pad):
+                        token_mask, n_atom, n_token, nb, NP, n_tok_pad,
+                        cl0_d=None, plm0_d=None):
     """Mirror the device DiffusionModule aux setup validated in
     tests/test_openfold3_sample_diffusion.py (the exact tensor shapes/dtypes the
-    gated OF3DiffusionModule consumes), so fold() feeds the sampler identically."""
-    cl0_t = torch.zeros(1, NP, 128); cl0_t[0, :n_atom] = cl0.float()
+    gated OF3DiffusionModule consumes), so fold() feeds the sampler identically.
+
+    ``cl0_d``/``plm0_d`` take the atom-featurization output already on the card, from
+    ``openfold3_host_prep.ref_atom_embed_device``; then ``cl0``/``plm0`` are unused and may be
+    None. The device leg pads ``cl`` by padding its own inputs, so the two paths produce the
+    same [1, NP, 128] with the same zeros in the pad rows.
+    """
+    if cl0_d is None:
+        cl0_t = torch.zeros(1, NP, 128); cl0_t[0, :n_atom] = cl0.float()
+        cl0_d = ft(cl0_t)
+    if plm0_d is None:
+        plm0_d = ft(plm0.unsqueeze(0))
     amc = torch.zeros(1, NP, 1); amc[0, :n_atom, 0] = atom_mask.float()
     amc_na = torch.zeros(1, n_atom, 1); amc_na[0, :, 0] = atom_mask.float()
     idx = torch.zeros(NP, dtype=torch.long); idx[:n_atom] = atom_to_token_index.long()
@@ -150,7 +161,7 @@ def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
     pair_mask_m = mask_trunked.reshape(1, nb, 32, 128, 1)
     tok_pad = torch.zeros(n_tok_pad, dtype=torch.float32); tok_pad[:n_token] = token_mask.float()
     return dict(
-        cl0_d=ft(cl0_t), plm0_d=ft(plm0.unsqueeze(0)),
+        cl0_d=cl0_d, plm0_d=plm0_d,
         amc_d=ft(amc), amc_na_d=ft(amc_na),
         idx_tt=idx_tt, flat_tt=flat_tt,
         zij_mask_d=ft(zij_mask.unsqueeze(0).unsqueeze(-1)),
@@ -393,7 +404,8 @@ class OpenFold3(Module):
             mask_trunked=dm_aux_host["mask_trunked"],
             atom_to_token_mean=dm_aux_host["atom_to_token_mean"],
             token_mask=token_mask, n_atom=n_atom, n_token=n_token, nb=nb, NP=NP,
-            n_tok_pad=n_tok_pad)
+            n_tok_pad=n_tok_pad,
+            cl0_d=dm_aux_host.get("cl0_d"), plm0_d=dm_aux_host.get("plm0_d"))
 
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
         n_steps = len(noise_schedule) - 1
