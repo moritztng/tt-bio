@@ -38,7 +38,7 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul,
-                          device_generation, accurate_softmax_site)
+                          device_generation, accurate_softmax_site, softmax_ckc)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
 
@@ -483,6 +483,7 @@ class AtomTransformer(_KeyedWeights, Module):
         self.dtype = dtype
         self.n_blocks = n_blocks
         self._w = {k: v for k, v in self.weights.data.items()}
+        self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
 
     def _adaln(self, a, s, pre):
@@ -564,7 +565,8 @@ class AtomTransformer(_KeyedWeights, Module):
         sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+                           Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
@@ -659,7 +661,8 @@ class AtomTransformer(_KeyedWeights, Module):
         else:
             sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+                           Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
