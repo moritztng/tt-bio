@@ -449,6 +449,15 @@ echo "--- dispatch card tokens"
 "$PY" "$HERE/assert_dispatch_card_token.py" || \
   { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
 
+# (3d) the audit's own published check COUNT is computed from confirmations, so any other
+# guard that drifts lowers it and the count guard then blames "checks were added" -- the wrong
+# cause, twice in one session at pass 236. This probe lifts that block out of the live audit
+# and shows it refusing to evaluate while another check is down, while still firing on a
+# genuinely stale count. CPU-only, no artifacts read.
+echo "--- check-count evaluability"
+"$PY" "$HERE/countstable/count_is_not_evaluable_while_drifted.py" | tail -2 || \
+  { echo "COMPOSE: the check-count guard no longer refuses an unevaluable run"; exit 1; }
+
 echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }

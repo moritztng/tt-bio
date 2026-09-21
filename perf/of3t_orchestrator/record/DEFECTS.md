@@ -8705,3 +8705,84 @@ measurement says **no rule of six is distinguishable from another on two targets
 which is evidence that the ranking question is not where the accuracy is, not evidence that our rule
 is right. Neither closes on "we fixed it". **This is a decision for Moritz, not a defect for a row**,
 and it is the second such decision the campaign has queued behind ask 9597.
+
+### D129. `conditioned_transition.layer_norm.layer_norm_s.weight` is 4.388x its OWN bf16 floor and 3.10x A26's bar, on 28 of its 30 instances — a real defect, and the first leaf in this campaign to survive the floor check that closed D8. FOUND by `of3t-condtrans` (pass 235-236). **UNFIXED.**
+
+The leaf the softmax-backward repair promoted from **0.150 %** to **28.313 %** of the diffusion
+scope's error mass, and the one D57 named as *"unowned"* seventy passes ago at 15.5125 %. I
+dispatched it with the **floor as deliverable one**, explicitly because pass 229's brief had
+dispatched on a concentration that turned out to be inside the floor. **This one is not.**
+
+    ours (RENORM), mass-weighted over 30 instances      0.693974
+    upstream's OWN bf16 floor, same set                 0.158156      -> 4.388x the floor
+    A26's bar, sqrt(2) x the floor                      0.223667      -> 3.10x the bar
+    instances outside A26                               28 of 30      (only .17 at 0.634x and
+                                                                       .21 at 1.179x are inside)
+
+**And the floor reads clean at every instance** — cos ≥ +0.88, r in [0.72, 1.58] — so this is not a
+quantity that is hard to compute in bf16. Controls from `CONDBARS.json`: **A14** 0 tensors below the
+1e-12 reference-norm floor; **A16** zero baseline exactly 1.0 at both leaf and scope; **BREAK** arm
+2.0038, **5.96x** the floor against RENORM's 0.7307; and an **fp32 instrument floor** of
+**1.9482554e-05**, four orders below every arm, so the scorer is not the error. The row's commit
+touches nothing under `tt_bio/`.
+
+**It corrected my brief on provenance, and the correction is right.** I asked for *"upstream 0.4.3's
+own bf16"*. The float64 reference our diffusion arm is scored against comes from a package whose
+dist-info says **openfold3-0.5.0**, and the 0.4.3 tree (`/home/ttuser/of3t_rebase/`) **no longer
+exists on that host** — which is **D112**, the pruned-worktree defect, still biting. Under A27 the
+only floor that can be differenced against our reading is one built by the **same package at the
+same boundary against the same float64 reference**, and that is what the row built:
+`torch.autocast("cpu", bfloat16)` over float32 parameters, `of3t-trunkg043`'s `bf16auto` recipe
+verbatim, scored over the same 523 tensors.
+
+**The caveat the orchestrator adds, because it is D120's lesson and the row could not resolve it.**
+This ratio is sound **within 0.5.0**. It cannot say whether the same 4.388x holds at **0.4.3**, which
+is the boundary the served checkpoint is bound to — and D120 is precisely the finding that a figure's
+meaning flips between those two trees (our port within 1.8x of upstream at 0.4.3 on every fp32
+island, 19,000-30,000x away at 0.5.0, with nothing about our arithmetic different). **So D129 is a
+real defect at the boundary it was measured at, and whether it is a real defect at the boundary we
+ship against is unmeasured.** Rebuilding the 0.4.3 diffusion boundary is what would answer it, and
+D112 is why that is not a five-minute job.
+
+**It is also not the trunk leaf's story.** `of3t-lnaffine` located D8's residual in the **inherited**
+cotangent from the AttentionPairBias backward; `of3t-condtrans` reports this one is **not** that, on
+its partial mechanism work so far. Two LayerNorm affine leaves, two different causes.
+
+### D130. The audit's own published check count is computed from CONFIRMATIONS, so any unrelated guard that drifts lowers it by one — and the count guard then reports that lower number under a message naming the wrong cause. FOUND and FIXED by the orchestrator (pass 236), instrument-only. **FIXED.**
+
+`audit_evidence.py` publishes `(N checks, 0 drifted)` and guards it against the number PROVES
+states. The total was `len(ok) + 1 + len(warn)` — confirmations, plus checks that announced they
+could not run. A check that *drifts* appends to `bad` and is counted in neither, so the total falls
+by one for every other guard that is failing, and the guard fires with:
+
+```
+DRIFT PROVES states (166 checks, 0 drifted) but this audit has 165 (165 confirmed + 0 that
+announced they could not run) -- the count drifted when checks were added (pass-133 recurrence)
+```
+
+166 was the right answer. What had happened was that GAP had run one paragraph past its 40000 cap,
+so the cap guard stopped confirming. The message sent me looking for a check that had gone missing,
+and there was none. It did this **twice in one session**, once in each direction: PROVES 166 with
+the audit reading 165, then PROVES 165 with the audit reading 166 once the cap cleared.
+
+**Why it matters beyond the nuisance.** This is the failure the count exists to detect, inverted: a
+detector that reports a *different* defect's presence as its own. Two passes ago the same number
+fell 166 → 165 with `audit_evidence.py` byte-identical across the runs (recorded at pass 221 as a
+check I could not localise, and the reason `CHECKS_RUN.txt` is now published). This mechanism is a
+sufficient explanation for that drop — an unrelated guard down that run — though that run's output
+was not retained, so it is named as the likely cause and not closed on evidence.
+
+**The fix is to refuse, not to re-derive.** A total built out of passes cannot be audited while
+passes are failing. When `bad` is non-empty the guard now announces that it could not run (K60) and
+says why, instead of diagnosing the wrong cause; when the run is clean it behaves exactly as before,
+and a genuinely stale count still fires with the pass-133 message.
+
+**Demonstrated, with a negative control.**
+`perf/of3t_orchestrator/countstable/count_is_not_evaluable_while_drifted.py` **lifts the block out
+of the live `audit_evidence.py`** rather than restating it — a copied rule goes stale, a lifted one
+cannot — and runs it against three states: clean and correct → confirms; clean and stale → still
+drifts with the pass-133 message; **correct count with one unrelated guard down → announces NOT
+EVALUABLE**, where the pre-pass-236 rule printed the false `165 ... checks were added` above,
+verbatim. Reverting the repair in place makes the probe fail both assertions and restores the false
+message; the compose aborts on it. Wired into `compose_verify.sh` ahead of the audit. CPU-only, no
+device, nothing under `tt_bio/`.

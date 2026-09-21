@@ -1588,10 +1588,26 @@ if ORCH.is_file():
     # So the total counted here is checks that RAN plus checks that ANNOUNCED they could not,
     # which is stable across hosts. The stated number must equal that total; a run where a
     # probe silently disappeared still fails, because it would lower both terms.
-    _n_ran = len(ok) + 1                       # +1 for the ok this check is about to append
-    _n_now = _n_ran + len(warn)
-    _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
-    if _cm is None:
+    #
+    # Pass 236: and the total is computed from CONFIRMATIONS, so any OTHER guard that drifts
+    # silently lowers it by one -- and this check then reports the lower number under a message
+    # that names the wrong cause, "the count drifted when checks were added". It did that to me
+    # twice in one session: GAP went one paragraph over its cap, and the audit told me a check
+    # had gone missing. A count built out of passes cannot be audited while passes are failing,
+    # so say that instead of diagnosing it wrong. K60: a check that cannot run says so.
+    if bad:
+        warn.append(f"PROVES check count NOT EVALUABLE this run: {len(bad)} other check(s) "
+                    f"drifted, and this total counts confirmations, so it would report "
+                    f"'the count drifted when checks were added' for a failure that added "
+                    f"nothing. Clear the other drift(s) and re-run.")
+        _cm = None
+    else:
+        _n_ran = len(ok) + 1                   # +1 for the ok this check is about to append
+        _n_now = _n_ran + len(warn)
+        _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
+    if _cm is None and bad:
+        pass
+    elif _cm is None:
         bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
                    "audit reports a total that nothing in the summary is pinned to")
     elif int(_cm.group(1)) != _n_now:
