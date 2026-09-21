@@ -302,12 +302,39 @@ A dataset needs four members (`__len__`, `tokens`, `device`, `batch(indices) -> 
 base class. Until a model registers one, `tt-bio finetune --model X` refuses with the name of
 what is missing, which is the featuriser and not the interface.
 
-## Adapting a model: how the sites are found
+## Adapting a model: how the weights and the sites are found
 
 `trainable()` is the one call the loop makes, and what it hands back is the whole of the
 adapters-versus-weights choice: a LoRA config gets `{site: (A, B)}` factors, `None` gets the
-model's own weights at those same sites. Either way it is one discovery forward and then
-`attach`, which is why the loop above does not branch on which mode it is in.
+model's own weights. Either way it is one discovery forward and then `attach`, which is why the
+loop above does not branch on which mode it is in.
+
+**Pass `model=` the built model.** With it, `--train weights` discovers by WALKING the model, and
+that is the only form that reaches every weight: a module that fuses two projections in its own
+`__init__`, or pushes a fused weight on its first call, holds a tensor the loader never produced
+and no routed call ever passes. Measured on a 4-block pair stack at 64 tokens, and the same
+numbers on OpenFold3, Boltz-2 and BoltzGen: 156 weights visible at the loader, 188 reachable from
+the built model, 204 after one forward. Without `model=` discovery falls back to the call-site
+census below, which is what LoRA uses and what a Tier-2 caller holding a forward and no model
+still gets.
+
+Two things follow from walking, and both are checked rather than assumed.
+
+* **The discovery forward runs first, and it runs taped.** Weights a module fuses lazily do not
+  exist until the first call at a given shape, so a walk of a freshly built model is a walk of a
+  smaller model than the one that runs. And several fused kernels decline while a tape is open,
+  which routes the call down a composed path that fuses a different weight again — an untaped
+  discovery forward reached 196 of the 204 weights the taped forward then used. `walked_weights`
+  spends one `no_grad` forward with the hook installed, which costs the same one inference the
+  census costs.
+* **`params.rebind()` after every `step()`.** `AdamW.step` replaces a parameter's device tensor
+  rather than writing into it, so the model's own attribute still holds the tensor discovery saw.
+  `rebind()` puts the new one back where the walk found it. Skip it and the gradients are real,
+  the loss curve falls and the model stands still. The loop in `recipes.py` calls it; a weight
+  held somewhere unwritable raises by name instead of being skipped.
+
+`train.checks.weight_coverage(model)` reports what a run reaches as leaves against total and
+names every miss, because a leaf count with no denominator cannot show a shortfall.
 
 `lora_factors_for` runs the shipped forward once with a census hook installed. Every call that
 routes through `tt_bio.ops.linear` announces itself with its own shapes; a call that does not
@@ -340,6 +367,28 @@ same names. The identities discovery saw are carried into the run instead.
 trunk still has to stay taped downstream of its first adapter or the gradient never reaches the
 adapters in the early layers, so declining a non-adapter site outright would train only
 whatever sits after the last adapter, with no error and a loss curve that still falls.
+
+## Gradient clipping: two things to pass, or you train a different rule
+
+`AdamW` clips on the global norm at `clip_norm=10.0`, which is upstream's own value. Two
+arguments decide whether that is the same rule the reference applies, and both default to the
+simpler behaviour rather than the reference's:
+
+* **`disabled=` the parameter names this sample does not activate.** They are excluded from the
+  global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
+  Their runner disables the confidence head whenever a sample's summed confidence weight is
+  zero, which the initial-training config does on four of its five datasets. Norm over a set the
+  reference excluded and the coefficient applied to every gradient in the step is different:
+  measured at 8.368e-01 relative on one small enabled tensor beside one large disabled one.
+* **`clip_and_accumulate()` after each sample's backward, instead of one clip per batch.**
+  Per-sample clipping is a different algorithm and not a different constant: it bounds each
+  sample's contribution, so it changes the direction of the accumulated update, not just its
+  length. Measured at 1.948e-01 relative over three samples with one 200x outlier.
+  `per_sample_clipping: True` at `clip_val 10.0` is upstream's shipped default. `step()` then
+  consumes what was accumulated and does not clip again.
+
+Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
+`perf/of3t_leaves/clip_equiv.py`.
 
 ## Opt-in, and inert when off
 
