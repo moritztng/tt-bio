@@ -316,6 +316,11 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
                      that the model is standing still.
       `permute`   -- hand the optimizer the gradients under a rotated name map, so parameter p
                      is stepped by parameter q's gradient.
+      `stale`     -- let step k+1's forward read the weights step k-1 wrote. The loop is
+                     otherwise healthy, so what moves is weight freshness alone.
+
+    Every arm but `shipped` runs with `repin` on. A break control on an arm already saturated
+    by its own wiring error cannot show a move.
     """
     import torch
     import ttnn
@@ -325,6 +330,7 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
     from tt_bio.openfold3_weights import _sub
     from tt_bio.train.lora import weights_for
     from tt_bio.train.optim import AdamW, af3_lr
+    from tt_bio.train.tensors import to_device as _to_device
 
     n_sample = int(cap["si_ref"].shape[1])
     n_token = int(cap["si_ref"].shape[-2])
@@ -420,10 +426,35 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
                 weight_decay=d["weight_decay"],
                 schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup,
                                           plateau_until=d["plateau_until"]))
+    permute_report = None
     if brk == "permute":
+        # Rotate the name map WITHIN each shape class. A rotation over all names hands a
+        # (384,768) slot a 267-element array and the optimizer raises before it ever steps,
+        # which tests nothing: a break control has to RUN and move the reading. Permuting
+        # inside a shape class keeps every assignment legal while still stepping parameter p
+        # with parameter q's gradient, which is the property under test.
         order = sorted(params)
-        rot = {order[i]: order[(i + 1) % len(order)] for i in range(len(order))}
+        by_shape = {}
+        for n in order:
+            by_shape.setdefault(tuple(opt.master[n].shape), []).append(n)
+        rot, moved_names, singleton = {}, [], []
+        for shp, names in by_shape.items():
+            if len(names) < 2:
+                singleton.extend(names)
+                rot[names[0]] = names[0]
+                continue
+            for i, n in enumerate(names):
+                rot[n] = names[(i + 1) % len(names)]
+                moved_names.append(n)
         opt.master = {n: opt.master[rot[n]] for n in order}
+        permute_report = {
+            "tensors_total": len(order),
+            "tensors_permuted": len(moved_names),
+            "tensors_left_in_place_unique_shape": len(singleton),
+            "shape_classes": len(by_shape),
+            "shape_classes_rotatable": sum(1 for v in by_shape.values() if len(v) > 1),
+        }
+        log("permute control: %s" % json.dumps(permute_report))
 
     def master_in_checkpoint_orientation():
         out = {}
@@ -438,6 +469,7 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
             out[nm] = a.astype(np.float32).copy()
         return out
 
+    stale_hold = None
     for k in range(1, steps + 1):
         coefs = []
         for s, idx in enumerate(blocks[k]):
@@ -465,7 +497,16 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
             coefs.append(opt.clip_and_accumulate()["clip"])
             opt.zero_grad()
         spread = sorted(set(opt.participation.values())) if opt.participation else None
+        prev_master = {n: v.copy() for n, v in opt.master.items()} if brk == "stale" else None
         opt.step()
+        if brk == "stale" and stale_hold is not None:
+            # Put step k-1's weights on the device instead of step k's. The masters, the
+            # moments and the schedule all advance normally; only what the next forward READS
+            # is held one step back.
+            for n, t in params.items():
+                t.value = _to_device(stale_hold[n], t.value.device(), dtype=t.value.dtype)
+        if brk == "stale":
+            stale_hold = prev_master
         moved = 0 if brk == "norebind" else params.rebind()
         # WEIGHT FRESHNESS, measured at every rung and not assumed. `AdamW.step` replaces each
         # leaf`s `value` with a fresh device tensor and `rebind()` writes that tensor back into
@@ -497,7 +538,8 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
     run_ours.last = {"n_params": len(params), "n_named": sum(1 for v in named.values() if v),
                      "unnamed": unnamed, "n_slots": len(params.slots),
                      "fingerprint_clashes": len(fp_clash),
-                     "device_weights_walked": len(params)}
+                     "device_weights_walked": len(params),
+                     "permute_control": permute_report}
 
 
 # --------------------------------------------------------------------------------------- main
@@ -506,13 +548,17 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", default="shipped",
                     choices=["shipped", "renorm", "aa", "zero", "norebind", "permute",
-                             "repin", "theirs-f32-bar"])
+                             "repin", "stale", "theirs-f32-bar"])
     ap.add_argument("--per-step", type=int, default=4)
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--warmup", type=int, default=SCHED["warmup_no_steps"])
     ap.add_argument("--out", default=None)
     ap.add_argument("--tag", default="")
     a = ap.parse_args()
+    if a.arm == "renorm":
+        # Set it here, before `run_ours` imports `tt_bio.taped_ttnn`, so the module reads it at
+        # import. `flag_reach` below re-reads the LOADED module and is the thing that proves it.
+        os.environ["TT_BIO_SOFTMAX_BW_RENORM"] = "1"
 
     import torch
     t0 = time.time()
@@ -571,10 +617,10 @@ def main() -> int:
                         warmup=a.warmup, log=ours_log)
     else:
         go = run_ours(blocks, cap, steps=a.steps, warmup=a.warmup, log=ours_log,
-                      brk=("norebind" if a.arm == "norebind"
-                           else "permute" if a.arm == "permute" else "none"),
+                      brk=(a.arm if a.arm in ("norebind", "permute", "stale")
+                           else "none"),
                       zero_grad_model=(a.arm == "zero"),
-                      repin=(a.arm == "repin"))
+                      repin=(a.arm != "shipped"))
 
     rows = []
     t1 = time.time()
