@@ -1,0 +1,27 @@
+{
+  "what": "D56's ~2,172x floor re-scored against the boundary OpenFold3 0.4.3 actually uses",
+  "source": "/tmp/of3t/of3t-orchestrator/compose/perf/of3t_fp32islands/version_split.json",
+  "row": "layer_norm BACKWARD d(gamma)  [384]",
+  "construct": "g_gamma = sum_i (dL/d ln_out)_i . s_hat_i -- the LayerNorm affine WEIGHT gradient, which is D56's tensor class",
+  "harness_note": "the real island at crop-384 shapes, NOT D56's synthetic K-ladder. This re-states which DENOMINATOR is the right one; it does not re-measure D56's 2,172x.",
+  "arms": {
+    "0.4.3 (bf16)": 0.006603603243648598,
+    "0.5.0 (fp32)": 1.4074979048628952e-07,
+    "ours bf16 (as shipped)": 0.004256869043957244,
+    "ours fp32 storage": 0.0014262175168354317
+  },
+  "against_0_4_3_the_served_boundary": {
+    "upstream": 0.006603603243648598,
+    "ours_shipped": 0.004256869043957244,
+    "x_upstream": 0.6446282259691384,
+    "we_are_more_accurate": true,
+    "how_much_more_accurate": 1.5512817461515795
+  },
+  "against_0_5_0": {
+    "upstream": 1.4074979048628952e-07,
+    "ours_shipped": 0.004256869043957244,
+    "ours_fp32": 0.0014262175168354317,
+    "x_upstream_shipped": 30244.230057109085,
+    "x_upstream_our_fp32": 10132.999217319331
+  }
+}
