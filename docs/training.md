@@ -411,11 +411,32 @@ On a 56-token OpenFold3 batch with two ligand tokens, supplying the three flags 
 0.233 and the gradient it seeds 0.764. Deriving them from a `mol_type` column instead gives
 the same loss and the same gradient, bit for bit.
 
+## What the recipe pins, and where it differs from Adam's defaults
+
+`finetune` reproduces OpenFold3's optimizer setup rather than the library defaults it would
+otherwise inherit. Three of those differ, all three are arguments, and none of them shows up
+in a loss curve or a gradient norm:
+
+| argument | recipe | library default | why |
+|---|---|---|---|
+| `betas` | `(0.9, 0.95)` | `(0.9, 0.999)` | OpenFold3 sets `beta2: 0.95`. Adam's usual 0.999 is a second-moment horizon twenty times longer and it changes the size of every update. |
+| `weight_decay` | `0.0` | `0.01` | OpenFold3 builds a plain `torch.optim.Adam`. Any decay moves every weight whose gradient is zero. |
+| `plateau_until` | `50000` | `None` | Selects AlphaFold 2's schedule, which holds the rate flat before decaying. `None` selects Protenix's, which decays from step zero. |
+
+Pass your own if you are training against a different recipe. `plateau_until=None` is the one
+to reach for first: it is the whole difference between the two AlphaFold-family schedules, and
+over 200,005 steps they disagree at exactly one of them.
+
+**The loop runs one sample at a time.** Per-sample clipping needs each sample's own gradient,
+so `finetune` does one forward and one backward per index in the batch and accumulates, rather
+than one forward over the whole micro-batch. At `--global-batch 8` on one chip that is eight
+forwards per step. It is the same arithmetic upstream does and the reason is below.
+
 ## Gradient clipping: two things to pass, or you train a different rule
 
 `AdamW` clips on the global norm at `clip_norm=10.0`, which is upstream's own value. Two
-arguments decide whether that is the same rule the reference applies, and both default to the
-simpler behaviour rather than the reference's:
+things decide whether that is the same rule the reference applies. `finetune` does both for
+you; at Tier 2 you own the loop, so you own them:
 
 * **`disabled=` the parameter names this sample does not activate.** They are excluded from the
   global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
@@ -428,7 +449,8 @@ simpler behaviour rather than the reference's:
   sample's contribution, so it changes the direction of the accumulated update, not just its
   length. Measured at 1.948e-01 relative over three samples with one 200x outlier.
   `per_sample_clipping: True` at `clip_val 10.0` is upstream's shipped default. `step()` then
-  consumes what was accumulated and does not clip again.
+  divides each parameter's accumulated gradient by the number of samples that actually
+  activated it, and does not clip again.
 
 Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
 `perf/of3t_leaves/clip_equiv.py`.
