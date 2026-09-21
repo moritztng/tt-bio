@@ -1,6 +1,6 @@
 # of3t-readable-mass — the denominator of the reproduction claim, read off the artifacts
 
-TASK TYPE: VERIFY/BENCHMARK. Branch `wk/of3t-readable-mass`, head `d66aca11e`, pushed, unmerged.
+TASK TYPE: VERIFY/BENCHMARK. Branch `wk/of3t-readable-mass`, head `758ff7003`, pushed, unmerged.
 Artifacts `perf/of3t_readable_mass/`. One device run, card 3 on qb2, Blackhole p300c, a presence
 census with no timing claim, so no AICLK is quoted. Everything else is CPU.
 
@@ -16,7 +16,8 @@ names one tensor, `input_embedder.atom_attn_enc.linear_q.0.weight`, applied on t
 the host replica `openfold3_host_prep.ref_atom_embed` for
 `diffusion_module.atom_attn_enc.ref_atom_feature_embedder`, and `run_input_atom_encoder` calls
 the same replica again for the input embedder's copy. Seventeen tensors,
-**1.5202384841128946 %** of the model's squared gradient norm. That is `of3t-hostops`' own
+**1.5202384841128946 %** of the model's squared gradient norm, 2.05x the figure on the
+record. That is `of3t-hostops`' own
 1.5202 % (D127) arrived at from the opposite direction: D127 read it off the discovery walk,
 this reads it off the float64 reference gradient plus which function the shipped path calls.
 Two independent routes, same number. The ceiling artifact was never updated and the campaign
@@ -132,8 +133,8 @@ instrument is not edited) and reads the module's own weight walk before and afte
     `_lin` sites over its 3 blocks, against the 37 it builds in `__init__` (`layer_norm_z` plus
     nine `AdaLN` submodules) and which are all compared.
   * the 48 fused `qkv_w`/`qkv_b` leaves, 24 blocks x 2, **48 of 48 carry a gradient**, from 2.89e-05
-    (`dit.blocks.20.qkv_b`) to 6.67e-03 (`dit.blocks.10.qkv_w`), none zero. The gradient for those 96 reference tensors exists on the card and is
-    not read.
+    (`dit.blocks.20.qkv_b`) to 6.67e-03 (`dit.blocks.10.qkv_w`), none zero. The gradient for
+    those 96 reference tensors exists on the card and is not read.
 
 Controls the numbers rest on, all from the artifacts rather than asserted: the reference is
 float64 and pinned by digest, never another device arm; A13 determinism on that reference is
@@ -143,8 +144,9 @@ arm against float64 on the same 907 tensors, is 7.608574e-05.
 
 Two smaller corrections worth keeping. The composed figure on the record, 97.98502156952716 %,
 carries the trunk share rounded to 5.8282; the exact share is 5.828171499134286 and the composed
-total is 97.98499306866148. And `of3t-wholemodel`'s "0.74055 % can never be read" and this row's
-1.52024 % are the same object measured twice, so the smaller one should stop being quoted.
+total is 97.98499306866148. And "0.74055 % can never be read" is one tensor of the
+seventeen: it is a strict subset of the 1.52024 %, not a second reading of it, so quoting it as
+the host-applied share understates that share by 2.05x and calls a wiring gap a ceiling.
 
 VERDICT: PARTIAL. The denominator is now one number with its construction, the exclusions are
 classified per tensor rather than per section, and the two classes that were source readings are
@@ -152,5 +154,4 @@ measurements. The campaign's headline share (92.1568 %) stands unchanged and was
 independently. What moves is the excluded part: the host-applied share doubles to 1.52024 %, its
 "structural" label does not survive, and the blockers behind the 2.01501 % have five
 different remedies, of which the three largest are instrument or wiring work on code that
-already exists.
-Nothing here merges; landing is `land-standing`'s.
+already exists. Nothing here merges; landing is `land-standing`'s.
