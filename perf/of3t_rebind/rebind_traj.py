@@ -544,6 +544,26 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
                     "per_sample_clip_coefs": coefs, "rebound": moved,
                     "tape_resolves_after_step": resolved, "of_walked": len(params.slots),
                     "participation_spread": spread})
+        if k == steps:
+            # THE GUARD, at `recipes.py`'s own call site: `train_loop` ends with
+            # `prov.config["displacement"] = opt.check_displacement()` and it RAISES rather than
+            # warns. Whether it would catch a run whose tape stopped resolving is a property of
+            # which branch it takes, so it is RUN, not reasoned about.
+            # Inside the loop on purpose: this function is a generator consumed by `zip()`, so
+            # anything after the `for` never executes -- which is also why `discovery` reads
+            # null in every artifact this harness has written.
+            try:
+                run_ours.guard = {"raised": None, "result": opt.check_displacement()}
+            except Exception as e:                                            # noqa: BLE001
+                run_ours.guard = {"raised": f"{type(e).__name__}: {e}"[:700],
+                                  "displacement": opt.displacement()}
+            print("check_displacement: " + json.dumps(run_ours.guard), flush=True)
+            run_ours.last = {"n_params": len(params),
+                             "n_named": sum(1 for v in named.values() if v),
+                             "unnamed": unnamed, "n_slots": len(params.slots),
+                             "fingerprint_clashes": len(fp_clash),
+                             "device_weights_walked": len(params),
+                             "permute_control": permute_report}
         yield master_in_checkpoint_orientation()
 
     # Reported out of the loop for the caller's evidence block.
@@ -691,6 +711,7 @@ def main() -> int:
         "per_step": scored,
         "our_step_log": ours_log, "their_step_log": theirs_log,
         "discovery": getattr(run_ours, "last", None),
+        "check_displacement": getattr(run_ours, "guard", None),
         "flag_reach": ev,
         "env": {k: os.environ.get(k) for k in
                 ("TT_BIO_SOFTMAX_BW_RENORM", "TT_BIO_HOST_F64_SOFTMAX_AB",
