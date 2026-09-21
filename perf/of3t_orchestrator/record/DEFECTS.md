@@ -10601,3 +10601,20 @@ Each resolves per site with its default passed **at the call**, so there is no s
 **`assert_site_flag_defaults.py`** pins the three as a shrink-only ratchet: a NEW default-ON site fails the compose, a pinned one that disappears must be removed. Its probe is synthetic — `default=True` must be seen, `default=False` and a bare call must not. It deliberately does **not** judge whether ON is correct; it refuses a default-ON site arriving unseen, which is the whole failure mode.
 
 **Relevant to a live dispatch.** `of3t-fwdkcfg` is briefed to flip `softmax_precise_site` per site. That lever is in this family, so its flips will now be visible to the compose rather than resolving silently at five call sites.
+
+### D163. `INFERENCE_AB_openfold3.json`'s own `verdict` field reads **"FAIL: the gate changed the fold output"** — and the gate did not. The row caught it and said so in prose; the artifact still carries the sentence. FOUND by the orchestrator (pass 302). **UNFIXED** in the artifact, which belongs to a concluded row.
+
+    verdict          FAIL: the gate changed the fold output (base==off False, base==on False)
+    base_equals_off  False
+    base_equals_on   False
+    host             tt-quietbox          host_card  tt-quietbox card 3
+
+**What actually happened** is `of3t-d137digest`'s central finding: openfold3's `base != off` is `701ddcf63`, D1's trunk sqrt(24) pair-bias fix, which landed on `wk/of3t` after the base commit. The row proved it with an **18-fold isolation arm** on top of its 27-fold main run and states outright that the harness's verdict text *"is wrong about the cause, not about the fact"*.
+
+**The artifact does not say that, and it omits the one comparison the constraint is about.** `off == on` is True for openfold3 — both arms digest `b2f94fa1b430518c` — which is the arm Moritz's constraint concerns: same tree, one env var apart. The `verdict` field mentions only the two base comparisons and names the gate as the cause of both.
+
+**Why this is worth a defect rather than a shrug.** Artifacts outlive prose and get grepped. Anyone reading `INFERENCE_AB_openfold3.json` alone — a future row, a release gate, me in thirty passes — gets a sentence saying the tape gate changed a fold, which is the precise claim Moritz's hard constraint forbids and the precise claim this campaign spent four passes disproving. It is the shape already on the record twice: a verdict field disagreeing with the finding it belongs to.
+
+**Not repaired here.** The artifact is `of3t-d137digest`'s and that row has concluded; rewriting another row's evidence to make the record read better is worse than the defect. The repair belongs in the harness — `inference_ab_with_aa_floor.py` should not attribute a `base != off` difference to the gate, because the base tree differs from the test tree by every commit between them, and the gate is the `off -> on` axis alone. Two fields would do it: one verdict for the gate axis, one for the tree axis.
+
+**Handed forward to the row that will run the same harness.** `of3t-fwdkcfg` is dispatched to do an inference A/B of exactly this shape for the forward kernel config, where `base != off` will again be true and again not be the lever under test. Its brief is amended to fix the verdict fields before it runs, so the next artifact says what it means.

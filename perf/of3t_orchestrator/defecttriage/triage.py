@@ -183,6 +183,9 @@ TABLE = {
     "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
                    "filenames exist in both tt-bio and upstream openfold3. A documentation "
                    "convention in this campaign's own ledger; nothing a user runs depends on it."),
+    "D163": (CAMP, "An artifact's own verdict field says the tape gate changed a fold output "
+                   "when D1's landing did. A defect in this campaign's own evidence files; the "
+                   "conclusion it contradicts is correct and recorded."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "
