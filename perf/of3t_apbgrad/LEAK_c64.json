@@ -1,0 +1,59 @@
+{
+  "what": "the row-sum leak as a fraction of d_logits, and what q@k^T amplifies it to",
+  "blocks": {
+    "4": {
+      "leak_over_dlogits": 0.7553477342161228,
+      "dq_leak_over_dq_repaired": 108.79902184982589,
+      "dq_norm_unrepaired": 0.05708388219251157,
+      "dq_norm_repaired": 0.0005245487099798883,
+      "amplification_dlogits_to_dq": 144.03832423318812,
+      "kbar_norm": 21032.212783656058,
+      "k_norm": 2635.7903817315123
+    },
+    "15": {
+      "leak_over_dlogits": 11.72157767184032,
+      "dq_leak_over_dq_repaired": 1088.026619737451,
+      "dq_norm_unrepaired": 0.022371239987553394,
+      "dq_norm_repaired": 2.05613085206149e-05,
+      "amplification_dlogits_to_dq": 92.82254063386911,
+      "kbar_norm": 14746.304920448796,
+      "k_norm": 1861.1572226414303
+    },
+    "22": {
+      "leak_over_dlogits": 1.948440599597483,
+      "dq_leak_over_dq_repaired": 28.26735514556495,
+      "dq_norm_unrepaired": 0.03229872957916967,
+      "dq_norm_repaired": 0.0011438081141253939,
+      "amplification_dlogits_to_dq": 14.507681245917652,
+      "kbar_norm": 18882.01296641866,
+      "k_norm": 2368.774971080149
+    },
+    "31": {
+      "leak_over_dlogits": 2.249538923364366,
+      "dq_leak_over_dq_repaired": 33.538192722160964,
+      "dq_norm_unrepaired": 0.0004148603650718787,
+      "dq_norm_repaired": 1.236416370403698e-05,
+      "amplification_dlogits_to_dq": 14.908918611642383,
+      "kbar_norm": 5074.804153063817,
+      "k_norm": 656.5098585233711
+    },
+    "39": {
+      "leak_over_dlogits": 5.682571666443012,
+      "dq_leak_over_dq_repaired": 250.59372401574336,
+      "dq_norm_unrepaired": 0.020804351198938226,
+      "dq_norm_repaired": 8.301612347543691e-05,
+      "amplification_dlogits_to_dq": 44.09864735988481,
+      "kbar_norm": 11406.738242738626,
+      "k_norm": 1442.6998696052804
+    },
+    "47": {
+      "leak_over_dlogits": 0.007762890602286699,
+      "dq_leak_over_dq_repaired": 0.08931331074236915,
+      "dq_norm_unrepaired": 0.011551693197080434,
+      "dq_norm_repaired": 0.011450068755061127,
+      "amplification_dlogits_to_dq": 11.505161584534026,
+      "kbar_norm": 2298.2650276251684,
+      "k_norm": 295.54301993808326
+    }
+  }
+}
