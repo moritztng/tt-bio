@@ -132,11 +132,20 @@ def _v_matmul(shipped, args, kwargs):
 
     def make():
         def bw(g):
+            # `ttnn.matmul` BROADCASTS a leading axis of 1 against a batched operand, and the
+            # gradient of a broadcast operand is the sum over the axis it was spread along.
+            # Without that sum the gradient comes back with the OUTPUT's batch and `add_grad`
+            # refuses it: measured in the OF3 MSA module's recompute at crop 128 as
+            # "gradient shape (36, 128, 128) does not match value shape (1, 128, 128)". The
+            # binary verbs have taken `_reduce_to` since they were written; the matmul had
+            # the same broadcast and not the same reduction. It is a no-op on equal shapes,
+            # so the ordinary path pays one shape comparison.
             if a.requires_grad:
-                a.add_grad(ttnn.matmul(g, b.value, transpose_b=not tb,
-                                       compute_kernel_config=cfg) if not ta else
-                           ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                       compute_kernel_config=cfg))
+                da = (ttnn.matmul(g, b.value, transpose_b=not tb,
+                                  compute_kernel_config=cfg) if not ta else
+                      ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
+                                  compute_kernel_config=cfg))
+                a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
                 # long-K path and fp32 out, for the reason documented there.
@@ -147,13 +156,14 @@ def _v_matmul(shipped, args, kwargs):
                 # (1, 4, 64, 32) value in AttentionPairBias.
                 if (not ta and not tb and len(a.value.shape) > 2
                         and len(b.value.shape) == 2):
-                    b.add_grad(ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
-                                           compute_kernel_config=cfg, dtype=ttnn.float32))
+                    db = ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                     compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
-                                           compute_kernel_config=cfg) if not tb else
-                               ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                           compute_kernel_config=cfg))
+                    db = (ttnn.matmul(a.value, g, transpose_a=not ta,
+                                      compute_kernel_config=cfg) if not tb else
+                          ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
+                                      compute_kernel_config=cfg))
+                b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
@@ -169,18 +179,21 @@ def _v_softmax(shipped, args, kwargs):
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     ra, rk = _raw(args, kwargs)
-    y = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
+    y0 = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
+    box = [y0]
 
     def make():
         def bw(g):
+            y = box[0]                      # through the box, so `free` may evict y to DRAM
             # The same expression as `autograd.softmax` and `triangle_attention`; the helper
             # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline.
             inner = ag.softmax_bw_inner(y, g, dim=dim)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    out = _tape(y, [x], make)
-    out.evictable = False          # the closure holds y, this tensor's own value
+    out = _tape(y0, [x], make)
+    if out.node is not None:
+        out.box = box
     return out
 
 
@@ -195,15 +208,21 @@ def _unary(fn, reads_output=False):
         inplace = kwargs.get("output_tensor") is not None
         kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
         out_v = shipped(x.value, *[_unwrap(a) for a in args[1:]], **kw)
+        box = [out_v]
         def make():
             def bw(g):
-                # Through the Tensor: `free` may have evicted the input to DRAM.
-                x.add_grad(ttnn.multiply(g, fn(x.value, out_v)))
+                # Through the Tensor for the input and through the box for the output:
+                # `free` may have evicted either to DRAM.
+                x.add_grad(ttnn.multiply(g, fn(x.value, box[0])))
             return bw
 
         out = _tape(out_v, [x], make)
-        if reads_output:
-            out.evictable = False
+        # The box is handed over whether or not the RULE reads the output, because the
+        # CLOSURE reads it either way -- `fn` is called with `box[0]` and a rule that ignores
+        # its second argument still evaluates it. Keeping the box current under eviction
+        # costs one assignment and removes the only way it could go stale.
+        if out.node is not None:
+            out.box = box
         elif inplace:
             # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal, and
             # the same ordering rule applies: after `_tape`, so `free` can see that a
@@ -1084,9 +1103,11 @@ def _v_max(shipped, args, kwargs):
     out_v = shipped(*ra, **rk)
     xv = x.value
 
+    box = [out_v]
+
     def make():
         def bw(g):
-            m = out_v
+            m = box[0]                      # through the box: `free` may have evicted it
             if not keepdim:
                 kept = list(shape)
                 kept[ax] = 1
@@ -1096,5 +1117,6 @@ def _v_max(shipped, args, kwargs):
         return bw
 
     out = _tape(out_v, [x], make)
-    out.evictable = False          # the closure holds out_v to build the equality mask
+    if out.node is not None:
+        out.box = box
     return out

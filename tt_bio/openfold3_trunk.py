@@ -133,11 +133,16 @@ class OF3Trunk(Module):
         # ours describes the bias following the pair transpose, theirs describes
         # undoing it. No weights change, so the checkpoint has to select it.
         tri_att_end_bias_follows_pair = not is_openbind(state_dict)
-        # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
-        # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
+        # openfold3 adds both pair biases UNSCALED (q is pre-scaled by 1/sqrt(d) in the
+        # reference Attention), and the two kernels under this one layer need opposite flags
+        # to deliver that. `AttentionPairBias` folds the bias inside its own score scale, so
+        # unscaled-at-the-reference means pre-baked by sqrt(d) here: scale_pair_bias=True.
+        # `TriangleAttention` adds it outside, so the same convention is
+        # tri_att_scale_pair_bias=False. Passing one False to both is what left the token
+        # bias at 1/sqrt(24) = 0.204 of reference for all 48 blocks.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=True, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
             # Default ON. 34.138 -> 22.574 s at 512 aa, 1.5123x, 11.564 s, on A/A floors of
