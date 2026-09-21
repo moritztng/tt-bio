@@ -201,18 +201,39 @@ def stats_snapshot():
 
 
 def stats_delta(before, after):
+    """after - before, for counters that are flat lists or flat dicts of numbers.
+
+    Defensive about the value type on purpose: `*_STATS` is a naming convention, not a type, and
+    at least one of them (`TRIMUL_MM_TRANSPOSE_STATS`) is keyed by a tuple with a non-scalar
+    value. A census must not die because a counter it merely observes has a shape it did not
+    expect, so anything not subtractable is reported as its own repr rather than differenced.
+    """
+    def _num(x):
+        return isinstance(x, (int, float)) and not isinstance(x, bool)
+
     d = {}
     for k, a in after.items():
         b = before.get(k)
         if isinstance(a, list):
-            b = b or [0] * len(a)
+            if not all(_num(x) for x in a):
+                continue
+            b = b if isinstance(b, list) and len(b) == len(a) else [0] * len(a)
             v = [x - y for x, y in zip(a, b)]
-        else:
-            b = b or {}
-            v = {kk: a[kk] - b.get(kk, 0) for kk in a}
-            v = {kk: vv for kk, vv in v.items() if vv}
-        if any(v.values()) if isinstance(v, dict) else any(v):
-            d[k] = v
+            if any(v):
+                d[k] = v
+        elif isinstance(a, dict):
+            b = b if isinstance(b, dict) else {}
+            v = {}
+            for kk, av in a.items():
+                if not _num(av):
+                    v[str(kk)] = repr(av)
+                    continue
+                bv = b.get(kk, 0)
+                bv = bv if _num(bv) else 0
+                if av - bv:
+                    v[str(kk)] = av - bv
+            if v:
+                d[k] = v
     return d
 
 
