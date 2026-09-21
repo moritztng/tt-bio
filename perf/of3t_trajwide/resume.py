@@ -69,6 +69,23 @@ def _assert_matches_dump(d, k, got, what):
           f"exactly", flush=True)
 
 
+def clear_dumps(d):
+    """An arm that starts at k=1 owns its dump directory, so it empties it first.
+
+    Otherwise a run that dies at k=5 leaves k01..k05 from this epoch beside k06..k20 from the
+    last one, and `--score` intersects `have_steps` across arms without knowing the difference.
+    Two epochs of the same deterministic program probably agree; `probably` is not a reference.
+    """
+    import glob
+    gone = 0
+    for f in glob.glob(os.path.join(d, "k??.npz")) + glob.glob(os.path.join(d, "k??.part.npz")):
+        os.remove(f)
+        gone += 1
+    if gone:
+        print(f"resume: no checkpoint, starting at k=1 and clearing {gone} dumps from a "
+              f"previous epoch of this arm", flush=True)
+
+
 # ------------------------------------------------------------------- our side (numpy AdamW)
 
 _OURS = "resume.npz"
@@ -96,6 +113,7 @@ def load_ours(d, opt, params, to_device, log, orient):
     """Returns (k_done, stale_hold, fwd_rel). (0, None, None) when there is nothing to resume."""
     p = os.path.join(d, _OURS)
     if not os.path.exists(p):
+        clear_dumps(d)
         return 0, None, None
     with np.load(p, allow_pickle=False) as z:
         meta = json.loads(str(z["__meta__"]))
@@ -141,6 +159,7 @@ def load_theirs(d, A, B, log, aa_rows):
     import torch
     p = os.path.join(d, _THEIRS)
     if not os.path.exists(p):
+        clear_dumps(d)
         return 0
     blob = torch.load(p, map_location="cpu", weights_only=False)
     if ("B" in blob) != (B is not None):
