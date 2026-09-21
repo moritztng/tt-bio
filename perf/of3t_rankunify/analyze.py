@@ -26,6 +26,20 @@ sys.path.insert(0, str(HERE.parent.parent))
 sys.path.insert(0, str(HERE))
 from ca_rmsd import ca_rmsd, _load                      # noqa: E402
 
+
+def plddt_ca(path: pathlib.Path) -> float:
+    """Mean pLDDT over Ca atoms, read back out of the written structure's B-factor column.
+
+    of3t-confhead's case for pLDDT rests on Ca-atom pLDDT (+0.414 Spearman against quality)
+    rather than the all-atom mean the ranking rule actually reads (+0.357). The harness
+    records only the all-atom mean, but every model here writes per-atom pLDDT x 100 into the
+    B-factor column, so the Ca figure costs a file read instead of a re-fold.
+    """
+    import numpy as np
+    a = _load(str(path))
+    b = getattr(a, "b_factor", None)
+    return float(np.mean(b) / 100.0) if b is not None and len(b) else float("nan")
+
 #: The rule each site shipped before unification, and the unified rule. Every one of them is
 #: a function of the same five recorded scalars, which is what makes the sweep free.
 RULES = {
@@ -140,6 +154,12 @@ def main() -> int:
         entry["reach"] = {"per_seed": moved,
                           "n_moved": sum(m["before_digest"] != m["after_digest"] for m in moved),
                           "n_seeds": len(moved)}
+        # Ca-atom pLDDT, read back from the B-factor column of each written structure.
+        for c in g:
+            for x in c["samples"]:
+                if "plddt_ca" not in x:
+                    x["plddt_ca"] = plddt_ca(next(pathlib.Path(c["dir"]).rglob(x["file"])))
+
         # REGRET, the statistic that can actually separate two rules.
         #
         # Mean rank-0 Ca-RMSD cannot: the differences are 0.01-0.04 A against seed floors of
@@ -183,7 +203,7 @@ def main() -> int:
             return round(num / den, 3) if den else None
 
         rhos, n_ok = {}, 0
-        for key in ("plddt_vs_ptm", "plddt_vs_quality", "ptm_vs_quality"):
+        for key in ("plddt_vs_ptm", "plddt_vs_quality", "plddtca_vs_quality", "ptm_vs_quality"):
             rhos[key] = []
         for c in g:
             ss = c["samples"]
@@ -192,6 +212,7 @@ def main() -> int:
             n_ok += 1
             for key, xa, xb in (("plddt_vs_ptm", "plddt", "ptm"),
                                 ("plddt_vs_quality", "plddt", "rmsd_ca"),
+                            ("plddtca_vs_quality", "plddt_ca", "rmsd_ca"),
                                 ("ptm_vs_quality", "ptm", "rmsd_ca")):
                 # Against QUALITY, not against RMSD: -rmsd so a POSITIVE rho means the
                 # signal orders the samples usefully, which is of3t-confhead's convention
@@ -277,11 +298,12 @@ def main() -> int:
         print(f"{k:28s} {i['n_samples_with_iptm']:13d} {i['n_exact']:6d} "
               f"{i['worst_abs_diff']:11.3e} {str(i['served_sample_same']):>12s}")
     print()
-    print(f"{'model/target':28s} {'pLDDT~pTM':>10s} {'pLDDT~qual':>11s} {'pTM~qual':>9s} {'seeds':>6s}")
+    print(f"{'model/target':28s} {'pLDDT~pTM':>10s} {'pLDDT~qual':>11s} {'pLDDTca~qual':>13s} {'pTM~qual':>9s} {'seeds':>6s}")
     for k, e in report.items():
         sp = e["spearman"]
         f = lambda v: f"{v:+.3f}" if v is not None else "   -  "
         print(f"{k:28s} {f(sp['plddt_vs_ptm']):>10s} {f(sp['plddt_vs_quality']):>11s} "
+              f"{f(sp['plddtca_vs_quality']):>13s} "
               f"{f(sp['ptm_vs_quality']):>9s} {sp['n_seeds']:6d}")
     bad = [k for k, e in report.items() if not e["rank_map_verified"]]
     if bad:
