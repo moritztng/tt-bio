@@ -144,6 +144,16 @@ LEVERS = [
     # W=512 was invisible in a fold: the only reading was that nothing threw.
     ("TRANSITION_H_CHUNK", "tt_bio.tenstorrent", "TRANSITION_H_CHUNK_SIZE",
      "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS", "stats"),
+    # The fused triangle-attention SDPA at HiFi4, decided PER CONSTRUCTION SITE. The resolved
+    # value is the sorted list of sites that shipped ON, read through
+    # `tenstorrent.triatt_sdpa_hifi_sites_on` because a site flag has no constant to resolve --
+    # its default is an argument at every call site. That is why this row had to exist: the
+    # OpenFold3 trunk flipped to this route by default in 3a31dcdd1 for +11.564 s at 512 aa, and
+    # the census -- and so the size-ladder arm built on it -- reported nothing at all. The route
+    # is size-conditioned in both directions (384 served at 1024 aa, all 7 calls declined at
+    # 1088 aa on a p300c), which is exactly the lever shape that arm exists to gate.
+    ("TRIATT_SDPA_HIFI", "tt_bio.tenstorrent", "triatt_sdpa_hifi_sites_on",
+     "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined", "stats-dict"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
@@ -475,7 +485,11 @@ def _snapshot_process():
         rej = dict(WRAP_REJECTS.get(flag, {}))
         for reason, n in (_reject_reasons(flag) or {}).items():
             rej[reason] = rej.get(reason, 0) + n
-        rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
+        res = getattr(m, attr, "MISSING")
+        # A per-site flag's resolved value is DERIVED, not stored: `_site_flag` answers per
+        # construction site, so the artifact exposes it as a zero-argument reader instead of a
+        # module constant. Call it rather than recording "<functools.partial object ...>".
+        rows[flag] = {"resolved": str(res() if callable(res) else res),
                       "served": served, "declined": declined,
                       "rejects": rej or None, "gauges": _gauges(flag)}
     return rows

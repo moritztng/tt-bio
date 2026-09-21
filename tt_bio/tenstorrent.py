@@ -7,7 +7,7 @@ import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
 from math import pi, prod
-from functools import lru_cache
+from functools import lru_cache, partial
 from types import MappingProxyType
 
 from . import ops
@@ -3433,6 +3433,16 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int, cores: int =
         use_height_and_width_as_shard_shape=True)
 
 
+# What every per-site flag answered, per construction site, recorded by `_site_flag` as it
+# answers. A site flag has no module-level constant to resolve: its default is an ARGUMENT at each
+# call site, so `scripts/lever_census.py` had nothing to read and a shipped site default was
+# invisible to the census and to the size-ladder arm built on it. Not hypothetical -- the OpenFold3
+# trunk HiFi route shipped ON by default in 3a31dcdd1, and the arm whose whole job is catching a
+# lever that fires at one size and goes dark at another could not see it, while the route in fact
+# declines all 7 calls at 1088 aa.
+_SITE_FLAG_SEEN: dict = {}
+
+
 def _site_flag(env_var: str, token: str, default: bool) -> bool:
     """``default``, overridden per construction site by ``env_var``: a bare token forces the site
     on, a ``-`` prefix forces it off, and ``all`` / ``-all`` do the same to every site with no
@@ -3445,14 +3455,31 @@ def _site_flag(env_var: str, token: str, default: bool) -> bool:
         elif t:
             on.add(t)
     if token in off:
-        return False
-    if token in on:
-        return True
-    if "all" in off:
-        return False
-    if "all" in on:
-        return True
-    return default
+        resolved = False
+    elif token in on:
+        resolved = True
+    elif "all" in off:
+        resolved = False
+    elif "all" in on:
+        resolved = True
+    else:
+        resolved = default
+    _SITE_FLAG_SEEN.setdefault(env_var, {})[token] = resolved
+    return resolved
+
+
+def site_flags_on(env_var: str) -> str:
+    """The construction sites ``env_var``'s flag resolved ON, sorted, or ``"none"``.
+
+    Only sites this process actually built are listed, which is the honest reading: a site that
+    was never constructed has no resolved value to report. The census reads it through a
+    zero-argument partial per flag family.
+    """
+    seen = _SITE_FLAG_SEEN.get(env_var, {})
+    return ",".join(sorted(t for t, v in seen.items() if v)) or "none"
+
+
+triatt_sdpa_hifi_sites_on = partial(site_flags_on, "TT_BIO_TRIATT_SDPA_HIFI_AB")
 
 
 def accurate_softmax_site(token: str, default: bool = False) -> bool:
