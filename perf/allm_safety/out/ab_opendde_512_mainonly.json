@@ -1,0 +1,125 @@
+{
+ "model": "opendde",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "main,main,main",
+ "control": "main = six deleted literals restored + derivation disabled",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T02:17:45Z",
+ "loadavg": [
+  1.0615234375,
+  4.8740234375,
+  8.501953125
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "main",
+   "fold_s": 85.294,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg0_main"
+  },
+  {
+   "i": 1,
+   "arm": "main",
+   "fold_s": 85.14,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg1_main"
+  },
+  {
+   "i": 2,
+   "arm": "main",
+   "fold_s": 85.022,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg2_main"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 91.741,
+ "medians": {
+  "main": 85.14
+ },
+ "aa_floor": {
+  "main": 0.27199999999999136
+ },
+ "digests": {
+  "main": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ]
+ }
+}
