@@ -7981,3 +7981,215 @@ Still not measured, and D107 says so itself: §7's harness never produces a part
 cheap closure — construct a step whose samples all disable one parameter group and run both
 optimizers — and that is now `of3t-rebind`'s deliverable 4, because sending a second row into the
 same method is how two branches independently fix one defect and a merge silently picks one.
+
+### D24 UPDATE 2 (pass 224). UNFIXED on main, REPAIRED on the composition, and the repair has made the family inconsistent — three shipped models now give three different answers to one question.
+
+My pass-220 note said D24 is *"live in the shipped tree at `openfold3_fold.py:277`"*. That is right
+for **`origin/main`**, which is what a user gets, and it is incomplete: I read my own branch and
+main and not the composition. On **`wk/of3t`** the rule has been factored into
+`sample_ranking_score` at `openfold3_fold.py:92-121` by `of3t-confhead` (`5588d889a`) and repaired:
+
+    if iptm > 0.0:
+        return 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
+    return 0.8 * plddt + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
+
+So D24 is **unfixed where it ships and fixed where it is gated**, which is the same position as
+every other repair this campaign holds. Verified by reading all three trees rather than one:
+`origin/main:277` and `wk/of3t-orchestrator:277` carry the inline rule, `wk/of3t:92` carries the
+function. **Third pass running that I have had to check which tree a claim is about**, which is why
+that is now a memory and not a resolution.
+
+**And the repair introduced a family inconsistency.** Three shipped rankers, three different
+answers to *"what happens to ipTM's weight when there is no interface"*:
+
+    tt_bio/openfold3_fold.py:92-121   0.8*ipTM ... -> 0.8*pLDDT + 0.2*pTM + 0.5*dis - 100*clash
+    tt_bio/rf3/confidence.py:108-113  0.8*ipTM ... -> ipTM <- pTM, i.e. 1.0*pTM - 100*clash
+    tt_bio/worker.py:1066-1070        0.8*ipTM ... -> pTM if pTM > 0 else pLDDT
+
+That is the STANDING `unified-solution-not-per-model-patches` rule, and the fix is on the wrong side
+of it. `of3t-confhead` saw it coming and said so — *"the unified answer is one shared ranking
+function all four sites call. This row does not make that change: it would move the served structure
+of three models it has not folded, on evidence from one 76-residue target."* Correctly deferred, and
+now owed.
+
+**One correction to the repair's own justification, worth recording because it is load-bearing for
+the choice of pLDDT.** `sample_ranking_score`'s docstring says *"the shared Protenix/OpenDDE ranker
+falls back to (`worker.py`)"* pLDDT. `worker.py:1070` reads `return ptm if ptm > 0.0 else c["plddt"]`
+— it falls back to **pTM**, and reaches pLDDT only when pTM is zero too. The family precedent for
+pLDDT is thinner than the docstring claims. It does not touch the measurement (nine seeds x five
+samples on 1UBQ, where the collapsed rule selects worse than random and pLDDT beats it); it touches
+the argument from convention that sits beside it. Dispatched as `of3t-rankunify`.
+
+### D107 UPDATE 2 (pass 225). UNFIXED and now MEASURED: on a step where a parameter is disabled on every sample, our optimizer leaves it where it is and upstream moves it on decaying momentum — 11,441x the floating-point floor, and the divergence persists.
+
+From `of3t-rebind`'s pushed artifact `perf/of3t_rebind/D107.json` at commit **`899287ff1`**, read by
+the orchestrator from the branch rather than from the row's prose. **The row is still live**, so this
+is its evidence and not yet its verdict; the artifact is committed, which is what makes it citable.
+
+D107 has said since pass 182 that it is *"real in the code, inert in the instrument that found it"*,
+because §7's harness never produces a participation count of 0. Its own closing line named the cheap
+closure — construct a step whose samples all disable one parameter group — and that is what ran.
+Six steps, a 4x4 parameter, lr 1.8e-03, betas (0.9, 0.95):
+
+    k   grad        rel (ours vs upstream)   ours_norm           theirs_norm
+    1   present     3.350108e-08             4.965406636763408   4.965406594575970
+    2   present     4.030463e-08             4.965110793859716   4.965110709946089
+    3   NONE        6.836649e-04             4.965110793859716   4.964881662637578
+    4   present     6.442301e-04             4.964722230288729   4.964504061206159
+    6   present     5.903567e-04             4.964664818082127   4.964445647210251
+
+At k=3 **our norm does not change at all** — 4.965110793859716, the same digits as k=2 — while
+upstream's moves. The control arm, identical but with no zero-participation step, holds at
+**3.3e-08 to 5.2e-08** for all six rungs, so the scorer's floor is the float64 one and the effect is
+**11,441x** it (`ratio_over_control`). And it does not wash out: k=4, 5 and 6 still read ~6e-04
+after the gradient comes back, because the momentum state has diverged.
+
+So the code-reading of pass 182 and pass 223 is confirmed by measurement, and the "unmeasured" half
+of D107 is closed. What remains open is D107's own second question, which the artifact does not
+answer: **whether a step with a participation count of 0 actually occurs under the sampler**, given
+`initial_training.yml` sets a zero confidence weight on 4 of its 5 datasets.
+
+### D126 UPDATE 2 (pass 225). Still UNFIXED, and the guard question is ANSWERED: `check_displacement()` WOULD have caught `of3t-modeltraj`'s arm, on the `nan` branch, exactly as the amendment predicted.
+
+Also from `of3t-rebind` at **`899287ff1`**, two arms run through the library's own guard:
+
+    perf/of3t_rebind/traj_baseline_guard5.json   (no rebind -- modeltraj's configuration)
+      check_displacement raised:
+        AssertionError: the master has not moved after 5 steps (displacement 0.000e+00),
+        so nothing was learned.
+      master 0.0   device 0.0   ratio nan
+
+    perf/of3t_rebind/traj_shipped_guard5.json    (with the rebind)
+      check_displacement raised: None
+      master 0.02717582276909179   device 0.02717582276909179   ratio 1.0
+
+**The guard fires, and it fires on the branch I guessed**: the master does not move either, so it is
+the `nan` clause — *"the master has not moved after N steps"* — and not the master-moved-but-device-
+did-not clause the docstring leads with. Ratio is exactly **1.0** on the healthy arm.
+
+So the library both **handles** the defect (`recipes.py:186`) and **detects** it
+(`check_displacement()` at the end of `train_loop`). D126's remaining question narrows to one:
+**does every training entry point reach `recipes.py:186`** — and, now, whether every one of them
+also reaches the guard. `of3t-rebind` owns both and is live. Noted for completeness: the two arms
+ran on different cards (`TT_VISIBLE_DEVICES` 0 and 2), which does not confound a raise/no-raise
+reading but would confound a timing one.
+
+### D117 UPDATE (pass 225). REFUTED. Upstream's multi-chain permutation alignment COMPLETES on both batches this campaign holds, inside the real checkpointed forward. The capability gap was two of our own harness defects, and the note that recorded it was stale on the day it was written.
+
+`of3t-permalign` returned GO. Verified by the orchestrator from its pushed artifacts at
+**`13cd2c7bd`** — one commit, eighteen files, all under `perf/of3t_permalign/`, **nothing under
+`tt_bio/` and nothing in upstream's `permutation_alignment.py` or `model.py`**.
+
+**It completes, in the path that matters.** The two `via_forward` arms call the alignment from
+`model.py:694` with positions the 570 M checkpoint predicted itself — nothing about the prediction
+is ours there:
+
+    arm I   frozen 5nw3 (the batch the NOT COVERED note was written about)
+            56 ref spaces, 8 with an alternative permutation -> COMPLETES, 8 GT atoms moved
+    arm H   4G5J chain 1, crop 256, from OpenFold3's own training cache
+            197 ref spaces, 58 with alternatives        -> COMPLETES, 74 GT atoms moved
+
+**And completing is worth something.** Handed a prediction that is the ground truth with
+permutation 1 applied inside each symmetric ref space, the alignment selects the non-identity and
+recovers **24 of 76** reordered atoms on 5nw3 and **146 of 540** on 4G5J, leaving a ground truth
+differing from the naive fallback's by up to **2.386 A**. On 4G5J the plain-noise arm already
+differs from naive on 2 atoms by up to 2.106 A. **Taking the fallback silently is not free.**
+
+**Both mechanisms are ours, and both were reproduced rather than argued.** Control **J** runs two
+real forwards over one dict with the deep copy withheld: pass 1 completes, pass 2 raises
+`KeyError: 'ref_space_uid_to_perm'` at `permutation_alignment.py:1412` — because `model.py:670`
+pops the key off the caller's dict and restores it onto a **NEW** one. Control **F** recurses
+`collate1` into the per-sample mapping and raises `IndexError` at `:1175`. Control **B** deletes the
+key outright. Three controls, three fallbacks reported.
+
+**And the note was stale the day it was written**, settled by timestamps rather than argument:
+`of3t-reference`'s deep-copy fix is in `bundle_min.py`'s FIRST commit (`f898ca3c`, 13:57:49 UTC);
+the census entry landed **47 minutes later** (`c624a889`, 14:44:45) and the LEDGER copy **6h 01m**
+later (`6adc428b`, 19:59:11). The census **cannot** have observed the KeyError — it has no model
+forward at all and says so in its own `model_forward` entry. Both later entries inherited an
+observation instead of re-running it.
+
+**The fallback is loud and unread, not silent**: one `logger.error` plus a traceback, and with no
+logging configuration installed Python's handler of last resort sends it to stderr, verified
+directly. Zero of the 304 committed logs carry the line — and that proves less than it looks,
+because the only three rows that ever ran an OF3 forward committed no run logs at all. So a run in
+this campaign could have taken the fallback unnoticed, and at least two did.
+
+**What is owed, and why it was not done here.** `perf/of3t_gradients/coverage_census.py`'s
+`multichain_permutation` entry still says `covered: False`. The row published the correction as
+`perf/of3t_permalign/census_correction.json` — **located by symbol rather than by line number,
+citing this campaign's own decay lesson** — and did not make the edit, because the census's `BUNDLE`
+constant is a qb2 path that does not exist on pc and editing the `.py` alone would leave the
+committed `.json` disagreeing with it. That is the right call and the orchestrator's to place: it is
+one edit plus a census re-run **on the host that has the bundle**, small enough that dispatching a
+row for it alone is disproportionate, so it rides with the next qb2 row that needs that tree.
+
+### D126 UPDATE 3 (pass 225). FIXED on the composition, LIVE on main, and USER-FACING after all — my pass-223 correction was wrong in the other direction, and the evidence was in the artifact I had already read.
+
+`of3t-rebind` returned GO and settled it, at `6af02c4f6`. I record the correction against myself
+first, because it is the part that generalises.
+
+**At pass 222 I filed D126 as user-facing. At pass 223 I withdrew that**, having found
+`recipes.py:186` calling `params.rebind()` and concluded that `of3t-modeltraj`'s "shipped" arm must
+therefore be its own loop without the repair. **The second half does not follow from the first, and
+`traj_shipped.json` says so in the line next to the one I quoted:**
+
+    k=1   rebound 26   tape_resolves_after_step 0 / 26   grad_norm 4.935345e-01
+
+**`rebind()` ran — 26 of 26 — and the tape still resolved none of them.** I read
+`tape_resolves_after_step` out of that record at pass 222 and did not read `rebound` beside it.
+Checking the library was the right instinct; stopping once it produced a satisfying answer was not.
+
+**The seam, which is neither of the places I looked.** `autograd.py` keys `_PARAMS` on `id(raw)`,
+the identity of the raw ttnn handle, and `parameter_for` additionally tests `t.value is raw`. That
+key is DERIVED from a value which **three callers legitimately replace**, and none re-keyed it:
+
+    tt_bio/train/optim.py:253       AdamW.step        every step, every parameter
+    tt_bio/train/checkpoint.py:70   load_adapter      every RESUME -- a restarted run trains ZERO steps
+    tt_bio/autograd.py:180          Tensor.free       L1 eviction; the only one that can fire mid-tape
+
+`lora.py:434`'s `rebind()` is **not** the seam: it correctly writes the new handle into the model
+slot and it was already being called. **The model slot and the tape registry are two holders of the
+same handle; rebind maintained one and nothing maintained the other.**
+
+**Rebind coverage was never the gap, enumerated rather than argued.** There is exactly one
+`opt.step()` call site and one `rebind()` call site in `tt_bio/` and they are adjacent
+(`recipes.py:181` and `:186`); `_RECIPES = {"default": train_loop}` is the whole recipe table and
+`train.cli`, `train.launcher` and `train.dryrun` all route through it. Every recipe-driven run
+reaches `rebind()`. A hand-written Tier-2 loop that omits it is a **real second failure** — the one
+`rebind()` exists to prevent and the one the `norebind` control still reproduces at 1.000000e+00 —
+but it is not this defect.
+
+**Per tree, which is the discipline I keep relearning.** `origin/wk/of3t:tt_bio/autograd.py:167-168`
+now carries `del _PARAMS[id(old)]; _PARAMS[id(new)] = self`. `origin/main` does not. So **D126 is
+fixed where it is gated and live where it ships**, and on main today *a training run produces one
+gradient and then zero forever, and a run resumed from a checkpoint produces none at all.*
+
+**What the fix buys, measured**: the shipped default reads **4.763338e-02** at k=20 with **26 of 26**
+tape resolutions at every step, against the A16 zero baseline's 1.000000e+00 before; reach goes
+**0 of 3,932 → 3,932 of 3,932** walked parameters, **95.1286 %** of the squared gradient norm;
+inference byte-identical; the regression test **fails on the current tree and passes on the branch,
+with no card**; and `norebind` still saturates at 1.0, so the fix is what was tested.
+
+**RELEASE-GATED. It changes shipped code and the merge gate is Moritz's.** Four of the five commits
+are already in the composition (`965c24f52`, `f68bf7ebe`, `96adb9797`, `899287ff1` at
+`origin/wk/of3t`); `6af02c4f6` lands on the next compose. Nothing has gone to main.
+
+### D127. 3.6438 % of OpenFold3's squared gradient norm is not device-resident in this port at all, so no device-side training loop can reach it however the tape is keyed. FOUND by `of3t-rebind` (pass 225) while measuring D126's reach. **UNFIXED, and it bounds the charter independently of every gradient number the campaign has.**
+
+Two scopes, both named at file and line:
+
+  * **`aux_heads` output projections — 2.8431 %.** Zero walked paths match
+    `distogram`/`pae`/`plddt`/`pde`/`resolved`.
+  * **`input_embedder` atom encoder — 0.8007 %.** Host torch at `openfold3_host_prep.py:222`.
+
+The row found this as a **ceiling on its own REACH figure** (3,932 of 3,932 walked parameters is
+95.1286 % of the norm, and the missing 4.8714 % is this plus rounding) and explicitly did not fix
+it. It is worth recording as its own defect because it is the one bound that **does not move with
+any tape, optimizer or precision work**: those parameters have no device gradient to carry.
+`of3t-auxheads` already reported the second one from its own side — *"92.4879 % of `input_embedder`
+sits on a weight our shipped path applies on the host after a `ttnn.to_torch`"* (D58's body) — and
+the campaign has been quoting reach denominators that exclude it without saying so.
+
+Any claim that this stack can train OpenFold3 is bounded by 3.6438 % of the gradient it cannot
+compute on device, and the remedy is porting those ops, not repairing a gradient.

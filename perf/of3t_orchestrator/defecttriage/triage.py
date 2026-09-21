@@ -100,8 +100,6 @@ TABLE = {
                   "measured on two independent modules -- and the tape is shipped training code."),
     "D107": (USER, "A parameter disabled on every sample of a step: upstream still steps it from "
                    "decaying momentum and tt_bio's AdamW skips it -- a real update divergence."),
-    "D117": (USER, "safe_multi_chain_permutation_alignment raises KeyError on these batches and "
-                   "silently takes its naive-alignment fallback, on multi-chain training data."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D21": (CAMP, "Instrument A's first device reading was an instrument defect; replaced by a "
@@ -170,9 +168,9 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
-    "D126": (CAMP, "RE-CLASSIFIED pass 223, see BOUNDARY. A training loop that omits "
-                   "params.rebind() trains for one step -- but recipes.py:186 calls it, so this "
-                   "is a harness trap and not something a user of train_loop hits."),
+    "D127": (USER, "3.6438 % of the squared gradient norm is not device-resident at all -- "
+                   "aux_heads output projections (2.8431 %) and the input_embedder atom encoder "
+                   "(0.8007 %, host torch at openfold3_host_prep.py:222). No tape reaches it."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
@@ -200,20 +198,18 @@ BOUNDARY = {
     "D73": "Arguably already closed by of3t-refprec and of3t-wholemodel, which measured exactly "
            "what it says was never measured. Left UNFIXED and CAMPAIGN-INTERNAL here because "
            "closing a defect is a status edit in DEFECTS.md, not a side effect of a triage.",
-    "D126": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 223, in the SAME pass that filed "
-            "it as USER-FACING, and the move flatters me, so: I filed it on of3t-modeltraj's "
-            "phrase 'the SHIPPED default', having verified the row's numbers against its "
-            "artifacts and its commits against git but NOT the library. tt_bio/train/recipes.py:186 "
-            "calls params.rebind() immediately after opt.step(), with a comment saying why, and "
-            "lora.py:434's docstring names the failure before anyone measured it. So the row's "
-            "'shipped' arm is its own loop without the repair. The mechanism is real and confirmed "
-            "at line level (optim.py:253 replaces t.value; autograd.py:1311/1337-38 key on "
-            "id(raw.value) and guard t.value is raw), and a hand-written loop that omits rebind "
-            "really does train for one step -- so it stays UNFIXED as a trap worth a regression "
-            "test. What keeps it open rather than closed: whether EVERY training entry point "
-            "reaches recipes.py:186, and whether check_displacement() would actually have fired. "
-            "of3t-rebind is amended to answer both. Same shape as D117, one pass after I wrote the "
-            "memory about it.",
+    "D126": "RE-RE-CLASSIFIED and then CLOSED, pass 225, and the history is the point. Filed "
+            "USER-FACING at 222; withdrawn by me at 223 on finding recipes.py:186 calls "
+            "params.rebind(); RESTORED by of3t-rebind at 225, which showed rebind() is not the "
+            "seam -- it maintains the MODEL SLOT while _PARAMS is keyed on id(raw), and "
+            "modeltraj's own step log reads `rebound 26` beside `tape_resolves 0` on the same "
+            "step, in the artifact I had already read. Three callers replace t.value and none "
+            "re-keyed: optim.py:253 every step, checkpoint.py:70 every resume, autograd.py:180 "
+            "on L1 eviction. Now FIXED at autograd.py:167-168 on the composition and LIVE on "
+            "main, so it leaves this table as a closed defect rather than as a re-classified "
+            "one. The lesson is not about ranking rules or tapes: I stopped checking once the "
+            "library produced a satisfying answer.",
+
     "D28": "Could be read as USER-FACING: the forwards really do disagree. Kept CAMPAIGN-INTERNAL "
            "because the defect it FILES is that the gradient comparisons taken there are void; "
            "the forward disagreement is D19 (closed for the trunk) and D87 (refuted).",
