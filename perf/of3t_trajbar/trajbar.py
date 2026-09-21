@@ -46,12 +46,19 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TWDIR = os.path.join(os.path.dirname(HERE), "of3t_trajwide")
-for p in (TWDIR, HERE):
-    if p not in sys.path:
-        sys.path.insert(0, p)
+# One slice assignment, not a loop of inserts at a fixed index. Inserting N paths at one index
+# leaves them in the REVERSE of the order written, which is the mechanism behind D149; it was
+# harmless here (neither directory carries a package under test) and it is still the shape the
+# ratchet refuses, so it goes.
+sys.path[:0] = [p for p in (TWDIR, HERE) if p not in sys.path]
 
 import numpy as np                                                       # noqa: E402
 import trajwide as TW                                                    # noqa: E402
+
+#: the tree `openfold3` actually resolved from, read back in THIS process by `resolve_ref()`.
+#: `None` until it has been read, so an artifact written without one is visibly missing it
+#: rather than quietly carrying a constant.
+REF_TREE = None
 
 RUNS = "/home/ttuser/of3t_runs/trajbar"
 TRAJWIDE_RUNS = "/home/ttuser/of3t_runs/trajwide"     # READ ONLY. `of3t-trajwide`'s row may be live.
@@ -163,14 +170,35 @@ def dtype_probe():
     return seen
 
 
+# ------------------------------------------------------------------------- the reference tree
+
+def resolve_ref():
+    """Install the reference tree and READ BACK the one `openfold3` came from.
+
+    `trajwide.build_theirs` already calls `refpath.assert_resolved()`, so the bar's arms were
+    never at risk -- but this file recorded `TW.REF_TREE`, a value it never read, and a static
+    reader cannot tell that apart from a constant. It is also one edit away from being one: any
+    path to `write_steplog` that does not go through `build_theirs` would record `None`, and
+    nothing would refuse. So the resolution is taken here, in this file, before the arm starts,
+    and its RETURN is what the steplog carries.
+    """
+    tree = TW.refpath.install()
+    got = TW.refpath.assert_resolved(tree)
+    import openfold3
+    print(f"REF_TREE resolved: {got}", flush=True)
+    print(f"openfold3.__file__ = {openfold3.__file__}", flush=True)
+    return got
+
+
 # ------------------------------------------------------------------------------------ the arms
 
 def run_arm(a):
+    global REF_TREE
     import torch
     t0 = time.time()
     load0 = os.getloadavg()
     os.makedirs(a.out_dir, exist_ok=True)
-    TW.refpath.install()
+    REF_TREE = resolve_ref()
 
     D = torch.load(TW.DIFFCAP, map_location="cpu", weights_only=False)
     kw, cot = D["kwargs"], D["cot"]
@@ -192,7 +220,7 @@ def run_arm(a):
     def write_steplog(evidence=None):
         sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
         tmp = sl + ".part"
-        json.dump({"arm": a.arm, "side": "theirs", "mode": a.mode, "ref_tree": TW.REF_TREE,
+        json.dump({"arm": a.arm, "side": "theirs", "mode": a.mode, "ref_tree": REF_TREE,
                    "steps": log, "evidence": evidence, "n_steps": len(log),
                    "complete": evidence is not None, "threads": a.threads,
                    "loadavg_start": load0, "loadavg_now": os.getloadavg(),
