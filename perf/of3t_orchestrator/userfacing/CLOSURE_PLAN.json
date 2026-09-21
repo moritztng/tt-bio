@@ -8,7 +8,6 @@
    "D129"
   ],
   "DECISION": [
-   "D1",
    "D10",
    "D24"
   ],
@@ -17,14 +16,6 @@
   ]
  },
  "plan": {
-  "D1": {
-   "asked": "pin 9629 (2026-09-21), with a stated default: hold",
-   "closes_when": "Moritz decides whether to ship the written repair and accept the measured 0.149 A regression at rank 0, or to declare the deviation intentional and close it with that measurement as the reason",
-   "evidence_held": "the coefficient sweep fits c = 1/sqrt(24) at 6.9e-03 to 1.7e-02 on all four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written and measured; D10, its original blocker, is resolved",
-   "needs": "DECISION",
-   "one_line": "the trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value",
-   "would_a_row_help": false
-  },
   "D10": {
    "asked": "pin 9629, together with D24; pin 9597 answers its framing",
    "closes_when": "Moritz decides whether to ship one consistent ranking rule on CONSISTENCY grounds. No accuracy argument is available: of3t-rankunify withdrew it",
@@ -104,7 +95,6 @@
   }
  },
  "user_facing": [
-  "D1",
   "D10",
   "D24",
   "D30",

@@ -84,7 +84,10 @@ done
 # definition and taped_ttnn._SOFTMAX_BW_RENORM an alias -- D151 repaired), dropped its edit to
 # assert_new_levers_default_off.py, and merges clean. That gate change is adopted here instead,
 # in the same pass, so the assert and the shipped default move together.
-HELD_OUT="d1-pairbias"
+# RELEASED pass 280: d1-pairbias CONCLUDED GO, and a concluded row's evidence must be in the
+# composition rather than held outside it. Its three remaining conflicts are resolved by
+# resolve_d1_pairbias.py, which takes the ROW's side on Moritz's ask-9629 ruling and records why.
+HELD_OUT=""
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
@@ -291,6 +294,13 @@ _ASSERT
             cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
             rm -f /tmp/.gi_ours /tmp/.gi_theirs
             git add .gitignore
+          elif [ "$r" = "d1-pairbias" ] && "$PY" "$HERE/resolve_d1_pairbias.py" "$_f"; then
+            # Two rows, opposite conclusions on the same lines, and not a stale base: of3t-pairbias
+            # held the OF3 trunk default at False on nine seeds of 1UBQ; of3t-d1-pairbias flips it on
+            # Moritz's ruling and 48 folds over four targets, with 1UBQ identified as the earlier
+            # reading's own target. The resolver takes the row's side, keeps the superseded reasoning
+            # in the file, and refuses if either goes missing.
+            git add "$_f"
           elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
             # d116 unified the softmax-backward inner term across its two identical call sites
             # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
@@ -395,7 +405,17 @@ done
 #   are wanted in the one tape, and the merged result is ASSERTED below to carry both rather than
 #   assumed. Added pass 271. NOTE of3t-d116 is based on a main from before `_v_softmax` moved to
 #   the box pattern; `resolve_d116_softmax_inner.py` bridges that and the row is told to rebase.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py"
+#   perf/of3t_trajwide/{trajwide,price_ref,ceiling,ceiling_closures}.py: of3t-trajwide owns the
+#   measurement; of3t-refsweep owns the PATH LINES, by dispatch (D153) -- it repoints 43 scripts
+#   in 11 namespaces off `/home/ttuser/of3t_rebase/`, which went with of3t-rebase's worktree, and
+#   a sys.path entry that does not exist resolves nothing so `import openfold3` falls through to
+#   0.5.0. A per-row sweep was not possible: the roots span namespaces whose rows have concluded.
+#   The hunks are disjoint by construction -- the sweep's edit to each of these four files is the
+#   three lines that move `refpath` from the row's directory to `perf/`, which it did because
+#   eight namespaces import it now. Checked at pass 279: bit-identical tree behind the new path
+#   (digest 1b27f5754b32b8e3 over 293 .py files, reproduced by a fresh pip download), so no number
+#   moves. Asserted below rather than assumed.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py"
 _coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
@@ -433,6 +453,19 @@ if [ -z "$dup" ]; then
     echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
   fi
   echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
+  # The fourth: of3t-refsweep's path sweep over of3t-trajwide's live scripts. Prove the sweep
+  # kept the row's substance rather than assuming a path-only diff stayed path-only.
+  if printf '%s ' $PRESENT | grep -q "refsweep " && printf '%s ' $PRESENT | grep -q "trajwide "; then
+    _tw="$CO/perf/of3t_trajwide/trajwide.py"
+    _twmiss=""
+    grep -q "def align_layer_norm_z" "$_tw" || _twmiss="$_twmiss trajwide's align_layer_norm_z"
+    grep -q "assert_resolved" "$_tw" || _twmiss="$_twmiss trajwide's resolved-tree assertion (D149)"
+    [ -f "$CO/perf/refpath.py" ] || _twmiss="$_twmiss the shared perf/refpath.py the sweep moved it to"
+    if [ -n "$_twmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in perf/of3t_trajwide/trajwide.py --$_twmiss"; exit 1
+    fi
+    echo "co-edit: trajwide.py keeps its align_layer_norm_z and its D149 resolved-tree assertion after refsweep's path move"
+  fi
   # The third overlapping co-edit, asserted only when both rows are in this composition.
   if printf '%s ' $PRESENT | grep -q "d116 " && printf '%s ' $PRESENT | grep -q "d137-tapegate "; then
     _af="$CO/tt_bio/autograd.py"
@@ -691,6 +724,25 @@ echo "--- capture provenance records unexpected_keys"
 # (3k) D151. One env var, two module-level reads, two backends -- and a comment asserting there
 # is only one flag. Both default off today, so this is green when it lands; it goes red the moment
 # a row flips one of the two, which is what of3t-d56-renorm's branch does.
+# (3l) D122/D154. The gate that ends this campaign reads `state/of3t/CHARTER_EVIDENCE.json`.
+# `audit_evidence.py` recomputes the four conditions against THIS tree and compares them to the
+# copy inside the composition -- but the copy the GATE reads is the one in state/, and nothing
+# re-derived it. They are byte-identical today only because one row wrote both. Publish it from
+# the composition every pass, so the evaluation the gate reads is of `wk/of3t` and is never older
+# than the compose that blessed it. The instrument REFUSES if its own break control fails, which
+# is why this runs before the audit rather than after.
+echo "--- publish the charter evaluation from the composition"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/charter/charter_evidence.py ) || \
+  { echo "COMPOSE: charter_evidence.py refused to publish -- see its break control"; exit 1; }
+
+# (3m) D155. A digest-equality claim that does not name its host cannot be attributed to healthy
+# hardware, and pc card 0 is a faulty card root-caused 2026-08-17 that must not host bit-exact
+# gating for any model at any size. Three of3t artifacts are in that state and are frozen; a new
+# one fails. The list may only shrink.
+echo "--- digest claims name their hardware (D155)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
+  { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
+
 echo "--- one flag, one default (D151)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
   { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }
@@ -898,16 +950,21 @@ git worktree remove --force "$BASE"
   || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
 
 _trunk="$CO/tt_bio/openfold3_trunk.py"
-_want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
+# Flipped at pass 280, in the same commit that lands the flip, which is what the previous version
+# of this block instructed: "If Moritz approves it anyway, change _want in this script in the same
+# commit that flips the default." He approved it (ask 9629) and of3t-d1-pairbias is GO.
+_want='scale_pair_bias=True, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
-  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.149 A worse at rank 0, of3t-confhead final, 5588d889a; not blocked on D10, which is resolved)"
+  echo "shipped defaults: OF3 trunk pair-bias is scale_pair_bias=True (ask 9629 DECIDED: fix it everywhere; of3t-d1-pairbias GO -- 48 folds, 4 targets, 6 seeds, sign test p=0.541, pLDDT up in 24 of 24; unmerged to main)"
 else
   echo "SHIPPED DEFAULT MOVED -- $_trunk does not carry: $_want"
   grep -n 'scale_pair_bias=' "$_trunk" | sed 's/^/  /'
-  echo "  D1 is HELD on its own measurement: D1+D10 serves 0.149 A worse than shipped at rank 0 over"
-  echo "  nine ship and eight fix seeds (of3t-confhead, concluded), and the best rule still serves"
-  echo "  0.086 A worse. Fixing the selector did not rescue it. If Moritz approves it anyway,"
-  echo "  change _want in this script in the same commit that flips the default."
+  echo "  D1 is DECIDED, not held: ask 9629 says fix it everywhere, and of3t-d1-pairbias measured"
+  echo "  the reopen condition Moritz set -- 'reliably worse across targets and seeds' -- and did"
+  echo "  not meet it: 10 of 24 paired folds regress, sign test p = 0.541, pooled median negative,"
+  echo "  and the sole regressing target is 1UBQ, which is the target the 0.149 A reading was built"
+  echo "  on. A revert to False is now the drift. If it is deliberate, say why here in the same"
+  echo "  commit, and reopen the ask rather than moving the default quietly."
   exit 1
 fi
 

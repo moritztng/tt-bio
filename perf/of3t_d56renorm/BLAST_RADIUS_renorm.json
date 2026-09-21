@@ -1,0 +1,234 @@
+{
+ "arms": {
+  "opendde": {
+   "accsm": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 57.5
+   },
+   "default": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 63.5
+   },
+   "off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 54.9
+   },
+   "on": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 62.4
+   }
+  },
+  "openfold3": {
+   "accsm": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "5709b00295fe2affaceb2f1acbfb1ce7e6951f9c7ebaf19c29ea22c9096bc885"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 40.7
+   },
+   "default": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 44.8
+   },
+   "off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 65.3
+   },
+   "on": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 94.9
+   }
+  },
+  "protenix-v2": {
+   "accsm": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 44.8
+   },
+   "default": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 45.4
+   },
+   "off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 44.8
+   },
+   "on": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 46.4
+   }
+  }
+ },
+ "card": "3",
+ "failures": [
+  "protenix-v2: the accurate-softmax control did not move the digest, so the byte-identity above is uninformative",
+  "opendde: the accurate-softmax control did not move the digest, so the byte-identity above is uninformative"
+ ],
+ "fixture": "/home/ttuser/.coworker/wt/of3t-d56-renorm/perf/size512/fixtures/cdk2x2_128.yaml",
+ "tree": "/home/ttuser/.coworker/wt/of3t-d56-renorm",
+ "verdict": "FAIL"
+}

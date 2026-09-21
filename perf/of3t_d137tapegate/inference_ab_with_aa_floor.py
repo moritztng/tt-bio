@@ -31,6 +31,7 @@ import argparse
 import hashlib
 import json
 import os
+import socket
 import statistics
 import subprocess
 import sys
@@ -51,7 +52,8 @@ def fold(py, tree: Path, model: str, fixture: Path, out: Path, env_extra: dict, 
          stats: bool):
     env = dict(os.environ)
     env.update({"TT_VISIBLE_DEVICES": card, "TT_BIO_LEASE_CARDS": card,
-                "TT_BIO_LEASE_HOLDER": "worker:of3t-d137-tapegate",
+                "TT_BIO_LEASE_HOLDER": os.environ.get(
+                    "TT_BIO_LEASE_HOLDER", "worker:of3t-d137-tapegate"),
                 "PYTHONPATH": str(tree)})
     env.pop("TT_BIO_HOST_F64_SOFTMAX_AB", None)
     env.update(env_extra)
@@ -104,6 +106,15 @@ def main():
     ap.add_argument("--out", default="")
     a = ap.parse_args()
 
+    if os.environ.get("TT_VISIBLE_DEVICES") != a.card:
+        # clocksample reads tt-smi index 0, and tt-smi maps index 0 to the granted chip only
+        # when TT_VISIBLE_DEVICES is exported HERE. Setting it on the fold subprocess alone
+        # leaves the sampler on UMD 0, so on a four-card host every AICLK in the artifact
+        # belongs to a chip that ran none of the work. That reads as a clocked measurement.
+        return die("export TT_VISIBLE_DEVICES=%s for this process too, not just the fold: the "
+                   "AICLK sampler reads tt-smi index 0 and would otherwise clock UMD 0 "
+                   "(got %r)" % (a.card, os.environ.get("TT_VISIBLE_DEVICES")))
+
     base, tree = Path(a.base_tree), Path(a.tree)
     if not (base / "tt_bio/tenstorrent.py").is_file():
         return die("--base-tree has no tt_bio/tenstorrent.py: %s" % base)
@@ -155,7 +166,9 @@ def main():
             if any((c or {}).get("median", 0) < 1200 for c in v)]
 
     slower = [k for k, d in ab.items() if d > floor]
-    rep = {"model": a.model, "fixture": a.fixture, "card": a.card, "reps": a.reps,
+    rep = {"model": a.model, "fixture": a.fixture,
+           "host": socket.gethostname(), "card": a.card,
+           "host_card": "%s card %s" % (socket.gethostname(), a.card), "reps": a.reps,
            "seconds": secs, "median_seconds": med,
            "AA_floor_seconds_per_arm": floors, "AA_floor_seconds": floor,
            "AB_seconds": ab, "readable_above_the_floor": {k: abs(v) > floor

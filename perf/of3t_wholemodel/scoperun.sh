@@ -5,6 +5,7 @@
 set -uo pipefail
 W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
+source "$W/perf/refpath.sh"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 CARD=${CARD:-0}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
@@ -25,8 +26,9 @@ case "$SCOPE" in
         ARGS=(--tag "_wm_$ARM" --out-dir perf/of3t_wholemodel
               --dump-grads "$D/cond_grads_$ARM.pt") ;;
   aux|msa)
-        export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W/perf/of3t_tape:$W"
-        REF=/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt
+        export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W/perf/of3t_tape" "$W")"
+        ref_assert "$PY"
+        REF=$REF_BUNDLE/grads_f64_043.pt
         if [ "$SCOPE" = aux ]; then
           SCRIPT=perf/of3t_auxheads/aux_instrument.py
           BND=/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt
