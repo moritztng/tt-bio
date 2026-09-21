@@ -1,0 +1,72 @@
+{
+ "board": "p300c",
+ "card": "0",
+ "clock_aiclk_during": {
+  "0": {
+   "max": 1350,
+   "median": 1350,
+   "min": 800,
+   "n": 35
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 35 samples, polled DURING the work",
+ "fixture": "/home/ttuser/.coworker/wt/of3t-fwdkcfg/perf/size512/fixtures/cdk2x2_128.yaml",
+ "host": "tt-quietbox2",
+ "host_card": "tt-quietbox2 card 0",
+ "lever_env": "TT_BIO_SOFTMAX_PRECISE_AB",
+ "models": {
+  "openfold3": {
+   "arms": {
+    "off_s0": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/openfold3_off_s0/openfold3_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 30.52,
+     "sha256": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+    },
+    "off_s1": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/openfold3_off_s1/openfold3_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 33.1,
+     "sha256": "8db0304a6f29fd414eba6bdbff1ab825147568bd509c8d6f4bc1b12c8b404c83"
+    },
+    "on_s0": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/openfold3_on_s0/openfold3_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 32.16,
+     "sha256": "d454d83ef812fb37f44d8eb295d6fec5324020490444e125de246f36d411a0b2"
+    }
+   },
+   "digest_moved": true,
+   "kill_bar_A": 0.6,
+   "lever_ca_rmsd_A": 2.1446,
+   "lever_over_seed_floor": 0.0201,
+   "seed_floor_ca_rmsd_A": 106.4968,
+   "token": "openfold3.diffusion_transformer",
+   "verdict": "OVER THE BAR: 2.1446 A against 0.60 A"
+  },
+  "protenix-v2": {
+   "arms": {
+    "off_s0": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/protenix-v2_off_s0/protenix_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 26.81,
+     "sha256": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "off_s1": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/protenix-v2_off_s1/protenix_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 36.49,
+     "sha256": "8f45fa3d5f0c74224df0ba4697c5de4cb1673fe78d326a18c919b92aad58a237"
+    },
+    "on_s0": {
+     "cif": "/tmp/of3t-fwdkcfg-p2-6WUyJl/sd/protenix-v2_on_s0/protenix_results_cdk2x2_128/structures/cdk2x2_128.cif",
+     "seconds": 28.81,
+     "sha256": "6b6e7c4e66a7252b68512ae469b4c9eda03ea9b16bc64781daf33c9db13c2ca0"
+    }
+   },
+   "digest_moved": true,
+   "kill_bar_A": 0.6,
+   "lever_ca_rmsd_A": 3.9621,
+   "lever_over_seed_floor": 0.026,
+   "seed_floor_ca_rmsd_A": 152.2916,
+   "token": "protenix.token_dit",
+   "verdict": "OVER THE BAR: 3.9621 A against 0.60 A"
+  }
+ },
+ "what": "Angstrom move of the forward softmax config, beside the seed floor"
+}
