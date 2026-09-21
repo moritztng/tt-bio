@@ -885,12 +885,15 @@ git worktree remove --force "$BASE"
   || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
 
 # The THIRD and FOURTH shipped defaults, added pass 209 after both pass-207 repairs landed in the
-# composition. Neither can ride in live: TT_BIO_SOFTMAX_BW_RENORM moves every taped gradient (it is
-# what takes the trunk from 9.025172e+00 to 3.833066e-01) and the host float64 softmax moves fold
-# output and costs a round trip at any site where it is on. The asserter reads the composed tree and
-# checks BOTH halves per lever -- the default exists as off, AND no construction site overrides it to
-# True -- because a selector defaulting False says nothing when a site passes default=True, which is
-# exactly how opendde.refiner ships the accurate-softmax chain ON.
+# composition, and REVERSED for one of them at pass 274. TT_BIO_SOFTMAX_BW_RENORM now rides in LIVE
+# on Moritz's ask-9629 ruling -- it moves every taped gradient (it is what takes the trunk from
+# 9.025172e+00 to 3.833066e-01) and it cannot move a fold, because every read of it is inside a
+# backward closure, checked by AST rather than asserted. The host float64 softmax still may not: it
+# moves fold output and costs a round trip at any site where it is on, and D137 says it is gated on
+# an env flag rather than on the tape. So the asserter pins BOTH directions -- renorm ON, host path
+# OFF -- and for the host path checks both halves, the default AND that no construction site
+# overrides it to True, because a selector defaulting False says nothing when a site passes
+# default=True, which is exactly how opendde.refiner ships the accurate-softmax chain ON.
 "$PY" "$HERE/assert_new_levers_default_off.py" "$CO" \
   || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
 

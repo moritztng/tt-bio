@@ -131,5 +131,8 @@ if _fail:
     for f in _fail:
         print("  " + f)
     raise SystemExit(1)
-print("shipped defaults: TT_BIO_SOFTMAX_BW_RENORM off, host float64 softmax off at every site "
-      "(default-on probe fired)")
+# Report the state that was VERIFIED, not a sentence about it. This line said "off" for the whole
+# pass in which the lever went on, which is the prose-versus-shipped-default disagreement the
+# campaign has already recorded once.
+print("shipped defaults: TT_BIO_SOFTMAX_BW_RENORM ON (ask 9629, backward-only: every read is "
+      "inside a bw closure), host float64 softmax off at every site (both probes fired)")

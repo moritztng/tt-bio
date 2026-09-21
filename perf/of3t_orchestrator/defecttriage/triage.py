@@ -184,10 +184,6 @@ TABLE = {
                    "a load that drops 24 trained tensors reads clean in every artifact derived "
                    "from it. An instrument-provenance defect in this campaign's own reference "
                    "chain; it changes nothing a user of the shipped tree gets."),
-    "D151": (CAMP, "TT_BIO_SOFTMAX_BW_RENORM is read twice at module level and the two reads "
-                   "reach different softmax backends. Both default off today, so nothing a user "
-                   "runs differs; it becomes user-relevant only once the flag ships on, and the "
-                   "guard fails the compose before that can happen silently."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "
