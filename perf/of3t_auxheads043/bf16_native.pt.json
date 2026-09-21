@@ -1,0 +1,67 @@
+{
+ "tag": "bf16_native",
+ "tree": "/home/moritz/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3",
+ "dtype": "bf16",
+ "knobs": {
+  "single_mask": "native",
+  "break_mask": 0,
+  "policy": "native",
+  "transpose_bias": "native"
+ },
+ "masks": {
+  "repr_mask_sum": 56.0,
+  "token_mask_sum": 56.0,
+  "n_differing_tokens": 0,
+  "single_mask_sum_used": 56.0
+ },
+ "key_gate": {
+  "loaded": 244,
+  "missing": 0,
+  "unexpected": 0,
+  "missing_sample": [],
+  "unexpected_sample": []
+ },
+ "norms": {
+  "distogram_logits": 7941202.39700032,
+  "plddt_logits": 589.8627306978004,
+  "experimentally_resolved_logits": 103.27159096108566,
+  "pae_logits": 4830.369441473057,
+  "pde_logits": 14368.971890823248
+ },
+ "shapes": {
+  "distogram_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "plddt_logits": [
+   1,
+   1,
+   422,
+   50
+  ],
+  "experimentally_resolved_logits": [
+   1,
+   1,
+   422,
+   2
+  ],
+  "pae_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "pde_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ]
+ },
+ "out": "/tmp/of3t/auxheads043/out/bf16_native.pt"
+}
