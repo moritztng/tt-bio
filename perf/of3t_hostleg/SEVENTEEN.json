@@ -1,0 +1,1149 @@
+{
+ "instrument": "of3t-hostleg score_seventeen.py -- the 17 HOST_APPLIED tensors against the float64 reference, in READABLE_MASS.json's own model denominator",
+ "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
+ "inputs": {
+  "float64": {
+   "path": "/home/ttuser/of3t_hostleg/grads_f64_043.pt",
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "matches_pin": true
+  }
+ },
+ "denominator": {
+  "model_squared_gradient_norm": 10.279642678524981,
+  "seventeen_mass_sq": 0.15627508402823034,
+  "seventeen_pct_of_model_mass": 1.5202384841128946
+ },
+ "names": [
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+  "input_embedder.atom_attn_enc.linear_q.0.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+ ],
+ "per_tensor_bar": 0.05,
+ "two_references_compared": {
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight": {
+   "boundary_norm": 0.00014858848353425626,
+   "bundle_norm": 0.00014858848353425626,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight": {
+   "boundary_norm": 0.0732831626752875,
+   "bundle_norm": 0.0732831626752875,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight": {
+   "boundary_norm": 0.01967534575304234,
+   "bundle_norm": 0.01967534575304234,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight": {
+   "boundary_norm": 0.03353210672258909,
+   "bundle_norm": 0.03353210672258909,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight": {
+   "boundary_norm": 0.03609600844142511,
+   "bundle_norm": 0.03609600844142511,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight": {
+   "boundary_norm": 0.0011863507669653565,
+   "bundle_norm": 0.0011863507669653565,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight": {
+   "boundary_norm": 0.26310352848501084,
+   "bundle_norm": 0.26310352848501084,
+   "rel_l2_between_the_two_references": 0.0
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight": {
+   "boundary_norm": 3.411767987421949e-05,
+   "bundle_norm": 3.411767987421949e-05,
+   "rel_l2_between_the_two_references": 0.0
+  }
+ },
+ "arms": {
+  "shipped": {
+   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_shipped.pt",
+   "sha256": "b7e28a1a326c5bf8745f611c1be1503649e0aafbecf13df5b733b18d4813a2e0",
+   "n_present_in_the_arm": 0,
+   "present": [],
+   "absent": [
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+    "input_embedder.atom_attn_enc.linear_q.0.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "stats": {
+    "set": "shipped_vs_FLOAT64",
+    "n": 17,
+    "pct_of_model_mass": 1.5202384841128946,
+    "mass_weighted_rel_l2": 1.0,
+    "mass_weighted_norm_ratio": 0.0,
+    "mass_weighted_cos": null,
+    "median_rel_l2_over_tensors": 1.0,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 17,
+    "worst_rel_l2": 1.0,
+    "worst_tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight"
+   },
+   "over_bar": [
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 2.1477923046035273e-07,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.05224327439816468,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.010938144606952856,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.012674777384289277,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 1.3691411134547729e-05,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.6734034330383528,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "r": 0.0,
+     "cos": 0.0
+    }
+   ],
+   "rows": [
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 2.1477923046035273e-07,
+     "ref_norm": 0.00014858848353425626,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.05224327439816468,
+     "ref_norm": 0.0732831626752875,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "ref_norm": 0.01967534575304234,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.010938144606952856,
+     "ref_norm": 0.03353210672258909,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.012674777384289277,
+     "ref_norm": 0.03609600844142511,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 1.3691411134547729e-05,
+     "ref_norm": 0.0011863507669653565,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.6734034330383528,
+     "ref_norm": 0.26310352848501084,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "ref_norm": 3.411767987421949e-05,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "ref_norm": 0.2759008305852622,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "ref_norm": 2.1215420404592234e-11,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "ref_norm": 0.03591993619860669,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "ref_norm": 0.0062677020531979495,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "ref_norm": 0.019740996222117183,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "ref_norm": 0.022723193999378822,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "ref_norm": 1.0616225524689646e-09,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "ref_norm": 0.02254942985679324,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "ref_norm": 2.9532870807876146e-10,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    }
+   ]
+  },
+  "refatom": {
+   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_refatom.pt",
+   "sha256": "852fafe855220686c3da33fa0c27fd8fcc7277c36910a8be719d27e97364af8f",
+   "n_present_in_the_arm": 8,
+   "present": [
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "absent": [
+    "input_embedder.atom_attn_enc.linear_q.0.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "stats": {
+    "set": "refatom_vs_FLOAT64",
+    "n": 17,
+    "pct_of_model_mass": 1.5202384841128946,
+    "mass_weighted_rel_l2": 0.7121581644032098,
+    "mass_weighted_norm_ratio": 0.7152524046713055,
+    "mass_weighted_cos": 0.7021414711101294,
+    "median_rel_l2_over_tensors": 1.0,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 15,
+    "worst_rel_l2": 1.0,
+    "worst_tensor": "input_embedder.atom_attn_enc.linear_q.0.weight"
+   },
+   "over_bar": [
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 0.11750053740244587,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "r": 1.0857957648236205,
+     "cos": 0.997031917402422
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 0.08016967852509334,
+     "pct_of_model_mass": 0.05224327439816468,
+     "r": 1.020671240338702,
+     "cos": 0.9970608179497232
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 0.0787160001324058,
+     "pct_of_model_mass": 0.010938144606952856,
+     "r": 1.0405597611170665,
+     "cos": 0.9978131412413613
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 0.0736761222697088,
+     "pct_of_model_mass": 0.012674777384289277,
+     "r": 1.0290286842252054,
+     "cos": 0.9977719248476017
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 0.06994817570366399,
+     "pct_of_model_mass": 0.6734034330383528,
+     "r": 1.0148773954678911,
+     "cos": 0.9976985346164852
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 0.06711124016745436,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "r": 0.987823176628269,
+     "cos": 0.9977953323871916
+    }
+   ],
+   "rows": [
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 0.013760036968974687,
+     "r": 1.0091494147937008,
+     "cos": 0.9999476654176418,
+     "pct_of_model_mass": 2.1477923046035273e-07,
+     "ref_norm": 0.00014858848353425626,
+     "arm_norm": 0.00014994798120367814,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 0.08016967852509334,
+     "r": 1.020671240338702,
+     "cos": 0.9970608179497232,
+     "pct_of_model_mass": 0.05224327439816468,
+     "ref_norm": 0.0732831626752875,
+     "arm_norm": 0.07479801654372857,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 0.11750053740244587,
+     "r": 1.0857957648236205,
+     "cos": 0.997031917402422,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "ref_norm": 0.01967534575304234,
+     "arm_norm": 0.02136340709009378,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 0.0787160001324058,
+     "r": 1.0405597611170665,
+     "cos": 0.9978131412413613,
+     "pct_of_model_mass": 0.010938144606952856,
+     "ref_norm": 0.03353210672258909,
+     "arm_norm": 0.034892160961009284,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 0.0736761222697088,
+     "r": 1.0290286842252054,
+     "cos": 0.9977719248476017,
+     "pct_of_model_mass": 0.012674777384289277,
+     "ref_norm": 0.03609600844142511,
+     "arm_norm": 0.03714382807226159,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 0.03797563475088949,
+     "r": 0.9751692092636309,
+     "cos": 0.9995766987624831,
+     "pct_of_model_mass": 1.3691411134547729e-05,
+     "ref_norm": 0.0011863507669653565,
+     "arm_norm": 0.0011568927393309089,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 0.06994817570366399,
+     "r": 1.0148773954678911,
+     "cos": 0.9976985346164852,
+     "pct_of_model_mass": 0.6734034330383528,
+     "ref_norm": 0.26310352848501084,
+     "arm_norm": 0.2670178237272799,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 0.06711124016745436,
+     "r": 0.987823176628269,
+     "cos": 0.9977953323871916,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "ref_norm": 3.411767987421949e-05,
+     "arm_norm": 3.370223491253786e-05,
+     "unmeasurable": null
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "ref_norm": 0.2759008305852622,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "ref_norm": 2.1215420404592234e-11,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "ref_norm": 0.03591993619860669,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "ref_norm": 0.0062677020531979495,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "ref_norm": 0.019740996222117183,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "ref_norm": 0.022723193999378822,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "ref_norm": 1.0616225524689646e-09,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "ref_norm": 0.02254942985679324,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "ref_norm": 2.9532870807876146e-10,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    }
+   ]
+  },
+  "break": {
+   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_break.pt",
+   "sha256": "299285bf46171d2c5c9cff479cef77e8b596be4f0e091e8ef603ecc9288fb37e",
+   "n_present_in_the_arm": 8,
+   "present": [
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "absent": [
+    "input_embedder.atom_attn_enc.linear_q.0.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "stats": {
+    "set": "break_vs_FLOAT64",
+    "n": 17,
+    "pct_of_model_mass": 1.5202384841128946,
+    "mass_weighted_rel_l2": 1.0540882755977614,
+    "mass_weighted_norm_ratio": 0.668838637521623,
+    "mass_weighted_cos": 0.2513633419377994,
+    "median_rel_l2_over_tensors": 1.0,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 17,
+    "worst_rel_l2": 2.0433181092269246,
+    "worst_tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   },
+   "over_bar": [
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 2.0433181092269246,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "r": 2.566727402005123,
+     "cos": 0.664842838012929
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 2.032272505204429,
+     "pct_of_model_mass": 0.012674777384289277,
+     "r": 1.5187873488924892,
+     "cos": -0.271076963096397
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.996085816236608,
+     "pct_of_model_mass": 2.1477923046035273e-07,
+     "r": 1.0824129496022492,
+     "cos": -0.8373610057882459
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.984222016654433,
+     "pct_of_model_mass": 1.3691411134547729e-05,
+     "r": 2.0504404776578413,
+     "cos": 0.30899925036814085
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.8359223317955669,
+     "pct_of_model_mass": 0.05224327439816468,
+     "r": 1.3865987781985059,
+     "cos": -0.16153001276478537
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.8250959482186861,
+     "pct_of_model_mass": 0.010938144606952856,
+     "r": 1.4939306320035985,
+     "cos": -0.03318309593552604
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.6094153926002621,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "r": 0.9834997355459076,
+     "cos": -0.3166987003682359
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "r": 0.0,
+     "cos": 0.0
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 0.9803940911038872,
+     "pct_of_model_mass": 0.6734034330383528,
+     "r": 0.880668089905167,
+     "cos": 0.4623783466444753
+    }
+   ],
+   "rows": [
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.996085816236608,
+     "r": 1.0824129496022492,
+     "cos": -0.8373610057882459,
+     "pct_of_model_mass": 2.1477923046035273e-07,
+     "ref_norm": 0.00014858848353425626,
+     "arm_norm": 0.00016083409873923958,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.8359223317955669,
+     "r": 1.3865987781985059,
+     "cos": -0.16153001276478537,
+     "pct_of_model_mass": 0.05224327439816468,
+     "ref_norm": 0.0732831626752875,
+     "arm_norm": 0.101614343828076,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.6094153926002621,
+     "r": 0.9834997355459076,
+     "cos": -0.3166987003682359,
+     "pct_of_model_mass": 0.0037658821673878335,
+     "ref_norm": 0.01967534575304234,
+     "arm_norm": 0.01935069734489144,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.8250959482186861,
+     "r": 1.4939306320035985,
+     "cos": -0.03318309593552604,
+     "pct_of_model_mass": 0.010938144606952856,
+     "ref_norm": 0.03353210672258909,
+     "arm_norm": 0.05009464138848964,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 2.032272505204429,
+     "r": 1.5187873488924892,
+     "cos": -0.271076963096397,
+     "pct_of_model_mass": 0.012674777384289277,
+     "ref_norm": 0.03609600844142511,
+     "arm_norm": 0.05482216096635296,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.984222016654433,
+     "r": 2.0504404776578413,
+     "cos": 0.30899925036814085,
+     "pct_of_model_mass": 1.3691411134547729e-05,
+     "ref_norm": 0.0011863507669653565,
+     "arm_norm": 0.002432541633286192,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 0.9803940911038872,
+     "r": 0.880668089905167,
+     "cos": 0.4623783466444753,
+     "pct_of_model_mass": 0.6734034330383528,
+     "ref_norm": 0.26310352848501084,
+     "arm_norm": 0.23170688187820418,
+     "unmeasurable": null
+    },
+    {
+     "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 2.0433181092269246,
+     "r": 2.566727402005123,
+     "cos": 0.664842838012929,
+     "pct_of_model_mass": 1.1323507211310437e-08,
+     "ref_norm": 3.411767987421949e-05,
+     "arm_norm": 8.757078382599787e-05,
+     "unmeasurable": null
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.7405050029283717,
+     "ref_norm": 0.2759008305852622,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 4.3784991075990606e-21,
+     "ref_norm": 2.1215420404592234e-11,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.012551426706760894,
+     "ref_norm": 0.03591993619860669,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.0003821542271087835,
+     "ref_norm": 0.0062677020531979495,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.003791055234398125,
+     "ref_norm": 0.019740996222117183,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.005022971728502683,
+     "ref_norm": 0.022723193999378822,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 1.096382898858152e-17,
+     "ref_norm": 1.0616225524689646e-09,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 0.004946444178732868,
+     "ref_norm": 0.02254942985679324,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    },
+    {
+     "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+     "rel_l2": 1.0,
+     "r": 0.0,
+     "cos": 0.0,
+     "pct_of_model_mass": 8.484637894824696e-19,
+     "ref_norm": 2.9532870807876146e-10,
+     "arm_norm": 0.0,
+     "unmeasurable": "absent from the arm, scored as zero"
+    }
+   ]
+  }
+ },
+ "break_control": {
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight": {
+   "refatom_rel_l2": 0.013760036968974687,
+   "break_rel_l2": 1.996085816236608,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight": {
+   "refatom_rel_l2": 0.08016967852509334,
+   "break_rel_l2": 1.8359223317955669,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight": {
+   "refatom_rel_l2": 0.11750053740244587,
+   "break_rel_l2": 1.6094153926002621,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight": {
+   "refatom_rel_l2": 0.0787160001324058,
+   "break_rel_l2": 1.8250959482186861,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight": {
+   "refatom_rel_l2": 0.0736761222697088,
+   "break_rel_l2": 2.032272505204429,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight": {
+   "refatom_rel_l2": 0.03797563475088949,
+   "break_rel_l2": 1.984222016654433,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight": {
+   "refatom_rel_l2": 0.06994817570366399,
+   "break_rel_l2": 0.9803940911038872,
+   "moved": true
+  },
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight": {
+   "refatom_rel_l2": 0.06711124016745436,
+   "break_rel_l2": 2.0433181092269246,
+   "moved": true
+  },
+  "input_embedder.atom_attn_enc.linear_q.0.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight": {
+   "refatom_rel_l2": 1.0,
+   "break_rel_l2": 1.0,
+   "moved": false
+  }
+ },
+ "break_control_n_moved": 8
+}
