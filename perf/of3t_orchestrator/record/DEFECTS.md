@@ -8495,3 +8495,79 @@ job.
 read as a mechanism. The worst tensor named a scale error; the 24 rows behind it name a
 block-selective one. `worst-tensor-names-the-tail-not-the-locus` applies to *signatures* as well as
 to magnitudes.
+
+### D8 UPDATE 3 (pass 232). REFUTED — closed as a NON-DEFECT. The four leaves read 0.849x, 0.837x, 0.849x and 0.747x of upstream 0.4.3's own bf16 floor, all inside A26, and the error they do carry is inherited from the AttentionPairBias backward rather than produced in the leaf.
+
+`of3t-lnaffine` returned GO. Read off its pushed commit **`dfc5bb7cc`** while the row was still live;
+verified from git that the commit touches **nothing under `tt_bio/`**, and the KAPPA table below
+re-read from `perf/of3t_lnaffine/KAPPA_c64.json` rather than from the row's prose.
+
+**Three measurements, all in float64 on the operands the device itself held** (captured in situ at
+blocks 0, 12, 24, 36, 47):
+
+**(1) Conditioning is the LOWEST of all ten LayerNorm sites**, not the highest:
+
+    leaf                                     K_med   K_min    K_max   bf16 floor   ISOLATION
+    attn_pair_bias.layer_norm_a               9.41    5.95    77.64      0.0184      0.0606
+    pair_stack.tri_mul_out.layer_norm_in     19.84   13.95    64.11      0.0387      0.0042
+    pair_stack.pair_transition.layer_norm    23.16   10.61    55.80      0.0452      0.0076
+    single_transition.layer_norm             31.70    3.11   151.79      0.0619      0.0820
+    pair_stack.tri_att_end.layer_norm        43.16   22.28   104.07      0.0843      0.0069
+    pair_stack.tri_att_start.layer_norm      55.28   22.94    72.38      0.1080      0.0094
+
+`2^-9 · KAPPA` bounds what any bf16-class evaluation can reach at **0.0184** — **165x short of the
+3.040 it has to explain**. **D56's cancellation story does not explain this leaf**, measured rather
+than argued, and D56's interpolated `K ≈ 1.3e+06` is **four orders above every site measured here**
+while D62's directly measured 172.60 is in range for an individual site (the max anywhere is 151.79).
+
+**(2) The op's own arithmetic is innocent.** The device's dW against the float64 contraction of its
+own operands is within **6.06e-02** at worst over the five captured blocks, consistent with
+`of3t-bwdaccum`'s prior 1.370e-02.
+
+**(3) Teacher-forcing is decisive and it inverts.** Injecting the float64 reference cotangent at
+every block boundary improves every other leaf — `single_transition.layer_norm.weight` **1.0710 →
+0.0692**, 15.5x better; `.bias` 1.3615 → 0.2720; `pair_transition.layer_norm.bias` 0.3325 → 0.0943 —
+and makes this one **5.3x worse**: `attn_pair_bias.layer_norm_a.weight` **3.0400 → 16.0853**, `.bias`
+1.8601 → 7.1025, at an isolation reading unchanged at 6.06e-02. **Feed this leaf the correct
+boundary cotangent and its own arithmetic stays fine while its answer gets five times worse**, which
+locates the error between the block boundary and the LayerNorm's input: the AttentionPairBias
+backward, which `of3t-apbgrad` already measured at 0.98x-33.30x the reference in norm at cos
+0.019-0.920.
+
+**And that closes D56's ~3,000x ladder shortfall**: the ladder prices **local** conditioning and the
+error is **inherited**, so the ladder was pricing the wrong thing.
+
+**The per-block detail says the same, and it is the sentence that closes D8.** At blocks 4, 22 and
+44, **upstream's OWN bf16 gradient for this leaf is 3.26x, 12.57x and 9.65x larger in norm than
+float64 says it should be**, at cos 0.021, 0.550 and 0.051. At blocks 46 and 47 both implementations
+read cleanly (ours 0.177 and 0.373 at cos 0.986 and 0.964). **Where upstream's own recipe fails,
+ours fails the same way and slightly less.**
+
+**The lesson, and it is aimed squarely at the brief I wrote at pass 229**: *a leaf's share of the
+error mass ranks where the error IS, not whether it is ours.* **Upstream's own bf16 puts 69.4 % of
+its error mass on the same four leaves that carried 59.6 % of ours.** The concentration I dispatched
+on was never evidence of a defect, because I never differenced it against the floor. **Score the
+floor per leaf before reading a concentration as a signature.**
+
+**What the row hands on rather than closing.** The leaves that genuinely fail A26 are on the **pair
+track**, not here: `tri_mul_out.layer_norm_in.weight` **1.93x**, `attn_pair_bias.linear_z.weight`
+**1.85x**, `tri_att_end.layer_norm.bias` **1.71x**, `tri_att_start.layer_norm.*` 1.43-1.48x,
+`pair_transition.layer_norm.bias` 1.42x; and blocks **46 (2.87x)**, **1 (2.43x)**, **47 (1.76x)**.
+That set is where the port is genuinely behind upstream and it is a better target than the one D8
+named. Note this does **not** contradict pass 229: that correction was about **error mass against
+float64**, this is about **ratio against upstream's own bf16**, and they are different statistics —
+block 46 is clean on this leaf and among the worst on the pair track.
+
+### D55 UPDATE 3 (pass 232). UNFIXED and narrowed again: the LayerNorm sites fire 1,632 times and are bit-inert at 2,736 of 2,736, with a break control proving the argument reached the kernel.
+
+`of3t-lnaffine` pulled the lever D55 names at `autograd.py:595-598` and `:1514-1517` — the two
+`dn_mean` / `dn_norm_mean` reductions with no `compute_kernel_config`. It **fires 1,632 times** and
+leaves **2,736 of 2,736** tensors bit-identical. A **LoFi break control moves 2,733 of 2,736**,
+proving the keyword argument reaches the kernel and that the inertness is a result rather than a
+plumbing failure — the control discipline `of3t-tapediverge` used for the softmax numerator, which
+also came back inert.
+
+**So two of D55's four sites are now measured and both are inert**, with reach proven in both cases.
+What remains unmeasured is `autograd.py:847`, the site with three configured matmuls around one
+unconfigured reduction. The precision story D55 tells is looking thinner with each site that gets
+measured, and that is worth saying before a third pass is spent on it.
