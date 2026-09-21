@@ -1,6 +1,6 @@
 # of3t-readable-mass — the denominator of the reproduction claim, read off the artifacts
 
-TASK TYPE: VERIFY/BENCHMARK. Branch `wk/of3t-readable-mass`, head `758ff7003`, pushed, unmerged.
+TASK TYPE: VERIFY/BENCHMARK. Branch `wk/of3t-readable-mass`, pushed, unmerged; the census lands at `758ff7003`.
 Artifacts `perf/of3t_readable_mass/`. One device run, card 3 on qb2, Blackhole p300c, a presence
 census with no timing claim, so no AICLK is quoted. Everything else is CPU.
 
