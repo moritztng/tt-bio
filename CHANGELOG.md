@@ -50,6 +50,24 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **The softmax backward leaked a row sum, and every gradient below it carried the term.**
+  `ttnn.softmax` does not return rows that sum to one: mean 0.9934 over the OpenFold3 trunk's own
+  shapes, worst row 0.9506, and fp32 storage does not fix it. So the card computes `c * softmax(x)`
+  for a per-row `c`, and the vjp of that is `y * (g - sum(g*y)/sum(y))`. The shipped rule dropped
+  the divisor, which makes it the vjp of a function the card never evaluated. It barely moves `dx`
+  itself, rel_l2 2.0156e-02 against 2.0154e-02, which is why an op-level audit never saw it. What it
+  does is leave `dx` with a nonzero row sum, 4.62e-03 rms against a float64 reference's 1.29e-16,
+  and the attention backward below it consumes exactly that term: `dq_i = sum_j dx_ij k_j` equals
+  `sum_j dx_ij (k_j - kbar)` only when the row sums vanish. Over 523 matched tensors the leaf error
+  mass falls 878.85 to 2.636, and block 8's gradient norm ratio goes 87.643 to 1.732 with cosine
+  -0.169 to +0.694. Three sites computed the expression inline and all three now share one helper,
+  including `tt_bio.autograd.softmax`, which `__all__` exports.
+
+  **Inference is untouched, and not only by argument.** Every read of the flag is inside a backward
+  closure, and a fold never imports the module it lives in, so no forward can branch on it. A
+  512-residue OpenFold3 fold returns the same CIF digest with the repair on, off and on again.
+  `TT_BIO_SOFTMAX_BW_RENORM=0` restores the old backward.
+
 - **The size-ladder gate takes its rep count from the rung that is noisy.** One sigma, measured
   at 512 aa only, set both the exponent tolerance and how many folds every rung is measured
   over. runtime_s carries a size-independent host term, so the smallest rung is mostly made of

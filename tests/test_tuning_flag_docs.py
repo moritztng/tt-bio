@@ -20,7 +20,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Named in the notes but deliberately not a row, each with the reason it is not one.
 # A flag belongs here only if a user never chooses between its values.
-NOT_A_TUNING_ROW: dict[str, str] = {}
+NOT_A_TUNING_ROW: dict[str, str] = {
+    # The README table lists the inference optimizations a user picks between. This one repairs a
+    # wrong gradient on the training tape, and nobody picks between a correct gradient and one that
+    # leaks a row sum. It is a variable at all so a training run that regresses can get the old
+    # backward back; the CHANGELOG entry says how.
+    "TT_BIO_SOFTMAX_BW_RENORM": "a correctness repair on the training tape, not a tuning choice",
+}
 
 
 def _top_changelog_section(text: str) -> str:
