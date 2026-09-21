@@ -33,7 +33,7 @@ from tt_bio.envflags import env_flag
 
 __all__ = [
     "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
-    "forget_parameters",
+    "forget_parameters", "parameter_for", "untaped",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
@@ -1243,6 +1243,21 @@ def forget_parameters() -> None:
     _PARAMS.clear()
 
 
+def parameter_for(raw):
+    """The leaf `parameter()` registered over this raw handle, or `None`.
+
+    The public form of the one question every coverage check asks: is the tensor the MODEL
+    holds a thing the tape can hand a gradient to? `perf/of3t_tape` had to read `_PARAMS`
+    directly to ask it, and a check that reaches into a private dict is a check that stops
+    agreeing with the tape the first time the tape changes.
+
+    A pure query: unlike `_param` it does not record the handle as touched, so asking cannot
+    change what `checkpoint` decides to recompute.
+    """
+    t = _PARAMS.get(id(raw))
+    return t if t is not None and t.value is raw else None
+
+
 # True only at the OUTERMOST taped call. A taped verb computes its value by calling the
 # SHIPPED verb, and the shipped verb is sometimes itself a tt-bio function whose body calls
 # `ttnn` -- `ops.linear`'s fallback is literally `ttnn.linear`, and inside `tt_bio.ops` that
@@ -1374,6 +1389,30 @@ def _deep_unwrap(v):
 def _raw(args, kwargs):
     return ([_deep_unwrap(v) for v in args],
             {k: _deep_unwrap(v) for k, v in kwargs.items()})
+
+
+def untaped(shipped, args, kwargs, wrap: bool = True):
+    """`shipped` on RAW operands. What a listening hook must do instead of declining.
+
+    A hook that returns `None` falls through to the production op, which is a ttnn pybind and
+    refuses an `autograd.Tensor`: `ttnn.layer_norm(): incompatible function arguments ... called
+    with (tt_bio.autograd.Tensor, ...)`. That TypeError is what stopped `lora.weights_for` from
+    completing a census over a triangle multiplication, and a census that cannot complete over
+    the modules that matter most reports zero adaptable sites and reads as a clean result.
+
+    Returns `None` when no operand is a `Tensor`, so a hook may use this AS its decline: there
+    is nothing to unwrap and production's own call is the right one.
+
+    `wrap=False` hands back production's own raw result. A listener wants that: wrapping would
+    put a taped operand into the next raw `ttnn` call the listener never sees, which is the same
+    TypeError one op later, and a census has to compute exactly what an inference pass computes.
+    """
+    if not any(isinstance(v, Tensor) for v in _walk(args, kwargs)):
+        return None
+    ra, rk = _raw(args, kwargs)
+    with _no_param_scan():
+        out = shipped(*ra, **rk)
+    return Tensor(out) if wrap else out
 
 
 def _taped_linear(shipped, args, kwargs):
