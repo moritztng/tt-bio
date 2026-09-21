@@ -9593,3 +9593,45 @@ the evidence that would settle it**, because the field is absent from all of the
 pair, and **assert both are empty or enumerated with a reason**. A compose guard now fails any
 capture report that carries a `checkpoint` block without an `n_unexpected` field, so a provenance
 block cannot again be silent about the half of the load where the error was.
+
+### D141 UPDATE (pass 256). Still **UNFIXED**, and sharper: this is a KNOWN architectural difference that tt-bio's own source names as *"the one architectural difference"* — the reference loader simply never asked. Both halves read from the trees, not from the row.
+
+**Our side already handles both layouts, and says so.** `tt_bio/openfold3_diffusion_transformer.py`:
+
+    :20-26  "...with a `layer_norm_z` + `linear_z` pair-bias projection. Where that
+             `layer_norm_z` lives is the one architectural difference ... (4887 shared
+             tensors, zero shape mismatches, 48 per-block `layer_norm_z` keys traded ...)"
+    :120    self.ln_z_w = self._w_tt(apb + "layer_norm_z.weight", False) if norm_z else None
+    :269    "# layer_norm_z, OF3-preview2 carries one per block. Nothing else differs."
+    :270    shared_ln = self._w.get("layer_norm_z.weight")
+
+So our port reads the per-block key **and** falls back to a shared one. The difference was known,
+written down, and coded for.
+
+**Upstream 0.4.3 carries it in BOTH places**, which is why a silent `strict=False` load is so easy
+to get wrong — verified in `/home/ttuser/of3t_refprec/of3pkg043`:
+
+    core/model/layers/diffusion_transformer.py:254   self.layer_norm_z = LayerNorm(c_z, create_offset=False)
+    core/model/layers/diffusion_transformer.py:313   z = self.layer_norm_z(z)
+    core/model/layers/attention_pair_bias.py:107     self.layer_norm_z = LayerNorm(self.c_z, ...)
+    core/model/layers/attention_pair_bias.py:156     z = self.layer_norm_z(z)
+
+Which one runs depends on how the block is constructed. Take the transformer-level path and the
+checkpoint's per-block `attention_pair_bias.layer_norm_z.weight` keys have nowhere to go — they
+become `unexpected_keys`, the field D141 shows is recorded nowhere on the diffusion side.
+
+**And the whole reference chain loads that way.** Both `perf/of3t_diffusion/sub_boundary.py:62` —
+which produces the `grad_f64` every diffusion floor divides by — and
+`perf/of3t_condtrans/floor_bf16.py:148` call `load_state_dict(sd, strict=False)` and neither
+inspects the result. So the floor's two arms are internally matched to each other and the question
+is whether they are matched to **ours**, which is what `of3t-trajwide` is measuring and what this
+entry does not claim.
+
+**One number for the row rather than for me**: our source says **48** per-block keys traded and the
+row reports **24** discarded. Both may be right — different block sets, or the atom transformers
+counted differently — and the reconciliation belongs to the row that is running the arms, not to an
+orchestrator reading two comments.
+
+**What this update adds to D141 is only this**: the knowledge was in the tree the whole time, in a
+comment calling it *the one architectural difference*, and the instrument that had to notice it was
+looking at the other half of the load.
