@@ -41,8 +41,15 @@ MODELS = {
     "OpenDDE": ["tt_bio/opendde.py"],
     "OpenFold3": sorted(str(p) for p in Path("tt_bio").glob("openfold3*.py")),
     "BoltzGen": sorted(str(p) for p in Path("tt_bio/boltzgen").rglob("*.py")),
-    "RFdiffusion3": (sorted(str(p) for p in Path("tt_bio/rf3").rglob("*.py"))
-                     + sorted(str(p) for p in Path("tt_bio/rfd3").rglob("*.py"))),
+    # `rf3` and `rfd3` are DIFFERENT MODELS and this entry used to union them, which put
+    # RoseTTAFold3's shared-block sites on RFdiffusion3's row and made a design model that
+    # executes none of them look like a core member at eight sites. `tt_bio/rf3` is RoseTTAFold3,
+    # a predict model (`tt-bio predict --model rf3`); `tt_bio/rfd3` is RFdiffusion3, a design
+    # model (`tt-bio design --model rfd3`). Caught by `allm-model` counting zero shared classes on
+    # the rfd3 design path at unbounded depth, against the eight sites this file was reporting.
+    # Third sighting of the same conflation in this campaign, so it is separated here for good.
+    "RFdiffusion3": sorted(str(p) for p in Path("tt_bio/rfd3").rglob("*.py")),
+    "RoseTTAFold3": sorted(str(p) for p in Path("tt_bio/rf3").rglob("*.py")),
     "ESMC": ["tt_bio/esmc.py"],
     "Nesso-1": ["tt_bio/nesso1.py"],
     "AF2": ["tt_bio/af2.py", "tt_bio/af2_confidence.py"],
