@@ -1,0 +1,67 @@
+# Workstream: of3t-auxheads043
+#DISPATCH: host=pc card=cpu repo=tt-bio maxit=200 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-auxheads043
+
+OF3T row `of3t-auxheads043` — **`aux_heads` fails A18 against a reference built from the wrong
+upstream revision. Rebuild the reference at 0.4.3 and measure it again.** 2.8431 % of the model's
+gradient mass is currently carried as VOID on the strength of that failing forward.
+
+## Why this row exists
+
+D94, pass 176. Both upstream modules backing `aux_heads` differ between 0.4.3 — the revision our
+port targets, and the revision matching our `of3-p2-155k` preview2 checkpoint — and 0.5.0, which
+the campaign's reference bundle was built on:
+
+- **`prediction_heads.py`**: 0.4.3 wraps `embed_zij` (the si->zij projection and the distance-bin
+  embedding) in `autocast("cuda", float32)` and casts back; **0.5.0 removes it**. And 0.5.0
+  **adds** `autocast("cuda", pairformer_dtype=float32)` around the confidence pairformer stack
+  where 0.4.3 had none. **Two precision changes in opposite directions.**
+- **`head_modules.py`**: 0.5.0 feeds the confidence head's pairformer embedding `single_mask=
+  token_mask` where 0.4.3 passed `single_mask=repr_x_mask`, the representative-atom mask. On
+  `batch_step003` those are identical (56 = 56, 0 differing tokens) so it may contribute nothing
+  **here**, but that was measured on one datapoint and is not a general result.
+
+The `no_bin` 15 -> 39 in that diff is a **docstring** catching up to a config that already read 39
+in both revisions. It is nothing. Do not chase it.
+
+So `aux_heads`' A18 forward failure at **3.6515e-01** may be measuring the revision, not our port.
+**The scope may be unmeasured rather than broken**, and 2.8431 % of the model turns on which.
+
+## What to do
+
+**1. REFERENCE.** Rebuild the aux-heads reference from upstream **0.4.3** on the same captured
+boundary and the same `of3-p2-155k` weights. Both release trees are on pc at
+`~/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3` and `.../up0.5.0`, and
+`~/.coworker/scratch/of3t-reference/upstream{,050}`; `perf/of3t_orchestrator/revision/run_stack.py`
+on `wk/of3t-orchestrator` is a worked example of running one tree per process. Per **A27**, state
+the dtype policy of the arm you build, not just that it is "float64" or "bf16".
+
+**2. FORWARD.** The A18 forward against that 0.4.3 reference, **masked to real tokens** (D95),
+printed beside the 3.6515e-01 it read against 0.5.0. Report the norm ratio and the error cosine
+next to the relative L2, never the relative alone.
+
+**3. MODULES.** Which of the differences above actually **fire on this input** — measured, by
+running the 0.4.3 and 0.5.0 modules against each other on the same boundary the way
+`THE_REVISION_ARM_RAN.json` did for the trunk, with the same kind of control: force the
+differing knob to match and the two must agree **exactly**. A control that does not read 0.0
+means something else is live and the arm is void.
+
+**4. GRADIENT.** If and only if the forward now agrees, the gradient, with the mass-weighted
+headline for this scope's 2.8431 %.
+
+**5. VOID_OR_NOT.** Say plainly whether the scope leaves A18-void. **Both answers are results.**
+If it stays void, that is worth as much as if it passes, and this row must not shade toward the
+happier one — the campaign has already withdrawn an escalation and a refutation this week for
+exactly that reason.
+
+## Rules
+
+- **Pre-register** your branches before you run: what reading means the revision explains the
+  failure, what reading means it does not, and what would make the arm void. Write it down and
+  commit it first. The last three magnitude estimates this campaign published without that were
+  all withdrawn.
+- `BIT-EXACTNESS IS NOT REQUIRED`; accuracy is. Bars: **5.0e-02 per-tensor, 2.0e-02 mass-weighted**,
+  and per **A26** the bar an independent bf16 port can actually reach is **sqrt(2) x threshold**.
+- You hold **no card lease**; do NOT open a Tenstorrent device. This is CPU work.
+- Work only in your own worktree on branch `wk/of3t-auxheads043`. Explicit `git add <paths>` only,
+  never `git add -A`. Push your branch; do NOT merge to main.
