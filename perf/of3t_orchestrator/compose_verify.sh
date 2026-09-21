@@ -691,6 +691,17 @@ echo "--- capture provenance records unexpected_keys"
 # (3k) D151. One env var, two module-level reads, two backends -- and a comment asserting there
 # is only one flag. Both default off today, so this is green when it lands; it goes red the moment
 # a row flips one of the two, which is what of3t-d56-renorm's branch does.
+# (3l) D122/D154. The gate that ends this campaign reads `state/of3t/CHARTER_EVIDENCE.json`.
+# `audit_evidence.py` recomputes the four conditions against THIS tree and compares them to the
+# copy inside the composition -- but the copy the GATE reads is the one in state/, and nothing
+# re-derived it. They are byte-identical today only because one row wrote both. Publish it from
+# the composition every pass, so the evaluation the gate reads is of `wk/of3t` and is never older
+# than the compose that blessed it. The instrument REFUSES if its own break control fails, which
+# is why this runs before the audit rather than after.
+echo "--- publish the charter evaluation from the composition"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/charter/charter_evidence.py ) || \
+  { echo "COMPOSE: charter_evidence.py refused to publish -- see its break control"; exit 1; }
+
 echo "--- one flag, one default (D151)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
   { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }
