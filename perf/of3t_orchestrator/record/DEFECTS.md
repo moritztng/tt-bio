@@ -7910,3 +7910,74 @@ It narrows D55 rather than closing it. D55 names **four** near-cancellation site
 the two LayerNorm `dn_mean` / `dn_norm_mean` sites are unmeasured. What the campaign now knows is
 that the softmax-backward numerator is **not** the cheap win it looked like, and that is worth
 knowing before anyone spends a pass on the other three.
+
+### D126 UPDATE (pass 223, the same pass that filed it). MY HEADLINE WAS WRONG and I am correcting it before it propagates: the shipped training loop DOES call the repair. The mechanism is exactly as measured; "the shipped default trains for one step" is not.
+
+`tt_bio/train/recipes.py:180-186`, inside `train_loop`, the library's training loop:
+
+    opt.step(replicas=launcher.replicas(params))
+    # The optimizer replaced each leaf's value with a new device tensor; this
+    # puts those tensors back where the walk found them, so the next forward
+    # reads what the optimizer moved. ...
+    params.rebind()
+
+`rebind()` is `tt_bio/train/lora.py:434`, and its docstring names the failure before anyone measured
+it: *"`AdamW.step` replaces `t.value` with a fresh device tensor. A model still holding the handle
+discovery saw then reads the checkpoint's weights for the rest of the run, with real gradients, a
+falling loss curve and a model standing still."* There is even a guard — `opt.check_displacement()`
+at the end of `train_loop` — that **raises** on *"a master accumulating updates that never reach the
+weight the forward reads"*.
+
+**So `of3t-modeltraj`'s "shipped" arm is its own 20-step loop without `rebind()`, not `train_loop`.**
+The row's numbers are all correct and I verified them from its artifacts; what was wrong is the word
+**shipped**, and I took it at face value because I had checked the row's figures and its git scope
+and not the library. That is the D117 shape — a harness defect read as a capability gap — recurring
+one pass after I wrote the memory about it, against me.
+
+**What survives, unchanged and confirmed at line level:**
+
+    tt_bio/train/optim.py:253    t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+    tt_bio/autograd.py:1311      _PARAMS[id(raw.value)] = raw
+    tt_bio/autograd.py:1337-38   t = _PARAMS.get(id(raw)); return t if t is not None
+                                 and t.value is raw else None
+
+Both halves of the lookup break when `t.value` is replaced: the new handle has a different `id`, and
+the `t.value is raw` guard fails for the old one. A training loop that omits `rebind()` produces a
+gradient exactly once — `grad_norm` 4.935345e-01 at k=1 and exactly 0 after, `parameter_for`
+resolving 0 of 26 slots — and reads bit-identical to a zero-gradient model. That is a real and
+sharp-edged trap and it is worth a regression test. It is not a defect in what tt-bio ships.
+
+**Re-classified USER-FACING → CAMPAIGN-INTERNAL**, and the direction flatters me, so: the
+USER-FACING test is *"changes what someone using the shipped tt-bio gets today"*, and a user who
+calls `train_loop` gets the rebind. What is still genuinely open, and is why this stays UNFIXED
+rather than closing: **whether every training entry point reaches `recipes.py:186`**, and whether
+`check_displacement()` would actually have fired on modeltraj's arm — in that arm the master does
+not move either, so the `nan` branch may be the one that applies. `of3t-rebind`'s brief is amended
+to answer both instead of landing a fix that is already landed.
+
+**And the consequence for the GO condition is the opposite of what I wrote.** If `repin` is the same
+program as `train_loop`, then **4.763338e-02** — not 1.0 — is the campaign's model-in-the-loop
+trajectory reading, at a sub-linear exponent of −0.2482 over 36.9462 % of the model. That would make
+GO condition 3 met at that scope rather than failed, and it is the first thing `of3t-rebind` is now
+asked to settle.
+
+### D107 UPDATE (pass 223). UNFIXED and CONFIRMED live by reading, at file and line, three lines above D126's seam in the same method — so one row settles both.
+
+`tt_bio/train/optim.py:234`:
+
+    g = self.accum.get(name) if per_sample else (...)
+    if g is None:
+        continue
+
+A parameter with no accumulated gradient is skipped entirely: `m`, `v` and `theta` are all
+untouched. Upstream's `sync_and_average_grads` assigns `param.grad` for **every** parameter, zeroes
+the ones whose participation count is 0, and `torch.optim.Adam` then **still steps them** — `m` and
+`v` decay by `beta1`/`beta2` and the parameter moves on momentum alone. The code paths differ
+exactly as D107 read them, and `optim.py:253` — D126's seam — is nineteen lines below in the same
+`step()`.
+
+Still not measured, and D107 says so itself: §7's harness never produces a participation count of
+0 (spread `[1, 4]`), so the instrument that found it cannot fire it. Its own closing line names the
+cheap closure — construct a step whose samples all disable one parameter group and run both
+optimizers — and that is now `of3t-rebind`'s deliverable 4, because sending a second row into the
+same method is how two branches independently fix one defect and a merge silently picks one.

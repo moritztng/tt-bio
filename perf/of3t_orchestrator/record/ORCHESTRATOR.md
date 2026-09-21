@@ -628,7 +628,7 @@ record its own.
 
 **D63 is RE-CLASSIFIED out of USER-FACING (pass 222), and the move flatters me, so here is the whole argument.** The test I published is *"changes what someone using the shipped tt-bio gets today — an inference output, a crash, or a training run's result on the shipped default"*. **D63 (UNFIXED)** — five of five shipped models construct a site the softmax lever patches and only three reach one at runtime — changes none of those. Its table is complete and **correct**: Boltz-2 and RF3 come back byte-identical (`a0db89ee == a0db89ee`, `f9f2a94e == f9f2a94e`) because they take the **fused-SDPA branch**, a named alternative code path, and the negative controls move (1.3207 Å, 0.2005 Å) so the instrument works. It is a true measured fact **about** the shipped tree, not a defect **in** it, and its own heading says so: *"UNFIXED as a reviewing convention"*. It stays UNFIXED either way, so the gate's keyword clause is untouched; only the USER-FACING count moves, **12 → 11**. Reversible in one line, and the reasoning is in `triage.py`'s BOUNDARY block rather than only here. **I looked for a defect to move the other way in the same pass and did not find one** — that absence is recorded rather than balanced by a manufactured move.
 
-**D126 (UNFIXED, USER-FACING, new this pass and the most serious thing the campaign has found in the training loop).** `of3t-modeltraj` ran the trajectory with the model in the loop and found the wiring defect its brief predicted. `traj_shipped.json`'s `our_step_log`: `grad_norm` **4.935345e-01** at k=1 and **exactly 0.000000e+00** at every step from k=2 to k=20, with `ag.parameter_for` resolving **0 of 26** walked slots after the first step. **An optimizer that REPLACES a leaf's value silently unregisters that leaf from an identity-keyed autograd tape**, so the loop trains for exactly one step. At k=20 `d_ours_norm` is **0.0** against upstream's 5.086941e-01 — our weights never move — for `rel_d` **1.000000e+00**, **bit-identical to the A16 zero-gradient model** run through the same optimizer and scorer. With `params.rebind()`: `rel_d` **4.763338e-02**, §7b exponent **−0.2482** (r² 0.857, sub-linear, passes), **541x** the fp32 differencing floor against the shipped arm's saturated 11,349x. **Eighty passes of gradient work never saw it** because every per-step instrument assigns `params[n].grad` by hand and an injected drive never asks the tape to resolve a parameter — `of3t-traj20` ran 20 steps over all 4,147 parameters against upstream's own optimizer and passed. Controls all moved: `permute` 4.763338e-02 → **1.405424e+03** (~29,500x), `stale` → 6.347212e-02, `norebind` → 1.000000e+00 saturating; A/A bit-identical in one process and across two. Scope `diffusion_module.diffusion_conditioning`, 26 of 26 tensors, **36.9462 %** of the model squared gradient norm — the defect is in the optimizer/tape contract rather than in that module, so it is not plausibly scope-local, but it is **measured** only there and saying otherwise is the over-attribution D118 exists to warn about. The repair lives in that row's harness; its four commits touch nothing under `tt_bio/`. **`of3t-rebind` is dispatched to land it**, to cost three options rather than port the workaround, to write a regression test shown FAILING first, and to measure the reach across all 4,170 tensors instead of arguing it.
+**D126 (UNFIXED, CAMPAIGN-INTERNAL — filed and CORRECTED in consecutive passes; the correction is mine).** `of3t-modeltraj` measured that a 20-step loop produces `grad_norm` **4.935345e-01** at k=1 and **exactly 0.000000e+00** at every step after, with `ag.parameter_for` resolving **0 of 26** walked slots once the optimizer has run, so `d_20` reads **1.000000e+00** — bit-identical to the A16 zero-gradient model. **The mechanism is real and I confirmed it at line level**: `optim.py:253` does `t.value = to_device(theta, ...)`, while `autograd.py:1311` keys the registry on `id(raw.value)` and `:1337-38` guards `t.value is raw`, so **both halves of the lookup break** when the value is replaced. **But I reported that arm as *"the shipped default"* and it is not.** `tt_bio/train/recipes.py:186` calls `params.rebind()` immediately after `opt.step()`, with a comment saying why; `lora.py:434`'s docstring names the failure before anyone measured it; and `check_displacement()` raises on *"a master accumulating updates that never reach the weight the forward reads"*. The row built its own loop without the repair. I had verified its numbers against its artifacts and its commits against git, and not the library — **the D117 shape, one pass after I wrote the memory about it, against me**. It stays UNFIXED as a trap worth a regression test, and for two open questions `of3t-rebind` is now amended to answer: whether **every** training entry point reaches `recipes.py:186`, and whether `check_displacement()` would actually have fired on modeltraj's arm (there the master does not move either, so the `nan` branch may be the one that applies). **And the consequence for GO condition 3 is the opposite of what I wrote**: if `repin` is the same program as `train_loop`, then **4.763338e-02** at a sub-linear exponent of −0.2482 over 36.9462 % of the model — not 1.0 — is the campaign's model-in-the-loop trajectory reading. **D107 is confirmed live by reading in the same method**, nineteen lines above the seam: `optim.py:234`'s `if g is None: continue` skips a parameter with no accumulated gradient entirely while upstream zeroes its grad and `torch.optim.Adam` still steps it on decaying momentum. Same row, so two branches do not edit one method.
 
 **`of3t-tapediverge` concluded PARTIAL and settled four defects with measurements (pass 222); its five commits touch nothing under `tt_bio/`, verified.** **D31 is REFUTED on both halves** against a threshold pre-registered before any number existed: the fused-SDPA tape verb served **0 calls** over 48 structures and 1,440 softmax backwards in the module holding 89.2 % of the gradient, and where it IS reached an 8-site chain turns a **6.345540e-02** forward gap into a **1.573396e-03** gradient gap, flat in depth, 32x under the per-tensor bar and below the pre-registered 5.0e-03. **D30 is NARROWED** — forward and gradient taken from ONE harness, which is what D30's own closing warning asked for: shipped **14.75x**, repaired **11.03x**, against the 19.6x on the record. **D58 STANDS on post-repair evidence**, the stronger kind: 11.03x and 10.90x on two independent modules, both halved and both still together after the single largest change the backward has had. **D32 part (1) re-verifies** — 21 sites in 9 modules, **5 of 21 line numbers stale**, the line-number decay trap a third time in this file. And **AMENDMENT 1's kernel-config asymmetry fires 1,440 times and is INERT**: closing it leaves all 547 gradient tensors bit-identical, so the softmax-backward numerator is not the cheap win it looked like — `a-lever-can-fire-and-be-inert` in its clean form, and worth knowing before a pass is spent on D55's other three sites.
 
@@ -740,51 +740,69 @@ stands between that and burning a row per pass.
 
 VERDICT: PARTIAL — **OpenFold3's training step now reproduces per-parameter at model scope, at
 parity with upstream's own bf16 recipe, and the campaign still does not meet its own GO bar.** I
-wrote GO at pass 218; the gate refused it and was right, and the refusal is recorded.
+wrote GO at pass 218; the gate refused it and was right.
 
-**The shipped tree's split**: against the 2.0e-02 float64 mass-weighted bar the default-off tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) measured and passing, **94.8836 %** measured and failing, **2.0067 %** unread. That is the SHIPPED configuration; the readings below are the configured one, and the two differ by two default-off levers — the distinction DOESNOT leads with.
+**The shipped tree's split**: against the 2.0e-02 float64 mass-weighted bar the default-off tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) measured and passing, **94.8836 %** measured and failing, **2.0067 %** unread. That is the SHIPPED configuration; the readings below are the configured one, two default-off levers apart.
 
-**The closing measurement** (`of3t-wholemodel`). With `of3t-apbgrad`'s
-softmax-backward repair on and **nothing else — no host round trip** — the model-scope gradient
-reads **1.006695e-01** against upstream 0.4.3's own bf16 training step over **92.1568 %** of the
-squared gradient norm, against a reachable bar of **1.049545e-01**: **0.9592x**. With the trunk
-composed, coverage **97.9850 %** and the reading **1.528664e-01** against **1.627551e-01**:
-**0.9392x**. Pre-registered branch **B2**, assembled per tensor, references named per A27; the
-composition is an **identity** at relative difference **0.0**. Controls: A16 zero model
+**The closing measurement** (`of3t-wholemodel`). With `of3t-apbgrad`'s softmax-backward repair on
+and **nothing else — no host round trip** — the model-scope gradient reads **1.006695e-01** against
+upstream 0.4.3's own bf16 training step over **92.1568 %** of the squared gradient norm, against a
+reachable bar of **1.049545e-01**: **0.9592x**. With the trunk composed, coverage **97.9850 %** and
+the reading **1.528664e-01** against **1.627551e-01**: **0.9392x**. Pre-registered branch **B2**, assembled per
+tensor; the composition is an **identity** at relative difference **0.0**. Controls: A16 zero model
 9.999999997e-01, break control **2.009101e+01** at cos **−0.0028**, A/A bit-identical.
 
 **What GO requires** — of the gate's five conditions, two met and three not:
-- **per-parameter gradients at MODEL scope — MET**, above
-- **§6 coverage, every loss term fired — MET**, 8 of 8, on OpenFold3's own cache.
-- **an N-step weight trajectory on the MODEL — RAN, and found the shipped loop does not train
-  (D126).** `of3t-modeltraj` clears §7b at **4.763338e-02**, exponent **−0.2482**, over 36.9462 % of
-  the model — but only with an unmerged rebind. On the **shipped default** `grad_norm` is
-  4.935345e-01 at k=1 and **exactly 0.0 at every step after**, because an optimizer that replaces a
-  leaf's value unregisters it from the identity-keyed tape: `d_20` reads **1.000000e+00**,
-  bit-identical to the A16 zero model. An injected drive cannot see this at any N, which is why
-  eighty passes did not. `of3t-rebind` owns the fix.
-- **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, and now COSTED.**
-  `of3t-theirtest` returned NO-GO; its commits touch nothing under `tt_bio/`, verified. Unmodified
-  it skips (*"Requires cuda; found cpu"*). Off CUDA with three disclosed shims it EXECUTES and both
-  cases fail at ONE key — Triton triangle kernels left on the EVAL path by upstream's own generator.
-  Cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
+- **per-parameter gradients at MODEL scope — MET**
+- **§6 coverage, all 8 loss terms fired — MET**, on OpenFold3's own cache.
+- **an N-step weight trajectory on the MODEL — RAN at 4.763338e-02, and my first reading of it was
+  wrong (D126, corrected the same pass).** `of3t-modeltraj` clears §7b at **4.763338e-02**, exponent
+  **−0.2482**, over 36.9462 % of the model. I reported its other arm as *"the shipped default trains
+  for one step"*; it is not shipped — `recipes.py:186` calls `params.rebind()` right after
+  `opt.step()`, so that arm is the row's own loop without the repair. The mechanism is real
+  (`optim.py:253` replaces `t.value`; `autograd.py:1311/1337` key on `id(raw.value)`). Open: whether
+  every entry point reaches that call, and whether `repin` is the same program as `train_loop` — if
+  it is, **4.763338e-02 is this condition's reading**. `of3t-rebind` is amended to settle it.
+- **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, and COSTED.**
+  `of3t-theirtest` returned NO-GO; its commits touch nothing under `tt_bio/`. Unmodified it skips
+  (*"Requires cuda; found cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases
+  fail at ONE key — Triton triangle kernels left on the EVAL path by upstream's own generator;
+  cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
   device and we are not one. Two closures costed, in GAP.
 - **no unfixed or user-facing defect in GAP — NOT MET, and the condition itself is defective
   (D122).** It is a keyword test on GAP's prose — two texts both naming all forty-seven UNFIXED
-  defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement
-  between them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none
-  ours to fix. Triaged against the ledger: **4 scope-excluded, 11 USER-FACING, 32
-  campaign-internal**. I did not move the bar; I added a clause beside it reading
-  `state/of3t/UNFIXED_TRIAGE.json` that refuses GO while any UNFIXED defect ships to users.
+  defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
+  them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
+  Triaged against the ledger: **4 scope-excluded, 10 USER-FACING, 33 campaign-internal**. I did not
+  move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
+  while any UNFIXED defect ships to users.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off,
-unmerged and asserted so on every compose. One step's gradient on one batch; nothing here speaks to
+unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to
 stability over 100k steps or convergence. **2.0150 %** of the mass has no reading. Crop 640 fits at
-+5.82 GB; **768 does not**, by 9.72 GB.
++5.82 GB, **768 does not** by 9.72 GB.
 
 Fifty-six dispatched, fifty-three concluded, three live (this row, `of3t-permalign`, `of3t-rebind`); one hundred twenty-six defects, forty-seven UNFIXED; fifty-five of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **D125's narrative, moved out of GAP at pass 222** because the field went over its cap; nothing in it is changed.
+PASSLOG: **Pass 223 — I corrected my own headline from the pass before, and the correction is the pass's main result.** At 222 I filed **D126** as *"on the shipped default our training loop produces a gradient exactly once and then zero forever"*, USER-FACING and severe, and dispatched `of3t-rebind` to land the repair in `tt_bio/`. I had verified `of3t-modeltraj`'s numbers against its own artifacts and its four commits against git. **I had not read the library.** `tt_bio/train/recipes.py:180-186`:
+
+    opt.step(replicas=launcher.replicas(params))
+    # The optimizer replaced each leaf's value with a new device tensor; this
+    # puts those tensors back where the walk found them, so the next forward
+    # reads what the optimizer moved. ...
+    params.rebind()
+
+`rebind()` is `lora.py:434` and its docstring names the failure before anyone measured it — *"a model still holding the handle discovery saw then reads the checkpoint's weights for the rest of the run, with real gradients, a falling loss curve and a model standing still"* — and `check_displacement()` at the end of `train_loop` **raises** on exactly that. So `of3t-modeltraj`'s "shipped" arm is **its own 20-step loop without the repair**, not `train_loop`, and the word I should have checked was the one word I took at face value.
+
+**This is the D117 shape, one pass after I wrote the memory about it, and this time it is mine.** A harness defect read as a capability gap: `of3t-permalign` was dispatched at 222 precisely because two rows' harness defects had held a NOT COVERED for eighty passes, and at 223 I did the same thing in one pass. The rule that would have caught it is the one `of3t-permalign` is proving: **before believing "the shipped X does Y", read the shipped X.** Verifying a row's numbers and its git scope is necessary and it is not sufficient, because neither can tell you the row's noun is the one you think it is.
+
+**What survives, confirmed at line level and worth keeping.** `optim.py:253` does `t.value = to_device(theta, ...)`; `autograd.py:1311` keys `_PARAMS` on `id(raw.value)` and `:1337-38` guards `t.value is raw`, so **both halves of the lookup break** when the value is replaced. A hand-written training loop that omits `rebind()` really does train for exactly one step and reads bit-identical to a zero-gradient model. That is a sharp-edged trap with no runtime signal of its own, and it deserves a regression test on the CONTRACT rather than on `train_loop`, which passes. D126 stays UNFIXED for two questions I cannot answer from the couch: whether **every** training entry point reaches `recipes.py:186`, and whether `check_displacement()` would actually have fired on modeltraj's arm — in that arm the master does not move either, so the `nan` branch may be the one that applies, and *a guard that exists and would not have fired* is the more interesting answer.
+
+**And the consequence for the GO condition inverts.** If `repin` is the same program as `train_loop`, then **4.763338e-02** at a sub-linear exponent of **−0.2482** over **36.9462 %** of the model is the campaign's model-in-the-loop trajectory reading, and condition 3 is met at that scope rather than failed. That is now the first thing `of3t-rebind` is asked to settle.
+
+**`of3t-rebind`'s brief was amended in place, forty minutes after dispatch**, because a live row working from a wrong brief is a wasted card. Deliverables 1-3 are superseded: the fix is landed, so the row now walks every training entry point for the `rebind()` call, tests the guard against modeltraj's arm, writes the contract regression test, and settles whether 4.763338e-02 stands. **D107 is folded into the same row** — confirmed live by reading this pass at `optim.py:234` (`if g is None: continue` skips a parameter with no accumulated gradient entirely, where upstream zeroes its grad and `torch.optim.Adam` steps it on decaying momentum), nineteen lines above D126's seam in the same `step()`. One row for one method, so two branches do not independently edit it.
+
+**D125's narrative, moved out of GAP at pass 222** because the field went over its cap; nothing in it is changed.
 
 **D125 (UNFIXED as a standing discipline)**: prompted by D87 and D9, I scanned `DEFECTS.md` for every defect still carrying UNFIXED on its own heading while some OTHER entry declares it closed. Five hits, **one real** — D9, restated RESOLVED above. The other four are why this is an adjudication and not a check: **D8 inside D116** matches the words *"D8 IS NOT CLOSED"*, a **negation** that would have closed a live user-facing defect; **D8 inside D120** retires its *hypothesis*, and D120's next sentence says *"this does not close D8"*; **D56 inside D62** withdraws its *mechanism section*, which D56's own heading already says. **D24 inside D10** is the one that is genuinely unclear rather than a false positive — *"a rule that gave 0.8 of its weight to a term that is identically zero (D24), now fixed"* — because whether the corrected rule is the SHIPPED default is a different question from whether a fix was written; **settled the same pass, by reading, and it settles the opposite way**: `openfold3_fold.py:277` still ships `0.8*iptm + 0.2*ptm + 0.5*disorder - 100*has_clash`; `protenix.py:1708-1716` initialises `iptm` to 0.0 and only assigns it when `asym_id.unique().numel() > 1` (its own docstring says so); and `_has_clash` at `:92-103` iterates `chains[i+1:]`, so with one chain it returns 0.0 unconditionally. On a single chain the shipped rule is `0.2*ptm + 0.5*disorder`. D24 is UNFIXED, LIVE, and now located at three lines instead of asserted — the candidate rule D10 measured did not ship, so "now fixed" described a fix that was written, not one a user gets. Ten minutes of reading, and it flipped the direction I expected. **No guard shipped**: three of five hits are correct text, and a guard that fires on correct behaviour is one the next caller deletes — this campaign has lost two that way. The discipline instead: **a defect is closed on its own heading or it is not closed**, and an entry that resolves an earlier one restates that heading in the same pass.
 

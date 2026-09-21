@@ -90,9 +90,6 @@ TABLE = {
     "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
                   "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
                   "the repair, re-measured from ONE harness at pass 222."),
-    "D126": (USER, "On the shipped default the training loop produces a gradient exactly once and "
-                   "then zero forever: the optimizer replaces a leaf's value and the "
-                   "identity-keyed tape loses it. d_20 is bit-identical to the A16 zero model."),
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
@@ -173,6 +170,9 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
+    "D126": (CAMP, "RE-CLASSIFIED pass 223, see BOUNDARY. A training loop that omits "
+                   "params.rebind() trains for one step -- but recipes.py:186 calls it, so this "
+                   "is a harness trap and not something a user of train_loop hits."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
@@ -200,6 +200,20 @@ BOUNDARY = {
     "D73": "Arguably already closed by of3t-refprec and of3t-wholemodel, which measured exactly "
            "what it says was never measured. Left UNFIXED and CAMPAIGN-INTERNAL here because "
            "closing a defect is a status edit in DEFECTS.md, not a side effect of a triage.",
+    "D126": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 223, in the SAME pass that filed "
+            "it as USER-FACING, and the move flatters me, so: I filed it on of3t-modeltraj's "
+            "phrase 'the SHIPPED default', having verified the row's numbers against its "
+            "artifacts and its commits against git but NOT the library. tt_bio/train/recipes.py:186 "
+            "calls params.rebind() immediately after opt.step(), with a comment saying why, and "
+            "lora.py:434's docstring names the failure before anyone measured it. So the row's "
+            "'shipped' arm is its own loop without the repair. The mechanism is real and confirmed "
+            "at line level (optim.py:253 replaces t.value; autograd.py:1311/1337-38 key on "
+            "id(raw.value) and guard t.value is raw), and a hand-written loop that omits rebind "
+            "really does train for one step -- so it stays UNFIXED as a trap worth a regression "
+            "test. What keeps it open rather than closed: whether EVERY training entry point "
+            "reaches recipes.py:186, and whether check_displacement() would actually have fired. "
+            "of3t-rebind is amended to answer both. Same shape as D117, one pass after I wrote the "
+            "memory about it.",
     "D28": "Could be read as USER-FACING: the forwards really do disagree. Kept CAMPAIGN-INTERNAL "
            "because the defect it FILES is that the gradient comparisons taken there are void; "
            "the forward disagreement is D19 (closed for the trunk) and D87 (refuted).",
