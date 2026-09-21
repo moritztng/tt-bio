@@ -28,18 +28,17 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 
 PLAN = {
-    "D1": {
-        "needs": DECISION,
-        "one_line": "the trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value",
-        "closes_when": ("Moritz decides whether to ship the written repair and accept the measured "
-                        "0.149 A regression at rank 0, or to declare the deviation intentional and "
-                        "close it with that measurement as the reason"),
-        "evidence_held": ("the coefficient sweep fits c = 1/sqrt(24) at 6.9e-03 to 1.7e-02 on all "
-                          "four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written "
-                          "and measured; D10, its original blocker, is resolved"),
-        "would_a_row_help": False,
-        "asked": "pin 9629 (2026-09-21), with a stated default: hold",
-    },
+    # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
+    # non-determinism is pc card 0, a faulty card root-caused 2026-08-17, not a protenix
+    # property. Filing it USER-FACING was my error -- a row reporting a digest instability
+    # from that card has not measured determinism, and the exclusion is standing.
+    # D1 was here until pass 280 and is gone because it CLOSED, not because the plan shrank:
+    # Moritz decided it on ask 9629 ("fix it everywhere"), of3t-d1-pairbias concluded GO against
+    # his one reopen condition (4 targets, 6 seeds, 48 folds, sign test p = 0.541, pooled median
+    # negative, sole regressor 1UBQ which is the earlier objection's own target), and the repair
+    # is in the composition with the shipped-default assertion moved to match. The plan refused
+    # to publish while it still listed D1 -- "the plan and the live USER-FACING set disagree" --
+    # which is the check doing its job rather than an inconvenience.
     "D10": {
         "needs": DECISION,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
@@ -189,13 +188,14 @@ def main() -> int:
           f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
           f"`of3t-ditcot` is dispatched against it and held until a card frees.")
     asked = [n for n in order if PLAN[n].get("asked")]
-    print(f"All {len(asked)} of the decision/release items are ASKED as one bundle (pin 9629), each "
-          f"with a default I apply if no answer comes -- hold, which is the current state. Asking "
-          f"rather than assuming a saturated channel: the pending-input queue is 46 records, 16 "
-          f"open and 30 resolved, so roughly two thirds of asks get answered.")
-    print("So condition 5 is one decision bundle and one measurement, not nine investigations. "
-          "Stated as a plan, not a promise: naming a closure condition is not meeting it, and an "
-          "asked question is not an answered one.")
+    print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
+          f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "
+          f"own judgement. and do the right thing.\" The calls are recorded with their reasoning in "
+          f"state/ask-9629-decision.md. So these are no longer waiting on him -- they are waiting "
+          f"on a MERGE, which is a different gate and still his.")
+    print("So condition 5 is now one merge, one card-bound measurement each for the rest, and no "
+          "open question. Stated as a plan, not a promise: naming a closure condition is not "
+          "meeting it, and a decided defect is not a merged one.")
 
     OUT.write_text(json.dumps({
         "what": ("What it would take to clear GO condition 5, per USER-FACING defect. Asserted "

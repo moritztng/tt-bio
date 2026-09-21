@@ -198,9 +198,13 @@ def _v_matmul(shipped, args, kwargs):
 # the row sums of d_logits vanish identically when it does not. Measured against an upstream
 # 0.4.3 float64 reference, block 15 of the trunk: the module's own output cotangent goes from
 # 33.29x the reference in norm to 0.64x. It touches NO forward, so no shipped inference result
-# can move. Default off: release-gated, `perf/of3t_apbgrad/`.
-_SOFTMAX_BW_RENORM = os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0").lower() \
-    not in ("", "0", "false", "no", "off")
+# can move. ON by default since 2026-09-21 (ask 9629); `perf/of3t_d56renorm/` has the proof
+# that it cannot reach a fold.
+#
+# An ALIAS, not a parse. This used to be its own `os.environ.get` and `autograd` has another,
+# which meant one environment variable with two defaults -- flip one and the host float64
+# backward keeps the other. The name stays because harnesses read it.
+_SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM
 
 
 @_verb("softmax", "softmax_in_place")

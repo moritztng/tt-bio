@@ -173,7 +173,7 @@ class OF3Trunk(Module):
         # 78.0 % wrong against upstream's 0.9 % bf16 floor. Measured in perf/of3t_trunkcliff.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, tri_att_scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=True, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
             # Default ON. 34.138 -> 22.574 s at 512 aa, 1.5123x, 11.564 s, on A/A floors of

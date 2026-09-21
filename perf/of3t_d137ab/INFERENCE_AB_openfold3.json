@@ -1,0 +1,418 @@
+{
+ "AA_floor_seconds": 13.63,
+ "AA_floor_seconds_per_arm": {
+  "base": 13.63,
+  "off": 12.87,
+  "on": 7.55
+ },
+ "AB_seconds": {
+  "off_minus_base": -0.46,
+  "on_minus_off": -1.02
+ },
+ "arms": {
+  "base": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 10
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 26.0,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 13
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 35.04,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 32.93,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 39.63,
+    "softmax_census": {},
+    "tail": ""
+   }
+  ],
+  "off": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 10
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 28.18,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 33.94,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 33.11,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 15
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 15 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 41.05,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ],
+  "on": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 11
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 30.84,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 32.42,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 32.57,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 38.39,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ]
+ },
+ "arms_below_1200MHz": [],
+ "base_equals_off": true,
+ "base_equals_on": true,
+ "card": "0",
+ "clock": {
+  "base": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 10
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 13
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   }
+  ],
+  "off": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 10
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 15
+   }
+  ],
+  "on": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 11
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   }
+  ]
+ },
+ "digest_stable_within_arm": true,
+ "digests": {
+  "base": [
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   }
+  ],
+  "off": [
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   }
+  ],
+  "on": [
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   },
+   {
+    "cdk2x2_128.cif": "5360515daf3a38ba08e4bfb021948631b6d98ad6c7940eee7f763dad9c4505d3"
+   }
+  ]
+ },
+ "fixture": "/home/moritz/.coworker/wt/of3t-d137ab/perf/size512/fixtures/cdk2x2_128.yaml",
+ "median_seconds": {
+  "base": 33.98,
+  "off": 33.52,
+  "on": 32.5
+ },
+ "model": "openfold3",
+ "readable_above_the_floor": {
+  "off_minus_base": false,
+  "on_minus_off": false
+ },
+ "reps": 4,
+ "seconds": {
+  "base": [
+   26.0,
+   35.04,
+   32.93,
+   39.63
+  ],
+  "off": [
+   28.18,
+   33.94,
+   33.11,
+   41.05
+  ],
+  "on": [
+   30.84,
+   32.42,
+   32.57,
+   38.39
+  ]
+ },
+ "softmax_calls_per_fold": {
+  "off": 0,
+  "on": 0
+ },
+ "verdict": "FREE: output byte-identical across all three arms, and every A/B ({'off_minus_base': -0.46, 'on_minus_off': -1.02}) is inside the 13.63 s A/A floor"
+}
