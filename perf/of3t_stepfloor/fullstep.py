@@ -133,6 +133,7 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     once and the per-sample work is `dc.single` plus the module -- which is what makes the
     per-sample rate a rate.
     """
+    import numpy as np
     import torch
     import ttnn
     from tt_bio.openfold3_sample_diffusion import fourier_noise_emb, pad_dim
@@ -198,10 +199,25 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
         print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
     out["per_sample_s"] = per_sample
     out["n_atom"] = int(n_atom)
-    return roots, (zij_pad, inv_cache)
+    out["n_token"] = int(n_token)
+    # The representative atom per token, taken from the shipped atom->token map rather than
+    # from a fixture field this harness does not have. `af3_loss` is a TOKEN-scope objective
+    # -- `losses.distogram` documents its logits as "[N, N, 64] on representative atoms" --
+    # so handing it n_atom coordinates builds three [n_atom, n_atom, 64] logit arrays, which
+    # at 384 tokens is 4.6 GB each. The first run of this harness did exactly that and was
+    # killed at 41.8 GB RSS.
+    a2t = ttnn.to_torch(atom_to_token_idx_tt).reshape(-1).long()[:n_atom].numpy()
+    rep = np.full(int(n_token), -1, dtype=np.int64)
+    for ai, ti in enumerate(a2t):
+        if 0 <= ti < n_token and rep[ti] < 0:
+            rep[ti] = ai
+    out["tokens_without_an_atom"] = int((rep < 0).sum())
+    rep = np.clip(rep, 0, n_atom - 1)
+    out["rep_atom_index"] = "first atom of each token, from atom_to_token_idx"
+    return roots, (zij_pad, inv_cache), rep
 
 
-def host_losses(roots, n_atom, weights, rng, out):
+def host_losses(roots, rep, weights, rng, out):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
     The loss is where it lives. `tt_bio.train.objectives.af3_loss` is numpy: a training step
@@ -216,11 +232,16 @@ def host_losses(roots, n_atom, weights, rng, out):
     from tt_bio import autograd as ag
 
     dl_s, host_s, seeds_out, fired = 0.0, 0.0, [], None
-    for r in roots:
+    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}", flush=True)
+    for k, r in enumerate(roots):
         t0 = time.perf_counter()
         raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
-        pred = ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)
+        atoms = ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)
+        n_atom = atoms.shape[0]
+        pred = atoms[rep]                      # token scope, one atom per token
         dl_s += time.perf_counter() - t0
+        print(f"  [losses] root {k} downloaded {n_atom} atoms -> {pred.shape[0]} tokens "
+              f"in {time.perf_counter() - t0:.2f}s", flush=True)
 
         t0 = time.perf_counter()
         n = pred.shape[0]
@@ -249,13 +270,21 @@ def host_losses(roots, n_atom, weights, rng, out):
                    "resolved_logits": lg(n, 2)}
         total, breakdown, seeds = af3_loss(labels, outputs, weights)
         host_s += time.perf_counter() - t0
-        seeds_out.append(seeds.get("pred_xyz"))
+        g = seeds.get("pred_xyz")
+        # The cotangent goes back on the ATOM tensor the module returned: the loss touched
+        # one atom per token, so every other atom's seed is a true zero, not a dropped term.
+        g_atom = np.zeros((n_atom, 3))
+        if g is not None:
+            np.add.at(g_atom, rep, np.asarray(g, np.float64))
+        seeds_out.append(g_atom)
+        print(f"  [losses] root {k} af3_loss done, {sum(1 for v in breakdown.values() if v['value'] is not None)} terms", flush=True)
         if fired is None:
             fired = {k: {"weight": v["weight"], "skipped": v.get("skipped"),
                          "fired": bool(v["weight"] != 0.0 and v["value"] is not None)}
                      for k, v in breakdown.items()}
     out["terms"] = fired
     out["terms_fired"] = sum(1 for v in (fired or {}).values() if v["fired"])
+    out["scope"] = "token, one representative atom per token"
     out["download_s"] = round(dl_s, 3)
     out["host_loss_s"] = round(host_s, 3)
     out["value_claimed"] = False
@@ -346,16 +375,18 @@ def main() -> int:
 
                     # --- 2. diffusion ------------------------------------------------------
                     t0 = time.perf_counter()
-                    roots, keep = diffusion_train(sampler, sargs, s_tr, z_tr,
-                                                  a.samples, rng, d_out)
+                    roots, keep, rep = diffusion_train(sampler, sargs, s_tr, z_tr,
+                                                       a.samples, rng, d_out)
                     row["diffusion_s"] = round(time.perf_counter() - t0, 3)
                     row["diffusion"] = d_out
+                    print("  [tape] leaving the tape context", flush=True)
                     row["dram_after_diffusion"] = _dram(dev)
 
+                print("  [tape] left the tape context", flush=True)
                 # --- 3. loss heads --------------------------------------------------------
                 l_out = {}
                 t0 = time.perf_counter()
-                seeds = host_losses(roots, d_out.get("n_atom"), weights, rng, l_out)
+                seeds = host_losses(roots, rep, weights, rng, l_out)
                 row["losses_s"] = round(time.perf_counter() - t0, 3)
                 row["losses"] = l_out
 
