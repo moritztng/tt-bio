@@ -1,0 +1,65 @@
+{
+  "question": "Where is the model-scope gradient error, and is it distributed or located?",
+  "answer": "LOCATED, entirely. `diffusion_module.diffusion_transformer` carries 43.6221 % of the mass at rel_L2 8.1943 against float64 with a norm ratio of 8.5625 and cosine 0.4187. Remove that one section and the remaining 48.5347 % of mass over 451 tensors reads 0.0675 against float64 -- BELOW upstream's own bf16 training step, which is 0.0753 from the same float64 -- and 0.1123 against upstream's own bf16, which is 1.07x the A26 reachable bar. The campaign's headline 5.6379 is one section.",
+  "derived_from": {
+    "path": "perf/of3t_wholemodel/MODEL_shipped.json",
+    "sha256": "a33bd07a25f111769196217d33610fb9f8e49f52f9b96c459184990856f990d8",
+    "float64_reference_sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+    "diffusion_arm_capture": "diffusion=/home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt"
+  },
+  "bars": {
+    "A26_reachable_bar_vs_their_bf16": 0.1049544980174316,
+    "upstream_own_bf16_floor_vs_float64": 0.07525074084476165,
+    "per_tensor_bar": 0.05,
+    "mass_weighted_bar_vs_float64": 0.02,
+    "A16_zero_model_measured_vs_their_bf16": 0.9999999997275346
+  },
+  "arms": {
+    "shipped_vs_FLOAT64": {
+      "all": {
+        "pct_of_model_mass": 92.15682156952717,
+        "mass_weighted_rel_l2": 5.637919818294237,
+        "n_over_per_tensor_bar": 678,
+        "n_tensors": 907
+      },
+      "ex_diffusion_transformer": {
+        "pct_of_model_mass": 48.534710088201145,
+        "mass_weighted_rel_l2": 0.06747972628710563,
+        "n_over_per_tensor_bar": 281,
+        "n_tensors": 451
+      },
+      "diffusion_transformer_only": {
+        "pct_of_model_mass": 43.622111481326,
+        "mass_weighted_rel_l2": 8.1943198897631,
+        "mass_weighted_norm_ratio": 8.562512501797656,
+        "mass_weighted_cos": 0.41867044784861346,
+        "n_over_per_tensor_bar": 397,
+        "n": 456
+      }
+    },
+    "shipped_vs_UPSTREAM_BF16": {
+      "all": {
+        "pct_of_model_mass": 92.15682156952717,
+        "mass_weighted_rel_l2": 5.5215642814948955,
+        "n_over_per_tensor_bar": 870,
+        "n_tensors": 907
+      },
+      "ex_diffusion_transformer": {
+        "pct_of_model_mass": 48.534710088201145,
+        "mass_weighted_rel_l2": 0.11226434774603314,
+        "n_over_per_tensor_bar": 438,
+        "n_tensors": 451
+      },
+      "diffusion_transformer_only": {
+        "pct_of_model_mass": 43.622111481326,
+        "mass_weighted_rel_l2": 8.024634375269974,
+        "mass_weighted_norm_ratio": 8.39848148528851,
+        "mass_weighted_cos": 0.4250610312397521,
+        "n_over_per_tensor_bar": 432,
+        "n": 456
+      }
+    }
+  },
+  "the_open_question": "This arm's diffusion capture is /home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt. `of3t-ditref` (concluded, GO) re-measured the diffusion module on a DIFFERENT capture, /home/ttuser/of3t_softgrad/diffcap043, with the 0.4.3 reference tree resolved and read back in-process, and got 0.0934424638 vs float64 over 547 tensors and 0.5865x upstream 0.4.3's own bf16. Those are different captures and different tensor sets, so they do not formally contradict -- but the model-scope number the charter reads has never been re-taken since that repair, and it is the ONLY thing standing between this campaign and a gradient-confidence statement. Nothing else at model scope is above the reachable bar by more than 1.07x.",
+  "note": "A norm ratio of 8.5625 with cosine 0.4187 is not a precision signature. Precision error shrinks a cosine toward 1 and leaves the norm near 1; this is a different function or a different scale, which is also why no softmax or dtype lever has moved it."
+}

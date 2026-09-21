@@ -8769,6 +8769,36 @@ class AttentionPairBias(Module):
         return x
 
 
+# D174. Upstream OpenFold3 zeroes the output of EVERY transition on padded positions:
+# `core/model/layers/transition.py` ends `_transition` with `x = self.linear_out(x) * mask`, and
+# `projects/of3_all_atom/model.py` passes `_mask_trans=True` at seven call sites, hard-coded, so
+# it is not a knob the reference could have been run without. Our port passes no mask to any
+# transition and had no parameter to pass one through.
+#
+# On a padded row the pair representation is zero, so the transition's LayerNorm emits its
+# normalised part as zero and the MLP passes its own biases through: a nonzero update,
+# independent of the pad's contents, added into the residual and compounded over 48 blocks.
+# `of3t-modelboundary` measured both halves of that signature on the trunk -- bit-exact
+# invariance to pad VALUES (`--pad-scale 0`, 0 of 2,736 tensors moved) and a gradient norm that
+# tracks pad EXTENT (12.3912543630 at 8 pad rows against 43.2103398400 at 328, 3.487164x).
+#
+# OFF by default. This changes inference numerics on a path five models execute, so it is
+# release-gated and carries an inference fold A/B before it can ship. Set TT_BIO_MASK_TRANS=1
+# for the masked arm.
+_MASK_TRANS = env_flag("TT_BIO_MASK_TRANS", False)
+
+# The negative control for the lever above, and the reason it is a flag rather than a harness
+# edit: an all-ones mask is the ONE input that must leave every number bit-identical to the
+# unmasked arm. If it does not, the lever is not the mask and nothing measured with it means
+# what it says. Only read when _MASK_TRANS is on.
+_MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
+
+# Reached only from the masked branch, and counted so "the lever fired" is a reading rather
+# than an argument -- `a-lever-can-fire-and-be-inert` has both halves. A harness reads this out
+# of the loaded module after the run.
+MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -8785,8 +8815,34 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
-                 ) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
+                 mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """`mask` zeroes the output on padded positions, the way upstream's `_mask_trans` does.
+
+        It broadcasts against `x`, so it carries x's rank with 1 in the channel axis: [1,S,S,1]
+        on the pair track, [1,S,1] on the single track. None reproduces today's output byte for
+        byte, which is what every caller outside the OpenFold3 path passes.
+
+        Applied once to the assembled result rather than inside `swiglu`. The multiply is
+        elementwise and every chunking path below is row- or column-local, so masking the chunks
+        and masking the assembly write the same bytes; masking here leaves the chunk arithmetic
+        and its L1 budgets untouched.
+        """
+        out = self._swiglu_all(x, memory_config)
+        if mask is None:
+            return out
+        masked = ttnn.multiply(out, mask)
+        if not ops.taping():
+            # Under a tape the multiply's backward reads its operands, and freeing the
+            # unmasked result here is what made the first masked arm die 10 s in with
+            # `TT_THROW @ ttnn/core/tensor/storage.cpp:60` -- a tensor with no storage. The
+            # inference path has no backward and keeps the free, which is where the bytes
+            # matter: the pair-track result is 48 MB at 384 aa.
+            ttnn.deallocate(out)
+        return masked
+
+    def _swiglu_all(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
+                    ) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
@@ -9253,7 +9309,11 @@ class PairformerLayer(Module):
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
+        trans_mask_z: ttnn.Tensor | None = None, trans_mask_s: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
+        """`trans_mask_z` / `trans_mask_s` are upstream's `pair_trans_mask` / `single_trans_mask`
+        (D174), already shaped to broadcast. `Pairformer` builds them once per stack call rather
+        than once per block; a caller that passes neither computes exactly what it does today."""
         z_update = self.triangle_multiplication_start(z, mask)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
@@ -9274,7 +9334,7 @@ class PairformerLayer(Module):
         # immediately, so assembling the row blocks into L1 removes the write and the read.
         z_update = self.transition_z(
             z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
-            if _RESIDUAL_L1 else None)
+            if _RESIDUAL_L1 else None, mask=trans_mask_z)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
         if self.transform_s:
@@ -9293,7 +9353,7 @@ class PairformerLayer(Module):
             ttnn.deallocate(s_norm)
             s = self._s_residual(s, s_update)
 
-            s_update = self.transition_s(self._s_compute(s))
+            s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
         return s, z
 
@@ -9378,6 +9438,30 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        # D174, once per stack call rather than once per block: 48 blocks would otherwise pay
+        # for the same two tensors 48 times, and `ttnn.unsqueeze` on a [1,S,S] pair mask is not
+        # a view -- it pads the last axis from 1 to 32 and writes a real tensor.
+        #
+        # The single-track mask is derived rather than passed, because a pair mask in this model
+        # family is always the outer product m[:,:,None] * m[:,None,:] (the same fact
+        # `PairformerModule` relies on when it recovers the 1-D mask from the diagonal), and
+        # then max_j m_i m_j = m_i exactly. Reducing with `max` keeps it a device op with no
+        # host round trip. The 3-D guard excludes the affinity pair mask, which is a cross-chain
+        # mask and NOT an outer product; that path is Boltz-2's and is not what D174 is about.
+        trans_mask_z = trans_mask_s = None
+        if not _MASK_TRANS:
+            MASK_TRANS_STATS["declined_off"] += 1
+        elif mask is None or len(mask.shape) != 3:
+            MASK_TRANS_STATS["declined_rank"] += 1
+        else:
+            trans_mask_z = ttnn.unsqueeze(mask, -1)
+            trans_mask_s = ttnn.max(mask, dim=-1, keepdim=True)
+            if _MASK_TRANS_ONES:
+                trans_mask_z = ttnn.ones_like(trans_mask_z)
+                trans_mask_s = ttnn.ones_like(trans_mask_s)
+                MASK_TRANS_STATS["ones"] += 1
+            MASK_TRANS_STATS["stacks"] += 1
+            MASK_TRANS_STATS["blocks"] += len(self.blocks)
         for i, block in enumerate(self.blocks):
             # Through the seam, so a tape can checkpoint the block and inference cannot tell.
             # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
@@ -9385,9 +9469,14 @@ class Pairformer(Module):
             # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
             s, z = ops.checkpoint_segment(
                 lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
-                                          extra_attn_bias),
+                                          extra_attn_bias, trans_mask_z, trans_mask_s),
                 s, z)
             dram_peak(f"pairformer block {i} done")
+        if trans_mask_z is not None and not ops.taping():
+            # Same reason as in `Transition.__call__`: the tape's backward still reads both
+            # masks after this call returns, so only the inference path may free them.
+            ttnn.deallocate(trans_mask_z)
+            ttnn.deallocate(trans_mask_s)
         return s, z
 
 

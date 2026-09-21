@@ -1508,3 +1508,61 @@ builds the artifact violating exactly that requirement and demands the evaluator
 clause that cannot say NOT MET makes its MET worthless, and until pass 319 nothing tested that
 direction. It is demonstrated rather than asserted — rigging `moves` to return True makes the
 control fire with the clause named.
+
+**A32 — 2026-09-21, forced by Moritz's own amendment to this campaign's brief (pass 319), not
+mine. A GO CONDITION THAT CANNOT BE REACHED IS NOT A BAR, IT IS AN ENDING THE CAMPAIGN IS
+FORBIDDEN. THEIR-TEST is removed.**
+
+Upstream's `test_training_full.py` was the charter's first and cheapest condition.
+`of3t-theirtest` established it cannot execute on the ttnn backend without a torch PrivateUse1
+backend plus a Lightning `Accelerator` — a new subsystem — and that the cheap alternative, our
+model inside their harness, destroys what the artifact would have proved. Keeping it as a GO
+condition therefore made GO unreachable and left this campaign able to end only in NO-GO or not
+at all. **GO now means: the gradients are correct and the document says what that confidence
+rests on.**
+
+Removed from `CHARTER_GO` and from `CHARTER_EVIDENCE` in the same pass. Two readers of one
+condition that disagree are one reader.
+
+**This is A31 recurring one level up and it is worth naming as a pair.** A31 caught a CLAUSE that
+no faithful reproduction could satisfy; A32 removes a CONDITION that no reachable engineering
+could satisfy. Same failure, different scale: a bar was fixed in advance, correctly, and nobody
+asked whether the thing being asked for was attainable. Fixing a bar before the numbers is
+necessary and it is not sufficient.
+
+**And one stale reason withdrawn with it.** The GRADIENTS condition's 99.2594 % bar is KEPT; its
+justification is not. `of3t-readable-mass` showed the excluded mass is **blocked, not
+unreadable** — the host-applied share is **1.52024 %**, not 0.74055 %, and 0.74055 % is one
+tensor of the seventeen inside it, so quoting it as a structural ceiling called a wiring gap a
+limit. Five remedies, the three largest instrument or wiring work on code that already exists.
+Where upstream offers no per-parameter counterpart, verify against **our own forward** — finite
+differences, or a directional derivative along the full gradient. **Correctness of our gradient
+does not require upstream to be readable.**
+
+**A33 — 2026-09-21, forced by D172 (pass 321), mine. A ROW'S REPAIR IS NOT THE CAMPAIGN'S REPAIR
+UNTIL THE ARTIFACT THE CRITERION NAMES CARRIES IT. Numbers existed; no bar moves.**
+
+Three passes, three instances, and the measurements were right every time. **D170**: the exit
+criterion's TRAJECTORY condition read an arm that never trained, while a later row's arm did.
+**D171**: the evaluator that decides whether the campaign may end was on every tree except its
+owner's branch. **D172**: the model-scope gradient artifact reads 8.1943 on a diffusion capture
+that the row which repaired that module never wrote back to.
+
+The common shape is not error, it is **propagation**. A row concludes GO on a better number, its
+branch is pushed, its state doc records it — and the artifact a GO condition names still holds
+the old capture, because no row owns re-taking a neighbour's artifact and the concluding row's
+namespace is not the one the criterion reads.
+
+**Two obligations, both cheap:**
+1. A row whose result supersedes a number in an artifact OUTSIDE its namespace says so in its
+   conclusion, naming the artifact by path. It may not edit it — that is the namespace rule —
+   but an unnamed supersession is invisible the moment the row concludes.
+2. The orchestrator reads the CRITERION's artifacts, not the rows' claims, before quoting a
+   campaign-level number. `compose_verify.sh` already nulls declared-superseded artifacts; what
+   it cannot do is notice a supersession nobody declared.
+
+**And the diagnostic that made D172 findable in one pass, which generalises past this campaign:
+decompose a bad aggregate before explaining it.** 5.6379 had been carried as a distributed
+precision problem for many passes. One decomposition by section over squared mass shares showed
+it was a single block at 43.6221 % of the mass, with everything else at or inside upstream's own
+bf16 accuracy. The aggregate was never evidence for the story attached to it.
