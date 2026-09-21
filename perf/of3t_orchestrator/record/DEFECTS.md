@@ -9708,3 +9708,41 @@ which is a mechanical test. It did **not** re-verify every figure in every claus
 artifact; A22 alone carries 25. So this closes the "teaches a stale verdict" class for defect
 references and not for figures, and the distinction matters because the figures are the ones a row
 would copy.
+
+### D143. A live artifact is named `NO_SOFTMAX_LEVER_REACHES_THE_BAR.json` and a softmax lever reaches a bar — the title claims more than the body, and the body already contains the sentence that resolves it. FOUND and FIXED by the orchestrator (pass 260). **FIXED** in place.
+
+The campaign's current answer is that `TT_BIO_SOFTMAX_BW_RENORM` takes the model-scope gradient to
+**1.0066946e-01** against A26's reachable bar of **1.0495450e-01** — **0.9592x** at 92.1568 % of the
+mass. Sitting beside it, live and unsuperseded, is a file whose **name** says no softmax lever
+reaches the bar and whose conclusion reads *"the best SHIPPABLE softmax lever leaves the arm 86x
+over bar ... no available lever reaches the bar."* A reader meeting both has every reason to think
+the record contradicts itself.
+
+**Both are right, on two distinguishing axes, and the first is written in that file's own last
+sentence.**
+
+  * **FAMILY.** Everything measured there is a **precision knob on the softmax FORWARD** —
+    `_accurate_softmax`, `precise_config`, and an exact softmax as a diagnostic. RENORM is a
+    **correctness repair of the softmax BACKWARD's row-sum invariant**: it divides `inner` by the
+    row sum. The file's conclusion ends *"what would fix it is not a precision knob"* — which turned
+    out to be **exactly right**, and is the sentence that makes the two compatible.
+  * **BAR.** The 86x and 6.9x are against the **2.0e-02 mass-weighted float64** bar. The 0.9592x is
+    against **A26's reachable bar versus upstream's own bf16 step**, which did not exist when the
+    file was written.
+
+**Fixed inside the file**, with a `CORRECTED_AT_PASS_260_THE_TITLE_OVERSTATES_THE_BODY` block giving
+both axes and the reading the title should be given — *no PRECISION lever on the softmax FORWARD
+reaches the FLOAT64 bar*. That claim stands unmodified and every number in the file stands with it.
+Same rule as PROTOCOL's A25 addendum and as *"a superseded stamp does not stop a number being
+read"*: **a title is a claim, and a reader stops when they have what they need.**
+
+**Found by applying a lesson another session wrote today** — *two rows can refute different
+configurations of one lever; check for the distinguishing variant before treating them as in
+conflict*. The check it prescribes is exactly what resolved this: grep the objecting artifact for
+the term the other one keys on. Here the objecting artifact had already written the distinguishing
+term into its own conclusion and nobody had read it against the later result.
+
+**Two neighbours checked at the same time and both are already sound**:
+`NO_DEVICE_SOFTMAX_REACHES_THE_GRADIENT_BAR.json` says **DEVICE** in its name and its headline, and
+`SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR.json` carries `WITHDRAWN_AT_PASS_158` with its data fields
+nulled. The over-broad title was the one file that had neither guard.
