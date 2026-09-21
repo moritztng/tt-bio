@@ -306,10 +306,39 @@
    ],
    "k": 19,
    "wall_s": 4510.842384815216
+  },
+  {
+   "lr": 3.42e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.5079522728919983,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 20,
+   "wall_s": 4728.353002548218
   }
  ],
- "evidence": null,
- "n_steps": 19,
- "complete": false,
- "wall_s": 4529.372246980667
+ "evidence": {
+  "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+  "n_parameters": 761,
+  "n_elements": 203239484,
+  "dropout": {
+   "modules": 0,
+   "nonzero": [],
+   "max_rate": 0.0
+  },
+  "layer_norm_z_realigned": [],
+  "missing_keys": 0,
+  "unexpected_keys": 0,
+  "aa_in_process": []
+ },
+ "n_steps": 20,
+ "complete": true,
+ "wall_s": 4749.770869016647
 }

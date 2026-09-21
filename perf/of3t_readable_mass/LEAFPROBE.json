@@ -1,0 +1,611 @@
+{
+  "instrument": "of3t-readable-mass leafprobe.py -- the shipped diffusion gradient instrument run unmodified, with the module's own weight walk read before and after the forward",
+  "wrapped": "perf/of3t_diffusion/device_gradient.py",
+  "argv": [
+    "--structs",
+    "0",
+    "--tag",
+    "_leafprobe",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--out-dir",
+    "perf/of3t_readable_mass"
+  ],
+  "instrument_exit": 0,
+  "walk": {
+    "reachable_before_the_forward": 870,
+    "reachable_after_the_forward": 954,
+    "materialised_inside_the_forward": 84,
+    "materialised_names_sample": [
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+      "dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+      "dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+      "dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+      "dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)"
+    ],
+    "note": "only the tensors in the BEFORE walk are registered as leaves: device_gradient.py calls ag.parameter over that walk and never again. A tensor that first exists during the forward can therefore never receive a gradient on this step, whatever the tape does with it."
+  },
+  "leaves": {
+    "walked_before": 870,
+    "with_a_gradient": 870,
+    "without_a_gradient": 0
+  },
+  "fused_qkv": {
+    "n": 48,
+    "with_a_gradient": 48,
+    "rows": {
+      "dit.blocks.0.qkv_b": {
+        "grad_norm": 0.00018899321601068586,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.0.qkv_w": {
+        "grad_norm": 0.00034858524126476397,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.1.qkv_b": {
+        "grad_norm": 0.000685324864553257,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.1.qkv_w": {
+        "grad_norm": 0.001138919988836158,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.10.qkv_b": {
+        "grad_norm": 0.0007408754069948011,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.10.qkv_w": {
+        "grad_norm": 0.006672894726880512,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.11.qkv_b": {
+        "grad_norm": 0.0008192505214271153,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.11.qkv_w": {
+        "grad_norm": 0.0014254246785474465,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.12.qkv_b": {
+        "grad_norm": 0.0007477051353290136,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.12.qkv_w": {
+        "grad_norm": 0.0019629329814403627,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.13.qkv_b": {
+        "grad_norm": 0.0006260348012284015,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.13.qkv_w": {
+        "grad_norm": 0.001917567022712609,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.14.qkv_b": {
+        "grad_norm": 0.0003479657131924707,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.14.qkv_w": {
+        "grad_norm": 0.0011934996558675799,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.15.qkv_b": {
+        "grad_norm": 0.0002646765916597431,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.15.qkv_w": {
+        "grad_norm": 0.0011068531935003582,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.16.qkv_b": {
+        "grad_norm": 0.00022852064853681148,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.16.qkv_w": {
+        "grad_norm": 0.0012314022255431305,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.17.qkv_b": {
+        "grad_norm": 0.0001349829792657555,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.17.qkv_w": {
+        "grad_norm": 0.0006854054965747734,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.18.qkv_b": {
+        "grad_norm": 5.811814187618057e-05,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.18.qkv_w": {
+        "grad_norm": 0.0009077284369023252,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.19.qkv_b": {
+        "grad_norm": 0.0001709920394202595,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.19.qkv_w": {
+        "grad_norm": 0.0010844753579013274,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.2.qkv_b": {
+        "grad_norm": 0.0004763936419492602,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.2.qkv_w": {
+        "grad_norm": 0.0009544905340185423,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.20.qkv_b": {
+        "grad_norm": 2.8916578654246493e-05,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.20.qkv_w": {
+        "grad_norm": 0.00027387961506468574,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.21.qkv_b": {
+        "grad_norm": 7.340800678167887e-05,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.21.qkv_w": {
+        "grad_norm": 0.0003853767255223849,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.22.qkv_b": {
+        "grad_norm": 4.482686134439165e-05,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.22.qkv_w": {
+        "grad_norm": 0.0003630724069104413,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.23.qkv_b": {
+        "grad_norm": 8.052869335403376e-05,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.23.qkv_w": {
+        "grad_norm": 0.00047989236661511304,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.3.qkv_b": {
+        "grad_norm": 0.0009398795547726694,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.3.qkv_w": {
+        "grad_norm": 0.001085336046655822,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.4.qkv_b": {
+        "grad_norm": 0.000598400252249017,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.4.qkv_w": {
+        "grad_norm": 0.0006440715502117767,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.5.qkv_b": {
+        "grad_norm": 0.000848676792263063,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.5.qkv_w": {
+        "grad_norm": 0.003598601147420693,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.6.qkv_b": {
+        "grad_norm": 0.0007536307096913771,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.6.qkv_w": {
+        "grad_norm": 0.00111779164977707,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.7.qkv_b": {
+        "grad_norm": 0.000512121279174183,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.7.qkv_w": {
+        "grad_norm": 0.0019052264793103385,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.8.qkv_b": {
+        "grad_norm": 0.0005736549333550511,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.8.qkv_w": {
+        "grad_norm": 0.0038094238350281978,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.9.qkv_b": {
+        "grad_norm": 0.0009422707094352987,
+        "state": "leaf with a gradient"
+      },
+      "dit.blocks.9.qkv_w": {
+        "grad_norm": 0.0012577013219292085,
+        "state": "leaf with a gradient"
+      }
+    },
+    "claim_under_test": "FUSED_NOT_SPLIT asserts these leaves receive a gradient and that only the inverse selection onto their linear_q/k/v is missing."
+  },
+  "lazy_atom_transformer": {
+    "n_materialised_inside_the_forward": 84,
+    "of_those_registered_as_a_leaf": 0,
+    "of_those_with_a_gradient": 0,
+    "rows": {
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      },
+      "enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)": {
+        "grad_norm": null,
+        "state": "not a registered leaf"
+      }
+    },
+    "claim_under_test": "NOT_A_LEAF_LAZY asserts the atom transformer's non-AdaLN weights are absent from the pre-forward walk, are therefore never passed to ag.parameter, and receive no gradient. Both halves are read here: the walk diff, and the tape's own answer for each of them."
+  }
+}

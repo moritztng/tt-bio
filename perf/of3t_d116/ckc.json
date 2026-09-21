@@ -1,0 +1,355 @@
+{
+ "generated": "2026-09-21T11:47:28Z",
+ "host": "tt-quietbox2",
+ "seconds": 4.9,
+ "cases": [
+  {
+   "config": "none (as _v_softmax ships)",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9934574130615997,
+   "rowsum_rmsdev": 0.011961209549892044,
+   "rowsum_min": 0.9535235679359175,
+   "rowsum_max": 1.0240580217650859,
+   "y_rel_l2": 0.022811493507454365,
+   "dx": {
+    "shipped_rule_f64": 0.020156390090275075,
+    "renorm_rule_f64": 0.020154321813240134,
+    "shipped_device": 0.020182961833845204,
+    "renorm_device": 0.020231427813813912
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.004622958171642813,
+    "renorm_rule_f64": 5.2767159230627076e-17,
+    "shipped_device": 0.004787659915046447,
+    "renorm_device": 0.0015647534235392166
+   }
+  },
+  {
+   "config": "precise_config()",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9997138695632194,
+   "rowsum_rmsdev": 0.0008664472630370625,
+   "rowsum_min": 0.9960436301771551,
+   "rowsum_max": 1.0026370021078037,
+   "y_rel_l2": 0.0017221602128303993,
+   "dx": {
+    "shipped_rule_f64": 0.0016603643826118457,
+    "renorm_rule_f64": 0.0014743271907262036,
+    "shipped_device": 0.003660541183810544,
+    "renorm_device": 0.003721653907409237
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.000425666565162876,
+    "renorm_rule_f64": 5.3589881578460304e-17,
+    "shipped_device": 0.001327683376947144,
+    "renorm_device": 0.0013500914404397059
+   }
+  },
+  {
+   "config": "HiFi4, no fp32_dest_acc",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 1.0003280117747386,
+   "rowsum_rmsdev": 0.006050817639836693,
+   "rowsum_min": 0.9778313080896623,
+   "rowsum_max": 1.0239559588935663,
+   "y_rel_l2": 0.0063516955759409756,
+   "dx": {
+    "shipped_rule_f64": 0.007196638354230426,
+    "renorm_rule_f64": 0.006417808793670609,
+    "shipped_device": 0.007894866052300931,
+    "renorm_device": 0.007597996978311107
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.0027699832540120234,
+    "renorm_rule_f64": 5.4125396294751864e-17,
+    "shipped_device": 0.00302420472940197,
+    "renorm_device": 0.0016098427552925045
+   }
+  },
+  {
+   "config": "HiFi2",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9974966546437974,
+   "rowsum_rmsdev": 0.007201168872868779,
+   "rowsum_min": 0.971707686141599,
+   "rowsum_max": 1.023261566489964,
+   "y_rel_l2": 0.007343427004888696,
+   "dx": {
+    "shipped_rule_f64": 0.007898219846979016,
+    "renorm_rule_f64": 0.007383885646696199,
+    "shipped_device": 0.008402307257066144,
+    "renorm_device": 0.008292076965179463
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.0031287768651611053,
+    "renorm_rule_f64": 5.434268885502968e-17,
+    "shipped_device": 0.003324301410841524,
+    "renorm_device": 0.0015914913589642537
+   }
+  },
+  {
+   "config": "LoFi",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.993590621890498,
+   "rowsum_rmsdev": 0.008956812066544396,
+   "rowsum_min": 0.9698620469571324,
+   "rowsum_max": 1.0186421157204677,
+   "y_rel_l2": 0.010188837420847006,
+   "dx": {
+    "shipped_rule_f64": 0.012502748933734363,
+    "renorm_rule_f64": 0.012502077193043635,
+    "shipped_device": 0.012851563614950072,
+    "renorm_device": 0.013107767324649593
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.0037281243334517673,
+    "renorm_rule_f64": 5.270882720900251e-17,
+    "shipped_device": 0.003888946189242701,
+    "renorm_device": 0.0015984924219495454
+   }
+  },
+  {
+   "config": "none (as _v_softmax ships)",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 12.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9854924084196867,
+   "rowsum_rmsdev": 0.02021574910583553,
+   "rowsum_min": 0.9556154933919284,
+   "rowsum_max": 1.017314521300313,
+   "y_rel_l2": 0.02421234143423912,
+   "dx": {
+    "shipped_rule_f64": 0.07576782385410784,
+    "renorm_rule_f64": 0.017372132237622528,
+    "shipped_device": 0.07607575405042724,
+    "renorm_device": 0.01915676212397458
+   },
+   "dx_rowsum_rms": {
+    "reference": 2.6139155157944223e-16,
+    "shipped_rule_f64": 0.018937478848099158,
+    "renorm_rule_f64": 1.500726797520539e-16,
+    "shipped_device": 0.019026515906934428,
+    "renorm_device": 0.002437895541721056
+   }
+  },
+  {
+   "config": "precise_config()",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 12.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9999346624679806,
+   "rowsum_rmsdev": 0.0010858637970333593,
+   "rowsum_min": 0.9962175697614882,
+   "rowsum_max": 1.0027296618993549,
+   "y_rel_l2": 0.0012446735410425061,
+   "dx": {
+    "shipped_rule_f64": 0.003459983669572025,
+    "renorm_rule_f64": 0.001448870943298607,
+    "shipped_device": 0.007547036539640944,
+    "renorm_device": 0.007626286402329457
+   },
+   "dx_rowsum_rms": {
+    "reference": 2.6139155157944223e-16,
+    "shipped_rule_f64": 0.0009096058148071334,
+    "renorm_rule_f64": 1.6993529576697656e-16,
+    "shipped_device": 0.0021008788045410393,
+    "renorm_device": 0.0021260644784276504
+   }
+  },
+  {
+   "config": "HiFi4, no fp32_dest_acc",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 12.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 1.000027378260612,
+   "rowsum_rmsdev": 0.0032913156059280442,
+   "rowsum_min": 0.9857701194422654,
+   "rowsum_max": 1.0158311119733665,
+   "y_rel_l2": 0.003174399377589987,
+   "dx": {
+    "shipped_rule_f64": 0.009331233054473037,
+    "renorm_rule_f64": 0.004295447956646103,
+    "shipped_device": 0.011211520908265014,
+    "renorm_device": 0.009879716044699567
+   },
+   "dx_rowsum_rms": {
+    "reference": 2.6139155157944223e-16,
+    "shipped_rule_f64": 0.0026395122068237614,
+    "renorm_rule_f64": 1.7696982250487913e-16,
+    "shipped_device": 0.003179016446318336,
+    "renorm_device": 0.0025210031300774557
+   }
+  },
+  {
+   "config": "HiFi2",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 12.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9983463166823917,
+   "rowsum_rmsdev": 0.004550729360089941,
+   "rowsum_min": 0.9822455777961936,
+   "rowsum_max": 1.0158311119733665,
+   "y_rel_l2": 0.004153172681430289,
+   "dx": {
+    "shipped_rule_f64": 0.011758141366993232,
+    "renorm_rule_f64": 0.0060000135093732565,
+    "shipped_device": 0.013012097547176865,
+    "renorm_device": 0.010453645508777577
+   },
+   "dx_rowsum_rms": {
+    "reference": 2.6139155157944223e-16,
+    "shipped_rule_f64": 0.0034680216901579876,
+    "renorm_rule_f64": 1.7581111282500284e-16,
+    "shipped_device": 0.0038234351786558905,
+    "renorm_device": 0.0024644254109321803
+   }
+  },
+  {
+   "config": "LoFi",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 12.0,
+   "storage": "bfloat16",
+   "rowsum_mean": 0.9982982722564387,
+   "rowsum_rmsdev": 0.004311619409112777,
+   "rowsum_min": 0.9816882433509236,
+   "rowsum_max": 1.0111000836757065,
+   "y_rel_l2": 0.004652899586304228,
+   "dx": {
+    "shipped_rule_f64": 0.014050049576756426,
+    "renorm_rule_f64": 0.011282891087804444,
+    "shipped_device": 0.015075061135185239,
+    "renorm_device": 0.014478310428907069
+   },
+   "dx_rowsum_rms": {
+    "reference": 2.6139155157944223e-16,
+    "shipped_rule_f64": 0.0033401673121692967,
+    "renorm_rule_f64": 1.679676362819802e-16,
+    "shipped_device": 0.003725808691529389,
+    "renorm_device": 0.0024695731850969114
+   }
+  },
+  {
+   "config": "none (as _v_softmax ships) [fp32 store]",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "float32",
+   "rowsum_mean": 0.9953657910114456,
+   "rowsum_rmsdev": 0.009152383825049862,
+   "rowsum_min": 0.9611896633983983,
+   "rowsum_max": 1.0004727128981727,
+   "y_rel_l2": 0.020419338666782676,
+   "dx": {
+    "shipped_rule_f64": 0.018102700481579727,
+    "renorm_rule_f64": 0.018019108997814025,
+    "shipped_device": 0.01816185647796745,
+    "renorm_device": 0.01802685299017476
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.00336936207321081,
+    "renorm_rule_f64": 6.101251060420608e-17,
+    "shipped_device": 0.003442170918770704,
+    "renorm_device": 0.00019991294446732778
+   }
+  },
+  {
+   "config": "precise_config() [fp32 store]",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "std": 3.0,
+   "storage": "float32",
+   "rowsum_mean": 0.9996049501824893,
+   "rowsum_rmsdev": 0.0005669242631665276,
+   "rowsum_min": 0.9976207018180432,
+   "rowsum_max": 1.0007119676232321,
+   "y_rel_l2": 0.0005211253956512488,
+   "dx": {
+    "shipped_rule_f64": 0.0006351257147497248,
+    "renorm_rule_f64": 0.0006423947763672222,
+    "shipped_device": 0.0008190783324377687,
+    "renorm_device": 0.0007248962479371791
+   },
+   "dx_rowsum_rms": {
+    "reference": 1.2905624615184074e-16,
+    "shipped_rule_f64": 0.00022298067195801943,
+    "renorm_rule_f64": 6.470358513486553e-17,
+    "shipped_device": 0.0003815530815325345,
+    "renorm_device": 0.00019536015756606168
+   }
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+protenix-v2, cdk2x2_128, --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0,
+pc card 0, NO flag set on either tree. Five folds per tree, interleaved base/off.
+
+  rep  base (6d7f32dc0)    off (wk/of3t + gate)
+  1    39bce7750297a920    39bce7750297a920
+  2    39bce7750297a920    39bce7750297a920
+  3    39bce7750297a920    39bce7750297a920
+  4    8259d0f1588b3b5f    2e04732083519965
+  5    39bce7750297a920    39bce7750297a920
+
+The base tree has no tape gate in it at all and it still moves. Counting the A/B run's folds
+too, base moved on 1 of 9 and off on 2 of 9. protenix-v2 inference is non-deterministic at
+this fixture on this card, which is why inference_ab_with_aa_floor.py refused the model on
+digest_stable_within_arm. The refusal is about the model, not about D137.

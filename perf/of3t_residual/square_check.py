@@ -18,7 +18,13 @@ what the arm does to the arithmetic. This script tests that against the shapes.
 """
 import argparse
 import json
+import os
 import sys
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 
 import torch
 
@@ -31,7 +37,8 @@ def load(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sub-boundary", default="/home/ttuser/of3t_rebase/diffcap043/sub_boundary.pt")
+    ap.add_argument("--sub-boundary",
+                    default=os.path.join(refpath.DIFFCAP, "sub_boundary.pt"))
     ap.add_argument("--arms", nargs="+", required=True, help="label=sidecar.json")
     ap.add_argument("--out", default="")
     a = ap.parse_args()

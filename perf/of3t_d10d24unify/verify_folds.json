@@ -1,0 +1,35 @@
+[
+ {
+  "tag": "protenix-v2__ubq__s1",
+  "model": "protenix-v2",
+  "board": "p150a",
+  "score_key": "confidence_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 0,
+  "main_would_serve_another": false,
+  "served_file": "ubq.cif"
+ },
+ {
+  "tag": "rf3__multimer__s1",
+  "model": "rf3",
+  "board": "p150a",
+  "score_key": "ranking_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 0,
+  "main_would_serve_another": false,
+  "served_file": "multimer.cif"
+ },
+ {
+  "tag": "rf3__ubq__s1",
+  "model": "rf3",
+  "board": "p150a",
+  "score_key": "ranking_score",
+  "rows_in_rank_order": true,
+  "rule_mismatches": 0,
+  "served_rank_under_main": 2,
+  "main_would_serve_another": true,
+  "served_file": "ubq.cif"
+ }
+]

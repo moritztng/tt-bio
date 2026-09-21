@@ -1,0 +1,13 @@
+{
+ "harness": "trunk",
+ "counts": {
+  "layer_norm_fw": 0,
+  "layer_norm_bw": 0,
+  "taped_layer_norm_fw": 1440,
+  "tri_attn_fw": 0,
+  "tri_attn_bias_none": 0,
+  "tri_attn_bias_bcast": 0,
+  "tri_attn_bias_not_bcast": 0,
+  "tri_attn_bias_shape0": []
+ }
+}

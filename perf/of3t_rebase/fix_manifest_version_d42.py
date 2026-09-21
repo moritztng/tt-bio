@@ -30,7 +30,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import sys
 from pathlib import Path
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 
 WRONG = "0.5.0 (git checkout)"
 
@@ -79,8 +86,10 @@ def patch(path: Path, dotted: str, value: str, apply: bool) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--bundle", default="/home/ttuser/of3t_rebase/bundle_min_043")
-    ap.add_argument("--fd-run", default="/home/ttuser/of3t_rebase/run/out_043_fd")
+    ap.add_argument("--bundle", default=refpath.BUNDLE)
+    # No default: the FD run this read lived under of3t-rebase's scratch root and did not
+    # survive it. Name the run, or re-take it with perf/of3t_rebase/fd043.sh.
+    ap.add_argument("--fd-run", required=True)
     ap.add_argument("--version", required=True, help="measured, e.g. '0.4.3 (from PKG-INFO ...)'")
     ap.add_argument("--also", nargs="*", default=[], metavar="PATH:DOTTED",
                     help="extra manifests to correct, e.g. the IN-GIT copy. Amendment 26 named "
