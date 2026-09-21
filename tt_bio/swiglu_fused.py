@@ -92,6 +92,10 @@ def eligible(x, w1, w2):
 
     Every clause is a real assumption of the kernel, so a decline names which one.
     """
+    from . import ops
+    if ops.taping():
+        return "taping"   # generic_op has no backward; the composed path runs instead
+
     if x.dtype != ttnn.bfloat16 or w1.dtype != ttnn.bfloat16 or w2.dtype != ttnn.bfloat16:
         return "dtype"
     if len(w1.shape) != 2 or tuple(w1.shape) != tuple(w2.shape):
