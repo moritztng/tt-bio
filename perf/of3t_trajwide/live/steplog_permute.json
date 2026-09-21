@@ -182,10 +182,30 @@
     4
    ],
    "wall_s": 1322.622350692749
+  },
+  {
+   "k": 10,
+   "lr": 1.6199999999999997e-05,
+   "grad_norm": 0.024035716815313447,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1462.5254652500153
   }
  ],
  "evidence": null,
- "n_steps": 9,
+ "n_steps": 10,
  "complete": false,
- "wall_s": 1339.87091588974
+ "wall_s": 1479.2994668483734
 }
