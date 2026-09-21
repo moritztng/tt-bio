@@ -1,0 +1,45 @@
+{
+  "what": "Our port's trunk forward over the captured boundary, tensors written out so they can be",
+  "blocks": 48,
+  "tokens": 384,
+  "real_tokens": 56,
+  "boundary": "/home/ttuser/of3t_trunk043ref/boundary_n384.pt",
+  "shipped_config": {
+    "source": "tt_bio/openfold3_trunk.py OF3Trunk.__init__, read by spying on the Pairformer constructor",
+    "n_blocks": 48,
+    "dims": [
+      32,
+      4,
+      24,
+      16
+    ],
+    "transform_s": true,
+    "kwargs": {
+      "scale_pair_bias": false,
+      "fp32_softmax": true,
+      "transpose_bias": true,
+      "accurate_softmax": false
+    }
+  },
+  "s_input_dtype": "DataType.BFLOAT16",
+  "arms": {
+    "shipped": {
+      "transpose_bias": true,
+      "s_norm": 5116133.287149856,
+      "z_norm": 12554717.658698618
+    },
+    "break": {
+      "seed": 20260920,
+      "real_tokens_permuted": 54,
+      "of": 56,
+      "s_norm": 5116285.066468422,
+      "z_norm": 12567214.950000778
+    },
+    "lever": {
+      "transpose_bias": false,
+      "s_norm": 5095554.577095183,
+      "z_norm": 12546698.760970332
+    }
+  },
+  "seconds": 12.311536428000181
+}

@@ -1,0 +1,42 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "D86 is CONTAINED to the diffusion arm. There it is 87 of 547 tensors and 56.22 % of the bounded arm's squared error. diffusion_conditioning -- 36.9462 % of the model and the campaign's second-largest figure -- has ZERO contaminated tensors and its 6.463839e-02 reproduces exactly. aux_heads has 10 contaminated tensors that contribute 0.00 % of its squared error.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Sidecars read from origin/wk/of3t-direct and origin/wk/of3t-trajectory at their pushed heads. Each scope's published headline was recomputed from its own sidecar and matched before the contamination share was computed -- a share of a figure that does not reproduce would mean nothing.",
+ "scopes": [
+  {
+   "contaminated": 87,
+   "n": 547,
+   "published_figure_status": "CONTAMINATED after the dominant error is removed. The bounded reading was published as 1.172914e-01 and reads 7.777580e-02 on the corrected arm. The SHIPPED reading barely moves (7.426217 corrected against 7.426742 published) because the softmax error swamps the transpose contribution.",
+   "scope": "diffusion device arm (device_gradient.py)",
+   "share_of_mass_pct": 0.2035,
+   "share_of_squared_error_pct": 56.22,
+   "source": "of3t-residual's measurement, corroborated from of3t-trajectory's sidecar"
+  },
+  {
+   "contaminated": 0,
+   "n": 26,
+   "published_figure_status": "CLEAN. 6.463839e-02 recomputed from of3t-direct's own sidecar reproduces the published figure exactly. Worst tensor rel 1.0174e-01 at cos 0.9950; no tensor reads above 0.5, so there is no near-total disagreement anywhere in the scope.",
+   "scope": "diffusion_module.diffusion_conditioning",
+   "share_of_squared_error_pct": 0.0,
+   "source": "orchestrator, from perf/of3t_direct/sidecar_diffusion_conditioning/"
+  },
+  {
+   "contaminated": 10,
+   "n": 180,
+   "published_figure_status": "IMMATERIAL. 10 of 176 tensors with numeric rel and cos carry the signature and contribute 0.00 % of the squared error -- they are massless. 2.360143e-01 reproduces exactly over all 180. Note aux_heads' apparent pass is void for an unrelated reason: A18's forward discriminator fails at 3.6515e-01 (D82).",
+   "scope": "aux_heads",
+   "share_of_squared_error_pct": 0.0,
+   "source": "orchestrator, from perf/of3t_direct/sidecar_aux_heads/"
+  },
+  {
+   "contaminated": "UNKNOWN",
+   "n": 2736,
+   "published_figure_status": "no agreement reading exists, so nothing to contaminate -- but of3t-pairformer must check for this fingerprint before publishing one, since it reuses the same family of instruments.",
+   "scope": "pairformer_stack",
+   "source": "of3t-pairformer, live"
+  }
+ ],
+ "the_fingerprint_should_be_a_standing_check": "rel_l2 within 0.05 of sqrt(2) with |cos| < 0.05 is a gradient scored against its own transpose. It is cheap, it needs only a per-tensor array, and it has now caught the same defect class twice in this campaign (D59, D86). It belongs in every per-tensor result file's own validation, not in an orchestrator's retrospective.",
+ "what": "D86's blast radius, measured from the rows' own per-tensor sidecars rather than inferred from which scripts share a code path. The fingerprint is rel_l2 ~ sqrt(2) with cos ~ 0: a gradient scored against its own transpose, which is norm-preserving and decorrelating.",
+ "why_measure_it_this_way": "the campaign's own rule is that blast radius is measured by digest or by data, not counted from constructors -- a script sharing a code path may or may not hit the branch. Here the data answers directly: every row published per-tensor diff_norm, ref_norm, rel_l2 and cos, so the fingerprint is greppable without a device. Three scopes checked, three different answers, and inferring from the shared instrument family would have got two of them wrong."
+}

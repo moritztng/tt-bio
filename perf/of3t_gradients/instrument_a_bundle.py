@@ -147,6 +147,24 @@ def main() -> int:
                          "1/64): then both the scale and the unscale are exact in binary "
                          "floating point and in bf16, and the instrument contributes no "
                          "rounding of its own to a test about rounding.")
+    ap.add_argument("--dump-grads", default="", dest="dump_grads",
+                    help="write the compared device gradient tensors themselves to this .pt, "
+                         "keyed by FULL checkpoint name (pairformer_stack.blocks.i.<leaf>), in "
+                         "their layout and at their scale. Without it this instrument publishes "
+                         "only rel_l2/norm_ratio/cos against the one reference it was run "
+                         "against, so the gradient cannot afterwards be compared to anything "
+                         "else -- including upstream's own bf16 training step, which is the "
+                         "only reference that answers whether the trunk reproduces the gradient "
+                         "OF3 actually trains with. Fourth time this campaign has been blocked "
+                         "by a summary-only result file.")
+    ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED",
+                    help="break control. Permute the captured cotangent across the REAL token "
+                         "positions (the 56 the single mask keeps) with this seed, leaving the "
+                         "weights, the forward, the masks and the arithmetic untouched. "
+                         "Permuting all 384 positions instead would move cotangent mass onto "
+                         "padded rows the mask then kills, which breaks the run by emptying it "
+                         "rather than by mispairing it. A comparison that cannot tell this "
+                         "apart from the real run is not measuring agreement with anything.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator. Poison the PAD token positions of the captured "
                          "input with NaN and report how many parameter gradients come back NaN "
@@ -246,6 +264,26 @@ def main() -> int:
             single_mask = single_mask[:, :c].contiguous()
         if pair_mask is not None:
             pair_mask = pair_mask[:, :c, :c].contiguous()
+    if a.permute_cot:
+        if single_mask is None:
+            raise SystemExit("--permute-cot needs the single mask to know which rows are real")
+        real = torch.nonzero(single_mask.reshape(-1) > 0).reshape(-1)
+        gperm = torch.Generator().manual_seed(a.permute_cot)
+        order = real[torch.randperm(int(real.numel()), generator=gperm)]
+        idx = torch.arange(int(single_mask.shape[-1]))
+        idx[real] = order
+        cot_s = cot_s[:, idx].contiguous()
+        cot_z = cot_z[:, idx][:, :, idx].contiguous()
+        perm_rep = {"seed": a.permute_cot, "real_positions_permuted": int(real.numel()),
+                    "fixed_points": int((order == real).sum()),
+                    "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
+                    "what": "the same cotangent, paired with the wrong token positions"}
+        print(f"[{time.perf_counter()-t0:.0f}s] BREAK CONTROL: cotangent permuted over "
+              f"{int(real.numel())} real positions, {int((order == real).sum())} fixed",
+              flush=True)
+    else:
+        perm_rep = None
+
     if a.nan_pad:
         if single_mask is None:
             raise SystemExit("--nan-pad needs the single mask to know which rows are pad")
@@ -266,6 +304,7 @@ def main() -> int:
                     "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
                     "single_mask_sum": None if single_mask is None else float(single_mask.sum()),
                     "source": "their own activations at this block, from the bundle's own step"}
+    rep["permuted_cotangent"] = perm_rep
     print(f"[{time.perf_counter()-t0:.0f}s] probe N={N} |s|={float(s_in.norm()):.4g} "
           f"|z|={float(z_in.norm()):.4g} |cot_z|={float(cot_z.norm()):.4g}", flush=True)
 
@@ -579,7 +618,7 @@ def main() -> int:
             band = band.T
         return band.contiguous(), None
 
-    rows, absent = [], []
+    rows, absent, dumped = [], [], {}
     for key, ref in g_ref.items():
         full = pre + key
         mine, why = our_grad_for(key)
@@ -612,6 +651,7 @@ def main() -> int:
         #   r  > 1, c ~ 1 -> an inflated copy
         #   c ~ 0         -> noise, and the gradient carries no signal at all
         rn, mn = float(np.linalg.norm(r)), float(np.linalg.norm(m))
+        dumped[full] = torch.from_numpy(m.copy())
         rows.append({"their_tensor": full, "key": key,
                      "device": [p["device_path"] for p in placements[key]],
                      "rel_l2": rel_l2(m, r),
@@ -622,6 +662,16 @@ def main() -> int:
                      "cos": (float((m * r).sum() / (mn * rn)) if (mn and rn) else None),
                      "zero_model_rel": 1.0,
                      "ref_is_zero": bool(np.max(np.abs(r)) == 0.0)})
+    if a.dump_grads:
+        d = os.path.dirname(a.dump_grads)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        torch.save({k: v.cpu() for k, v in dumped.items()}, a.dump_grads)
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(dumped)} device gradient tensors to "
+              f"{a.dump_grads}", flush=True)
+        rep["grads_dumped_to"] = a.dump_grads
+        rep["grads_dumped"] = len(dumped)
+
     rows.sort(key=lambda d: -d["rel_l2"])
     rel = [d["rel_l2"] for d in rows]
     rep["per_parameter"] = rows
