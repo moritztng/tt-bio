@@ -1,0 +1,402 @@
+{
+  "instrument": "of3t-readable-mass readable_mass.py -- one census of the reference gradient, per tensor, by mass, every uncompared tensor given a blocker",
+  "inputs": {
+    "float64_reference": {
+      "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+      "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+      "bytes": 2947844653
+    },
+    "checkpoint": {
+      "path": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+      "n_tensors": 4935
+    },
+    "compared_from": "/home/ttuser/of3t_wholemodel/sidecar_shipped/shipped_vs_FLOAT64.json",
+    "other_boundary_from": "/home/ttuser/of3t_apbgrad/dev_scope_CTRL_c64.pt",
+    "host_applied": [
+      "input_embedder.atom_attn_enc.linear_q.0.weight"
+    ]
+  },
+  "denominator": {
+    "model_squared_gradient_norm": 10.279642678524981,
+    "n_reference_tensors_with_a_gradient": 4170,
+    "n_reference_entries_that_are_None": 0,
+    "n_checkpoint_tensors": 4935,
+    "n_checkpoint_tensors_with_no_gradient": 765,
+    "rule": "mass is the tensor's own squared float64 gradient 2-norm. A checkpoint tensor the reference step gives no gradient carries no mass and is outside the denominator -- counted, never given a share, because a share of zero reads as 'small' where the right word is 'absent'."
+  },
+  "headline": {
+    "pct_comparable_today": 92.1568215695272,
+    "n_compared": 907,
+    "pct_not_comparable_today": 7.843178430472812,
+    "n_not_compared": 3263,
+    "pct_with_a_per_tensor_device_gradient_somewhere": 97.98499306866148
+  },
+  "classes": {
+    "COMPARED": {
+      "n_tensors": 907,
+      "mass_sq": 9.47339196123324,
+      "pct_of_model_mass": 92.15682156952727,
+      "by_section": {
+        "diffusion_module.diffusion_transformer": {
+          "n_tensors": 456,
+          "pct_of_model_mass": 43.622111481326016
+        },
+        "diffusion_module.diffusion_conditioning": {
+          "n_tensors": 26,
+          "pct_of_model_mass": 36.94617946669959
+        },
+        "diffusion_module.atom_attn_enc": {
+          "n_tensors": 48,
+          "pct_of_model_mass": 4.734845387109066
+        },
+        "aux_heads": {
+          "n_tensors": 180,
+          "pct_of_model_mass": 2.843135608822624
+        },
+        "diffusion_module.atom_attn_dec": {
+          "n_tensors": 40,
+          "pct_of_model_mass": 1.284259249950862
+        },
+        "msa_module": {
+          "n_tensors": 154,
+          "pct_of_model_mass": 1.231742368329373
+        },
+        "diffusion_module.layer_norm_s": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.9834601790165415
+        },
+        "diffusion_module.layer_norm_a": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.2666301517573281
+        },
+        "diffusion_module.linear_s": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.24445767651578834
+        }
+      }
+    },
+    "READ_ON_ANOTHER_BOUNDARY": {
+      "n_tensors": 2736,
+      "mass_sq": 0.5991152048026372,
+      "pct_of_model_mass": 5.828171499134286,
+      "by_section": {
+        "pairformer_stack": {
+          "n_tensors": 2736,
+          "pct_of_model_mass": 5.828171499134286
+        }
+      }
+    },
+    "NO_ARM": {
+      "n_tensors": 304,
+      "mass_sq": 0.09235966823276785,
+      "pct_of_model_mass": 0.8984715823412305,
+      "by_section": {
+        "diffusion_module.atom_attn_enc": {
+          "n_tensors": 8,
+          "pct_of_model_mass": 0.7530394291090198
+        },
+        "msa_module_embedder": {
+          "n_tensors": 2,
+          "pct_of_model_mass": 0.06124397616155431
+        },
+        "input_embedder": {
+          "n_tensors": 55,
+          "pct_of_model_mass": 0.05971275737827506
+        },
+        "template_embedder": {
+          "n_tensors": 96,
+          "pct_of_model_mass": 0.010302045918447989
+        },
+        "msa_module": {
+          "n_tensors": 73,
+          "pct_of_model_mass": 0.008223158638616963
+        },
+        "layer_norm_z": {
+          "n_tensors": 2,
+          "pct_of_model_mass": 0.003901700726975264
+        },
+        "layer_norm_s": {
+          "n_tensors": 2,
+          "pct_of_model_mass": 0.0014750161756627949
+        },
+        "linear_z": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.0004458818108784277
+        },
+        "linear_s": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.00012752567082591828
+        },
+        "aux_heads": {
+          "n_tensors": 64,
+          "pct_of_model_mass": 9.075097393868057e-08
+        }
+      }
+    },
+    "HOST_APPLIED": {
+      "n_tensors": 1,
+      "mass_sq": 0.07612126831763756,
+      "pct_of_model_mass": 0.7405050029283717,
+      "by_section": {
+        "input_embedder": {
+          "n_tensors": 1,
+          "pct_of_model_mass": 0.7405050029283717
+        }
+      }
+    },
+    "FUSED_NOT_SPLIT": {
+      "n_tensors": 96,
+      "mass_sq": 0.02791195077782347,
+      "pct_of_model_mass": 0.2715264688736101,
+      "by_section": {
+        "diffusion_module.diffusion_transformer": {
+          "n_tensors": 96,
+          "pct_of_model_mass": 0.2715264688736101
+        }
+      }
+    },
+    "NOT_A_LEAF_LAZY": {
+      "n_tensors": 126,
+      "mass_sq": 0.010742625160881982,
+      "pct_of_model_mass": 0.10450387719530572,
+      "by_section": {
+        "diffusion_module.atom_attn_enc": {
+          "n_tensors": 42,
+          "pct_of_model_mass": 0.07103250562507424
+        },
+        "diffusion_module.atom_attn_dec": {
+          "n_tensors": 42,
+          "pct_of_model_mass": 0.03303821241802197
+        },
+        "input_embedder": {
+          "n_tensors": 42,
+          "pct_of_model_mass": 0.0004331591522095618
+        }
+      }
+    }
+  },
+  "two_blockers": {
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias": "also NO_ARM: no device arm covers input_embedder on the model's batch",
+    "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight": "also NO_ARM: no device arm covers input_embedder on the model's batch"
+  },
+  "worst_by_class": {
+    "READ_ON_ANOTHER_BOUNDARY": [
+      {
+        "param": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.3829838728978004
+      },
+      {
+        "param": "pairformer_stack.blocks.46.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.2945476530184884
+      },
+      {
+        "param": "pairformer_stack.blocks.47.attn_pair_bias.linear_z.weight",
+        "pct_of_model_mass": 0.27592476942174826
+      },
+      {
+        "param": "pairformer_stack.blocks.34.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.10091580875003413
+      },
+      {
+        "param": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.weight",
+        "pct_of_model_mass": 0.09384542834899226
+      },
+      {
+        "param": "pairformer_stack.blocks.47.pair_stack.pair_transition.linear_out.weight",
+        "pct_of_model_mass": 0.09164586645511782
+      },
+      {
+        "param": "pairformer_stack.blocks.37.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.0748733845315736
+      },
+      {
+        "param": "pairformer_stack.blocks.45.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.05223268140532646
+      },
+      {
+        "param": "pairformer_stack.blocks.15.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.05035468808926494
+      },
+      {
+        "param": "pairformer_stack.blocks.40.pair_stack.pair_transition.layer_norm.weight",
+        "pct_of_model_mass": 0.04986889629078572
+      }
+    ],
+    "NO_ARM": [
+      {
+        "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+        "pct_of_model_mass": 0.6734034330383528
+      },
+      {
+        "param": "msa_module_embedder.linear_s_input.weight",
+        "pct_of_model_mass": 0.06068555025891849
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+        "pct_of_model_mass": 0.05224327439816468
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+        "pct_of_model_mass": 0.012674777384289277
+      },
+      {
+        "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+        "pct_of_model_mass": 0.012551426706760894
+      },
+      {
+        "param": "input_embedder.linear_z_i.weight",
+        "pct_of_model_mass": 0.01184585326199706
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+        "pct_of_model_mass": 0.010938144606952856
+      },
+      {
+        "param": "input_embedder.linear_z_j.weight",
+        "pct_of_model_mass": 0.010865258068248004
+      },
+      {
+        "param": "input_embedder.linear_s.weight",
+        "pct_of_model_mass": 0.009910867382160942
+      },
+      {
+        "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+        "pct_of_model_mass": 0.005022971728502683
+      }
+    ],
+    "HOST_APPLIED": [
+      {
+        "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+        "pct_of_model_mass": 0.7405050029283717
+      }
+    ],
+    "FUSED_NOT_SPLIT": [
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight",
+        "pct_of_model_mass": 0.039591222007563716
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight",
+        "pct_of_model_mass": 0.0360994619740377
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+        "pct_of_model_mass": 0.033626361324967026
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight",
+        "pct_of_model_mass": 0.018575248634532547
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight",
+        "pct_of_model_mass": 0.011631445363756397
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight",
+        "pct_of_model_mass": 0.009288167708117436
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+        "pct_of_model_mass": 0.009146367530911106
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight",
+        "pct_of_model_mass": 0.008166941077081952
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_v.weight",
+        "pct_of_model_mass": 0.006110503810799939
+      },
+      {
+        "param": "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_k.weight",
+        "pct_of_model_mass": 0.006098725163465737
+      }
+    ],
+    "NOT_A_LEAF_LAZY": [
+      {
+        "param": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight",
+        "pct_of_model_mass": 0.028964504000203662
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight",
+        "pct_of_model_mass": 0.013919016427685978
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+        "pct_of_model_mass": 0.0087840372616038
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight",
+        "pct_of_model_mass": 0.005719864441797946
+      },
+      {
+        "param": "diffusion_module.atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight",
+        "pct_of_model_mass": 0.005660398750910813
+      },
+      {
+        "param": "diffusion_module.atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_out.weight",
+        "pct_of_model_mass": 0.003917497143540278
+      },
+      {
+        "param": "diffusion_module.atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight",
+        "pct_of_model_mass": 0.003586217839465479
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight",
+        "pct_of_model_mass": 0.0035238770270316147
+      },
+      {
+        "param": "diffusion_module.atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+        "pct_of_model_mass": 0.003470163407183425
+      },
+      {
+        "param": "diffusion_module.atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+        "pct_of_model_mass": 0.003293461959741934
+      }
+    ]
+  },
+  "no_gradient_by_top_level": {
+    "diffusion_module": 2,
+    "sample_diffusion": 763
+  }
+}
