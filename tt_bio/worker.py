@@ -28,6 +28,7 @@ import torch
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
+from tt_bio import ranking as rank
 from tt_bio.cache import cached, seq_hash, staged
 from tt_bio.capabilities import check_capabilities
 
@@ -1060,14 +1061,12 @@ class _WorkerState:
 
         from tt_bio.main import _write_protenix_structure
 
-        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,
-        # falling back to pLDDT only if neither is available. Picks the best sample
-        # and orders all_runs -- mirrors Boltz-2's confidence_score ranking.
+        # The family rule, `tt_bio.ranking.ranking_score`. Protenix/OpenDDE compute neither
+        # the RASA disorder term nor the inter-chain clash indicator, so those go in as 0.0
+        # and the interface branch is the 0.8*ipTM + 0.2*pTM this site already had.
         def _score(c):
-            ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
-            if iptm > 0.0:
-                return 0.8 * iptm + 0.2 * ptm
-            return ptm if ptm > 0.0 else c["plddt"]
+            return rank.ranking_score(ptm=c.get("ptm", 0.0), iptm=c.get("iptm", 0.0),
+                                      plddt=c["plddt"])
 
         order = sorted(range(len(confs)), key=lambda k: _score(confs[k]), reverse=True)
         rank_of = {k: r for r, k in enumerate(order)}    # sample index -> rank (0 = best)
@@ -1326,8 +1325,16 @@ class _WorkerState:
             plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
             summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
                                              atom_array, coord)
-            return {"d": d, "coord": got["X_L"][d], "plddt": plddt,
-                    "summary": summary, "score": summary["ranking_score"]}
+            # Order on the full-precision score, not on summary["ranking_score"], which is
+            # rounded to 4 decimals for the published summary_confidences.json. Two samples
+            # whose scores differ below 1e-4 round to the same value and were then ordered by
+            # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
+            # against 0.7630, and it is the only site in the family that sorted on a rounded
+            # number.
+            return {"d": d, "coord": got["X_L"][d], "plddt": plddt, "summary": summary,
+                    "score": rf3_confidence.ranking_score(
+                        summary["iptm"], summary["ptm"], float(plddt.mean()),
+                        summary["has_clash"])}
 
         samples = sorted((one(d) for d in range(n_sample)),
                          key=lambda r: -r["score"])

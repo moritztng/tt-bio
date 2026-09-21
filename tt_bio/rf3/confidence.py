@@ -17,6 +17,8 @@ import itertools
 import numpy as np
 import torch
 
+from tt_bio import ranking as rank
+
 # 23, not the 36 that `is_real_atom` is sized to: the last 13 slots are hydrogens and
 # the head has no channels for them. Upstream carries the same constant with the same
 # comment (`predicted_error.py`, "right now that number is too large (36)").
@@ -106,11 +108,16 @@ def has_clash(atom_array, coord: np.ndarray) -> bool:
 
 
 def ranking_score(iptm_v: float | None, ptm_v: float | None,
-                  clash: bool) -> float:
-    """0.8 * ipTM + 0.2 * pTM - 100 * has_clash; a monomer scores on pTM alone."""
-    if iptm_v is None:
-        iptm_v = ptm_v if ptm_v is not None else 0.0
-    return 0.8 * iptm_v + 0.2 * (ptm_v or 0.0) - 100 * int(clash)
+                  plddt_v: float, clash: bool) -> float:
+    """The family rule, `tt_bio.ranking.ranking_score`.
+
+    Upstream RF3's `compute_ranking_score` substitutes pTM for ipTM on a monomer, which makes
+    the score 1.2*pTM and orders the samples by pTM alone -- the worst-ordering output the
+    confidence head produces, measured against true Ca-RMSD. RF3 computes no RASA disorder
+    term, so 0.0 goes in for it and the interface branch stays byte-identical to upstream's.
+    """
+    return rank.ranking_score(iptm=iptm_v, ptm=ptm_v or 0.0, plddt=plddt_v,
+                              has_clash=float(clash))
 
 
 def _chain_masks(labels):
@@ -187,5 +194,5 @@ def summary(out: dict, f: dict, is_real_atom: torch.Tensor,
         "ptm": p,
         "iptm": ip,
         "has_clash": clash,
-        "ranking_score": round(ranking_score(ip, p, clash), 4),
+        "ranking_score": round(ranking_score(ip, p, float(plddt.mean()), clash), 4),
     }
