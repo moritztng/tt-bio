@@ -10509,3 +10509,24 @@ Recorded rather than dispatched: the campaign's card time is committed to `of3t-
 **Why the row is card-bound and release-gated rather than a one-line patch.** These are FORWARD sites: configuring them moves fold output. The 2026-09-21 constraint binds — the row owes the inference fold A/B **with its A/A floor**, per model, floor reported first, and is told that an accuracy improvement costing inference time is a regression and should stop rather than be argued small. It is also told not to run it on pc card 0 and to name host and card in full, with `of3t-d137digest` as the model.
 
 **And it must re-price what it makes redundant.** With no config the backward renorm is worth **4.0x** on device; with `precise_config()` the row sum is already 0.99971 and it is a **wash** (3.6605e-03 against 3.7217e-03). The row is instructed to re-measure `TT_BIO_SOFTMAX_BW_RENORM` against the new forward and report both together — and explicitly **not** to turn the lever off on its own, because that was Moritz's decision and not a measurement.
+
+### D55 UPDATE 3 (pass 298, heading restated). **UNFIXED** — and my own pass-297 framing of its forward half was wrong: the argument is not missing, it is passed with the value `None`, and the lever it gates costs **1.46x on the op**.
+
+**The grep error, first, because it is the third costume of the same mistake.** At pass 297 I reported *"one `site_softmax` call passes no `compute_kernel_config` — `openfold3_diffusion_transformer.py:211`"*. It does pass one; the call spans two lines and the argument is on the second. An AST census over `tt_bio/`, keyed by symbol, finds **67 softmax-family forward calls** and **every `site_softmax` site carries the argument**. The campaign has now made this shape three times in a fortnight — a substring read as a path (D153), a filename read as a location (D158), a call read as one line (here) — and each time the fix was to ask the parser instead of the pattern.
+
+**What is actually there is a lever, which is a better finding than an omission:**
+
+    softmax_ckc(token, default=False):
+        return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
+
+`softmax_precise_site` defaults **False**, so the shipped path passes `compute_kernel_config=None` — the op's own default, and exactly the "no config" row `of3t-d116` measured. The sites are wired and the lever is off, so the change is a **shipped-default flip per site**, in the family `assert_new_levers_default_off.py` polices, and not a code addition.
+
+**And the cost was already in the tree, unquoted by me when I dispatched.** From `softmax_precise_site`'s own docstring (`perf/of3t_softmax/softmax_cost_qb2c0.json`, [1,16,384,384] fp32, against a float64 softmax on the same values):
+
+    no config          2.029e-02      0.0543 ms
+    this config        1.646e-03      0.0789 ms     12.3x better, 1.46x the cost
+    _accurate_softmax  5.156e-04      0.2556 ms     39.4x better, 4.71x the cost
+
+**1.46x on the op reframes the question.** It is not "land a free argument" but "is 46 % more on one op visible in a fold, and is 12.3x accuracy worth it if it is" — which is exactly the A/B against an A/A floor the row was already told to run, now with a prediction worth registering in advance: against `of3t-d137ab`'s measured fold floors of 13-35 s on a noisy host, an op-level 1.46x on softmax may be **unreadable**, and unreadable is the honest finding rather than free.
+
+**The brief is corrected in place** with its premise withdrawn rather than edited away, so the row sees what I got wrong and why. Everything else in it stands: the inference constraint binds, not pc card 0, host and card in full, and re-price the backward renorm against whichever forward it lands on.

@@ -625,7 +625,7 @@ record its own.
 
 **D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched against every open defect, in both directions. **One cause (7)**: D56, D8, D9, D55, D62, D116 and the 51.1358 % headline — D56 is the strongest, its own heading already naming a **~2,000x device arithmetic floor** it could not explain, and the composition now closes (conditioning amplifies whatever floor it is handed, and IEEE fp32 against device fp32 are four orders apart). D55 is **downgraded, not explained away**: `precise_config()` is still worth 12x and should be installed, but even installed everywhere it cannot close a cancellation. **Adjacent (3)**: D28, D30, D93. **Explicitly NOT this cause (7)** and that half is load-bearing: D31 (the tape differentiates a different function — precision cannot fix it), D59/D86 (transpose wiring), D117 (harness collation), D107 (update-rule semantics), D78 (our own order-dependent sum), D112 (infrastructure), D2/D3/D10/D24. It reallocates effort and **retires nothing**.
 
-**D55 (UNFIXED, PRICED 286, OWNED 297; in PASSLOG)**: the tape withholds its precise kernel config from the reductions inside near-cancellations — four by D55's heading, **ten** by the pass-237 AST census. `of3t-d116` priced the missing argument on the softmax: **13.8x** on the row sum, **13.2x** on the forward (2.281e-02 → 1.722e-03), **5.5x** on the backward; the no-config call behaves like **LoFi**. **It re-prices a shipped decision**: with no config the backward renorm is worth **4.0x** on device, with `precise_config()` a **wash** (3.6605e-03 vs 3.7217e-03). `of3t-fwdkcfg` dispatched at pass 297, **held behind `of3t-ditcot`** which owns the same file, and told to settle a count discrepancy first — d116 says *"four no-config forward sites"*, I find **one**. FORWARD sites, so it moves fold output: release-gated, owes the inference A/B with its A/A floor, not on pc card 0.
+**D55 (UNFIXED, PRICED 286, OWNED 297, REFRAMED 298; in PASSLOG)**: the tape withholds its precise kernel config from the reductions inside near-cancellations — four by D55's heading, **ten** by the pass-237 census. On the FORWARD half `of3t-d116` priced it at **13.8x** on the row sum and **13.2x** on the forward. **Corrected at pass 298**: the argument is not missing — all five `site_softmax` sites pass it, my pass-297 grep truncated a two-line call — its VALUE is `None` because `softmax_precise_site` defaults False. So it is a **shipped-default flip**, and it **costs 1.46x on the op** (0.0543 → 0.0789 ms at [1,16,384,384] fp32, for 12.3x accuracy). `of3t-fwdkcfg` owns it, held behind `of3t-ditcot`, and must answer whether 46 % on one op is readable in a fold against 13-35 s floors. It also re-prices the backward renorm: **4.0x** against a no-config forward, a **wash** against a configured one.
 
 **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
 
@@ -856,7 +856,30 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 297 — the largest unowned accuracy lever now has a row, and its first instruction is to settle a count I cannot reconcile with the row that measured it.**
+PASSLOG: **Pass 298 — the missing argument I dispatched a row to add is not missing: it is passed with the value None, the lever behind it costs 1.46x on the op, and my evidence for "missing" was a grep that stopped at the end of a line.**
+
+I told `of3t-fwdkcfg` its first task was reconciling *"four no-config forward sites"* against the **one** I could find. The one does not exist either. `openfold3_diffusion_transformer.py:211` passes `compute_kernel_config=self._softmax_ckc` — on the **second line of a two-line call**, which my grep never saw. An AST census over `tt_bio/` keyed by symbol: **67 softmax-family forward calls, and every `site_softmax` site carries the argument.**
+
+**Three costumes of one mistake in a fortnight**: a substring read as a path (D153), a filename read as a location (D158), a call read as one line (this). Every time, the fix was to ask the parser instead of the pattern — and every time I had the parser available, having built the census that answers it.
+
+**What is actually there is better than an omission, because it is a decision:**
+
+    softmax_ckc(token, default=False):
+        return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
+
+`softmax_precise_site` defaults **False**, so the shipped path passes `compute_kernel_config=None` — the op's own default and exactly d116's "no config" row. The sites are wired and the lever is off. The change is a **shipped-default flip per site**, which is the family `assert_new_levers_default_off.py` polices, not a code addition.
+
+**And the cost was in the tree the whole time, unquoted by me when I dispatched.** `softmax_precise_site`'s own docstring, `perf/of3t_softmax/softmax_cost_qb2c0.json`, [1,16,384,384] fp32 against a float64 softmax on the same values:
+
+    no config          2.029e-02      0.0543 ms
+    this config        1.646e-03      0.0789 ms     12.3x better, 1.46x the cost
+    _accurate_softmax  5.156e-04      0.2556 ms     39.4x better, 4.71x the cost
+
+**1.46x on the op reframes the row's whole question** from "land a free argument" to "is 46 % more on one op visible in a fold, and is 12.3x accuracy worth it if it is". Worth registering a prediction in advance: against `of3t-d137ab`'s measured fold floors of **13-35 s** on a noisy host, an op-level 1.46x on softmax is quite likely **unreadable** — and unreadable is the honest finding, not free.
+
+**The brief is corrected in place with its premise withdrawn rather than deleted**, so the row sees what I got wrong and why before it spends a card on it.
+
+**Pass 297 —  the largest unowned accuracy lever now has a row, and its first instruction is to settle a count I cannot reconcile with the row that measured it.**
 
 `of3t-d116` priced one missing `compute_kernel_config` on the softmax at **13.8x** on the row sum, **13.2x** on the forward and **5.5x** on the backward, with the no-config call behaving like **LoFi**. That has sat unowned since pass 286 while being the biggest single accuracy lever the campaign has found. `of3t-fwdkcfg` is dispatched for it, **held behind `of3t-ditcot`** — that row owns the DiT backward and will be editing the same file, and two rows in `openfold3_diffusion_transformer.py` at once is a collision the composition has already paid for twice.
 
