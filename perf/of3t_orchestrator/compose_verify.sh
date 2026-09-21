@@ -80,7 +80,11 @@ done
 # RELEASED pass 273: d10d24-unify rebased onto wk/of3t and now merges clean (`git merge-tree`
 # against the published composition), so the hold is lifted. A hold that outlives the thing it was
 # for is the same rust the D149 ratchet refuses.
-HELD_OUT="d56-renorm d1-pairbias"
+# RELEASED pass 274: d56-renorm unified the flag (autograd.SOFTMAX_BW_RENORM is now the single
+# definition and taped_ttnn._SOFTMAX_BW_RENORM an alias -- D151 repaired), dropped its edit to
+# assert_new_levers_default_off.py, and merges clean. That gate change is adopted here instead,
+# in the same pass, so the assert and the shipped default move together.
+HELD_OUT="d1-pairbias"
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
