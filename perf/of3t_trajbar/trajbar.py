@@ -288,45 +288,83 @@ def load_ckpt_sd():
 
 
 def do_score(a):
+    """Every pair scored against ONE load of the reference per rung.
+
+    A rung is 813 MB of reference dump and up to 800 MB of arm dump, and there are five pairs to
+    score against the same twenty reference rungs. Loading the reference once per rung instead of
+    once per pair is the difference between one pass over 16 GB and five.
+    """
     sd = load_ckpt_sd()
     ref_dir = a.ref_dir
-    arm_dir = a.arm_dir or TW.wdir(a.out_dir, a.arm)
-    names_all = names_for(ref_dir, arm_dir, sd)
-    out = {"arm": a.arm, "ref_dir": ref_dir, "arm_dir": arm_dir, "w0_baseline": a.w0,
-           "steps_asked": a.steps, "accumulate_grad_batches": a.per_step,
-           "warmup_no_steps": a.warmup, "scored": {}}
+    pairs = []
+    for spec in a.pair:
+        parts = spec.split(":")
+        tag, arm_dir = parts[0], parts[1]
+        restrict = parts[2] if len(parts) > 2 and parts[2] else None
+        names = names_for(ref_dir, arm_dir, sd, restrict_dir=restrict)
+        pairs.append(dict(tag=tag, arm_dir=arm_dir, restrict=restrict, names=names))
+        print(f"pair {tag}: {len(names)} tensors, arm {arm_dir}"
+              + (f", restricted to {restrict}" if restrict else ""), flush=True)
 
-    variants = [("all", None, names_all)]
-    if a.restrict_dir:
-        names_573 = names_for(ref_dir, arm_dir, sd, restrict_dir=a.restrict_dir)
-        variants.append(("trajwide_scope", a.restrict_dir, names_573))
+    import torch
+    for P in pairs:
+        W0 = {n: sd[TW.PREFIX + n].to(torch.float64).numpy().astype(np.float32)
+              for n in P["names"]}
+        P["W0"] = W0
+        P["nw0"] = math.sqrt(sum(float(W0[n].astype(np.float64).ravel()
+                                       @ W0[n].astype(np.float64).ravel()) for n in P["names"]))
+        P["W0o"] = TW.load_w(P["arm_dir"], min(TW.have_steps(P["arm_dir"]))) \
+            if a.w0 == "own" else None
+        P["rows"] = []
 
-    for tag, rd, names in variants:
-        print(f"== {tag}: {len(names)} tensors", flush=True)
-        rows, ks, nw0 = score_pair(ref_dir, arm_dir, names, sd, w0=a.w0)
-        out["scored"][tag] = {
-            "restrict_dir": rd, "n_tensors": len(names), "steps_scored": ks,
-            "w0_norm": nw0,
-            "scope": TW.scope_share(names),
+    ks = sorted(set(TW.have_steps(ref_dir)))
+    for P in pairs:
+        ks = [k for k in ks if k in set(TW.have_steps(P["arm_dir"]))]
+    print(f"scoring k = {ks}", flush=True)
+    for k in ks:
+        wt = TW.load_w(ref_dir, k)
+        for P in pairs:
+            wo = TW.load_w(P["arm_dir"], k)
+            r = TW.score_step(P["names"], k, wo, wt, P["W0"], P["nw0"], P["W0o"])
+            P["rows"].append(r)
+            print(f"  k={k:2d} {P['tag']:16s} rel_d={r['rel_d']:.6e} "
+                  f"floor={r['fp32_differencing_floor']:.3e} "
+                  f"|d_arm|={r['d_ours_norm']:.4e} |d_ref|={r['d_theirs_norm']:.4e} "
+                  f"worst={r['worst_per_tensor']:.3e} ({r['worst_tensor']})", flush=True)
+            del wo
+        del wt
+
+    out = {"ref_dir": ref_dir, "w0_baseline": a.w0, "steps_scored": ks,
+           "accumulate_grad_batches": a.per_step, "warmup_no_steps": a.warmup,
+           "model_sq_norm": TW.MODEL_SQ_NORM, "scored": {}}
+    for P in pairs:
+        rows = P["rows"]
+        out["scored"][P["tag"]] = {
+            "arm_dir": P["arm_dir"], "restrict_dir": P["restrict"],
+            "n_tensors": len(P["names"]), "w0_norm": P["nw0"],
+            "scope": TW.scope_share(P["names"]),
             "d1": {"arm_norm": rows[0]["d_ours_norm"], "ref_norm": rows[0]["d_theirs_norm"],
                    "rel_d": rows[0]["rel_d"],
                    "zero_both_sides": rows[0]["d_ours_norm"] == 0.0 == rows[0]["d_theirs_norm"]},
             "growth_k2_20": TW.growth(rows),
             "per_step": rows,
         }
-        g = out["scored"][tag]["growth_k2_20"]
-        print(f"   -> k=20 rel_d={rows[-1]['rel_d']:.6e}  exponent={g.get('exponent')}  "
-              f"intercept={g.get('intercept')}  r2={g.get('r2')}  {g.get('shape')}", flush=True)
+        g = out["scored"][P["tag"]]["growth_k2_20"]
+        print(f"== {P['tag']:16s} {len(P['names'])} tensors  k=20 rel_d={rows[-1]['rel_d']:.6e}  "
+              f"exponent={g.get('exponent')}  intercept={g.get('intercept')}  r2={g.get('r2')}  "
+              f"{g.get('shape')}", flush=True)
 
-    sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
-    out["arm_steplog"] = json.load(open(sl)) if os.path.exists(sl) else None
+    for tag, arm in (("bf16mixed", "bf16mixed"), ("bf16mixed_aa2", "bf16mixed_aa2")):
+        sl = os.path.join(a.out_dir, f"steplog_{arm}.json")
+        if os.path.exists(sl):
+            out.setdefault("steplogs", {})[arm] = json.load(open(sl))
     out["sha256"] = {"diffusion_boundary": TW.sha256(TW.DIFFCAP),
                      "checkpoint": TW.sha256(TW.CKPT),
                      "grad_manager.py":
                          TW.sha256("/home/ttuser/of3t_traj20/upstream/grad_manager.py"),
                      "lr_schedulers.py":
                          TW.sha256("/home/ttuser/of3t_traj20/upstream/lr_schedulers.py")}
-    os.makedirs(os.path.dirname(a.out), exist_ok=True)
+    os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     json.dump(out, open(a.out, "w"), indent=1, default=str)
     print(f"wrote {a.out}", flush=True)
     return 0
@@ -341,10 +379,10 @@ def main() -> int:
     ap.add_argument("--make-zero", action="store_true", dest="make_zero")
     ap.add_argument("--ref-dir", default=os.path.join(TRAJWIDE_RUNS, "w", "theirs"),
                     dest="ref_dir")
-    ap.add_argument("--arm-dir", default=None, dest="arm_dir")
-    ap.add_argument("--restrict-dir", default=None, dest="restrict_dir",
-                    help="a third dump set to intersect the name list with -- "
-                         "of3t-trajwide's w/shipped is what holds the bar to its 573 tensors")
+    ap.add_argument("--pair", action="append", default=[],
+                    help="tag:arm_dump_dir[:restrict_dump_dir], repeatable. The restrict dir is "
+                         "a third dump set to intersect the name list with -- of3t-trajwide's "
+                         "w/shipped is what holds the bar to its 573 tensors")
     ap.add_argument("--per-step", type=int, default=4, dest="per_step")
     ap.add_argument("--steps", type=int, default=TW.STEPS)
     ap.add_argument("--warmup", type=int, default=TW.SCHED["warmup_no_steps"])
@@ -357,7 +395,7 @@ def main() -> int:
 
     os.environ["OMP_NUM_THREADS"] = str(a.threads)
     os.environ["MKL_NUM_THREADS"] = str(a.threads)
-    a.out = a.out or f"perf/of3t_trajbar/bar_{a.arm}.json"
+    a.out = a.out or "perf/of3t_trajbar/BAR.json"
 
     if a.make_zero:
         print(make_zero_arm(a.out_dir, a.ref_dir, a.steps))
