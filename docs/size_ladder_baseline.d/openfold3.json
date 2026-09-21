@@ -15,26 +15,26 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-09-20",
+      "recorded": "2026-09-21",
       "host": "tt-quietbox",
-      "commit": "8cc598112",
+      "commit": "a2473e47b",
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-09-20",
+          "recorded": "2026-09-21",
           "host": "tt-quietbox",
-          "commit": "8cc598112",
+          "commit": "a2473e47b",
           "runtime_s": {
-            "256": 16.2,
-            "512": 37.7,
-            "640": 58.8,
-            "768": 89.2,
-            "896": 134.5,
-            "1024": 181.3,
-            "1152": 232.9,
-            "1280": 353.4,
-            "1408": 449.5,
-            "1536": 530.1
+            "256": 14.5,
+            "512": 22.5,
+            "640": 31.3,
+            "768": 43.0,
+            "896": 59.2,
+            "1024": 75.3,
+            "1152": 224.5,
+            "1280": 349.1,
+            "1408": 447.3,
+            "1536": 526.6
           },
           "levers": {
             "256": {
@@ -114,14 +114,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 1320,
+                "served": 168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -214,18 +214,18 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 256, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -346,6 +346,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -421,14 +428,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 17160,
+                "served": 2184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -509,18 +516,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 1,
+                "frac": 0.9974025974025974,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 512, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -641,6 +651,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "640": {
@@ -716,14 +733,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 46640,
+                "served": 5936,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -804,18 +821,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 2,
+                "frac": 0.9948186528497409,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 160 divides the padded length of 640, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -936,6 +956,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "768": {
@@ -1011,16 +1038,16 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 48182,
+                "served": 5942,
                 "declined": 2,
-                "frac": 0.9999584924456251,
+                "frac": 0.9996635262449529,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -1098,18 +1125,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 4,
+                "frac": 0.9896907216494846,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 4
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 768, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1230,6 +1260,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "896": {
@@ -1305,14 +1342,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 131120,
+                "served": 16688,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -1392,18 +1429,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 5,
+                "frac": 0.987146529562982,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 5
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from rung 768] [carried from p300c]"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 224 divides the padded length of 896, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1524,6 +1564,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "1024": {
@@ -1599,14 +1646,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 150040,
+                "served": 19096,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -1687,18 +1734,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
+                "served": 384,
+                "declined": 5,
+                "frac": 0.987146529562982,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 5
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from rung 768] [carried from p300c]"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 1024, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1819,6 +1869,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "1152": {
@@ -1887,11 +1944,10 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "wrap",
-                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1909,19 +1965,23 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "wrap",
-                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": null,
-                "declined": null,
-                "frac": null,
+                "served": 0,
+                "declined": 896,
+                "frac": 0.0,
                 "how": "wrap",
-                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 32,
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 848
+                },
+                "reason": "declines all 896 calls on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1932,15 +1992,14 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+                "reason": "declines all 424 calls on k_tiles=4 x424: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "wrap",
-                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
+                "served": 472,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1981,17 +2040,22 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 13,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "rejects": {
+                  "l1_budget": 3,
+                  "fill_preconditions": 10
+                },
+                "reason": "declines all 13 calls on fill_preconditions x10, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 192 divides the padded length of 1152, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2080,11 +2144,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": null,
-                "declined": null,
-                "frac": null,
+                "served": 0,
+                "declined": 440,
+                "frac": 0.0,
                 "how": "wrap",
-                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
+                "reason": "L1 capacity, computed rather than argued: the gate is 1.25 x bytes <= 110 x 1532416 = 168.57 MB, and openfold3 presents two pair shapes, [S,S,128] on 424 calls and [S,S,64] on 16 (the split PAIR_TRANSPOSE_VIA_ROW_MAJOR's own reject dict records at 512 aa). The 128-wide class leaves L1 at 768 aa asking 188.7 MB; the 64-wide class leaves it here, asking 212.3 MB against 167.8 MB at 1024 aa, which fits with 0.5 % to spare. That model reproduces the served count at all ten rungs (440/440/440/16/16/16/0/0/0/0), so every call at this size is on the DRAM route by capacity, and PAIR_TRANSPOSE_VIA_ROW_MAJOR picks up all 440 at the same rung."
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2113,6 +2177,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 0,
+                "declined": 384,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 168960 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x10, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
               }
             },
             "1280": {
@@ -2218,7 +2290,7 @@
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 848
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16)"
+                "reason": "declines all 896 calls on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2229,7 +2301,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+                "reason": "declines all 424 calls on k_tiles=4 x424: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2277,17 +2349,22 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 12,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "rejects": {
+                  "l1_budget": 3,
+                  "fill_preconditions": 9
+                },
+                "reason": "declines all 12 calls on fill_preconditions x9, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 1280, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2380,7 +2457,7 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "L1 capacity, computed rather than argued: the gate is 1.25 x bytes <= 110 x 1532416 = 168.57 MB, and openfold3 presents two pair shapes, [S,S,128] on 424 calls and [S,S,64] on 16 (the split PAIR_TRANSPOSE_VIA_ROW_MAJOR's own reject dict records at 512 aa). The 128-wide class leaves L1 at 768 aa asking 188.7 MB; the 64-wide class leaves it here, asking 262.1 MB against 167.8 MB at 1024 aa, which fits with 0.5 % to spare. That model reproduces the served count at all ten rungs (440/440/440/16/16/16/0/0/0/0), so every call at this size is on the DRAM route by capacity, and PAIR_TRANSPOSE_VIA_ROW_MAJOR picks up all 440 at the same rung."
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2409,6 +2486,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 0,
+                "declined": 384,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 561921 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x9, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
               }
             },
             "1408": {
@@ -2514,7 +2599,7 @@
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 848
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16)"
+                "reason": "declines all 896 calls on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2525,7 +2610,7 @@
                 "rejects": {
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)"
+                "reason": "declines all 424 calls on k_tiles=4 x424: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2573,17 +2658,22 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 10,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "rejects": {
+                  "l1_budget": 3,
+                  "fill_preconditions": 7
+                },
+                "reason": "declines all 10 calls on fill_preconditions x7, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 128 divides the padded length of 1408, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2676,7 +2766,7 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "L1 capacity, computed rather than argued: the gate is 1.25 x bytes <= 110 x 1532416 = 168.57 MB, and openfold3 presents two pair shapes, [S,S,128] on 424 calls and [S,S,64] on 16 (the split PAIR_TRANSPOSE_VIA_ROW_MAJOR's own reject dict records at 512 aa). The 128-wide class leaves L1 at 768 aa asking 188.7 MB; the 64-wide class leaves it here, asking 317.2 MB against 167.8 MB at 1024 aa, which fits with 0.5 % to spare. That model reproduces the served count at all ten rungs (440/440/440/16/16/16/0/0/0/0), so every call at this size is on the DRAM route by capacity, and PAIR_TRANSPOSE_VIA_ROW_MAJOR picks up all 440 at the same rung."
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2705,6 +2795,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 0,
+                "declined": 384,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 618113 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x7, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
               }
             },
             "1536": {
@@ -2810,7 +2908,7 @@
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 848
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x48, k_tiles=2:(2,1) x16)"
+                "reason": "declines all 912 calls on k_tiles=4:(4,4) x848, k_tiles=2:(2,2) x48, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2822,7 +2920,7 @@
                   "k_tiles=2": 16,
                   "k_tiles=4": 424
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)"
+                "reason": "declines all 440 calls on k_tiles=2 x16, k_tiles=4 x424: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2870,17 +2968,22 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 15,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "rejects": {
+                  "l1_budget": 3,
+                  "fill_preconditions": 12
+                },
+                "reason": "declines all 15 calls on fill_preconditions x12, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both of this lever's counter sites live inside `_tri_att_sdpa_at`'s `if len(k_chunks) > 1` block, and `_dividing_k_chunks` returns a single entry here because the shipped k of 256 divides the padded length of 1536, so K5 has no pick to change. The one other serve site is the above-cap fused route, which SDPA_FUSED_LARGE_S records as 0 served / 0 declined at the same rung. OpenFold3 barely reaches this function at all: all four of its tri-att sites pass fp32_softmax=True, and that branch of `_attend_heads` routes to `_tri_att_sdpa_hifi` or to `_fp32_softmax_attention`."
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2973,7 +3076,7 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "L1 capacity, computed rather than argued: the gate is 1.25 x bytes <= 110 x 1532416 = 168.57 MB, and openfold3 presents two pair shapes, [S,S,128] on 424 calls and [S,S,64] on 16 (the split PAIR_TRANSPOSE_VIA_ROW_MAJOR's own reject dict records at 512 aa). The 128-wide class leaves L1 at 768 aa asking 188.7 MB; the 64-wide class leaves it here, asking 377.5 MB against 167.8 MB at 1024 aa, which fits with 0.5 % to spare. That model reproduces the served count at all ten rungs (440/440/440/16/16/16/0/0/0/0), so every call at this size is on the DRAM route by capacity, and PAIR_TRANSPOSE_VIA_ROW_MAJOR picks up all 440 at the same rung."
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3002,35 +3105,351 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 0,
+                "declined": 384,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 675840 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x12, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
               }
             }
           },
+          "runtime_reps_s": {
+            "256": [
+              14.1,
+              14.5,
+              14.7,
+              14.6,
+              14.4
+            ],
+            "512": [
+              24.3,
+              22.4,
+              22.5,
+              22.3,
+              22.5
+            ],
+            "640": [
+              31.3
+            ],
+            "768": [
+              43.0
+            ],
+            "896": [
+              59.2
+            ],
+            "1024": [
+              75.3
+            ],
+            "1152": [
+              224.5
+            ],
+            "1280": [
+              349.1
+            ],
+            "1408": [
+              447.3
+            ],
+            "1536": [
+              526.6
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 38
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 41
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 10
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 12
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 15
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 17
+            },
+            "1152": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 42
+            },
+            "1280": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 63
+            },
+            "1408": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 79
+            },
+            "1536": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 92
+            }
+          },
+          "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 98.2795,
+              "radius_of_gyration_A": 80.308,
+              "plddt_mean": 0.343913,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 98.279 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 80.3 A outside [9.0, 45.2]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0469,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 101.8469,
+              "radius_of_gyration_A": 82.089,
+              "plddt_mean": 0.337587,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 101.847 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.1 A outside [11.8, 58.9]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.025,
+              "chain_break_frac": 0.9984,
+              "ca_ca_median_A": 97.8568,
+              "radius_of_gyration_A": 80.948,
+              "plddt_mean": 0.332809,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 97.857 A outside [3.6, 4.0]",
+                "99.8% of consecutive CA pairs exceed 5.0 A",
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.9 A outside [12.8, 64.1]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.0469,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 99.802,
+              "radius_of_gyration_A": 78.151,
+              "plddt_mean": 0.337601,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 99.802 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.2 A outside [13.7, 68.7]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.029,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 103.0803,
+              "radius_of_gyration_A": 84.043,
+              "plddt_mean": 0.334527,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 103.080 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.0 A outside [14.6, 72.8]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0312,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 99.1444,
+              "radius_of_gyration_A": 80.849,
+              "plddt_mean": 0.342799,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 99.144 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.8 A outside [15.3, 76.6]"
+              ]
+            },
+            "1152": {
+              "file": "cdk2x2_1152.cif",
+              "steps": 6,
+              "n_ca": 1152,
+              "clash_frac": 0.0399,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 97.8388,
+              "radius_of_gyration_A": 80.473,
+              "plddt_mean": 0.346952,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 97.839 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.5 A outside [16.0, 80.1]"
+              ]
+            },
+            "1280": {
+              "file": "cdk2x2_1280.cif",
+              "steps": 6,
+              "n_ca": 1280,
+              "clash_frac": 0.0516,
+              "chain_break_frac": 0.9992,
+              "ca_ca_median_A": 99.3827,
+              "radius_of_gyration_A": 82.337,
+              "plddt_mean": 0.356548,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 99.383 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+              ]
+            },
+            "1408": {
+              "file": "cdk2x2_1408.cif",
+              "steps": 6,
+              "n_ca": 1408,
+              "clash_frac": 0.0611,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 100.485,
+              "radius_of_gyration_A": 82.507,
+              "plddt_mean": 0.357451,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 100.485 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "6.1% of CA atoms sit under 3.5 A from a non-bonded CA"
+              ]
+            },
+            "1536": {
+              "file": "cdk2x2_1536.cif",
+              "steps": 6,
+              "n_ca": 1536,
+              "clash_frac": 0.0579,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 100.5697,
+              "radius_of_gyration_A": 81.042,
+              "plddt_mean": 0.371759,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 100.570 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+              ]
+            }
+          },
           "reps": 1,
-          "sigma_runtime_512": 0.0237,
+          "sigma_runtime_512": 0.037,
           "exponents": {
             "256->512": {
-              "k": 1.219,
+              "k": 0.634,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.124,
+              "k": 1.597,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0313,
-            "512": 0.0237
+            "256": 0.0159,
+            "512": 0.037
           },
           "exponents_measured": {
-            "256->512": 1.219,
-            "512->640": 1.992,
-            "640->768": 2.286,
-            "768->896": 2.664,
-            "896->1024": 2.236,
-            "1024->1152": 2.126,
-            "1152->1280": 3.958,
-            "1280->1408": 2.524,
-            "1408->1536": 1.895
+            "256->512": 0.634,
+            "512->640": 1.479,
+            "640->768": 1.742,
+            "768->896": 2.074,
+            "896->1024": 1.802,
+            "1024->1152": 9.275,
+            "1152->1280": 4.19,
+            "1280->1408": 2.601,
+            "1408->1536": 1.876
           }
         }
       }
