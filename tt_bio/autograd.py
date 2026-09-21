@@ -28,11 +28,14 @@ from typing import Optional, Sequence
 
 import ttnn
 
+from tt_bio.envflags import env_flag
+
 __all__ = [
-    "Tensor", "precise_config", "no_grad", "parameter", "forget_parameters",
-    "parameter_for", "untaped",
+    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
+    "forget_parameters", "parameter_for", "untaped",
     "release_pins",
-    "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
+    "linear", "matmul", "layer_norm", "softmax", "host_f64_softmax",
+    "host_f64_softmax_values", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
@@ -54,6 +57,41 @@ def precise_config():
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
     )
+
+
+# `ttnn.softmax` does not return rows that sum to one. Measured over the OF3 trunk's own
+# shapes (`perf/of3t_d116/rowsum.json`, float64-referenced): mean row sum 0.9934, rms
+# deviation 1.20e-02, worst row 0.9506, and fp32 storage does not fix it (0.9954). So what
+# the card computes is `c * softmax(x)` for a per-row `c`, and the vjp of THAT is
+# `y * (g - sum(g*y)/sum(y))`. The plain rule `y * (g - sum(g*y))` is the vjp of a function
+# the card did not evaluate.
+#
+# The cost is not in the rel_l2 of `dx`, which barely moves (2.0156e-02 against 2.0154e-02
+# at the trunk shape, so an op-level audit is blind to this). It is that the plain rule
+# leaves `dx` with a nonzero ROW SUM -- 4.62e-03 rms against the reference's 1.29e-16 --
+# and the attention backward below it consumes exactly that: `dq_i = sum_j dx_ij k_j`
+# equals `sum_j dx_ij (k_j - kbar)` only when the row sums vanish. When they do not, `dq`
+# picks up `(row residual) * kbar`, a term the true gradient does not contain, worth 1.00x
+# to 13.09x on `||dq||` as the common component of k grows (`perf/of3t_d116/amplify.json`).
+#
+# Off by default: it moves a gradient, so it is release-gated and `land-standing` owns the
+# default. It is inside backward closures only, so no forward and no inference result can
+# move whichever way the flag is set.
+SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", False)
+
+
+def softmax_bw_inner(y, g, dim=-1, config=None):
+    """`sum_j g_j y_j` for the softmax backward `dx = y * (g - inner)`, row-sum corrected.
+
+    One helper for both callers -- `triangle_attention` below and
+    `taped_ttnn._v_softmax` -- because the defect is the rule, not the site, and a repair
+    applied to one of two identical expressions is the kind of half-fix that reads as fixed.
+    """
+    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    if not SOFTMAX_BW_RENORM:
+        return inner
+    return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
+                                       compute_kernel_config=config or precise_config()))
 
 
 _GRAD_ENABLED = True
@@ -802,6 +840,86 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     return out
 
 
+def host_f64_softmax_values(v, dim: int = -1):
+    """``softmax(v, dim)`` on the host in float64: the float64 result, and it back on the card.
+
+    Both, because the two are not interchangeable. The card holds the rounded copy; the
+    backward must read the float64 one, or the Jacobian goes back through a device-precision
+    softmax and undoes what the round trip bought.
+
+    Raw ttnn in, raw ttnn out, no tape node. This is the entry point the cost and row-sum
+    harnesses use (`perf/of3t_softmax/softmax_cost.py`, `perf/of3t_f64softmax/rowsum_probe.py`),
+    which measure the arithmetic and want nothing to do with a tape. A model never arrives here
+    directly: it goes through `tenstorrent.site_softmax`, which will not reach this module at
+    all without a tape open.
+    """
+    import torch
+
+    y64 = torch.softmax(ttnn.to_torch(v).double(), dim=dim)
+    y = ttnn.from_torch(y64.float(), layout=v.layout, device=v.device(), dtype=v.dtype,
+                        memory_config=v.memory_config())
+    return y64, y
+
+
+def host_f64_softmax(x, dim: int = -1):
+    """``softmax(x, dim)`` computed on the host in float64, differentiable under the tape.
+
+    The backward is the softmax Jacobian in float64 as well, ``dx = y * (g - (g * y).sum(dim))``,
+    applied to the float64 forward output rather than to the rounded copy that went back to the
+    card.
+
+    Training only, and it lives here rather than beside the call sites it serves for that
+    reason. `tt_bio/tenstorrent.py` is on every model's inference path and must not import the
+    tape (`tests/test_training_opt_in.py::test_no_inference_module_imports_training`); the call
+    site reaches this function through the hook `install` fills, so an inference fold has no
+    route to it. The check below is the same rule stated once more at the entry point itself,
+    for a caller that found the function some other way: it costs a host round trip per softmax
+    and returns different numbers, so reaching it without a tape is a mistake in either
+    direction and says so instead of quietly folding slower.
+
+    `x` may be a raw ttnn tensor or a taped `Tensor`; the only difference is whether a tape node
+    is created. A tape is open either way, so a frozen block and a `no_grad` recycle inside a
+    training forward still take the same softmax the differentiated cycles take.
+    """
+    if not installed():
+        raise RuntimeError(
+            "tt_bio.autograd.host_f64_softmax needs an open tape. It is a training-path lever: "
+            "a host round trip per softmax, 166.8x the op, bought for gradient fidelity that "
+            "inference has no use for. Open one with `with tt_bio.autograd.tape():`, or call "
+            "`ttnn.softmax` / `tt_bio.autograd.host_f64_softmax_values` for the raw arithmetic.")
+
+    from . import taped_ttnn as TT
+    from .tenstorrent import HOST_F64_SOFTMAX_STATS as stats
+
+    xt = x if isinstance(x, Tensor) else None
+    v = xt.value if xt is not None else x
+    y64, y = host_f64_softmax_values(v, dim)
+    stats["served"] += 1
+    stats["elements"] += int(y64.numel())
+    if xt is None:
+        return y
+
+    def make():
+        def bw(g):
+            g64 = ttnn.to_torch(g).double()
+            inner = (g64 * y64).sum(dim=dim, keepdim=True)
+            if TT._SOFTMAX_BW_RENORM:
+                # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
+                # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
+                # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
+                # restores the identity. On THIS path the row already sums to one to float64
+                # round-off, so the division is arithmetically a no-op -- which is the point.
+                # It is the consistency check between two independently derived repairs, and
+                # it is why the flag reaches here instead of stopping at the tape verb.
+                inner = inner / y64.sum(dim=dim, keepdim=True)
+            d = y64 * (g64 - inner)
+            xt.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=g.device(),
+                                        dtype=g.dtype, memory_config=g.memory_config()))
+        return bw
+
+    return _tape(y, [xt], make)
+
+
 def mul(a: Tensor, b: Tensor) -> Tensor:
     """Elementwise product. Same shapes only; broadcasting would need a reducing backward."""
     out_v = ttnn.multiply(a.value, b.value)
@@ -1033,7 +1151,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
                                      compute_kernel_config=cfg)
-                    inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)
+                    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
                     if bias is not None:
@@ -1760,6 +1878,9 @@ def install():
     # Installed together with the verb hook because the two are the same opt-in.
     ops.set_recycle_hook(no_grad)
     ops.set_checkpoint_hook(_checkpoint_segment)
+    # The host float64 softmax a construction site may select. Injected rather than imported,
+    # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
+    ops.set_host_softmax_hook(host_f64_softmax)
     return ops.set_grad_hook(_hook)
 
 
@@ -1768,6 +1889,7 @@ def uninstall() -> None:
     from . import ops
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
+    ops.set_host_softmax_hook(None)
     ops.set_grad_hook(None)
 
 
