@@ -1,0 +1,346 @@
+{
+ "aiclk_after": null,
+ "board": "p300c",
+ "card": 0,
+ "fixture": "perf/size512/fixtures/cdk2x2_128.yaml (298 aa, 128-token crop)",
+ "fold": "predict --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0",
+ "host": "tt-quietbox2",
+ "models": {
+  "boltz2": {
+   "fold_pid": 341912,
+   "host_f64_stats": {
+    "declined": 0,
+    "elements": 0,
+    "refused": 0,
+    "served": 0
+   },
+   "other_softmax_ops": {
+    "scaled_dot_product_attention": {
+     "tt_bio/tenstorrent.py:2185": {
+      "calls": 560,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       128,
+       4,
+       128,
+       32
+      ]
+     },
+     "tt_bio/tenstorrent.py:8383": {
+      "calls": 36,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       168,
+       32,
+       32
+      ]
+     },
+     "tt_bio/tenstorrent.py:8617": {
+      "calls": 144,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       16,
+       128,
+       64
+      ]
+     }
+    },
+    "softmax": {
+     "tt_bio/tenstorrent.py:10503": {
+      "calls": 16,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       8,
+       128,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:13082": {
+      "calls": 4,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       128,
+       128,
+       64
+      ]
+     },
+     "tt_bio/tenstorrent.py:8645": {
+      "calls": 264,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       16,
+       128,
+       128
+      ]
+     }
+    }
+   },
+   "owner_modules": {
+    "tt_bio.openfold3_atom_transformer": "absent",
+    "tt_bio.openfold3_diffusion_transformer": "absent",
+    "tt_bio.protenix": "absent",
+    "tt_bio.tenstorrent": "wrapped"
+   },
+   "processes": 2,
+   "site_softmax": {}
+  },
+  "opendde": {
+   "fold_pid": 341017,
+   "host_f64_stats": {
+    "declined": 39,
+    "elements": 0,
+    "refused": 0,
+    "served": 0
+   },
+   "other_softmax_ops": {
+    "scaled_dot_product_attention": {
+     "tt_bio/tenstorrent.py:2185": {
+      "calls": 160,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       128,
+       2,
+       128,
+       32
+      ]
+     }
+    },
+    "softmax": {
+     "tt_bio/tenstorrent.py:10503": {
+      "calls": 40,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       8,
+       128,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:3632": {
+      "calls": 39,
+      "ckc": "None",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       33,
+       4,
+       32,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:8645": {
+      "calls": 144,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       16,
+       249,
+       249
+      ]
+     }
+    }
+   },
+   "owner_modules": {
+    "tt_bio.openfold3_atom_transformer": "absent",
+    "tt_bio.openfold3_diffusion_transformer": "absent",
+    "tt_bio.protenix": "wrapped",
+    "tt_bio.tenstorrent": "wrapped"
+   },
+   "processes": 2,
+   "site_softmax": {
+    "tt_bio/protenix.py:570": {
+     "calls": 39,
+     "ckc": "None",
+     "dtype": "DataType.BFLOAT16",
+     "shape": [
+      33,
+      4,
+      32,
+      128
+     ]
+    }
+   }
+  },
+  "openfold3": {
+   "fold_pid": 336748,
+   "host_f64_stats": {
+    "declined": 183,
+    "elements": 0,
+    "refused": 0,
+    "served": 0
+   },
+   "other_softmax_ops": {
+    "softmax": {
+     "tt_bio/tenstorrent.py:10503": {
+      "calls": 12,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       8,
+       128,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:3632": {
+      "calls": 183,
+      "ckc": "None",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       33,
+       4,
+       32,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:8645": {
+      "calls": 192,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       1,
+       16,
+       128,
+       128
+      ]
+     }
+    },
+    "softmax_in_place": {
+     "tt_bio/tenstorrent.py:3955": {
+      "calls": 440,
+      "ckc": "None",
+      "dtype": "DataType.FLOAT32",
+      "shape": [
+       128,
+       4,
+       128,
+       128
+      ]
+     }
+    }
+   },
+   "owner_modules": {
+    "tt_bio.openfold3_atom_transformer": "wrapped",
+    "tt_bio.openfold3_diffusion_transformer": "wrapped",
+    "tt_bio.protenix": "wrapped",
+    "tt_bio.tenstorrent": "wrapped"
+   },
+   "processes": 2,
+   "site_softmax": {
+    "tt_bio/openfold3_atom_transformer.py:186": {
+     "calls": 39,
+     "ckc": "None",
+     "dtype": "DataType.BFLOAT16",
+     "shape": [
+      1,
+      33,
+      4,
+      32,
+      128
+     ]
+    },
+    "tt_bio/openfold3_diffusion_transformer.py:211": {
+     "calls": 144,
+     "ckc": "None",
+     "dtype": "DataType.FLOAT32",
+     "shape": [
+      1,
+      16,
+      128,
+      128
+     ]
+    }
+   }
+  },
+  "protenix-v2": {
+   "fold_pid": 337740,
+   "host_f64_stats": {
+    "declined": 183,
+    "elements": 0,
+    "refused": 0,
+    "served": 0
+   },
+   "other_softmax_ops": {
+    "scaled_dot_product_attention": {
+     "tt_bio/tenstorrent.py:2185": {
+      "calls": 160,
+      "ckc": null,
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       128,
+       2,
+       128,
+       32
+      ]
+     }
+    },
+    "softmax": {
+     "tt_bio/tenstorrent.py:10503": {
+      "calls": 30,
+      "ckc": "SET",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       8,
+       128,
+       128
+      ]
+     },
+     "tt_bio/tenstorrent.py:3632": {
+      "calls": 183,
+      "ckc": "None",
+      "dtype": "DataType.BFLOAT16",
+      "shape": [
+       33,
+       4,
+       32,
+       128
+      ]
+     }
+    }
+   },
+   "owner_modules": {
+    "tt_bio.openfold3_atom_transformer": "absent",
+    "tt_bio.openfold3_diffusion_transformer": "absent",
+    "tt_bio.protenix": "wrapped",
+    "tt_bio.tenstorrent": "wrapped"
+   },
+   "processes": 2,
+   "site_softmax": {
+    "tt_bio/protenix.py:570": {
+     "calls": 39,
+     "ckc": "None",
+     "dtype": "DataType.BFLOAT16",
+     "shape": [
+      33,
+      4,
+      32,
+      128
+     ]
+    },
+    "tt_bio/tenstorrent.py:8604": {
+     "calls": 144,
+     "ckc": "None",
+     "dtype": "DataType.FLOAT32",
+     "shape": [
+      1,
+      16,
+      128,
+      128
+     ]
+    }
+   }
+  }
+ },
+ "what": "softmax construction sites a shipped inference fold reaches, by dtype"
+}

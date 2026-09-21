@@ -484,6 +484,7 @@ class AtomTransformer(_KeyedWeights, Module):
         self.dtype = dtype
         self.n_blocks = n_blocks
         self._w = {k: v for k, v in self.weights.data.items()}
+        # OFF: bf16 arrives here too, 2.14x accuracy for 2.46x cost at [33,4,32,128].
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
@@ -936,7 +937,8 @@ class DiffusionModule(_KeyedWeights):
                 AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
                                   PW.remap_attention_pair_bias(sub(A)), self._dit_ckc,
-                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True),
+                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True,
+                                  softmax_site="protenix.token_dit"),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 

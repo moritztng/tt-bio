@@ -8283,8 +8283,14 @@ class AttentionPairBias(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
         self.accurate_softmax = accurate_softmax
-        # None is the op's own kernel default, which is what this site shipped with; see
-        # `softmax_precise_site` for what the other answer costs and buys.
+        # OFF, and `of3t-softmax` decided that: the config moves protenix-v2's delivered
+        # structure 2.2151 A, inside its own 4.1346 A seed floor but 6.8x OpenFold3's move under
+        # the same lever, so it is two decisions rather than one. The only reader here is the
+        # `fp32_raw_matmul_attention` branch of `__call__`, where the scores are fp32 because
+        # ttnn's SDPA refuses fp32 inputs; every other instance sets this and never reads it.
+        # On that branch the config is worth 12.50x accuracy against float64 for 1.55x cost at
+        # [1,16,128,128] and 0.91 ms of a 32 s fold (perf/of3t_fwdkcfg/), so what holds it off
+        # is the Angstrom move on a shipped model, not the price.
         self._softmax_ckc = softmax_ckc(softmax_site)
         self._softmax_f64 = host_f64_softmax_site(softmax_site)
         self.head_dim = head_dim
