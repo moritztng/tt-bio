@@ -753,6 +753,46 @@ wrote GO at pass 218; the gate refused it and was right.
 
 **The shipped tree's split**: against the 2.0e-02 float64 mass-weighted bar the default-off tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) passing, **94.8836 %** failing, **2.0067 %** unread. That is the SHIPPED configuration; the readings below are the configured one, two default-off levers apart.
 
+**The closing measurement** (`of3t-wholemodel`; argued in full in PASSLOG). With
+`of3t-apbgrad`'s softmax-backward repair on and **nothing else — no host round trip** — the
+model-scope gradient reads **1.006695e-01** against upstream 0.4.3's own bf16 training step over
+**92.1568 %** of the squared gradient norm, against a reachable bar of **1.049545e-01**:
+**0.9592x**. With the trunk composed, coverage **97.9850 %** and **1.528664e-01** against
+**1.627551e-01**: **0.9392x**. Pre-registered branch **B2**; the composition is an **identity** at
+relative difference **0.0**.
+
+**What GO requires** — of the gate's five conditions, two met and three not:
+- **per-parameter gradients at MODEL scope — MET**
+- **§6 coverage, all 8 loss terms fired — MET**, on OpenFold3's own cache.
+- **an N-step weight trajectory on the MODEL — MET at 36.9462 %, and the scope is REFERENCE-bound,
+  not ours; argued in full in PASSLOG.** The **shipped default** reads **4.763338e-02** at k=20,
+  exponent **−0.2482**, 26 of 26 tape resolutions, and `of3t-rebind` took reach from 0 to
+  **3,932 of 3,932**, so the limit is upstream's own float64 side: `SCOPE_LADDER.json` prices
+  `diffusion_module` at **5.51 h** for 20 steps and **refuses** `pairformer_stack` on a host kernel
+  OOM at **215.53 GB**. `of3t-trajwide` is running the diffusion-module rung, **~89.2 %**.
+- **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, COSTED; in PASSLOG.**
+  `of3t-theirtest` returned NO-GO, touching nothing under `tt_bio/`. Unmodified it skips
+  (*"Requires cuda; found cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases
+  fail at ONE key — Triton triangle kernels left on the EVAL path by upstream's own generator;
+  cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
+  device and we are not one. Two closures costed, in GAP.
+- **no unfixed or user-facing defect in GAP — NOT MET, now PRICED (pass 243, in PASSLOG).**
+  Nine USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56;
+  ask 9597 is upstream of two) **and five need a card**, three of them (D30, D58, D129) one object
+  — the tape's backward, `of3t-ditcot`'s, held. `userfacing/closure_plan.py` refuses rather than
+  going stale. Still defective (D122). It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
+  defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
+  them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
+  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 37 campaign-internal**. I did not
+  move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
+  while any UNFIXED defect ships to users.
+
+**And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
+
+Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-five defects, fifty UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+
+PASSLOG: **The fuller VERDICT paragraph on the closing measurement, moved here at pass 243**; nothing in it is changed.
+
 **The closing measurement** (`of3t-wholemodel`). With `of3t-apbgrad`'s softmax-backward repair on
 and **nothing else — no host round trip** — the model-scope gradient reads **1.006695e-01** against
 upstream 0.4.3's own bf16 training step over **92.1568 %** of the squared gradient norm, against a
@@ -761,37 +801,24 @@ the reading **1.528664e-01** against **1.627551e-01**: **0.9392x**. Pre-register
 tensor; the composition is an **identity** at relative difference **0.0**. Controls: A16 zero model
 9.999999997e-01, break control **2.009101e+01** at cos **−0.0028**, A/A bit-identical.
 
-**What GO requires** — of the gate's five conditions, two met and three not:
-- **per-parameter gradients at MODEL scope — MET**
-- **§6 coverage, all 8 loss terms fired — MET**, on OpenFold3's own cache.
-- **an N-step weight trajectory on the MODEL — MET at 36.9462 %, and the scope is REFERENCE-bound,
-  not ours.** The **shipped default** reads **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26
-  tape resolutions. `of3t-rebind` took reach from 0 to **3,932 of 3,932**, so the limit is upstream's
-  own float64 side: `SCOPE_LADDER.json` prices `diffusion_module` at **5.51 h** for 20 steps and
-  **refuses** `pairformer_stack` on a host kernel OOM at **215.53 GB**. `of3t-trajwide` dispatched for
-  the diffusion-module rung, **~89.2 %**, and told to cost the next ceiling rather than attempt it.
+**A fuller VERDICT paragraph on GO condition 4, moved here at pass 243**; nothing in it is changed.
+
 - **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, and COSTED.**
   `of3t-theirtest` returned NO-GO; its commits touch nothing under `tt_bio/`. Unmodified it skips
   (*"Requires cuda; found cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases
   fail at ONE key — Triton triangle kernels left on the EVAL path by upstream's own generator;
   cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
   device and we are not one. Two closures costed, in GAP.
-- **no unfixed or user-facing defect in GAP — NOT MET, and the condition itself is defective
-  (D122).** It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
-  defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
-  them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
-  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 37 campaign-internal**. I did not
-  move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
-  while any UNFIXED defect ships to users.
 
-**And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off,
-unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to
-stability over 100k steps or convergence. **2.0150 %** of the mass has no reading. Crop 640 fits at
-+5.82 GB, **768 does not** by 9.72 GB.
+**Pass 243 — GO condition 5 is priced for the first time, and it is one decision bundle and one measurement rather than nine investigations.** The campaign has argued about the *condition* for twenty passes (D122: it is a keyword test on prose) and never written down the answer to the obvious question — what would closing it cost. That question was not answerable before, because the USER-FACING set was whatever happened to carry a status word; with the invisible set at zero (D133/D135, passes 240-242) it is the whole ledger, so `perf/of3t_orchestrator/userfacing/closure_plan.py` asks it per defect.
 
-Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, and `of3t-ditcot` HELD by `DEPENDS_ON` until a card frees); one hundred thirty-five defects, fifty UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+**Four need a decision and no measurement will move them.** **D1** — ship the written pair-bias repair and accept 0.149 Å worse at rank 0, or declare the 1/sqrt(24) deviation intentional with that measurement as the reason. **D10** and **D24** — ship one ranking rule on CONSISTENCY grounds, because the accuracy argument is gone: `of3t-rankunify` measured +0.046 Å and +0.020 Å on the two changed models with **9 of 12 changed folds the wrong way**, every difference inside its seed floor, **p = 0.146**, and withdrew the claim itself. **D56** — its mechanism is refuted and its magnitude collapsed 333x; what keeps it open is that `TT_BIO_SOFTMAX_BW_RENORM` is still default-off, which is a release decision and not a finding. These four are Moritz's, and **ask 9597 is upstream of two of them** and still unanswered.
 
-PASSLOG: **Pass 242 — the statusless backlog is EMPTY, and the last six had to be read one at a time because a label would have been a guess.** D133 froze twenty-nine entries the ledger's parser could not see; pass 241 labelled twenty-three of them from what they plainly are. The six that were left are real code defects, and their repair state is a fact about the tree rather than about the entry, so each was read.
+**Five need a card, and three of the five are the same object.** D30 (the diffusion backward at 19.6x its forward), D58 (the same factor at 19.8x in `msa_module` — different ops, different track, so it belongs to the tape and not to a module) and D129 (the flat 2.28x cotangent excess) are one question at three depths, and `of3t-ditcot` is dispatched against it and held on `of3t-trajwide`'s card. D55's four remaining unconfigured reductions are that row's deliverable 2. **D32 is the odd one and it is not a repair at all**: 21 sites in 9 shipped modules route down unfused paths while a tape is open, so nobody can price training from inference, and what closes it is a published s/step on the shipped default — a measurement of a deliberate behaviour.
+
+**The plan is a plan and says so.** It asserts its table against `state/of3t/UNFIXED_TRIAGE.json`, the file the gate actually reads, and **refuses** rather than printing a stale plan as a current one — demonstrated by adding a phantom defect to the live set and watching it abort, then restoring. Naming a closure condition is not meeting one, and the summary line says that out loud so a reader cannot mistake the artifact for progress.
+
+**Pass 242 — the statusless backlog is EMPTY, and the last six had to be read one at a time because a label would have been a guess.** D133 froze twenty-nine entries the ledger's parser could not see; pass 241 labelled twenty-three of them from what they plainly are. The six that were left are real code defects, and their repair state is a fact about the tree rather than about the entry, so each was read.
 
 **Five declare FIXED on what their own bodies already recorded**, and two of those were checked against the composed tree rather than taken on the entry's word. **D6**'s fourth blind spot — *"OF3's `fp32_softmax=True` path had no backward at all"* — is closed: `taped_ttnn.py` registers the derivative for the `MUL_UNARY_SFPU` activation the fp32-softmax tail rides, with its own note that openfold3's trunk, template and MSA stacks all take that path by default, *"so this is the shipped path for a whole model, not an opt-in corner"*. **D7**'s two halves are both closed in the tree: `_triangle_mul_memory_config` returns DRAM under a tape and carries the 214 MB defect in its own comment, and `docs/openfold3-vendor.md` — the `NOTICE` reference that existed nowhere — exists. **D18** was filed at pass 40 as *"FIX IN FLIGHT ... publication pending"* and its exit condition has been met for two hundred passes: `bundle_min_043` is the reference every diffusion arm is scored against, re-validated at pass 240 at `vs_bundle` worst_rel **0.0** over 761 tensors. **D4** and **D5** declare what their bodies state, including D5's honest scope note that per-sample clipping has no caller because the shipped loop runs one forward per batch.
 

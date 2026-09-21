@@ -484,6 +484,12 @@ echo "--- dispatch card tokens"
 # cause, twice in one session at pass 236. This probe lifts that block out of the live audit
 # and shows it refusing to evaluate while another check is down, while still firing on a
 # genuinely stale count. CPU-only, no artifacts read.
+# (3e) GO condition 5, priced. The plan for each USER-FACING defect is asserted against the live
+# triage the gate reads, so it refuses rather than reporting a stale plan as a current one.
+echo "--- user-facing closure plan"
+"$PY" "$HERE/userfacing/closure_plan.py" | tail -4 || \
+  { echo "COMPOSE: the USER-FACING closure plan is stale against UNFIXED_TRIAGE.json"; exit 1; }
+
 echo "--- check-count evaluability"
 "$PY" "$HERE/countstable/count_is_not_evaluable_while_drifted.py" | tail -2 || \
   { echo "COMPOSE: the check-count guard no longer refuses an unevaluable run"; exit 1; }
