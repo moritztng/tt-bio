@@ -1,0 +1,55 @@
+{
+  "what": "real-block forward at two pad widths, same real tokens, our torch reference",
+  "real_tokens": 56,
+  "widths": [
+    64,
+    384
+  ],
+  "pad_fill": 0.7,
+  "rows": [
+    {
+      "blocks": 1,
+      "forced_nonzero_params": 32,
+      "pad_out_norm_n384": 161.12730063264047,
+      "s_real_absdiff": 5.503800293010271e-06,
+      "s_real_rel": 6.093481366959816e-08,
+      "s_bit_identical": false,
+      "z_real_absdiff": 8.394976196248289e-06,
+      "z_real_rel": 1.793864388009979e-08,
+      "z_bit_identical": false
+    },
+    {
+      "blocks": 2,
+      "forced_nonzero_params": 64,
+      "pad_out_norm_n384": 165.96094398508876,
+      "s_real_absdiff": 1.1440072981535609e-05,
+      "s_real_rel": 1.2216829578889244e-07,
+      "s_bit_identical": false,
+      "z_real_absdiff": 5.113398087132838e-05,
+      "z_real_rel": 1.0663303756983485e-07,
+      "z_bit_identical": false
+    },
+    {
+      "blocks": 4,
+      "forced_nonzero_params": 128,
+      "pad_out_norm_n384": 212.44231285946952,
+      "s_real_absdiff": 2.244793731080607e-05,
+      "s_real_rel": 2.1515201745328942e-07,
+      "s_bit_identical": false,
+      "z_real_absdiff": 9.155593318014562e-05,
+      "z_real_rel": 1.7703403450601405e-07,
+      "z_bit_identical": false
+    },
+    {
+      "blocks": 8,
+      "forced_nonzero_params": 256,
+      "pad_out_norm_n384": 254.0710570603492,
+      "s_real_absdiff": 4.081550907900542e-05,
+      "s_real_rel": 3.376463248831172e-07,
+      "s_bit_identical": false,
+      "z_real_absdiff": 0.00015608432515634374,
+      "z_real_rel": 2.7045989668613464e-07,
+      "z_bit_identical": false
+    }
+  ]
+}
