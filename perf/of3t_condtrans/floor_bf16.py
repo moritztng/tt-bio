@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
-"""Upstream 0.5.0's OWN bf16 gradient for the diffusion module, at the boundary our arm is scored at.
+"""Upstream openfold3's OWN bf16 gradient for the diffusion module, at the boundary it is scored at.
 
 `of3t-lnaffine` established the floor discipline on the trunk: a leaf's share of the error mass
 ranks where the error IS, not whether it is ours, so a concentration is not a signature until it is
 differenced against what upstream's own bf16 recipe puts on the same leaf. No artifact in the
-campaign carries an upstream-bf16 arm at DIFFUSION scope, so this builds it.
+campaign carried an upstream-bf16 arm at DIFFUSION scope, so this builds it.
 
-A27, and the brief's version string is wrong, so say it plainly. The float64 reference our
-diffusion arm is scored against is `S["grad_f64"]` in /home/ttuser/of3t_diffusion_cap/sub_boundary.pt,
-produced by `perf/of3t_diffusion/sub_boundary.py` from `/home/ttuser/of3t_gradients/of3pkg`, which is
-**openfold3 0.5.0** (its dist-info says so). The 0.4.3 package the trunk floor used is a different
-tree and a different boundary. The only floor that can be differenced against our reading is the one
-built by the SAME package at the SAME boundary against the SAME float64 reference, which is this.
+A27. The only floor that can be differenced against a reading is the one built by the SAME package
+at the SAME boundary against the SAME float64 reference. Both halves of that are arguments:
+`--cap` selects the capture (its `sub_boundary.pt` supplies `S["grad_f64"]`) and the package comes
+from PYTHONPATH. Neither is written down in this file, because a provenance string that is typed
+can be wrong about the package that actually ran -- this one was, it said 0.5.0 unconditionally.
+`--expect-version` is what the arm DECLARES; the run reads the version off the openfold3 that
+`sys.path` actually resolved and hard-fails if the two disagree.
+
+The version is read from the metadata CO-LOCATED with the imported module, not from
+`importlib.metadata`. `importlib.metadata` scans every sys.path entry, so with a 0.4.3 tree first
+on the path and a 0.5.0 `.dist-info` anywhere behind it, it returns 0.5.0 for code that is 0.4.3.
+`LAYERNORM_SIGNATURE` is reported beside it: the two versions differ in `LayerNorm.forward`, 0.4.3
+rounding the affine parameter to `x.dtype` and 0.5.0 upcasting it to float32, which is a behaviour
+the metadata cannot lie about.
 
 Policies, exactly as `perf/of3t_trunkg043/ref_grad.py` defines them:
   bf16auto  float32 parameters under `torch.autocast("cpu", bfloat16)` -- upstream's own training
@@ -27,7 +35,9 @@ never reached the kernels and the "floor" would be an f32 arm wearing a bf16 lab
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -38,6 +48,43 @@ sys.path.insert(0, "/home/ttuser/of3t_gradients/ref")
 
 CAP = Path("/home/ttuser/of3t_diffusion_cap")
 CKPT = Path("/home/ttuser/of3-weights/of3-p2-155k.pt")
+
+
+def upstream_identity():
+    """Identify the openfold3 that sys.path actually resolved, from its own directory.
+
+    Returns (root, version, metadata_file, layernorm_signature). Raises if it cannot be pinned,
+    because an unpinned provenance is the defect this replaced.
+    """
+    spec = importlib.util.find_spec("openfold3")
+    if spec is None or not spec.origin:
+        raise SystemExit("openfold3 is not importable; PYTHONPATH is wrong")
+    pkg = Path(spec.origin).resolve().parent
+    root = pkg.parent
+    ver = meta = None
+    cands = (sorted(root.glob("*.dist-info/METADATA"))
+             + sorted(root.glob("*.egg-info/PKG-INFO"))
+             + [root / "PKG-INFO"])
+    for c in cands:
+        if not c.exists():
+            continue
+        for line in c.read_text(errors="replace").splitlines():
+            if line.startswith("Version:"):
+                ver, meta = line.split(":", 1)[1].strip(), str(c)
+                break
+        if ver:
+            break
+    if ver is None:
+        raise SystemExit(f"no Version: metadata beside the imported openfold3 at {root}")
+    norm = pkg / "core" / "model" / "primitives" / "normalization.py"
+    if norm.exists():
+        src = norm.read_text(errors="replace")
+        sig = ("layernorm_upcasts_affine_to_float32" if "self.weight.float()" in src
+               else "layernorm_keeps_affine_in_x_dtype" if "self.weight.to(dtype=d)" in src
+               else "layernorm_unrecognised")
+    else:
+        sig = "normalization.py_not_at_core/model/primitives"
+    return str(root), ver, meta, sig
 
 
 def cast(x, dt):
@@ -56,8 +103,20 @@ def main() -> int:
     ap.add_argument("--cap", type=Path, default=CAP)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
+    ap.add_argument("--expect-version", required=True,
+                    help="the openfold3 version this arm DECLARES; the run hard-fails if the "
+                         "package sys.path resolved is a different one")
+    ap.add_argument("--ckpt", type=Path, default=CKPT)
     a = ap.parse_args()
     t0 = time.time()
+
+    pkg_root, pkg_ver, pkg_meta, ln_sig = upstream_identity()
+    print(f"upstream openfold3 {pkg_ver} at {pkg_root} (from {pkg_meta}), "
+          f"LayerNorm: {ln_sig}", flush=True)
+    if pkg_ver != a.expect_version:
+        print(f"HARD FAILURE: arm declares openfold3 {a.expect_version}, sys.path resolved "
+              f"{pkg_ver} at {pkg_root}", flush=True)
+        return 3
 
     import bundle_min as BM
 
@@ -71,7 +130,7 @@ def main() -> int:
     dt = torch.float32
     built = BM.build(dt, 20260919, "cpu", num_recycles=0)
     model = built[1]
-    ck = torch.load(CKPT, map_location="cpu", weights_only=False)
+    ck = torch.load(a.ckpt, map_location="cpu", weights_only=False)
     sd = ck.get("state_dict", ck) if isinstance(ck, dict) else ck
     sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
     sd = {k: (v.to(dt) if torch.is_tensor(v) and v.is_floating_point() else v)
@@ -136,11 +195,18 @@ def main() -> int:
         if rel > worst:
             worst, worst_n = rel, nm
     rep = {"what": __doc__.strip().splitlines()[0],
-           "policy": a.policy, "cap": str(a.cap), "ckpt": str(CKPT),
-           "upstream_pkg": "/home/ttuser/of3t_gradients/of3pkg (openfold3 0.5.0)",
+           "policy": a.policy, "cap": str(a.cap), "ckpt": str(a.ckpt),
+           "upstream_pkg": pkg_root,
+           "upstream_version": pkg_ver,
+           "upstream_version_declared": a.expect_version,
+           "upstream_version_source": pkg_meta,
+           "LAYERNORM_SIGNATURE": ln_sig,
+           "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
+           "torch": torch.__version__,
            "forward_seconds": t_fwd, "backward_seconds": t_bwd,
            "xl_dtype": str(xl.dtype), "DTYPE_PROBE": probe,
-           "all_738_mass_weighted_vs_f64": (num / den) ** 0.5 if den else None,
+           "scope_mass_weighted_vs_f64": (num / den) ** 0.5 if den else None,
+           "scope_error_mass": num, "scope_reference_mass": den,
            "compared": n, "worst_rel": worst, "worst_tensor": worst_n,
            "out": str(a.out)}
     a.report.parent.mkdir(parents=True, exist_ok=True)
