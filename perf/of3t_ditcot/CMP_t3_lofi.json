@@ -1,0 +1,26 @@
+{
+ "a": "/tmp/of3t/ditcot/t3_none.pt",
+ "b": "/tmp/of3t/ditcot/t3_lofi.pt",
+ "compared": 4,
+ "bit_identical": 1,
+ "moved": 3,
+ "bit_identical_frac": 0.25,
+ "max_rel": 0.005094655718979738,
+ "top_moved": [
+  {
+   "tensor": "bias",
+   "rel": 0.005094655718979738,
+   "max_abs": 0.00390625
+  },
+  {
+   "tensor": "k",
+   "rel": 0.0022127629211481695,
+   "max_abs": 0.000244140625
+  },
+  {
+   "tensor": "q",
+   "rel": 0.0019236143379297082,
+   "max_abs": 0.000244140625
+  }
+ ]
+}

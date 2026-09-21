@@ -39,6 +39,8 @@ import sys
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_diffusion"))
+sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_trunkg043"))
+sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_gradients"))
 
 AUTOGRAD = "tt_bio/autograd.py"
 
@@ -153,25 +155,35 @@ def install(arm, lmap):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", required=True, choices=("none", "pull", "lofi"))
+    ap.add_argument("--kcfg-arm", required=True, dest="kcfg_arm",
+                    choices=("none", "pull", "lofi"))
     ap.add_argument("--fire-out", default="")
+    ap.add_argument("--harness", default="diffusion", choices=("diffusion", "trunk"),
+                    help="diffusion reaches T2/T4; the trunk is the only scope that runs "
+                         "T1 (layer_norm) and T3 (triangle_attention dbias). dev_cot.py is "
+                         "deliberately NOT used for the trunk: its lever mechanism replaces "
+                         "_taped_layer_norm with a copy that lives in dev_cot.py, so the "
+                         "shipped rule this row measures would not be the one running.")
     a, rest = ap.parse_known_args()
 
     lmap, rep, census = resolve()
-    print(json.dumps({"arm": a.arm, "targets": rep, "census_today": census}, indent=1),
+    print(json.dumps({"arm": a.kcfg_arm, "targets": rep, "census_today": census}, indent=1),
           flush=True)
 
-    install(a.arm, lmap)
+    install(a.kcfg_arm, lmap)
 
-    import device_gradient as DG
+    if a.harness == "diffusion":
+        import device_gradient as H
+    else:
+        import dev_grad as H
     sys.argv = [sys.argv[0]] + rest
-    rc = DG.main()
+    rc = H.main()
 
     fired = {f"T{t}": FIRED.get(t, 0) for t in range(1, len(TARGETS) + 1)}
     print("FIRINGS " + json.dumps(fired), flush=True)
     if a.fire_out:
         pathlib.Path(a.fire_out).write_text(json.dumps(
-            {"arm": a.arm, "fired": fired, "targets": rep, "census_today": census}, indent=1))
+            {"arm": a.kcfg_arm, "fired": fired, "targets": rep, "census_today": census}, indent=1))
     return rc
 
 

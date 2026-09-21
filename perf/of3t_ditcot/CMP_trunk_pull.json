@@ -1,0 +1,10 @@
+{
+ "a": "/tmp/of3t/ditcot/trunk_base1.pt",
+ "b": "/tmp/of3t/ditcot/trunk_pull.pt",
+ "compared": 2736,
+ "bit_identical": 2736,
+ "moved": 0,
+ "bit_identical_frac": 1.0,
+ "max_rel": 0.0,
+ "top_moved": []
+}

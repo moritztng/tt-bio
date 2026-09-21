@@ -1,0 +1,21 @@
+{
+ "a": "/tmp/of3t/ditcot/t1_none.pt",
+ "b": "/tmp/of3t/ditcot/t1_lofi.pt",
+ "compared": 3,
+ "bit_identical": 1,
+ "moved": 2,
+ "bit_identical_frac": 0.3333333333333333,
+ "max_rel": 0.002536930005304051,
+ "top_moved": [
+  {
+   "tensor": "gamma",
+   "rel": 0.002536930005304051,
+   "max_abs": 0.25
+  },
+  {
+   "tensor": "x",
+   "rel": 0.001374286660846133,
+   "max_abs": 0.0625
+  }
+ ]
+}

@@ -12,7 +12,7 @@ mkdir -p "$O" "$W/perf/of3t_ditcot"
 TAG=$1; ARM=$2; shift 2
 echo "=== kcfg $TAG arm=$ARM $(date -u +%FT%TZ) ==="
 TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:of3t-ditcot \
-timeout 3000 python3 perf/of3t_ditcot/kcfg_pull.py --arm "$ARM" \
+timeout 3000 python3 perf/of3t_ditcot/kcfg_pull.py --kcfg-arm "$ARM" \
   --fire-out "$W/perf/of3t_ditcot/FIRE_${TAG}.json" \
   --dump-per-tensor --dump-grads "$O/kcfg_${TAG}.pt" \
   --out-dir "$W/perf/of3t_ditcot" --tag "_${TAG}" "$@"
