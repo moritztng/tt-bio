@@ -3556,6 +3556,109 @@ def softmax_ckc(token: str, default: bool = False):
     return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
 
 
+# Calls served by the host float64 softmax, so an arm cannot silently decline. `declined` counts
+# calls that reached `site_softmax` with the site off, which is what makes "the flag fired and
+# nothing happened" readable instead of invisible.
+HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "elements": 0}
+
+
+def host_f64_softmax_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` computes its softmax on the host in float64.
+
+    Tenstorrent's fp32 is a few mantissa bits short of IEEE fp32, and a softmax is where that
+    shows. Measured on this card at [1,16,384,384] fp32 against a float64 softmax on the same
+    values (`perf/of3t_softmax/softmax_cost_qb2c0.json`): the op's own default reads 2.029e-02,
+    `precise_config()` 1.646e-03, and the 5-op `_accurate_softmax` chain 5.156e-04. A true fp32
+    softmax reads ~1e-7. Nothing on the card is within four orders of magnitude of that, so the
+    gap is the silicon's and no configuration closes it.
+
+    This site flag is the route that does: the scores go to the host, softmax runs there in
+    float64, and the result comes back in the tensor's own dtype, layout and memory config. The
+    round trip is the softmax and nothing else -- every op before and after it stays on the card.
+
+    It buys GRADIENT fidelity and it is a training-path lever. On the OF3 diffusion module's
+    gradient over 547 tensors at full scope it takes the mass-weighted rel_l2 against upstream's
+    own bf16 training step from 7.426217e+00 to 7.777580e-02, and against a float64 reference to
+    5.930664e-02, which is 1.013x what upstream's own bf16 step reaches against the same
+    reference. It costs 166.8x on the softmax alone and 1.47x on the whole gradient arm
+    (`perf/of3t_f64softmax/`). Inference does not want it and does not get it: OFF at every site,
+    and a fold with the path present and off is byte-identical to one without it, measured by
+    digest on OpenFold3, Protenix-v2 and OpenDDE.
+
+    Reach for ``TT_BIO_SOFTMAX_BW_RENORM`` before this. Two ops in the softmax backward get
+    1.057023e-01 on the same gradient for 1.049x, which is 99.6 % of what the round trip buys at
+    a tenth of the cost; what this path still has over it is the FORWARD, which no backward fix
+    can reach. The two compose, and on this path the renormalisation is exactly a no-op because a
+    float64 softmax already sums to one.
+
+    Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
+    ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
+    reaches, so it stays A/B-able without a checkout.
+    """
+    return _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
+
+
+def host_f64_softmax(x, dim: int = -1):
+    """``softmax(x, dim)`` computed on the host in float64, differentiable under the tape.
+
+    The backward is the softmax Jacobian in float64 as well, ``dx = y * (g - (g * y).sum(dim))``,
+    applied to the float64 forward output rather than to the rounded copy that went back to the
+    card. Reading the rounded copy would put a device-precision softmax straight back into the
+    gradient this path exists to take out of it.
+
+    `x` may be a raw ttnn tensor (inference) or a taped `autograd.Tensor` (training); the only
+    difference is whether a tape node is created.
+    """
+    import torch
+
+    from . import autograd as ag
+    from . import taped_ttnn as TT
+
+    xt = x if isinstance(x, ag.Tensor) else None
+    v = xt.value if xt is not None else x
+    y64 = torch.softmax(ttnn.to_torch(v).double(), dim=dim)
+    HOST_F64_SOFTMAX_STATS["served"] += 1
+    HOST_F64_SOFTMAX_STATS["elements"] += int(y64.numel())
+    y = ttnn.from_torch(y64.float(), layout=v.layout, device=v.device(), dtype=v.dtype,
+                        memory_config=v.memory_config())
+    if xt is None:
+        return y
+
+    def make():
+        def bw(g):
+            g64 = ttnn.to_torch(g).double()
+            inner = (g64 * y64).sum(dim=dim, keepdim=True)
+            if TT._SOFTMAX_BW_RENORM:
+                # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
+                # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
+                # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
+                # restores the identity. On THIS path the row already sums to one to float64
+                # round-off, so the division is arithmetically a no-op -- which is the point.
+                # It is the consistency check between two independently derived repairs, and
+                # it is why the flag reaches here instead of stopping at the tape verb.
+                inner = inner / y64.sum(dim=dim, keepdim=True)
+            d = y64 * (g64 - inner)
+            xt.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=g.device(),
+                                        dtype=g.dtype, memory_config=g.memory_config()))
+        return bw
+
+    return ag._tape(y, [xt], make)
+
+
+def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
+    """The softmax a construction site runs: ``ttnn.softmax``, or the host float64 one.
+
+    With ``host_f64`` False this IS ``ttnn.softmax(x, dim=dim, **kw)`` and nothing else, which is
+    what makes the path bit-identical when off. With it True the kernel arguments -- a compute
+    kernel config, ``numeric_stable`` -- describe a kernel that does not run, so they are
+    dropped: the host computes the softmax exactly and has no use for either.
+    """
+    if not host_f64:
+        HOST_F64_SOFTMAX_STATS["declined"] += 1
+        return ttnn.softmax(x, dim=dim, **kw)
+    return host_f64_softmax(x, dim)
+
+
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
 
@@ -8179,6 +8282,7 @@ class AttentionPairBias(Module):
         # None is the op's own kernel default, which is what this site shipped with; see
         # `softmax_precise_site` for what the other answer costs and buys.
         self._softmax_ckc = softmax_ckc(softmax_site)
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -8519,7 +8623,8 @@ class AttentionPairBias(Module):
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
-                attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc)
+                attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                    host_f64=self._softmax_f64)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
