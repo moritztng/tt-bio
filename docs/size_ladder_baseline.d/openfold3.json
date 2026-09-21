@@ -1891,7 +1891,6 @@
                 "declined": null,
                 "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size",
                 "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
@@ -1914,7 +1913,6 @@
                 "declined": null,
                 "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size",
                 "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -1923,7 +1921,6 @@
                 "declined": null,
                 "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size",
                 "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "TRIMUL_TAIL_F1": {
@@ -1943,7 +1940,6 @@
                 "declined": null,
                 "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size",
                 "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "DEVICE_LM_HANDOFF": {
@@ -2088,7 +2084,6 @@
                 "declined": null,
                 "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size",
                 "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "SDPA_Q_CHUNK_FITS": {
