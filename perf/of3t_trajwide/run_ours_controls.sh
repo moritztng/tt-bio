@@ -7,7 +7,13 @@ cd "$(dirname "$0")/../.."
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 L=/tmp/of3t/trajwide
 mkdir -p "$L"
-export TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:of3t-trajwide
+# Card 1, not the dispatched card 2. Card 2 reproduced its documented wedge-at-open
+# signature on 2026-09-21 09:26Z: nothing past the ttnn.CONFIG banner for 17 min, one
+# thread at 100 % CPU with the main thread in futex_do_wait, and AICLK still 0x320 (800
+# MHz, idle) so the chip never started. SIGTERM cleared it. tt-smi -r 2 was NOT run:
+# it resets the board pair dev2+dev3 and card 3 was held live by worker:land-standing.
+# Grant widened to both so the lease check still recognises the card-2 assignment.
+export TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1,2 TT_BIO_LEASE_HOLDER=worker:of3t-trajwide
 export OMP_NUM_THREADS=3 MKL_NUM_THREADS=3
 clock_watch() {
   while :; do
