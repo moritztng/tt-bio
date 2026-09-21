@@ -1,0 +1,264 @@
+[
+ {
+  "model": "boltz2",
+  "tri": "none",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags []",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "6391dde0b55d5e5d85bb9722c47e9b5f104dfc87c44dfc2795d4ef6ac52c865a",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    36127.142718932686
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    21216.20578552845
+   ]
+  ]
+ },
+ {
+  "model": "boltzgen",
+  "tri": "none",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags []",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "5762538c32cc5012b7528238a26308334a174645768855d5395a54e7d5a1e6ed",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    17794.672898015673
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    16122.522228688014
+   ]
+  ]
+ },
+ {
+  "model": "protenix",
+  "tri": "none",
+  "note": "4-block Pairformer, dims (32, 8, 24, 16), flags ['accurate_softmax', 'gated_move']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "870c19854bc57859d4e939c7ae8fb41271b8ab82672234c4efabab2fe8f70c84",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    711.4691004518372
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     256
+    ],
+    36617.00099556809
+   ]
+  ]
+ },
+ {
+  "model": "af2",
+  "tri": "none",
+  "note": "4 AF2PairBlock",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "afe7eca81e23865a8800ea864adc4606727dd7f08b5fb31d5f8c1b1b8a1663f5",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    13034.850978083312
+   ]
+  ]
+ },
+ {
+  "model": "boltz2",
+  "tri": "1",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags ['tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "6391dde0b55d5e5d85bb9722c47e9b5f104dfc87c44dfc2795d4ef6ac52c865a",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    36127.142718932686
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    21216.20578552845
+   ]
+  ]
+ },
+ {
+  "model": "boltzgen",
+  "tri": "1",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags ['tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "5762538c32cc5012b7528238a26308334a174645768855d5395a54e7d5a1e6ed",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    17794.672898015673
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    16122.522228688014
+   ]
+  ]
+ },
+ {
+  "model": "protenix",
+  "tri": "1",
+  "note": "4-block Pairformer, dims (32, 8, 24, 16), flags ['accurate_softmax', 'gated_move', 'tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "870c19854bc57859d4e939c7ae8fb41271b8ab82672234c4efabab2fe8f70c84",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    711.4691004518372
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     256
+    ],
+    36617.00099556809
+   ]
+  ]
+ },
+ {
+  "model": "boltz2",
+  "tri": "0",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags ['tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "ed5cd9a3157bd4e7b219b8b30354b1e6c2bd8d160cf717f5a5c1989a694eacab",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    36080.433816418896
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    21214.00459260605
+   ]
+  ]
+ },
+ {
+  "model": "boltzgen",
+  "tri": "0",
+  "note": "4-block Pairformer, dims (32, 4, 24, 16), flags ['tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "150d83c3a931b390d0fec38b9ce8ec64c6e7578647e1f634301ffe5365461958",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    17820.04724123354
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     128
+    ],
+    16120.45733199942
+   ]
+  ]
+ },
+ {
+  "model": "protenix",
+  "tri": "0",
+  "note": "4-block Pairformer, dims (32, 8, 24, 16), flags ['accurate_softmax', 'gated_move', 'tri_att_scale_pair_bias']",
+  "blocks": 4,
+  "tokens": 64,
+  "sha256": "c4210c4d0b9e52dd27448cb93458993c1f1afc4ff0c61eaf4a35728b35b1dd15",
+  "outputs": [
+   [
+    [
+     1,
+     64,
+     384
+    ],
+    710.6947869210842
+   ],
+   [
+    [
+     1,
+     64,
+     64,
+     256
+    ],
+    36628.49015179105
+   ]
+  ]
+ }
+]
