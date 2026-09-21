@@ -363,8 +363,11 @@ if ! git merge --no-edit -q wk/of3t-orchestrator; then
   # and negative controls do not pass.
   _u="$(git diff --name-only --diff-filter=U)"
   _bad="$(printf '%s\n' "$_u" | grep -v '^perf/of3t_orchestrator/' || true)"
-  _notaa="$(for _f in $_u; do git ls-files -u -- "$_f" | awk '{print $3}' | grep -qx 1 \
-              && printf '%s\n' "$_f"; done)"
+  _notaa="$(for _f in $_u; do
+              if git ls-files -u -- "$_f" | awk '{print $3}' | grep -qx 1; then
+                printf '%s\n' "$_f"
+              fi
+            done; :)"
   if [ -n "$_u" ] && [ -z "$_bad" ] && [ -z "$_notaa" ]; then
     for _f in $_u; do
       # HEAD here is the accumulated composition and `wk/of3t-orchestrator` is what is being
