@@ -1,0 +1,163 @@
+{
+ "what": "every ttnn.softmax call a shipped OpenFold3 fold and a trunk gradient arm make, with shape, storage dtype, the compute kernel config that reached the kernel and the call chain, recorded by a spy on PYTHONPATH so the spawned workers are covered too",
+ "calls": [
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:3632 <- openfold3_diffusion_transformer.py:211 <- openfold3_diffusion_transformer.py:316",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "dtype": "DataType.FLOAT32",
+   "compute_kernel_config": false,
+   "calls": 4800
+  },
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:3632 <- openfold3_atom_transformer.py:186 <- openfold3_diffusion_module.py:295",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.FLOAT32",
+   "compute_kernel_config": false,
+   "calls": 600
+  },
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:3632 <- openfold3_atom_transformer.py:186 <- openfold3_diffusion_decoder.py:89",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.FLOAT32",
+   "compute_kernel_config": false,
+   "calls": 600
+  },
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:8645 <- tenstorrent.py:9256 <- tenstorrent.py:9355",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": true,
+   "calls": 192
+  },
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:10503 <- tenstorrent.py:10544 <- tenstorrent.py:10599",
+   "shape": [
+    8,
+    96,
+    96
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": true,
+   "calls": 12
+  },
+  {
+   "run": "of3-ubq-fold",
+   "chain": "tenstorrent.py:3632 <- openfold3_atom_transformer.py:186 <- openfold3_host_prep.py:254",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": false,
+   "calls": 3
+  },
+  {
+   "run": "trunk-gradient-arm",
+   "chain": "taped_ttnn.py:218 <- taped_ttnn.py:1054 <- tenstorrent.py:3955",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "dtype": "DataType.FLOAT32",
+   "compute_kernel_config": false,
+   "calls": 288
+  },
+  {
+   "run": "trunk-gradient-arm",
+   "chain": "taped_ttnn.py:218 <- taped_ttnn.py:1054 <- tenstorrent.py:8645",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": true,
+   "calls": 144
+  },
+  {
+   "run": "trunk-gradient-arm",
+   "chain": "tenstorrent.py:8645 <- tenstorrent.py:9256 <- tenstorrent.py:9355",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": true,
+   "calls": 48
+  },
+  {
+   "run": "trunk-gradient-arm TT_BIO_SOFTMAX_CKC=1",
+   "chain": "taped_ttnn.py:218 <- taped_ttnn.py:1054 <- tenstorrent.py:3955",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "dtype": "DataType.FLOAT32",
+   "compute_kernel_config": "math_fidelity=MathFidelity.HiFi4|math_approx_mode=True|fp32_dest_acc_en=True|packer_l1_acc=True",
+   "calls": 288
+  },
+  {
+   "run": "trunk-gradient-arm TT_BIO_SOFTMAX_CKC=1",
+   "chain": "taped_ttnn.py:218 <- taped_ttnn.py:1054 <- tenstorrent.py:8645",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": "math_fidelity=MathFidelity.HiFi4|math_approx_mode=True|fp32_dest_acc_en=True|packer_l1_acc=True",
+   "calls": 144
+  },
+  {
+   "run": "trunk-gradient-arm TT_BIO_SOFTMAX_CKC=1",
+   "chain": "tenstorrent.py:8645 <- tenstorrent.py:9256 <- tenstorrent.py:9355",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "compute_kernel_config": "math_fidelity=MathFidelity.HiFi4|math_approx_mode=True|fp32_dest_acc_en=True|packer_l1_acc=True",
+   "calls": 48
+  }
+ ]
+}

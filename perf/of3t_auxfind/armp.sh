@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -uo pipefail
-W=/home/ttuser/.coworker/wt/of3t-auxfind
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W")"
+ref_assert "$PY"
 export OMP_NUM_THREADS=12
 echo "=== arm_p $(date -u +%FT%TZ) ==="
 "$PY" perf/of3t_auxfind/arm_p.py --out perf/of3t_auxfind/arm_p.json --threads 12

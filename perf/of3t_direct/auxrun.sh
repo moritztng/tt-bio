@@ -7,12 +7,14 @@ set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$W"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W/perf/of3t_tape:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W/perf/of3t_tape" "$W")"
+ref_assert "$PY"
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
 CARD=${CARD:-1}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
 export TT_BIO_LEASE_HOLDER=worker:of3t-direct
-REF=/home/ttuser/of3t_rebase/bundle_min_043/grads_f64_043.pt
+REF=$REF_BUNDLE/grads_f64_043.pt
 D=/home/ttuser/of3t_direct
 mkdir -p "$D"
 case "$1" in

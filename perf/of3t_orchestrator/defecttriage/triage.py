@@ -62,7 +62,9 @@ OUT = D / "state" / "of3t" / "UNFIXED_TRIAGE.json"
 
 # The SAME parse audit_evidence.py uses: a defect's status is the last status word on its LATEST
 # heading, and a heading with no status word conservatively keeps the previous one.
-STATUS_RE = re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+import sys as _sys_vocab
+_sys_vocab.path.insert(0, __file__.rsplit("/", 2)[0])
+from status_vocab import statuses_by_defect   # the ONE definition; see that file (pass 241)
 
 SCOPE, USER, CAMP = "SCOPE-EXCLUDED", "USER-FACING", "CAMPAIGN-INTERNAL"
 
@@ -98,8 +100,6 @@ TABLE = {
                   "measured on two independent modules -- and the tape is shipped training code."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
-    "D21": (CAMP, "Instrument A's first device reading was an instrument defect; replaced by a "
-                  "real measurement whose failure is carried by D30, not by this entry."),
     "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "
                   "with 0.5.0. A property of the reference, not of the port."),
     "D23": (CAMP, "The reference bundle runs the preview2 checkpoint on a version upstream "
@@ -160,6 +160,61 @@ TABLE = {
                    "It is a set of follow-ups, and D120 already refuted two of its attributions."),
     "D119": (CAMP, "The observational floor built for the crop ladder does not test what it "
                    "claimed, and project.py still carries the unit error. Campaign tooling."),
+    "D69": (CAMP, "Upstream's own single precision reproduces its float64 gradient to 8.107441e-05, "
+                  "247x inside the bar, so the share our device failed is a port gap and not a bar "
+                  "problem. A statement about this campaign's bar, never disposed of; it changes "
+                  "nothing a user of the shipped tree gets."),
+    "D136": (CAMP, "GO condition 3's headline was attributed to the shipped default and measured "
+                   "on the repin arm, which the row recorded as default-off and unmerged. A "
+                   "correction to this campaign's own record; of3t-trajwide is measuring the "
+                   "post-fix shipped default now."),
+    "D140": (CAMP, "Two of of3t-trajwide's arms -- norebind and zero, both CONTROLS -- died with "
+                   "no error and no done marker while the row was between passes. A fleet/row "
+                   "observability defect in this campaign's own execution, not something a user "
+                   "of the shipped tree can reach."),
+    "D141": (CAMP, "The shared diffusion capture records missing_keys and not unexpected_keys, so "
+                   "a load that drops 24 trained tensors reads clean in every artifact derived "
+                   "from it. An instrument-provenance defect in this campaign's own reference "
+                   "chain; it changes nothing a user of the shipped tree gets."),
+    "D152": (CAMP, "A qb2 reboot destroyed an in-flight float64 reference run whose only record "
+                   "was /tmp, and the row was parked on a clock rather than on liveness. A defect "
+                   "in how this campaign stores and waits on its own long runs; no shipped "
+                   "behaviour depends on it."),
+    "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
+                   "filenames exist in both tt-bio and upstream openfold3. A documentation "
+                   "convention in this campaign's own ledger; nothing a user runs depends on it."),
+    "D164": (CAMP, "The campaign's most-quoted number outside its own walls -- 870.75 s on a "
+             "p300c against 7-8 s on an H200, ~116x -- is the wall clock of `of3t-l1`'s MEMORY "
+             "ladder, which took an allocator read on every one of 246,510 verb calls "
+             "(3.53 ms/call). The campaign's own clean timing of the same 2,473-node backward "
+             "reads 222.48 s, so the ratio is ~28-32x and the error overstated our own gap by "
+             "3.91x. CAMPAIGN-INTERNAL and it is the borderline case in this table: nothing a "
+             "user of tt-bio gets today is different, which is the published test, but this is "
+             "the one figure that travels outside the campaign, so the cost of the "
+             "misclassification is a reader's, not a fold's. Left UNFIXED because the artifact "
+             "belongs to a concluded row and will not be rewritten; the three sentences that "
+             "quoted it are corrected and `assert_timing_is_a_timing_run.py` holds the line. "
+             "of3t-stepfloor re-measures it as deliverable 0."),
+    "D163": (CAMP, "An artifact's own verdict field says the tape gate changed a fold output "
+                   "when D1's landing did. A defect in this campaign's own evidence files; the "
+                   "conclusion it contradicts is correct and recorded."),
+    "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
+                   "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
+                   "discharged inside pass 199 itself. A defect in this campaign's own record of "
+                   "what it owes Moritz; no shipped behaviour depends on it."),
+    "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
+                  "and the shipped default is the other way; by mass it is 2.5 %. A training-"
+                  "gradient decision, not an inference output a user sees."),
+    "D110": (CAMP, "The precise_config() softmax lever installs via setdefault and every diffusion "
+                   "call site already passes a config, so it fires 1,440 times and cannot take "
+                   "effect. A lever in this campaign's own instruments."),
+    "D121": (CAMP, "A lever can be UNREACHED while the numbers MOVE, so the win gets credited to "
+                   "the wrong lever; it asks for two counters where the instruments have one. A "
+                   "measurement discipline for this campaign."),
+    "D120": (CAMP, "0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, not two "
+                   "roundings of one, so a cross-version difference there measures a model change "
+                   "and a precision change at once. A reading discipline for this campaign's own "
+                   "figures; it changes nothing a user of the shipped tree gets."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D129": (USER, "conditioned_transition.layer_norm.layer_norm_s.weight reads 4.388x its own "
@@ -213,11 +268,9 @@ BOUNDARY = {
 
 
 def live_unfixed(text: str) -> list:
-    last = {}
-    for m in re.finditer(r"^### (D\d+)\b(.*)$", text.upper(), re.M):
-        t = STATUS_RE.findall(m.group(2))
-        if t:
-            last[m.group(1)] = t[-1]
+    # Was a local copy of the parse, uppercased, which read D3's "UNFIXED, out of scope, recorded
+    # so it is not lost" as RECORDED the moment that word joined the vocabulary (pass 241).
+    last = statuses_by_defect(text)
     return sorted((n for n, s in last.items() if s == "UNFIXED"), key=lambda d: int(d[1:]))
 
 

@@ -22,9 +22,9 @@ import time
 
 NT = int(os.environ.get("OMP_NUM_THREADS", "2"))
 sys.path.insert(0, os.getcwd())
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.append(_HERE)
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
 import refpath                                                            # noqa: E402
 refpath.install()
 

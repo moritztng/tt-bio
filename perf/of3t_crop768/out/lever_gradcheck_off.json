@@ -1,0 +1,11 @@
+{
+  "tape_calls": 12,
+  "calls_with_reads": 0,
+  "parents_seen": 29,
+  "parents_left_unpinned": 0,
+  "outs_left_unpinned": 0,
+  "arm": "off",
+  "drop_dead_values": false,
+  "cases": "softmax,triatt,triatt_gated,triatt_chunked,layernorm,chain,fanin",
+  "gradcheck_rc": 0
+}
