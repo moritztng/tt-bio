@@ -1,48 +1,22 @@
 {
- "what": "the pass-157 conclusion re-established on an assumption-free footing after pass 158 withdrew it, plus of3t-softmax's NO-GO. Nothing new was run.",
- "why_a_second_attempt": "pass 157 concluded no softmax lever reaches the bar by scaling the attention side and HOLDING the rest fixed -- an independence assumption a residual stack does not have, disproved at pass 158 and withdrawn. This redoes it as an UPPER BOUND, which needs no such assumption.",
- "the_bound": {
-  "form": "assume the lever helps EVERY tensor in the 547-tensor arm by its full measured gradient factor. That is the most generous assumption available and cannot be beaten by any amount of sequential coupling, so a conclusion drawn under it is conservative.",
-  "baseline": {
-   "whole_arm_mass_weighted_rel": 7.5692,
-   "bar": 0.02,
-   "factor_needed_to_reach_bar": 378
-  },
-  "rungs": [
-   {
-    "lever": "precise_config()",
-    "gradient_factor": 2.25,
-    "whole_arm_rel": 3.3641,
-    "x_over_bar": 168.2,
-    "shippable": true
-   },
-   {
-    "lever": "_accurate_softmax",
-    "gradient_factor": 4.39,
-    "whole_arm_rel": 1.7242,
-    "x_over_bar": 86.2,
-    "shippable": true
-   },
-   {
-    "lever": "float64 softmax",
-    "gradient_factor": 55.24,
-    "whole_arm_rel": 0.137,
-    "x_over_bar": 6.9,
-    "shippable": false
-   }
-  ],
-  "gradient_factors_from": "of3t-adaln, measured on real operands at blocks 8/0/12: 2.25x/2.41x/1.99x, 4.39x/4.11x/3.02x, and 55.24x/56.22x/28.42x. The lowest of each triple is used.",
-  "conclusion": "the best SHIPPABLE softmax lever leaves the arm 86x over bar. Even an EXACT softmax -- a diagnostic, not a lever -- leaves it 6.9x over. No softmax lever reaches the bar, and this time the statement does not rest on sectional independence."
- },
- "the_residual_that_survives_a_perfect_softmax": {
-  "size": "0.1370 mass-weighted, 6.9x the bar",
-  "where_it_is_not": "not in any single block's arithmetic. of3t-adaln's widened block arm reads 1.489217e-02 under an exact softmax -- INSIDE the bar -- over 19 of 19 parameters.",
-  "where_it_must_be": "the difference between 1.489e-02 at block scope and ~0.137 at arm scope is the row's own reading: the block arm uses a CONTROLLED cotangent, the arm figure is 547 tensors under the REAL cotangent accumulated over 48 samples. So the residual is carried in the real cotangent rather than made in any block -- which points at the 48-sample accumulation, or at something upstream of the diffusion module entirely. Unowned and unmeasured.",
-  "honest_limit": "0.1370 is itself the 55.24x block factor applied arm-wide, so it is an extrapolation too. Its direction is what makes it usable: it OVERSTATES the lever, so the residual it implies is a LOWER bound on what survives."
+ "PARTIAL_WITHDRAWAL_AT_PASS_160": {
+  "what_is_withdrawn": "the float64 row's 0.1370, and the claim built on it that '~0.137 survives a perfect softmax'. Applying a 55.24x factor measured on ONE BLOCK under a CONTROLLED cotangent to a whole-arm number measured over 547 tensors under the REAL cotangent is the same context-mixing that made pass 157 wrong, and here the shortfall is only 6.8x, well inside the error such mixing can produce. of3t-adaln's own block arm under an exact softmax reads 1.489217e-02 -- INSIDE the bar -- which points the other way.",
+  "what_stands": "the conclusion. Shippable levers leave the arm at 3.3641 (168.2x over bar) and 1.7242 (86.2x over bar) against a needed 378x. That survives because it is an UPPER bound and the shortfall is two orders of magnitude -- the measured factors would have to be ~100x wrong for it to flip.",
+  "why_the_two_differ": "the bound is robust where the gap is large and fragile where it is small. A generous extrapolation that still lands 86x outside is safe; the same extrapolation landing 6.9x outside is not."
  },
  "of3t_softmax_returned_NO_GO_on_inference": {
-  "verdict": "NO-GO for shipping on by default, decided on the Angstrom number and not the rel number.",
+  "angstrom": {
+   "lever_moves_delivered_structure_A": 0.3237,
+   "reading": "inside the floor by 1.93x. Rank 0 IS the best-of-N structure here, so the number a user is affected by and the number selection produces are the same.",
+   "seed_floor_same_session_A": 0.625
+  },
   "cost_per_op_at_[1,16,384,384]_fp32": {
+   "_accurate_softmax": {
+    "ms": 0.2556,
+    "rel_rms": 0.0005156,
+    "x_better": 39.4,
+    "x_cost": 4.71
+   },
    "no_config": {
     "ms": 0.0543,
     "rel_rms": 0.02029
@@ -52,44 +26,74 @@
     "rel_rms": 0.001646,
     "x_better": 12.3,
     "x_cost": 1.46
-   },
-   "_accurate_softmax": {
-    "ms": 0.2556,
-    "rel_rms": 0.0005156,
-    "x_better": 39.4,
-    "x_cost": 4.71
    }
   },
   "the_bf16_ceiling": "on a bf16 input both levers land on 1.266e-02 and neither goes under it -- bf16 storage is then the floor rather than the kernel's reduction. Of the five call sites only OpenFold3's diffusion transformer typecasts to fp32 before the softmax, so it is the ONLY one where the 12.3x is available. That also means the lever is worth more to the TRAINING arm (fp32 activations) than to shipped inference.",
-  "angstrom": {
-   "lever_moves_delivered_structure_A": 0.3237,
-   "seed_floor_same_session_A": 0.625,
-   "reading": "inside the floor by 1.93x. Rank 0 IS the best-of-N structure here, so the number a user is affected by and the number selection produces are the same."
-  },
-  "whole_fold_cost": "103.6 s off, 103.9 s on, and the same arm re-run at 102.2 s -- the end-to-end cost is smaller than one arm's run-to-run spread, so +0.29 % reads as below the noise rather than as a measurement.",
-  "what_shipped_anyway": "the one-line source correction. `_accurate_softmax`'s docstring claimed a compute kernel config changes nothing; it changes 2.029e-02 into 1.646e-03. Replaced by the measurement."
+  "verdict": "NO-GO for shipping on by default, decided on the Angstrom number and not the rel number.",
+  "what_shipped_anyway": "the one-line source correction. `_accurate_softmax`'s docstring claimed a compute kernel config changes nothing; it changes 2.029e-02 into 1.646e-03. Replaced by the measurement.",
+  "whole_fold_cost": "103.6 s off, 103.9 s on, and the same arm re-run at 102.2 s -- the end-to-end cost is smaller than one arm's run-to-run spread, so +0.29 % reads as below the noise rather than as a measurement."
  },
- "so_where_the_campaign_is_on_this_defect": "the mechanism is settled (the softmax forward, amplified by the backward's cancellation), the inference case is closed NO-GO with a number, and the training-parity case is closed differently: no available lever reaches the bar, so the attention-side 27.2441 % is not fixable by making the softmax more accurate. What would fix it is not a precision knob.",
  "provenance": "computed 2026-09-20 pass 159 by of3t-orchestrator on pc, CPU only. Inputs: state/of3t-softmax.md, state/of3t-adaln.md, and the 547-tensor per-tensor array.",
- "PARTIAL_WITHDRAWAL_AT_PASS_160": {
-  "what_stands": "the conclusion. Shippable levers leave the arm at 3.3641 (168.2x over bar) and 1.7242 (86.2x over bar) against a needed 378x. That survives because it is an UPPER bound and the shortfall is two orders of magnitude -- the measured factors would have to be ~100x wrong for it to flip.",
-  "what_is_withdrawn": "the float64 row's 0.1370, and the claim built on it that '~0.137 survives a perfect softmax'. Applying a 55.24x factor measured on ONE BLOCK under a CONTROLLED cotangent to a whole-arm number measured over 547 tensors under the REAL cotangent is the same context-mixing that made pass 157 wrong, and here the shortfall is only 6.8x, well inside the error such mixing can produce. of3t-adaln's own block arm under an exact softmax reads 1.489217e-02 -- INSIDE the bar -- which points the other way.",
-  "why_the_two_differ": "the bound is robust where the gap is large and fragile where it is small. A generous extrapolation that still lands 86x outside is safe; the same extrapolation landing 6.9x outside is not."
+ "so_where_the_campaign_is_on_this_defect": "the mechanism is settled (the softmax forward, amplified by the backward's cancellation), the inference case is closed NO-GO with a number, and the training-parity case is closed differently: no available lever reaches the bar, so the attention-side 27.2441 % is not fixable by making the softmax more accurate. What would fix it is not a precision knob.",
+ "the_bound": {
+  "baseline": {
+   "bar": 0.02,
+   "factor_needed_to_reach_bar": 378,
+   "whole_arm_mass_weighted_rel": 7.5692
+  },
+  "conclusion": "the best SHIPPABLE softmax lever leaves the arm 86x over bar. Even an EXACT softmax -- a diagnostic, not a lever -- leaves it 6.9x over. No softmax lever reaches the bar, and this time the statement does not rest on sectional independence.",
+  "form": "assume the lever helps EVERY tensor in the 547-tensor arm by its full measured gradient factor. That is the most generous assumption available and cannot be beaten by any amount of sequential coupling, so a conclusion drawn under it is conservative.",
+  "gradient_factors_from": "of3t-adaln, measured on real operands at blocks 8/0/12: 2.25x/2.41x/1.99x, 4.39x/4.11x/3.02x, and 55.24x/56.22x/28.42x. The lowest of each triple is used.",
+  "rungs": [
+   {
+    "gradient_factor": 2.25,
+    "lever": "precise_config()",
+    "shippable": true,
+    "whole_arm_rel": 3.3641,
+    "x_over_bar": 168.2
+   },
+   {
+    "gradient_factor": 4.39,
+    "lever": "_accurate_softmax",
+    "shippable": true,
+    "whole_arm_rel": 1.7242,
+    "x_over_bar": 86.2
+   },
+   {
+    "gradient_factor": 55.24,
+    "lever": "float64 softmax",
+    "shippable": false,
+    "whole_arm_rel": 0.137,
+    "x_over_bar": 6.9
+   }
+  ]
  },
  "the_pointer_i_wrote_is_unsupported": {
-  "the_claim": "pass 159: 'what survives is carried in the accumulated cotangent, pointing at the 48-sample accumulation'.",
-  "status": "WITHDRAWN. The per-sample arrays in device_gradient_043pt.json, which I had not read, give it no support.",
+  "a_trap_worth_recording": "the same probe in the REAL run grows 26.68x over 48 samples, where sqrt(48) = 6.93. That is 3.85x 'too fast' and reads exactly like an accumulation defect. It is not: independent draws give sqrt(N) and identical draws give N, so anything between is partial correlation -- and 48 noise samples of one target are strongly correlated by construction. The number is only interpretable against the independent-draw control, which of3t-adaln has and the real run does not.",
   "evidence_1_the_forward_does_not_degrade_over_samples": {
    "forward_rel over 48 samples": {
-    "min": 0.0020493,
+    "max": 0.01567,
     "median": 0.0083422,
-    "max": 0.01567
+    "min": 0.0020493
    },
    "pearson_r_vs_sample_index": -0.0565,
    "reading": "flat. Whatever is wrong is not accumulating over samples in the forward."
   },
   "evidence_2_the_accumulation_itself_is_exact": "of3t-adaln's controlled arm: the probe grows 3.433209e+03 to 2.364329e+04 over 48 samples, a factor 6.887 against the 6.928 independent draws predict -- exact to 0.6 %. And the sample axis moves that arm's headline only 2.071014e-03 -> 2.116898e-03 over 48x, 2.2 %.",
-  "a_trap_worth_recording": "the same probe in the REAL run grows 26.68x over 48 samples, where sqrt(48) = 6.93. That is 3.85x 'too fast' and reads exactly like an accumulation defect. It is not: independent draws give sqrt(N) and identical draws give N, so anything between is partial correlation -- and 48 noise samples of one target are strongly correlated by construction. The number is only interpretable against the independent-draw control, which of3t-adaln has and the real run does not.",
-  "so_where_it_is": "unknown. The residual I claimed may not exist at the size I claimed, and if it does, nothing now points at the accumulation."
- }
+  "so_where_it_is": "unknown. The residual I claimed may not exist at the size I claimed, and if it does, nothing now points at the accumulation.",
+  "status": "WITHDRAWN. The per-sample arrays in device_gradient_043pt.json, which I had not read, give it no support.",
+  "the_claim": "pass 159: 'what survives is carried in the accumulated cotangent, pointing at the 48-sample accumulation'."
+ },
+ "the_residual_that_survives_a_perfect_softmax": {
+  "WITHDRAWN_TEXT_KEPT_FOR_AUDIT": {
+   "honest_limit": "0.1370 is itself the 55.24x block factor applied arm-wide, so it is an extrapolation too. Its direction is what makes it usable: it OVERSTATES the lever, so the residual it implies is a LOWER bound on what survives.",
+   "size": "0.1370 mass-weighted, 6.9x the bar",
+   "where_it_is_not": "not in any single block's arithmetic. of3t-adaln's widened block arm reads 1.489217e-02 under an exact softmax -- INSIDE the bar -- over 19 of 19 parameters.",
+   "where_it_must_be": "the difference between 1.489e-02 at block scope and ~0.137 at arm scope is the row's own reading: the block arm uses a CONTROLLED cotangent, the arm figure is 547 tensors under the REAL cotangent accumulated over 48 samples. So the residual is carried in the real cotangent rather than made in any block -- which points at the 48-sample accumulation, or at something upstream of the diffusion module entirely. Unowned and unmeasured."
+  },
+  "size": "WITHDRAWN at pass 160 -- do not quote. This field carried 0.1370 mass-weighted / 6.9x the bar and PARTIAL_WITHDRAWAL_AT_PASS_160 withdrew exactly that number, while the number itself stayed readable here for twenty passes. Nulled at pass 180: a withdrawal recorded in a neighbouring field does not stop the withdrawn figure being read out of this one (standing lesson: null the stale field, do not merely label it).",
+  "what_replaced_it": "a float64 softmax takes the diffusion arm to 7.777580e-02 = 0.9563x the reachable bar, i.e. it PASSES (AGREEMENT_IS_AT_THE_REACHABLE_BAR.json, on the D86-corrected arm). The pre-D86 arm read 1.172914e-01 / 2.04x."
+ },
+ "what": "the pass-157 conclusion re-established on an assumption-free footing after pass 158 withdrew it, plus of3t-softmax's NO-GO. Nothing new was run.",
+ "why_a_second_attempt": "pass 157 concluded no softmax lever reaches the bar by scaling the attention side and HOLDING the rest fixed -- an independence assumption a residual stack does not have, disproved at pass 158 and withdrawn. This redoes it as an UPPER BOUND, which needs no such assumption."
 }

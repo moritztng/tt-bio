@@ -1,0 +1,472 @@
+{
+ "arm": "permute",
+ "side": "ours",
+ "ref_tree": null,
+ "steps": [
+  {
+   "k": 1,
+   "lr": 0.0,
+   "grad_norm": 3.906957735051199,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 191.3194420337677
+  },
+  {
+   "k": 2,
+   "lr": 1.8e-06,
+   "grad_norm": 0.02417626781401132,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 331.5672698020935
+  },
+  {
+   "k": 3,
+   "lr": 3.6e-06,
+   "grad_norm": 0.024258795117999037,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 478.894464969635
+  },
+  {
+   "k": 4,
+   "lr": 5.4e-06,
+   "grad_norm": 0.024400886490128736,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 619.3864367008209
+  },
+  {
+   "k": 5,
+   "lr": 7.2e-06,
+   "grad_norm": 0.02391394381020437,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 743.0143036842346
+  },
+  {
+   "k": 6,
+   "lr": 9e-06,
+   "grad_norm": 0.02412340253988683,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 889.7142815589905
+  },
+  {
+   "k": 7,
+   "lr": 1.08e-05,
+   "grad_norm": 0.02373463652363718,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1034.842931509018
+  },
+  {
+   "k": 8,
+   "lr": 1.26e-05,
+   "grad_norm": 0.023822360638879662,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1176.5778107643127
+  },
+  {
+   "k": 9,
+   "lr": 1.44e-05,
+   "grad_norm": 0.0240158347532696,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1322.622350692749
+  },
+  {
+   "k": 10,
+   "lr": 1.6199999999999997e-05,
+   "grad_norm": 0.024035716815313447,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1462.5254652500153
+  },
+  {
+   "k": 11,
+   "lr": 1.8e-05,
+   "grad_norm": 0.024104748404616395,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1610.1972398757935
+  },
+  {
+   "k": 12,
+   "lr": 1.9799999999999997e-05,
+   "grad_norm": 0.02418077851346533,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1757.454205274582
+  },
+  {
+   "k": 13,
+   "lr": 2.16e-05,
+   "grad_norm": 0.023934575018773316,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 1895.0430653095245
+  },
+  {
+   "k": 14,
+   "lr": 2.34e-05,
+   "grad_norm": 0.024095638962965203,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2040.659921169281
+  },
+  {
+   "k": 15,
+   "lr": 2.52e-05,
+   "grad_norm": 0.024391258428621703,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2184.517101764679
+  },
+  {
+   "k": 16,
+   "lr": 2.7e-05,
+   "grad_norm": 0.02490985927510156,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2322.120008945465
+  },
+  {
+   "k": 17,
+   "lr": 2.88e-05,
+   "grad_norm": 0.024828817934808248,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2466.1301946640015
+  },
+  {
+   "k": 18,
+   "lr": 3.06e-05,
+   "grad_norm": 0.024706917503429505,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2611.719669342041
+  },
+  {
+   "k": 19,
+   "lr": 3.2399999999999995e-05,
+   "grad_norm": 0.024756302133223645,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2726.051031112671
+  },
+  {
+   "k": 20,
+   "lr": 3.42e-05,
+   "grad_norm": 0.024501887832532213,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 980,
+   "tape_resolves_after_step": 980,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 2866.314876317978
+  }
+ ],
+ "evidence": {
+  "n_params": 980,
+  "n_named": 848,
+  "unnamed": [
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+   "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+   "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+   "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+   "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+   "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+   "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+   "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+   "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+   "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+   "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+   "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+   "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+   "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+   "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)"
+  ],
+  "n_unnamed": 132,
+  "n_slots": 980,
+  "device_weights_walked": 980,
+  "forward_rel_level0": 0.02002969174312969,
+  "orientation_recorded_at_load": {
+   "N": 222,
+   "T": 351,
+   "?": 0
+  },
+  "permute_control": {
+   "tensors_total": 980,
+   "tensors_permuted": 970,
+   "tensors_left_in_place_unique_shape": 10,
+   "shape_classes": 28,
+   "shape_classes_rotatable": 18
+  }
+ },
+ "n_steps": 20,
+ "complete": true,
+ "wall_s": 2885.584003686905
+}
