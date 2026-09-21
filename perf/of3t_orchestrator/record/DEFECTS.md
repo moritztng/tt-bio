@@ -8659,3 +8659,49 @@ mass-weighted error is 14.10x smaller on the repaired arm. `of3t-tapediverge` al
 the amplification post-repair at **11.03x** and **10.90x** from one harness, so that half is current;
 what was not current is the magnitude, and now it is. Neither defect closes: the floor is untouched,
 523 of 523 are still over the per-tensor bar, and the shipped default remains off.
+
+### D128. rf3 ordered its diffusion samples on a ROUNDED ranking score, so ties that were not ties decided which structure a user got — and four copies of one rule hid it. FOUND and FIXED by `of3t-rankunify` (pass 235), release-gated.
+
+`of3t-rankunify` set out to unify the family's sample-ranking rule and found this on the way, which
+is the unification argument making its own case: **`tt_bio/rf3/confidence.py` published a rounded
+score and then ordered on it**, so samples whose true scores differed below the rounding decided
+by accident. Commits `9509eaeaa` ("order the samples on the full-precision score, not the published
+rounding") and `c31de0759` ("keep the ranking score unrounded, and tighten the check that hid the
+double call"). It touches `tt_bio/rf3/confidence.py` and `tt_bio/worker.py`; release-gated, nothing
+merged.
+
+**Why four copies hid it.** The rule existed five times over. A defect in one copy is invisible to
+anyone reading another, and there was no single place where "order on the score" and "publish the
+score" could be seen to be the same expression. That is the STANDING
+`unified-solution-not-per-model-patches` rule earning its keep on the first attempt to apply it —
+the row's own words: *"one rule in one place already earned its keep."*
+
+### D24 UPDATE 3 / D10 UPDATE (pass 235). The family now computes ONE ranking rule, and the accuracy claim behind it is explicitly WITHDRAWN. Both stay UNFIXED: nothing merged, and the evidence says no rule is better, not that ours is.
+
+`of3t-rankunify` returned **GO on consistency, with the accuracy claim withdrawn** — a verdict worth
+quoting because it refuses the conclusion the row was set up to want.
+
+**What it establishes.** Full spread across **six** candidate rules is **0.0103 A** against a
+**0.089 A** smallest seed floor; **40 of 52** real-target folds are unchanged; the sign test reads
+**p = 0.146**. So no rule is distinguishable on accuracy and the choice is free on those grounds.
+The unified rule is **what 3 of the 5 sites already compute**, so this moves two sites onto the
+family's existing majority rather than five onto something new. The interface branch is **provably
+unchanged** — 45 of 45 samples bit-identical on real multi-chain folds, plus a cross-checkout A/B
+with a working negative control.
+
+**And the finding that argues the other way, which the row states as a blocker rather than a
+rounding error.** opendde and rf3 are nominally **worse**: **+0.046 A** and +0.003 A (opendde,
+ubq/prot), **+0.020 A** and −0.003 A (rf3, prot/ubq), and **9 of the 12 changed folds go the wrong
+way**. Every one is inside its own seed floor and the split is not significant at p = 0.146 — but
+**the point estimate is worse**, and the row says explicitly that Moritz should decide with that in
+front of him. Its own recommendation is that 0.008 A is not worth four divergent copies of one rule;
+the alternative, if the bar is strict "at or better", is to leave rf3 and protenix/opendde alone and
+accept that the family disagrees.
+
+**So D24 and D10 stay UNFIXED**, and the reason is worth being precise about. D24's substance — two
+of four terms identically zero on a single chain — is addressed on the composition and not on main,
+which is where it was already. D10's claim was that the confidence head **mis-ranks**; this row's
+measurement says **no rule of six is distinguishable from another on two targets at 4-8 seeds**,
+which is evidence that the ranking question is not where the accuracy is, not evidence that our rule
+is right. Neither closes on "we fixed it". **This is a decision for Moritz, not a defect for a row**,
+and it is the second such decision the campaign has queued behind ask 9597.
