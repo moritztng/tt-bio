@@ -183,10 +183,6 @@ TABLE = {
     "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
                    "filenames exist in both tt-bio and upstream openfold3. A documentation "
                    "convention in this campaign's own ledger; nothing a user runs depends on it."),
-    "D159": (CAMP, "GO condition 4 does not say which upstream version's test_training_full.py "
-                   "it means, and the NO-GO's evidence is 0.5.0's copy while the campaign "
-                   "reproduces 0.4.3. A scope statement in this campaign's own charter; no "
-                   "shipped behaviour depends on it and the NO-GO survives either reading."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "

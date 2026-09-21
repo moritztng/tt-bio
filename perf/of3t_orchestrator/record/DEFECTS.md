@@ -10487,3 +10487,15 @@ At pass 292 I wrote *"the device side is complete (`shipped` 20/20, `zero` 20/20
 **What the check should have been, and now is**: ask the device, not the directory listing. `lsof /dev/tenstorrent/*` names the pids holding each chip in one line. A k-file count tells you what has been written, never what is running — and this row deliberately writes its k-files outside `/tmp` precisely so the two questions stay separable (D152).
 
 **Same shape as the campaign's recurring finding, turned on myself**: *a row's sentence is evidence for exactly what it says*. Mine said three arms and I read it as a side. The correction is in the PASSLOG entries that carried it, and `of3t-ditcot` stays held.
+
+### D159 UPDATE (pass 296, heading restated). **FIXED as a question of fact, not of wording: 0.4.3 has no `test_training_full.py` at all.** The clause could only ever have meant 0.5.0's, and the NO-GO's scope is unambiguous in practice.
+
+I fetched the 0.4.3 sdist rather than leaving the question open — `pip download --no-deps --no-binary :all: openfold3==0.4.3`, sha256 `d7374552a1776f2fe88b96780e024831740ee200e5bceb44560c2bb298ac5461`, 33,068,394 bytes. It carries **206 files under `tests/`** and **no `test_training_full.py`**. The end-to-end training test was **added in 0.5.0**.
+
+So the ambiguity I raised at pass 294 resolves by fact: *"their own `test_training_full.py`"* can only denote the 0.5.0 file, because the revision our checkpoint belongs to does not have one. `of3t-theirtest` used the only copy that exists. **No artifact needs re-running and no conclusion moves** — the wording remains imprecise, and the recommendation to name the revision stands as a cheap clarity fix rather than a correctness one.
+
+**An unexamined upstream artifact fell out of the check, and it is at the RIGHT revision.** 0.4.3 ships **`openfold3/tests/test_inference_full.py`** — 163 lines, `TestInferenceRun`, two cases `test_protein_only` and `test_protein_and_ligand`. The campaign has never mentioned it. It is upstream's own end-to-end test at the boundary the served checkpoint is bound to, on the side of the model this campaign has spent the last several passes proving unmoved (D137's digests on three models).
+
+**Stated with its gate so nobody reads it as a free win**: it is decorated `@skip_unless_cuda_available()` at line 91, the same A1-class gate that blocks the training test, and it runs through `InferenceExperimentRunner`, so it inherits the same Lightning-dispatches-by-torch-device problem. It is not a shortcut to condition 4 — condition 4 is about TRAINING — and it is not free. What it is: a second upstream end-to-end artifact, at 0.4.3, that nobody has costed, on the half of the port that is in the best shape.
+
+Recorded rather than dispatched: the campaign's card time is committed to `of3t-trajwide` and then `of3t-ditcot`, and a new row against a CUDA-gated inference test is not worth displacing either.
