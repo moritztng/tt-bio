@@ -19,14 +19,17 @@ the first number of this row existed.
 
 VERDICT: PARTIAL — the ~20x backward amplification **survives the softmax-backward repair at
 11.03x on the diffusion module and 10.90x on `msa_module`**, so D58's generalisation now stands on
-post-repair evidence; D31 is **refuted where the mass is**, because the fused-SDPA tape verb is
-reached **0 times** in the module holding 89.2 % of the gradient; D32's 21 sites in 9 modules are
+post-repair evidence; D31 is **refuted on both halves** — the fused-SDPA tape verb is reached
+**0 times** in the module holding 89.2 % of the gradient, and where it is reached an 8-site chain
+turns a 6.345540e-02 forward gap into a 1.573396e-03 gradient gap that is flat in depth; D32's 21 sites in 9 modules are
 confirmed on this tree with 5 of 21 line numbers stale; and AMENDMENT 1's kernel-config asymmetry
 fires 1,440 times and leaves all 547 gradient tensors **bit-identical**. The charter's second
 half now has a device number on both sides at crop 384: **230.11 s taped against 9.721 s
-untaped, 23.7x**, on one card with the AICLK sampled DURING. PARTIAL rather than GO because two
-of the four defects narrow rather than close and the taped figure is a trunk step, which is a
-floor on a training step and not one.
+untaped, 23.7x**, on one card with the AICLK sampled DURING. All five deliverables landed with
+measurements. PARTIAL rather than GO for one honest reason: the taped figure is a **trunk** step,
+which is a floor on a training step and not one, because it excludes the diffusion module's 48
+differentiated noise levels, every loss head and the optimizer. Everything else in this row's
+brief is answered.
 
 AMPLIFY: the forward and the gradient of the same scope out of the **same process**, which is the
 thing D30's own warning asks for. 48 structures, the 0.4.3 boundary
@@ -98,15 +101,34 @@ did not price it.
 Consistent with that reach reading, the `selfvalue` arm's gradient dump is bit-identical to the
 `renorm` arm's on all 547 tensors, which is what a lever that never fired must produce.
 
-**Two things the code settles before any run, and they shape what a magnitude measurement can
-even mean.** `autograd.triangle_attention`'s backward recomputes the scores from q, k, v and
-bias and never reads the forward value, so **at a single isolated site the two arms' gradients
-are identical by construction** and a one-site comparison is analytically zero. The mismatch can
-only enter through the activations one site hands the next, which makes the measurement a chain
-rather than a site. `perf/of3t_tapediverge/d31_chain.py` builds that chain — 8 triangle-attention
-sites in series, the fused arm reproducing `_v_sdpa` line for line including the `ag.scale` bias
-convention, against the same chain with `value=None` — and is committed and queued on card 0
-behind the taped step. Its number is the next pass's first 30 seconds of device time.
+**And where the verb IS reached, the magnitude is measured.**
+`autograd.triangle_attention`'s backward recomputes the scores from q, k, v and bias and never
+reads the forward value, so at a single isolated site the two arms' gradients are identical by
+construction; the mismatch can only enter through the activations one site hands the next, which
+makes the measurement a chain rather than a site. `perf/of3t_tapediverge/d31_chain.py` builds
+that chain: triangle-attention sites in series, the fused arm reproducing `_v_sdpa` line for line
+including the `ag.scale` bias convention, against the same chain with `value=None`. Both arms are
+ours, no external reference, and the taped leaves are the chain input and the bias.
+
+    depth   sites fired   forward rel_l2   gradient mass-weighted   gradient worst
+    1       1 / 1         3.008435e-02     0.0                      0.0
+    2       2 / 2         1.962754e-02     1.539848e-03             2.794052e-02
+    4       4 / 4         3.360687e-02     1.428074e-03             8.097675e-03
+    8       8 / 8         6.345540e-02     1.573396e-03             8.352972e-03
+
+**Depth 1 reads exactly zero and is the structural control**: the analytic prediction from the
+docstring, confirmed on hardware, and proof that the comparator reads 0 when there is nothing
+there and non-zero when there is. From depth 2 on the gradient difference is **flat at about
+1.5e-03** while the forward difference grows to 6.3e-02 — so the mismatch **does not accumulate
+with depth in the gradient**, which is the opposite of what "3.3e-02 per site across 24 DiT
+blocks is the right order for a 19.6x factor" predicted.
+
+Against the bars: 1.573396e-03 is **32x under the 5.0e-02 per-tensor bar**, **40x smaller than
+the forward gap that caused it**, and **64x smaller than the 1.006695e-01 the repaired arm
+already carries at model scope**. The pre-registered threshold was "under 5.0e-03 mass-weighted
+refutes D31 as a material contributor for this model" and 1.573396e-03 is under it. These four
+runs are accuracy measurements on an idle card (AICLK 800 MHz, the chain finishes in seconds);
+the clock bears on no figure in this table.
 
 ROUTING: D32's table re-derived from this tree by `perf/of3t_tapediverge/routing.py` rather than
 quoted. **21 `ops.taping()` branch points in 9 shipped modules — the same count and the same nine
@@ -136,11 +158,13 @@ the same process shape, so the taped-vs-untaped ratio below is a measurement and
     arm             no_grad prefix   final cycle   device backward   trunk step   AICLK during
     untaped         7.208 s          2.430 s       —                   9.721 s     mean 1322 (26)
     taped, rep 0    7.21 s           3.58 s        273.74 s          284.61 s      mean 1347 (240)
-    taped, rep 1    7.54 s           3.41 s        219.07 s          230.11 s      mean 1347 (240)
+    taped, rep 1    7.54 s           3.41 s        219.07 s          230.11 s      mean 1348 (386)
+    taped, rep 2    7.53 s           3.41 s        224.68 s          235.71 s      mean 1348 (386)
 
 The untaped figure is the median of three reps that spread 4 ms (9.721 / 9.721 / 9.721 s). Rep 0
-of the taped arm is cold and rep 1 is the steady state, which is why both are given rather than
-averaged. Each taped backward reached **1,639 of 2,531 declared weights over 2,473 tape nodes**,
+of the taped arm is cold and reps 1 and 2 are the steady state, which is why all three are given
+rather than averaged; the taped run's whole 771 s window sampled AICLK mean 1348 MHz over 386
+samples. Each taped backward reached **1,639 of 2,531 declared weights over 2,473 tape nodes**,
 identical between reps, so it is a real backward over most of the trunk and not a truncated one.
 Their 20-step mini rollout costs **0.929 s** directly and 0.921 s from the 4/12/20-rung fit, in
 the same process on the same card, and it is untaped on both sides because upstream runs it under
@@ -218,11 +242,15 @@ DEFECTS:
     (gradient 9.344246e-02). Forward and gradient now come from one harness, which is the fix D30
     asked for in its own closing warning. What survives: a forward at 0.85 % still buys a gradient
     at 9.3 %, and the gap is backward-specific because the forward is bit-identical across arms.
-  * **D31 — NARROWED, and refuted as the explanation for D30.** The mismatch exists in the code
-    and its forward size is on the record at 3.328717e-02. It is **not** reached at the scope that
-    carries the mass: the tape verb served 0 calls over 48 structures and 1,440 softmax backwards
-    in the module holding 89.2 % of the gradient. What stays open is its size where the verb IS
-    reached, in the pairformer trunk's triangle attention, which this row did not measure.
+  * **D31 — REFUTED as a material contributor for this model, on both of its halves.** The
+    mismatch exists in the code and its forward size is on the record at 3.328717e-02. Half one:
+    it is **not reached at all** at the scope that carries the mass — the tape verb served 0
+    calls over 48 structures and 1,440 softmax backwards in the module holding 89.2 % of the
+    gradient. Half two, where it IS reached: an 8-site chain whose forward arms differ by
+    6.345540e-02 produces gradients that differ by **1.573396e-03**, flat in depth, 32x under the
+    per-tensor bar and 64x under the error the repaired arm already carries. The pre-registered
+    refutation threshold was 5.0e-03 and this is below it. The defect's mechanism is real and its
+    cost, measured at both ends, is not material here.
   * **D32 — CONFIRMED on part (1), STANDS on part (2).** The 21 sites in 9 modules re-verify
     against this tree with the same count and the same modules, 5 of 21 line numbers stale. The
     method constraint it states is now demonstrated rather than argued: at crop 384 on one card
@@ -245,7 +273,8 @@ backward still disagrees with the reference roughly eleven times harder than the
 the two modules agree on that factor to within 1 %. The forward is bit-identical across arms, so
 the factor is a property of the backward and not of a forward that drifted. D31's mismatch, which
 was the leading candidate for that factor, does not occur at all in the module that holds 89.2 %
-of the gradient mass. D32's routing divergence is 21 sites in 9 modules on this tree. The kernel-
+of the gradient mass, and where it does occur an 8-site chain converts a 6.345540e-02 forward
+divergence into a 1.573396e-03 gradient divergence that does not grow with depth. D32's routing divergence is 21 sites in 9 modules on this tree. The kernel-
 config asymmetry at `taped_ttnn.py:216` is free to fix and buys nothing at this scope.
 
 DOESNOT: this is one step's gradient on one batch at one crop, and it says nothing about
@@ -254,8 +283,9 @@ update rule in the long run, or whether an eleven-times-amplified backward compo
 across steps — a single-step agreement statement cannot distinguish those, and this campaign does
 not claim a training run was reproduced. The 11.03x and 10.90x are two modules, not the model:
 `diffusion_conditioning`, 36.9462 % of the model's mass, is bit-identical between the shipped and
-the repaired arm and is not in either figure. D31 is refuted only where it was tested; the
-pairformer trunk is not tested here. The taped s/step at crop 384 is a bound quoted from D33's
+the repaired arm and is not in either figure. D31's chain measurement is a synthetic stack of
+triangle-attention sites, not the pairformer trunk's own shapes and biases, and the trunk itself
+was not re-scored under the `value=None` arm. The taped s/step at crop 384 is a bound quoted from D33's
 different-scope figure, not a measurement this row took. And the AMENDMENT 1 result is scope-
 local: a lever that is inert on 1,440 diffusion softmax backwards may not be inert where
 `autograd.py:949` is reached, which no arm here exercised.
