@@ -7284,3 +7284,137 @@ built on.
 
 **Durable lesson**: an upstream version bump can move a precision island, and **a port compared
 against the wrong version's boundary shows a 30,000x gradient gap with no defect present**.
+
+### D120 UPDATE (pass 211). Two things in `of3t-fp32islands`' ranking that the campaign record did not carry, and one dispatch deliberately NOT made.
+
+**1. Against the right boundary we BEAT upstream on the most-executed island in the model.** The
+ranking's item 2 is LayerNorm's affine and input gradients — 8 pair-shaped and 2 single-shaped sites
+per pairformer block × 48 blocks, plus the DiT stack. Against a **0.5.0** boundary they read
+4.256869e-03 and 4.273497e-03 against upstream's 1.407498e-07 and 6.971753e-08, a factor of
+**30,245**. **Against a 0.4.3 boundary it inverts: we are 1.55x MORE accurate on d(gamma).**
+
+That recontextualises a lot of this campaign's own framing. D51 established that **84.6 %** of the
+gradient's mass sits in 1-D LayerNorm vectors; D116's four leaves are LayerNorm affines; D56's worst
+component is a LayerNorm reduction. The campaign has treated LayerNorm as its weak point. On the
+boundary the served checkpoint is actually bound to, it is a place where our port is **ahead**.
+
+**2. The missing-`compute_kernel_config` class is broader than the softmax, and it is NOT dispatched.**
+Item 5: inference sites that pass no `compute_kernel_config` read **2.268879e-02**, **14x** upstream's
+own bf16 softmax and 13x our own precise arm, and **one argument closes it** — and the matmul control
+shows the same defect at **4.1x**, so it is a *missing-config class* rather than a softmax property.
+
+**Why no row.** `of3t-softmax` already took the softmax half of this class to **fold level** and
+concluded **NO-GO**: the lever is real and 12.3x more accurate per op, and it moves the structure a
+user receives **by less than re-running with a different seed moves it**. An op-level accuracy gain
+that does not clear the seed floor is not defensible, which is the campaign's own standing rule. A
+4.1x matmul config is *a priori* weaker than a 12.3x softmax config that already failed that test.
+
+**What is genuinely open, recorded as a candidate and not a dispatch**: the class has only ever been
+rejected **one site-family at a time**, and nobody has measured *all* of the missing-config sites
+together at fold level. That is the `dismissed-as-too-small-lever-grows-as-others-shrink` shape. It
+is worth a row when a card is idle and it is not worth taking one from `of3t-f64softmax` now.
+
+**3. A near-miss of my own, recorded because the check was two commands.** `of3t-fp32islands` says
+`softmax_no_cast` keeps the attention softmax in bf16 **at both versions**, and I was about to amend
+the live `of3t-f64softmax` row on the inference that a float64 softmax therefore overshoots upstream
+— the D9 trap, being *more* precise than the reference. It does not apply: at 0.4.3 the
+`autocast(fp32)` region at `attention.py:150-163` is enabled for the **input embedder** and the
+**diffusion module** (`model.py:209`, `model.py:500`), and only 0.5.0 adds the trunk
+(`pairformer.py:199`). So the diffusion scope — the one that row is measuring — **is** an fp32 region
+at 0.4.3, and the row's premise holds. The same row's item 3 says so directly: the multi-op fp32
+regions are "executed once or a few times per step, which is what makes a host round trip
+affordable."
+
+### §51 SCOPE CLOSED (pass 212), not headed with a defect number. `of3t-f64softmax` returned GO: the diffusion scope is REACHABLE at 0.956x, and the cheap repair takes 99.6 % of the ground for a tenth of the cost.
+
+**The host float64 softmax is a supported per-site path**, selected by the same grammar the other
+softmax levers use (`TT_BIO_HOST_F64_SOFTMAX_AB`), three tokens, off everywhere, and
+`tests/test_host_f64_softmax_defaults.py` fails if its site set ever diverges from `softmax_ckc`'s
+so it cannot silently miss a site. A shipped fold does not move **by one byte** with the path
+present and off.
+
+**The reading, on the 51.1358 % scope, five arms, 48 structures, 547 tensors, the same rebuilt
+0.4.3 boundary, both references scored in one pass (A27):**
+
+| arm | ours_vs_their_bf16 | cost |
+|---|---|---|
+| host float64 softmax | **7.777580e-02** — 0.956x A26's reachable bar, 3.889x the 2.0e-02 bar | **1.47x** |
+| the two-op backward repair | **1.057023e-01** | **1.049x** |
+
+**So the scope is REACHABLE but not REPRODUCED**, landing in the second pre-registered band — and
+**the amendment changed what the row recommends.** `of3t-apbgrad`'s repair, scored on this scope for
+the first time, **takes 99.6 % of the ground the round trip takes for a tenth of the cost**. The
+round trip is now needed **only where the FORWARD softmax precision matters**, which is a much
+smaller set of sites than the row was dispatched assuming. That is Moritz's deferred "confine the
+round trips" question answered before the round trips were built out.
+
+**And the free cross-check came back better than predicted.** Arm B asked whether the renormalisation
+is a no-op on a float64 softmax, whose rows sum to one. Prediction: agreement to float64 round-off.
+Result: **547 of 547 tensors bit-identical, largest absolute difference exactly 0.0** — the division
+moves the float64 backward by **less than one fp32 ULP**. Two independently derived repairs
+cross-validating exactly, for the cost of one arm.
+
+**Both arms were added by the orchestrator mid-flight** (pass 208 amendment) and neither was in the
+row's original brief; the row ran them without letting them displace its four deliverables.
+
+### COVERAGE-CEILING QUESTION CLOSED (pass 213), not headed with a defect number. The 0.74055 % has exactly one implementation and it is the host one; there is no separate taped route, so the "one line" framing holds.
+
+At pass 202 I corrected "0.74055 % can never be read" to "blocked by one line, not by nature" and
+left one question open for whoever ports it: `run_input_atom_encoder` has exactly one engine caller,
+`tt_bio/worker.py:1544`, **which is the inference path** — so does the taped *training* route take the
+same host round-trip, or a different one? Settled here by reading, so no row spends a pass on it.
+
+**There is no different one.** `run_input_atom_encoder` is the only implementation of the input
+embedder's atom-encoder leg in the tree, and its tail is:
+
+    ql = ttnn.to_torch(ql_d).float().reshape(n_atom, 128)     # openfold3_host_prep.py:256
+    lq_w = _sub(enc, "linear_q")["0.weight"]
+    q = F.linear(ql * atom_mask[:, None], lq_w.float()).relu()  # :259
+    ai = aux["atom_to_token_mean"] @ q
+
+`ai` then feeds the trunk **on device**, so the cotangent that would reach `q` has to come back
+through the device graph — and the forward's `to_torch` severed it. The weight's gradient
+`dL/dq · qlᵀ` is therefore unobtainable, which is exactly what `of3t-auxheads` concluded and what
+`COVERAGE_CEILING_IS_NOT_100.json` means by *"no device gradient for it exists"*.
+
+**One refinement to my own wording**: it is two adjacent lines rather than one — the `to_torch` at
+:256 and the host `F.linear` at :259 — and the remedy is unchanged, port that op so the tape carries
+it. Also worth separating, because the names invite it: the gradient instrument's `atom_attn_enc` is
+`diffusion_module.atom_attn_enc`, a **different module** from
+`input_embedder.atom_attn_enc` which carries this 0.74055 %. Nothing in the campaign measures the
+latter, and nothing can while the leg is host-applied.
+
+### D116 UPDATE 4 (pass 216). The trunk repair's headline needs its per-tensor companion, and D8 is NOT closed by it.
+
+Read from `perf/of3t_apbgrad/SCOPE_c64.json` rather than from the row's prose, because the headline
+and the per-tensor picture say different things and only the headline had been carried forward.
+
+| arm | mass-weighted vs float64 | over the 5.0e-02 per-tensor bar | of that mass |
+|---|---|---|---|
+| shipped | 9.025172e+00 | **2733 / 2736** | 98.75 % |
+| **repaired** | **3.833066e-01** | **2734 / 2736** | **99.54 %** |
+| break control | 8.261372e+00 | 2736 / 2736 | 100 % |
+
+**The repair drops the mass-weighted error 23.5x and the per-tensor bar count does not move — it
+goes up by one.** Both facts are true and the campaign must carry both. What the repair achieves is
+**parity with upstream's own bf16 recipe** (1.0251x), which is the defensible target this campaign
+argued for at D70 and the right statistic under A23. What it does **not** achieve is the float64
+per-tensor bar, which essentially every tensor still misses — as they do for upstream's own bf16
+run, because that bar is one **no bf16 port reaches**.
+
+So "9.025172e+00 → 3.833066e-01" reads like a bar pass and is not one. It is a 23.5x reduction to
+parity with what upstream's own training achieves.
+
+**And that answers a question I opened this pass: D8 is not closed by the repair.** D8 is the
+assembled pairformer block's pair-track gradients being outside the bar; they are still over the
+per-tensor bar after the repair. But D120 has already moved D8's substance — its attention
+hypothesis is retired at 0.4.3 and its residual is a LayerNorm-gradient class — and the bar it fails
+is the float64 one nothing bf16 meets. **D8 should be re-stated against upstream's own bf16 before
+any more engineering is spent on it**, which is the same correction D120 applied to D9.
+
+**Two details from the same file worth keeping.** The worst tensor by rel against float64 is
+1.66e+14 at `ref_norm` **1.83e-18** — an A14 near-zero-reference artefact, not a finding. And the
+worst tensor by **error mass** against upstream's bf16 is
+`pairformer_stack.blocks.44.attn_pair_bias.layer_norm...` at rel 1.846 with **cos −0.957**:
+anti-aligned, which is a direction failure rather than a magnitude one and is not what the
+mass-weighted headline describes.
