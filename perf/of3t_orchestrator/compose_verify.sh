@@ -186,17 +186,26 @@ theirs = s[j + len("=======\n"):k].rstrip()
 indent = re.match(r"\s*", ours).group(0)
 
 def kwargs(text):
-    """name -> full `name=value` source, splitting only at top-level commas."""
+    """name -> full `name=value` source, splitting only at top-level commas.
+
+    The trailing `)` closes the CALL and must come off before the depth counter runs, or it
+    drives depth negative and every later top-level comma is missed -- which is exactly what
+    the first version did: it dropped the last two kwargs and the closing paren, and the AST
+    assert caught it on a SyntaxError rather than on a device.
+    """
+    t = text.rstrip()
+    if not t.endswith(")"):
+        raise SystemExit("resolution: a conflict side does not end the call with ')'")
     out, depth, cur = {}, 0, ""
-    for ch in text.replace("\n", " ") + ",":
+    for ch in t[:-1].replace("\n", " ") + ",":
         if ch in "([{":
             depth += 1
         elif ch in ")]}":
             depth -= 1
         if ch == "," and depth == 0:
-            t = cur.strip().rstrip(")").strip()
-            if "=" in t:
-                out[t.split("=", 1)[0].strip()] = t
+            x = cur.strip()
+            if "=" in x:
+                out[x.split("=", 1)[0].strip()] = x
             cur = ""
         else:
             cur += ch
