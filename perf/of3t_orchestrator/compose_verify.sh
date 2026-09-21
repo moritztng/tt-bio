@@ -498,6 +498,14 @@ echo "--- dispatch card tokens"
 # The shipping line is main. This asserts it on every compose rather than once: no float64
 # softmax symbol may exist on origin/main at all. Defaults-off in the composition is checked
 # separately by assert_new_levers_default_off.py; this is the stronger, simpler property.
+# (3g) D141. A capture's checkpoint provenance must prove BOTH halves of the load. The shared
+# diffusion capture recorded missing_keys and not unexpected_keys, so 24 trained layer_norm_z
+# tensors were dropped while the report read "1 missing, version_tensor". Three existing reports
+# are frozen; a fourth must never ship blind.
+echo "--- capture provenance records unexpected_keys"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
+  { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
+
 echo "--- inference: no float64 softmax on main"
 git fetch -q origin main 2>/dev/null || true
 _f64_on_main=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/main -- tt_bio/ 2>/dev/null || true)
