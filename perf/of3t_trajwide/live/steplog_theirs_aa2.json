@@ -98,10 +98,26 @@
    ],
    "k": 6,
    "wall_s": 1113.6993851661682
+  },
+  {
+   "lr": 1.08e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.0890758037567139,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 7,
+   "wall_s": 1322.171056509018
   }
  ],
  "evidence": null,
- "n_steps": 6,
+ "n_steps": 7,
  "complete": false,
- "wall_s": 1132.1645317077637
+ "wall_s": 1340.6683983802795
 }
