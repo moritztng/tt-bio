@@ -1,0 +1,1032 @@
+{
+ "host": "tt-quietbox2",
+ "model": "rf3",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "20219282f59193d600c6a2ceb1942f533bd10579",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 91,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 2.23,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_rf3_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-rf3-2s_s3eyh/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 50
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 38.5269,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 147,
+    "power_w_mean": 67.7
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 2176, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 524, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 1088, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 1563, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297,
+     "l1_cores": 108
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 34.8115,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 134,
+    "power_w_mean": 70.1
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 4352, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 1048, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 2176, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 3126, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 34.7815,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 118,
+    "power_w_mean": 67.6
+   },
+   "depth": 2,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 6528, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 1572, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 3264, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 4689, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   },
+   "blocks": {
+    "atom_encoder.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.059015,
+     "self_s": 0.059015,
+     "depths": {
+      "1": 1
+     }
+    },
+    "feature_initializer.FeatureInitializer": {
+     "n": 1,
+     "incl_s": 0.066175,
+     "self_s": 0.00716,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model._NormLinear": {
+     "n": 69,
+     "incl_s": 0.019015,
+     "self_s": 0.019015,
+     "depths": {
+      "1": 69
+     }
+    },
+    "template.TemplateEmbedder": {
+     "n": 10,
+     "incl_s": 0.689511,
+     "self_s": 0.689511,
+     "depths": {
+      "1": 10
+     }
+    },
+    "msa.MSAModule": {
+     "n": 10,
+     "incl_s": 2.058299,
+     "self_s": 2.058299,
+     "depths": {
+      "1": 10
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 11,
+     "incl_s": 16.068622,
+     "self_s": 16.068622,
+     "depths": {
+      "1": 11
+     }
+    },
+    "model.Recycler": {
+     "n": 10,
+     "incl_s": 18.711098,
+     "self_s": 0.011286,
+     "depths": {
+      "0": 10
+     }
+    },
+    "distogram_head.DistogramHead": {
+     "n": 1,
+     "incl_s": 0.002803,
+     "self_s": 0.002803,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 100,
+     "incl_s": 0.020871,
+     "self_s": 0.020871,
+     "depths": {
+      "0": 2,
+      "1": 98
+     }
+    },
+    "diffusion_atom_encoder.DiffusionAtomEncoder": {
+     "n": 49,
+     "incl_s": 0.213895,
+     "self_s": 0.213895,
+     "depths": {
+      "1": 49
+     }
+    },
+    "token_dit.TokenDiffusionTransformer": {
+     "n": 49,
+     "incl_s": 2.923742,
+     "self_s": 2.923742,
+     "depths": {
+      "1": 49
+     }
+    },
+    "diffusion_atom_decoder.DiffusionAtomDecoder": {
+     "n": 49,
+     "incl_s": 0.207457,
+     "self_s": 0.207457,
+     "depths": {
+      "1": 49
+     }
+    },
+    "model.DiffusionModule": {
+     "n": 49,
+     "incl_s": 3.478723,
+     "self_s": 0.118266,
+     "depths": {
+      "0": 49
+     }
+    },
+    "confidence_head.ConfidenceHead": {
+     "n": 1,
+     "incl_s": 0.200376,
+     "self_s": 0.067381,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  },
+  {
+   "tag": "B:3",
+   "fold_s": 34.8188,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 98,
+    "power_w_mean": 63.0
+   },
+   "depth": 3,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 8704, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 2096, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 4352, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 6252, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   },
+   "blocks": {
+    "tenstorrent.DiffusionTransformer": {
+     "n": 148,
+     "incl_s": 3.335072,
+     "self_s": 3.335072,
+     "depths": {
+      "2": 148
+     }
+    },
+    "atom_encoder.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.059452,
+     "self_s": 0.054551,
+     "depths": {
+      "1": 1
+     }
+    },
+    "feature_initializer.FeatureInitializer": {
+     "n": 1,
+     "incl_s": 0.066538,
+     "self_s": 0.007086,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model._NormLinear": {
+     "n": 69,
+     "incl_s": 0.017797,
+     "self_s": 0.017797,
+     "depths": {
+      "1": 69
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 544,
+     "incl_s": 18.038804,
+     "self_s": 18.038804,
+     "depths": {
+      "2": 544
+     }
+    },
+    "template.TemplateEmbedder": {
+     "n": 10,
+     "incl_s": 0.692365,
+     "self_s": 0.04332,
+     "depths": {
+      "1": 10
+     }
+    },
+    "msa.MSASubsampleEmbedder": {
+     "n": 10,
+     "incl_s": 0.001742,
+     "self_s": 0.001742,
+     "depths": {
+      "2": 10
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.694842,
+     "self_s": 0.694842,
+     "depths": {
+      "2": 40
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.066662,
+     "self_s": 0.066662,
+     "depths": {
+      "2": 40
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 140,
+     "incl_s": 0.029555,
+     "self_s": 0.029555,
+     "depths": {
+      "0": 2,
+      "1": 98,
+      "2": 40
+     }
+    },
+    "msa.MSAModule": {
+     "n": 10,
+     "incl_s": 2.06942,
+     "self_s": 0.023978,
+     "depths": {
+      "1": 10
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 11,
+     "incl_s": 16.128356,
+     "self_s": 0.010283,
+     "depths": {
+      "1": 11
+     }
+    },
+    "model.Recycler": {
+     "n": 10,
+     "incl_s": 18.783145,
+     "self_s": 0.010449,
+     "depths": {
+      "0": 10
+     }
+    },
+    "distogram_head.DistogramHead": {
+     "n": 1,
+     "incl_s": 0.002803,
+     "self_s": 0.002803,
+     "depths": {
+      "0": 1
+     }
+    },
+    "diffusion_atom_encoder.DiffusionAtomEncoder": {
+     "n": 49,
+     "incl_s": 0.216901,
+     "self_s": 0.013696,
+     "depths": {
+      "1": 49
+     }
+    },
+    "token_dit.TokenDiffusionTransformer": {
+     "n": 49,
+     "incl_s": 2.924767,
+     "self_s": 0.000933,
+     "depths": {
+      "1": 49
+     }
+    },
+    "diffusion_atom_decoder.DiffusionAtomDecoder": {
+     "n": 49,
+     "incl_s": 0.210582,
+     "self_s": 0.00745,
+     "depths": {
+      "1": 49
+     }
+    },
+    "model.DiffusionModule": {
+     "n": 49,
+     "incl_s": 3.486584,
+     "self_s": 0.120968,
+     "depths": {
+      "0": 49
+     }
+    },
+    "confidence_head.ConfidenceHead": {
+     "n": 1,
+     "incl_s": 0.200162,
+     "self_s": 0.067368,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  },
+  {
+   "tag": "B:4",
+   "fold_s": 35.2005,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 131,
+    "power_w_mean": 70.1
+   },
+   "depth": 4,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 10880, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 2620, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 5440, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 7815, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   },
+   "blocks": {
+    "tenstorrent.DiffusionTransformerLayer": {
+     "n": 1473,
+     "incl_s": 3.271774,
+     "self_s": 3.271774,
+     "depths": {
+      "3": 1473
+     }
+    },
+    "tenstorrent.DiffusionTransformer": {
+     "n": 148,
+     "incl_s": 3.461614,
+     "self_s": 0.18984,
+     "depths": {
+      "2": 148
+     }
+    },
+    "atom_encoder.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.059612,
+     "self_s": 0.0546,
+     "depths": {
+      "1": 1
+     }
+    },
+    "feature_initializer.FeatureInitializer": {
+     "n": 1,
+     "incl_s": 0.06669,
+     "self_s": 0.007078,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model._NormLinear": {
+     "n": 69,
+     "incl_s": 0.017792,
+     "self_s": 0.017792,
+     "depths": {
+      "1": 69
+     }
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 1088,
+     "incl_s": 6.347252,
+     "self_s": 6.347252,
+     "depths": {
+      "3": 1088
+     }
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 1088,
+     "incl_s": 6.877509,
+     "self_s": 6.877509,
+     "depths": {
+      "3": 1088
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 1168,
+     "incl_s": 3.351275,
+     "self_s": 3.351275,
+     "depths": {
+      "0": 2,
+      "1": 98,
+      "2": 40,
+      "3": 1028
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 544,
+     "incl_s": 18.305831,
+     "self_s": 1.064788,
+     "depths": {
+      "2": 544
+     }
+    },
+    "template.TemplateEmbedder": {
+     "n": 10,
+     "incl_s": 0.699605,
+     "self_s": 0.04372,
+     "depths": {
+      "1": 10
+     }
+    },
+    "msa.MSASubsampleEmbedder": {
+     "n": 10,
+     "incl_s": 0.001731,
+     "self_s": 0.001731,
+     "depths": {
+      "2": 10
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.69488,
+     "self_s": 0.69488,
+     "depths": {
+      "2": 40
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.066705,
+     "self_s": 0.066705,
+     "depths": {
+      "2": 40
+     }
+    },
+    "msa.MSAModule": {
+     "n": 10,
+     "incl_s": 2.088188,
+     "self_s": 0.024044,
+     "depths": {
+      "1": 10
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 484,
+     "incl_s": 0.696629,
+     "self_s": 0.696629,
+     "depths": {
+      "3": 484
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 11,
+     "incl_s": 16.365809,
+     "self_s": 0.006306,
+     "depths": {
+      "1": 11
+     }
+    },
+    "model.Recycler": {
+     "n": 10,
+     "incl_s": 19.042827,
+     "self_s": 0.010268,
+     "depths": {
+      "0": 10
+     }
+    },
+    "distogram_head.DistogramHead": {
+     "n": 1,
+     "incl_s": 0.00279,
+     "self_s": 0.00279,
+     "depths": {
+      "0": 1
+     }
+    },
+    "diffusion_atom_encoder.DiffusionAtomEncoder": {
+     "n": 49,
+     "incl_s": 0.224428,
+     "self_s": 0.013749,
+     "depths": {
+      "1": 49
+     }
+    },
+    "token_dit.TokenDiffusionTransformer": {
+     "n": 49,
+     "incl_s": 3.037284,
+     "self_s": 0.000794,
+     "depths": {
+      "1": 49
+     }
+    },
+    "diffusion_atom_decoder.DiffusionAtomDecoder": {
+     "n": 49,
+     "incl_s": 0.216646,
+     "self_s": 0.007214,
+     "depths": {
+      "1": 49
+     }
+    },
+    "model.DiffusionModule": {
+     "n": 49,
+     "incl_s": 3.637631,
+     "self_s": 0.143594,
+     "depths": {
+      "0": 49
+     }
+    },
+    "confidence_head.ConfidenceHead": {
+     "n": 1,
+     "incl_s": 0.203753,
+     "self_s": 0.067497,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "fold_s": 35.0082,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 123,
+    "power_w_mean": 65.7
+   },
+   "depth": 1,
+   "count_only": false,
+   "plddt": 0.778819,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     586,
+     98
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('h-clamped-to-H', '1x512x384')": 98
+    },
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     544,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     0,
+     297
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     1176,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1660
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 13056, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 3144, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 6528, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 9378, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 297,
+     "fused": 297,
+     "l1": 297
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1088
+    },
+    "tenstorrent.PAIR_BIAS_STATS": {
+     "g_add": 1088,
+     "o_add": 1088
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1088,
+     0
+    ]
+   },
+   "blocks": {
+    "feature_initializer.FeatureInitializer": {
+     "n": 1,
+     "incl_s": 0.065997,
+     "self_s": 0.065997,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.Recycler": {
+     "n": 10,
+     "incl_s": 18.717391,
+     "self_s": 18.717391,
+     "depths": {
+      "0": 10
+     }
+    },
+    "distogram_head.DistogramHead": {
+     "n": 1,
+     "incl_s": 0.002802,
+     "self_s": 0.002802,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 2,
+     "incl_s": 0.008144,
+     "self_s": 0.008144,
+     "depths": {
+      "0": 2
+     }
+    },
+    "model.DiffusionModule": {
+     "n": 49,
+     "incl_s": 3.459783,
+     "self_s": 3.459783,
+     "depths": {
+      "0": 49
+     }
+    },
+    "confidence_head.ConfidenceHead": {
+     "n": 1,
+     "incl_s": 0.200448,
+     "self_s": 0.200448,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  }
+ ]
+}
