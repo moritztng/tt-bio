@@ -1,0 +1,171 @@
+{
+ "host": "tt-quietbox2",
+ "model": "esmfold2",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "752bc8de4b5f6d8a072b0ab3a6cb3dfc520dbb01",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 78,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 11.93,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_esmfold2_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-esmfold2-7dq5orj5/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 100
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 40.6747,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 121,
+    "power_w_mean": 87.7
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.9286,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 17216, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1084
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     1084
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "f1_tail_serves": 1084
+    },
+    "esmc.L1_FC1_STATS": [
+     17216,
+     0
+    ],
+    "esmc.L1_LN_STATS": [
+     8608,
+     0
+    ],
+    "esmc.L1_SLICE_STATS": [
+     538,
+     0
+    ],
+    "esmc.FUSED_RESID_STATS": [
+     538,
+     0
+    ],
+    "esmc.FILL_ASSEMBLY_STATS": [
+     538,
+     0
+    ],
+    "esmc.SPLIT_STATS": [
+     538,
+     87
+    ],
+    "esmc.WINDOW_FALLBACK_STATS": [
+     0,
+     87
+    ]
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 27.5129,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 109,
+    "power_w_mean": 87.6
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.9286,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 34432, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1084
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     1084
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "f1_tail_serves": 1084
+    },
+    "esmc.L1_FC1_STATS": [
+     17216,
+     0
+    ],
+    "esmc.L1_LN_STATS": [
+     8608,
+     0
+    ],
+    "esmc.L1_SLICE_STATS": [
+     538,
+     0
+    ],
+    "esmc.FUSED_RESID_STATS": [
+     538,
+     0
+    ],
+    "esmc.FILL_ASSEMBLY_STATS": [
+     538,
+     0
+    ],
+    "esmc.SPLIT_STATS": [
+     538,
+     87
+    ],
+    "esmc.WINDOW_FALLBACK_STATS": [
+     0,
+     87
+    ]
+   }
+  }
+ ]
+}
