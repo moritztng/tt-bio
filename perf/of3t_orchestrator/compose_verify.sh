@@ -468,7 +468,13 @@ done
 #   eight namespaces import it now. Checked at pass 279: bit-identical tree behind the new path
 #   (digest 1b27f5754b32b8e3 over 293 .py files, reproduced by a fresh pip download), so no number
 #   moves. Asserted below rather than assumed.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py"
+#   tt_bio/openfold3_fold.py: of3t-hostleg and of3t-pathcov, arbitrated pass 324. Their hunks
+#   are region-disjoint -- hostleg adds `cl0_d`/`plm0_d` to `build_dm_device_aux`, pathcov
+#   replaces the pTM/ipTM frame mask inside `OpenFold3`. The two lines they BOTH add (the
+#   `ranking as rank` import and a blank line) are already on `wk/of3t` and are inherited from
+#   their common base rather than authored by either row, which is why a same-file check reads a
+#   collision where there is no contested region. Asserted below, both sides, not assumed.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py tt_bio/openfold3_fold.py"
 _coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
@@ -518,6 +524,19 @@ if [ -z "$dup" ]; then
       echo "CO-EDIT LOST A SIDE in perf/of3t_trajwide/trajwide.py --$_twmiss"; exit 1
     fi
     echo "co-edit: trajwide.py keeps its align_layer_norm_z and its D149 resolved-tree assertion after refsweep's path move"
+  fi
+  # The fifth, arbitrated pass 324: of3t-hostleg and of3t-pathcov on openfold3_fold.py. Regions
+  # are disjoint, so what has to be proved is only that the merge kept both, which a same-file
+  # collision check cannot tell you either way.
+  if printf '%s ' $PRESENT | grep -q "hostleg " && printf '%s ' $PRESENT | grep -q "pathcov "; then
+    _of="$CO/tt_bio/openfold3_fold.py"
+    _ofmiss=""
+    grep -q "cl0_d=None" "$_of" || _ofmiss="$_ofmiss of3t-hostleg's device atom-embed leg (cl0_d/plm0_d)"
+    grep -q "max over ALIGNMENT FRAMES" "$_of" || _ofmiss="$_ofmiss of3t-pathcov's pTM/ipTM frame mask"
+    if [ -n "$_ofmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_fold.py --$_ofmiss"; exit 1
+    fi
+    echo "co-edit: openfold3_fold.py carries BOTH hostleg's cl0_d/plm0_d device leg and pathcov's pTM/ipTM frame mask"
   fi
   # The third overlapping co-edit, asserted only when both rows are in this composition.
   if printf '%s ' $PRESENT | grep -q "d116 " && printf '%s ' $PRESENT | grep -q "d137-tapegate "; then
