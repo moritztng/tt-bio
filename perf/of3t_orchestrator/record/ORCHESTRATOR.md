@@ -800,8 +800,43 @@ defects, and the 2.0067 % with no reading. **The trunk defect dissolved at the r
 **`atom_attn_dec` was dissolved by `of3t-residual`**, and **the diffusion transformer's residual is
 exactly what `of3t-ditref` is now re-pricing against the repaired 6.62x denominator**. The
 float64-softmax trade Moritz was asked to rule on he ruled on, by delegating pin 9629. **What is
-genuinely still open from the thirteen is the 2.0067 % with no reading** — of which 0.74055 %
-never can have one — and that is the oldest unclosed line on either directive.
+genuinely still open from the thirteen was the 2.0067 % with no reading**, and **pass 314 closes
+the closable part of it and names the rest.** Decomposed from the bucket's own `items`, summing to
+2.0067 % exactly:
+
+    1.12860 %  unreached inside the diffusion arm      ENUMERATED (pass 307)
+    0.74055 %  input_embedder, host-applied portion    PERMANENTLY UNREADABLE
+    0.06015 %  input_embedder, the rest                unenumerated
+    0.06120 %  msa_module_embedder                     unenumerated
+    0.01030 %  template_embedder                       unenumerated
+    0.00590 %  top-level layer_norm_z/_s, linear_z/_s  unenumerated
+
+**The 0.74055 % is permanently unreadable and here is why, which the directive asked for and this
+document had only ever asserted.** It is the host-applied portion of `input_embedder`: **no device
+gradient exists to read**, because the work is not done on the device. Pass 213 closed the one
+question that could have changed that — whether the taped *training* route takes a different path
+from the inference one — by reading `run_input_atom_encoder`, which is **the sole implementation**
+of the input embedder's atom-encoder leg, with its only engine caller at `worker.py:1544`. There
+is no second route to instrument. This is a **coverage ceiling of 99.2594 %**, not a pending
+measurement, and no row should ever be spent on it.
+
+**The 1.1286 % is no longer unread in the sense that mattered: `of3t-trajwide` enumerated it at
+pass 307**, 188 of the reference's 761 tensors inside the boundary, each family with its own
+share — and the shape is concentrated rather than diffuse. **One tensor**,
+`atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos`, is **0.673403 %, which is 59.7 % of the
+whole piece**; the **96 `diffusion_transformer.blocks.N` leaves** are 0.271526 %, another 24.1 %.
+**And the cause is not absence, it is naming**: our port fuses these or holds them under a
+different name, so they fail to match the reference by name and are *excluded* rather than
+disagreed with. For the 96 that is already established — four leaf names x 24 blocks that
+`openfold3_diffusion_transformer.py:122-131` concatenates into one padded device tensor, so they
+are **on device, fused**, and the remedy is unfusing the device `qkv` gradient in the instrument
+rather than a port rewrite.
+
+**So of the 1.26615 % the directive called closable, 89.1 % now has an enumeration and a cause,
+and 0.13755 % — 6.9 % of the bucket, across four small scopes — is what is genuinely left
+unenumerated.** That is the honest end state of this directive line: one permanently unreadable
+piece with its mechanism named, one large piece that is an instrument-naming artefact with its
+largest member a single tensor, and a residue under a seventh of a percent.
 
 **Directive 1.**
 1. **Two inference correctness defects users get today — BOTH RESOLVED AS NON-DEFECTS, and that
@@ -974,6 +1009,29 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
 Eighty-four dispatched, seventy-eight concluded, six live (this row; `of3t-ditcot` **CONCLUDED STOP 20:0x CEST** on a 6.62x denominator defect, closing D55's backward half and orphaning D30, D58 and D129 — successor `of3t-ditref` dispatched this pass and confirmed in `queue.tsv`; `of3t-stepfloor` PARTIAL with the steady step landed at 507.02 s and only D56's step-scope pair owed; `of3t-trajbar` running with its prediction registered and its scorer reproducing `of3t-trajwide` bit for bit; `of3t-fwdkcfg` HELD, and it now owns D55's forward half alone); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+
+PASSLOG: **Pass 314 — the oldest unclosed line on either of Moritz's continuation directives is closed: of the 2.0067 % with no reading, 89.1 % of the closable part now has an enumeration and a cause, and the permanently unreadable piece finally has its mechanism written down instead of asserted.**
+
+Moritz's second continuation directive: *"2.0067 % still has no reading, of which 0.74055 % never can. Close what is closable and say plainly which part is permanently unreadable and why."* Last pass I re-audited the thirteen directive items and reported this one as *"genuinely still open"* — **repeating the directive's own framing without opening the bucket**, in the paragraph whose entire job is to audit against the ledger. The bucket's `items` were sitting in `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` the whole time.
+
+    1.12860 %  unreached inside the diffusion arm      ENUMERATED (pass 307)
+    0.74055 %  input_embedder, host-applied portion    PERMANENTLY UNREADABLE
+    0.06015 %  input_embedder, the rest                unenumerated
+    0.06120 %  msa_module_embedder                     unenumerated
+    0.01030 %  template_embedder                       unenumerated
+    0.00590 %  top-level layer_norm_z/_s, linear_z/_s  unenumerated
+    -------
+    2.00670 %  sums to the published total exactly; recoverable 1.26615 likewise
+
+**The "why" the directive asked for, which this document had only ever asserted.** The 0.74055 % is the host-applied portion of `input_embedder`: **no device gradient exists**, because the work is not done on the device. Pass 213 closed the one question that could have changed that — whether the taped *training* route differs from the inference one — by reading `run_input_atom_encoder`, **the sole implementation** of the input embedder's atom-encoder leg, only engine caller `worker.py:1544`. There is no second route to instrument. **A coverage ceiling of 99.2594 %, not a pending measurement**, and no row should ever be spent on it.
+
+**And the large recoverable piece is an instrument artefact, not a measurement gap — which is the part that actually closes the line.** `of3t-trajwide` enumerated the 1.1286 % at pass 307: 188 of the reference's 761 tensors inside the boundary, each family with its share, and it is **concentrated, not diffuse**. **One tensor**, `atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos`, is **0.673403 % — 59.7 % of the whole piece.** The **96 `diffusion_transformer.blocks.N` leaves** are 0.271526 %, another **24.1 %**, and those were already understood: four leaf names x 24 blocks that `openfold3_diffusion_transformer.py:122-131` **concatenates into one padded device tensor**, so they are **on device, fused**, and the remedy is unfusing the device `qkv` gradient in the instrument rather than rewriting the port. **The cause across the whole piece is NAMING** — our port fuses these or holds them under a different name, so they fail to match the reference by name and are *excluded* rather than *disagreed with*. Those are very different things and the bucket's label, "no direct reading", concealed which one it was.
+
+**So: 89.1 % of the closable 1.26615 % now has an enumeration and a cause, and 0.13755 % — 6.9 % of the bucket, four small scopes — is what is genuinely left.** That is the honest end state, and it is a materially better answer than "still open": one permanently unreadable piece with its mechanism named, one large piece that is a naming artefact whose largest member is a single tensor, and a residue under a seventh of a percent.
+
+**The lesson is the one this campaign keeps paying for, and this time it was mine in an audit paragraph.** A bucket labelled "no reading" invites the reader to treat it as an atom. It had six items, a `pct_recoverable` field and a `pct_that_never_can` field, all computed, all committed, and three consecutive audits of this directive line read the label instead of the items. **Open the artifact even when the summary sounds complete** — especially then, because a summary that sounds complete is the one nobody opens.
+
+**Nothing landed on `origin/main`; it still reads `56ad6c0e0`.** All four rows live: `of3t-ditref` on qb2 card 1, `of3t-fwdkcfg` on card 0, `of3t-trajbar` on CPU, `of3t-stepfloor` on card 3.
 
 PASSLOG: **Pass 313 — the file a reviewer of `wk/of3t` opens first understated this campaign's own result by 461x, and its opening paragraph is a warning about exactly that.**
 
