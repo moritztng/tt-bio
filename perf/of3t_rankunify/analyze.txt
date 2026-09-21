@@ -1,0 +1,18 @@
+model/target                 seeds  shipped  unified   plddt     ptm  random   floor  moved   clk
+-------------------------------------------------------------------------------------------------
+opendde/ubq                      4    1.061    1.104   1.027   1.061   0.936   0.399 1/4     1350
+openfold3/ubq                    3    0.833    0.833   0.782   0.833   0.797   0.506 0/3     1350
+protenix-v2/9gfr_pep             4   51.430   45.871  45.871  51.430  47.979  16.441 4/4     1350
+protenix-v2/ubq                  4    1.892    1.892   1.892   1.892   1.417   1.338 0/4     1350
+rf3/9gfr_pep                     4   39.556   37.203  37.203  39.556  46.150  36.001 1/4     1350
+rf3/ubq                          4    0.668    0.676   0.671   0.668   0.677   0.092 2/4     1350
+
+model/target                  iptm samples  exact  worst diff  served same
+
+model/target                  pLDDT~pTM  pLDDT~qual  pTM~qual  seeds
+opendde/ubq                      +0.450      -0.725    -0.450      4
+openfold3/ubq                    +0.900      -0.200    -0.133      3
+protenix-v2/9gfr_pep             -0.775      +0.825    -0.800      4
+protenix-v2/ubq                  +0.950      -0.650    -0.775      4
+rf3/9gfr_pep                     +0.775      +0.575    +0.250      4
+rf3/ubq                          -0.350      +0.125    +0.075      4
