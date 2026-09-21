@@ -5,9 +5,9 @@ import json, os, sys, time, resource
 NT = int(sys.argv[1]); NS = int(sys.argv[2])
 os.environ["OMP_NUM_THREADS"] = str(NT); os.environ["MKL_NUM_THREADS"] = str(NT)
 sys.path.insert(0, os.getcwd())
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.append(_HERE)
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
 import refpath                                                            # noqa: E402
 refpath.install()
 import torch

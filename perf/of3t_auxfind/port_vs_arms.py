@@ -20,15 +20,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 
 import torch
 
 BOUND = "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt"
 CKPT = "/home/ttuser/of3-weights/of3-p2-155k.pt"
-TREE = "/home/ttuser/of3t_rebase/of3pkg043"
+TREE = refpath.OF3PKG
 PAIR_HEADS = ["pae_logits", "pde_logits", "distogram_logits"]
 ATOM_HEADS = ["plddt_logits", "experimentally_resolved_logits"]
 HEADS = ATOM_HEADS + PAIR_HEADS
@@ -58,9 +64,9 @@ def main() -> int:
     t0 = time.perf_counter()
     torch.set_num_threads(a.threads)
 
-    sys.path.insert(0, TREE)
-    import openfold3
-    assert openfold3.__file__.startswith(TREE), openfold3.__file__
+    refpath.install(TREE)
+    import openfold3                                            # noqa: F401
+    print(f"REF_TREE resolved: {refpath.assert_resolved(TREE)}", flush=True)
     from openfold3.core.model.heads.head_modules import AuxiliaryHeadsAllAtom
     import openfold3.core.model.heads.prediction_heads as PH
     from openfold3.projects.of3_all_atom.config.model_config import model_config
