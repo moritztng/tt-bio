@@ -226,14 +226,45 @@ class AdamW:
         clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
         for name, t in self.params.items():
-            if name in disabled:
-                continue
-            g = self.accum.get(name) if per_sample else (
-                None if t.grad is None else
-                to_host(t.grad).astype(np.float32).reshape(self.master[name].shape))
+            # EVERY parameter takes a step, including one no sample of this step activated.
+            # That is upstream's behaviour and it is not incidental: `sync_and_average_grads`
+            # assigns `param.grad = self.grad_accumulator[name].clone()` for every parameter
+            # it manages (`grad_manager.py:296-297`), the accumulator was zeroed by
+            # `reset_accumulator`, and `_sync_and_average_grads` explicitly `zero_()`s a
+            # parameter whose global participation count is 0 (`grad_manager.py:237-239`)
+            # rather than leaving it out. Their `torch.optim.Adam` (`configure_optimizers`,
+            # `runner.py:845-850`) then
+            # steps it on a zero gradient, so `m` and `v` DECAY by beta1/beta2 and the weight
+            # moves on momentum alone. Skipping it left the moments frozen and the weight
+            # where it was -- measured at 1.10e-03 relative against their own optimizer,
+            # permanent for the rest of the run, where the arm with no such step reads
+            # 2.07e-08 (`perf/of3t_optsem/`).
+            #
+            # A zero gradient is NOT the same as no update, and it is also not always a
+            # different one. With `m` and `v` still zero the update is `0 / (0 + eps)`, so a
+            # parameter that has never received a gradient does not move under either
+            # optimizer -- measured bit-identical over 20 steps. The divergence needs prior
+            # momentum, which is exactly the confidence head's case: it trains on the
+            # confidence-weighted dataset and then meets a batch drawn wholly from the four
+            # that zero those weights.
+            #
+            # Nothing else in the step changes. The zeros are synthesised HERE rather than
+            # written into `self.accum`, so the reported gradient norm is computed over the
+            # same set it always was; adding zeros to a sum of squares would not move it
+            # either, but not touching it keeps that true by construction rather than by
+            # arithmetic. Clipping is per-sample under `per_sample` and a no-op on zeros in
+            # any case. Weight decay is the one term that is not a no-op on a zero gradient,
+            # and upstream builds a plain `torch.optim.Adam` with no decay at all, which is
+            # why `train_loop` ships `weight_decay=0.0`; at a non-zero decay ours applies it
+            # decoupled, as `torch.optim.AdamW` does and `torch.optim.Adam(weight_decay=...)`
+            # does not.
+            g = None if name in disabled else (
+                self.accum.get(name) if per_sample else (
+                    None if t.grad is None else
+                    to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)))
             if g is None:
-                continue
-            if clip != 1.0:
+                g = np.zeros_like(self.master[name])
+            elif clip != 1.0:
                 g = g * clip
             m = self.exp_avg[name]
             v = self.exp_avg_sq[name]

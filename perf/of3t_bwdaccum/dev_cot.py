@@ -27,6 +27,12 @@ The levers, each named for what it does to `dW = sum_t g_t * xhat_t`:
               per-K-block partials at the output dtype. `_sum_leading` passes the precise
               config and no dtype)
   xhat_fp32   recompute mean/rstd/xhat in fp32 from x
+  dxcfg       D8's named lever, and only it: `compute_kernel_config=precise_config()` on the
+              two reductions `dn_mean` and `dn_norm_mean`, which carry none in
+              `tt_bio/autograd.py` `_taped_layer_norm`. Located by symbol, because the line
+              numbers have moved: the `dn_mean =` / `dn_norm_mean =` pair appears twice, at
+              :727-728 and :1657-1658 on wk/of3t, where D8 cites :595-598 and :1514-1517.
+              Two keyword arguments and no dtype change, so it is separable from `dx_fp32`.
   dx_fp32     the ACTIVATION gradient path (dnorm, its two means, dx) in fp32 -- D55's four
               withheld configs, the half that propagates rather than the half that lands
   all         every one of the above
@@ -45,7 +51,7 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_trunkg043"))
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_gradients"))
 
-LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dx_fp32", "all", "lofi",
+LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dxcfg", "dx_fp32", "all", "lofi",
           "softmax_fp32")
 
 
@@ -159,6 +165,10 @@ def main() -> int:
     lev = a.lever
     on = (lambda n: lev == "all" or lev == n)
     CAPTURED = []
+    # D121 REACH. A lever that never runs and a lever that runs and is inert are different
+    # results, and no output comparison can tell them apart. `dxcfg_applied` counts the
+    # reductions that actually received the kwarg, not the ones that could have.
+    LN = {"bw": 0, "dw": 0, "dx": 0, "dxcfg_applied": 0}
 
     def _precise():
         return ag.precise_config()
@@ -207,6 +217,7 @@ def main() -> int:
 
         def make():
             def bw(g):
+                LN["bw"] += 1
                 xv = x.value
                 if on("xhat_fp32"):
                     x32 = ttnn.typecast(xv, ttnn.float32)
@@ -228,6 +239,7 @@ def main() -> int:
                         and int(path.split(".")[1]) in cap_blocks) if path else False
                 dw = db = None
                 if gamma is not None and gamma.requires_grad:
+                    LN["dw"] += 1
                     if on("prod_fp32"):
                         prod = ttnn.multiply(ttnn.typecast(g, ttnn.float32),
                                              ttnn.typecast(norm, ttnn.float32))
@@ -254,6 +266,7 @@ def main() -> int:
                         "xhat_device": ttnn.to_torch(norm).to(torch.float32).clone(),
                         "x_dtype": str(xv.dtype), "g_dtype": str(g.dtype)})
                 if x.requires_grad:
+                    LN["dx"] += 1
                     if on("dx_fp32"):
                         g32 = ttnn.typecast(g, ttnn.float32)
                         n32 = (norm if norm.dtype == ttnn.float32
@@ -270,10 +283,16 @@ def main() -> int:
                                else ttnn.typecast(rstd, ttnn.float32))
                         x.add_grad(ttnn.typecast(ttnn.multiply(dx, r32), x.value.dtype))
                     else:
+                        # D8 LEVER `dxcfg`: the two reductions below carry no
+                        # compute_kernel_config in the shipped `_taped_layer_norm`. This is
+                        # the only difference between `--lever none` and `--lever dxcfg`.
+                        kcfg = {"compute_kernel_config": bwcfg} if on("dxcfg") else {}
+                        if kcfg:
+                            LN["dxcfg_applied"] += 2
                         dnorm = (ttnn.multiply(g, gamma.value) if gamma is not None else g)
-                        dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
+                        dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True, **kcfg)
                         dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1,
-                                                 keepdim=True)
+                                                 keepdim=True, **kcfg)
                         dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
                                            ttnn.multiply(norm, dn_norm_mean))
                         x.add_grad(ttnn.multiply(dx, rstd))
@@ -359,6 +378,7 @@ def main() -> int:
         print(json.dumps({"ln_out": a.ln_out, "sites": len(CAPTURED),
                           "paths": sorted({c["gamma_path"] for c in CAPTURED})[:8]}))
     print(json.dumps({"lever": lev, "softmax_backward_firings": SM["fired"],
+                      "layer_norm_backward_reach": LN,
                       "seconds": round(time.perf_counter() - t0, 1)}))
     return rc
 
