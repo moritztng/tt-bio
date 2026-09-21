@@ -30,13 +30,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
+
 import torch
 
-BOUND = Path("/home/ttuser/of3t_rebase/diffcap043/diffusion_boundary.pt")
-SUB = Path("/home/ttuser/of3t_rebase/diffcap043/sub_boundary.pt")
+BOUND = Path(refpath.DIFFCAP) / "diffusion_boundary.pt"
+SUB = Path(refpath.DIFFCAP) / "sub_boundary.pt"
 OUT = Path("/home/ttuser/of3t_cond_cap/cond_boundary.pt")
 REPORT = Path("perf/of3t_conditioning/capture_cond_boundary.json")
 PREFIX = "diffusion_conditioning."

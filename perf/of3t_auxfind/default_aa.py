@@ -6,13 +6,18 @@ is not a measurement, so this dumps the unmasked head outputs and the two runs a
 byte for byte. Run once with the pre-patch file in place and once with the patched one.
 """
 from __future__ import annotations
-import sys, time
+import os, sys, time
 from pathlib import Path
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 import torch
 
 BOUND = "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt"
 CKPT = "/home/ttuser/of3-weights/of3-p2-155k.pt"
-TREE = "/home/ttuser/of3t_rebase/of3pkg043"
+TREE = refpath.OF3PKG
 
 
 def sq(t, rank):
@@ -24,7 +29,9 @@ def sq(t, rank):
 
 def main() -> int:
     out = Path(sys.argv[1])
-    sys.path.insert(0, TREE)
+    refpath.install(TREE)
+    import openfold3                                            # noqa: F401
+    print(f"REF_TREE resolved: {refpath.assert_resolved(TREE)}", flush=True)
     from openfold3.core.utils.atomize_utils import (
         broadcast_token_feat_to_atoms, get_token_representative_atoms)
     B = torch.load(BOUND, map_location="cpu", weights_only=False)

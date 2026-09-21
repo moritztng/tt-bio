@@ -39,9 +39,9 @@ import os
 import sys
 import time
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.append(_HERE)
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
 import refpath                                                            # noqa: E402
 
 CAP = "/home/ttuser/of3t_cond_cap/cond_boundary.pt"

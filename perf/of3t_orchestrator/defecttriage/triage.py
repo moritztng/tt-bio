@@ -172,10 +172,6 @@ TABLE = {
                    "on the repin arm, which the row recorded as default-off and unmerged. A "
                    "correction to this campaign's own record; of3t-trajwide is measuring the "
                    "post-fix shipped default now."),
-    "D137": (CAMP, "The host float64 softmax is gated on a global env flag rather than on the tape "
-                   "and its entry point accepts a raw inference tensor. Nothing ships -- no float64 "
-                   "softmax symbol exists on main, asserted every compose -- so it changes nothing a "
-                   "user gets today; it blocks land-standing for that path."),
     "D140": (CAMP, "Two of of3t-trajwide's arms -- norebind and zero, both CONTROLS -- died with "
                    "no error and no done marker while the row was between passes. A fleet/row "
                    "observability defect in this campaign's own execution, not something a user "
