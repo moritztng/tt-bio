@@ -1,0 +1,162 @@
+{
+ "model": "esmfold2",
+ "size": 512,
+ "lever": "both",
+ "host": "tt-quietbox",
+ "chip": "0",
+ "arms": "off,on,off,on",
+ "control": "off = the shipped default for both flags, so off IS main",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "started_utc": "2026-09-21T01:37:23Z",
+ "loadavg": [
+  7.7373046875,
+  10.3740234375,
+  12.0771484375
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 36.321,
+   "plddt": 0.9285,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 17
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work",
+   "digest": "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {},
+   "cif_dir": "perf/allm_safety/out/cif_esmfold2_512_both_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 35.712,
+   "plddt": 0.9285,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {},
+   "cif_dir": "perf/allm_safety/out/cif_esmfold2_512_both_leg1_on"
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 34.472,
+   "plddt": 0.9285,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {},
+   "cif_dir": "perf/allm_safety/out/cif_esmfold2_512_both_leg2_off"
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 34.022,
+   "plddt": 0.9285,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 16
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+   "digest": "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {},
+   "cif_dir": "perf/allm_safety/out/cif_esmfold2_512_both_leg3_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 79.17,
+ "medians": {
+  "off": 35.3965,
+  "on": 34.867000000000004
+ },
+ "aa_floor": {
+  "off": 1.8489999999999966,
+  "on": 1.6900000000000048
+ },
+ "digests": {
+  "off": [
+   "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c"
+  ],
+  "on": [
+   "faae0435c75d138a34471fa03eab6ae7b6a25089608600ba9a37beb9f1a3076c"
+  ]
+ },
+ "ratio": 1.01519,
+ "delta_s": 0.529,
+ "resolvable": false,
+ "firing": {
+  "on_arm_served": {
+   "gate": [
+    0,
+    0
+   ],
+   "fuse": [
+    0,
+    0
+   ]
+  },
+  "off_arm_served": {
+   "gate": [
+    0,
+    0
+   ],
+   "fuse": [
+    0,
+    0
+   ]
+  },
+  "inert_on_this_model": {
+   "gate": true,
+   "fuse": true
+  },
+  "served_stable_across_on_legs": {
+   "gate": true,
+   "fuse": true
+  }
+ }
+}

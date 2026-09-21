@@ -1,0 +1,222 @@
+{
+ "model": "boltz2",
+ "size": 512,
+ "lever": "gate",
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "off,on,off,on,off,on",
+ "control": "off = the shipped default for both flags, so off IS main",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T01:37:02Z",
+ "loadavg": [
+  8.9833984375,
+  10.8251953125,
+  12.265625
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 19.479,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 10
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 25.733,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 11
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 560,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg1_on"
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 19.747,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 10
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg2_off"
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 20.234,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 10
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 560,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg3_on"
+  },
+  {
+   "i": 4,
+   "arm": "off",
+   "fold_s": 22.044,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 11
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg4_off"
+  },
+  {
+   "i": 5,
+   "arm": "on",
+   "fold_s": 18.159,
+   "plddt": 0.846087,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 9
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+   "digest": "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c",
+   "gate_served": 560,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 0,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   },
+   "cif_dir": "perf/allm_safety/out/cif_boltz2_512_gate_leg5_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 89.855,
+ "medians": {
+  "off": 19.747,
+  "on": 20.234
+ },
+ "aa_floor": {
+  "off": 2.5650000000000013,
+  "on": 7.574000000000002
+ },
+ "digests": {
+  "off": [
+   "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c"
+  ],
+  "on": [
+   "ff8688d0200d3209cc249c2e534a19d535da3586c4ebe3e4237a0961bf3f0b2c"
+  ]
+ },
+ "ratio": 0.97593,
+ "delta_s": -0.487,
+ "resolvable": false,
+ "firing": {
+  "on_arm_served": {
+   "gate": [
+    560,
+    560,
+    560
+   ],
+   "fuse": [
+    0,
+    0,
+    0
+   ]
+  },
+  "off_arm_served": {
+   "gate": [
+    0,
+    0,
+    0
+   ],
+   "fuse": [
+    0,
+    0,
+    0
+   ]
+  },
+  "inert_on_this_model": {
+   "gate": false,
+   "fuse": true
+  },
+  "served_stable_across_on_legs": {
+   "gate": true,
+   "fuse": true
+  }
+ }
+}
