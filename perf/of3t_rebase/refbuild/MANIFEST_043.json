@@ -1,0 +1,603 @@
+{
+ "artifacts": [
+  {
+   "bytes": 2947844653,
+   "carried_in": false,
+   "file": "grads_f64_043.pt",
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4"
+  },
+  {
+   "bytes": 344595,
+   "carried_in": false,
+   "file": "grad_presence_043.json",
+   "sha256": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a"
+  },
+  {
+   "bytes": 4573746297,
+   "carried_in": false,
+   "file": "w0_043.pt",
+   "sha256": "4aafc28670c12a7c6bf9a9cf8a51405c7b7b9a976677c7f3f8a940472f0ed758"
+  },
+  {
+   "bytes": 100822382,
+   "carried_in": true,
+   "file": "batch_step003.pt",
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  {
+   "bytes": 525598,
+   "carried_in": true,
+   "file": "draws_recycles0.pt",
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  }
+ ],
+ "batch": {
+  "n_tokens": 56,
+  "note": "carried in by hash from the 0.5.0 bundle and NOT rebuilt: featurisation is deterministic within one environment and not across one, so rebuilding it would move the batch as well as the revision and the comparison would have two moving parts.",
+  "pdb_id": "5nw3"
+ },
+ "bundle": "BUNDLE-MIN-043",
+ "canonical_location": {
+  "host": "qb2",
+  "path": "/home/ttuser/of3t_rebase/bundle_min_043"
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "n_tensors": 4935,
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4"
+ },
+ "consumer_rules": [
+  "Use grads_f64_043.pt for anything compared against a 0.4.3 reference, and grads_f64_r0.pt only for restating what the 0.5.0 bundle read.",
+  "The two bundles are NOT interchangeable and their difference is not noise.",
+  "Match draws_recycles0.pt: both bundles replayed the identical draws, so a difference between them is the revision and nothing else.",
+  "None is not zero. Compare the presence pattern as a set before any magnitude."
+ ],
+ "determinism_A13": {
+  "a": "/home/ttuser/of3t_rebase/run/out_043_A/grads_f64.pt",
+  "b": "/home/ttuser/of3t_rebase/run/out_043_B/grads_f64.pt",
+  "bar": 0.05,
+  "median_rel_l2": 0.0,
+  "n_bit_identical": 4170,
+  "n_both_absent": 0,
+  "n_compared": 4170,
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "n_over_bar": 0,
+  "only_in_a": [],
+  "only_in_b": [],
+  "over_bar_sample": [],
+  "presence_mismatch": [],
+  "worst_rel_l2": 0.0,
+  "worst_tensor": "aux_heads.distogram.linear.weight"
+ },
+ "git_commit": "19d55b1d358cfd436844e3f4dea581bace052216",
+ "key_gate": {
+  "enforced_in": "perf/of3t_reference/bundle_min.py refuses a non-empty unexpected set",
+  "negative_control_0_5_0": {
+   "missing": 3,
+   "unexpected": 48,
+   "unexpected_by_leaf": {
+    "layer_norm_z.weight": 48
+   },
+   "upstream_branch": "raise ValueError",
+   "upstream_called": {
+    "available": true,
+    "message": "Checkpoint state_dict keys do not match model state_dict keys. Missing keys: {'model.diffusion_module.diffusion_transformer.layer_norm_z.weight', 'model.sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight', 'model.version_tensor'}, Unexpected keys: {'model.diffusion_module.di",
+    "method": "_load_state_dict_with_version_validation",
+    "raised": "ValueError"
+   }
+  },
+  "rule": "InferenceRunner._load_state_dict_with_version_validation, 0.5.0 entry_points/experiment_runner.py:750",
+  "this_build": {
+   "missing": 1,
+   "missing_keys": [
+    "version_tensor"
+   ],
+   "unexpected": 0,
+   "upstream_branch": "warn_and_load_nonstrict",
+   "upstream_called": {
+    "available": true,
+    "method": "_warn_on_missing_version_tensor_in_load_statedict",
+    "raised": null
+   }
+  },
+  "version_window": {
+   "negative_control": {
+    "checked": true,
+    "declared_version_compatibility": ">=0.4,<0.4.4dev0",
+    "inside_window": false,
+    "installed_version": "0.5.0",
+    "is_default_checkpoint": false,
+    "listed_legacy": true,
+    "registry_name": "openfold3-p2-155k",
+    "source": "openfold3/entry_points/parameters.py in the tree being built"
+   },
+   "this_build": {
+    "checked": true,
+    "declared_version_compatibility": ">=0.4",
+    "inside_window": true,
+    "installed_version": "0.4.3",
+    "is_default_checkpoint": true,
+    "listed_legacy": false,
+    "registry_name": "openfold3-p2-155k",
+    "source": "openfold3/entry_points/parameters.py in the tree being built"
+   }
+  }
+ },
+ "provenance_corrections": [
+  {
+   "defect": "D42",
+   "field": "run_record.versions.openfold3",
+   "now": "0.4.3 (from PKG-INFO beside the imported tree)",
+   "payload_rebuilt": false,
+   "was": "0.5.0 (git checkout)",
+   "why": "the 0.4.3 tree defines no openfold3.__version__, so bundle_min.py's getattr fallback asserted a specific WRONG revision instead of admitting ignorance; the generator now reads the tree's own PKG-INFO and returns 'unknown' when it cannot tell"
+  }
+ ],
+ "published_by": "of3t-rebase",
+ "run_record": {
+  "batch": {
+   "file": "batch_step003.pt",
+   "n_tokens": 56,
+   "pdb_id": [
+    "5nw3"
+   ],
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "bundle": "BUNDLE-MIN",
+  "checkpoint": {
+   "file": "of3-p2-155k.pt",
+   "gate_enforced": true,
+   "missing_sample": [
+    "version_tensor"
+   ],
+   "n_loaded": 4935,
+   "n_missing": 1,
+   "n_unexpected": 0,
+   "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+   "unexpected_all": [],
+   "unexpected_sample": []
+  },
+  "deterministic_kernels": {
+   "cublas_workspace_config": ":4096:8",
+   "enabled": true,
+   "warn_only": true,
+   "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
+  },
+  "device": "cpu",
+  "draws": {
+   "n_torch_randn_calls": 45,
+   "noise_level": [
+    23.705331327916277,
+    5.85322621343689,
+    10.730205243320617,
+    43.23538700089494,
+    3.303701831925148,
+    6.519557063046438,
+    0.7765189060431456,
+    13.46714657916464,
+    6.258777956308346,
+    6.348094024850661,
+    14.073970404029117,
+    2.6002766093908427,
+    79.57238439900914,
+    0.21294168124596355,
+    7.900660759966823,
+    2.3990012384691157,
+    20.15366525198944,
+    1.4617451697326658,
+    37.43164943033083,
+    0.8039768870978508,
+    4.435698069878324,
+    12.277402908913203,
+    0.2220625062721565,
+    0.5450646027327497,
+    10.923544886674993,
+    39.70489835602277,
+    5.965137264111194,
+    1.973209341870764,
+    18.526941615977563,
+    1.5750857975849346,
+    3.3082595961961365,
+    0.7829479275488836,
+    15.004582964177137,
+    3.028558818748677,
+    6.547150932626115,
+    6.474541245549546,
+    1.7710778633527118,
+    44.375811128075675,
+    11.036669232092123,
+    4.620262423825227,
+    0.4975875092763589,
+    10.353649627103577,
+    238.21581864049045,
+    5.721548315632086,
+    1.0468209048497483,
+    1.0834315428786547,
+    4.285765451401781,
+    49.191111732012445
+   ],
+   "num_recycles": 0,
+   "python_random_values": [
+    0.6334896914538571,
+    0.8063837539475641
+   ],
+   "torch_randn_shapes": [
+    [
+     1,
+     1,
+     422,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     1,
+     4
+    ],
+    [
+     1,
+     1,
+     3
+    ],
+    [
+     1,
+     48,
+     4
+    ],
+    [
+     1,
+     48,
+     3
+    ],
+    [
+     1,
+     48
+    ],
+    [
+     1,
+     48,
+     422,
+     3
+    ]
+   ]
+  },
+  "dropout": {
+   "disabled": true,
+   "n_nn_dropout_modules": 61,
+   "n_of3_dropout_modules": 61,
+   "rates_before": [
+    0.15,
+    0.25
+   ],
+   "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+  },
+  "dtype": "float64",
+  "files": {
+   "draws.pt": {
+    "bytes": 525740,
+    "sha256": "85ccad491768d941880a7388de3405e9853187e703012282e762562f392ce0de"
+   },
+   "grad_presence.json": {
+    "bytes": 344595,
+    "sha256": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a"
+   },
+   "grads_f64.pt": {
+    "bytes": 2947844653,
+    "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4"
+   },
+   "w0.pt": {
+    "bytes": 4573746297,
+    "sha256": "4aafc28670c12a7c6bf9a9cf8a51405c7b7b9a976677c7f3f8a940472f0ed758"
+   }
+  },
+  "finite_difference_validation": {
+   "checks": [],
+   "h": 1e-05,
+   "max_rel_err": null,
+   "median_rel_err": null,
+   "min_abs_analytic_sampled": 1e-06,
+   "n_samples": 0,
+   "n_tensors_covered": 0,
+   "n_tensors_total": 4170,
+   "n_tensors_uncovered": 0,
+   "sampling": "stratified by tensor, one entry per tensor",
+   "uncovered_sample": [],
+   "worst": null,
+   "zero_gradient_entry_fraction": 0.00775
+  },
+  "gradient": {
+   "clip_coef_their_grad_manager_would_apply": 1.0,
+   "global_norm": 3.206188185139011,
+   "n_absent": 0,
+   "n_nonzero": 4161,
+   "n_params": 4170,
+   "n_with_gradient": 4170,
+   "n_zero_init_weight_tensors": 0,
+   "note": "grads_f64.pt holds the per-sample gradient BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef_their_grad_manager_would_apply."
+  },
+  "loss": 1.267624369070698,
+  "loss_bit_identical_on_replay": true,
+  "loss_replayed_same_rng": 1.267624369070698,
+  "loss_terms": {
+   "confidence_loss": 0.0005622022927220594,
+   "diffusion_loss": 1.2041810159615485,
+   "distogram_loss": 2.0960384073976974,
+   "experimentally_resolved_loss": 0.011641508953359078,
+   "loss": 1.267624369070698,
+   "mse_loss": 1.1081120421076485,
+   "pae_loss": 2.0409787180525045,
+   "pde_loss": 1.2588794660556282,
+   "plddt_loss": 2.3105233761833506,
+   "scaled_distogram_loss": 0.06288115081642764,
+   "smooth_lddt_loss": 0.2616004896848077
+  },
+  "num_recycles_pinned": 0,
+  "replayed_draws": {
+   "file": "draws_recycles0.pt",
+   "mismatch": [],
+   "n_mismatch": 0,
+   "n_python_random_consumed": 2,
+   "n_python_random_recorded": 2,
+   "n_randn_consumed": 45,
+   "n_torch_randn_recorded": 45,
+   "recorded_num_recycles": 0,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "seed": 20260919,
+  "their_fp32_autocast_blocks_disabled": true,
+  "timings_s": {
+   "backward": 1043.1543114185333,
+   "forward": 340.7126591205597
+  },
+  "versions": {
+   "cuda": null,
+   "numpy": "2.5.2",
+   "openfold3": "0.4.3 (from PKG-INFO beside the imported tree)",
+   "torch": "2.8.0+cpu"
+  }
+ },
+ "upstream": {
+  "properties": {
+   "behaves_as": "0.4.3 on both D23 changes",
+   "has_DiffusionAttentionPairBias_class": false,
+   "layer_norm_z_mentions_in_attention_pair_bias": 3,
+   "transpose_bias_true_in_base_blocks": 0
+  },
+  "source": "openfold3 sdist, extracted; properties verified in the tree used",
+  "tree": "/home/ttuser/of3t_rebase/of3pkg043",
+  "version": "0.4.3"
+ },
+ "validated_gradient": {
+  "clip_coef_their_grad_manager_would_apply": 1.0,
+  "file": "grads_f64_043.pt",
+  "finite_difference": {
+   "checks": [],
+   "h": 1e-05,
+   "max_rel_err": null,
+   "median_rel_err": null,
+   "min_abs_analytic_sampled": 1e-06,
+   "n_samples": 0,
+   "n_tensors_covered": 0,
+   "n_tensors_total": 4170,
+   "n_tensors_uncovered": 0,
+   "sampling": "stratified by tensor, one entry per tensor",
+   "uncovered_sample": [],
+   "worst": null,
+   "zero_gradient_entry_fraction": 0.00775
+  },
+  "gradient_global_norm": 3.206188185139011,
+  "loss": 1.267624369070698,
+  "loss_bit_identical_on_replay": true,
+  "n_absent_gradients": 0,
+  "n_nonzero_gradient_tensors": 4161,
+  "n_parameters": 4170,
+  "num_recycles": 0,
+  "replayed_draws": {
+   "file": "draws_recycles0.pt",
+   "mismatch": [],
+   "n_mismatch": 0,
+   "n_python_random_consumed": 2,
+   "n_python_random_recorded": 2,
+   "n_randn_consumed": 45,
+   "n_torch_randn_recorded": 45,
+   "recorded_num_recycles": 0,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "timings_s": {
+   "backward": 1043.1543114185333,
+   "forward": 340.7126591205597
+  },
+  "weights": "of3-p2-155k.pt, sha256 af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4"
+ },
+ "what_it_is": "The OF3T reference gradient rebuilt at the upstream revision of3-p2-155k.pt belongs to. D23/R126: the 0.5.0 bundle it replaces ran a checkpoint 0.5.0's own registry marks '>=0.4,<0.4.4dev0' and lists in LEGACY_CHECKPOINTS, dropping 48 layer_norm_z.weight tensors through strict=False."
+}
