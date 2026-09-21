@@ -842,6 +842,51 @@ if DEF.is_file() and ORCH.is_file():
             _last[_m.group(1)] = _t[-1]
     unfixed = sorted((n for n, st in _last.items() if st == "UNFIXED"),
                      key=lambda d: int(d[1:]))
+
+    # --- a closure word OUTSIDE the vocabulary silently keeps the old status --------------------
+    # The conservative clause above is right (a heading with no status word must not drop a live
+    # defect), but it has a blind spot the campaign walked into: pass 196 closed D87 with the word
+    # **SUPERSEDED**, which is not in `_STATUS_RE`, so D87 kept UNFIXED for twenty-four passes
+    # while its own latest entry said the claim is false against the revision the checkpoint is
+    # bound to (pair track 4.947045e-02, under the 5.0e-02 bar). Found pass 220 by scanning for
+    # exactly this shape, which is why it is now a check and not a scan.
+    #
+    # The fix is NOT to add SUPERSEDED to the vocabulary: it is genuinely ambiguous. D119's UPDATE
+    # also says "superseded", but of its NUMBERS, and D119 is correctly still UNFIXED because
+    # `project.py` still carries the unit error. So the guard refuses the ambiguity instead of
+    # resolving it -- write a word from the vocabulary, or say UNFIXED and why.
+    _AMBIG = _re.compile(r"\b(?:SUPERSEDED|OBSOLETE|VOID|MOOT|DISSOLVED|OVERTAKEN|"
+                         r"NO LONGER (?:TRUE|OPEN|A DEFECT)|DUPLICATE OF)\b")
+
+    def _ambiguous_closures(doc_upper):
+        """Defects whose LATEST heading closes them with a word the parser cannot read."""
+        latest_head = {}
+        for m in _re.finditer(r"^### (D\d+)\b(.*)$", doc_upper, _re.M):
+            latest_head[m.group(1)] = m.group(2)
+        out = []
+        for n, h in latest_head.items():
+            if not _STATUS_RE.search(h) and _AMBIG.search(h):
+                out.append(f"{n} (says {_AMBIG.search(h).group(0)})")
+        return sorted(out, key=lambda x: int(x.split()[0][1:]))
+
+    # Break control, run every time: a guard that cannot fire has tested nothing, and three of
+    # this file's guards have shipped inert (the "FIXED" is a substring of "UNFIXED" one most
+    # recently). The probe is a two-heading synthetic in exactly the shape D87 had.
+    _probe = _ambiguous_closures("### D1. UNFIXED.\n### D1 UPDATE (PASS 2). SUPERSEDED. NO.\n")
+    if _probe != ["D1 (says SUPERSEDED)"]:
+        bad.append("the ambiguous-closure probe did not fire -- this check is inert and is "
+                   "reporting nothing, which is how D87 survived twenty-four passes")
+    else:
+        _ambig = _ambiguous_closures(_dt_u)
+        if _ambig:
+            bad.append("these defects' LATEST heading carries a closure-sounding word that is NOT "
+                       "in the status vocabulary, so the parser conservatively keeps the PREVIOUS "
+                       "status and the defect is mis-counted: " + ", ".join(_ambig)
+                       + " -- write FIXED, REFUTED, CLOSED, RESOLVED, WITHDRAWN, ROOT-CAUSED or "
+                         "UNFIXED on the heading")
+        else:
+            ok.append("no defect's latest heading closes it with a word the status parser "
+                      "cannot read (probe fires)")
     o = ORCH.read_text()
     g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
     gap = g.group(1) if g else ""

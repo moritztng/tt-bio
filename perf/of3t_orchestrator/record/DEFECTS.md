@@ -6742,6 +6742,12 @@ bias pre-scaled, and the already-landed flag reads 1.655263e-02 on device. The c
 gradient inherits that" survives only in the narrow A18 sense and is what `of3t-trunkg043` is
 dispatched to settle.
 
+### D87 UPDATE 2 (pass 220). REFUTED, which is what pass 196's "SUPERSEDED" meant and failed to say in a word the status parser recognises. The defect claim is false against the revision the checkpoint is bound to, and its residue has been delivered.
+
+Pass 196 wrote the finding correctly and labelled it with a word outside the status vocabulary (`FIXED|UNFIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED`), so the conservative clause in `audit_evidence.py` kept the previous status and **D87 has been counted UNFIXED for twenty-four passes while its own latest entry says it is not true**. It is the only defect in that state; D119's UPDATE also says "superseded" but of its NUMBERS, and its heading correctly still reads UNFIXED because `project.py` still carries the unit error. Found this pass by scanning every defect whose latest heading carries no recognised status word; `audit_evidence.py` now fails on that shape so it cannot recur. The UNFIXED count falls from 45 to 44 and no measurement changed.
+
+The residue pass 196 left open — *"the claim that its gradient inherits that survives only in the narrow A18 sense and is what `of3t-trunkg043` is dispatched to settle"* — has been settled: `of3t-trunkg043` concluded, and the trunk's gradient is in the record that `of3t-wholemodel` composed at 97.9850 % coverage. Nothing is owed here.
+
 ### D91 UPDATE (pass 196). UNFIXED, narrowed. The owed arm is DELIVERED, so D91 goes from "the trunk returns to UNMEASURED" to "the trunk's GRADIENT is unread; its forward is now measured on both tracks against the right revision".
 
 D91 withdrew the trunk's 18.89 % error-mass share because it came from a reading against the wrong
@@ -7227,7 +7233,7 @@ off the allocator at the refusal) = **34.2255 decimal GB = 31.875 GiB**. `projec
 the card**, so the N² arm is refuted by measurement. 512's own peak is a lower bound, and a lower
 bound that excludes 768 excludes it. **768 is closed.**
 
-### D119 UPDATE (pass 208). `of3t-crop512` concluded NO-GO for 768 and thinned 640's margin. The numbers this campaign published for both are superseded.
+### D119 UPDATE (pass 208, heading restated pass 220). UNFIXED — `project.py` still carries the unit error, and only the NUMBERS below are superseded, not the defect. `of3t-crop512` concluded NO-GO for 768 and thinned 640's margin.
 
 **768 is out of reach on one card with the two named levers.** On the 384→512 fit — two adjacent
 rungs in one regime, which is what the rung was run for — 768 with both levers lands at **43.94 GB
@@ -7418,3 +7424,199 @@ worst tensor by **error mass** against upstream's bf16 is
 `pairformer_stack.blocks.44.attn_pair_bias.layer_norm...` at rel 1.846 with **cos −0.957**:
 anti-aligned, which is a direction failure rather than a magnitude one and is not what the
 mass-weighted headline describes.
+
+### D121. A lever can be UNREACHED while the numbers MOVE, and the win then gets credited to the wrong lever. FOUND by `of3t-wholemodel` mid-flight, and it needs two counters, not one.
+
+`of3t-wholemodel`'s `armrun.py` runs another row's instrument under this row's arm flags and reports
+**whether the flag was REACHED**; `armdiff.py` separately reports **whether the numbers MOVED**. The
+row says why both are needed, and the example is on our own record:
+
+**`HOST_F64_SOFTMAX_STATS` served 0 on the trunk, `aux_heads`, `msa_module` and
+`diffusion_conditioning` — and on the first two the gradient still moved, because the renorm repair
+is a different lever.**
+
+So an arm labelled "host float64 softmax" can produce a changed gradient on a scope the host path
+never touches. Score that arm without a reach counter and the improvement is credited to the round
+trip when a two-op backward change did it.
+
+**This is the inverse of a hazard the campaign already tracks.** `a-lever-can-fire-and-be-inert` and
+D110 (`precise_config()` firing 1,440 times and changing nothing) are *fired but no effect*. This is
+*effect but never fired*, and it is the more dangerous direction, because the first shows up as a
+disappointing result you go and investigate, while the second shows up as a **success you bank**.
+
+**Where the host path actually reaches**: three tokens —
+`openfold3.diffusion_transformer`, `openfold3.atom_transformer`, `protenix.atom_transformer` —
+which is the set `softmax_ckc` reaches, and `tests/test_host_f64_softmax_defaults.py` fails if the
+two diverge. It is **inert on the trunk**, which is consistent with D120: at 0.4.3 the
+`autocast(fp32)` attention region is enabled for the input embedder and the diffusion module
+(`model.py:209`, `model.py:500`) and only 0.5.0 adds the trunk (`pairformer.py:199`).
+
+**What this does NOT undermine**: `of3t-f64softmax`'s 51.1358 % reading. That row scored the host arm
+and the renorm arm **separately** (7.777580e-02 against 1.057023e-01) rather than conflating them,
+and the diffusion scope is where the host path does have tokens. The hazard is real and that row
+avoided it; the rule is for everyone else.
+
+**The rule, for every arm this campaign runs from here**: report the flag's REACH counter beside its
+reading. An arm with a zero reach counter and a moved number is not a measurement of that arm.
+
+### D122. The campaign's terminating condition is a keyword test on its own prose, and read literally it is unreachable by construction. UNFIXED — the instrument is now backed by the ledger, but the BAR is Moritz's and the question is open.
+
+Found pass 220 by the orchestrator, CPU only, no card. Demonstrated rather than argued:
+`perf/of3t_orchestrator/defecttriage/gate_is_a_keyword_test.py` lifts the regex out of the live
+gate source so it cannot drift from what runs.
+
+**What the gate does.** `workstreams/_of3t_donecheck.py::_charter_gate` ends GO with
+
+    if re.search(r"inference users get today|unfixed|still open|remains? open", gap, re.I):
+        fail.append("VERDICT: GO while GAP still names unfixed or user-facing defects -- the "
+                    "charter is not met while a defect ships to users")
+
+Its message names a property of the PORT. Its code tests four English phrases in one field of one
+markdown file. Meanwhile `audit_evidence.py` requires GAP to NAME every UNFIXED defect by number.
+
+**The two come apart, measured.** Two GAP texts, both naming all forty-four live UNFIXED defects,
+so the coverage check passes on both:
+
+    text       names every UNFIXED defect   gate refuses GO
+    honest     True                         True     labels them "(UNFIXED)"
+    reworded   True                         False    labels them "(open)"
+
+Nothing between those two rows is a measurement. No defect is closed, no tensor moves. **GO
+condition 5 is decided by four words of prose.** I am not going to use the second row, and the
+record should contain the demonstration rather than the exploit.
+
+**And read literally it can never be met.** GAP must name D2 (*"AF2 receives no gradient at all.
+UNFIXED, out of this campaign's scope"*) and D3 (*"RFdiffusion3 cannot train. UNFIXED, out of
+scope"*). Each is recorded as belonging to a different campaign, so neither can be closed here by
+any amount of engineering on OpenFold3. The campaign therefore cannot reach GO for a reason that
+has nothing to do with the port.
+
+**The triage, so the question can be decided on evidence.**
+`perf/of3t_orchestrator/defecttriage/triage.py` classifies every live UNFIXED defect into the three
+classes the condition conflates, writes `state/of3t/UNFIXED_TRIAGE.json`, carries a one-line reason
+for each and names its five close calls with the argument on both sides (D8, D28, D37, D63, D73).
+It **asserts** its table against the live ledger, so a closed or newly-filed defect makes it fail
+rather than report last week's answer.
+
+    SCOPE-EXCLUDED       2   D2, D3
+    USER-FACING         13   D8, D9, D10, D24, D30, D31, D32, D55, D56, D58, D63, D107, D117
+    CAMPAIGN-INTERNAL   30   the rest, including this entry
+
+**What I changed, and what I deliberately did not.** I did **not** move the bar: the keyword test
+stands untouched and GO still needs it. I **added** a clause beside it that reads the LEDGER — GO
+is refused while any UNFIXED defect is classified USER-FACING, and refused again if the triage does
+not describe the current `DEFECTS.md`. That is strictly additive: it cannot make GO easier, it
+makes the existing condition impossible to pass by rephrasing, and it fires where the keyword test
+does not (break-controlled this pass on a synthetic GO doc with a reworded GAP: the keyword clause
+stayed silent and the new clause named all thirteen).
+
+**What is still owed, and it is not mine to decide.** Whether condition 5 means *"zero UNFIXED
+rows in the ledger"* — unreachable while D2 and D3 stand — or *"zero defects that ship to users"*,
+which is what its own message says and what the thirteen above count. **No new ask was fired this
+pass**: ask 9597 (what "reproduce" means when we are more accurate than upstream) has held the pin
+since pass 215 on an adjacent protocol question, and this fleet's record includes a pending ask
+auto-resolving on an unrelated reply. Raising a second protocol ask would risk the first.
+
+**The default I will apply until told otherwise**, and it is the same work either way: keep
+reporting PARTIAL, never reword GAP to pass the keyword test, and drive the **thirteen USER-FACING
+defects** to zero. That is the substantive reading of the condition and it is the right work
+program under both readings.
+
+### D123. UPSTREAM. OpenFold3's own yaml generator disables all three custom-kernel flags on the TRAIN path and leaves them on for EVAL, and Lightning's sanity-check validation runs first — so their training test cannot start anywhere torch does not ship Triton. UNFIXED, upstream's to fix; recorded so it is not lost.
+
+Found by `of3t-theirtest` (pass 220) on qb2's CPU, with three disclosed harness shims and upstream's
+test file, model code and generated yaml byte-identical. Both collected cases fail identically in
+**61.06 s**, before any training step, at `model_config.py:119` →
+`triangular_multiplicative_update.py:1125`.
+
+**Why it is invisible upstream.** On CUDA and on ROCm, torch's wheels ship Triton, so the eval-path
+flag finds a kernel and nothing is ever noticed. It fires on the first backend where that is not
+true. The train path is protected because their generator explicitly turns the three flags off
+there; the omission is only on eval, and Lightning runs sanity-check validation **before** the
+first training step, so eval is what a training run hits first.
+
+Clearing that one key is declared by the row as a **diagnostic, not a pass**: with it cleared the
+sanity check passes and upstream's training step completes on this host in **394.61 s** at crop 384,
+batch 1, bf16-mixed — **56.4x** the 7 s H200 step the campaign cites, with four autocast fp32
+islands silently disabled off CUDA, so it is not the same arithmetic either.
+
+### D124. UPSTREAM. Two defects in OpenFold3's own training-data manifests: a structure listed in their subset 404s on their S3, and the sdist's checked-in yaml is stale against the generator that is supposed to produce it. UNFIXED, upstream's to fix; recorded so it is not lost.
+
+Also `of3t-theirtest`, pass 220, found while making their test's data available rather than by
+looking for them.
+
+  * **`7kud_A.npz` is named in upstream's own subset manifest and returns 404 from their S3.** Any
+    user following their documented path to reproduce the training test hits it.
+  * **The sdist ships a `train_pdb_subset.yaml` that its own generator no longer produces.** The
+    checked-in artifact and the tool that makes it have diverged, which is the `artifact identity
+    is digest plus recorded inputs` shape this fleet already has on its standing list.
+
+Neither is ours to fix and neither is in our tree. They are recorded here because the campaign's
+claim rests on upstream's artifacts, and a reader who tries to re-run `of3t-theirtest`'s evidence
+will meet both.
+
+### D9 UPDATE (pass 220, heading restated). RESOLVED. D120 settled this four passes ago inside its OWN entry and nobody restated D9's heading, so the status parser kept the old label and every count carried it.
+
+No new measurement. D120 says it in as many words: *"**D9 is RESOLVED as a policy mismatch, not a
+defect, and the resolution inverts the fp32 story.**"* `openfold3_trunk.py:139` ships
+`fp32_softmax=True` while OF3 0.4.3 runs that softmax in bf16, so D9's measured **3.2x** gradient
+improvement with the flag **off** is a move *toward* 0.4.3's own policy. Our fp32 softmax is
+**3.2x more accurate** than upstream's bf16 one (5.110116e-04 against 1.617567e-03), and being more
+accurate than the reference is precisely what makes the gradient worse **against that reference**.
+The paradox dissolves; there is no defect left to fix.
+
+This is the same bookkeeping shape as D87 this pass, in a different direction: D87 was closed on a
+word the parser cannot read, D9 was closed **inside another defect's body** and never on its own
+heading. Both were found by looking rather than by a check. See D125 for the scan and its ruling on
+the other four candidates.
+
+### D125. Four more defects are declared closed inside some OTHER defect's body; three of the four declarations do not survive reading, and I am recording the adjudication rather than acting on the phrase. UNFIXED as a standing discipline.
+
+Pass 220. Prompted by D87 and D9, I scanned `DEFECTS.md` for any place where a defect still carrying
+**UNFIXED** on its own heading is declared RESOLVED / REFUTED / RETIRED / CLOSED / WITHDRAWN inside a
+different entry. Five hits. One was real (**D9**, restated above). The other four are not, and the
+reason each fails is the point:
+
+  * **D8, inside D116** — the matched text is *"D8 IS NOT CLOSED"*. A **negation**. Acting on the
+    phrase match would have closed a live user-facing defect.
+  * **D8, inside D120** — *"D8's attention **hypothesis** is RETIRED at 0.4.3"*. A hypothesis inside
+    a defect is not the defect; D120's own next sentence says *"this does not close D8"*.
+  * **D56, inside D62** — *"D56's **mechanism section** is WITHDRAWN"*. D56's own heading already
+    carries "mechanism withdrawn" and its substance stands: what produces the observed magnitudes
+    is unexplained.
+  * **D24, inside D10** — *"a rule that gave 0.8 of its weight to a term that is identically zero
+    (D24), now fixed"*. This one is genuinely unclear rather than a false positive: the rule change
+    exists, D10 itself is UNFIXED, and whether the corrected rule is the SHIPPED default is a
+    different question from whether a fix was written. **Left UNFIXED, and named here so the next
+    reader inherits the question rather than the phrase.** It is the one candidate a row could close
+    cheaply, by reading the shipped selector.
+
+**Why this is not a check.** Three of five hits were false positives and one needed judgement, so a
+guard on this pattern would fire every pass on text that is correct, and a guard that fires on
+correct behaviour is one the next caller deletes — this campaign has already lost two that way. The
+discipline instead: **a defect is closed on its own heading or it is not closed**, and a later entry
+that resolves an earlier one must go back and restate that heading in the same pass.
+
+### D24 UPDATE (pass 220). UNFIXED, and now LOCATED in the shipped tree at file and line. D125's one genuinely-unclear candidate, settled by reading in ten minutes, and it settles the OPPOSITE way to the phrase that raised it.
+
+D10's body says *"a rule that gave 0.8 of its weight to a term that is identically zero (D24), now
+fixed"*. D125 flagged that as the one closure claim needing judgement rather than a false positive.
+Read, no card, no run:
+
+  * `tt_bio/openfold3_fold.py:277` — the shipped selector is still
+    `ranking_score = 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash`, and
+    `:421` picks `max(..., key=ranking_score)`.
+  * `tt_bio/protenix.py:1708-1716` — `iptm` is initialised to `0.0` and only assigned when
+    `asym_id.unique().numel() > 1`. Its own docstring says *"iptm is 0.0 for single-chain inputs"*.
+  * `tt_bio/openfold3_fold.py:92-103` — `_has_clash` iterates `for right in chains[i + 1:]`, so with
+    one chain the inner loop never executes and it returns `0.0` unconditionally.
+
+**So on a single chain the shipped rule is `0.2*ptm + 0.5*disorder`, with 0.8 of its weight on a
+term that cannot be non-zero and a −100 penalty that cannot fire.** The candidate rule D10 measured
+did not ship; "now fixed" describes a fix that was written, not one a user gets. D24 stays UNFIXED
+and is no longer merely asserted — it is three line references in the tree we ship today.
+
+The lesson is D125's, arriving one entry later than the entry that stated it: **"now fixed" in prose
+is not a status, and the ten minutes it costs to read the shipped selector is cheaper than carrying
+the ambiguity another pass.** It also flips the expected direction — I raised the candidate as
+probably-closable and it is confirmed live.
