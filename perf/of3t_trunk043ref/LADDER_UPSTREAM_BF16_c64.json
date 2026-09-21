@@ -1,0 +1,68 @@
+{
+  "what": "upstream 0.4.3 own bf16-autocast against its own float64, per depth rung -- the control that says whether the late-block cliff on the single track is the model arithmetic or our kernel",
+  "rows": [
+    {
+      "k": 32,
+      "ref_s_norm": 1527784.626018441,
+      "ref_z_norm": 176999.7248604237,
+      "upstream_bf16_s_rel": 0.0018475673747498937,
+      "upstream_bf16_s_r": 1.0002494874957422,
+      "upstream_bf16_z_rel": 0.0018126262088975593,
+      "upstream_bf16_z_r": 0.9998699083461593
+    },
+    {
+      "k": 42,
+      "ref_s_norm": 1540609.2146713028,
+      "ref_z_norm": 198390.9511753913,
+      "upstream_bf16_s_rel": 0.0018462474653821905,
+      "upstream_bf16_s_r": 1.0002484508761873,
+      "upstream_bf16_z_rel": 0.0019354059173950708,
+      "upstream_bf16_z_r": 0.9999636388270831
+    },
+    {
+      "k": 44,
+      "ref_s_norm": 1554554.348903125,
+      "ref_z_norm": 194537.66236923393,
+      "upstream_bf16_s_rel": 0.001838224699745748,
+      "upstream_bf16_s_r": 1.0002584752936567,
+      "upstream_bf16_z_rel": 0.0020326488700709348,
+      "upstream_bf16_z_r": 0.9999586459923997
+    },
+    {
+      "k": 45,
+      "ref_s_norm": 1673555.07671601,
+      "ref_z_norm": 189706.94664666502,
+      "upstream_bf16_s_rel": 0.0016976341648152677,
+      "upstream_bf16_s_r": 1.0002326982569376,
+      "upstream_bf16_z_rel": 0.002116656631010941,
+      "upstream_bf16_z_r": 0.9999338050841753
+    },
+    {
+      "k": 46,
+      "ref_s_norm": 1927541.0011119987,
+      "ref_z_norm": 180167.618128218,
+      "upstream_bf16_s_rel": 0.0022382537874155884,
+      "upstream_bf16_s_r": 1.0001616703005145,
+      "upstream_bf16_z_rel": 0.0021202130433284074,
+      "upstream_bf16_z_r": 0.9998948539022688
+    },
+    {
+      "k": 47,
+      "ref_s_norm": 2136673.2028314574,
+      "ref_z_norm": 149556.86649114444,
+      "upstream_bf16_s_rel": 0.004872153124384422,
+      "upstream_bf16_s_r": 0.9995359328157105,
+      "upstream_bf16_z_rel": 0.0023557998804825922,
+      "upstream_bf16_z_r": 0.9999595332679049
+    },
+    {
+      "k": 48,
+      "ref_s_norm": 2178093.2982020588,
+      "ref_z_norm": 88025.41673887841,
+      "upstream_bf16_s_rel": 0.006681862908441668,
+      "upstream_bf16_s_r": 0.9993026840259721,
+      "upstream_bf16_z_rel": 0.0051554845868528095,
+      "upstream_bf16_z_r": 1.0000692912839533
+    }
+  ]
+}

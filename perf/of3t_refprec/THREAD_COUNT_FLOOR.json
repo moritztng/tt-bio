@@ -1,0 +1,13 @@
+{
+ "what": "the same fp32 arm at OMP_NUM_THREADS 3 vs 7, scored against each other",
+ "a": "run/arm2_f32_upstream/grads_f64.pt",
+ "b": "run/arm2b_f32_upstream_omp7/grads_f64.pt",
+ "n_compared": 4135,
+ "n_bit_identical_tensors": 175,
+ "mass_weighted_rel_l2": 1.7335891859774135e-05,
+ "median_rel_l2_over_tensors": 1.3528553452184996e-05,
+ "norm_ratio_r": 1.0000007503720203,
+ "cos": 0.9999999998500171,
+ "worst_tensor": "pairformer_stack.blocks.35.attn_pair_bias.layer_norm_z.bias",
+ "worst_rel_l2": 6.269379781779715
+}

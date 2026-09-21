@@ -1,0 +1,63 @@
+{
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "bf16auto",
+  "quantise_input": true,
+  "block": 46,
+  "tensors_loaded": 57,
+  "dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "hooked": [
+    "pair_stack.tri_mul_out",
+    "pair_stack.tri_mul_in",
+    "pair_stack.tri_att_start",
+    "pair_stack.tri_att_end",
+    "pair_stack.pair_transition",
+    "attn_pair_bias",
+    "attn_pair_bias.layer_norm_a",
+    "single_transition"
+  ],
+  "dtype_policy": "float32 parameters under torch.autocast('cpu', bfloat16)",
+  "s_in_norm": 1935979.1823089651,
+  "z_in_norm": 1298020.542436097,
+  "s_out_norm": 2145473.91233416,
+  "z_out_norm": 1293772.0631654507,
+  "recon": {
+    "z5_vs_z_out": 1.9502921869215907e-08,
+    "s2_vs_s_out": 0.0
+  },
+  "shared_norms": {
+    "z1": 1298132.8655424693,
+    "z2": 1298129.8325665558,
+    "z3": 1297947.8070757536,
+    "z4": 1297762.3451484435,
+    "z5": 1293772.0634967734,
+    "sn": 36.39509017462725,
+    "u1": 73960.47982525508,
+    "s1": 1974083.0542576397,
+    "u2": 188778.4163766549,
+    "s2": 2145473.91233416
+  },
+  "update_norms": {
+    "pair_stack.tri_mul_out": 6005.953353885649,
+    "pair_stack.tri_mul_in": 5108.022809177418,
+    "pair_stack.tri_att_start": 12366.434120429003,
+    "pair_stack.tri_att_end": 8691.274251150538,
+    "pair_stack.pair_transition": 50153.902321429705,
+    "attn_pair_bias.layer_norm_a": 36.39509017462725,
+    "attn_pair_bias": 73960.47982525508,
+    "single_transition": 188778.4163766549
+  }
+}
