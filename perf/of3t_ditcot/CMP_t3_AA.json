@@ -1,0 +1,10 @@
+{
+ "a": "/tmp/of3t/ditcot/t3_none.pt",
+ "b": "/tmp/of3t/ditcot/t3_none2.pt",
+ "compared": 4,
+ "bit_identical": 4,
+ "moved": 0,
+ "bit_identical_frac": 1.0,
+ "max_rel": 0.0,
+ "top_moved": []
+}
