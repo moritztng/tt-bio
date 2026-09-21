@@ -705,6 +705,15 @@ echo "--- PROTOCOL rests on no closed defect"
 "$PY" "$HERE/assert_protocol_defect_refs.py" || \
   { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
 
+# (3h-bis) D166. Every closure, ratchet and GAP line in this campaign addresses a defect BY
+# NUMBER, so two entries opening one D-number make a status word written for either read as the
+# other's. Pass 308 did exactly that -- appended `### D165.` next to an existing `### D165.`,
+# having picked the number off a `sort -n | tail` that printed 164. UPDATE headings are excluded
+# deliberately: `### D164 UPDATE 1` is one defect, and the campaign uses that form on purpose.
+echo "--- every defect D-number is opened exactly once"
+"$PY" "$HERE/assert_defect_ids_unique.py" || \
+  { echo "COMPOSE: two defect entries open the same D-number"; exit 1; }
+
 # (3i) D148/A30. A summary of what the campaign still owes is composed from the state at the TOP
 # of a pass, and rows report inside it -- DIRECTIVE-STATUS's "honest shape of what is left, at pass
 # 199" was already wrong that same pass and stayed on the page for seventy more. The stamp must be

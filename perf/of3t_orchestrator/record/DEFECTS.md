@@ -10867,3 +10867,47 @@ every reading of the flag's semantics scored it the same. The first artifact tha
 readings apart was the first one produced after the guard shipped. This campaign's own rule is
 *a guard's first real run must not be inside a gate*; this one's was, and the gate caught it,
 which is the cheap version of that lesson rather than the expensive one.
+
+### D166. `tt_bio.autograd.softmax` — exported public API — is a third softmax-backward site that does not route through `softmax_bw_inner`, so D56's renorm never applies there and the reach counter cannot see it. FOUND by `of3t-orchestrator`, pass 308, while verifying D56 was isolatable before handing it to `land-standing`. UNFIXED; not mine to fix (my branch does not carry the helper). Handed to the lander.
+
+**The three sites, and who routes them.**
+
+    main       tt_bio/autograd.py:566     inner = ttnn.sum(ttnn.multiply(g, y),  dim=dim, keepdim=True)
+    main       tt_bio/autograd.py:801     inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1,  keepdim=True)
+    main       tt_bio/taped_ttnn.py:174   inner = ttnn.sum(ttnn.multiply(g, y),  dim=dim, keepdim=True)
+
+    wk/of3t    tt_bio/autograd.py:1190    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)   ROUTED
+    wk/of3t    tt_bio/taped_ttnn.py:226   inner = ag.softmax_bw_inner(y, g, dim=dim)            ROUTED
+    wk/of3t    tt_bio/autograd.py:868     inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, ...)   INLINE
+
+**The repair's own docstring is the accusation.** `softmax_bw_inner` (`autograd.py:117`) says:
+*"One helper for both callers -- `triangle_attention` below and `taped_ttnn._v_softmax` -- because
+the defect is the rule, not the site, and a repair applied to one of two identical expressions is
+the kind of half-fix that reads as fixed."* It enumerated **two** callers when the tree holds
+**three** identical expressions, and the one it missed is `softmax`, the function that shares the
+repair's name and the one a reader would assume is covered first.
+
+**And the reach instrument cannot see it.** `SOFTMAX_BW_RENORM_STATS`'s comment claims *"Every site
+that honours the flag bumps it ... so a fold that leaves this at zero has demonstrably entered none
+of them."* True as written, and it silently excludes the site that does not honour the flag: a fold
+entering `autograd.softmax` runs an un-renormed softmax backward and leaves the counter at **zero**.
+The counter proves the flag was not reached, not that the rule was not run.
+
+**Scope, stated so it is not overstated. No measured result in this campaign is affected.**
+`ag.softmax(` / `autograd.softmax(` has **no call site** in `tt_bio/`, `perf/` or `tests/` on
+`wk/of3t` -- checked with a grep over all three, not assumed from the module's structure. Every OF3
+softmax the campaign has measured goes through `taped_ttnn._v_softmax` or `triangle_attention`,
+both routed. So this is **latent**, and what makes it a defect rather than dead code is that
+`"softmax"` is in `autograd.__all__`: it is the entry point a user of the public autograd API
+reaches, and it hands them the unrepaired rule.
+
+**Why it was not caught.** `compose_verify.sh` attributes file ownership and asserts per-row
+ancestry; both ask WHO changed a file. Neither can ask whether a repair reached every site of the
+pattern it repairs. That is D164's lesson one level over -- a guard that binds a claim to its
+artifact cannot ask what the artifact was for, and a guard that binds a file to its owner cannot
+ask whether the fix inside it is complete.
+
+**Consequence for the landing, and it is the actionable half.** Main holds all three expressions
+inline. A lander who mirrors the composition lands **two of three** and reproduces this defect on
+`origin/main`, where it stops being latent the moment anything calls the public function. The
+handover in `workstreams/land-standing.txt` says to route all three.
