@@ -1,0 +1,50 @@
+{
+ "identity": "rel = ||g_dev - g_ref|| / ||g_ref||.  With r = ||g_dev||/||g_ref|| and c = cos(g_dev, g_ref):  rel^2 = 1 + r^2 - 2*r*c.  Requiring |c| <= 1 gives exactly r in [1-rel, 1+rel].  So a single rel bounds the magnitude and says NOTHING about which end.",
+ "zero_model": "g_dev = 0 gives r = 0 and rel = 1 EXACTLY, so rel is measured against a 1.0 ceiling",
+ "arms": {
+  "block0_tbshipped": {
+   "n": 51,
+   "median_rel": 0.012067179551368185,
+   "q1": 0.00886413278665014,
+   "q3": 0.026796774594311585,
+   "iqr_over_median": 1.486067372356967,
+   "magnitude_ratio_lower": 0.9879328204486318,
+   "magnitude_ratio_upper": 1.0120671795513683,
+   "better_than_zero_model_by_pct": 98.79328204486319
+  },
+  "block23_tbshipped": {
+   "n": 51,
+   "median_rel": 0.01920958608852088,
+   "q1": 0.013834061741422163,
+   "q3": 0.0493838492430067,
+   "iqr_over_median": 1.850627459528038,
+   "magnitude_ratio_lower": 0.9807904139114791,
+   "magnitude_ratio_upper": 1.0192095860885209,
+   "better_than_zero_model_by_pct": 98.07904139114791
+  },
+  "block47_tbshipped": {
+   "n": 51,
+   "median_rel": 0.9438615470441614,
+   "q1": 0.838830614492936,
+   "q3": 0.9727727344167588,
+   "iqr_over_median": 0.1419086521145838,
+   "magnitude_ratio_lower": 0.056138452955838636,
+   "magnitude_ratio_upper": 1.9438615470441614,
+   "better_than_zero_model_by_pct": 5.613845295583864
+  },
+  "block47_spboff_tbshipped": {
+   "n": 52,
+   "median_rel": 0.20128904136799777,
+   "q1": 0.1909039041150508,
+   "q3": 0.26225075103085804,
+   "iqr_over_median": 0.35444973273716646,
+   "magnitude_ratio_lower": 0.7987109586320023,
+   "magnitude_ratio_upper": 1.2012890413679977,
+   "better_than_zero_model_by_pct": 79.87109586320022
+  }
+ },
+ "reading": "At blocks 0 and 23 the magnitude is pinned to within about 2 %: r in [0.988, 1.012] and [0.981, 1.019]. Those gradients are right in size and nearly right in direction.\nAt block 47 on the SHIPPED arm, rel = 0.9450 admits r anywhere in [0.055, 1.945]. The measurement cannot distinguish \"our gradient is 18x TOO SMALL and correctly aligned\" from \"2x too big and correctly aligned\" from \"uncorrelated noise of roughly the right size\". And 0.9450 is only 5.5 % better than emitting ZEROS, which scores exactly 1.0.\nThe spb-off arm is the more INFORMATIVE one even though its reach is worse: rel = 0.2001 pins r to [0.800, 1.200].",
+ "why_it_matters": "The s_fp32_residual hypothesis predicts a SHRUNK gradient -- updates quantised away by a bf16 residual much larger than them -- i.e. r << 1 with c near 1. D27 predicts a whole-block scale. Both live at the low end of the feasible interval, and the instrument as built cannot see which end we are on.",
+ "the_fix": "instrument A already holds both tensors in memory when it computes rel. Emit two more floats per tensor: device_norm (or r = device_norm/ref_norm) and cos. Zero extra compute, and they separate the three cases outright: r << 1 with c ~ 1 is a shrunk copy (quantisation); r > 1 with c ~ 1 is an inflated copy; c ~ 0 is noise. Also emit the measured zero-model baseline beside the median, which PROTOCOL A16 already requires and these block bundles do not carry.",
+ "caveat": "the intervals are exact consequences of |cos| <= 1; nothing here is estimated or fitted"
+}
