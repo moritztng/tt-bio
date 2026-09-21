@@ -1,0 +1,30 @@
+{
+  "label": "boltzgen-on",
+  "arm": "on",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "design",
+    "/home/ttuser/.coworker/wt/allm-safety/examples/binder.yaml",
+    "--model",
+    "boltzgen",
+    "--seed",
+    "0",
+    "--out_dir",
+    "perf/allm_safety/out/design_lever_boltzgen_on"
+  ],
+  "rc": 1,
+  "cut_short": true,
+  "wall_s": 782.419,
+  "processes": 1,
+  "state": {
+    "fuse_calls": 224,
+    "fuse_qkv_flag": 1,
+    "fuse_reject|head_dim": 224,
+    "fuse_reject|qkv_already_fused_with_gate": 7616,
+    "fuse_served": 0,
+    "gate_epilogue_flag": 1,
+    "gate_rejected": 0,
+    "gate_served": 7616
+  }
+}
