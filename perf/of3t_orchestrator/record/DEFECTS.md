@@ -7620,3 +7620,47 @@ The lesson is D125's, arriving one entry later than the entry that stated it: **
 is not a status, and the ten minutes it costs to read the shipped selector is cheaper than carrying
 the ambiguity another pass.** It also flips the expected direction — I raised the candidate as
 probably-closable and it is confirmed live.
+
+### D55 UPDATE (pass 220). STILL UNFIXED, re-located in the composed tree because EVERY line number in the original entry had gone stale — and the softmax-backward repair walked past the site and put the asymmetry inside a single division.
+
+**First, the entry could not be checked as written.** D55 is stated entirely as a table of line
+numbers, and all five point somewhere else today: `taped_ttnn.py:200` is now a `_unary` closure,
+`autograd.py:708` a SiLU docstring, `:949` a `concat` backward, `:689` `sigmoid`, `:958` a slice.
+This is the trap D31 already flagged once in this same file (`tenstorrent.py:7205` → `:7398`) and it
+is now the second sighting, so it is a defect-writing rule and not an anecdote: **a defect located
+only by line number decays into an unfalsifiable claim.** Locate by symbol and by the code text,
+and give the line as a convenience.
+
+**Re-located by pattern, and the substance holds.** On `wk/of3t` (the composition, which is where
+the repair lives — the orchestrator branch carries only the asserter):
+
+  * `taped_ttnn.py:216` — `inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)`, the
+    softmax backward's near-cancellation. **No `compute_kernel_config`.**
+  * `autograd.py:612-613` — the same rule, duplicated. No config.
+  * `autograd.py:847` — `inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)` feeding
+    `ds = p*(dp − inner)`. The `ttnn.matmul` at `:842` (`dv_part`), the one at `:845-846` (`dp`) and
+    the one at `:859` (`dq_rows`) **all pass `compute_kernel_config=cfg`**; the reduction between
+    them does not. D55's central observation, verified in today's tree.
+  * `autograd.py:595-598` and `:1514-1517` — `dn_mean`, `dn_norm_mean` → `dx`, two cancellations,
+    no config on either `ttnn.mean`.
+
+**And the new part.** `of3t-apbgrad`'s repair inserted a SECOND reduction three lines below the
+first, and gave that one the config:
+
+    216    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)        # no config
+    217    if _SOFTMAX_BW_RENORM:
+    218        inner = ttnn.divide(inner, ttnn.sum(
+    219            y, dim=dim, keepdim=True, compute_kernel_config=precise_config()))
+    220    x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+
+**The numerator and the denominator of one division are computed at different kernel configs.**
+The repair is correct about the arithmetic it set out to fix — the renorm arm reads 1.006695e-01 at
+model scope, 0.9592x the reachable bar, and is bit-identical to the independently derived host
+float64 arm on 547 of 547 tensors — so whatever the asymmetry costs is already inside those
+numbers. That is exactly why it is worth measuring: it is a **free, untested lever**, one keyword
+argument wide, on the construct D55 argues is the campaign's amplifier.
+
+**Candidate, now owned**: a third arm with `:216` given `precise_config()` too, measured beside the
+shipped and renorm arms on a scope already instrumented. Added to `of3t-tapediverge`'s brief as
+AMENDMENT 1 rather than filed as a wish. Whether it moves anything is unmeasured, and a lever that
+fires and is inert is a result.

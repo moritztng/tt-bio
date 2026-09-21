@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **fifty-three dispatched, fifty-one concluded, two live** (pass 220 adds `of3t-modeltraj`, the 20-step trajectory with the MODEL in the loop — GO condition 3, the only one of the five that reads PARTLY; namespace `perf/of3t_modeltraj/`, based on `wk/of3t`, gate entry and stage hint added. Pass 219 added `of3t-theirtest`, GO condition 4. Earlier: pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **fifty-four dispatched, fifty-one concluded, three live** (pass 221 adds `of3t-tapediverge`, the four user-facing defects that are one question — a training step is a different execution than an inference step; namespace `perf/of3t_tapediverge/`, based on `wk/of3t`, gate entry and stage hint added. Pass 220 adds `of3t-modeltraj`, the 20-step trajectory with the MODEL in the loop — GO condition 3, the only one of the five that reads PARTLY; namespace `perf/of3t_modeltraj/`, based on `wk/of3t`, gate entry and stage hint added. Pass 219 added `of3t-theirtest`, GO condition 4. Earlier: pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -170,7 +170,7 @@ single track's growth collapses `|q.k|max` from 13916.7 to 873.5 over blocks 8 t
 dominant at 3 %. Genuine bf16 excess after the flip is **2.48x** upstream's own composed bf16,
 35x smaller than the convention was.
 
-Recomputed from the artifacts on every compose (166 checks, 0 drifted):
+Recomputed from the artifacts on every compose (165 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -505,9 +505,7 @@ yet. **D52 (FIXED this pass)**: `diffusion_conditioning`, 36.9462 % of the model
 recorded as blocked on a boundary move for eleven passes while the capture that unblocks it
 sat on qb2 — row `of3t-conditioning` dispatched, and it returned **GO**. **D54 (FIXED)**: the
 per-tensor array I told a live row to produce had been on disk three hours, D52's lesson
-recurring against me. **D55 (UNFIXED)**: the tape gives `precise_config()` to the reductions
-feeding weight gradients and withholds it from the four inside near-cancellations — the
-softmax backward among them — unmeasured, five models if real, release-gated either way.
+recurring against me. **D55 (UNFIXED, RE-LOCATED pass 221)**: the tape gives `precise_config()` to the reductions feeding weight gradients and withholds it from the four inside near-cancellations. **Every line number in the original entry had gone stale** — second sighting of that trap in this file after D31's `tenstorrent.py:7205` → `:7398`, so it is now a defect-writing rule: locate by symbol and by the code text, and give the line as a convenience. Re-located by pattern on `wk/of3t`, the substance holds: `taped_ttnn.py:216` and `autograd.py:612-613` (the softmax backward's `inner`), `autograd.py:847` — where the matmuls at `:842`, `:845-846` and `:859` **all** pass `compute_kernel_config=cfg` and the reduction between them does not — and `autograd.py:595-598` / `:1514-1517`. **And the repair walked past it**: `of3t-apbgrad` inserted a second reduction at `:218-219` and gave it `precise_config()` while leaving the near-cancellation numerator at `:216` without one, so the numerator and denominator of ONE division run at different kernel configs. That does not say the repair is wrong — the renorm arm reads 1.006695e-01, 0.9592x the reachable bar, bit-identical to the host-float64 arm on 547 of 547 tensors — it says there is a **free, untested lever one keyword wide** on the construct D55 argues is the amplifier. Owned: `of3t-tapediverge` AMENDMENT 1.
 **D56 (UNFIXED, mechanism withdrawn)**: the 25.5795 % sits on a constant **~2,172x** device
 arithmetic floor against torch fp32, which is a port gap and not a property of the
 arithmetic. The conditioning explanation that accompanied it is **withdrawn by D62** — the
@@ -825,45 +823,58 @@ wrote GO at pass 218; the gate refused it and was right, and the refusal is reco
 **The closing measurement** (`of3t-wholemodel`, GO on its own question). With `of3t-apbgrad`'s
 softmax-backward repair on and **nothing else — no host round trip** — the model-scope gradient
 reads **1.006695e-01** against upstream 0.4.3's own bf16 training step over **92.1568 %** of the
-squared gradient norm, against a reachable bar of **1.049545e-01**: **0.9592x**. With the
-pairformer trunk composed, coverage **97.9850 %** and the reading **1.528664e-01** against
-**1.627551e-01**: **0.9392x**. Pre-registered branch **B2**, assembled per tensor, references named
-per A27; the composition is an **identity**, relative difference **0.0**. **Controls**: A16 zero
-model 9.999999997e-01; break control **2.009101e+01** at cos **−0.0028**, **199.6x** the renorm arm;
-A/A bit-identical, 0 of 154 and 0 of 2,736.
+squared gradient norm, against a reachable bar of **1.049545e-01**: **0.9592x**. With the trunk
+composed, coverage **97.9850 %** and the reading **1.528664e-01** against **1.627551e-01**:
+**0.9392x**. Pre-registered branch **B2**, assembled per tensor, references named per A27; the
+composition is an **identity**, relative difference **0.0**. **Controls**: A16 zero model
+9.999999997e-01; break control **2.009101e+01** at cos **−0.0028**, **199.6x** the renorm arm; A/A
+bit-identical, 0 of 154 and 0 of 2,736.
 
 **What GO requires** — of the gate's five conditions, two met, one partly and dispatched, two not:
 - **per-parameter gradients at MODEL scope — MET**, above.
-- **§6 coverage, every loss term fired — MET**, 8 of 8, the last on a structure from OpenFold3's
-  own cache.
-- **an N-step weight trajectory on the MODEL — PARTLY, and now DISPATCHED.** The 20-step
-  trajectory passes its shape bar on the update rule under an injected gradient — stronger for the
-  four state-free factors, and weaker for exactly one thing: it cannot see a wiring defect BETWEEN
-  the model and the update rule. `of3t-modeltraj` owns it.
+- **§6 coverage, every loss term fired — MET**, 8 of 8, on OpenFold3's own training cache.
+- **an N-step weight trajectory on the MODEL — PARTLY, and DISPATCHED.** The 20-step trajectory
+  passes its shape bar on the update rule under an injected gradient — stronger for the four
+  state-free factors, weaker for exactly one thing: it cannot see a wiring defect BETWEEN the model
+  and the update rule. `of3t-modeltraj` owns it.
 - **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, and now COSTED.**
   `of3t-theirtest` returned NO-GO on its own question; its two commits touch nothing under
-  `tt_bio/`, verified. Unmodified it skips (*"Requires cuda; found cpu"*). Off CUDA on qb2's CPU with
-  three disclosed shims it EXECUTES and both cases fail at ONE key — Triton triangle kernels left on
-  the EVAL path by upstream's generator, which disables all three on train.
+  `tt_bio/`, verified. Unmodified it skips (*"Requires cuda; found cpu"*). Off CUDA on CPU with three
+  disclosed shims it EXECUTES and both cases fail at ONE key — Triton triangle kernels left on the
+  EVAL path by upstream's generator, which disables all three on train.
   Cleared, their step runs in **394.61 s**, **56.4x** the cited H200 step. On ttnn it is structural:
   Lightning dispatches by torch device and we are not one. Two closures costed, in GAP.
 - **no unfixed or user-facing defect in GAP — NOT MET, and the condition itself is defective
-  (D122).** It is a keyword test on GAP's prose: two texts both naming all forty-five UNFIXED
-  defects, one labelling them "(UNFIXED)" and one "(open)", are refused and accepted,
-  with no measurement between them — and read literally it is unreachable, since GAP must name D2,
-  D3, D123 and D124, none of them ours to fix. Triaged against the ledger: **4 scope-excluded,
-  12 USER-FACING, 31 campaign-internal**. I did not move the bar; I added a clause
-  beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO while any UNFIXED defect ships
-  to users. Driving those thirteen to zero is the work under either reading.
+  (D122).** It is a keyword test on GAP's prose: two texts both naming all forty-seven UNFIXED
+  defects, one labelled "(UNFIXED)" and one "(open)", are refused and accepted, with no measurement
+  between them — and read literally it is unreachable, since GAP must name D2, D3, D123 and D124,
+  none ours to fix. Triaged against the ledger: **4 scope-excluded, 12 USER-FACING, 31
+  campaign-internal**. I did not move the bar; I added a clause beside it reading
+  `state/of3t/UNFIXED_TRIAGE.json` that refuses GO while any UNFIXED defect ships to users.
+  `of3t-tapediverge` takes the largest block of the twelve.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off,
 unmerged and asserted so on every compose. One step's gradient on one batch; nothing here speaks to
 stability over 100k steps or convergence. **2.0150 %** of the mass has no reading. Crop 640 fits at
 +5.82 GB; **768 does not**, by 9.72 GB.
 
-Fifty-three dispatched, fifty-one concluded, two live (this row and `of3t-modeltraj`); one hundred twenty-five defects, forty-seven UNFIXED.
+Fifty-four dispatched, fifty-one concluded, three live (this row, `of3t-modeltraj`, `of3t-tapediverge`); one hundred twenty-five defects, forty-seven UNFIXED. `state/concluded` holds fifty-three of3t markers, two of them this row's own stale ones.
 
-PASSLOG: **`of3t-theirtest` concluded this pass, NO-GO on its own question, and it is the most useful NO-GO the campaign has had.** Verified against git before recording: its two commits `41d9168a6` and `90bee2815` add `perf/of3t_theirtest/{harness,BLOCKERS.md,RUNBOOK.md,logs}` and touch nothing under `tt_bio/`. Four pytest invocations, all logged.
+PASSLOG: **A smaller pass-221 result, and it is an instrument one.** The audit's executed-check total fell from **166 to 165** while `audit_evidence.py` was **byte-identical** across the two runs — so a data-dependent check stopped firing and the bare integer could not say which. I could not localise it, and I am recording that rather than adjusting the number quietly: a silently-lost check is exactly the class this file's guards exist to catch, and one of them went missing without any of them noticing. **A count is a drift DETECTOR and not a drift LOCATOR** — the same shape as A15, where a count denominator is not a scope statement. So every compose now writes the sorted list of confirmed checks to `state/of3t/CHECKS_RUN.txt` (165 names, in the campaign state dir rather than beside the script, because the audit runs from the composed tree under `/tmp` and a sibling file is discarded on the next compose — D112 one directory over). The next time the count moves, the answer is one `diff`. PROVES now states 165, which is what actually ran.
+
+**Pass 221 — dispatched the largest block of the twelve, and found a free lever inside the repair while writing its brief.** `of3t-tapediverge` takes **D30, D31, D32 and D58**, which are one question: a training step is a materially different execution than an inference step. D32 counts 21 `ops.taping()` branch points across 9 shipped modules, each routing down an unfused path because *"generic_op has no backward"*; D31 says the tape hands the backward the stock ttnn fused SDPA's output while `autograd.py` recomputes the scores at `precise_config()`, so **the function differentiated is not the function computed**, and its own entry records that the discriminator needs **one arm and no reference** and has never been run. **Three of the four were measured before the softmax-backward repair landed**, and at model scope that repair moves the reading from 5.551840e+00 to 1.006695e-01 — **55x** — so re-reading D30's 19.6x and D58's 19.8x may cost one run and close two defects. The row also owns the charter's untouched second half: **no s/step exists on either side**, and D32's point is precisely that a training one cannot be projected from an inference one. Every perf figure carries a DURING-sampled AICLK.
+
+**Re-locating D55 for that brief turned up two things.** First, **every line number in D55's table had gone stale** — `taped_ttnn.py:200` is now a `_unary` closure, `autograd.py:708` a SiLU docstring, `:949` a `concat` backward. That is the second sighting of this trap in this file after D31's own provenance note, so it is a rule now rather than an anecdote: **a defect located only by line number decays into an unfalsifiable claim.** Re-located by pattern, D55's substance holds exactly, and `autograd.py:847` is the clean case — three `ttnn.matmul` calls around it all pass `compute_kernel_config=cfg` and the `ttnn.sum` inside the near-cancellation between them does not.
+
+**Second, and this one is new.** `of3t-apbgrad`'s repair inserted a second reduction three lines below D55's site and gave *that* one `precise_config()`:
+
+    216    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)        # no config
+    218        inner = ttnn.divide(inner, ttnn.sum(
+    219            y, dim=dim, keepdim=True, compute_kernel_config=precise_config()))
+
+**The numerator and the denominator of one division are computed at different kernel configs.** This is not a claim that the repair is wrong — the renorm arm reads 1.006695e-01 at model scope, 0.9592x the reachable bar, and is bit-identical to the independently derived host-float64 arm on 547 of 547 tensors, so whatever the asymmetry costs is already inside those numbers. It is worth measuring *because* it is free: one keyword argument, on the construct D55 argues is the campaign's amplifier, never tried. Added as AMENDMENT 1 to `of3t-tapediverge` before the row started, with the standing requirement that it report the lever's REACH counter and that **a lever which fires and is inert is a result**.
+
+**`of3t-theirtest` concluded this pass, NO-GO on its own question, and it is the most useful NO-GO the campaign has had.** Verified against git before recording: its two commits `41d9168a6` and `90bee2815` add `perf/of3t_theirtest/{harness,BLOCKERS.md,RUNBOOK.md,logs}` and touch nothing under `tt_bio/`. Four pytest invocations, all logged.
 
 The condition said *"executed on our backend"* and the row establishes that no value of `accelerator=` and no device argument can satisfy it. The test drives `run_openfold train`, which builds upstream's `torch.nn.Module` tree under Lightning, and **Lightning dispatches by torch device**. `tt_bio/` gives ttnn no torch device — no `rename_privateuse1_backend`, no `torch.library` registration, no `Accelerator` — and its reverse mode is a separate tape over raw ttnn handles, with `tt_bio/autograd.py:12-19` recording from measurement why the cheap route fails: a ttnn handle returned from `torch.autograd.Function.forward` gets no `grad_fn`; a handle smuggled on a real-tensor carrier is lost by the engine's fan-in sum; a carrier holding real data costs a host round trip per tape node. And our OF3 is an independent reimplementation whose weight remap fuses pairs of upstream tensors (R3), so it is not a drop-in for their module tree either. **That is a structural statement, not a missing flag**, which is why the row wrote NO-GO for itself and why the campaign stays PARTIAL: closure (a), a PrivateUse1 backend over ttnn with a Lightning `Accelerator`, keeps the artifact honest and is a **new subsystem**; closure (b), swapping our model into their Lightning module, is cheap and **destroys the artifact**, since the test would then assert that OUR model trains — which this campaign already measures with far better instruments than an exit code and a `*.ckpt` glob.
 
