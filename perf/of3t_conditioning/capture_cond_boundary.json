@@ -1,0 +1,142 @@
+{
+ "arm": "use_conditioning as drawn by the reference",
+ "backward_seconds": 3.4415953159332275,
+ "cotangent_complete": {
+  "absent": [],
+  "compared": 26,
+  "per_tensor": {
+   "layer_norm_n.weight": 0.0,
+   "layer_norm_s.weight": 0.0,
+   "layer_norm_z.weight": 0.0,
+   "linear_n.weight": 0.0,
+   "linear_s.weight": 0.0,
+   "linear_z.weight": 0.0,
+   "transition_s.0.layer_norm.bias": 0.0,
+   "transition_s.0.layer_norm.weight": 0.0,
+   "transition_s.0.linear_out.weight": 0.0,
+   "transition_s.0.swiglu.linear_a.weight": 0.0,
+   "transition_s.0.swiglu.linear_b.weight": 0.0,
+   "transition_s.1.layer_norm.bias": 0.0,
+   "transition_s.1.layer_norm.weight": 0.0,
+   "transition_s.1.linear_out.weight": 0.0,
+   "transition_s.1.swiglu.linear_a.weight": 0.0,
+   "transition_s.1.swiglu.linear_b.weight": 0.0,
+   "transition_z.0.layer_norm.bias": 0.0,
+   "transition_z.0.layer_norm.weight": 0.0,
+   "transition_z.0.linear_out.weight": 0.0,
+   "transition_z.0.swiglu.linear_a.weight": 0.0,
+   "transition_z.0.swiglu.linear_b.weight": 0.0,
+   "transition_z.1.layer_norm.bias": 0.0,
+   "transition_z.1.layer_norm.weight": 0.0,
+   "transition_z.1.linear_out.weight": 0.0,
+   "transition_z.1.swiglu.linear_a.weight": 0.0,
+   "transition_z.1.swiglu.linear_b.weight": 0.0
+  },
+  "reference_tensors": 26,
+  "worst_rel": 0.0,
+  "worst_tensor": "layer_norm_n.weight"
+ },
+ "cotangent_complete_what": "A20: the 26 parameter gradients obtained by seeding cond_out with cond_out_cot, against the reference's own float64 gradients for the same parameters taken through the whole diffusion module. Agreement means the conditioning's parameters reach the loss through this boundary alone",
+ "cotangent_complete_what_note": "exact",
+ "dc_config": {
+  "c_fourier_emb": 256,
+  "c_s": 384,
+  "c_s_input": 449,
+  "c_z": 128,
+  "linear_init_params": "linear_n:\n  bias: false\n  init: default\nlinear_s:\n  bias: false\n  init: default\nlinear_z:\n  bias: false\n  init: default\ntransition_s: &id001\n  linear_out:\n    bias: false\n    init: final\n  swiglu:\n    linear_a:\n      bias: false\n      init: relu\n    linear_b:\n      bias: false\n      init: relu\ntransition_z: *id001\n",
+  "max_relative_chain": 2,
+  "max_relative_idx": 32,
+  "seed_fourier_emb": 42,
+  "sigma_data": 16,
+  "tune_chunk_size": true
+ },
+ "drawn_use_conditioning": false,
+ "forced": false,
+ "forward_seconds": 2.000401496887207,
+ "grad_f64_source": "published reference (bundle_min grads_f64_043.pt)",
+ "n_sample": 48,
+ "n_token": 384,
+ "reproduces_cond_out": {
+  "si": 0.0,
+  "zij": 0.0
+ },
+ "reproduces_cond_out_what": "the standalone float64 conditioning against sub_boundary's captured cond_out; this is the same function the cotangent was taken at, or nothing below it holds",
+ "saved": {
+  "bytes": 752249782,
+  "file": "/home/ttuser/of3t_cond_cap/cond_boundary.pt"
+ },
+ "shapes": {
+  "forced": false,
+  "n_emb": [
+   1,
+   48,
+   256
+  ],
+  "relpos": [
+   1,
+   1,
+   384,
+   384,
+   139
+  ],
+  "si_cot": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "si_input": [
+   1,
+   1,
+   384,
+   449
+  ],
+  "si_ref": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "si_trunk": [
+   1,
+   1,
+   384,
+   384
+  ],
+  "sigma_data": 16.0,
+  "t": [
+   1,
+   48
+  ],
+  "token_mask": [
+   1,
+   1,
+   384
+  ],
+  "use_conditioning": false,
+  "zij_cot": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ],
+  "zij_ref": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ],
+  "zij_trunk": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ]
+ },
+ "sigma_data": 16.0,
+ "token_mask_real": 56,
+ "use_conditioning": false
+}
