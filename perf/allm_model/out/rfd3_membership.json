@@ -1,0 +1,259 @@
+{
+ "host": "tt-quietbox2",
+ "model": "rfd3",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "rfd3",
+ "git_head": "f0bcf10833727913a61276c23508640d49b56dbd",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 49,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "spec": "/home/ttuser/.coworker/wt/allm-model/examples/rfd3_binder.json",
+  "weights": "/home/ttuser/.boltz/rfd3/weights",
+  "protocol": {
+   "num_timesteps": 4,
+   "num_designs": 1,
+   "batch_size": 1
+  },
+  "timed_region": "run_design (featurise + sample + CIF write)"
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 2.1714,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 10,
+    "power_w_mean": 40.0
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null
+  },
+  {
+   "tag": "A",
+   "fold_s": 1.5547,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 40.3
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null
+  },
+  {
+   "tag": "K",
+   "fold_s": 1.5283,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 40.9
+   },
+   "depth": null,
+   "count_only": true,
+   "plddt": null,
+   "n_tokens": null,
+   "blocks": {
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.Transition": {
+     "n": 56,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.PairformerBlock": {
+     "n": 14,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.PairformerAttention": {
+     "n": 14,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 3,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LocalAtomTransformer": {
+     "n": 3,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.RFD3AtomBlock": {
+     "n": 135,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LocalTokenTransformer": {
+     "n": 6,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LinearSequenceHead": {
+     "n": 6,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    }
+   }
+  },
+  {
+   "tag": "B:3",
+   "fold_s": 1.5458,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 39.7
+   },
+   "depth": 3,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "blocks": {
+    "model.Transition": {
+     "n": 56,
+     "incl_s": 0.031506,
+     "self_s": 0.031506,
+     "depths": {
+      "1": 28,
+      "2": 28
+     }
+    },
+    "model.PairformerAttention": {
+     "n": 14,
+     "incl_s": 0.005972,
+     "self_s": 0.005972,
+     "depths": {
+      "2": 14
+     }
+    },
+    "model.PairformerBlock": {
+     "n": 14,
+     "incl_s": 0.024552,
+     "self_s": 0.001801,
+     "depths": {
+      "1": 14
+     }
+    },
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.797704,
+     "self_s": 0.791684,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.RFD3AtomBlock": {
+     "n": 135,
+     "incl_s": 0.124472,
+     "self_s": 0.124472,
+     "depths": {
+      "1": 18,
+      "2": 117
+     }
+    },
+    "model.LocalAtomTransformer": {
+     "n": 3,
+     "incl_s": 0.147337,
+     "self_s": 0.132614,
+     "depths": {
+      "1": 3
+     }
+    },
+    "model.LocalTokenTransformer": {
+     "n": 6,
+     "incl_s": 0.090437,
+     "self_s": 0.007382,
+     "depths": {
+      "1": 6
+     }
+    },
+    "model.LinearSequenceHead": {
+     "n": 6,
+     "incl_s": 0.000626,
+     "self_s": 0.000626,
+     "depths": {
+      "1": 6
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 3,
+     "incl_s": 0.352771,
+     "self_s": 0.054417,
+     "depths": {
+      "0": 3
+     }
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "fold_s": 1.5287,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 7,
+    "power_w_mean": 40.1
+   },
+   "depth": 1,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "blocks": {
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.790352,
+     "self_s": 0.790352,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 3,
+     "incl_s": 0.338437,
+     "self_s": 0.338437,
+     "depths": {
+      "0": 3
+     }
+    }
+   }
+  }
+ ]
+}

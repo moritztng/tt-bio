@@ -197,6 +197,13 @@ def driver_predict(a):
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
+    if a.model == "boltz2":
+        # Boltz-2's hyperparameters live inside tt_bio.main's click body, where build_fold cannot
+        # reach them, so load_model raises KeyError('conf_kwargs'). The same injection the
+        # 26.770 / 17.839 pair and this row's own stage split were measured with, unchanged.
+        sys.path.insert(0, str(ROOT / "perf" / "pvx_didit"))
+        from cell import patch_boltz2_cfg
+        patch_boltz2_cfg()
     tgt = a.target if a.target else ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{a.size}.yaml"
     a3m = a.a3m if a.a3m else ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{a.size}.a3m"
     one_fold, meta, state = B.build_fold(
