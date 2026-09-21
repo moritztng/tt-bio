@@ -10235,7 +10235,9 @@ Independently: the model's own per-residue confidence rises in **24 of 24 paired
 
 **Standing measurement limit, worth more than this row**: fold times on pc ran **21 to 56 s at a pinned 1350 MHz**, with 50-plus-second outliers on BOTH trees. Fold-scope A/B on this host cannot resolve anything below roughly 13 s. Any future claim of the form "this change costs nothing at fold scope" on pc is a bound of that size unless the floor is reported with it.
 
-### D155. `protenix-v2` inference is NON-DETERMINISTIC at a fixed seed — the same fixture, the same card, the same command, different output digests — and it is pre-existing, not caused by anything this campaign built. FOUND by `of3t-d137ab` (pass 281). **UNFIXED, USER-FACING.**
+### D155. WITHDRAWN as filed, same pass, before it reached a summary field: the non-determinism is **pc card 0**, a faulty card root-caused on 2026-08-17, not a property of `protenix-v2`. FOUND by `of3t-d137ab`, MIS-ATTRIBUTED by me, corrected at pass 282. **WITHDRAWN.** Original filing below, kept because the reasoning is the record.
+
+**AS ORIGINALLY FILED, kept verbatim below because the reasoning is the record.** `protenix-v2` inference is NON-DETERMINISTIC at a fixed seed — the same fixture, the same card, the same command, different output digests — and it is pre-existing, not caused by anything this campaign built. FOUND by `of3t-d137ab` (pass 281). **UNFIXED, USER-FACING.**
 
 Five interleaved folds per tree, no flag set on either, `cdk2x2_128`, `--single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0`, pc card 0:
 
@@ -10253,3 +10255,78 @@ Five interleaved folds per tree, no flag set on either, `cdk2x2_128`, `--single_
 **What it invalidates immediately**: any digest-equality claim on protenix-v2. `inference_ab_with_aa_floor.py` refused the model on `digest_stable_within_arm`, which is the refusal working — it declined to report FREE from an arm whose own repeats disagree. **Checked rather than asserted**: no live compose check makes a protenix digest claim, so nothing in the gate chain is resting on this. Where it IS claimed is in prose — `state/ask-9629-decision.md` records *"byte-identical digests verified on OpenFold3, Protenix-v2 and OpenDDE"*, and on this evidence the protenix-v2 third of that sentence held on the reps that were run rather than as a property. It is a weaker sentence than it reads, and Moritz's D137 ruling does not depend on it — the ruling turned on a flag being settable, not on the digests.
 
 **Not diagnosed here, deliberately.** The row's subject was D137's cost and it stopped at the boundary of its question after proving the refusal was about the model rather than about the gate. Candidate causes worth separating before anything else: a device non-determinism (reduction order, an uninitialised buffer), a host-side RNG not seeded by `--seed`, or a data-path dependence on something not in the fixture.
+
+### D155 UPDATE (pass 282, heading restated). **WITHDRAWN** — and the fleet had root-caused this exact symptom a month ago, under a name that says so.
+
+**`of3t-d137ab` ran every fold on pc card 0** (p150a, board `000004033191410f`; its own state doc line 3 says so, and `fleet.log` confirms the launch). pc card 0 is a **known faulty card**: `protenix-v2-nondeterminism-rootcause` root-caused it on **2026-08-17** as a hardware fault, not a code bug —
+
+  * matmul-only: `concat` and `layer_norm` are bit-stable at every size and precision, while `linear_z` (512->256) differs on **15/15** repeats at 256 aa fp32 and **2/31** at bf16;
+  * **location-keyed, not data-keyed**: a synthetic-weight probe reproduces the same victim pair-row clusters the real fold dump recorded, and 64 of 130 cores are never hit;
+  * **no size threshold** — the original "512 aa only" framing was a single-sample-per-size artifact of a probabilistic fault; 160 aa is clean over 31 repeats while 128 aa trips 1/7;
+  * a matched qb1 card 1 control was **15/15 clean** on all nine stages, same commit and config.
+
+The standing instruction is explicit: **pc card 0 must not host hash-equality or bit-exact gating at any size, for any model**, and *"a clean run on pc proves nothing about the next one"*.
+
+**So the user-facing claim is withdrawn.** Nothing here shows a user folding the same input twice gets a different structure on healthy hardware. D155 is removed from USER-FACING and from the closure plan.
+
+**What survives, and it is not nothing.** The harness's refusal was right for a better reason than it knew: it declined to report FREE from an arm whose repeats disagree, and on this card that is exactly the correct behaviour. And the pattern is consistent with the known fault rather than with a protenix property — the fault is probabilistic and matmul-keyed, so a model whose kernel mix hits more victim locations trips more often, which is why protenix-v2 moved and `openfold3`/`opendde` did not.
+
+**What it costs D137's evidence, stated rather than glossed.** `of3t-d137ab`'s *"byte-identical across base, off and on, twelve folds each"* for `openfold3` and `opendde` was taken on a card excluded from exactly that kind of gating. Twelve stable folds each is real evidence the fault did not fire, but it is not the bit-exactness proof it reads as. **The timing half is unaffected** — the fault is matmul correctness, not speed — so *"not made slower"* stands as written. The digest half wants one re-run on a clean card, and it is the only thing D137 still owes.
+
+**My own failure, which is the reusable part.** I filed a USER-FACING defect against a shipped model without checking which card produced it, on a fleet that maintains an explicit exclusion list for that card — and the root-cause row is called `protenix-v2-nondeterminism-rootcause`. The check that would have caught it is one line: **before attributing a digest instability to a model, name the card and look it up.** A row reporting from pc card 0 has not measured determinism, whatever it saw.
+
+### D152 UPDATE (pass 283, heading restated). **UNFIXED as a class** — and the mitigation it asked of one row is now VERIFIED on that row rather than promised.
+
+`of3t-trajwide` took both halves of AMENDMENT 4, checked on qb2 rather than read off its state doc:
+
+  * **the record is out of `/tmp`.** Its run root is `/home/ttuser/of3t_runs/trajwide/w/{shipped,theirs,zero}/`, with ten `k??.npz` written so far, and `/tmp/of3t/trajwide/` is **empty**. A reboot now costs the rungs since the last write instead of the whole arm.
+  * **the park is written on liveness, not on a clock.** Its `notbefore` reason ends: *"check `ls /home/ttuser/of3t_runs/trajwide/w/*/k??.npz | wc -l` advancing and the four chain pids alive to know it is running rather than parked."* That is exactly the thing whose absence cost 2h20m at pass 276 — a reader can now falsify the park in one command instead of trusting its ETA.
+
+**And it caught me out in the right direction.** Checking for live processes on **pc** showed nothing and I briefly read the row as dead a second time; the runs are detached on **qb2**, where the row's worker is parked between passes. The row's own park text is what told me where to look — which is the point of requiring it.
+
+**Still UNFIXED at fleet level**, unchanged: nothing stops the next row putting a multi-hour run in `/tmp`, and nothing checks a parked row's subject is alive before its clock expires. One row doing it right is not the fleet doing it right.
+
+### D137 UPDATE 3 (pass 283, heading restated). **FIXED**, with one owed re-run now dispatched: the digest half was taken on pc card 0 and needs a card whose digests mean something.
+
+`of3t-d137ab`'s *"byte-identical across base, off and on, twelve folds each"* ran on the card the fleet excludes from exactly that gating (D155). Twelve stable folds each is real evidence the fault did not fire; it is not the bit-exactness proof it reads as. **The timing half is unaffected** — the fault is matmul correctness, not speed — so *"not made slower"* stands as written, at call level measured and at fold level bounded.
+
+`of3t-d137digest` is dispatched to qb1/qb2 with the same script, fixture and command, explicitly not pc, and told that a DISAGREEMENT is the more important outcome and must be reported loudly rather than retried until it agrees. It also adds the `host` field the artifacts lack — card 0 being different hardware on three machines is how a pc-card-0 result reached a defect filing in the first place, and a correctly-hosted artifact is how the pass-282 ratchet shrinks.
+
+### D153 UPDATE (pass 284, heading restated). **FIXED** by `of3t-refsweep`, which corrected my inventory in both directions — including that my own namespace was a false positive in my own grep.
+
+**The sweep is bigger than I counted**: **43 scripts across eleven namespaces**, not 24 across eight. The five I missed are `of3t_auxheads`, `of3t_direct`, `of3t_softgrad`, `of3t_trajectory`, `of3t_wholemodel`.
+
+**And two of the eight I named were never affected.** `of3t_maskaudit` and `of3t_orchestrator` match the string `of3t_rebase` as **`origin/wk/of3t-rebase`** (a branch) and **`perf/of3t_rebase/*.json`** (a repo-relative artifact path). Both are alive; neither is the dead absolute path. I grepped a substring and reported it as a path inventory, which is the same shape as the defect I was filing — a name that looks like a location.
+
+**"Nothing already banked is poisoned" is a measurement and I re-ran it rather than accepting it.** Independently over the composition: **zero** JSON artifacts record `pylibs/openfold3`; the recorded reference trees are `of3t_trunk043ref/of3pkg043` (170 occurrences), `of3t_refprec/of3pkg043` (16) and `of3t_rebase/of3pkg043` (16) — all real 0.4.3 — plus the arms that say 0.5.0 in words. The row's own count is by artifact where mine is by occurrence; the conclusion is the same and the unit is stated so the two numbers are not read as a disagreement.
+
+`of3t_adaln` is the clearest case the row found: its instruments derive `ref_src` from `openfold3.__file__` rather than from the constant, so all nine of its artifacts record the real path — **the resolution was recorded because the instrument read it back**, which is the rule this whole defect family produced.
+
+**Repair as landed**: repointed at `/home/ttuser/of3t-campaign-refs/` (bit-identical to the tree the scripts used — digest `1b27f5754b32b8e3` over 293 `.py` files, reproduced by a fresh `pip download openfold3==0.4.3`), `refpath.py` moved to `perf/refpath.py` because eight namespaces import it, `perf/refpath.sh` added for shell callers, and the two cases with no surviving tree made to **refuse rather than skip**. Every namespace proves its resolution by running, not by grep.
+
+### D10 UPDATE 2 (pass 285, heading restated). **UNFIXED where it ships** — and `of3t-d10-d107` shrank its own pass-1 claim on both halves, which the ledger had not recorded at all.
+
+**Unit level**, our rule against upstream's on identical logits, float64, 76 tokens, 5 samples:
+
+    case      ours vs upstream   ours+has_frame   mask worth   orders agree
+    monomer   4.432e-07          4.432e-07        0.0          yes / yes
+    complex   4.432e-07          4.432e-07        0.0          yes / yes
+    ligand    3.853e-03          4.432e-07        3.853e-03    NO  / yes
+
+The `ligand` row is the defect and the fix in one line: before the mask our order is **[3,4,2,1,0]** against upstream's **[3,4,1,2,0]**; after it, ours is upstream's. The two 0.0 rows are the no-regression control for every model that passes no mask, and the mask is live rather than vacuously all-ones — a negative control straightens four ligand atoms into a line and takes it from 0 rejected to 4, never touching the 12 standard residues.
+
+**End to end**, two real OpenBind co-folds, 5 samples x 200 sampling steps, both arms off the SAME samples:
+
+    target        atomized   frameless   frameless standard   d(pTM)   d(ipTM)   order
+    FKBP + SB3          33           0                    0      0.0       0.0    same
+    FKBP + ZN            1           1                    0      0.0       0.0    same
+
+The mask rejects exactly what the code reading predicted — the single-atom ZN chain, whose two other frame atoms could only come from another chain — and **never one of the 106 standard residues**. It is **inert in outcome** on both: the rejected token was not the argmax of the max-over-i, so pTM, ipTM, the order and the served structure are bit-identical with the fix and without it over ten real samples.
+
+**Cost**: 110 ms per sample at 832-864 atoms, 0.37 % and 0.46 % of the two folds. Quadratic and fitted rather than asserted — 2.44 / 11.02 / 61.66 / 224.14 / 749.57 ms at 512 / 1024 / 2048 / 4096 / 8192 atoms, log-log exponent **2.066** over the ladder and 1.742 over the top two rungs, so ~3.7 s per 5-sample fold at 8192 atoms. Measured on a host `host_quiet.py` called **RED**, so it is an upper bound and wants one repeat on a quiet box before it is quoted otherwise.
+
+**The row retracted its own pass-1 claim on both halves, and that is the part the ledger was missing.** Pass 1 said the change *"changes what OpenFold3 serves for any target carrying a ligand or a modified residue"*. Neither half survives: **`--model openfold3` refuses a ligand at the front door** — preview2 is polymer-only, `capabilities.py:91` — so that path was never reachable there, and `openbind` is the OF3-family model that honours one and runs the same `_confidence`; and *"changes what it serves"* came from **constructed logits where a frameless token had been handed the winning row on purpose**. On a real co-fold it changed nothing.
+
+**The live residual, named by the row rather than left implicit**: `openfold3` honours modified residues and **a modified residue IS atomized** (`tokenization.py:208`), so the mask can fire on `--model openfold3` by that route — and **no such target was folded**. So "latent, not a live accuracy change" is true of everything measured and untested on the one path that could falsify it. The test is one fold of a modified-residue target on `--model openfold3`, checking whether any token comes out frameless.
+
+**Why this matters beyond the defect**: D10 is USER-FACING and Moritz's ask-9629 ruling cited its framing. The ruling is unaffected — it turned on consistency between three ranking rules, not on this mask — but a reader comparing the ledger to the row would have found the ledger carrying the larger, retracted claim.
