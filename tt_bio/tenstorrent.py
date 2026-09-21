@@ -9109,16 +9109,15 @@ class PairformerLayer(Module):
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
-        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer has
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer holds
         # two kernels that do different things with it, so one value cannot serve both.
-        # `AttentionPairBias` folds the bias inside the score scale -- (q@k^T + z) * d**-0.5 --
-        # so a bias the reference adds UNSCALED has to arrive pre-baked by sqrt(d), which is
-        # what scale_pair_bias=True does. `TriangleAttention` adds it outside the scale, so the
-        # same reference convention wants False there. OpenFold3 is the model that needs both,
-        # and before the split its single False left the token pair bias at 1/sqrt(24) = 0.204
-        # of the reference value in every fold. `None` follows `scale_pair_bias`, so every
-        # other caller is byte-identical. LEDGER K34: a flag named after the reference rather
-        # than the kernel is right at whichever of its sites happens to match.
+        # `AttentionPairBias` adds the bias INSIDE its score scale -- (q@k^T + z) * d**-0.5 -- so
+        # a reference that adds z unscaled to an already-scaled q needs z to arrive pre-baked by
+        # sqrt(d), which is what scale_pair_bias=True does. `TriangleAttention` scales q@k^T alone
+        # and divides the bake back out before its add, so the same reference convention wants
+        # False there. OpenFold3 is the model that needs both, and one shared False left its token
+        # pair bias at 1/sqrt(24) = 0.204 of the reference value in all 48 trunk blocks. `None`
+        # follows `scale_pair_bias`, so every caller that does not name it is unchanged.
         tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
