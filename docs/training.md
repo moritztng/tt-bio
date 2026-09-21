@@ -508,7 +508,7 @@ bit-identical gradient.
 Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
 branch on the flag is inside a backward closure, checked by AST rather than by reading, and a
 fold on OpenFold3, Protenix-v2 and OpenDDE writes the same structure with it on and off, same
-card and same seed, while the counter that records the branch being reached stays at zero. It
+card and same seed. A prediction never imports the module the branch lives in at all. It
 costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
 interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
 

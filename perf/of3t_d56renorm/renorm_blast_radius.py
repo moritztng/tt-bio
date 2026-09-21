@@ -110,6 +110,10 @@ def main():
             "on": {"TT_BIO_SOFTMAX_BW_RENORM": "1"},
             "default": {},
             "accsm": {"TT_BIO_ACCURATE_SOFTMAX_AB": "all"},
+            # `=all` is a no-op on Protenix-v2 and OpenDDE: their Pairformer sites already
+            # SHIP the accurate softmax on, so turning every site on turns nothing on. The
+            # control that bites there is turning them off.
+            "accsm_off": {"TT_BIO_ACCURATE_SOFTMAX_AB": "-all"},
             "f64": {"TT_BIO_HOST_F64_SOFTMAX_AB": "all"}}
     if a.arms:
         keep = set(a.arms.split(","))
@@ -137,9 +141,10 @@ def main():
             fail.append("%s: the off arm produced no cif, so nothing was compared" % model)
         elif "on" in m and m["on"]["cifs"] != m["off"]["cifs"]:
             fail.append("%s: the renorm flag MOVED the fold" % model)
-        if "accsm" in m and m["accsm"].get("cifs") == m["off"].get("cifs"):
-            fail.append("%s: the accurate-softmax control did not move the digest, so the "
-                        "byte-identity above is uninformative" % model)
+        ctrl = [k for k in ("accsm", "accsm_off") if k in m]
+        if ctrl and all(m[k].get("cifs") == m["off"].get("cifs") for k in ctrl):
+            fail.append("%s: no accurate-softmax control moved the digest (%s), so the "
+                        "byte-identity above is uninformative" % (model, ",".join(ctrl)))
         if "f64" in m and m["f64"].get("cifs") != m["off"].get("cifs"):
             fail.append("%s: the host float64 softmax MOVED an inference fold -- D137 has "
                         "reopened, that path is supposed to refuse without a tape" % model)
