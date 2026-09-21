@@ -1462,3 +1462,26 @@ under the invariant the coverage guard checks — all fifty-five UNFIXED defects
 per-tensor bar and the 7.1 points between 92.1568 % and the 99.2594 % structural ceiling, and
 COVERAGE's one loss term and seven conditional paths. D126 remains the campaign's sharpest
 user-facing defect and is live on main today.
+
+### Pass 319 addendum — the brief was amended mid-pass and it binds retroactively
+
+**THEIR-TEST is no longer a GO condition.** It was already out of `CHARTER_GO` when I read the
+gate; it was still in `CHARTER_EVIDENCE`, so the prose reader and the evidence reader disagreed
+and the second would have kept GO unreachable by itself. Removed, A32 filed. **GO is three
+conditions and the bar is Moritz's: confident the gradients are correct, saying what that rests
+on.**
+
+**One stale claim of mine withdrawn.** VERDICT had said 0.74055 % of the gradient mass "never
+can" be read, for sixteen passes. `of3t-readable-mass` refuted it: the host-applied share is
+**1.52024 %** and 0.74055 % is one tensor of the seventeen inside it, so the figure named a
+wiring gap and I had been quoting it as a ceiling. The 99.2594 % bar is kept; its justification
+is withdrawn, in the gate's own reason string as well as here.
+
+**Dispatched on the amendment:** `of3t-pathcov` (qb2 card 2, live) for the hole the amendment
+says outranks further precision — path coverage reads `not instrumented`, so a parameter can be
+inside the 92.1568 %, receive a gradient, agree to the bar, and the branch that produced it may
+never have run. `of3t-covpaths` (qb1, live) for five of COVERAGE's seven unfired paths.
+
+**Gate mirrors refreshed on all four trees** (`/home/moritz` and `/home/ttuser` on both qb1 and
+qb2) to `d2fc497d`, matching pc. Both live rows dispatch to those hosts and `of3t-readable-mass`
+failed its own DONE_CHECK on exactly this — a stale mirror, not its work.
