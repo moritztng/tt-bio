@@ -204,12 +204,14 @@ def run_theirs(dtype, blocks, cap, kwargs, *, steps, warmup, log, autocast=False
     import torch
     import types
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
+    # Their module is built FIRST, before any stub is installed: `project_entry` imports the
+    # REAL `pytorch_lightning.strategies`, and a stub inserted ahead of it shadows the package
+    # rather than standing in for it.
+    dc, _own, _inc = build_theirs(dtype)
     _stub_upstream_deps()
     gm_mod = load_by_path("of3_grad_manager", "/home/ttuser/of3t_traj20/upstream/grad_manager.py")
     lr_mod = load_by_path("of3_lr_schedulers",
                           "/home/ttuser/of3t_traj20/upstream/lr_schedulers.py")
-
-    dc, _own, _inc = build_theirs(dtype)
     params = dict(dc.named_parameters())
     per_step = len(blocks[1])
 
@@ -303,7 +305,8 @@ def _stub_upstream_deps():
 
 # ----------------------------------------------------------------------------------- our side
 
-def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=False):
+def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=False,
+             repin=False):
     """Our assembled step: the shipped discovery, the shipped optimizer, `train_loop`'s order.
 
     `brk` is the break control and it perturbs the thing THIS instrument claims to see:
@@ -461,13 +464,33 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
                         t.grad = ttnn.multiply(t.grad, 0.0)
             coefs.append(opt.clip_and_accumulate()["clip"])
             opt.zero_grad()
+        spread = sorted(set(opt.participation.values())) if opt.participation else None
         opt.step()
         moved = 0 if brk == "norebind" else params.rebind()
+        # WEIGHT FRESHNESS, measured at every rung and not assumed. `AdamW.step` replaces each
+        # leaf`s `value` with a fresh device tensor and `rebind()` writes that tensor back into
+        # the model, but the tape resolves a parameter by the IDENTITY OF THE HANDLE
+        # (`autograd._PARAMS` is keyed on `id(raw)` and `parameter_for` also checks
+        # `t.value is raw`). So after a step the model holds a handle the tape has never seen.
+        # This counts how many of the walked weights the tape can still resolve; anything below
+        # the full set means the next forward`s backward cannot reach them.
+        if repin:
+            # The one-line repair, kept behind a flag because this row does not move a default:
+            # hand the LEAF back to `autograd.parameter`, which re-keys the registry onto the
+            # handle the optimizer just produced. `parameter()`s own docstring names this as
+            # the thing a caller owes after a step; no caller in `tt_bio/` does it.
+            for t in params.values():
+                ag.parameter(t)
+        resolved = 0
+        for nm, (owner, key) in params.slots.items():
+            raw = owner[key] if isinstance(owner, (dict, list)) else getattr(owner, key)
+            if ag.parameter_for(raw) is not None:
+                resolved += 1
         log.append({"k": k, "lr": opt.last_lr, "grad_norm": opt.last_grad_norm,
                     "clip": opt.last_clip, "per_sample": opt.last_per_sample,
                     "per_sample_clip_coefs": coefs, "rebound": moved,
-                    "participation_spread": sorted(set(opt.participation.values()))
-                    if opt.participation else None})
+                    "tape_resolves_after_step": resolved, "of_walked": len(params.slots),
+                    "participation_spread": spread})
         yield master_in_checkpoint_orientation()
 
     # Reported out of the loop for the caller's evidence block.
@@ -483,7 +506,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", default="shipped",
                     choices=["shipped", "renorm", "aa", "zero", "norebind", "permute",
-                            "theirs-f32-bar"])
+                             "repin", "theirs-f32-bar"])
     ap.add_argument("--per-step", type=int, default=4)
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--warmup", type=int, default=SCHED["warmup_no_steps"])
@@ -550,7 +573,8 @@ def main() -> int:
         go = run_ours(blocks, cap, steps=a.steps, warmup=a.warmup, log=ours_log,
                       brk=("norebind" if a.arm == "norebind"
                            else "permute" if a.arm == "permute" else "none"),
-                      zero_grad_model=(a.arm == "zero"))
+                      zero_grad_model=(a.arm == "zero"),
+                      repin=(a.arm == "repin"))
 
     rows = []
     t1 = time.time()
