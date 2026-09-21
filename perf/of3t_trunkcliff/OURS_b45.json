@@ -1,0 +1,40 @@
+{
+  "block": 45,
+  "config": {
+    "scale_pair_bias": false,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false
+  },
+  "s_input_dtype": "DataType.BFLOAT16",
+  "permuted": false,
+  "tokens": 64,
+  "real_tokens": 56,
+  "state": "/home/ttuser/of3t_trunk043ref/ladder_c64/ladder_ref043_k45.pt",
+  "chain": {
+    "z2_in_vs_z1": 966.2346773900534,
+    "z3_in_vs_z2": 1104.9240724953427,
+    "z4_in_vs_z3": 2214.082316015463,
+    "z5_in_vs_z4": 2150.9738158258697,
+    "z_out_vs_z5": 0.0016721231737363506,
+    "s_out_vs_s1_plus_u2": 0.0019113219336024192
+  },
+  "shared_norms": {
+    "z1": 1300194.8061038116,
+    "z2": 1300240.5071932646,
+    "z3": 1300015.3784331398,
+    "z4": 1300080.310061528,
+    "z5": 1273689.633237214,
+    "sn": 30.646810788325062,
+    "u1": 42272.78560402134,
+    "s1": 1686451.139101017,
+    "u2": 980960.9035211607,
+    "s2": 2181343.731143803
+  },
+  "s_fed_norm": 1683193.0737332508,
+  "z_fed_norm": 1300077.6704661613,
+  "s_out_norm": 2181343.731143803,
+  "z_out_norm": 1273895.445143561,
+  "seconds": 2.49297138700058
+}
