@@ -76,6 +76,9 @@ def main() -> int:
     ap.add_argument("--sites", default="", help="substring of the walked path; empty = all sites")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="override tt_baseline.SEED; a second seed turns a single "
+                         "deterministic effect into a distribution comparable to the floor")
     ap.add_argument("--savecifs", type=Path, default=None,
                     help="write <size>_<arm>_<leg>/ per leg for perf/other512/cif_rmsd.py")
     a = ap.parse_args()
@@ -119,6 +122,11 @@ def main() -> int:
         mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    if a.seed is not None:
+        # The effect must be a DISTRIBUTION, not a point, because the floor it is compared
+        # against is one: allm-safety's floor is six seed pairs, so a clearance resting on a
+        # single pair is not held to the same shape as the failure it overturns.
+        B.SEED = a.seed
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 
@@ -128,7 +136,8 @@ def main() -> int:
            "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arms": a.arms, "sites": a.sites,
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-           "loadavg": os.getloadavg(), "ccd_donor": _ccd_note, "legs": []}
+           "loadavg": os.getloadavg(), "ccd_donor": _ccd_note,
+           "seed": a.seed if a.seed is not None else B.SEED, "legs": []}
     try:
         import importlib.metadata as _md
         res["ttnn"] = _md.version("ttnn")

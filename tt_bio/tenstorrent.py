@@ -8860,6 +8860,20 @@ class PairformerLayer(Module):
             # Whichever branch the site is in, the other attribute is simply never read.
             fused_hifi=tri_att_sdpa_hifi,
             sdpa_hifi=tri_att_sdpa_hifi,
+            # The faithful reduction order rides the SAME decision, so the configuration that
+            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+            # the whole key length, so the online softmax makes no running-max rescale and
+            # reduces each row in the order the torch reference and _fp32_softmax_attention
+            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+            # only a site that has turned the route ON receives it. A site A/B'ing the route
+            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+            # only combination that has cleared an accuracy standard.
+            tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.triangle_attention_end = TriangleAttention(
@@ -8882,6 +8896,20 @@ class PairformerLayer(Module):
             # Whichever branch the site is in, the other attribute is simply never read.
             fused_hifi=tri_att_sdpa_hifi,
             sdpa_hifi=tri_att_sdpa_hifi,
+            # The faithful reduction order rides the SAME decision, so the configuration that
+            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+            # the whole key length, so the online softmax makes no running-max rescale and
+            # reduces each row in the order the torch reference and _fp32_softmax_attention
+            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+            # only a site that has turned the route ON receives it. A site A/B'ing the route
+            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+            # only combination that has cleared an accuracy standard.
+            tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.transition_z = Transition(
