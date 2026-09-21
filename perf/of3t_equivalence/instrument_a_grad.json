@@ -1,0 +1,245 @@
+{
+  "instrument": "PROTOCOL SS3 -- per-parameter gradient equivalence",
+  "module": "TriangleMultiplicationIncoming, pairformer_stack.blocks.0",
+  "checkpoint": "/home/ttuser/.boltz/of3-p2-155k.pt",
+  "shape": {
+    "N": 64,
+    "c_z": 128,
+    "c_hidden": 128
+  },
+  "bars": {
+    "per_tensor": 0.05,
+    "median": 0.02,
+    "reference_fd": 1e-06
+  },
+  "reference": {
+    "their_param_count": 10,
+    "checkpoint_keys": [
+      "layer_norm_in.bias",
+      "layer_norm_in.weight",
+      "layer_norm_out.bias",
+      "layer_norm_out.weight",
+      "linear_a_g.weight",
+      "linear_a_p.weight",
+      "linear_b_g.weight",
+      "linear_b_p.weight",
+      "linear_g.weight",
+      "linear_z.weight"
+    ],
+    "missing_on_load": [],
+    "unexpected_on_load": [],
+    "grad_present": {
+      "linear_g.weight": true,
+      "linear_z.weight": true,
+      "layer_norm_in.weight": true,
+      "layer_norm_in.bias": true,
+      "layer_norm_out.weight": true,
+      "layer_norm_out.bias": true,
+      "linear_a_p.weight": true,
+      "linear_a_g.weight": true,
+      "linear_b_p.weight": true,
+      "linear_b_g.weight": true
+    },
+    "finite_difference": {
+      "linear_g.weight": {
+        "analytic": 6.450298060621991,
+        "finite_difference": 6.45029806776165,
+        "rel": 1.106872670839989e-09
+      },
+      "linear_z.weight": {
+        "analytic": -0.8099815643525747,
+        "finite_difference": -0.809981573013374,
+        "rel": 1.0692588178690063e-08
+      },
+      "layer_norm_in.weight": {
+        "analytic": -87.44762054186081,
+        "finite_difference": -87.4476205623864,
+        "rel": 2.347186806143416e-10
+      },
+      "layer_norm_in.bias": {
+        "analytic": -4.017336073300434,
+        "finite_difference": -4.017336112838166,
+        "rel": 9.841778379938857e-09
+      },
+      "layer_norm_out.weight": {
+        "analytic": -2.0486831264028504,
+        "finite_difference": -2.0486831189714394,
+        "rel": 3.6274087223726845e-09
+      },
+      "layer_norm_out.bias": {
+        "analytic": -3.452786082412006,
+        "finite_difference": -3.4527860606203826,
+        "rel": 6.3113157469039945e-09
+      },
+      "linear_a_p.weight": {
+        "analytic": -2.791282279217456,
+        "finite_difference": -2.7912822631037666,
+        "rel": 5.772862749787062e-09
+      },
+      "linear_a_g.weight": {
+        "analytic": -1.2373354978299742,
+        "finite_difference": -1.237335501969028,
+        "rel": 3.3451345844788006e-09
+      },
+      "linear_b_p.weight": {
+        "analytic": 0.5947556984945562,
+        "finite_difference": 0.5947557113472612,
+        "rel": 2.1610057783259527e-08
+      },
+      "linear_b_g.weight": {
+        "analytic": -3.216802685565473,
+        "finite_difference": -3.216802686267783,
+        "rel": 2.183254102124802e-10
+      }
+    },
+    "fd_worst": {
+      "rel": 2.1610057783259527e-08,
+      "tensor": "linear_b_p.weight"
+    },
+    "fd_pass": true
+  },
+  "ours": {
+    "registered": [
+      "g_out.weight",
+      "norm_in.bias",
+      "norm_in.weight",
+      "norm_out.bias",
+      "norm_out.weight",
+      "p_out.weight"
+    ],
+    "registered_count": 6,
+    "loaded_via_torch_to_tt": [
+      "norm_in.weight",
+      "norm_in.bias",
+      "norm_out.weight",
+      "norm_out.bias",
+      "g_out.weight",
+      "p_out.weight"
+    ],
+    "fused_input_projection_type": {
+      "_g_in_t": "Tensor",
+      "_p_in_t": "Tensor"
+    },
+    "fused_note": "g_in/p_in are torch tensors on the module until _gp_in_chunks converts them per chunk width, so they are not device handles at registration time and no ttnn op ever presents them to the tape",
+    "grad_present": {
+      "norm_in.weight": true,
+      "norm_in.bias": true,
+      "norm_out.weight": true,
+      "norm_out.bias": true,
+      "g_out.weight": true,
+      "p_out.weight": true
+    }
+  },
+  "forward_rel": 0.009942509209373639,
+  "per_parameter": [
+    {
+      "their_tensor": "linear_g.weight",
+      "our_tensor": "g_out.weight",
+      "rel_l2": 0.01944261854920469,
+      "max_abs_rel": 0.024565211210962036,
+      "ref_norm": 780.4789342251886
+    },
+    {
+      "their_tensor": "layer_norm_in.weight",
+      "our_tensor": "norm_in.weight",
+      "rel_l2": 0.018717756048897548,
+      "max_abs_rel": 0.017746799824799618,
+      "ref_norm": 554.5242227607529
+    },
+    {
+      "their_tensor": "layer_norm_in.bias",
+      "our_tensor": "norm_in.bias",
+      "rel_l2": 0.017759068246364973,
+      "max_abs_rel": 0.019305961269963423,
+      "ref_norm": 569.17809912226
+    },
+    {
+      "their_tensor": "linear_z.weight",
+      "our_tensor": "p_out.weight",
+      "rel_l2": 0.0099002115834353,
+      "max_abs_rel": 0.007837986819685472,
+      "ref_norm": 501.90304235885134
+    },
+    {
+      "their_tensor": "layer_norm_out.weight",
+      "our_tensor": "norm_out.weight",
+      "rel_l2": 0.009064905469828648,
+      "max_abs_rel": 0.008856617582343386,
+      "ref_norm": 167.25444996537502
+    },
+    {
+      "their_tensor": "layer_norm_out.bias",
+      "our_tensor": "norm_out.bias",
+      "rel_l2": 0.005381270716699654,
+      "max_abs_rel": 0.006108967299822305,
+      "ref_norm": 145.4783361487303
+    }
+  ],
+  "absent": [
+    {
+      "their_tensor": "linear_a_p.weight",
+      "reference_present": true,
+      "ours_present": false,
+      "reason": "_p_in_t is not a registered device parameter: the fused input projection stays a torch tensor until _gp_in_chunks converts it, so the tape never sees it"
+    },
+    {
+      "their_tensor": "linear_a_g.weight",
+      "reference_present": true,
+      "ours_present": false,
+      "reason": "_g_in_t is not a registered device parameter: the fused input projection stays a torch tensor until _gp_in_chunks converts it, so the tape never sees it"
+    },
+    {
+      "their_tensor": "linear_b_p.weight",
+      "reference_present": true,
+      "ours_present": false,
+      "reason": "_p_in_t is not a registered device parameter: the fused input projection stays a torch tensor until _gp_in_chunks converts it, so the tape never sees it"
+    },
+    {
+      "their_tensor": "linear_b_g.weight",
+      "reference_present": true,
+      "ours_present": false,
+      "reason": "_g_in_t is not a registered device parameter: the fused input projection stays a torch tensor until _gp_in_chunks converts it, so the tape never sees it"
+    }
+  ],
+  "summary": {
+    "compared": 6,
+    "absent": 4,
+    "worst": {
+      "their_tensor": "linear_g.weight",
+      "our_tensor": "g_out.weight",
+      "rel_l2": 0.01944261854920469,
+      "max_abs_rel": 0.024565211210962036,
+      "ref_norm": 780.4789342251886
+    },
+    "median": 0.013829639914900136,
+    "per_tensor_pass": true,
+    "median_pass": true
+  },
+  "negative_control": {
+    "tensor": "layer_norm_out.bias",
+    "baseline_rel": 0.005381270716699654,
+    "bar": 0.05,
+    "protocol_1pct": {
+      "perturbation": "x1.01",
+      "rel_after": 0.010900536888263961,
+      "fires": false,
+      "finding": "SS3e's 1 % perturbation cannot exceed SS3d's 5 % bar; the protocol's control is unfireable as written and needs amending to a perturbation larger than the bar"
+    },
+    "calibrated": {
+      "perturbation": "x1.10",
+      "rel_after": 0.0995906819062972,
+      "fires": true
+    },
+    "zeroed": {
+      "perturbation": "our gradient replaced by zeros",
+      "rel_after": 1.0,
+      "fires": true,
+      "question": "which check fails if our model is replaced by zeros?"
+    },
+    "others_unchanged_and_under_bar": true,
+    "pass": true
+  },
+  "complete": false,
+  "scope_note": "PASS covers only the parameters that carry a gradient on both sides. Any tensor in `absent` was NOT compared, and SS3b forbids filling it with zeros to make the comparison run.",
+  "verdict": "PASS"
+}
