@@ -23,13 +23,17 @@ from __future__ import annotations
 import gc
 import contextlib
 import math
+import os
 import sys
 from typing import Optional, Sequence
 
 import ttnn
 
+from tt_bio.envflags import env_flag
+
 __all__ = [
-    "Tensor", "precise_config", "no_grad", "parameter", "forget_parameters",
+    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
+    "forget_parameters",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
@@ -53,6 +57,70 @@ def precise_config():
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
     )
+
+
+# `ttnn.softmax` does not return rows that sum to one. Measured over the OpenFold3 trunk's own
+# shapes on `wk/of3t` (`perf/of3t_d116/rowsum.json`, float64-referenced): mean row sum 0.9934,
+# rms deviation 1.20e-02, worst row 0.9506, and fp32 storage does not fix it (0.9954). So what
+# the card computes is `c * softmax(x)` for a per-row `c`, and the vjp of THAT is
+# `y * (g - sum(g*y)/sum(y))`. The plain rule `y * (g - sum(g*y))` is the vjp of a function the
+# card did not evaluate.
+#
+# The cost is not in the rel_l2 of `dx`, which barely moves (2.0156e-02 against 2.0154e-02 at the
+# trunk shape, so an op-level audit is blind to this). It is that the plain rule leaves `dx` with
+# a nonzero ROW SUM, 4.62e-03 rms against the reference's 1.29e-16, and the attention backward
+# below it consumes exactly that: `dq_i = sum_j dx_ij k_j` equals `sum_j dx_ij (k_j - kbar)` only
+# when the row sums vanish. When they do not, `dq` picks up `(row residual) * kbar`, a term the
+# true gradient does not contain, worth 1.00x to 13.09x on `||dq||` as the common component of k
+# grows (`perf/of3t_d116/amplify.json`). End to end the leaf error mass falls 878.85 -> 2.636 over
+# 523 matched tensors, and block 8's gradient norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694.
+#
+# ON by default since 2026-09-21, on Moritz's ask-9629 ruling. Every read is inside a backward
+# closure, so no forward and no inference result can move whichever way the flag is set, and that
+# is checked rather than asserted: `perf/land_standing/renorm_reach.py` proves by AST that every
+# read of the flag is inside `softmax_bw_inner` or a `bw(g)` closure and that every caller of
+# `softmax_bw_inner` is itself inside one. Set the variable to 0 for the old backward.
+#
+# ONE definition. The name below is the only parse of this variable in the package; two parses is
+# how a flag acquires two defaults.
+SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)
+
+# Reached only from a backward closure, and this counts the reaching so that claim is a reading
+# rather than an argument. `applied` is the branch taken, `declined` the branch evaluated and not
+# taken; both can only happen under the tape, which is the claim.
+SOFTMAX_BW_RENORM_STATS = {"applied": 0, "declined": 0}
+
+if os.environ.get("TT_BIO_RENORM_STATS_DIR"):
+    # Per process, because a `predict` run does its device work in SPAWNED workers and the
+    # counters the parent can see are not the ones that ran the model. One file per pid, and the
+    # reader sums them; a claim that the flag was never reached has to be read where the model
+    # actually ran or it is a claim about the launcher.
+    import atexit as _atexit
+    import json as _json
+
+    @_atexit.register
+    def _dump_renorm_stats():
+        d = os.environ["TT_BIO_RENORM_STATS_DIR"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "%d.json" % os.getpid()), "w") as f:
+            _json.dump({"pid": os.getpid(), "flag": bool(SOFTMAX_BW_RENORM),
+                        **SOFTMAX_BW_RENORM_STATS}, f)
+
+
+def softmax_bw_inner(y, g, dim=-1, config=None):
+    """`sum_j g_j y_j` for the softmax backward `dx = y * (g - inner)`, row-sum corrected.
+
+    One helper for all THREE callers: `softmax` and `triangle_attention` below, and
+    `taped_ttnn._v_softmax`. The defect is the rule, not the site, and the count matters -- the
+    first repair of this expression enumerated two callers and routed two, and the one it missed
+    was `softmax` itself, which `__all__` exports.
+    """
+    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
+    if not SOFTMAX_BW_RENORM:
+        return inner
+    return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
+                                       compute_kernel_config=config or precise_config()))
 
 
 _GRAD_ENABLED = True
@@ -563,7 +631,7 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
 
     def make():
         def bw(g):
-            inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+            inner = softmax_bw_inner(y, g, dim=dim, config=cfg)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
@@ -798,7 +866,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
                                      compute_kernel_config=cfg)
-                    inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)
+                    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
                     if bias is not None:

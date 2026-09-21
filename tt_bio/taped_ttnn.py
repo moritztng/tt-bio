@@ -171,7 +171,9 @@ def _v_softmax(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+            # The same expression as `autograd.softmax` and `triangle_attention`; the helper
+            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline.
+            inner = ag.softmax_bw_inner(y, g, dim=dim)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
