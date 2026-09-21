@@ -739,6 +739,15 @@ echo "--- publish the charter evaluation from the composition"
 # hardware, and pc card 0 is a faulty card root-caused 2026-08-17 that must not host bit-exact
 # gating for any model at any size. Three of3t artifacts are in that state and are frozen; a new
 # one fails. The list may only shrink.
+# (3n) D162. Five per-site levers resolve at the construction site, so their shipped default is
+# an ARGUMENT and not a module constant -- a census that walks flags to a resolved value has no
+# row for the family at all. openfold3.trunk flipped to the fused HiFi SDPA path by default and
+# the census was silent. assert_new_levers_default_off.py covers one of the five; this covers the
+# rest by reading the call sites, as a shrink-only ratchet over the three that are ON today.
+echo "--- site-flag call-site defaults (D162)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_site_flag_defaults.py . ) || \
+  { echo "COMPOSE: a construction site ships a per-site lever ON by default, unpinned -- see D162"; exit 1; }
+
 echo "--- digest claims name their hardware (D155)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
   { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
