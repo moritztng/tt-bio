@@ -243,7 +243,13 @@ def main() -> int:
     for leg in res["legs"]:
         by.setdefault(leg["arm"], []).append(leg["fold_s"])
     res["medians"] = {k: statistics.median(v) for k, v in by.items()}
-    res["aa_floor"] = {k: (max(v) - min(v)) for k, v in by.items()}
+    # A single-leg arm has NO floor, and reporting 0.0 is worse than reporting nothing: it reads
+    # as "perfectly repeatable" when it means "measured once". I read exactly that off the 256 aa
+    # cell and built a shipping requirement on a 0.061 s difference that sits inside the noise of
+    # every multi-leg cell this harness has produced.
+    res["aa_floor"] = {k: ((max(v) - min(v)) if len(v) > 1 else None) for k, v in by.items()}
+    res["legs_per_arm"] = {k: len(v) for k, v in by.items()}
+    res["floor_note"] = "null aa_floor means one leg and no floor; that arm's ratio is directional only"
     res["digests"] = {k: sorted({leg["digest"] for leg in res["legs"] if leg["arm"] == k})
                       for k in by}
     if "off" in res["medians"] and "on" in res["medians"]:
