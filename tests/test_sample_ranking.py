@@ -110,3 +110,19 @@ def test_every_site_routes_through_the_shared_rule():
     assert rf3_rank(0.7, 0.6, 0.9, False) == ranking_score(iptm=0.7, ptm=0.6, plddt=0.9)
     assert rf3_rank(None, 0.6, 0.9, False) == ranking_score(iptm=None, ptm=0.6, plddt=0.9)
     assert rf3_rank(None, 0.6, 0.9, True) < -99.0
+
+
+def test_rf3_orders_on_the_full_precision_score():
+    """rf3 publishes its ranking score rounded to 4 decimals in summary_confidences.json, and
+    it used to ORDER on that rounded number, so two samples whose scores differ below 1e-4
+    were ordered by sample index instead. These are the real scalars of rf3/multimer seed 1
+    samples 4 and 0: both round to 0.7400 and the wrong one was served at rank 3. Two of the
+    five samples of that single fold collided this way, so it is the common case on a target
+    whose samples are close, not a corner. The published rounding stays; the ordering must not
+    use it.
+    """
+    from tt_bio.rf3.confidence import ranking_score as rf3_rank
+    a = rf3_rank(0.7338814735412598, 0.7646858096122742, 0.783822, False)
+    b = rf3_rank(0.7342625260353088, 0.7630373835563660, 0.784785, False)
+    assert round(a, 4) == round(b, 4) == 0.74, "the published rounding collapses this pair"
+    assert a > b, "and the full-precision score does not"

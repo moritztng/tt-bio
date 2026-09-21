@@ -1325,8 +1325,14 @@ class _WorkerState:
             plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
             summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
                                              atom_array, coord)
-            return {"d": d, "coord": got["X_L"][d], "plddt": plddt,
-                    "summary": summary, "score": summary["ranking_score"]}
+            # Order on the full-precision score, not on summary["ranking_score"], which is
+            # rounded to 4 decimals for the published summary_confidences.json. Two samples
+            # whose scores differ below 1e-4 round to the same value and were then ordered by
+            # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
+            # against 0.7630, and it is the only site in the family that sorted on a rounded
+            # number.
+            return {"d": d, "coord": got["X_L"][d], "plddt": plddt, "summary": summary,
+                    "score": summary["ranking_score"]}
 
         samples = sorted((one(d) for d in range(n_sample)),
                          key=lambda r: -r["score"])
@@ -1337,8 +1343,10 @@ class _WorkerState:
             _write_atom_array_structure(atom_array, r["coord"],
                                         struct_dir / f"{stem}.{fmt}", fmt,
                                         b_factors=r["plddt"] * 100.0)
+            published = dict(r["summary"],
+                              ranking_score=round(r["summary"]["ranking_score"], 4))
             (struct_dir / f"{stem}_summary_confidences.json").write_text(
-                _json.dumps(r["summary"], indent=2) + "\n")
+                _json.dumps(published, indent=2) + "\n")
 
         def scalars(r):
             sm = r["summary"]
@@ -1349,7 +1357,7 @@ class _WorkerState:
             return {"plddt": round(float(r["plddt"].mean()), 6),
                     "ptm": round(sm["ptm"], 4),
                     "iptm": round(sm["iptm"], 4) if sm["iptm"] is not None else None,
-                    "ranking_score": sm["ranking_score"],
+                    "ranking_score": round(sm["ranking_score"], 4),
                     "has_clash": sm["has_clash"]}
 
         best = samples[0]
