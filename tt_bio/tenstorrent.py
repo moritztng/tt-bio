@@ -8832,7 +8832,13 @@ class Transition(Module):
         if mask is None:
             return out
         masked = ttnn.multiply(out, mask)
-        ttnn.deallocate(out)
+        if not ops.taping():
+            # Under a tape the multiply's backward reads its operands, and freeing the
+            # unmasked result here is what made the first masked arm die 10 s in with
+            # `TT_THROW @ ttnn/core/tensor/storage.cpp:60` -- a tensor with no storage. The
+            # inference path has no backward and keeps the free, which is where the bytes
+            # matter: the pair-track result is 48 MB at 384 aa.
+            ttnn.deallocate(out)
         return masked
 
     def _swiglu_all(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
@@ -9466,7 +9472,9 @@ class Pairformer(Module):
                                           extra_attn_bias, trans_mask_z, trans_mask_s),
                 s, z)
             dram_peak(f"pairformer block {i} done")
-        if trans_mask_z is not None:
+        if trans_mask_z is not None and not ops.taping():
+            # Same reason as in `Transition.__call__`: the tape's backward still reads both
+            # masks after this call returns, so only the inference path may free them.
             ttnn.deallocate(trans_mask_z)
             ttnn.deallocate(trans_mask_s)
         return s, z
