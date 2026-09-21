@@ -2,12 +2,14 @@
 # Instrument A at aux_heads scope, re-taken with of3t-auxfind's mask fix on. qb2, card $CARD.
 # Usage: gradrun.sh <out-stem> [extra args...]
 set -uo pipefail
-W=/home/ttuser/.coworker/wt/of3t-auxgrad
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CAP=${CAP:-/home/ttuser/of3t_auxheads/cap043}
-B=/home/ttuser/of3t_rebase/bundle_min_043
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W/perf/of3t_confidence:$W"
+source "$W/perf/refpath.sh"
+B=$REF_BUNDLE
+export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W/perf/of3t_confidence" "$W")"
+ref_assert "$PY"
 export OMP_NUM_THREADS=4
 CARD=${CARD:-1}
 # card 1 is this row's grant; a sibling card is fanned out to only when it is genuinely idle,

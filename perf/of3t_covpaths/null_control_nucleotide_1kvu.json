@@ -1,0 +1,29 @@
+{
+ "instrument": "one feature edit applied to a batch the path cannot act on, tensor by tensor",
+ "edit_applied": "nucleotide",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "index": 24,
+ "seed": 20260921,
+ "target": {
+  "pdb_id": "1kvu",
+  "datapoint": "['10', '2']",
+  "n_tokens_real": 384,
+  "molecule_type_tokens": {
+   "is_protein": 279,
+   "is_dna": 0,
+   "is_rna": 0,
+   "is_ligand": 105
+  },
+  "template_pseudo_beta_mask_nnz": 178
+ },
+ "edit": {
+  "tokens_refiled_as_protein": 0
+ },
+ "tensors_compared": 350,
+ "tensors_moved": [],
+ "n_tensors_moved": 0,
+ "verdict": "NO-OP",
+ "total_s": 9.278517961502075
+}

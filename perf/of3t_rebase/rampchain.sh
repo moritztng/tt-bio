@@ -6,8 +6,11 @@
 # each before. FAILURE STOPS THE CHAIN -- a capture that dies must not hand a missing boundary
 # to the arm step, which would then "skip" it and report a short table as if it were complete.
 set -uo pipefail
-L=/home/ttuser/of3t_rebase/run/rampchain.log
-S=/home/ttuser/of3t_rebase/run/rampchain.status
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+R=${OF3T_REBASE_RUN:-$HOME/of3t_rebase_run}
+mkdir -p "$R/run"
+L=$R/run/rampchain.log
+S=$R/run/rampchain.status
 RUNID=$(date -u +%Y%m%dT%H%M%SZ)
 exec >>"$L" 2>&1
 # The log is APPEND-mode so history survives, which means a bare grep for a terminal marker can
@@ -19,15 +22,15 @@ exec >>"$L" 2>&1
 echo "=== rampchain start $RUNID ==="
 while pgrep -f "bundle_min.py .*out_043_fd" >/dev/null; do sleep 60; done
 echo "=== fd job clear $(date -u +%FT%TZ) ==="
-bash /home/ttuser/of3t_rebase/wt/perf/of3t_rebase/capramp.sh
+bash "$W/perf/of3t_rebase/capramp.sh"
 rc=$?
 echo "=== capramp rc=$rc $(date -u +%FT%TZ) ==="
 if [ "$rc" -ne 0 ]; then echo "RAMPCHAIN_ABORT $RUNID capture failed rc=$rc" | tee "$S"; exit "$rc"; fi
 for b in 42 43 44 45 46; do
-  [ -f /home/ttuser/of3t_rebase/cap043_ramp/block${b}_boundary.pt ] || {
+  [ -f "$R/cap043_ramp/block${b}_boundary.pt" ] || {
     echo "RAMPCHAIN_ABORT $RUNID missing capture for block $b -- refusing a short arm table" | tee "$S"; exit 3; }
 done
-CARD=0 bash /home/ttuser/of3t_rebase/wt/perf/of3t_rebase/ramparms.sh
+CARD=0 bash "$W/perf/of3t_rebase/ramparms.sh"
 rc=$?
 echo "=== ramparms rc=$rc $(date -u +%FT%TZ) ==="
 [ "$rc" -eq 0 ] && echo "RAMPCHAIN_ALLDONE $RUNID $(date -u +%FT%TZ)" | tee "$S" \

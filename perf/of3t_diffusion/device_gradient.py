@@ -29,6 +29,9 @@ import time
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_tape"))
+sys.path.insert(0, os.path.join(os.getcwd(), "perf"))
+
+import refpath  # noqa: E402
 
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 CAP = "/home/ttuser/of3t_diffusion_cap"
@@ -48,6 +51,12 @@ def main() -> int:
     # capture it reads is part of the measurement. Defaults are the published 0.5.0 paths.
     p.add_argument("--cap", default=CAP,
                    help="captured diffusion boundary to score against")
+    p.add_argument("--ref-tree", default=refpath.OF3PKG, dest="ref_tree",
+                   help="the upstream tree this arm's denominator is claimed to be on. "
+                        "Resolved IN THIS PROCESS by refpath.assert_resolved() and recorded in "
+                        "provenance.ref_tree, because a reference named in prose is not a "
+                        "reference read back (D149). Pass --ref-tree '' to skip, which is what "
+                        "a run on a host without the reference trees has to do.")
     p.add_argument("--out-dir", default=OUT)
     p.add_argument("--dump-per-tensor", action="store_true", dest="dump_per_tensor",
                    help="also inline the per-tensor array in the main report. The array is "
@@ -143,6 +152,47 @@ def main() -> int:
         os.environ["TT_BIO_HOST_F64_SOFTMAX_AB"] = "all"
     if a.softmax_bw_renorm:
         os.environ["TT_BIO_SOFTMAX_BW_RENORM"] = "1"
+
+    # THE DENOMINATOR IS AN INPUT AND IT IS READ BACK, NOT NAMED (A24, D149).
+    # `of3t-ditcot` published 0.7055 / 0.2584 / 0.1065 while its state doc discussed 0.4.3 and
+    # 0.5.0; only `provenance.cap` said which capture answered and nothing said which package
+    # built it. Two fields close that here, and both are readings rather than constants:
+    #   ref_tree    -- `openfold3.__file__` resolved in THIS process. The tree is prepended and
+    #                  unwound again so nothing downstream sees it; the dep trees are NOT
+    #                  installed, because `import openfold3` alone is all a resolution needs and
+    #                  this process must keep the venv's torch and ttnn.
+    #   cap_stamp   -- `<cap>/REFTREE.json`, written by perf/of3t_ditref/capstamp.py, which
+    #                  fingerprints the capture's own grad_f64 key set. 761 parameters with 24
+    #                  per-block `attention_pair_bias.layer_norm_z` is 0.4.3; 738 with none is
+    #                  0.5.0. That is the field that makes the version a measurement.
+    ref_tree, cap_stamp = None, None
+    if a.ref_tree:
+        _saved = list(sys.path)
+        try:
+            refpath.install(a.ref_tree, deps=())
+            ref_tree = refpath.assert_resolved(a.ref_tree)
+            print(f"REF_TREE resolved: {ref_tree}", flush=True)
+        finally:
+            sys.path[:] = _saved
+            sys.modules.pop("openfold3", None)
+    _stamp = os.path.join(a.cap, "REFTREE.json")
+    if os.path.exists(_stamp):
+        cap_stamp = json.load(open(_stamp))
+        _fp = cap_stamp.get("capture_fingerprint", {})
+        print(f"CAP_STAMP {a.cap}: {cap_stamp.get('REF_TREE_resolved')} -- "
+              f"{_fp.get('n_parameters')} parameters, "
+              f"{_fp.get('n_perblock_layer_norm_z')} per-block layer_norm_z, "
+              f"missing {cap_stamp.get('checkpoint', {}).get('missing_keys')}, "
+              f"unexpected {cap_stamp.get('checkpoint', {}).get('unexpected_keys')}", flush=True)
+        if ref_tree and cap_stamp.get("REF_TREE_resolved") != ref_tree:
+            raise SystemExit(
+                f"--ref-tree resolved {ref_tree} but the capture at {a.cap} is stamped "
+                f"{cap_stamp.get('REF_TREE_resolved')}. Scoring our arm against a capture built "
+                f"on a different upstream is the 6.62x of3t-ditcot measured; say which you "
+                f"meant.")
+    else:
+        print(f"CAP_STAMP {a.cap}: ABSENT -- run perf/of3t_ditref/capstamp.py --cap {a.cap}",
+              flush=True)
 
     import torch
     import ttnn
@@ -847,6 +897,7 @@ def main() -> int:
            # artifact's identity is its digest plus its recorded inputs.
            "provenance": {"cap": a.cap, "ckpt": CKPT, "out_dir": a.out_dir, "tag": a.tag,
                           "structs": a.structs, "mask_ones": bool(a.mask_ones),
+                          "ref_tree": ref_tree, "cap_stamp": cap_stamp,
                           "argv": sys.argv},
            "best10": [(n, d) for d, n, _ in cmp_rows[:10]],
            "worst10": [(n, d) for d, n, _ in cmp_rows[-10:]],
