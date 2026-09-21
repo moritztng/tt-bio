@@ -1,0 +1,52 @@
+{
+  "instrument": "PROTOCOL SS3 precondition -- gradient reachability",
+  "module": "TriangleMultiplication (incoming), pairformer_stack.blocks.0",
+  "our_param_keys": [
+    "g_in.weight",
+    "g_out.weight",
+    "norm_in.bias",
+    "norm_in.weight",
+    "norm_out.bias",
+    "norm_out.weight",
+    "p_in.weight",
+    "p_out.weight"
+  ],
+  "shapes": {
+    "g_in.weight": [
+      256,
+      128
+    ],
+    "g_out.weight": [
+      128,
+      128
+    ],
+    "norm_in.bias": [
+      128
+    ],
+    "norm_in.weight": [
+      128
+    ],
+    "norm_out.bias": [
+      128
+    ],
+    "norm_out.weight": [
+      128
+    ],
+    "p_in.weight": [
+      256,
+      128
+    ],
+    "p_out.weight": [
+      128,
+      128
+    ]
+  },
+  "taped_backward_error": null,
+  "input_received_gradient": true,
+  "module_autograd_leaves": [],
+  "module_autograd_leaf_count": 0,
+  "census_sites": [],
+  "census_site_count": 0,
+  "census_error": "TypeError: \nttnn.layer_norm(): incompatible function arguments.\n\nCalled with:\n  layer_norm(tt_bio.autograd.Tensor, weight=ttnn.Tensor([ 1.3828,  1.3281,  ...,  1.7422,  1.6719], shape=Shape([128]), dtype=DataType::BFLOAT16, layout=Layout::TILE), bias=ttnn.Tensor([-0.1748, -0.2656,  ...,  0.1011,  0.0574], shape=Shape([128]), dtype=DataType::BFLOAT16, layout=Layout::TILE), epsilon=1e-05, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x7e6b577ca250>)\n\nAvailable signatures:\n  layer_norm(input_tensor: ttnn.Tensor, *, epsilon: float = 1e-12, weight: ttnn.Tensor | None = None, bias: ttnn.Tensor | None = None, residual_input_tensor: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, program_config: ttnn.normalization.LayerNormDefaultProgramConfig | ttnn.normalization.LayerNormShardedMultiCoreProgramConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None, recip_tensor: ttnn.Tensor | None = None)",
+  "conclusion": "NO weight of this module is an autograd leaf and the census finds no adaptable site, so no gradient exists for it to compare"
+}
