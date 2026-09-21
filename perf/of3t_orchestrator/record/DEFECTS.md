@@ -9445,3 +9445,32 @@ blocks `land-standing` with no owner is a defect that waits forever.
 current chain rather than competing for the card. One condition, one probe, and the inference fold
 A/B the 2026-09-21 constraint requires of any change to a shared softmax site — honoured literally
 rather than argued away, even though a tape gate can only ever REMOVE a path from inference.
+
+### D21 UPDATE (pass 252). **CLOSED** — its own artifact refutes the heading: the forward discriminator ran on all 48 structures, and the instrument defect was replaced by a real measurement 136 passes ago. The reading that replaced it belongs to D30.
+
+D21's only heading has read *"UNFIXED — the forward discriminator has not been run"* since pass 21.
+Its body has carried the opposite since pass 116, and this is the D125 shape: a closure declared
+inside a body, where the status parser cannot see it. Three of the four D125 examined did not
+survive reading, so this one was checked against the artifact rather than the prose. Every figure
+verifies in `perf/of3t_rebase/device_gradient_043all.json`:
+
+    forward_rel_median          0.008474800850934073   inside the 5.0e-02 A18/A19 gate
+    forward_rel                 a list of 48 -- the discriminator ran on EVERY structure, not once
+    median_rel                  0.16588485538135056    8.3x the 2.0e-02 median bar
+    worst_rel                   18.503974843073646     diffusion_transformer.blocks.8
+                                                       .attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    zero_model_median           1.0                    so 6.0x better than a deleted model
+    n_struct_total              48 of 48
+    share_of_diffusion_sq_norm  0.5732029094107396
+
+**Both halves of the heading are disposed of.** *"The first reading is an instrument defect, not a
+result"* was true and is fixed — `of3t-rebase` replaced the instrument and re-ran at diffusion scope
+against the rebuilt 0.4.3 reference. *"The forward discriminator has not been run"* is **false
+against its own artifact** and has been for 136 passes: it ran 48 times and reported a median of
+8.4748e-03, comfortably inside the gate A19 fixed.
+
+**Nothing is lost by closing it, and this is the part D125 says to state explicitly.** What the
+replacement measurement found — median **1.6588e-01**, 8.3x the bar, on 474 of 547 tensors — is not
+D21's subject. D21 is about whether the instrument was sound; the number it produced is **D30**'s
+(*"the diffusion module's backward costs 19.6x the forward it is taken at"*), which is UNFIXED,
+USER-FACING, and owned by `of3t-ditcot`. The closure moves no evidence and drops no obligation.
