@@ -1131,6 +1131,8 @@ by composing the branches, since each looked fine alone, and closed by `of3t-dat
 
 ### D8. The assembled pairformer block's pair-track gradients are an order of magnitude outside the bar. UNFIXED.
 
+**SUPERSEDED at pass 277 — this paragraph reads the 0.5.0 reference. See D8 UPDATE 5 for the 0.4.3 table; four of six arms flip, and `shipped` and `tb-off` swap roles at blocks 0 and 23. Kept verbatim because the reasoning it supported is part of the record.**
+
 **PASS 90 RE-ATTRIBUTION: D8 IS LARGELY D23, and what survives is graded by DEPTH rather than by
 attention involvement.** The `tb-off` arms already on the branch equalise our ending-node function
 with the 0.5.0 reference's (the wrong side, but the mismatch is what is removed, so it is a valid
@@ -1188,6 +1190,8 @@ amplification does not. The **in-place pair residual is refuted** — aliasing `
 
 Until this closes, a model-scope gradient equivalence claim cannot pass for the right reason.
 
+**SUPERSEDED at pass 277 — the 0.5.0 reference again. The block-0 decomposition below is scored against a tree this checkpoint was not trained on; D8 UPDATE 5 carries the 0.4.3 reading.**
+
 **PASS 47 — decomposed, by `of3t-orchestrator` from `of3t-gradients`' own artifact.** Block 0
 against the bundle's boundary, 52 tensors (the one with ref_norm 1.4e-19 excluded per A14),
 grouped by sub-module:
@@ -1203,6 +1207,8 @@ grouped by sub-module:
 **The one sub-module with no attention and no pair-track coupling is the only one that passes**,
 and the failure is graded by pair/attention involvement rather than by tensor size or depth.
 That is mechanism-shaped, and it is the sharpest statement the campaign has about D8.
+
+**SUPERSEDED at pass 277, and this one INVERTS rather than shrinking: at 0.4.3 the end/start ratio is 0.5789 median and 0.7588 worst, against the 4.3488 and 3.5242 below. The ending-node axis is not hit three times harder; it is hit LESS hard than the starting-node axis. Every conclusion and all three pre-registered follow-ups below are artifacts of the wrong reference. D8 UPDATE 5.**
 
 **PASS 85 — the start/end asymmetry is a property of COMPOSITION, not of the module.**
 `tri_att_start` and `tri_att_end` are the same operation on different axes, so the ratio
@@ -10109,3 +10115,44 @@ All six live rows now carry both rules as a STANDING section, with the concluded
 **Mitigation, required of the row in AMENDMENT 4**: steplogs and done-markers under `perf/of3t_trajwide/` rather than only `/tmp`; push the steplog as it grows, because a 20-rung arm that pushes each rung loses one rung to a reset instead of twenty, and the branch is the only storage on this fleet that survives a reboot; and any future park must say what a reader can check to know the thing it waits for is still alive.
 
 **Not fixed at fleet level, and that is not mine.** Nothing stops the next row putting a multi-hour run in `/tmp`, and nothing checks that a parked row's subject is alive before the clock expires. Both are dispatch-layer properties. This entry records the requirement; `of3t-d137ab`'s brief, written one pass earlier, sends its workdir to `/tmp/of3t/d137ab` — acceptable at ~45 minutes, and a demonstration of how easily the default recurs.
+
+### D8 UPDATE 5 (pass 277, heading restated). Still **REFUTED** — the closure is untouched — but three of D8's own paragraphs were scored against openfold3 0.5.0, and at 0.4.3 four of six arms FLIP, `shipped` and `tb-off` swap roles, and the end/start asymmetry INVERTS. Withdrawn in place; the surviving technical content is block 47 and `attn_pair_bias`.
+
+`of3t-d112` restored the 0.4.3 reference (digest-verified against a fresh PyPI download on both hosts, in paths no prune mechanism reaches) and re-scored D8's arms against it, then handed the ledger edit to me because *"a defect entry is its file"*. `perf/of3t_d112/D8_AT_043.json`, same scorer, same bars (per-tensor 0.05, median 0.02), A14 zero-reference filter at 1e-12:
+
+    arm                med 0.5.0   med 0.4.3   ratio   over-bar 050  043   verdict flips
+    block 0  SHIPPED    0.064810    0.012136   0.187      36/52      9/52  yes -> INSIDE bar
+    block 0  tb-off     0.011475    0.073978   6.447       7/52     37/52  yes -> now FAILS
+    block 23 SHIPPED    0.093040    0.019191   0.206      46/52     15/52  yes -> INSIDE bar
+    block 23 tb-off     0.017434    0.100764   5.780      12/52     46/52  yes -> now FAILS
+    block 47 SHIPPED    0.426976    0.201289   0.471      52/52     52/52  no
+    block 47 tb-off     0.400386    0.238579   0.596      52/52     52/52  no
+
+**The roles swap.** At 0.5.0 the SHIPPED configuration failed and `tb-off` passed at blocks 0 and 23; at the boundary this checkpoint actually belongs to, SHIPPED is **inside the median bar** and `tb-off` is the one that fails, by 5.8x–6.4x. Any reading that "turning the transpose-bias off helps" is an artifact of the wrong reference.
+
+**Pass 85 does not shrink, it inverts.** End/start ratio at 0.4.3 is **0.5789** median and **0.7588** worst, against 4.3488 and 3.5242 at 0.5.0. The ending-node axis is not hit three times harder than the starting-node axis — it is hit *less* hard. The paragraph's conclusion and all three of its pre-registered follow-ups (re-run the decomposition at block 2; connect to D19's accumulation; "an axis-asymmetric error under a symmetric operation points at a reduction axis or a tile boundary") are artifacts. They are marked SUPERSEDED in place rather than deleted, because the reasoning is part of the record and because deleting the superseded reading is how a document stops being able to show that this happens.
+
+**What survives, and it is one sub-module rather than a stack-wide effect**: **block 47** fails at both settings on both trees — 52 of 52 tensors over bar, median 0.2013 SHIPPED at 0.4.3 — and the worst-tensor localisation moves onto **`attn_pair_bias`**: at 0.4.3 block 0 SHIPPED's worst is `pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight` where at 0.5.0 it was `pair_stack.tri_att_end.layer_norm.weight`. That is the same sub-module D141, D149 and `of3t-apbgrad` have all landed on from different directions, and the same weight name the 0.5.0 tree does not carry per block.
+
+**The closure is not disturbed, checked rather than assumed.** D8's LIVE statement (pass 222) and its pass-232 REFUTED closure — the four LayerNorm affine leaves at 0.747x–0.849x of upstream 0.4.3's own bf16 floor, inside A26 — were already taken at 0.4.3, which `of3t-d112` states and which the closure's own text confirms by naming the tree. So D8 stays REFUTED as a non-defect and the campaign's headline is unaffected. This update corrects the *supporting* paragraphs that a reader would otherwise quote forward.
+
+**STILL OPEN, named rather than left implicit** (from the row): the 48-block STACK arm at 0.4.3 does not exist — `score_arms_043.json`'s `stacks` entry reads `against_0.4.3: null` on both legs, whose 0.5.0 readings are median 1.8886 with 2448 of 2448 over bar. It needs a card, and it is the one part of D8 that could not be substituted from data already collected.
+
+### D153. Twenty-four scripts across eight row namespaces hard-code `/home/ttuser/of3t_rebase/`, which **no longer exists on qb2** — and the deps tree behind it does, carrying openfold3 **0.5.0**. A correct-order path setup silently degrades to the wrong version when the tree it prefers disappears. FOUND by the orchestrator (pass 277), surfaced by `of3t-d112`. **UNFIXED.**
+
+`of3t-d112` named this as owed: *"26 scripts across ten rows still hard-code `/home/ttuser/of3t_rebase/`, and pointing them at `/home/ttuser/of3t-campaign-refs/` is a mechanical sweep I deliberately left out."* Counted in the composition it is **24 files across 8 namespaces** — `of3t_adaln`, `of3t_auxfind`, `of3t_auxgrad`, `of3t_conditioning`, `of3t_maskaudit`, `of3t_rebase`, `of3t_residual`, and `of3t_orchestrator`, which is mine.
+
+**Verified on qb2 rather than inferred:**
+
+    /home/ttuser/of3t_rebase              MISSING
+    /home/ttuser/of3t_gradients/pylibs    EXISTS -- carries openfold3/ and openfold3-0.5.0.dist-info
+    /home/ttuser/of3t_refprec/of3pkg043   EXISTS -- the 0.4.3 source tree
+    /home/ttuser/of3t-campaign-refs       EXISTS -- of3t-d112's restored, digest-verified reference
+
+**The mechanism is NOT D149's, and that is why it matters.** D149 was three inserts at one index reversing their order. These scripts have the order RIGHT — `of3t_adaln/*` does `sys.path.insert(0, REF_DEPS)` then `sys.path.insert(0, REF_PKG)`, which is the pattern I held up as correct at pass 271. It degrades anyway: `REF_PKG = "/home/ttuser/of3t_rebase/of3pkg043"` no longer exists, so prepending it resolves nothing, and `import openfold3` finds `REF_DEPS = "/home/ttuser/of3t_gradients/pylibs"` — **0.5.0**. A missing preferred tree is indistinguishable from a present one unless something reads the resolution back.
+
+**So the defence is the same one `of3t-trajwide` already built**, and it generalises: `perf/of3t_trajwide/refpath.py`'s `assert_resolved()` imports the package, reads `openfold3.__file__`, and refuses with the resolved path. Order is not enough; only the resolution is evidence. That is now true for two independent mechanisms, which is what promotes it from a fix to a rule.
+
+**Nothing published is invalidated by this.** These are scripts, not readings: artifacts already taken carry their own reference digests, and `of3t-d112` re-scored the affected D8 arms against the restored 0.4.3 tree (D8 UPDATE 5). The exposure is the NEXT run of any of those 24 scripts — which is live, because `of3t-d112` itself notes the sweep *"belongs with whoever next needs one of those rows to run"*.
+
+**The repair is mechanical and has an owner-shaped hole**: point them at `/home/ttuser/of3t-campaign-refs/`, and add the resolution assertion. It spans eight namespaces including the orchestrator's, so no single row owns it. Dispatched as its own row rather than attached to whichever row trips over it first.
