@@ -140,17 +140,24 @@ class OF3Trunk(Module):
             scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
-            # Default ON. 34.019 -> 21.792 s at 512 aa, 1.5611x, 12.227 s, on an A/A floor of
-            # 0.002 s, with firing counted at 384 served / 0 declined / 0 too_short. Against
-            # the experimental structure 1HCL it is 0.396 A CLOSER to native than the
-            # materialised route it replaces (6.534 A against 6.930 A, CA over both copies
-            # of the chimera), so there is no accuracy cost to trade -- the same direction
-            # RF3 measured for the identical switch, 0.2030 -> 0.1780 A on 7ROA.
-            # The OTHER three sites stay off deliberately: each is also closer to native on
-            # its own, but all three together land 0.676 A FURTHER from 1HCL than this site
-            # alone does, for 1.5 s. The stack is anti-additive, so it is approved as this
-            # one site and not as a set (perf/allm_gates/ab_m18_of3_persite_qb2c3.json).
-            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk", True))
+            # Plumbed and default OFF. The speed is real and not in question -- 34.019 ->
+            # 21.792 s at 512 aa, 1.5611x, 384 firings counted -- but the accuracy leg
+            # FAILED on a distribution, so this must not ship on by default.
+            #
+            # It was briefly flipped on here against a single-seed floor of this fixture,
+            # which was the wrong control. `allm-safety` measured a SIX-PAIR seed floor on
+            # cdk2x2_298, one domain rather than a freely hinging tandem: CA seed pairs run
+            # 5.2283 to 9.7768 A (median 7.7276), and the lever moves the structure 18.6086
+            # and 13.5992 A at matched seeds -- past EVERY pair, 2.08x the median, and it
+            # replicates rather than re-drawing. The on arm is also more seed-variable than
+            # main, 14.2077 A against 5.23-9.78. The campaign accepts a digest-moving lever
+            # when the move is SMALLER than variation already tolerated; this is larger.
+            #
+            # The 512 aa fixture flattered it: a tandem CDK2 duplicate whose halves hinge
+            # freely puts the seed floor at 22.5 A, so any effect looks small against it.
+            # Re-open with 7ROA at 117 aa, where the model is 1.775 A from the deposited
+            # structure, or by trading fidelity back for a smaller, clearing effect.
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk"))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config,
             transpose_bias=tri_att_end_bias_follows_pair)
