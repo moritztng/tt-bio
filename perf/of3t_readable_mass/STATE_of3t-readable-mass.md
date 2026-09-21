@@ -155,3 +155,13 @@ independently. What moves is the excluded part: the host-applied share doubles t
 "structural" label does not survive, and the blockers behind the 2.01501 % have five
 different remedies, of which the three largest are instrument or wiring work on code that
 already exists. Nothing here merges; landing is `land-standing`'s.
+
+GATE NOTE, not part of the finding. This row's DONE_CHECK failed on qb2 for two mirror reasons
+and neither was the work. The qb2 copy of `_of3t_donecheck.py` was stale (md5 `cfaa1d73…` against
+pc's `c4776df1…`) and carried `req` patterns with doubled backslashes, which the script's own
+self-check reports as "THIS ROW'S GATE IS BROKEN"; and the gate resolves `D` to
+`/home/moritz/.coworker`, which on qb2 is a separate tree from `/home/ttuser/.coworker`, so a doc
+written to the ttuser tree is simply absent to it. Refreshing the script from pc and placing the
+doc under both trees clears it. **`of3t-d116-verify` carries the identical broken-pattern
+warning** and the same refresh fixes it, so that row cannot conclude on a stale mirror whatever
+it writes.
