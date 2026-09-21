@@ -291,6 +291,13 @@ _ASSERT
             cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
             rm -f /tmp/.gi_ours /tmp/.gi_theirs
             git add .gitignore
+          elif [ "$r" = "d1-pairbias" ] && "$PY" "$HERE/resolve_d1_pairbias.py" "$_f"; then
+            # Two rows, opposite conclusions on the same lines, and not a stale base: of3t-pairbias
+            # held the OF3 trunk default at False on nine seeds of 1UBQ; of3t-d1-pairbias flips it on
+            # Moritz's ruling and 48 folds over four targets, with 1UBQ identified as the earlier
+            # reading's own target. The resolver takes the row's side, keeps the superseded reasoning
+            # in the file, and refuses if either goes missing.
+            git add "$_f"
           elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
             # d116 unified the softmax-backward inner term across its two identical call sites
             # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
@@ -932,16 +939,21 @@ git worktree remove --force "$BASE"
   || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
 
 _trunk="$CO/tt_bio/openfold3_trunk.py"
-_want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
+# Flipped at pass 280, in the same commit that lands the flip, which is what the previous version
+# of this block instructed: "If Moritz approves it anyway, change _want in this script in the same
+# commit that flips the default." He approved it (ask 9629) and of3t-d1-pairbias is GO.
+_want='scale_pair_bias=True, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
-  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.149 A worse at rank 0, of3t-confhead final, 5588d889a; not blocked on D10, which is resolved)"
+  echo "shipped defaults: OF3 trunk pair-bias is scale_pair_bias=True (ask 9629 DECIDED: fix it everywhere; of3t-d1-pairbias GO -- 48 folds, 4 targets, 6 seeds, sign test p=0.541, pLDDT up in 24 of 24; unmerged to main)"
 else
   echo "SHIPPED DEFAULT MOVED -- $_trunk does not carry: $_want"
   grep -n 'scale_pair_bias=' "$_trunk" | sed 's/^/  /'
-  echo "  D1 is HELD on its own measurement: D1+D10 serves 0.149 A worse than shipped at rank 0 over"
-  echo "  nine ship and eight fix seeds (of3t-confhead, concluded), and the best rule still serves"
-  echo "  0.086 A worse. Fixing the selector did not rescue it. If Moritz approves it anyway,"
-  echo "  change _want in this script in the same commit that flips the default."
+  echo "  D1 is DECIDED, not held: ask 9629 says fix it everywhere, and of3t-d1-pairbias measured"
+  echo "  the reopen condition Moritz set -- 'reliably worse across targets and seeds' -- and did"
+  echo "  not meet it: 10 of 24 paired folds regress, sign test p = 0.541, pooled median negative,"
+  echo "  and the sole regressing target is 1UBQ, which is the target the 0.149 A reading was built"
+  echo "  on. A revert to False is now the drift. If it is deliberate, say why here in the same"
+  echo "  commit, and reopen the ask rather than moving the default quietly."
   exit 1
 fi
 
