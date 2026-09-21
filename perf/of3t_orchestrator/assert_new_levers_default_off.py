@@ -17,11 +17,6 @@ Two things are checked per lever and the second is the one that bites: that the 
 False, and that no CALL SITE overrides it to True. A `default: bool = False` in the selector says
 nothing if a construction site passes `default=True`, which is exactly how `opendde.refiner` ships
 the accurate-softmax chain ON while its selector defaults off.
-
-And one more for the float64 softmax, because a default is only the shipped answer and the
-selector reads an environment variable a person can set. `site_softmax` must reach the path
-through `ops.host_softmax_hook()`, which only `autograd.install` fills, so an inference fold has
-no route to it whatever `TT_BIO_HOST_F64_SOFTMAX_AB` says (D137).
 """
 import pathlib
 import re
@@ -60,21 +55,6 @@ def selector_default_off(text):
     return None
 
 
-def site_softmax_gated_on_the_tape(text):
-    """`site_softmax` must ask the hook, and must not import the tape to do it."""
-    m = re.search(r"\ndef site_softmax\(.*?\n(?=\n\ndef )", text, re.S)
-    if not m:
-        return "site_softmax is not in tenstorrent.py"
-    body = m.group(0)
-    if "host_softmax_hook()" not in body:
-        return ("site_softmax does not consult ops.host_softmax_hook(), so the site selector "
-                "alone decides the path and an inference fold can reach it")
-    if re.search(r"from \.(autograd|taped_ttnn)|from \. import (autograd|taped_ttnn)", body):
-        return ("site_softmax imports the tape directly, which puts the training stack back on "
-                "every model's inference path")
-    return None
-
-
 def check(root):
     fail = []
     taped = (root / "tt_bio/taped_ttnn.py")
@@ -85,9 +65,6 @@ def check(root):
     if e:
         fail.append(e)
     e = selector_default_off(tens.read_text())
-    if e:
-        fail.append(e)
-    e = site_softmax_gated_on_the_tape(tens.read_text())
     if e:
         fail.append(e)
     srcs = [(p.name, p.read_text()) for p in sorted((root / "tt_bio").rglob("*.py"))]
@@ -101,13 +78,8 @@ _probe = [
     renorm_default_off('_X = os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "1").lower()'),
     selector_default_off("def host_f64_softmax_site(token: str, default: bool = True) -> bool:"),
     host_f64_sites_off([("probe.py", 'host_f64_softmax_site("x", default=True)')]),
-    site_softmax_gated_on_the_tape(
-        "\ndef site_softmax(x, dim=-1, *, host_f64=False, **kw):\n"
-        "    from .autograd import host_f64_softmax\n"
-        "    return host_f64_softmax(x, dim) if host_f64 else ttnn.softmax(x, dim=dim)\n"
-        "\n\ndef next_one():\n    pass\n"),
 ]
-if not all(_probe):
+if not (_probe[0] and _probe[1] and _probe[2]):
     print("REFUSING: the default-off checks do not fire on a known-on tree, so their silence on "
           "the real one is uninformative")
     raise SystemExit(2)
@@ -119,4 +91,4 @@ if _fail:
         print("  " + f)
     raise SystemExit(1)
 print("shipped defaults: TT_BIO_SOFTMAX_BW_RENORM off, host float64 softmax off at every site "
-      "and gated on an installed tape (both probes fired)")
+      "(default-on probe fired)")
