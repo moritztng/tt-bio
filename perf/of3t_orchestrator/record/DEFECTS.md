@@ -10472,3 +10472,18 @@ The charter clause, lifted from the gate's own literal, requires `executed`, `no
 **What it does mean** is that the campaign's most emphatic *"we cannot"* rests on a clause that does not say what it is about, in a campaign where **which tree the claim is about** has produced D120 (0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, 4.5 orders apart f32-against-f32), D149 (a row measuring against 0.5.0 while reporting 0.4.3), D153 (a dead path resolving silently to 0.5.0) and D112 (four of six D8 arms flipping when re-scored at 0.4.3). Every one of those was the same sentence: a reference that did not name its version.
 
 **The repair is one clause, and it is not mine to write unilaterally** — the charter's wording is what the gate lifts, and editing it changes what ends the campaign. Recorded here with the recommendation: condition 4 should say **which upstream revision's test** it means, and if the answer is "the one the served checkpoint belongs to" then the 0.4.3 sdist has to be fetched before the condition can be said to have been tested at all. If the answer is "whatever upstream currently ships", the existing evidence is exactly right and the clause should say that too.
+
+### D160. I published "of3t-trajwide's device side is DONE" from three arms' k-file counts while the row has **six** arms and two of them were mid-run holding both qb2 cards. FOUND and CORRECTED by the orchestrator (pass 295). **FIXED** in the record.
+
+At pass 292 I wrote *"the device side is complete (`shipped` 20/20, `zero` 20/20)"*, and repeated the claim at 293 and 294. I had been counting the three arms I happened to name in an earlier check. The row runs six:
+
+    norebind       20/20      shipped        20/20      zero        20/20
+    shipped_aa2    10/20      stale           9/20      theirs      10/20
+
+`shipped_aa2` (the A/A repeat) and `stale` (a control) are **device arms and they are running now**, holding `/dev/tenstorrent/1` and `/dev/tenstorrent/0` — verified by `lsof` on the device nodes, pids 88301 and 101686, not by reading the row's prose.
+
+**Three arms complete is not "the device side complete"**, and the difference is not cosmetic: I was one step from acting on it. The reasoning I had started was *"the remaining arm is the CPU-bound float64 reference, so the card is free, so `of3t-ditcot` can be released from its `DEPENDS_ON` early and save ~85 minutes of card time."* Every step of that follows from the false premise. Releasing ditcot would have put a card-hungry row against two live device arms on a two-card host.
+
+**What the check should have been, and now is**: ask the device, not the directory listing. `lsof /dev/tenstorrent/*` names the pids holding each chip in one line. A k-file count tells you what has been written, never what is running — and this row deliberately writes its k-files outside `/tmp` precisely so the two questions stay separable (D152).
+
+**Same shape as the campaign's recurring finding, turned on myself**: *a row's sentence is evidence for exactly what it says*. Mine said three arms and I read it as a side. The correction is in the PASSLOG entries that carried it, and `of3t-ditcot` stays held.

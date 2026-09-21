@@ -854,9 +854,24 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Eighty dispatched, seventy-five concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-nine defects, fifty-five UNFIXED; seventy-seven of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty dispatched, seventy-five concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty defects, fifty-five UNFIXED; seventy-seven of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 294 — the campaign's most emphatic "we cannot" rests on a charter clause that never says which upstream version it means, and every artifact behind it is 0.5.0's while this campaign reproduces 0.4.3.**
+PASSLOG: **Pass 295 — I published "of3t-trajwide's device side is DONE" three passes running, from three arms' file counts, while the row has six arms and two of them were holding both qb2 cards.**
+
+    norebind    20/20      shipped      20/20      zero      20/20
+    shipped_aa2 10/20      stale         9/20      theirs    10/20
+
+`shipped_aa2` (the A/A repeat) and `stale` (a control) are **device arms and they are running**, holding `/dev/tenstorrent/1` and `/dev/tenstorrent/0` — pids 88301 and 101686, read off `lsof` on the device nodes rather than out of the row's prose.
+
+**I was one step from acting on it.** The reasoning I had begun this pass was: *the only arm left is the CPU-bound float64 reference, so the card is free, so `of3t-ditcot` can be released from its `DEPENDS_ON` early and recover ~85 minutes of card time.* Every step follows from the false premise, and releasing ditcot would have put a card-hungry row against two live device arms on a two-card host. The thing that stopped it was checking which process holds which chip before scheduling on the answer — which cost one command.
+
+**A k-file count says what has been WRITTEN, never what is RUNNING.** The row keeps those separable on purpose: its record lives outside `/tmp` (D152) precisely so the directory is durable evidence rather than a liveness signal, and its own park text names the pid check alongside the file count. I used half of its instrument and drew a conclusion the other half contradicts.
+
+**Filed as D160 and corrected in all three PASSLOG entries that carried it**, rather than only going forward. This is the campaign's own recurring finding turned on its author: *a row's sentence is evidence for exactly what it says.* Mine said three arms; I read it as a side.
+
+**`of3t-ditcot` stays held**, which is now the correct sequencing for a measured reason rather than by default.
+
+**Pass 294 —  the campaign's most emphatic "we cannot" rests on a charter clause that never says which upstream version it means, and every artifact behind it is 0.5.0's while this campaign reproduces 0.4.3.**
 
 GO condition 4 was the last condition I had not read. Its clause, lifted from the gate's own literal, requires `executed`, `not skipped`, `exit_code == 0` and `ran_on_our_backend` on *"their own `test_training_full.py`"*. **No version appears in it.** The evidence is unambiguous about which it used: `BLOCKERS.md` opens *"Upstream openfold3 **0.5.0**, sdist `openfold3-0.5.0.tar.gz` sha256 `a43357fd…`"*, and the only sdist on qb2 is that one, carrying `openfold3-0.5.0/openfold3/tests/test_training_full.py`.
 
@@ -868,7 +883,7 @@ GO condition 4 was the last condition I had not read. Its clause, lifted from th
 
 **I am not editing the clause.** Its wording is what the gate lifts, so changing it changes what ends the campaign, and that is not a unilateral call. The recommendation is recorded instead: say which revision's test is meant. If it is the one the served checkpoint belongs to, the 0.4.3 sdist has to be fetched before condition 4 can be said to have been tested at all; if it is whatever upstream currently ships, the existing evidence is exactly right and the clause should say so.
 
-**`of3t-trajwide` is at k09 of 20 on the reference arm**, on the 8-9 min/rung cadence measured last pass; device side complete.
+**`of3t-trajwide` is at k09 of 20 on the reference arm**, on the 8-9 min/rung cadence measured last pass. *(Pass 295: the "device side complete" tail was wrong — D160.)*
 
 **Pass 293 —  D129's denominator at the boundary that matters is measured, and it moves 0.73 %: the defect does not dissolve at 0.4.3, which is where it was most likely to.**
 
@@ -888,7 +903,7 @@ D129 reads **0.693974** — 4.388x the 0.5.0 floor, 3.10x the bar, 28 of 30 inst
 
 **And its method is worth copying, not only its number**: it registered its prediction before measuring and reported it honestly — right on D129's leaf, **wrong on the other two entries**, with its own judgement that the miss matters more than the hit. `of3t-ditcot` is told to register its own prediction the same way, since its brief already asserts the 2.28x is one op.
 
-**`of3t-trajwide`'s reference arm is measured rather than guessed at**: k06 14:35:14, k07 14:44:30, k08 14:52:36 — **8-9 minutes per rung** at 877 % CPU, against the ~4 min/rung the row's own re-pricing implied. Twelve rungs left, so the condition-3 answer lands about an hour and three quarters later than the 1.34 h estimate. Device side is complete (`shipped` 20/20, `zero` 20/20).
+**`of3t-trajwide`'s reference arm is measured rather than guessed at**: k06 14:35:14, k07 14:44:30, k08 14:52:36 — **8-9 minutes per rung** at 877 % CPU, against the ~4 min/rung the row's own re-pricing implied. Twelve rungs left, so the condition-3 answer lands about an hour and three quarters later than the 1.34 h estimate. *(Pass 295: "device side complete" was wrong — six arms, two still running on both cards. D160.)*
 
 **Pass 292 —  audited every line-number citation in the ledger for decay; none is demonstrably stale, and the single hit was my own checker conflating two files with the same name.**
 
@@ -907,7 +922,7 @@ D32's pass-222 update records *"5 of 21 line numbers stale — the `defect-locat
 
 **Also checked and clean**: D32 itself, the other user-facing defect I had not read recently, is current — re-verified against the tree at pass 222 with a device measurement, **23.7x steady state and 29.3x cold**, AICLK sampled DURING every arm, and 1,639 of 2,531 declared weights reached over 2,473 tape nodes identically between reps.
 
-**`of3t-trajwide`'s device side is DONE**: `shipped` 20/20 and `zero` 20/20, with `theirs` — the float64 reference — at 8/20 and five processes alive. The blocking arm is the reference, as priced.
+**`of3t-trajwide`: `shipped` 20/20 and `zero` 20/20, `theirs` at 8/20.** *(Corrected at pass 295: this read "the device side is DONE" and that was wrong — the row has SIX arms, and `shipped_aa2` and `stale` are device arms still running. D160.)*
 
 **Pass 291 —  verified that the guard waiting for the campaign's biggest outstanding measurement is still watching a string that exists, and pre-registered what the answer must carry before I am allowed to quote it.**
 
