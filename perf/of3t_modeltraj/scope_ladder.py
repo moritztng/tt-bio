@@ -104,7 +104,9 @@ rung("diffusion_module.diffusion_conditioning", build_cond, cond_kw, n_sub=4)
 # ---- rung 2: the whole diffusion_module ---------------------------------------------------
 def build_diff():
     from openfold3.core.model.structure.diffusion_module import DiffusionModule
-    m = DiffusionModule(**dict(cfg.architecture.diffusion_module)).to(torch.float64)
+    # `DiffusionModule.__init__(self, config)` takes the config OBJECT, the way
+    # `of3_all_atom/model.py:102` builds it. Splatting it raised on `atom_attn_dec`.
+    m = DiffusionModule(config=cfg.architecture.diffusion_module).to(torch.float64)
     m.train()
     head = "diffusion_module."
     m.load_state_dict({k[len(head):]: (v.to(torch.float64)
@@ -123,6 +125,42 @@ for key in ("xl_noisy", "x_noisy", "xl", "x"):
     if torch.is_tensor(diff_kw.get(key)) and diff_kw[key].dim() >= 3:
         diff_kw[key] = diff_kw[key][:, :1]
 rung("diffusion_module", build_diff, diff_kw, n_sub=48)
+
+# ---- rung 3: the pairformer trunk, built the way of3_all_atom/model.py:99 builds it -------
+def build_pf():
+    from openfold3.core.model.latent.pairformer import PairFormerStack
+    m = PairFormerStack(**cfg.architecture.pairformer).to(torch.float64)
+    m.train()
+    m.blocks_per_ckpt = None          # price the real backward, not a recompute
+    head = "pairformer_stack."
+    m.load_state_dict({k[len(head):]: (v.to(torch.float64)
+                                       if torch.is_tensor(v) and v.is_floating_point() else v)
+                       for k, v in sd.items() if k.startswith(head)}, strict=False)
+    return m
+
+
+tok = kw["token_mask"]
+tok = tok if tok.dim() == 2 else tok.reshape(1, -1)
+pf_kw = dict(s=kw["si_trunk"].to(torch.float64).reshape(1, -1, kw["si_trunk"].shape[-1]),
+             z=kw["zij_trunk"].to(torch.float64).reshape(
+                 1, tok.shape[-1], tok.shape[-1], kw["zij_trunk"].shape[-1]),
+             single_mask=tok.to(torch.float64),
+             pair_mask=(tok[..., None] * tok[..., None, :]).to(torch.float64))
+# The trunk runs ONCE per step, not once per accumulation sample times noise level: it sits
+# in front of the diffusion module, so its per-step multiplier is the accumulation cycle.
+rung("pairformer_stack", build_pf, pf_kw, n_sub=4)
+
+
+# ---- rung 4: the whole model -----------------------------------------------------------
+def build_full():
+    from openfold3.projects.of3_all_atom.model import OF3AllAtom
+    m = OF3AllAtom(cfg).to(torch.float64)
+    m.train()
+    m.load_state_dict(sd, strict=False)
+    return m
+
+
+rung("whole_model", build_full, {}, n_sub=4)
 
 json.dump(res, open(OUT, "w"), indent=1, default=str)
 print(f"wrote {OUT}", flush=True)

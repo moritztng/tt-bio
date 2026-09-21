@@ -454,7 +454,7 @@ def run_ours(blocks, cap, *, steps, warmup, log, brk="none", zero_grad_model=Fal
             "shape_classes": len(by_shape),
             "shape_classes_rotatable": sum(1 for v in by_shape.values() if len(v) > 1),
         }
-        log("permute control: %s" % json.dumps(permute_report))
+        print("permute control: %s" % json.dumps(permute_report), flush=True)
 
     def master_in_checkpoint_orientation():
         out = {}
