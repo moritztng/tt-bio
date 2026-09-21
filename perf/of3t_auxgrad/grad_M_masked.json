@@ -1,0 +1,3185 @@
+{
+ "instrument": "instrument A at aux_heads scope, 0.4.3 boundary",
+ "boundary": {
+  "file": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+  "n_tokens": 384,
+  "n_tokens_real": 56,
+  "use_zij_trunk_embedding": true
+ },
+ "bars": {
+  "per_tensor": 0.05,
+  "mass_weighted": 0.02,
+  "a26_reachable_per_tensor": 0.07071067811865477,
+  "a26_reachable_mass_weighted": 0.028284271247461905
+ },
+ "arm": {
+  "mask": true,
+  "name": "M (masked)",
+  "token_mask_equals_repr_x_mask": true,
+  "padding_fraction": 0.8541666666666666
+ },
+ "bijection": {
+  "n_taped": 180,
+  "n_unmapped": 48,
+  "unmapped": [
+   [
+    "blocks.0.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ]
+  ],
+  "inverse_worst": [
+   "pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+   0.005669813059511369
+  ]
+ },
+ "shipped_forward": {
+  "rows": [
+   {
+    "arm": "masked",
+    "head": "plddt_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0020550708930021475,
+    "norm_ratio": 1.0000117172249396,
+    "cos": 0.9999978884351981,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 587.0462147270265,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 344623.2582253289,
+    "diff_sq": 1.4554189426180122,
+    "dot": 344618.4925585924
+   },
+   {
+    "arm": "masked",
+    "head": "experimentally_resolved_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038656476999654192,
+    "norm_ratio": 1.0024804872499007,
+    "cos": 0.9999956156677093,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 102.55847475401572,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 10518.240743870098,
+    "diff_sq": 0.15639965613832219,
+    "dot": 10492.168937135179
+   },
+   {
+    "arm": "masked",
+    "head": "pae_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038241492884047877,
+    "norm_ratio": 1.000759667244899,
+    "cos": 0.9999929818197281,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1620.054311980592,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 2624575.973766776,
+    "diff_sq": 38.323859285267574,
+    "dot": 2622565.27708098,
+    "rel_l2_padded_scope": 0.005752360600883589
+   },
+   {
+    "arm": "masked",
+    "head": "pde_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.002457701805341246,
+    "norm_ratio": 1.0010490303386252,
+    "cos": 0.9999975326715179,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 3934.968185088774,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 15483974.617659938,
+    "diff_sq": 93.33190474638924,
+    "dot": 15467710.316218473,
+    "rel_l2_padded_scope": 0.00323517487354411
+   },
+   {
+    "arm": "masked",
+    "head": "distogram_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 1.3976191315377513e-07,
+    "norm_ratio": 0.9999999969112721,
+    "cos": 0.9999999999999751,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40409.16284527044,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632900441.8555334,
+    "diff_sq": 3.189608522634101e-05,
+    "dot": 1632900446.8991296,
+    "rel_l2_padded_scope": 1.905026563547229e-07
+   },
+   {
+    "arm": "unmasked",
+    "head": "plddt_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.3650479026256241,
+    "norm_ratio": 0.7517932322174165,
+    "cos": 0.952345027483853,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 441.3322000419697,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 194774.11079388458,
+    "diff_sq": 45923.40927373711,
+    "dot": 246732.9419154731
+   },
+   {
+    "arm": "unmasked",
+    "head": "experimentally_resolved_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.3313193772510705,
+    "norm_ratio": 0.6984407870855153,
+    "cos": 0.9865167017758036,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 71.45378163518143,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 5105.642909968199,
+    "diff_sq": 1148.907126915818,
+    "dot": 7211.4946565543905
+   },
+   {
+    "arm": "unmasked",
+    "head": "pae_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.5174367694393983,
+    "norm_ratio": 0.6710625268309575,
+    "cos": 0.8811281045102577,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1086.3324889921275,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 1180118.276639783,
+    "diff_sq": 701639.6678294104,
+    "dot": 1549535.7565324216,
+    "rel_l2_padded_scope": 0.18178868142329638
+   },
+   {
+    "arm": "unmasked",
+    "head": "pde_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.30153913253388104,
+    "norm_ratio": 0.7508598078734756,
+    "cos": 0.9807853524626645,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 2951.5132285224227,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 8711430.338142298,
+    "diff_sq": 1404944.3249445572,
+    "dot": 11379012.67993973,
+    "rel_l2_padded_scope": 0.08852442647819125
+   },
+   {
+    "arm": "unmasked",
+    "head": "distogram_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 1.3976191315377513e-07,
+    "norm_ratio": 0.9999999969112721,
+    "cos": 0.9999999999999751,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40409.16284527044,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632900441.8555334,
+    "diff_sq": 3.189608522634101e-05,
+    "dot": 1632900446.8991296,
+    "rel_l2_padded_scope": 1.905026563547229e-07
+   }
+  ],
+  "worst_masked": {
+   "arm": "masked",
+   "head": "experimentally_resolved_logits",
+   "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+   "name": "experimentally_resolved_logits",
+   "leaf": "head output projections",
+   "rel_l2": 0.0038656476999654192,
+   "norm_ratio": 1.0024804872499007,
+   "cos": 0.9999956156677093,
+   "ref_norm": 102.30470922717292,
+   "our_norm": 102.55847475401572,
+   "ref_sq": 10466.253530056401,
+   "our_sq": 10518.240743870098,
+   "diff_sq": 0.15639965613832219,
+   "dot": 10492.168937135179
+  },
+  "worst_unmasked": {
+   "arm": "unmasked",
+   "head": "pae_logits",
+   "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+   "name": "pae_logits",
+   "leaf": "head output projections",
+   "rel_l2": 0.5174367694393983,
+   "norm_ratio": 0.6710625268309575,
+   "cos": 0.8811281045102577,
+   "ref_norm": 1618.8245439992772,
+   "our_norm": 1086.3324889921275,
+   "ref_sq": 2620592.90425447,
+   "our_sq": 1180118.276639783,
+   "diff_sq": 701639.6678294104,
+   "dot": 1549535.7565324216,
+   "rel_l2_padded_scope": 0.18178868142329638
+  },
+  "n_over_bar_masked": 0,
+  "n_over_bar_unmasked": 4,
+  "auxfind_published_masked_worst": 0.003865648,
+  "auxfind_published_unmasked_worst": 0.5174368
+ },
+ "forward": {
+  "rows": [
+   {
+    "head": "plddt_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     50
+    ],
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.004957509565240912,
+    "norm_ratio": 0.9964680820303882,
+    "cos": 0.9999939273235292,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 584.9659614744868,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 342185.17608376907,
+    "diff_sq": 8.469573249577053,
+    "dot": 343395.94441065914
+   },
+   {
+    "head": "experimentally_resolved_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     2
+    ],
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.005052371041859388,
+    "norm_ratio": 0.99709599103026,
+    "cos": 0.9999914285158099,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 102.00761543393057,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 10405.553606516689,
+    "diff_sq": 0.2671663303346914,
+    "dot": 10435.769985121378
+   },
+   {
+    "head": "pae_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.0547088700288758,
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.004577801088024359,
+    "norm_ratio": 1.000541958572372,
+    "cos": 0.9999896743242355,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1619.7018798380639,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 2623434.179550958,
+    "diff_sq": 54.91783359734744,
+    "dot": 2621986.082985916
+   },
+   {
+    "head": "pde_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.03405907125853965,
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038437471832206797,
+    "norm_ratio": 1.0019618048477552,
+    "cos": 0.9999945478390012,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 3938.556159847984,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 15512224.624276496,
+    "diff_sq": 228.28710562351608,
+    "dot": 15481767.841926288
+   },
+   {
+    "head": "distogram_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.0028277270060162256,
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.003479065043983219,
+    "norm_ratio": 0.9999104154733865,
+    "cos": 0.9999939515240538,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40405.54293434783,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632607899.819426,
+    "diff_sq": 19764.453297483342,
+    "dot": 1632744293.654442
+   }
+  ],
+  "worst_head": "experimentally_resolved_logits",
+  "worst_rel_l2": 0.005052371041859388,
+  "n_over_bar": 0,
+  "n_heads": 5,
+  "a18_first_clause": "PASS -- every head inside the 5.0e-02 bar, so the gradient below is taken at an agreeing forward (necessary, not sufficient)"
+ },
+ "gradient": {
+  "mass_weighted": {
+   "rel_l2": 0.002271382484742019,
+   "norm_ratio": 0.9994960203307477,
+   "cos": 0.9999975461718779,
+   "n_tensors": 176,
+   "ref_squared_norm": 0.2922641814528712
+  },
+  "by_leaf": [
+   {
+    "leaf": "tri_mul_in",
+    "n": 24,
+    "median_rel_l2": 0.37450965484712484,
+    "worst_rel_l2": 0.5735311426644452,
+    "mass_weighted_rel_l2": 0.3414727859231898,
+    "share_of_compared_mass": 8.289607324330888e-09,
+    "n_over_bar": 18
+   },
+   {
+    "leaf": "tri_att_start",
+    "n": 16,
+    "median_rel_l2": 0.33176400452804394,
+    "worst_rel_l2": 0.666453185885223,
+    "mass_weighted_rel_l2": 0.4248166631758987,
+    "share_of_compared_mass": 1.0683871180696424e-08,
+    "n_over_bar": 12
+   },
+   {
+    "leaf": "pairformer_embedding input projections",
+    "n": 3,
+    "median_rel_l2": 0.308770721174481,
+    "worst_rel_l2": 0.328074951683576,
+    "mass_weighted_rel_l2": 0.3191364774680886,
+    "share_of_compared_mass": 1.5405860497639103e-08,
+    "n_over_bar": 3
+   },
+   {
+    "leaf": "tri_att_end",
+    "n": 16,
+    "median_rel_l2": 0.30396370066927986,
+    "worst_rel_l2": 1.1999043122342534,
+    "mass_weighted_rel_l2": 0.5636095726370115,
+    "share_of_compared_mass": 9.952889216087129e-09,
+    "n_over_bar": 11
+   },
+   {
+    "leaf": "pair_transition",
+    "n": 20,
+    "median_rel_l2": 0.300042709639486,
+    "worst_rel_l2": 0.3994709969433986,
+    "mass_weighted_rel_l2": 0.3242620860397718,
+    "share_of_compared_mass": 6.562755147708766e-08,
+    "n_over_bar": 10
+   },
+   {
+    "leaf": "tri_mul_out",
+    "n": 24,
+    "median_rel_l2": 0.2974952440977781,
+    "worst_rel_l2": 0.43369386617910066,
+    "mass_weighted_rel_l2": 0.30355722258724976,
+    "share_of_compared_mass": 1.6751675444486428e-08,
+    "n_over_bar": 18
+   },
+   {
+    "leaf": "single_transition",
+    "n": 20,
+    "median_rel_l2": 0.03272658511967013,
+    "worst_rel_l2": 0.07876349867259343,
+    "mass_weighted_rel_l2": 0.03129941164334166,
+    "share_of_compared_mass": 6.870057631077544e-10,
+    "n_over_bar": 3
+   },
+   {
+    "leaf": "attn_pair_bias",
+    "n": 40,
+    "median_rel_l2": 0.032403010220370565,
+    "worst_rel_l2": 0.3313096876901143,
+    "mass_weighted_rel_l2": 0.03274735588818775,
+    "share_of_compared_mass": 2.536884414466285e-09,
+    "n_over_bar": 14
+   },
+   {
+    "leaf": "head output projections",
+    "n": 12,
+    "median_rel_l2": 0.004856315596625678,
+    "worst_rel_l2": 0.010281322617355926,
+    "mass_weighted_rel_l2": 0.0033356161262559675,
+    "share_of_compared_mass": 1.7326286208463237e-08,
+    "n_over_bar": 0
+   },
+   {
+    "leaf": "distogram (reads zij_trunk, never enters the masked path)",
+    "n": 1,
+    "median_rel_l2": 0.002267841731780386,
+    "worst_rel_l2": 0.002267841731780386,
+    "mass_weighted_rel_l2": 0.0022678417317803868,
+    "share_of_compared_mass": 0.9999998527383686,
+    "n_over_bar": 0
+   }
+  ],
+  "mass_share_inside_per_tensor_bar": 0.9999998829589991,
+  "n_scored": 176,
+  "n_skipped": 0,
+  "n_a14_excluded": 4,
+  "a14_floor": 6.036736152094039e-14,
+  "a14_median_ref_norm": 6.036736152094039e-06,
+  "a14_excluded": [
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 7.653292202369041e-23,
+    "our_norm": 1.602916476907347e-08
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 8.101674691975864e-22,
+    "our_norm": 4.343904484050534e-08
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 1.2917909945543593e-21,
+    "our_norm": 1.2263276335263797e-07
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 3.595104686588728e-21,
+    "our_norm": 1.7758093194373658e-07
+   }
+  ],
+  "median_rel_l2": 0.05365712665085962,
+  "worst": {
+   "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.layer_norm.weight",
+   "leaf": "tri_att_end",
+   "rel_l2": 1.1999043122342534,
+   "norm_ratio": 1.757567381639111,
+   "cos": 0.7536760098530862,
+   "ref_norm": 1.527517159551488e-05,
+   "our_norm": 2.684714334521721e-05,
+   "ref_sq": 2.3333086727242457e-10,
+   "our_sq": 7.207691057986406e-10,
+   "diff_sq": 3.3594286642621786e-10,
+   "dot": 3.090785533224236e-10
+  },
+  "n_over_bar": 89,
+  "rows": [
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.layer_norm.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 1.1999043122342534,
+    "norm_ratio": 1.757567381639111,
+    "cos": 0.7536760098530862,
+    "ref_norm": 1.527517159551488e-05,
+    "our_norm": 2.684714334521721e-05,
+    "ref_sq": 2.3333086727242457e-10,
+    "our_sq": 7.207691057986406e-10,
+    "diff_sq": 3.3594286642621786e-10,
+    "dot": 3.090785533224236e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.layer_norm.bias",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.6756192629442137,
+    "norm_ratio": 1.2658642143410694,
+    "cos": 0.8476228320448651,
+    "ref_norm": 2.5624914314611253e-05,
+    "our_norm": 3.2437662026422595e-05,
+    "ref_sq": 6.566362336311687e-10,
+    "our_sq": 1.0522019177404184e-09,
+    "diff_sq": 2.997290869172704e-10,
+    "dot": 7.045545322271585e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.layer_norm.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.666453185885223,
+    "norm_ratio": 1.3334711839085782,
+    "cos": 0.8751541006295934,
+    "ref_norm": 9.63418500187982e-06,
+    "our_norm": 1.2846908080450951e-05,
+    "ref_sq": 9.281752065044607e-11,
+    "our_sq": 1.6504304722755593e-10,
+    "diff_sq": 4.1225815954481186e-11,
+    "dot": 1.083173759617604e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.6349821429407365,
+    "norm_ratio": 1.5579633458498288,
+    "cos": 0.9705130333180088,
+    "ref_norm": 2.441227043388993e-05,
+    "our_norm": 3.8033422524974006e-05,
+    "ref_sq": 5.959589477373764e-10,
+    "our_sq": 1.4465412289632e-09,
+    "diff_sq": 2.402920314571444e-10,
+    "dot": 9.011040726217159e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.5735311426644452,
+    "norm_ratio": 1.1518871327204305,
+    "cos": 0.8672316662668257,
+    "ref_norm": 9.517131907102561e-06,
+    "our_norm": 1.0962661784194493e-05,
+    "ref_sq": 9.057579973718964e-11,
+    "our_sq": 1.2017995339463837e-10,
+    "diff_sq": 2.979381984214099e-11,
+    "dot": 9.048096664484349e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.5602107320084205,
+    "norm_ratio": 1.3895402230426432,
+    "cos": 0.9416733405045434,
+    "ref_norm": 1.8682741151236017e-05,
+    "our_norm": 2.5960420306336466e-05,
+    "ref_sq": 3.490448169240877e-10,
+    "our_sq": 6.739434224816467e-10,
+    "diff_sq": 1.0954285159290401e-10,
+    "dot": 4.5672269390641523e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.bias",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.5262836193696248,
+    "norm_ratio": 1.3078556177414185,
+    "cos": 0.9303442351853456,
+    "ref_norm": 1.6438658118126064e-05,
+    "our_norm": 2.1499391367921746e-05,
+    "ref_sq": 2.70229480724632e-10,
+    "our_sq": 4.6222382919106806e-10,
+    "diff_sq": 7.48466612615693e-11,
+    "dot": 3.288033243270654e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.4646201011008691,
+    "norm_ratio": 1.2609239604985203,
+    "cos": 0.9413959406694444,
+    "ref_norm": 2.7636542067307125e-06,
+    "our_norm": 3.4847578077992866e-06,
+    "ref_sq": 7.637784574380361e-12,
+    "our_sq": 1.2143536979018088e-11,
+    "diff_sq": 1.6487825969697095e-12,
+    "dot": 9.06626947821437e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.bias",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.46114572138148824,
+    "norm_ratio": 1.3373754203219028,
+    "cos": 0.9630495668571196,
+    "ref_norm": 2.00802620119729e-05,
+    "our_norm": 2.6854848848436193e-05,
+    "ref_sq": 4.0321692246948207e-10,
+    "our_sq": 7.211829066723547e-10,
+    "diff_sq": 8.574624639781275e-11,
+    "dot": 5.193267913720121e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_g.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.43369386617910066,
+    "norm_ratio": 1.1331122947099843,
+    "cos": 0.9248214464913105,
+    "ref_norm": 9.015029267918173e-06,
+    "our_norm": 1.0215040500648431e-05,
+    "ref_sq": 8.127075270142136e-11,
+    "our_sq": 1.0434705242988779e-10,
+    "diff_sq": 1.52862459101415e-11,
+    "dot": 8.516577961058381e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.4297564623287218,
+    "norm_ratio": 1.1811070300371251,
+    "cos": 0.9356997898066631,
+    "ref_norm": 3.0234455214841903e-06,
+    "our_norm": 3.571012760359239e-06,
+    "ref_sq": 9.141222821382808e-12,
+    "our_sq": 1.275213213464851e-11,
+    "diff_sq": 1.6882980822231104e-12,
+    "dot": 1.0102528436904104e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.4201920529226825,
+    "norm_ratio": 1.2579582918208017,
+    "cos": 0.9562708550292917,
+    "ref_norm": 1.1627990714686216e-05,
+    "our_norm": 1.4627527336754815e-05,
+    "ref_sq": 1.352101680608289e-10,
+    "our_sq": 2.139645559875094e-10,
+    "diff_sq": 2.3872891339746092e-11,
+    "dot": 1.6265091635429607e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.mha.linear_o.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.4099143077832018,
+    "norm_ratio": 1.129103432491088,
+    "cos": 0.9329724633329393,
+    "ref_norm": 8.31652798942282e-06,
+    "our_norm": 9.390220299265514e-06,
+    "ref_sq": 6.916463779885312e-11,
+    "our_sq": 8.817623726873814e-11,
+    "diff_sq": 1.1621716087541576e-11,
+    "dot": 7.285957949002484e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_z.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.40880159559372664,
+    "norm_ratio": 1.1637923274508275,
+    "cos": 0.9397268676209991,
+    "ref_norm": 1.1726023295366196e-05,
+    "our_norm": 1.3646655942656848e-05,
+    "ref_sq": 1.3749962232347055e-10,
+    "our_sq": 1.8623121841725152e-10,
+    "diff_sq": 2.29787642601694e-11,
+    "dot": 1.5037603824027632e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.39993093448252715,
+    "norm_ratio": 1.1462852592794222,
+    "cos": 0.9395676712441053,
+    "ref_norm": 1.487596229111207e-05,
+    "our_norm": 1.7052096291898306e-05,
+    "ref_sq": 2.212942540865883e-10,
+    "our_sq": 2.907739879481719e-10,
+    "diff_sq": 3.5394854667700026e-11,
+    "dot": 2.3833669368353005e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.bias",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3994709969433986,
+    "norm_ratio": 1.0986615756934903,
+    "cos": 0.9318065843951775,
+    "ref_norm": 3.0800994594835056e-05,
+    "our_norm": 3.383986925448816e-05,
+    "ref_sq": 9.487012680310582e-10,
+    "our_sq": 1.1451367511608531e-09,
+    "diff_sq": 1.5139097567707683e-10,
+    "dot": 9.71223521757417e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3983058287934398,
+    "norm_ratio": 1.1547673672837975,
+    "cos": 0.9416789047339974,
+    "ref_norm": 2.556052430017626e-05,
+    "our_norm": 2.951645935250807e-05,
+    "ref_sq": 6.53340402499902e-10,
+    "our_sq": 8.712213727082684e-10,
+    "diff_sq": 1.0365084322971314e-10,
+    "dot": 7.104554659892286e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_o.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.39344542302115837,
+    "norm_ratio": 1.1977674902877367,
+    "cos": 0.9517071044173243,
+    "ref_norm": 1.8046475472809934e-05,
+    "our_norm": 2.1615481635606752e-05,
+    "ref_sq": 3.2567527699073055e-10,
+    "our_sq": 4.672290463392559e-10,
+    "diff_sq": 5.041430519737337e-11,
+    "dot": 3.712450090663066e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.mha.linear_g.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.38366837669286585,
+    "norm_ratio": 1.0740372459668002,
+    "cos": 0.934024676510999,
+    "ref_norm": 6.870183015515271e-06,
+    "our_norm": 7.378832445271908e-06,
+    "ref_sq": 4.7199414666674474e-11,
+    "our_sq": 5.4447168255397414e-11,
+    "diff_sq": 6.947821016640746e-12,
+    "dot": 4.734938095271557e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3827678392489069,
+    "norm_ratio": 1.222126673423958,
+    "cos": 0.9602451358644168,
+    "ref_norm": 1.0544932411441857e-05,
+    "our_norm": 1.288724316947591e-05,
+    "ref_sq": 1.11195599561877e-10,
+    "our_sq": 1.660810365092035e-10,
+    "diff_sq": 1.6291402812923913e-11,
+    "dot": 1.304926166290783e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3827596686139191,
+    "norm_ratio": 1.053875292594533,
+    "cos": 0.9318693503043628,
+    "ref_norm": 1.1191648732782217e-05,
+    "our_norm": 1.1794602082876093e-05,
+    "ref_sq": 1.252530013579858e-10,
+    "our_sq": 1.3911263829338507e-10,
+    "diff_sq": 1.8350186444502418e-11,
+    "dot": 1.2300772660343422e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3809100984100997,
+    "norm_ratio": 1.1703053400790713,
+    "cos": 0.950402433349787,
+    "ref_norm": 3.637380433892312e-06,
+    "our_norm": 4.256845745683302e-06,
+    "ref_sq": 1.3230536420862625e-11,
+    "our_sq": 1.8120735702542026e-11,
+    "diff_sq": 1.9196516462722338e-12,
+    "dot": 1.471581023856621e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_z.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3796844980843809,
+    "norm_ratio": 1.1401920424477823,
+    "cos": 0.9454010795178793,
+    "ref_norm": 9.987353428790579e-06,
+    "our_norm": 1.138750090462059e-05,
+    "ref_sq": 9.974722851157491e-11,
+    "our_sq": 1.2967517685273488e-10,
+    "diff_sq": 1.4379592190384481e-11,
+    "dot": 1.0752140658696264e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.37646214222395785,
+    "norm_ratio": 1.168892461715012,
+    "cos": 0.9515784879228292,
+    "ref_norm": 4.22522981314577e-06,
+    "our_norm": 4.93883927759962e-06,
+    "ref_sq": 1.7852566973895848e-11,
+    "our_sq": 2.439213340996073e-11,
+    "diff_sq": 2.5301326409747722e-12,
+    "dot": 1.9857283871440903e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_g.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3753962916981882,
+    "norm_ratio": 1.1253013578450133,
+    "cos": 0.9443607062810493,
+    "ref_norm": 8.714944089016475e-06,
+    "our_norm": 9.806938416913611e-06,
+    "ref_sq": 7.595025047468329e-11,
+    "our_sq": 9.617604111313608e-11,
+    "diff_sq": 1.070308974107349e-11,
+    "dot": 8.071160092337295e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.37450965484712484,
+    "norm_ratio": 1.225955272687097,
+    "cos": 0.963619514387708,
+    "ref_norm": 3.154457389073553e-06,
+    "our_norm": 3.867223668601496e-06,
+    "ref_sq": 9.950601419480735e-12,
+    "our_sq": 1.495541890299161e-11,
+    "diff_sq": 1.3956462952401777e-12,
+    "dot": 1.1755187013616082e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.linear_out.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3731977512695831,
+    "norm_ratio": 1.1290868905156066,
+    "cos": 0.9457025241902924,
+    "ref_norm": 3.6153886637493084e-05,
+    "our_norm": 4.0820879443580804e-05,
+    "ref_sq": 1.3071035189967004e-09,
+    "our_sq": 1.6663441985473943e-09,
+    "diff_sq": 1.820488837192604e-10,
+    "dot": 1.3956994169124172e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.37061960785926706,
+    "norm_ratio": 1.1513198556188506,
+    "cos": 0.9502913137185105,
+    "ref_norm": 3.569082596989926e-05,
+    "our_norm": 4.109155660258194e-05,
+    "ref_sq": 1.273835058413635e-09,
+    "our_sq": 1.6885160240232364e-09,
+    "diff_sq": 1.7497257441787698e-10,
+    "dot": 1.3936892540094976e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_g.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.3698211950749589,
+    "norm_ratio": 1.1996983297906605,
+    "cos": 0.9596197264764085,
+    "ref_norm": 1.4610517641228624e-05,
+    "our_norm": 1.7528213611558962e-05,
+    "ref_sq": 2.1346722574465258e-10,
+    "our_sq": 3.072382724124424e-10,
+    "diff_sq": 2.919542497568609e-11,
+    "dot": 2.457550365907044e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.mha.linear_o.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.368973102599463,
+    "norm_ratio": 1.12191368844834,
+    "cos": 0.9459502971309107,
+    "ref_norm": 7.518216596408368e-06,
+    "our_norm": 8.434790112230038e-06,
+    "ref_sq": 5.652358079051023e-11,
+    "our_sq": 7.114568423737367e-11,
+    "diff_sq": 7.695185315914264e-12,
+    "dot": 5.998703985598482e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.3649268826405048,
+    "norm_ratio": 1.2063821414959008,
+    "cos": 0.9624588104259537,
+    "ref_norm": 5.7003312622720166e-06,
+    "our_norm": 6.876777835415747e-06,
+    "ref_sq": 3.249377649963568e-11,
+    "our_sq": 4.729007339766528e-11,
+    "diff_sq": 4.327249170710004e-12,
+    "dot": 3.772830036329548e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3611259271952619,
+    "norm_ratio": 1.1258683039340038,
+    "cos": 0.9491196683674837,
+    "ref_norm": 2.5630609188178025e-05,
+    "our_norm": 2.8856690495489287e-05,
+    "ref_sq": 6.569281273571169e-10,
+    "our_sq": 8.327085863524698e-10,
+    "diff_sq": 8.567126843680964e-11,
+    "dot": 7.019827226363883e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_g.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.36083539386284974,
+    "norm_ratio": 1.1247977551307862,
+    "cos": 0.9490451944558037,
+    "ref_norm": 1.2399667313385337e-05,
+    "our_norm": 1.3947117958464413e-05,
+    "ref_sq": 1.537517494826365e-10,
+    "our_sq": 1.9452209934732062e-10,
+    "diff_sq": 2.0018813186570034e-11,
+    "dot": 1.6412751782169355e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3601390626585037,
+    "norm_ratio": 1.1476504489915578,
+    "cos": 0.9529911352973713,
+    "ref_norm": 3.6318685068022784e-05,
+    "our_norm": 4.168115522509933e-05,
+    "ref_sq": 1.319046885070221e-09,
+    "our_sq": 1.7373187008988611e-09,
+    "diff_sq": 1.71080571533288e-10,
+    "dot": 1.4426425072178968e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.35799068764984726,
+    "norm_ratio": 1.1151023893867538,
+    "cos": 0.9484761338980432,
+    "ref_norm": 5.012719501387688e-05,
+    "our_norm": 5.5896954933229884e-05,
+    "ref_sq": 2.5127356799592435e-09,
+    "our_sq": 3.1244695708075326e-09,
+    "diff_sq": 3.2202550188046343e-10,
+    "dot": 2.6575898744431566e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.linear_out.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3578931933918473,
+    "norm_ratio": 1.1313932395567734,
+    "cos": 0.9510235033230413,
+    "ref_norm": 2.3641512307954613e-05,
+    "our_norm": 2.6747847198118103e-05,
+    "ref_sq": 5.589211042071704e-10,
+    "our_sq": 7.154473297338837e-10,
+    "diff_sq": 7.159082810495115e-11,
+    "dot": 6.013888029180516e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_z.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3496686798591378,
+    "norm_ratio": 1.1325114160581409,
+    "cos": 0.9537713665381196,
+    "ref_norm": 1.2176882336503748e-05,
+    "our_norm": 1.3790458258087224e-05,
+    "ref_sq": 1.4827646343705738e-10,
+    "our_sq": 1.9017673896804627e-10,
+    "diff_sq": 1.812949416267024e-11,
+    "dot": 1.6016185412121674e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.34932485644960537,
+    "norm_ratio": 1.280162210322887,
+    "cos": 0.982995517720543,
+    "ref_norm": 2.5156450849437672e-05,
+    "our_norm": 3.22043377232952e-05,
+    "ref_sq": 6.328470193401734e-10,
+    "our_sq": 1.037119368196054e-09,
+    "diff_sq": 7.722496452430302e-11,
+    "dot": 7.963707115059622e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_z.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.34901204979814293,
+    "norm_ratio": 1.1662276301009666,
+    "cos": 0.9596228971666728,
+    "ref_norm": 2.17248855215051e-05,
+    "our_norm": 2.5336161755959693e-05,
+    "ref_sq": 4.719706509225024e-10,
+    "our_sq": 6.419210925241584e-10,
+    "diff_sq": 5.749046695298964e-11,
+    "dot": 5.282006382468356e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.mha.linear_g.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.3489890980606836,
+    "norm_ratio": 1.0901338138853693,
+    "cos": 0.9478645260279777,
+    "ref_norm": 5.8837378910980724e-06,
+    "our_norm": 6.414061627124602e-06,
+    "ref_sq": 3.4618371571143245e-11,
+    "our_sq": 4.1140186556552336e-11,
+    "diff_sq": 4.216288849495785e-12,
+    "dot": 3.57711346390999e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_z.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.34082741914501047,
+    "norm_ratio": 1.1294679477890603,
+    "cos": 0.9559963696486852,
+    "ref_norm": 1.5490815036852965e-05,
+    "our_norm": 1.7496379069254237e-05,
+    "ref_sq": 2.399653505059899e-10,
+    "our_sq": 3.0612328053503826e-10,
+    "diff_sq": 2.7875174113257083e-11,
+    "dot": 2.5910672846388555e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_g.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.33831444918867604,
+    "norm_ratio": 1.1541307304015398,
+    "cos": 0.960706191211041,
+    "ref_norm": 1.904491695594507e-05,
+    "our_norm": 2.1980323916801553e-05,
+    "ref_sq": 3.6270886185884417e-10,
+    "our_sq": 4.831346394875202e-10,
+    "diff_sq": 4.151444724919449e-11,
+    "dot": 4.0216452704858494e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.layer_norm.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.3368979987818495,
+    "norm_ratio": 1.1004081269567263,
+    "cos": 0.9530090395141531,
+    "ref_norm": 1.1019334671519006e-05,
+    "our_norm": 1.2125765426195542e-05,
+    "ref_sq": 1.2142573660294087e-10,
+    "our_sq": 1.4703418717111914e-10,
+    "diff_sq": 1.3781852867368361e-11,
+    "dot": 1.2733903545334584e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_z.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.3349355943425855,
+    "norm_ratio": 1.1328176840202968,
+    "cos": 0.9582716104706391,
+    "ref_norm": 2.0084504501390177e-05,
+    "our_norm": 2.2752081873960047e-05,
+    "ref_sq": 4.033873210663631e-10,
+    "our_sq": 5.176572295993847e-10,
+    "diff_sq": 4.5252736894803e-11,
+    "dot": 4.378959068854725e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.3332969397430179,
+    "norm_ratio": 1.1423662613026073,
+    "cos": 0.9602497461798195,
+    "ref_norm": 3.49601415933292e-06,
+    "our_norm": 3.993728624658125e-06,
+    "ref_sq": 1.2222115002256262e-11,
+    "our_sq": 1.5949868327413682e-11,
+    "diff_sq": 1.3577162564524642e-12,
+    "dot": 1.340713353660874e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_o.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.33176400452804394,
+    "norm_ratio": 1.1240309366258179,
+    "cos": 0.9578820838577485,
+    "ref_norm": 9.091392766401984e-06,
+    "our_norm": 1.0219006726452008e-05,
+    "ref_sq": 8.265342243298625e-11,
+    "our_sq": 1.044280984752715e-10,
+    "diff_sq": 9.097443564140441e-12,
+    "dot": 8.899203867205868e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.3313096876901143,
+    "norm_ratio": 1.0269866536199295,
+    "cos": 0.946913706570878,
+    "ref_norm": 3.4622124461556997e-07,
+    "our_norm": 3.5556459741987126e-07,
+    "ref_sq": 1.1986915022315432e-13,
+    "our_sq": 1.264261829383551e-13,
+    "diff_sq": 1.3157570227990074e-14,
+    "dot": 1.1656888146675968e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.3302332820120344,
+    "norm_ratio": 1.0533628862225148,
+    "cos": 0.9495869731544692,
+    "ref_norm": 3.6891230495594484e-05,
+    "our_norm": 3.885985303113946e-05,
+    "ref_sq": 1.3609628874790803e-09,
+    "our_sq": 1.5100881776017588e-09,
+    "diff_sq": 1.4841847469680767e-10,
+    "dot": 1.3613162951920157e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_g.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.32971331037273394,
+    "norm_ratio": 1.1394678534837144,
+    "cos": 0.9608327761907914,
+    "ref_norm": 1.1129168371816001e-05,
+    "our_norm": 1.2681329595692023e-05,
+    "ref_sq": 1.2385838864822968e-10,
+    "our_sq": 1.6081612031457457e-10,
+    "diff_sq": 1.3464752819748194e-11,
+    "dot": 1.3560487807152805e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.32856884299480343,
+    "norm_ratio": 1.1359203990756557,
+    "cos": 0.9606120597117216,
+    "ref_norm": 1.360955736963383e-05,
+    "our_norm": 1.545937383855749e-05,
+    "ref_sq": 1.8522005179735451e-10,
+    "our_sq": 2.389922394802757e-10,
+    "diff_sq": 1.9995890887105836e-11,
+    "dot": 2.0210820019526217e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_i.weight",
+    "leaf": "pairformer_embedding input projections",
+    "rel_l2": 0.328074951683576,
+    "norm_ratio": 1.2536433509385525,
+    "cos": 0.9827310437157313,
+    "ref_norm": 4.899927259532449e-05,
+    "our_norm": 6.142761228995418e-05,
+    "ref_sq": 2.400928714870917e-09,
+    "our_sq": 3.77335155164493e-09,
+    "diff_sq": 2.584195779424595e-10,
+    "dot": 2.957930344286693e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.layer_norm.bias",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.3246500088485132,
+    "norm_ratio": 1.0743679438925413,
+    "cos": 0.9535228886275648,
+    "ref_norm": 1.5673893281902014e-05,
+    "our_norm": 1.6839528498068184e-05,
+    "ref_sq": 2.4567093061245305e-10,
+    "our_sq": 2.835697200372505e-10,
+    "diff_sq": 2.589313341537798e-11,
+    "dot": 2.516737586171628e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.3241783056724933,
+    "norm_ratio": 1.0859596981869029,
+    "cos": 0.9550155938938494,
+    "ref_norm": 4.1497056985657845e-06,
+    "our_norm": 4.50641314797897e-06,
+    "ref_sq": 1.7220057384709344e-11,
+    "our_sq": 2.0307759460277735e-11,
+    "diff_sq": 1.8096829326682366e-12,
+    "dot": 1.7859066956159422e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.3206247977903157,
+    "norm_ratio": 1.12442185528406,
+    "cos": 0.9611713955596792,
+    "ref_norm": 5.2913988244075396e-06,
+    "our_norm": 5.949764483188219e-06,
+    "ref_sq": 2.7998901518941495e-11,
+    "our_sq": 3.539969740540798e-11,
+    "diff_sq": 2.878294382686791e-12,
+    "dot": 3.0260152270831345e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_j.weight",
+    "leaf": "pairformer_embedding input projections",
+    "rel_l2": 0.308770721174481,
+    "norm_ratio": 1.2259434291147409,
+    "cos": 0.9819367990224221,
+    "ref_norm": 4.5776773297467425e-05,
+    "our_norm": 5.6119734430105316e-05,
+    "ref_sq": 2.0955129735277253e-09,
+    "our_sq": 3.149424592505548e-09,
+    "diff_sq": 1.9978486211034128e-10,
+    "dot": 2.5225763519614668e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_a.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.3081025215720147,
+    "norm_ratio": 1.2132185907587865,
+    "cos": 0.9796141450804284,
+    "ref_norm": 6.352940081931466e-07,
+    "our_norm": 7.707505013375903e-07,
+    "ref_sq": 4.035984768461138e-13,
+    "our_sq": 5.940563353121468e-13,
+    "diff_sq": 3.831245872061159e-14,
+    "dot": 4.796711767188245e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_g.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.3051975702277877,
+    "norm_ratio": 1.1044861387584977,
+    "cos": 0.9627753573382498,
+    "ref_norm": 6.797988043002119e-06,
+    "our_norm": 7.508283564941847e-06,
+    "ref_sq": 4.6212641432799825e-11,
+    "our_sq": 5.637432209157593e-11,
+    "diff_sq": 4.30450222082789e-12,
+    "dot": 4.9141230651773936e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_o.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.30396370066927986,
+    "norm_ratio": 1.086210774625233,
+    "cos": 0.9608908161989147,
+    "ref_norm": 1.7564577018958242e-05,
+    "our_norm": 1.9078832809727196e-05,
+    "ref_sq": 3.08514365854916e-10,
+    "our_sq": 3.6400186138152475e-10,
+    "diff_sq": 2.8504855131440366e-11,
+    "dot": 3.220056860525002e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+    "leaf": "pair_transition",
+    "rel_l2": 0.300042709639486,
+    "norm_ratio": 1.2040097888376735,
+    "cos": 0.9798981560968274,
+    "ref_norm": 8.188569507343263e-05,
+    "our_norm": 9.859117843418974e-05,
+    "ref_sq": 6.7052670576591865e-09,
+    "our_sq": 9.720220465042238e-09,
+    "diff_sq": 6.036458751437077e-10,
+    "dot": 7.910920823778859e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.2974952440977781,
+    "norm_ratio": 1.1206930429250377,
+    "cos": 0.9670129969499465,
+    "ref_norm": 2.65629991296715e-05,
+    "our_norm": 2.976896832384668e-05,
+    "ref_sq": 7.055929227629282e-10,
+    "our_sq": 8.861914750661933e-10,
+    "diff_sq": 6.244738697633127e-11,
+    "dot": 7.646685054263951e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_g.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.2958907197100684,
+    "norm_ratio": 1.1009546842449311,
+    "cos": 0.9648670963271312,
+    "ref_norm": 1.4078594191885813e-05,
+    "our_norm": 1.5499894223140168e-05,
+    "ref_sq": 1.9820681441980092e-10,
+    "our_sq": 2.402467209285354e-10,
+    "diff_sq": 1.735326784112454e-11,
+    "dot": 2.1055013375360587e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.29465265854526507,
+    "norm_ratio": 1.2439644819650992,
+    "cos": 0.989026406652638,
+    "ref_norm": 3.3968312758128875e-05,
+    "our_norm": 4.225537458339426e-05,
+    "ref_sq": 1.153846271634061e-09,
+    "our_sq": 1.7855166811829613e-09,
+    "diff_sq": 1.0017715159689825e-10,
+    "dot": 1.419592900610062e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.layer_norm.bias",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.28965785563901875,
+    "norm_ratio": 1.0785351896731354,
+    "cos": 0.9639632076631833,
+    "ref_norm": 1.5859676156703675e-05,
+    "our_norm": 1.71052188318249e-05,
+    "ref_sq": 2.5152932779551494e-10,
+    "our_sq": 2.925885112846172e-10,
+    "diff_sq": 2.110373149446764e-11,
+    "dot": 2.6150705379283223e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.layer_norm.bias",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.2891239997131418,
+    "norm_ratio": 1.0909916937580515,
+    "cos": 0.9654840640363902,
+    "ref_norm": 2.173993101338421e-05,
+    "our_norm": 2.3718084158475235e-05,
+    "ref_sq": 4.726246004667046e-10,
+    "our_sq": 5.625475161485139e-10,
+    "diff_sq": 3.950796039462347e-11,
+    "dot": 4.978320781102975e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.28083279687090895,
+    "norm_ratio": 1.127458529882619,
+    "cos": 0.972228963949114,
+    "ref_norm": 1.695979920948336e-05,
+    "our_norm": 1.9121470283828514e-05,
+    "ref_sq": 2.876347892259924e-10,
+    "our_sq": 3.6563062581533694e-10,
+    "diff_sq": 2.2684910121968457e-11,
+    "dot": 3.1529025245968047e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.269512648196961,
+    "norm_ratio": 1.0960889673184313,
+    "cos": 0.9710771753989399,
+    "ref_norm": 3.5179012937999266e-06,
+    "our_norm": 3.855932796249335e-06,
+    "ref_sq": 1.23756295129192e-11,
+    "our_sq": 1.4868217729191215e-11,
+    "diff_sq": 8.989294367568963e-13,
+    "dot": 1.3172458902676759e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.2645721899896903,
+    "norm_ratio": 1.1355010699502333,
+    "cos": 0.977262062923223,
+    "ref_norm": 3.586421057463648e-06,
+    "our_norm": 4.07238494804202e-06,
+    "ref_sq": 1.286241600141867e-11,
+    "our_sq": 1.6584319165039206e-11,
+    "diff_sq": 9.003491025263208e-13,
+    "dot": 1.4273193031965779e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.layer_norm.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.2556183281600236,
+    "norm_ratio": 1.0524160230192556,
+    "cos": 0.9702620974723485,
+    "ref_norm": 2.145493297176295e-05,
+    "our_norm": 2.2579515232287467e-05,
+    "ref_sq": 4.6031414882284104e-10,
+    "our_sq": 5.098345081251018e-10,
+    "diff_sq": 3.0077262371325833e-11,
+    "dot": 4.700356972883084e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_distance.weight",
+    "leaf": "pairformer_embedding input projections",
+    "rel_l2": 0.2470974869767862,
+    "norm_ratio": 1.0765042248016186,
+    "cos": 0.9743594728260727,
+    "ref_norm": 2.4778053839987966e-06,
+    "our_norm": 2.6673679641109015e-06,
+    "ref_sq": 6.1395195209734195e-12,
+    "our_sq": 7.114851855965137e-12,
+    "diff_sq": 3.748616752626125e-13,
+    "dot": 6.439754850837972e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.2466278719222824,
+    "norm_ratio": 1.241796182140835,
+    "cos": 0.9990497983707115,
+    "ref_norm": 6.825110544860941e-07,
+    "our_norm": 8.47539621729747e-07,
+    "ref_sq": 4.658213394957203e-13,
+    "our_sq": 7.183234104018027e-13,
+    "diff_sq": 2.833372607929488e-14,
+    "dot": 5.779055119091142e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.23307401015506593,
+    "norm_ratio": 1.0704656312693153,
+    "cos": 0.9769455050317429,
+    "ref_norm": 5.454884189199593e-06,
+    "our_norm": 5.83926604709255e-06,
+    "ref_sq": 2.97557615175797e-11,
+    "our_sq": 3.409702796872785e-11,
+    "diff_sq": 1.6164369385073529e-12,
+    "dot": 3.1118176273900095e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.2265882973206446,
+    "norm_ratio": 1.1601798036049864,
+    "cos": 0.9889307299955028,
+    "ref_norm": 1.174083256118694e-05,
+    "our_norm": 1.3621476814996893e-05,
+    "ref_sq": 1.3784714922982745e-10,
+    "our_sq": 1.8554463062149792e-10,
+    "diff_sq": 7.077383691162529e-12,
+    "dot": 1.5815719808008147e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.19419415812772975,
+    "norm_ratio": 1.1615431183490368,
+    "cos": 0.9950001029744304,
+    "ref_norm": 3.071262092831261e-08,
+    "our_norm": 3.567403348574412e-08,
+    "ref_sq": 9.43265084286226e-16,
+    "our_sq": 1.2726366651419927e-15,
+    "diff_sq": 3.5571819592911877e-17,
+    "dot": 1.0901649649176534e-15
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.19346781122067896,
+    "norm_ratio": 1.1596145555570823,
+    "cos": 0.9948461376344846,
+    "ref_norm": 2.4369202773966594e-07,
+    "our_norm": 2.8258882244013685e-07,
+    "ref_sq": 5.938580438387158e-14,
+    "our_sq": 7.985644256810499e-14,
+    "diff_sq": 2.2227984233369913e-15,
+    "dot": 6.850972426431984e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.16582795742752818,
+    "norm_ratio": 1.0578059405487552,
+    "cos": 0.9885813721705697,
+    "ref_norm": 9.062140791901107e-07,
+    "our_norm": 9.585986363762192e-07,
+    "ref_sq": 8.212239573224133e-13,
+    "our_sq": 9.189113456623844e-13,
+    "diff_sq": 2.2582764895005994e-14,
+    "dot": 8.587762690448964e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.14506609748306426,
+    "norm_ratio": 1.0861276077514395,
+    "cos": 0.9937271607292121,
+    "ref_norm": 1.4973230047883612e-05,
+    "our_norm": 1.62628385322198e-05,
+    "ref_sq": 2.2419761806684464e-10,
+    "our_sq": 2.644799171250531e-10,
+    "diff_sq": 4.718053379843621e-12,
+    "dot": 2.4197974090602706e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.13834674526220228,
+    "norm_ratio": 1.0471643681945144,
+    "cos": 0.9919232620917854,
+    "ref_norm": 1.6483749814095156e-05,
+    "our_norm": 1.72611954595534e-05,
+    "ref_sq": 2.717140079336821e-10,
+    "our_sq": 2.979488686929069e-10,
+    "diff_sq": 5.20055772628217e-12,
+    "dot": 2.8223115945015347e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_g.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.08712621588387502,
+    "norm_ratio": 1.0218401573367253,
+    "cos": 0.9965190323698627,
+    "ref_norm": 9.007459034053661e-08,
+    "our_norm": 9.204183356561501e-08,
+    "ref_sq": 8.113431825015502e-15,
+    "our_sq": 8.471699126120575e-15,
+    "diff_sq": 6.158887838477249e-17,
+    "dot": 8.261771036375644e-15
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.layer_norm.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.07876349867259343,
+    "norm_ratio": 1.0753859816654625,
+    "cos": 0.9997579276183813,
+    "ref_norm": 3.11791436879625e-06,
+    "our_norm": 3.352961404236806e-06,
+    "ref_sq": 9.721390011146116e-12,
+    "our_sq": 1.1242350178301654e-11,
+    "diff_sq": 6.030847758546716e-14,
+    "dot": 1.0451715855931152e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.07779732287621269,
+    "norm_ratio": 0.9884961971034898,
+    "cos": 0.9970055089827496,
+    "ref_norm": 1.0806622409933292e-08,
+    "our_norm": 1.0682305155752409e-08,
+    "ref_sq": 1.167830879108726e-16,
+    "our_sq": 1.1411164344061597e-16,
+    "diff_sq": 7.068206994504584e-19,
+    "dot": 1.1509395532601917e-16
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.07519530236438018,
+    "norm_ratio": 1.0060298989823504,
+    "cos": 0.9972078494776268,
+    "ref_norm": 2.8094274898352903e-06,
+    "our_norm": 2.8263680537972352e-06,
+    "ref_sq": 7.892882820642218e-12,
+    "our_sq": 7.988356375525572e-12,
+    "diff_sq": 4.462899172594581e-14,
+    "dot": 7.918305102220923e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.swiglu.linear_a.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.07388539665399987,
+    "norm_ratio": 0.9883162519671892,
+    "cos": 0.9973072678608871,
+    "ref_norm": 1.4606712753947486e-06,
+    "our_norm": 1.443605160254272e-06,
+    "ref_sq": 2.1335605747633863e-12,
+    "our_sq": 2.083995858712843e-12,
+    "diff_sq": 1.1647217778680432e-14,
+    "dot": 2.1029546078487718e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.0627496799640251,
+    "norm_ratio": 1.0133163143379111,
+    "cos": 0.9981446079300088,
+    "ref_norm": 5.122497180983824e-06,
+    "our_norm": 5.190709963640868e-06,
+    "ref_sq": 2.6239977369187184e-11,
+    "our_sq": 2.694346992664087e-11,
+    "diff_sq": 1.0332049697648739e-13,
+    "dot": 2.6540063399425798e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.05936125617505135,
+    "norm_ratio": 1.0131352242856224,
+    "cos": 0.9983461118825432,
+    "ref_norm": 1.2701246013781078e-06,
+    "our_norm": 1.286807972887896e-06,
+    "ref_sq": 1.6132165030258976e-12,
+    "our_sq": 1.655874759087856e-12,
+    "diff_sq": 5.684585743467544e-15,
+    "dot": 1.6317033381851434e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.layer_norm.bias",
+    "leaf": "single_transition",
+    "rel_l2": 0.05775589024401254,
+    "norm_ratio": 0.9988315333372993,
+    "cos": 0.9983308608948323,
+    "ref_norm": 1.1116373764999935e-06,
+    "our_norm": 1.1103384652845413e-06,
+    "ref_sq": 1.2357376568317889e-12,
+    "our_sq": 1.2328515074904306e-12,
+    "diff_sq": 4.122103062988054e-15,
+    "dot": 1.2322335306296159e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.layer_norm.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.054861781369351256,
+    "norm_ratio": 0.9862450600938071,
+    "cos": 0.998570022402481,
+    "ref_norm": 4.818597966326667e-06,
+    "our_norm": 4.7523184408677406e-06,
+    "ref_sq": 2.3218886361087487e-11,
+    "our_sq": 2.258453056341159e-11,
+    "diff_sq": 6.988455373036476e-14,
+    "dot": 2.2866766185384357e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.0542401457357788,
+    "norm_ratio": 0.9620756097020096,
+    "cos": 0.9992184948798207,
+    "ref_norm": 1.6596775836911967e-06,
+    "our_norm": 1.596735323238466e-06,
+    "ref_sq": 2.75452968180705e-12,
+    "our_sq": 2.5495636924774487e-12,
+    "diff_sq": 8.103808169979137e-15,
+    "dot": 2.6479947830572604e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.05365712665085962,
+    "norm_ratio": 1.0326579205020139,
+    "cos": 0.9991223872722377,
+    "ref_norm": 7.701868015953145e-07,
+    "our_norm": 7.953395009335145e-07,
+    "ref_sq": 5.9318770935162e-13,
+    "our_sq": 6.325649217451704e-13,
+    "diff_sq": 1.7078391651720093e-15,
+    "dot": 6.120223959658091e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_a.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.052325261930711034,
+    "norm_ratio": 1.0472124083897982,
+    "cos": 0.9997570113159112,
+    "ref_norm": 3.4051072197274694e-06,
+    "our_norm": 3.565870532396293e-06,
+    "ref_sq": 1.1594755177840136e-11,
+    "our_sq": 1.2715432653812224e-11,
+    "diff_sq": 3.1745663247103177e-14,
+    "dot": 1.213922108420263e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.layer_norm.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.04809148599042631,
+    "norm_ratio": 1.046330958885523,
+    "cos": 0.9999205637221648,
+    "ref_norm": 1.6211591271765817e-06,
+    "our_norm": 1.6962689840446902e-06,
+    "ref_sq": 2.628156915627936e-12,
+    "our_sq": 2.8773284662320056e-12,
+    "diff_sq": 6.078377726144585e-15,
+    "dot": 2.7497035020668985e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.layer_norm.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.04803038009867561,
+    "norm_ratio": 1.046895087260643,
+    "cos": 0.9999485296069535,
+    "ref_norm": 1.4444951984028195e-06,
+    "our_norm": 1.5122349267794996e-06,
+    "ref_sq": 2.0865663782088004e-12,
+    "our_sq": 2.2868544737717986e-12,
+    "diff_sq": 4.81353631006681e-15,
+    "dot": 2.1843036578352664e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.04727908494776035,
+    "norm_ratio": 0.9916691897498227,
+    "cos": 0.9989079475814814,
+    "ref_norm": 1.7730830833765059e-06,
+    "our_norm": 1.7583118646510969e-06,
+    "ref_sq": 3.143823620555937e-12,
+    "our_sq": 3.091660613372817e-12,
+    "diff_sq": 7.02742626721071e-15,
+    "dot": 3.1142284038307716e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_a.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.047198786780646845,
+    "norm_ratio": 0.9990336559547844,
+    "cos": 0.9988855272094794,
+    "ref_norm": 6.036736152094039e-06,
+    "our_norm": 6.030902588060926e-06,
+    "ref_sq": 3.644218336999913e-11,
+    "our_sq": 3.637178602667997e-11,
+    "diff_sq": 8.11831802056726e-14,
+    "dot": 3.636639310823672e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.04700668560436257,
+    "norm_ratio": 1.021799881479163,
+    "cos": 0.9991513046289989,
+    "ref_norm": 2.3155902385148023e-07,
+    "our_norm": 2.3660698312687316e-07,
+    "ref_sq": 5.3619581527050387e-14,
+    "our_sq": 5.598286446440044e-14,
+    "diff_sq": 1.1847935504487373e-16,
+    "dot": 5.474198331820298e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.linear_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.04487340879012126,
+    "norm_ratio": 1.0038146630749367,
+    "cos": 0.9990042628208144,
+    "ref_norm": 5.907759590900497e-06,
+    "our_norm": 5.930295703267508e-06,
+    "ref_sq": 3.4901623383876806e-11,
+    "our_sq": 3.5168407128193076e-11,
+    "diff_sq": 7.02787051767563e-14,
+    "dot": 3.4999875903446556e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_k.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.04485177395851543,
+    "norm_ratio": 1.0161771175670287,
+    "cos": 0.999138938249943,
+    "ref_norm": 6.247790944931788e-06,
+    "our_norm": 6.3488621935821665e-06,
+    "ref_sq": 3.903489169157155e-11,
+    "our_sq": 4.030805115309738e-11,
+    "diff_sq": 7.852577443668298e-14,
+    "dot": 3.963220853511612e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.mha.linear_g.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.04300048603925605,
+    "norm_ratio": 0.9909360734961901,
+    "cos": 0.9991084757719484,
+    "ref_norm": 8.86113361334785e-06,
+    "our_norm": 8.780816949536026e-06,
+    "ref_sq": 7.851968891360318e-11,
+    "our_sq": 7.710274630125918e-11,
+    "diff_sq": 1.45186186893803e-13,
+    "dot": 7.773862451398429e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.swiglu.linear_b.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.04295479086233215,
+    "norm_ratio": 0.9804031430993162,
+    "cos": 0.9992548589486382,
+    "ref_norm": 1.4554100979882572e-06,
+    "our_norm": 1.4268886345661711e-06,
+    "ref_sq": 2.1182185533262255e-12,
+    "our_sq": 2.0360111754541256e-12,
+    "diff_sq": 3.908354830715157e-15,
+    "dot": 2.07516068697482e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.04273720690700456,
+    "norm_ratio": 1.0068884979095054,
+    "cos": 0.9991165767339403,
+    "ref_norm": 1.7905402952660516e-05,
+    "our_norm": 1.802874428346877e-05,
+    "ref_sq": 3.206034548971436e-10,
+    "our_sq": 3.2503562043870845e-10,
+    "diff_sq": 5.855722249224336e-13,
+    "dot": 3.2252675155546477e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.linear_g.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.040680319912463604,
+    "norm_ratio": 1.0023344409253154,
+    "cos": 0.9991772013679272,
+    "ref_norm": 4.574899309944836e-06,
+    "our_norm": 4.5855791421231685e-06,
+    "ref_sq": 2.0929703696133757e-11,
+    "our_sq": 2.102753606867505e-11,
+    "diff_sq": 3.463632445197592e-14,
+    "dot": 2.0961301720178418e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_in.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.039911069467644104,
+    "norm_ratio": 1.00331182012635,
+    "cos": 0.9992116482225322,
+    "ref_norm": 6.704240667774798e-06,
+    "our_norm": 6.726443906950229e-06,
+    "ref_sq": 4.4946842931445465e-11,
+    "our_sq": 4.524504763334786e-11,
+    "diff_sq": 7.159553242512517e-14,
+    "dot": 4.5060147516184094e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.linear_out.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.03885823358733705,
+    "norm_ratio": 1.0053462737184828,
+    "cos": 0.9992632490348966,
+    "ref_norm": 1.6434441077977902e-05,
+    "our_norm": 1.652230409839105e-05,
+    "ref_sq": 2.7009085354552783e-10,
+    "our_sq": 2.7298653271971066e-10,
+    "diff_sq": 4.078270111627333e-13,
+    "dot": 2.7133477962703783e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.swiglu.linear_b.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.03702811721111756,
+    "norm_ratio": 1.032997985046138,
+    "cos": 0.9998634002916154,
+    "ref_norm": 7.616756125064624e-07,
+    "our_norm": 7.868093729779586e-07,
+    "ref_sq": 5.801497386870906e-13,
+    "our_sq": 6.190689894060053e-13,
+    "diff_sq": 7.954325531745184e-16,
+    "dot": 5.992116477699606e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.layer_norm.bias",
+    "leaf": "single_transition",
+    "rel_l2": 0.03661885909519075,
+    "norm_ratio": 0.9863698057468797,
+    "cos": 0.9994144393718634,
+    "ref_norm": 5.157000368952439e-06,
+    "our_norm": 5.086709452160204e-06,
+    "ref_sq": 2.6594652805375594e-11,
+    "our_sq": 2.5874613050695965e-11,
+    "diff_sq": 3.5661856110470387e-14,
+    "dot": 2.6216801999980535e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.03520293798527397,
+    "norm_ratio": 1.0039603598282743,
+    "cos": 0.9993906321196644,
+    "ref_norm": 1.75983501625715e-05,
+    "our_norm": 1.766804596159925e-05,
+    "ref_sq": 3.0970192844448137e-10,
+    "our_sq": 3.121598481011844e-10,
+    "diff_sq": 3.8379713703235846e-13,
+    "dot": 3.1073898970431674e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.linear_g.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.03497263307331221,
+    "norm_ratio": 0.9951763675656703,
+    "cos": 0.9993971834172704,
+    "ref_norm": 3.1439756957900017e-06,
+    "our_norm": 3.128810312651045e-06,
+    "ref_sq": 9.884583175718231e-12,
+    "our_sq": 9.789453972551528e-12,
+    "diff_sq": 1.2089686046882649e-14,
+    "dot": 9.830973731111439e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.layer_norm.bias",
+    "leaf": "pair_transition",
+    "rel_l2": 0.03461759456549811,
+    "norm_ratio": 1.0050170651151684,
+    "cos": 0.9994163248805147,
+    "ref_norm": 1.854562562016446e-05,
+    "our_norm": 1.8638670231502358e-05,
+    "ref_sq": 3.4394022964330033e-10,
+    "our_sq": 3.474000279986921e-10,
+    "diff_sq": 4.121703541326495e-13,
+    "dot": 3.4546404364392987e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.mha.linear_o.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.0346085510893059,
+    "norm_ratio": 0.9826118963648075,
+    "cos": 0.9995443747100025,
+    "ref_norm": 1.1434613999423639e-05,
+    "our_norm": 1.1235787746173237e-05,
+    "ref_sq": 1.3075039731581508e-10,
+    "our_sq": 1.2624292627705674e-10,
+    "diff_sq": 1.566065248472545e-13,
+    "dot": 1.2841835853401227e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.layer_norm.bias",
+    "leaf": "single_transition",
+    "rel_l2": 0.03432822805402374,
+    "norm_ratio": 1.0307615077093724,
+    "cos": 0.9998873857419787,
+    "ref_norm": 4.178800787504197e-06,
+    "our_norm": 4.307347000144939e-06,
+    "ref_sq": 1.7462376021645693e-11,
+    "our_sq": 1.8553238179657604e-11,
+    "diff_sq": 2.057813960223871e-14,
+    "dot": 1.7997518030850532e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.swiglu.linear_a.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.03272658511967013,
+    "norm_ratio": 1.004199618925119,
+    "cos": 0.9994755063860729,
+    "ref_norm": 1.6554049936007137e-06,
+    "our_norm": 1.6623570637405757e-06,
+    "ref_sq": 2.7403656928382164e-12,
+    "our_sq": 2.7634310073681867e-12,
+    "diff_sq": 2.935012151421782e-15,
+    "dot": 2.750430844027487e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.linear_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.032403010220370565,
+    "norm_ratio": 1.0086361874086232,
+    "cos": 0.9995164900136636,
+    "ref_norm": 9.684257729323332e-06,
+    "our_norm": 9.767892793987175e-06,
+    "ref_sq": 9.37848477679587e-11,
+    "our_sq": 9.541172963482658e-11,
+    "diff_sq": 9.846987652895313e-14,
+    "dot": 9.454905376312816e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.0313947185102303,
+    "norm_ratio": 1.0037878562919862,
+    "cos": 0.9995161923463459,
+    "ref_norm": 4.243805199287854e-06,
+    "our_norm": 4.25988012351394e-06,
+    "ref_sq": 1.8009882569502637e-11,
+    "our_sq": 1.8146578666709285e-11,
+    "diff_sq": 1.775105084673481e-14,
+    "dot": 1.8069355092682603e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.layer_norm.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.03134978341408052,
+    "norm_ratio": 0.9994637823300137,
+    "cos": 0.9995084757406466,
+    "ref_norm": 1.9740966410639804e-05,
+    "our_norm": 1.973038095562781e-05,
+    "ref_sq": 3.8970575482600887e-10,
+    "our_sq": 3.892879326542006e-10,
+    "diff_sq": 3.8300629206110816e-13,
+    "dot": 3.8930534059407413e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.030292076251335783,
+    "norm_ratio": 1.007546517681122,
+    "cos": 0.9995728931918269,
+    "ref_norm": 6.0877221305249595e-06,
+    "our_norm": 6.133663233220724e-06,
+    "ref_sq": 3.7060360738483354e-11,
+    "our_sq": 3.762182465856371e-11,
+    "diff_sq": 3.400695330403415e-14,
+    "dot": 3.732408922187151e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.swiglu.linear_a.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.029418801693700102,
+    "norm_ratio": 1.0256465188814938,
+    "cos": 0.9998987360857258,
+    "ref_norm": 5.968650768418039e-06,
+    "our_norm": 6.1217258830473154e-06,
+    "ref_sq": 3.5624791995339195e-11,
+    "our_sq": 3.7475527787170926e-11,
+    "diff_sq": 3.0832042420508375e-14,
+    "dot": 3.653474387004457e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.linear_z.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.027900900673174567,
+    "norm_ratio": 0.989255842420625,
+    "cos": 0.99966488783394,
+    "ref_norm": 5.077642279980135e-06,
+    "our_norm": 5.0230872911923315e-06,
+    "ref_sq": 2.5782451123441872e-11,
+    "our_sq": 2.523140593493795e-11,
+    "diff_sq": 2.0070613563078687e-14,
+    "dot": 2.5496893222408374e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.layer_norm.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.026926065936832642,
+    "norm_ratio": 0.9945351273522656,
+    "cos": 0.9996505160176545,
+    "ref_norm": 8.406101209460907e-06,
+    "our_norm": 8.360162936887237e-06,
+    "ref_sq": 7.066253754370012e-11,
+    "our_sq": 6.989232433130303e-11,
+    "diff_sq": 5.123126022837576e-14,
+    "dot": 7.025181530738738e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.02630275371531241,
+    "norm_ratio": 1.0002925670538174,
+    "cos": 0.9996542265331606,
+    "ref_norm": 2.3758329622913773e-06,
+    "our_norm": 2.3765280527415174e-06,
+    "ref_sq": 5.64458226471022e-12,
+    "our_sq": 5.6478855854673886e-12,
+    "diff_sq": 3.9051187413995095e-15,
+    "dot": 5.6442813657181044e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.layer_norm_in.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.026295382034765738,
+    "norm_ratio": 1.0093493503165993,
+    "cos": 0.9997007791381535,
+    "ref_norm": 5.167548866621179e-06,
+    "our_norm": 5.215862091253366e-06,
+    "ref_sq": 2.6703561288917835e-11,
+    "our_sq": 2.7205217354973936e-11,
+    "diff_sq": 1.8464100449612035e-14,
+    "dot": 2.694515727172108e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.linear_z.weight",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.025909651515581455,
+    "norm_ratio": 1.00281023336531,
+    "cos": 0.9996692232448285,
+    "ref_norm": 6.364858699395167e-06,
+    "our_norm": 6.382745437677691e-06,
+    "ref_sq": 4.051142626326635e-11,
+    "our_sq": 4.0739439322195404e-11,
+    "diff_sq": 2.7195727252453633e-14,
+    "dot": 4.0611834929104646e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.layer_norm.bias",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.025622437233194705,
+    "norm_ratio": 0.9976144822231928,
+    "cos": 0.9996738125767507,
+    "ref_norm": 5.796996522463417e-06,
+    "our_norm": 5.783167684206991e-06,
+    "ref_sq": 3.360516868145295e-11,
+    "our_sq": 3.3445028463656056e-11,
+    "diff_sq": 2.206210542362819e-14,
+    "dot": 3.3514067519842694e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.swiglu.linear_a.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.0253456404006102,
+    "norm_ratio": 0.9974058493922511,
+    "cos": 0.9996813374062686,
+    "ref_norm": 6.89625913194784e-06,
+    "our_norm": 6.878369197129503e-06,
+    "ref_sq": 4.755839001497391e-11,
+    "our_sq": 4.7311962812020044e-11,
+    "diff_sq": 3.0551580480023425e-14,
+    "dot": 4.7419900623256975e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_in.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.024790118735085104,
+    "norm_ratio": 1.0104596287120782,
+    "cos": 0.9997500413971268,
+    "ref_norm": 1.5196351033508283e-05,
+    "our_norm": 1.5355299223097185e-05,
+    "ref_sq": 2.3092908473360825e-10,
+    "our_sq": 2.3578521423084896e-10,
+    "diff_sq": 1.419174659977796e-13,
+    "dot": 2.332861907492297e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_g.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.024268652462906142,
+    "norm_ratio": 0.9944812158196683,
+    "cos": 0.9997191950412757,
+    "ref_norm": 5.027761646568065e-07,
+    "our_norm": 5.000014515130507e-07,
+    "ref_sq": 2.527838717470075e-13,
+    "our_sq": 2.500014515151618e-13,
+    "diff_sq": 1.4888148305323231e-16,
+    "dot": 2.5131822088955826e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.02417984291158559,
+    "norm_ratio": 1.0026257922529798,
+    "cos": 0.9997118715563004,
+    "ref_norm": 3.8775216090342045e-06,
+    "our_norm": 3.887703175235968e-06,
+    "ref_sq": 1.5035173828527162e-11,
+    "our_sq": 1.5114235978739926e-11,
+    "diff_sq": 8.790536947969093e-15,
+    "dot": 1.5070309635159558e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_a.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.023809176847872135,
+    "norm_ratio": 0.9970780877825157,
+    "cos": 0.9997200122347448,
+    "ref_norm": 2.8374943826061767e-06,
+    "our_norm": 2.8292034731025966e-06,
+    "ref_sq": 8.05137437132161e-12,
+    "our_sq": 8.004392292215795e-12,
+    "diff_sq": 4.564138161851896e-15,
+    "dot": 8.025601262687777e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.mha.linear_g.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.023396663863252197,
+    "norm_ratio": 0.9921898299211792,
+    "cos": 0.9997548830331654,
+    "ref_norm": 4.2729516679110675e-06,
+    "our_norm": 4.239579188646101e-06,
+    "ref_sq": 1.8258115956303998e-11,
+    "our_sq": 1.7974031696801136e-11,
+    "diff_sq": 9.994563514692843e-15,
+    "dot": 1.8111076544795217e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.linear_z.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.022692649046507033,
+    "norm_ratio": 0.999265972490119,
+    "cos": 0.9997426023008267,
+    "ref_norm": 3.6896198373482577e-06,
+    "our_norm": 3.686911554886641e-06,
+    "ref_sq": 1.3613294544153777e-11,
+    "our_sq": 1.3593316813556637e-11,
+    "diff_sq": 7.0102520717153965e-15,
+    "dot": 1.3599800552819351e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.mha.linear_o.weight",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.02239082695745167,
+    "norm_ratio": 0.9909434952608115,
+    "cos": 0.9997884193923505,
+    "ref_norm": 2.788869575105151e-06,
+    "our_norm": 2.7636121645812325e-06,
+    "ref_sq": 7.777793506947187e-12,
+    "our_sq": 7.637552196221367e-12,
+    "diff_sq": 3.899390022327432e-15,
+    "dot": 7.705723156573113e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.swiglu.linear_b.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.020665770258558386,
+    "norm_ratio": 1.0001713949098334,
+    "cos": 0.9997865142482889,
+    "ref_norm": 6.419964223206906e-06,
+    "our_norm": 6.421064572396076e-06,
+    "ref_sq": 4.1215940627256535e-11,
+    "our_sq": 4.1230070242880117e-11,
+    "diff_sq": 1.7602259116043546e-14,
+    "dot": 4.121420430551031e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.layer_norm.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.019726021975392517,
+    "norm_ratio": 0.9935498522527152,
+    "cos": 0.9998251162051789,
+    "ref_norm": 5.555643788359466e-06,
+    "our_norm": 5.519809065093263e-06,
+    "ref_sq": 3.0865177903137125e-11,
+    "our_sq": 3.0468292115085763e-11,
+    "diff_sq": 1.201013280482924e-14,
+    "dot": 3.066072994270903e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.01969904515628436,
+    "norm_ratio": 0.9985620884900486,
+    "cos": 0.9998067296991308,
+    "ref_norm": 8.993949270077387e-07,
+    "our_norm": 8.981016766902024e-07,
+    "ref_sq": 8.089112347272562e-13,
+    "our_sq": 8.065866216737529e-13,
+    "diff_sq": 3.138999299007324e-16,
+    "dot": 8.075919782355542e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_g.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.019432112333254318,
+    "norm_ratio": 0.990001827081762,
+    "cos": 0.9998597762547542,
+    "ref_norm": 1.048890342599104e-06,
+    "our_norm": 1.0384033555815282e-06,
+    "ref_sq": 1.100170950797655e-12,
+    "our_sq": 1.0782815288830295e-12,
+    "diff_sq": 4.154322409215368e-16,
+    "dot": 1.089018523719884e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.019280378846774276,
+    "norm_ratio": 1.0028105151948523,
+    "cos": 0.9998185928411745,
+    "ref_norm": 8.56106401228449e-06,
+    "our_norm": 8.585125012775119e-06,
+    "ref_sq": 7.329181702243275e-11,
+    "our_sq": 7.370437148497768e-11,
+    "diff_sq": 2.724498763835836e-14,
+    "dot": 7.348447175988601e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_g.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.01905445538445103,
+    "norm_ratio": 0.9951916584094425,
+    "cos": 0.999829202687606,
+    "ref_norm": 4.825109008194477e-06,
+    "our_norm": 4.801908235871402e-06,
+    "ref_sq": 2.32816769409595e-11,
+    "our_sq": 2.3058322705729602e-11,
+    "diff_sq": 8.452931296315067e-15,
+    "dot": 2.316577335769639e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.linear_out.weight",
+    "leaf": "pair_transition",
+    "rel_l2": 0.018422875269730462,
+    "norm_ratio": 1.001065865975823,
+    "cos": 0.9998310469498469,
+    "ref_norm": 8.704632033402916e-06,
+    "our_norm": 8.713910004519379e-06,
+    "ref_sq": 7.577061883694421e-11,
+    "our_sq": 7.593222756686327e-11,
+    "diff_sq": 2.57167248215734e-14,
+    "dot": 7.583856483949292e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.016957678392498475,
+    "norm_ratio": 1.0017791485336254,
+    "cos": 0.9998580537998945,
+    "ref_norm": 2.3329451048216087e-06,
+    "our_norm": 2.3370957606838808e-06,
+    "ref_sq": 5.442632862111106e-12,
+    "our_sq": 5.4620165946065666e-12,
+    "diff_sq": 1.5650990525102932e-15,
+    "dot": 5.451542178832582e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_o.weight",
+    "leaf": "tri_att_end",
+    "rel_l2": 0.016782499772447935,
+    "norm_ratio": 0.9953537150987972,
+    "cos": 0.9998693608456559,
+    "ref_norm": 2.5397173633902035e-06,
+    "our_norm": 2.527917112951361e-06,
+    "ref_sq": 6.450164285905694e-12,
+    "our_sq": 6.390364929952345e-12,
+    "diff_sq": 1.8167035975517535e-15,
+    "dot": 6.419356256130244e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.016499350497829544,
+    "norm_ratio": 0.9846471853292771,
+    "cos": 0.999981455464953,
+    "ref_norm": 3.4020401642165247e-07,
+    "our_norm": 3.3498092720729525e-07,
+    "ref_sq": 1.1573877278942276e-13,
+    "our_sq": 1.1221222159266775e-13,
+    "diff_sq": 3.150740024546908e-17,
+    "dot": 1.1395974349092246e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.layer_norm.bias",
+    "leaf": "tri_att_start",
+    "rel_l2": 0.01647681117825191,
+    "norm_ratio": 0.9969076028526324,
+    "cos": 0.99986863256648,
+    "ref_norm": 1.0189512759992955e-05,
+    "our_norm": 1.0158002739800887e-05,
+    "ref_sq": 1.0382617028605926e-10,
+    "our_sq": 1.0318501966180232e-10,
+    "diff_sq": 2.8187279673605722e-14,
+    "dot": 1.0349150133409399e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.layer_norm_in.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.016190968518946858,
+    "norm_ratio": 1.0074899967184667,
+    "cos": 0.9998977422051781,
+    "ref_norm": 1.1154229405474196e-05,
+    "our_norm": 1.1237774547118222e-05,
+    "ref_sq": 1.2441683362994523e-10,
+    "our_sq": 1.2628757677185813e-10,
+    "diff_sq": 3.261555711410145e-14,
+    "dot": 1.2533589742234462e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_o.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.015502767151647341,
+    "norm_ratio": 0.9895314597767525,
+    "cos": 0.9999339356754968,
+    "ref_norm": 1.2567513786673546e-06,
+    "our_norm": 1.2435950263091537e-06,
+    "ref_sq": 1.5794240277822879e-12,
+    "our_sq": 1.5465285894609078e-12,
+    "diff_sq": 3.795921204483591e-16,
+    "dot": 1.5627865125613746e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.linear_out.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.015005973224554566,
+    "norm_ratio": 1.0062840464912817,
+    "cos": 0.9999077348028372,
+    "ref_norm": 2.2329698293626108e-06,
+    "our_norm": 2.2470019155839548e-06,
+    "ref_sq": 4.986154258843672e-12,
+    "our_sq": 5.0490176086390005e-12,
+    "diff_sq": 1.1227783887144298e-15,
+    "dot": 5.0170245445469885e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.linear_out.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.014696284851605962,
+    "norm_ratio": 1.0088320220376712,
+    "cos": 0.9999316158825229,
+    "ref_norm": 4.244963940901899e-06,
+    "our_norm": 4.282455555977064e-06,
+    "ref_sq": 1.801971885955736e-11,
+    "our_sq": 1.833942558892145e-11,
+    "diff_sq": 3.891913086746084e-15,
+    "dot": 1.817762626769605e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.layer_norm_out.weight",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.01394884617689401,
+    "norm_ratio": 1.0005788736657768,
+    "cos": 0.9999029385788276,
+    "ref_norm": 2.2931813988232804e-06,
+    "our_norm": 2.2945088611459083e-06,
+    "ref_sq": 5.2586809279090966e-12,
+    "our_sq": 5.264770913877093e-12,
+    "diff_sq": 1.0231831765813833e-15,
+    "dot": 5.2612143293048034e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.swiglu.linear_b.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.013938738893834849,
+    "norm_ratio": 1.0060684813205072,
+    "cos": 0.9999217439074191,
+    "ref_norm": 4.359084993712651e-06,
+    "our_norm": 4.3855380195715e-06,
+    "ref_sq": 1.90016219824109e-11,
+    "our_sq": 1.9232943721106597e-11,
+    "diff_sq": 3.691795529495104e-15,
+    "dot": 1.911543695399402e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_k.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.013933546517157282,
+    "norm_ratio": 1.0080903930341614,
+    "cos": 0.9999361717659534,
+    "ref_norm": 1.2588033614133153e-05,
+    "our_norm": 1.2689875753598725e-05,
+    "ref_sq": 1.5845859027054655e-10,
+    "our_sq": 1.6103294664177345e-10,
+    "diff_sq": 3.0763739950647e-14,
+    "dot": 1.597303865861846e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.linear_out.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.012808180286334112,
+    "norm_ratio": 1.0082904021806107,
+    "cos": 0.9999527325096486,
+    "ref_norm": 1.5452667621333338e-06,
+    "our_norm": 1.5580776450677492e-06,
+    "ref_sq": 2.3878493661540387e-12,
+    "our_sq": 2.427605948060386e-12,
+    "diff_sq": 3.9172545220196824e-16,
+    "dot": 2.4075317943811093e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_o.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.012598980543372012,
+    "norm_ratio": 0.9949135682646626,
+    "cos": 0.9999332291129815,
+    "ref_norm": 1.7479285461257936e-07,
+    "our_norm": 1.7390378268976772e-07,
+    "ref_sq": 3.055254202361435e-14,
+    "our_sq": 3.024252563381036e-14,
+    "diff_sq": 4.849736699237029e-18,
+    "dot": 3.0395108960362736e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_v.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.01246167526462648,
+    "norm_ratio": 0.9927182170302079,
+    "cos": 0.9999484904248757,
+    "ref_norm": 5.093444476712154e-07,
+    "our_norm": 5.05635511946405e-07,
+    "ref_sq": 2.5943176637349157e-13,
+    "our_sq": 2.5566727094131453e-13,
+    "diff_sq": 4.0288028200590385e-17,
+    "dot": 2.5752937464330245e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.swiglu.linear_a.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.011830278063432877,
+    "norm_ratio": 0.9947079554066407,
+    "cos": 0.9999437273309808,
+    "ref_norm": 4.175568009992507e-06,
+    "our_norm": 4.153470717881022e-06,
+    "ref_sq": 1.743536820607293e-11,
+    "our_sq": 1.725131900429485e-11,
+    "diff_sq": 2.4401753098360213e-15,
+    "dot": 1.734212351752893e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.layer_norm.bias",
+    "leaf": "single_transition",
+    "rel_l2": 0.011270422583088477,
+    "norm_ratio": 0.9932418708215307,
+    "cos": 0.9999590481847381,
+    "ref_norm": 4.057956253015665e-06,
+    "our_norm": 4.0305320604572085e-06,
+    "ref_sq": 1.6467008951388942e-11,
+    "our_sq": 1.6245188690373427e-11,
+    "diff_sq": 2.091679412818433e-15,
+    "dot": 1.6355052981174778e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.swiglu.linear_b.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.01120313191667156,
+    "norm_ratio": 0.9974559013115609,
+    "cos": 0.9999403293286947,
+    "ref_norm": 1.3486400816581767e-06,
+    "our_norm": 1.3452090081952537e-06,
+    "ref_sq": 1.8188300698549857e-12,
+    "our_sq": 1.8095872757299144e-12,
+    "diff_sq": 2.2828166170583334e-16,
+    "dot": 1.8140945319615979e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_o.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.010733570208750699,
+    "norm_ratio": 0.9965459195488592,
+    "cos": 0.9999481815862106,
+    "ref_norm": 1.2077020352741017e-06,
+    "our_norm": 1.2035305352832585e-06,
+    "ref_sq": 1.4585442060052082e-12,
+    "our_sq": 1.4484857493592416e-12,
+    "diff_sq": 1.680381916211421e-16,
+    "dot": 1.4534309585864144e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_v.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.010700940081012068,
+    "norm_ratio": 0.9983568398324397,
+    "cos": 0.999944002916195,
+    "ref_norm": 3.953241364600438e-07,
+    "our_norm": 3.946745555857375e-07,
+    "ref_sq": 1.5628117286787918e-13,
+    "our_sq": 1.5576800482680348e-13,
+    "diff_sq": 1.7895775642768782e-17,
+    "dot": 1.5601564095952005e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.bias",
+    "leaf": "tri_mul_out",
+    "rel_l2": 0.010537365890373625,
+    "norm_ratio": 1.0046015836014617,
+    "cos": 0.9999552750514568,
+    "ref_norm": 3.040210918436522e-06,
+    "our_norm": 3.0542007031437843e-06,
+    "ref_sq": 9.242882428580641e-12,
+    "our_sq": 9.328141935083985e-12,
+    "diff_sq": 1.02629343191652e-15,
+    "dot": 9.284999035116356e-12
+   },
+   {
+    "name": "aux_heads.plddt.layer_norm.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.010281322617355926,
+    "norm_ratio": 0.9980946163298797,
+    "cos": 0.9999488650143178,
+    "ref_norm": 3.948987336743555e-06,
+    "our_norm": 3.941463000758612e-06,
+    "ref_sq": 1.5594500985760963e-11,
+    "our_sq": 1.5535130586349083e-11,
+    "diff_sq": 1.6484260017188666e-15,
+    "dot": 1.5563991573054165e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.layer_norm.bias",
+    "leaf": "pair_transition",
+    "rel_l2": 0.01013766471914011,
+    "norm_ratio": 1.0004040432580377,
+    "cos": 0.9999487162233626,
+    "ref_norm": 7.368057735597888e-06,
+    "our_norm": 7.371034749650788e-06,
+    "ref_sq": 5.428827479510388e-11,
+    "our_sq": 5.433215328055945e-11,
+    "diff_sq": 5.579327929861518e-15,
+    "dot": 5.430742437386674e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.009980966463857021,
+    "norm_ratio": 0.9999192004945068,
+    "cos": 0.9999501893938315,
+    "ref_norm": 1.1446688648149287e-05,
+    "our_norm": 1.1445763761366981e-05,
+    "ref_sq": 1.3102668100766972e-10,
+    "our_sq": 1.3100550808102163e-10,
+    "diff_sq": 1.3052837547150023e-14,
+    "dot": 1.3100956812557212e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_o.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.009498305582741671,
+    "norm_ratio": 0.9987820824768862,
+    "cos": 0.9999555786555557,
+    "ref_norm": 1.5648303123078597e-06,
+    "our_norm": 1.5629244780498002e-06,
+    "ref_sq": 2.448693906317518e-12,
+    "our_sq": 2.4427329240873073e-12,
+    "diff_sq": 2.2091579900038895e-16,
+    "dot": 2.4456029573029128e-12
+   },
+   {
+    "name": "aux_heads.pae.linear.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.009351780332070231,
+    "norm_ratio": 1.0018640345106027,
+    "cos": 0.9999580875409092,
+    "ref_norm": 1.2400412665547448e-05,
+    "our_norm": 1.2423527462701744e-05,
+    "ref_sq": 1.5377023427586962e-10,
+    "our_sq": 1.5434403461650445e-10,
+    "diff_sq": 1.3448098144256798e-14,
+    "dot": 1.5405041039711493e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.layer_norm_out.bias",
+    "leaf": "tri_mul_in",
+    "rel_l2": 0.00916522113191342,
+    "norm_ratio": 0.9990360958790268,
+    "cos": 0.9999584238409478,
+    "ref_norm": 1.741227354001617e-06,
+    "our_norm": 1.7395489777795436e-06,
+    "ref_sq": 3.031872698323473e-12,
+    "our_sq": 3.0260306460938554e-12,
+    "diff_sq": 2.5468118259574653e-16,
+    "dot": 3.0288243316173662e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.layer_norm.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.008111779707717547,
+    "norm_ratio": 1.0076639441850723,
+    "cos": 0.9999964944019306,
+    "ref_norm": 3.454240708118977e-06,
+    "our_norm": 3.480713816107806e-06,
+    "ref_sq": 1.193177886962629e-11,
+    "our_sq": 1.2115368669643765e-11,
+    "diff_sq": 7.851226237635611e-16,
+    "dot": 1.2023181208323147e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.linear_out.weight",
+    "leaf": "single_transition",
+    "rel_l2": 0.00806156947413509,
+    "norm_ratio": 0.9969336909053147,
+    "cos": 0.9999721211895729,
+    "ref_norm": 2.4109915181090545e-06,
+    "our_norm": 2.4035986728898674e-06,
+    "ref_sq": 5.812880100393826e-12,
+    "our_sq": 5.777286580318888e-12,
+    "diff_sq": 3.777726974277968e-16,
+    "dot": 5.7948944540076415e-12
+   },
+   {
+    "name": "aux_heads.pae.layer_norm.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.007358324614504388,
+    "norm_ratio": 1.003353798170788,
+    "cos": 0.9999786232039786,
+    "ref_norm": 8.099771195777609e-06,
+    "our_norm": 8.12693619359781e-06,
+    "ref_sq": 6.560629342394864e-11,
+    "our_sq": 6.604709189481007e-11,
+    "diff_sq": 3.552248895356048e-15,
+    "dot": 6.582491653493169e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_v.weight",
+    "leaf": "attn_pair_bias",
+    "rel_l2": 0.0072197544488674615,
+    "norm_ratio": 1.0009306155766644,
+    "cos": 0.9999743944244893,
+    "ref_norm": 1.0688029301303409e-06,
+    "our_norm": 1.0697975747855047e-06,
+    "ref_sq": 1.1423397034552025e-12,
+    "our_sq": 1.1444668510169857e-12,
+    "diff_sq": 5.954429060592545e-17,
+    "dot": 1.1433735050907916e-12
+   },
+   {
+    "name": "aux_heads.pde.linear.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.006155958418466138,
+    "norm_ratio": 1.0015639009139228,
+    "cos": 0.9999823026579034,
+    "ref_norm": 1.8431376691697658e-05,
+    "our_norm": 1.846020153855066e-05,
+    "ref_sq": 3.3971564675125704e-10,
+    "our_sq": 3.4077904084391e-10,
+    "diff_sq": 1.2873804376278204e-14,
+    "dot": 3.4024090689539535e-10
+   },
+   {
+    "name": "aux_heads.pde.layer_norm.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.005005288076277987,
+    "norm_ratio": 0.9984100378670234,
+    "cos": 0.99998871960002,
+    "ref_norm": 7.249877048786971e-06,
+    "our_norm": 7.238350018810664e-06,
+    "ref_sq": 5.2560717222528074e-11,
+    "our_sq": 5.239371099481633e-11,
+    "diff_sq": 1.3167988511769797e-15,
+    "dot": 5.2476555709246614e-11
+   },
+   {
+    "name": "aux_heads.pae.layer_norm.bias",
+    "leaf": "head output projections",
+    "rel_l2": 0.004856315596625678,
+    "norm_ratio": 1.00170842360402,
+    "cos": 0.9999896850772756,
+    "ref_norm": 7.3116139985057885e-06,
+    "our_norm": 7.324105332444318e-06,
+    "ref_sq": 5.34596992631458e-11,
+    "our_sq": 5.364251892073929e-11,
+    "diff_sq": 1.2607829182454588e-15,
+    "dot": 5.3550478700483416e-11
+   },
+   {
+    "name": "aux_heads.plddt.linear.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.004509739544481133,
+    "norm_ratio": 0.9981161261740117,
+    "cos": 0.9999915897711353,
+    "ref_norm": 2.6747902545201878e-05,
+    "our_norm": 2.6697512871696886e-05,
+    "ref_sq": 7.154502905676274e-10,
+    "our_sq": 7.12757193534452e-10,
+    "diff_sq": 1.4550649690059165e-14,
+    "dot": 7.140964667261945e-10
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.linear.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.004441045698153462,
+    "norm_ratio": 0.9991654744599817,
+    "cos": 0.9999904788273312,
+    "ref_norm": 8.458132899070404e-07,
+    "our_norm": 8.451074371145261e-07,
+    "ref_sq": 7.154001213833712e-13,
+    "our_sq": 7.142065802662839e-13,
+    "diff_sq": 1.4109755677345186e-17,
+    "dot": 7.14796295946989e-13
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.layer_norm.weight",
+    "leaf": "head output projections",
+    "rel_l2": 0.0035684283456235417,
+    "norm_ratio": 0.9996585619061966,
+    "cos": 0.9999936892948418,
+    "ref_norm": 3.403514763399285e-07,
+    "our_norm": 3.4023526738062385e-07,
+    "ref_sq": 1.158391274467689e-13,
+    "our_sq": 1.157600371695646e-13,
+    "diff_sq": 1.4750584797589175e-18,
+    "dot": 1.157988447789269e-13
+   },
+   {
+    "name": "aux_heads.distogram.linear.weight",
+    "leaf": "distogram (reads zij_trunk, never enters the masked path)",
+    "rel_l2": 0.002267841731780386,
+    "norm_ratio": 0.9994959963953114,
+    "cos": 0.9999975542240759,
+    "ref_norm": 0.5406145932303079,
+    "our_norm": 0.5403421215265726,
+    "ref_sq": 0.292264138413571,
+    "our_sq": 0.29196960829583724,
+    "diff_sq": 1.5031454790496336e-06,
+    "dot": 0.29211612178196456
+   },
+   {
+    "name": "aux_heads.pde.layer_norm.bias",
+    "leaf": "head output projections",
+    "rel_l2": 0.002113757655475892,
+    "norm_ratio": 0.999728880108947,
+    "cos": 0.9999978021714092,
+    "ref_norm": 1.906721623538559e-05,
+    "our_norm": 1.906204673379717e-05,
+    "ref_sq": 3.635587349669518e-10,
+    "our_sq": 3.6336162568146735e-10,
+    "diff_sq": 1.6243700395352012e-15,
+    "dot": 3.634593681391897e-10
+   },
+   {
+    "name": "aux_heads.plddt.layer_norm.bias",
+    "leaf": "head output projections",
+    "rel_l2": 0.0013538119164359867,
+    "norm_ratio": 0.9988728264736138,
+    "cos": 0.9999997185394719,
+    "ref_norm": 5.722888474893741e-05,
+    "our_norm": 5.71643778651038e-05,
+    "ref_sq": 3.275145249607161e-09,
+    "our_sq": 3.267766096704369e-09,
+    "diff_sq": 6.002708173604275e-15,
+    "dot": 3.2714526718016784e-09
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.layer_norm.bias",
+    "leaf": "head output projections",
+    "rel_l2": 0.0013144012058438279,
+    "norm_ratio": 0.9987282271274525,
+    "cos": 0.9999999448076625,
+    "ref_norm": 5.306623222125213e-06,
+    "our_norm": 5.299874402666484e-06,
+    "ref_sq": 2.8160250021598583e-11,
+    "our_sq": 2.8088668684039415e-11,
+    "diff_sq": 4.8651070872598925e-17,
+    "dot": 2.812443502728356e-11
+   }
+  ],
+  "skipped": [],
+  "reach": {
+   "aux_heads_squared_norm": 0.2922641907817471,
+   "model_squared_norm": 10.279642678524985,
+   "aux_heads_share_of_model": 0.028431356995735943,
+   "compared_squared_norm": 0.2922641814528712,
+   "share_of_aux_heads_own_norm": 0.9999999680806743,
+   "share_of_model_squared_norm": 0.0284313560882262,
+   "n_aux_heads_tensors": 244
+  },
+  "zero_model_arm": false,
+  "perturbation": null,
+  "cotangent_scrambled": false
+ },
+ "grads_dumped_to": "/home/ttuser/of3t_auxgrad_logs/grads_M.pt"
+}
