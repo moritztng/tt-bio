@@ -624,6 +624,14 @@ echo "--- capture provenance records unexpected_keys"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
   { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
 
+# (3j) D149. `of3t-trajwide` ran openfold3 0.5.0 for its whole life while its constant and its
+# prose said 0.4.3, because three `sys.path.insert(1, p)` calls reverse the order they were written
+# to set. Narrow on purpose: the reversing LOOP, not the absence of a resolution read -- the broad
+# version flagged 18 further files whose second insert is `os.getcwd()`.
+echo "--- sys.path order: no new tree-resolution trust (D149)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_path_order_ratchet.py . ) || \
+  { echo "COMPOSE: a new of3t script trusts a package-path constant instead of the resolution"; exit 1; }
+
 echo "--- inference: no float64 softmax on main"
 git fetch -q origin main 2>/dev/null || true
 _f64_on_main=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/main -- tt_bio/ 2>/dev/null || true)
