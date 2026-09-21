@@ -170,6 +170,26 @@ single track's growth collapses `|q.k|max` from 13916.7 to 873.5 over blocks 8 t
 dominant at 3 %. Genuine bf16 excess after the flip is **2.48x** upstream's own composed bf16,
 35x smaller than the convention was.
 
+**Every load-bearing figure in this field is now traceable to an artifact the orchestrator read
+itself, not to the row that produced it (pass 250).** Four numbers carry the campaign's answer, and
+all four have been checked:
+
+  * the **closing measurement** — `perf/of3t_wholemodel/MODEL_arms.json`, pass 248: 0.9592x and
+    0.93924x confirmed to every digit, with the shipped arm's **52.898x** added as the companion
+    the record lacked;
+  * **§6 coverage** — `of3t-bondcov`, pass 249: **8 of 8**, `bond` firing at a **14.6902 %** share
+    of the squared gradient norm with a 0.0-exactly control, and the GAP line that had understated
+    it for forty passes corrected;
+  * the **shipped split** — `perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, this
+    pass: `measured_and_PASSES/pct` **2.8431** (aux_heads at 0.002271382, **0.1136x** the bar),
+    `measured_and_fails/pct` **94.8836**, and the artifact's own `arithmetic` field carrying
+    *"0.2666 + 2.8431 + 94.8836 + 2.0067 = 100.0000 %"* with `derived_totals` holding the sums
+    **because** a pass-175 traceability check had found a figure living only in prose;
+  * the **trajectory headline** — checked and **corrected** rather than confirmed (**D136**,
+    pass 245): it was the `repin` arm, not the shipped default.
+
+Three confirmed, one corrected. That ratio is the reason the exercise was worth a pass.
+
 **The closing measurement, RE-DERIVED by the orchestrator from the committed artifact rather than
 from the row's prose (pass 248).** After three attribution errors in a week — D127's bound, D129's
 share, D136's arm — the campaign's central number was the one thing nobody had checked twice. Read
@@ -812,7 +832,15 @@ an **identity** at relative difference **0.0**.
 
 Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-eight defects, fifty-two UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **A fuller GAP paragraph, moved here at pass 249**; nothing in it is changed.
+PASSLOG: **Pass 250 — the shipped split checks out, which completes the answer field: three headlines confirmed against artifacts and one corrected.** `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` carries `measured_and_PASSES/pct` **2.8431** (aux_heads at 0.002271382, **0.1136x** the 2.0e-02 bar), `measured_and_fails/pct` **94.8836**, and its own `arithmetic` field states *"0.2666 survives + 2.8431 measured-and-passes + 94.8836 measured-and-fails + 2.0067 unread = 100.0000 %"*. The four numbers the gate pins in VERDICT's first 2000 characters are that field, verbatim.
+
+**The artifact had already anticipated the question I was asking**, which is worth recording as a thing that worked: its `derived_totals` block exists with the note *"VERDICT quotes these and a pass-175 traceability check found an earlier such figure existing only as a sum in prose"*. A number that lives only as arithmetic in a summary is unauditable, and pass 175 made that a rule; the rule held here, and checking cost minutes instead of a re-derivation.
+
+**So the answer field is now fully traceable**: the closing measurement (pass 248, confirmed), §6 coverage (pass 249, confirmed and its GAP line corrected upward), the shipped split (this pass, confirmed), and the trajectory headline (pass 245, **corrected** — it was the `repin` arm, not the shipped default). Three confirmed, one corrected. One in four was wrong, which is the answer to whether the exercise was worth four passes.
+
+**And it is a snapshot, not a property.** Every one of these was true of some row's prose when it was written and drifted afterwards, or did not. The guards added this week — the triage split against the file the gate reads, the statusless ratchet, the prose-and-negation status rule, the one shared vocabulary — catch the mechanical drifts. **Nothing catches a figure attributed to the wrong arm**; that took reading the artifact. The only defence is that the next orchestrator pass does the same thing again on whatever is newest, and D136 is the standing evidence for why.
+
+**A fuller GAP paragraph, moved here at pass 249**; nothing in it is changed.
 
 **D19, D87 and D99 CLOSED, D91 narrowed, on data already collected and with no card; argued in full in PASSLOG.** D19's registered refutation condition — *both arms moving the same way* — **did not occur**: on the pair track SHIPPED reads **4.947045e-02** against 0.4.3 and 2.793661e-01 against 0.5.0 while LEVER reads 2.118280e-01 and **4.971863e-02**, so shipped **fell 5.65x** and tb-off **rose 4.26x** and **D23's trunk half is CONFIRMED, not refuted**. Each arm agrees with its own convention to **0.50 %**; the off-diagonal is **31.9 %** apart, reported and not smoothed. The single track is convention-inert across all four cells (spread **1.0615x**), independently confirming D99's claim that it is ours. D22 and D23 keep their UNFIXED headings because their **diffusion** half was not checked.
 
