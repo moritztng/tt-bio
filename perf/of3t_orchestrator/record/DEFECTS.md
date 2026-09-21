@@ -10868,7 +10868,11 @@ readings apart was the first one produced after the guard shipped. This campaign
 *a guard's first real run must not be inside a gate*; this one's was, and the gate caught it,
 which is the cheap version of that lesson rather than the expensive one.
 
-### D166. `tt_bio.autograd.softmax` — exported public API — is a third softmax-backward site that does not route through `softmax_bw_inner`, so D56's renorm never applies there and the reach counter cannot see it. FOUND by `of3t-orchestrator`, pass 308, while verifying D56 was isolatable before handing it to `land-standing`. UNFIXED; not mine to fix (my branch does not carry the helper). Handed to the lander.
+### D166. `tt_bio.autograd.softmax` — exported public API — is a third softmax-backward site that does not route through `softmax_bw_inner`. **FOUND AND FIXED BY `land-standing`, 2026-09-21 17:49 CEST, commit `1aa7070f5`. ATTRIBUTION RETRACTED, pass 310: this entry said "FOUND by `of3t-orchestrator`, pass 308" and that is wrong by nearly two hours.** FIXED on `wk/land-standing` (all three sites routed); still INLINE on the composition `wk/of3t` at `autograd.py:868`, which is the only part still open.
+
+**The retraction, stated plainly because the record is the deliverable.** I filed this at pass 308, 19:44 CEST, while verifying D56 was isolatable before handing it to `land-standing`. `land-standing` had already found it, and its commit message says the whole thing two hours earlier — *"Three sites, not two. main had the same expression inline at autograd.py:566, autograd.py:801 and taped_ttnn.py:174, and the reference composition on wk/of3t routes only the last two: tt_bio.autograd.softmax still computes it inline there, and that function is exported in `__all__`. Its own helper docstring warns about half-fixing one of two identical expressions and then commits exactly that against the third."* That is this entry's finding, its evidence and its irony, independently and first. It had also already written the AST reach proof (`2df673d82`) and run the three-leg fold A/B green (`04ad2cf7a`, three identical CIF digests across the flag A/B on an A/A floor of exactly zero).
+
+**What I actually did wrong, which is not the analysis.** Every fact I checked was true and I checked it against the trees rather than taking it from prose. What I never checked was **whether anyone had already found it** — no grep of other rows' recent commits, no look at the branch of the very row I was about to hand it to. The campaign has a memory for this exact move, `duplicate-check-grep-state-verdicts-not-just-task-names`, and it costs one command: `git log --all --since=1.day --grep=<symbol>` before filing. Cheaper than the analysis it would have replaced.
 
 **The three sites, and who routes them.**
 
@@ -10907,7 +10911,16 @@ pattern it repairs. That is D164's lesson one level over -- a guard that binds a
 artifact cannot ask what the artifact was for, and a guard that binds a file to its owner cannot
 ask whether the fix inside it is complete.
 
-**Consequence for the landing, and it is the actionable half.** Main holds all three expressions
-inline. A lander who mirrors the composition lands **two of three** and reproduces this defect on
-`origin/main`, where it stops being latent the moment anything calls the public function. The
-handover in `workstreams/land-standing.txt` says to route all three.
+**Consequence for the landing — already discharged before it was written.** Main held all three
+expressions inline and a lander mirroring the composition would have landed two of three. That is
+what `land-standing` avoided on its own at 17:49 CEST: `1aa7070f5` routes all three. The handover
+in `workstreams/land-standing.txt` telling it to do so was written at 19:44 and told it nothing it
+had not already done.
+
+**What is still open, and it is the narrow part.** The composition `wk/of3t` still computes `inner`
+inline at `autograd.py:868`, because `land-standing`'s fix is on a main-based branch and has not
+come back the other way. So every OF3T measurement taken on the composition is taken on a tree
+where `tt_bio.autograd.softmax` is unrepaired. **No measured result is affected** — `ag.softmax(`
+has no call site in `tt_bio/`, `perf/` or `tests/` on `wk/of3t`, checked — so this is a tidiness
+item against the campaign's own reference tree, not a correctness one, and it resolves by itself
+when D56 lands on main and the composition recomposes from it.
