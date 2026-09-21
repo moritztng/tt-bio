@@ -9782,3 +9782,29 @@ and their population). A guard wrong 80 % of the time gets ignored, which is wor
 the argument `assert_dispatch_card_token.py` already makes and which cost me a rewrite at pass 258.
 **The finding is that the title class is worth re-reading when the campaign's answer moves, not that
 it can be machine-checked.**
+
+### D145. The answer field quoted two different percentages for "the mass with no reading" two paragraphs apart, and named neither's denominator. FOUND and FIXED by the orchestrator (pass 262). **FIXED.**
+
+VERDICT carried, in the shipped split, *"**2.0067 %** unread"* — and then, three sentences later,
+*"**2.0150 %** of the mass has no reading."* Same words, different numbers, no denominator on
+either. A reader meets that as a typo or a contradiction; it is neither.
+
+    2.0067 %   the `unread` bucket of the SHIPPED split, against the 2.0e-02 float64
+               mass-weighted bar, from DISTANCE_TO_GO_AGAINST_THEIR_STEP.json, where it is
+               one of four terms summing to 100.0000 %
+    2.0150 %   the complement of `of3t-wholemodel`'s COMPOSED coverage:
+               100 - 97.98502156952716 = 2.014978430472837, i.e. the mass with no reading in
+               the model-scope arm
+
+**Two decompositions of the model, two denominators, and the field named neither.** They are close
+enough to look like a rounding disagreement and far enough apart to be a different measurement,
+which is the worst distance for a reader.
+
+Fixed by naming both in place: *"**2.0150 %** has no reading at model scope — the complement of the
+composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition
+against the float64 bar."*
+
+**This is A27 applied to a coverage figure rather than to a ratio.** A27 says a ratio must name how
+its denominator arm was built; the same obligation attaches to a percentage, and the campaign has
+been enforcing it on ratios while leaving coverage figures bare. Worth stating because the answer
+field carries several percentages and only this pair happened to collide visibly.

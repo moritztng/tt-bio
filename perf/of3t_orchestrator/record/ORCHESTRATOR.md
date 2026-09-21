@@ -793,43 +793,48 @@ wrote GO at pass 218; the gate refused it and was right.
 
 **The closing measurement** (`of3t-wholemodel`; in PASSLOG). With the softmax-backward repair on
 and **nothing else — no host round trip** — the model-scope gradient reads **1.006695e-01** against
-upstream 0.4.3's own bf16 training step over **92.1568 %** of the squared gradient norm, against a
-reachable bar of **1.049545e-01**: **0.9592x**. Trunk composed: coverage **97.9850 %**,
-**1.528664e-01** against **1.627551e-01**, **0.9392x**. Pre-registered **B2**; the composition is
-an **identity** at relative difference **0.0**.
+upstream 0.4.3's own bf16 step over **92.1568 %** of the squared gradient norm, against a reachable
+bar of **1.049545e-01**: **0.9592x**. Trunk composed: **97.98502 %**, **1.528664e-01** against
+**1.627551e-01**, **0.9392x**. Pre-registered **B2**, an identity at relative difference **0.0**.
+The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52.898x** the bar.
 
 **What GO requires** — of the gate's five conditions, two met and three not:
-- **per-parameter gradients at MODEL scope — MET**
-- **§6 coverage, all 8 loss terms fired — MET**, on OF3's own cache.
+- **per-parameter gradients at MODEL scope — MET.**
+- **§6 coverage, 8 of 8 loss terms fired — MET** on OF3's own cache.
 - **an N-step weight trajectory on the MODEL — MET at 36.9462 %, on a CONFIGURATION (D136), and
   REFERENCE-bound; in PASSLOG.** **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape
-  resolutions — on the **`repin` arm**, recorded by its row as *default-off, unmerged*, while the
-  arm named `shipped` moved **zero weight** (that is D126). `of3t-trajwide` is measuring the real
-  shipped arm now. And `of3t-rebind` took reach from 0 to **3,932 of
+  resolutions — on the **`repin` arm**, which its row called *default-off, unmerged*, while the arm
+  named `shipped` moved **zero weight** (D126). `of3t-trajwide` is measuring the real one now. And `of3t-rebind` took reach from 0 to **3,932 of
   3,932**, so the limit is upstream's float64 side: `diffusion_module` at **5.51 h** for 20 steps,
   `pairformer_stack` **refused** on a host OOM at **215.53 GB**. `of3t-trajwide` runs the
   diffusion-module rung, **~89.2 %**.
 - **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, COSTED; in PASSLOG.**
-  `of3t-theirtest` NO-GO, nothing under `tt_bio/`. Unmodified it skips (*"Requires cuda; found
-  cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases fail at ONE key — Triton
-  triangle kernels left on the EVAL path by upstream's own generator; cleared, their step runs in
-  **394.61 s**. On ttnn it is structural: Lightning dispatches by torch device and we are not one.
-- **no unfixed or user-facing defect in GAP — NOT MET, now PRICED (pass 243, in PASSLOG).**
-  Nine USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56 —
-  ASKED as one bundle, pin **9629**, default hold; 9597 is upstream of two) **and five need a card**, three of them (D30, D58, D129) one object
-  — the tape's backward, `of3t-ditcot`'s, held. `userfacing/closure_plan.py` refuses rather than
-  going stale. Still defective (D122). It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
-  defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
-  them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
-  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 40 campaign-internal**. I did not
-  move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
-  while any UNFIXED defect ships to users.
+  `of3t-theirtest` NO-GO. Unmodified it skips (*"Requires cuda; found cpu"*); off CUDA with three
+  disclosed shims it EXECUTES and both cases fail at ONE key, Triton triangle kernels upstream's
+  own generator leaves on the EVAL path — cleared, their step runs in **394.61 s**. On ttnn it is
+  structural: Lightning dispatches by torch device and we are not one.
+- **no unfixed or user-facing defect in GAP — NOT MET, PRICED (pass 243, in PASSLOG).** Nine
+  USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56 — asked
+  as one bundle, pin **9629**, default hold) **and five need a card**, three of them (D30, D58,
+  D129) one object — the tape's backward, `of3t-ditcot`'s, held. The condition itself is still
+  defective (**D122**): a keyword test on GAP's prose, argued in full in PASSLOG. Triaged
+  against the ledger: **4 scope-excluded, 9 USER-FACING, 40 campaign-internal**.
 
-**And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
+**And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-four defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-five defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 261 — generalised D143 across all 60 assertively-named artifacts, found one more, and did NOT ship a guard.** Thirteen have universal-shaped titles; five carry no scope or correction field; reading those five, **one** is genuinely stale.
+PASSLOG: **Pass 262 — the answer field carried two different percentages for "the mass with no reading", and trimming it to its cap then broke a guard in a way the guard could not see (D145).**
+
+**The collision.** VERDICT said *"**2.0067 %** unread"* in the shipped split and, three sentences later, *"**2.0150 %** of the mass has no reading."* Same words, different numbers, neither with a denominator. Both are correct and they measure different things: **2.0067 %** is the `unread` bucket of the SHIPPED split against the 2.0e-02 float64 bar, one of four terms summing to 100.0000 %; **2.0150 %** is the complement of `of3t-wholemodel`'s COMPOSED coverage, 100 − 97.98502156952716 = 2.014978430472837. Close enough to look like a rounding disagreement, far enough apart to be a different measurement — the worst distance for a reader. Both now named in place. **This is A27 applied to a coverage figure rather than a ratio**: the campaign enforces "name the denominator" on ratios and has been leaving bare percentages alone.
+
+**And then the interesting part.** Trimming VERDICT back under its 4000-char cap, I cut the sentence carrying the triage split — and the pass-237 guard did **not** fail. It searched the **whole document**, found a historical copy in PASSLOG, and reported **4/10/33**, the pass-236 numbers, as current. **A check that falls back to history cannot see a deletion**, which is precisely the failure it was built to catch; it would have kept passing while the answer field said nothing at all. Fixed: VERDICT first, the rest of the document only if VERDICT has none, and the message names where it read.
+
+**Worth noting what caught it**: the guard itself, firing on the stale number rather than on the deletion. It was right by accident — the deletion happened to expose an older string that disagreed. Had PASSLOG's copy matched the current split, the removal would have been invisible.
+
+**Two live rows unchanged**: `zero` at k=9 of 20 with 980/980 resolutions, `theirs` at k=6.
+
+**Pass 261 — generalised D143 across all 60 assertively-named artifacts, found one more, and did NOT ship a guard.** Thirteen have universal-shaped titles; five carry no scope or correction field; reading those five, **one** is genuinely stale.
 
 **`ONE_LEAF_IS_THE_DEFECT.json`** says *"24 tensors — one leaf — are **25.5795 %** of the model's squared gradient norm and read mass-weighted rel_l2 **10.6980**."* Three things happened after it was written. The **number is pre-repair**: `of3t-lnaffine`'s matched A/B collapses that leaf **878.8518760076167 → 2.635596280124493**, a factor of **333**. **One leaf became two**: post-repair the scope splits 59.510 % / 28.313 % across two LayerNorm affine leaves, which is what D129 was filed on. And **for the second leaf the defect is not in the leaf at all** — `of3t-condtrans` put all of it in the arriving cotangent, isolation 1.5217e-03, 456x under the reading. *"One leaf is the defect"* is the right name for a **localisation** and the wrong name for a **cause**.
 
