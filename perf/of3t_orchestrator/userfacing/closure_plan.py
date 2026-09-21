@@ -41,33 +41,29 @@ PLAN = {
     # is in the composition with the shipped-default assertion moved to match. The plan refused
     # to publish while it still listed D1 -- "the plan and the live USER-FACING set disagree" --
     # which is the check doing its job rather than an inconvenience.
-    "D174": {
+    # D174 was here from pass 324 and is gone because it was REFUTED at pass 325, not because
+    # the plan shrank: at a fixed width the pad output moves 7.7862e+02 and the real block stays
+    # bit-identical through 48 blocks, so the transition mask our port omits cannot be what costs
+    # the trunk. Its residue is D175, which is the measurement rather than the mechanism.
+    "D175": {
         "needs": CARD,
-        "one_line": "our port omits the transition output mask upstream hard-codes, so a padded batch's pad rows get the transition's own bias",
-        "closes_when": ("`of3t-ditmodel` reports the masked n384 trunk arm either way. Upstream ends "
-                        "`_transition` with `x = self.linear_out(x) * mask` and passes "
-                        "`_mask_trans=True` hard-coded at seven call sites; our "
-                        "`Transition.__call__` (tenstorrent.py:8533) has no mask parameter. The "
-                        "lever is built and pushed (d3daa9317, OFF by default under "
-                        "TT_BIO_MASK_TRANS with an all-ones negative control). It closes on a "
-                        "MEASUREMENT, not on the mechanism being plausible -- and the row holds a "
-                        "live refutation risk: `of3t-auxfind`'s arm P measured upstream's own "
-                        "_mask_trans False against True at EXACTLY 0.0 on the real block, so if "
-                        "our backward keeps the boundary cotangent's exact pad zero all the way "
-                        "down, an output mask cannot move any parameter gradient and the "
-                        "pad-extent scaling has another cause"),
-        "evidence_held": ("the trunk reads 2.1595 at model scope on the model's own batch against "
-                          "upstream's own bf16 0.3148, per-block ratio median 6.57x with min 3.40x "
-                          "and no depth trend, invariant to pad VALUES bit-exactly (0 of 2,736 "
-                          "tensors moved at --pad-scale 0) and sensitive to pad EXTENT (12.391 at "
-                          "c64 against 43.210 at n384, 3.487164x); it costs the model-scope "
-                          "headline 0.083010 over 92.1568 % (1.1031x upstream) -> 0.532795 over "
-                          "97.98499 % (5.0301x)"),
+        "one_line": "the device's trunk gradient depends on PAD EXTENT where the model's semantics say it cannot",
+        "closes_when": ("one capture decides it: the device cotangent at a mid-stack block boundary "
+                        "at n384, asking whether its pad part is exactly zero the way the block-47 "
+                        "boundary's is. Non-zero locates it in the transported cotangent and makes "
+                        "TT_BIO_MASK_TRANS a mitigation with a mechanism; exactly zero puts it in "
+                        "the parameter-gradient reduction itself, and the next place to look is "
+                        "_sum_leading and the matmul backwards at tt_bio/autograd.py:432"),
+        "evidence_held": ("trunk gradient norm 12.3912543630 at 8 pad rows against 43.2103398400 at "
+                          "328, 3.487164x, all 2,736 tensors differing; the two boundaries are "
+                          "bit-identical on the real block (s_in 5.6235488078e+03, z_in "
+                          "6.4263673501e+04 on both); in torch the pad does not reach the real block "
+                          "at 48 blocks (absdiff exactly 0.0 under a pad move of 7.7862e+02) and pad "
+                          "extent moves it 9.088062e-07; the boundary cotangent is exactly zero on "
+                          "every padded position, measured twice independently"),
         "would_a_row_help": False,
-        "asked": ("not asked. The mechanism is a measurement, not a decision. What WILL need "
-                  "Moritz is shipping it: it changes inference numerics on the five modules that "
-                  "instantiate PairformerLayer, so it owes an inference fold A/B against an A/A "
-                  "floor showing accuracy improved and time not regressed"),
+        "asked": ("not asked -- it is a measurement. It reaches Moritz only if the fix changes "
+                  "inference numerics, which D174's refutation makes less likely than it looked"),
     },
     "D10": {
         "needs": MERGE,
