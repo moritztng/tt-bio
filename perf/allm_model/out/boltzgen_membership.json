@@ -1,0 +1,303 @@
+{
+ "host": "tt-quietbox2",
+ "model": "boltzgen",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "boltzgen",
+ "git_head": "c482cdad93ad8c007e4781057e811a5299777ef3",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 37,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "spec": "/home/ttuser/.coworker/wt/allm-model/perf/dsfix/fixtures/bg_R0.yaml",
+  "protocol": {
+   "sampling_steps": 40,
+   "num_designs": 1
+  },
+  "timed_region": "tt-bio design --model boltzgen (model load INCLUDED, so every design is cold and there is no warm A/A floor)"
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 19.2567,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 75,
+    "power_w_mean": 51.8
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     552,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     240,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     960,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1216
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 1136, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 272, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 560, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 512, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('four-way-split', 'defer')": 2193
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     560
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "l1_channel_path": 16,
+     "multi_chunk_channel_loop": 544
+    }
+   }
+  },
+  {
+   "tag": "K",
+   "fold_s": 13.8206,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 65,
+    "power_w_mean": 51.4
+   },
+   "depth": null,
+   "count_only": true,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 16
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     552,
+     0
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     240,
+     0
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     960,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     1216
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 2272, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 544, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 1120, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 1024, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('four-way-split', 'defer')": 2192
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     560
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "l1_channel_path": 16,
+     "multi_chunk_channel_loop": 544
+    }
+   },
+   "blocks": {
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TrunkRecycle": {
+     "n": 4,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TokenDistanceRecycle": {
+     "n": 4,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Pairformer": {
+     "n": 8,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 280,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 560,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 560,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Transition": {
+     "n": 632,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.MSA": {
+     "n": 4,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.MSALayer": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 1456,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 40,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Diffusion": {
+     "n": 40,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionTransformer": {
+     "n": 120,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionTransformerLayer": {
+     "n": 1200,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AdaLN": {
+     "n": 2400,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.ConditionedTransitionBlock": {
+     "n": 1200,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    }
+   }
+  }
+ ]
+}
