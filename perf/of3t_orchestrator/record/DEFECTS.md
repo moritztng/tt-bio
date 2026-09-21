@@ -9808,3 +9808,37 @@ against the float64 bar."*
 its denominator arm was built; the same obligation attaches to a percentage, and the campaign has
 been enforcing it on ratios while leaving coverage figures bare. Worth stating because the answer
 field carries several percentages and only this pair happened to collide visibly.
+
+### D146. PROTOCOL A15 calls its mass shares *"the ceiling that now governs every gradient figure here"* and computes all of them on the 4,147-tensor bundle that pass 91 DISQUALIFIED — the same document says so about a different number thirty-nine lines earlier. FOUND and FIXED by the orchestrator (pass 263). **FIXED** in place.
+
+D142 closed the "PROTOCOL teaches a stale verdict" class for **defect references** and said in
+writing that it did **not** check **figures**, adding *"the distinction matters because the figures
+are the ones a row would copy."* This is that gap, found by extracting every percentage in the
+document and reading each against the campaign's current value for the same quantity.
+
+A15's paragraph computes from **3,275 of 4,147 tensors**. Line 509 of the same file, thirty-nine
+lines earlier, says the **91.21 %** it used to carry *"was the 0.5.0 / 4,147 bundle that pass 91
+disqualified."* So one number was corrected for that bundle and the paragraph built on it was not.
+
+    quantity                          A15 says    the campaign now uses
+    the 48-block pairformer trunk       5.27 %          5.8282 %
+    diffusion_module                   88.54 %         89.211 %
+
+**The argument is untouched and that is why the clause is corrected rather than deleted.** Its point
+is the SHAPE — 79 % of tensors by count hold 6.54 % of the squared norm, therefore a count
+denominator is not a scope statement — and that survives to three digits under any of these
+numbers. What does not survive is a row copying **5.27 %** into a report, which a clause calling
+these *"the ceiling that now governs every gradient figure here"* actively invites.
+
+**The remaining figures are labelled rather than replaced.** 0.20 %, 13.03 %, 6.54 %, 94.44 % and
+the 0.19/1.25/15.06/43.50 count table come from the same disqualified bundle and have **no
+published 0.4.3 replacement**. Inventing one would be worse than the drift; the addendum says they
+are illustrative of the shape and that any number leaving the document must cite the current
+reference.
+
+**Method, so the next reader knows what was and was not checked.** Every percentage in PROTOCOL was
+extracted with its context and compared against the campaign's current figure for the same
+quantity. That found this cluster and confirmed 36.9462 %, 51.1358 % and the aux_heads 100.0000 %
+as current. It did **not** check non-percentage figures — the e-notation readings, the bars, the
+per-block tables — and A22's 25 numbers were examined separately and are self-consistent: its claim
+is that three powers of two agree to all six digits, which the table demonstrates internally.

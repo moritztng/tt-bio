@@ -822,9 +822,22 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-five defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-six defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 262 — the answer field carried two different percentages for "the mass with no reading", and trimming it to its cap then broke a guard in a way the guard could not see (D145).**
+PASSLOG: **Pass 263 — PROTOCOL calls a set of shares *"the ceiling that now governs every gradient figure here"* and every one of them is computed on a bundle the same document says was disqualified (D146).** At pass 258 I closed the "teaches a stale verdict" class for **defect references** and wrote, deliberately, that I had **not** checked **figures** — *"the distinction matters because the figures are the ones a row would copy."* This is that gap, closed by extracting every percentage in the document and reading each against the campaign's current value.
+
+**A15 computes from 3,275 of 4,147 tensors. Line 509, thirty-nine lines earlier, says the 91.21 % it used to carry *"was the 0.5.0 / 4,147 bundle that pass 91 disqualified."*** One number was corrected for that bundle; the paragraph built on it was not.
+
+    the 48-block pairformer trunk    A15: 5.27 %     campaign: 5.8282 %
+    diffusion_module                 A15: 88.54 %    campaign: 89.211 %
+
+**The argument survives and the numbers do not, which is why it is corrected rather than deleted.** A15's point is the SHAPE — 79 % of tensors by count hold 6.54 % of the squared norm, so a count denominator is not a scope statement — and that holds to three digits under any of these figures. What does not survive is a row copying **5.27 %** into a report, which a clause calling these the governing ceiling actively invites.
+
+**The rest are labelled, not replaced.** 0.20 %, 13.03 %, 6.54 %, 94.44 % and the 0.19/1.25/15.06/43.50 table come from the same bundle and have **no published 0.4.3 replacement**. Inventing one would be worse than the drift, so the addendum says they illustrate the shape and that any number leaving the document cites the current reference.
+
+**And the method's limits are recorded with it**, because a scan that reports only its hits overstates itself: percentages were checked and **36.9462 %**, **51.1358 %** and aux_heads' **100.0000 %** confirmed current; non-percentage figures were **not** checked; and A22's 25 numbers were examined separately and are self-consistent — its claim is that three powers of two agree to all six digits, which its own table demonstrates.
+
+**Pass 262 — the answer field carried two different percentages for "the mass with no reading", and trimming it to its cap then broke a guard in a way the guard could not see (D145).**
 
 **The collision.** VERDICT said *"**2.0067 %** unread"* in the shipped split and, three sentences later, *"**2.0150 %** of the mass has no reading."* Same words, different numbers, neither with a denominator. Both are correct and they measure different things: **2.0067 %** is the `unread` bucket of the SHIPPED split against the 2.0e-02 float64 bar, one of four terms summing to 100.0000 %; **2.0150 %** is the complement of `of3t-wholemodel`'s COMPOSED coverage, 100 − 97.98502156952716 = 2.014978430472837. Close enough to look like a rounding disagreement, far enough apart to be a different measurement — the worst distance for a reader. Both now named in place. **This is A27 applied to a coverage figure rather than a ratio**: the campaign enforces "name the denominator" on ratios and has been leaving bare percentages alone.
 

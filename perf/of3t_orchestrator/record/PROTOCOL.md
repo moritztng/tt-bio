@@ -560,6 +560,23 @@ trunk is 5.27 %**. *No trunk-scope instrument can be a statement about the gradi
 magnitude, whatever its per-tensor result* — and read the other way, the device bijection's
 **94.44 %** is what makes a model-scope claim possible at all.
 
+**A15 ADDENDUM — 2026-09-21 (pass 263), D146. Every share in the paragraph above is computed on
+the 4,147-tensor 0.5.0 bundle that pass 91 DISQUALIFIED — this document says so about a different
+number thirty-nine lines earlier. The argument is unaffected; two of the figures are quoted
+elsewhere in the campaign and have moved.**
+
+    quantity                          A15 says    the campaign now uses
+    the 48-block pairformer trunk       5.27 %          5.8282 %
+    diffusion_module                   88.54 %         89.211 %
+
+The clause's point is the SHAPE of the distribution — that 79 % of tensors by count are 6.54 % of
+the squared norm, so a count denominator is not a scope statement — and that survives any of these
+figures to three digits. What does not survive is a row copying **5.27 %** or **88.54 %** into a
+report, which is exactly what a clause calling them *"the ceiling that now governs every gradient
+figure here"* invites. The 0.20 %, 13.03 %, 6.54 %, 94.44 % and the 0.19/1.25/15.06/43.50 count
+table are from the same disqualified bundle and have no published 0.4.3 replacements; treat them as
+illustrative of the shape and cite the current reference for any number that leaves this document.
+
 Enforced rather than requested: `_of3t_donecheck.py` grows a `norm_share` check on the rows
 that own a §3d agreement claim, failing a `GRADIENT:`/`GRADIENTS:` field that quotes only a
 count. It was written with a negative control — it passes `of3t-updaterule`'s real report and
