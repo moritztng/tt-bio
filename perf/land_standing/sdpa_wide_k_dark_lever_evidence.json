@@ -1,0 +1,82 @@
+{
+ "what": "Evidence for the one dark-lever TODO left by the opendde size-ladder re-record",
+ "lever": "SDPA_WIDE_K",
+ "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
+ "dark_at_rungs": [
+  256,
+  512,
+  768,
+  896
+ ],
+ "owner": "NOT this merge. The SDPA_WIDE_K default flip is ed5d6074e (2026-09-19), which is not an ancestor of the previous baseline commit e69df58cb, and 11a92f686 does not mention the flag. The exemption reason is owed by the row that landed the flip.",
+ "observed_per_rung": {
+  "256": {
+   "WIDE_K": [
+    0,
+    0
+   ],
+   "FUSED_LARGE_S": [
+    0,
+    0
+   ]
+  },
+  "512": {
+   "WIDE_K": [
+    0,
+    0
+   ],
+   "FUSED_LARGE_S": [
+    0,
+    0
+   ]
+  },
+  "640": {
+   "WIDE_K": [
+    8,
+    0
+   ],
+   "FUSED_LARGE_S": [
+    8,
+    0
+   ]
+  },
+  "768": {
+   "WIDE_K": [
+    0,
+    8
+   ],
+   "FUSED_LARGE_S": [
+    0,
+    8
+   ]
+  },
+  "896": {
+   "WIDE_K": [
+    0,
+    0
+   ],
+   "FUSED_LARGE_S": [
+    0,
+    40
+   ]
+  },
+  "1024": {
+   "WIDE_K": [
+    56,
+    0
+   ],
+   "FUSED_LARGE_S": [
+    56,
+    0
+   ]
+  }
+ },
+ "counter_sites_read_from_source": {
+  "served_above_cap_fused": "SDPA_K_CHUNK_STATS[0] inside the `if o is not None` of the above-cap fused loop; increments together with SDPA_FUSED_LARGE_S_STATS[0]",
+  "served_wide_k_ladder": "SDPA_K_CHUNK_STATS[0] inside the `if len(k_chunks) > 1` block, fused and stock branches",
+  "declined": "SDPA_K_CHUNK_STATS[1] at the END of the `if len(k_chunks) > 1` block, so it cannot fire when _tri_att_k_chunks returns a single entry",
+  "fused_declined": "SDPA_FUSED_LARGE_S_STATS[1] fires above the cap when no fused pair ran, and does NOT touch SDPA_K_CHUNK_STATS"
+ },
+ "dead_end_recorded_so_it_is_not_repeated": "Two q_len models were tested against the six observed rungs and BOTH were refuted, so the reason must not be written from either. (a) q_len = residue count: _tri_att_k_chunks returns a single entry at all six rungs (shipped k 256/256/160/256/224/256, every one dividing the padded length), which cannot produce the observed 8 and 56 serves. (b) q_len = 2N, suggested by the 512 aa census reject key (1024, 12, 1024, 32): reproduces five rungs but not 768, where len(k_chunks) is 1 at q_len 1536 yet SDPA_K_CHUNK_STATS[1] reads 8. The declined counter sits inside the len>1 block, so either the real q_len at the 768 rung is not 1536, or more than one distinct shape is presented per fold.",
+ "how_to_settle_it": "The counters live in the SPAWNED predict worker, not the parent, so an in-process runpy wrapper reads zeros (in-process-patch-never-reaches-a-spawn-child). Use the census path the size-ladder arm itself uses and dump SDPA_CHUNK_PICKS, which is keyed by the real (q_len, k_len) actually presented."
+}
