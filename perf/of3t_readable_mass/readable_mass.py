@@ -114,7 +114,10 @@ def main():
     ap.add_argument("--other-boundary", required=True, type=Path,
                     help="the trunk arm's gradient dump, keyed by THEIR tensor name")
     ap.add_argument("--other-boundary-key", default="grads")
-    ap.add_argument("--host-applied", action="append", default=[])
+    ap.add_argument("--host-applied", action="append", default=[],
+                    help="exact reference tensor name the shipped forward applies on the host")
+    ap.add_argument("--host-applied-prefix", action="append", default=[],
+                    help="prefix of a whole submodule the shipped forward applies on the host")
     ap.add_argument("--out", required=True, type=Path)
     args = ap.parse_args()
 
@@ -147,7 +150,9 @@ def main():
     del ob
 
     host_applied = set(args.host_applied)
-    missing_host = host_applied - set(mass)
+    host_applied |= {n for n in mass
+                     if any(n.startswith(p) for p in args.host_applied_prefix)}
+    missing_host = set(args.host_applied) - set(mass)
     if missing_host:
         raise SystemExit(f"STOP: host-applied name not in the reference: {sorted(missing_host)}")
 
@@ -202,7 +207,9 @@ def main():
             "checkpoint": {"path": str(args.checkpoint), "n_tensors": len(ck_names)},
             "compared_from": str(args.compared),
             "other_boundary_from": str(args.other_boundary),
-            "host_applied": sorted(host_applied),
+            "host_applied_names": sorted(args.host_applied),
+            "host_applied_prefixes": sorted(args.host_applied_prefix),
+            "host_applied_resolved_to": len(host_applied),
         },
         "denominator": {
             "model_squared_gradient_norm": total,

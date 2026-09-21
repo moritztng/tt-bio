@@ -12,9 +12,14 @@
     },
     "compared_from": "/home/ttuser/of3t_wholemodel/sidecar_shipped/shipped_vs_FLOAT64.json",
     "other_boundary_from": "/home/ttuser/of3t_apbgrad/dev_scope_CTRL_c64.pt",
-    "host_applied": [
+    "host_applied_names": [
       "input_embedder.atom_attn_enc.linear_q.0.weight"
-    ]
+    ],
+    "host_applied_prefixes": [
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.",
+      "input_embedder.atom_attn_enc.ref_atom_feature_embedder."
+    ],
+    "host_applied_resolved_to": 17
   },
   "denominator": {
     "model_squared_gradient_norm": 10.279642678524981,
@@ -86,22 +91,44 @@
         }
       }
     },
-    "NO_ARM": {
-      "n_tensors": 304,
-      "mass_sq": 0.09235966823276785,
-      "pct_of_model_mass": 0.8984715823412305,
+    "HOST_APPLIED": {
+      "n_tensors": 17,
+      "mass_sq": 0.15627508402823032,
+      "pct_of_model_mass": 1.5202384841128946,
       "by_section": {
+        "input_embedder": {
+          "n_tensors": 9,
+          "pct_of_model_mass": 0.7671990550038752
+        },
         "diffusion_module.atom_attn_enc": {
           "n_tensors": 8,
           "pct_of_model_mass": 0.7530394291090198
-        },
+        }
+      }
+    },
+    "FUSED_NOT_SPLIT": {
+      "n_tensors": 96,
+      "mass_sq": 0.02791195077782347,
+      "pct_of_model_mass": 0.2715264688736101,
+      "by_section": {
+        "diffusion_module.diffusion_transformer": {
+          "n_tensors": 96,
+          "pct_of_model_mass": 0.2715264688736101
+        }
+      }
+    },
+    "NO_ARM": {
+      "n_tensors": 288,
+      "mass_sq": 0.012205852522175042,
+      "pct_of_model_mass": 0.11873810115670724,
+      "by_section": {
         "msa_module_embedder": {
           "n_tensors": 2,
           "pct_of_model_mass": 0.06124397616155431
         },
         "input_embedder": {
-          "n_tensors": 55,
-          "pct_of_model_mass": 0.05971275737827506
+          "n_tensors": 47,
+          "pct_of_model_mass": 0.033018705302771685
         },
         "template_embedder": {
           "n_tensors": 96,
@@ -130,28 +157,6 @@
         "aux_heads": {
           "n_tensors": 64,
           "pct_of_model_mass": 9.075097393868057e-08
-        }
-      }
-    },
-    "HOST_APPLIED": {
-      "n_tensors": 1,
-      "mass_sq": 0.07612126831763756,
-      "pct_of_model_mass": 0.7405050029283717,
-      "by_section": {
-        "input_embedder": {
-          "n_tensors": 1,
-          "pct_of_model_mass": 0.7405050029283717
-        }
-      }
-    },
-    "FUSED_NOT_SPLIT": {
-      "n_tensors": 96,
-      "mass_sq": 0.02791195077782347,
-      "pct_of_model_mass": 0.2715264688736101,
-      "by_section": {
-        "diffusion_module.diffusion_transformer": {
-          "n_tensors": 96,
-          "pct_of_model_mass": 0.2715264688736101
         }
       }
     },
@@ -262,14 +267,14 @@
         "pct_of_model_mass": 0.04986889629078572
       }
     ],
-    "NO_ARM": [
+    "HOST_APPLIED": [
+      {
+        "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+        "pct_of_model_mass": 0.7405050029283717
+      },
       {
         "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
         "pct_of_model_mass": 0.6734034330383528
-      },
-      {
-        "param": "msa_module_embedder.linear_s_input.weight",
-        "pct_of_model_mass": 0.06068555025891849
       },
       {
         "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
@@ -284,30 +289,24 @@
         "pct_of_model_mass": 0.012551426706760894
       },
       {
-        "param": "input_embedder.linear_z_i.weight",
-        "pct_of_model_mass": 0.01184585326199706
-      },
-      {
         "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
         "pct_of_model_mass": 0.010938144606952856
       },
       {
-        "param": "input_embedder.linear_z_j.weight",
-        "pct_of_model_mass": 0.010865258068248004
-      },
-      {
-        "param": "input_embedder.linear_s.weight",
-        "pct_of_model_mass": 0.009910867382160942
-      },
-      {
         "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
         "pct_of_model_mass": 0.005022971728502683
-      }
-    ],
-    "HOST_APPLIED": [
+      },
       {
-        "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
-        "pct_of_model_mass": 0.7405050029283717
+        "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+        "pct_of_model_mass": 0.004946444178732868
+      },
+      {
+        "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+        "pct_of_model_mass": 0.003791055234398125
+      },
+      {
+        "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+        "pct_of_model_mass": 0.0037658821673878335
       }
     ],
     "FUSED_NOT_SPLIT": [
@@ -350,6 +349,48 @@
       {
         "param": "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_k.weight",
         "pct_of_model_mass": 0.006098725163465737
+      }
+    ],
+    "NO_ARM": [
+      {
+        "param": "msa_module_embedder.linear_s_input.weight",
+        "pct_of_model_mass": 0.06068555025891849
+      },
+      {
+        "param": "input_embedder.linear_z_i.weight",
+        "pct_of_model_mass": 0.01184585326199706
+      },
+      {
+        "param": "input_embedder.linear_z_j.weight",
+        "pct_of_model_mass": 0.010865258068248004
+      },
+      {
+        "param": "input_embedder.linear_s.weight",
+        "pct_of_model_mass": 0.009910867382160942
+      },
+      {
+        "param": "template_embedder.linear_t.weight",
+        "pct_of_model_mass": 0.004349377918365843
+      },
+      {
+        "param": "layer_norm_z.bias",
+        "pct_of_model_mass": 0.003901700726975264
+      },
+      {
+        "param": "template_embedder.template_pair_stack.layer_norm.bias",
+        "pct_of_model_mass": 0.002148603801141737
+      },
+      {
+        "param": "layer_norm_s.bias",
+        "pct_of_model_mass": 0.0014750161756627949
+      },
+      {
+        "param": "msa_module.blocks.0.msa_att_row.linear_o.weight",
+        "pct_of_model_mass": 0.0010429750580390324
+      },
+      {
+        "param": "template_embedder.template_pair_stack.blocks.1.pair_transition.linear_out.weight",
+        "pct_of_model_mass": 0.0010119852680654576
       }
     ],
     "NOT_A_LEAF_LAZY": [
