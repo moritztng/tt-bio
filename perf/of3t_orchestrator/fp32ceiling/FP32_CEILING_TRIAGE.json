@@ -1,0 +1,56 @@
+{
+ "ADJACENT_NEEDS_ITS_OWN_CHECK": {
+  "D28": "gradients taken at forwards that disagree above the bar. Whether the forward disagreement is itself the fp32 ceiling is plausible and unmeasured.",
+  "D30": "forward agrees to 0.85 % while the gradient is 16.6 % out, a 19.6x backward-over-forward factor. A backward accumulates more, so a floor hurts it more -- consistent, not established.",
+  "D93": "the trunk's second revision difference is `use_high_precision_attention`, a PRECISION change in the attention. Adjacent, but it is a difference between upstream revisions rather than our arithmetic, so do not merge it into this cause."
+ },
+ "CORRECTED_pass210": "Two of the seven attributions are WRONG, corrected by of3t-fp32islands (D120), and this file warned about exactly this failure in its own why_a_triage field. D9 is NOT the silicon ceiling: it is a policy mismatch, openfold3_trunk.py:139 shipping fp32_softmax=True where 0.4.3 runs that softmax in bf16, and its 3.2x improvement with the flag OFF is a move TOWARD upstream's policy. Our fp32 softmax is 3.2x MORE accurate than upstream's bf16 one (5.110116e-04 against 1.617567e-03) -- the opposite of 'we cannot get close enough on-device'. D8's attention hypothesis is RETIRED at 0.4.3, its 4-op attention region reading 7.192778e-03 against upstream's own 7.259395e-03, ratio 0.99; its residual is a LayerNorm-gradient class. The protected list held; the attributed list did not, and the lesson is that a mechanism explains a SIGNATURE, not a defect.",
+ "EXPLAINED_OR_STRONGLY_SUSPECT": {
+  "D116": {
+   "action": "ALREADY ACTIONED -- of3t-apbgrad amended at pass 205 to test the host softmax as its FIRST arm, ahead of its operand sweep",
+   "why": "the AttentionPairBias backward, 33.30x at cos 0.019, on the softmax's own path with the same signature."
+  },
+  "D55": {
+   "action": "install it for the 12x, but stop expecting it to close D56",
+   "why": "precise_config() withheld from four reductions inside near-cancellations, the softmax backward among them. The mechanism does NOT make this a non-issue -- 1.646e-03 against 2.029e-02 is still 12x -- but it puts a CEILING on it: installing the lever everywhere still leaves the reduction four orders from IEEE fp32, so it cannot close a cancellation."
+  },
+  "D56": {
+   "action": "do not spend more engineering hunting a device configuration for it",
+   "the_mechanism_composed": "g_gamma is a sum over 18,432 terms whose relative error is set by the cancellation condition number K. With IEEE fp32 a large K still lands inside the bar; with a device fp32 a few mantissa bits short, the SAME K blows past it. Conditioning amplifies whatever floor it is handed, and the two floors differ by four orders.",
+   "why_it_is_the_strongest_match": "its own heading already says 'torch fp32 computes that same reduction INSIDE THE BAR, so the conditioning is the amplifier and a ~2,000x DEVICE ARITHMETIC FLOOR is the source'. It had identified a device arithmetic floor and had no cause for it. The mechanism is the cause."
+  },
+  "D62": {
+   "action": "fold into D56",
+   "why": "the same adaln cancellation ladder as D56; every block sits 19x to 2,872x above the ladder's own device curve, which is what a floor four orders off IEEE fp32 does to a conditioned sum."
+  },
+  "D8": {
+   "CORRECTED_pass210": "MOVED OUT -- attention hypothesis retired at 0.4.3, residual is a LayerNorm-gradient class (D120)",
+   "action": "named by Moritz; re-examine under the host softmax rather than tuning on-device",
+   "why": "the pair-track gradients an order of magnitude outside the bar. of3t-adaln measured the leaf at 8.06e-01 under our softmax against 1.46e-02 under a float64 softmax and concluded the attention-side gradient defect is the softmax and nothing else on that path -- a reading that now has a mechanism under it."
+  },
+  "D9": {
+   "CORRECTED_pass210": "MOVED OUT -- a policy mismatch, and we are MORE precise than upstream, not less (D120)",
+   "action": "re-measure with the host float64 softmax as the arm, not the device fp32 one",
+   "why": "fp32_softmax costs 3.2x on the triangle-attention weight gradient -- a softmax precision lever with a large gradient effect, same family."
+  },
+  "the_51_percent_headline": {
+   "action": "of3t-f64softmax dispatched to build the host path; Moritz accepted the 1.441x",
+   "why": "four on-device softmax arms all missed the bar and the campaign recorded that as a settled NO-GO without a cause. The cause is this."
+  }
+ },
+ "EXPLICITLY_NOT_THIS_CAUSE_and_this_list_matters_more": {
+  "D107": "upstream steps a disabled parameter from decaying momentum and we skip it. An update-rule semantics difference; exact arithmetic would not change it.",
+  "D112": "a pruned worktree took the 0.4.3 reference tree. Infrastructure.",
+  "D117": "`ref_space_uid_to_perm` collation knocking permutation alignment into its naive fallback. Harness code.",
+  "D2_D3_D10_D24": "out of scope or model-behaviour defects, unrelated.",
+  "D31": "the tape differentiates a DIFFERENT FUNCTION from the one it computes -- fused SDPA forward, precise recompute backward. A consistency defect. No amount of precision fixes differentiating the wrong function, and attributing it here would bury it.",
+  "D59_and_D86": "a shape-inferred transpose scoring tensors against their own transposes. A wiring defect with a sqrt(2)/cos~0 signature, not a precision one.",
+  "D78": "the shared denominator is an order-dependent sum asserted by exact equality. A method defect in our own instrument."
+ },
+ "as_of": "2026-09-21, of3t-orchestrator pass 206. CPU only, no device. A TRIAGE of the campaign's open defects against a mechanism Moritz supplied; it introduces no measurement of its own.",
+ "provenance": "of3t-orchestrator pass 206 on pc, CPU only, no device opened. The mechanism is Moritz's (ask 9562). The device softmax figures are of3t-softmax's cost table; the 8.06e-01/1.46e-02 leaf pair is of3t-adaln's; the ~2,000x floor and the conditioning ladder are of3t-adaln's and pass 155's. The classification is this pass's and it is the only new thing here.",
+ "the_mechanism": "Tenstorrent's fp32 is NOT IEEE fp32 -- it is a few mantissa bits short. A true fp32 softmax agrees with float64 to ~1e-7; the device reads 2.029e-02 shipped, 1.646e-03 at precise_config(), 5.156e-04 at _accurate_softmax. Nothing on-device is within four orders of magnitude of real fp32. Silicon, not configuration.",
+ "what_this_changes_operationally": "Six open defects plus the campaign's largest headline are now one cause with one fix in flight, rather than six investigations. Three more are adjacent and get their own cheap check. Seven are explicitly protected from being swept into it. The saving is the engineering NOT spent tuning device configurations against a silicon floor.",
+ "what_this_does_NOT_establish": "that the host float64 softmax closes any of them. It closes the 51.1358 % scope at 0.956x of the bar by measurement; for D8, D9 and D56 the substitution is a hypothesis with a mechanism, and each still owes its own arm. This file reallocates effort; it does not retire a defect.",
+ "why_a_triage": "The directive is explicit: 'any other defect whose signature is we cannot get close enough on-device is now suspect for the same cause... before more engineering is spent on them.' A satisfying mechanism is also the moment over-attribution starts, so this classifies in BOTH directions and the second list is the load-bearing one."
+}
