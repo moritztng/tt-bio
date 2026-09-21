@@ -1,0 +1,114 @@
+{
+ "model": "openfold3",
+ "size": 384,
+ "host": "tt-quietbox",
+ "chip": "3",
+ "arms": "on",
+ "sites": "",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T03:22:19Z",
+ "loadavg": [
+  2.74169921875,
+  2.61572265625,
+  4.82421875
+ ],
+ "ccd_donor": null,
+ "seed": 0,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "on",
+   "fold_s": 19.785,
+   "plddt": 0.608336,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 10
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+   "digest": "dcc0be23d55766dd5811cbab1106ad32b73f5c8db763a4b34f59c1e1b74040d8",
+   "hifi_stats": {
+    "served": 432,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(384, 384)": [
+     384,
+     64,
+     2
+    ]
+   },
+   "cif_dir": "perf/allm_safety/out/cif_m18_openfold3_384_s0_leg0_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 108,
+ "triatt_targeted": 108,
+ "paths": [
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_start"
+ ],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "fused_hifi",
+ "cold_s": 176.097,
+ "medians": {
+  "on": 19.785
+ },
+ "aa_floor": {
+  "on": 0.0
+ },
+ "digests": {
+  "on": [
+   "dcc0be23d55766dd5811cbab1106ad32b73f5c8db763a4b34f59c1e1b74040d8"
+  ]
+ }
+}
