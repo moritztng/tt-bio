@@ -39,7 +39,14 @@ PAIRFORMER = {"Pairformer", "PairformerLayer", "PairformerModule"}
 
 
 def _tree(p):
-    return ast.parse(p.read_text(errors="replace"))
+    """Parse, or refuse. A SyntaxError in the tree is not this script's verdict to give: it must
+    say the source is unreadable rather than traceback, or a caller reads the crash's exit code as
+    a result. Hit while negative-controlling this very file."""
+    try:
+        return ast.parse(p.read_text(errors="replace"))
+    except SyntaxError as e:
+        raise SystemExit(f"cannot parse {p}: {e}. Fix the source before reading this check -- an "
+                         f"unparseable tree is not a verdict about the plumbing.")
 
 
 def _pairformer_calls(path):
@@ -84,6 +91,7 @@ def _hifi_attr_per_branch():
     So: read the two branches out of the source and report the attribute each one gates on.
     """
     src = TS.read_text(errors="replace")
+    _tree(TS)
     fn = next((n for n in ast.walk(ast.parse(src))
                if isinstance(n, ast.FunctionDef) and n.name == "_attend_heads"), None)
     if fn is None:
@@ -106,15 +114,32 @@ def _hifi_attr_per_branch():
 
 
 def _kwarg_lands_on():
-    """Which TriangleAttention attribute does `tri_att_sdpa_hifi` set? -> attr name or None."""
+    """Which TriangleAttention attributes does `tri_att_sdpa_hifi` set? -> set of attr names.
+
+    A SET, not the first match. The two branches of `_attend_heads` read different attributes and
+    two models sit on opposite branches -- Boltz-2 passes no `fp32_softmax` and takes the
+    `sdpa_hifi` branch, OpenFold3 passes it at every site and takes the `fused_hifi` branch. The
+    kwarg must reach BOTH or one of them silently stops being configured. Returning the first
+    match is how this script would miss the mirror image of the defect it was written to catch:
+    re-routing the kwarg to `fused_hifi` alone fixes OpenFold3 and breaks Boltz-2, and the old
+    form would have reported YES.
+    """
     src = TS.read_text(errors="replace")
+    _tree(TS)
+    per_call = []
     for n in ast.walk(ast.parse(src)):
-        if isinstance(n, ast.Call):
-            for kw in n.keywords:
-                if (kw.arg and isinstance(kw.value, ast.Name) and kw.value.id == KWARG
-                        and kw.arg != KWARG):
-                    return kw.arg
-    return None
+        if not isinstance(n, ast.Call):
+            continue
+        attrs = {kw.arg for kw in n.keywords
+                 if kw.arg and kw.arg != KWARG and KWARG in ast.dump(kw.value)}
+        if attrs:
+            per_call.append((getattr(n, "lineno", 0), attrs))
+    # PER CONSTRUCTION, intersected: a forwarding site that covers only one branch's attribute
+    # breaks the model on the other branch, and a union over the whole file would hide it behind a
+    # sibling site that does cover it. `PairformerLayer` builds TWO TriangleAttentions (start and
+    # end) and both must carry both.
+    return (set.intersection(*(a for _, a in per_call)) if per_call else set(),
+            per_call)
 
 
 def _site_takes_fp32_branch(path):
@@ -175,7 +200,7 @@ def main():
     # 5: THE CHECK THAT WAS MISSING -- does the plumbed kwarg land on the attribute the branch
     #    OpenFold3 actually takes reads? Plumbing the wrong attribute passes every test above.
     fp32_attrs, else_attrs, why = _hifi_attr_per_branch()
-    lands_on = _kwarg_lands_on()
+    lands_on, lands_sites = _kwarg_lands_on()
     reach = None
     if why:
         hard.append(why)
@@ -184,9 +209,18 @@ def main():
         all_fp32 = all(v is True for v in takes_fp32.values())
         needed = fp32_attrs if all_fp32 else else_attrs
         reach = (all_fp32, needed, lands_on)
-        if lands_on is None:
+        # Boltz-2 passes the kwarg and takes the OTHER branch, so its attribute must stay covered.
+        b2_branch = _site_takes_fp32_branch(Path("tt_bio/boltz2.py"))
+        b2_needs = (fp32_attrs if b2_branch is True else else_attrs) or set()
+        if b2 and b2_needs and not (b2_needs & lands_on):
+            hard.append(
+                f"`{KWARG}` sets {sorted('self.' + a for a in lands_on)}, but Boltz-2 passes it and "
+                f"takes the branch gating on {' / '.join('self.' + a for a in sorted(b2_needs))}. "
+                f"Re-routing the kwarg to OpenFold3's attribute ALONE fixes OpenFold3 and silently "
+                f"stops configuring Boltz-2 -- the mirror image of the defect this check exists for.")
+        if not lands_on:
             hard.append(f"`{KWARG}` no longer forwards to any TriangleAttention attribute")
-        elif needed and lands_on not in needed:
+        elif needed and not (needed & lands_on):
             hard.append(
                 f"`{KWARG}` sets `self.{lands_on}`, but OpenFold3 passes fp32_softmax=True at every "
                 f"site and that branch of `_attend_heads` gates on "
@@ -203,9 +237,16 @@ def main():
           f"{' / '.join('self.' + a for a in sorted(fp32_attrs or [])) or '-'}\n")
         w(f"  the else-branch gates on              : "
           f"{' / '.join('self.' + a for a in sorted(else_attrs or [])) or '-'}\n")
-        w(f"  {KWARG} sets              : self.{lands}\n")
+        w(f"  {KWARG} sets              : "
+          f"{', '.join(sorted('self.' + a for a in lands)) or '-'}"
+          f"   (intersected over {len(lands_sites)} forwarding site(s))\n")
         w(f"  -> reaches OpenFold3                  : "
-          f"{'YES' if needed and lands in needed else 'NO -- plumbing it is inert'}\n\n")
+          f"{'YES' if needed and (needed & lands) else 'NO -- plumbing it is inert'}\n")
+        b2b = _site_takes_fp32_branch(Path("tt_bio/boltz2.py"))
+        b2n = (fp32_attrs if b2b is True else else_attrs) or set()
+        w(f"  -> still reaches Boltz-2              : "
+          f"{'YES' if b2n & lands else 'NO -- REGRESSION'} "
+          f"(it needs {', '.join(sorted('self.' + a for a in b2n)) or '-'})\n\n")
     w(f"Pairformer accepts {KWARG}          : {'yes' if sig else 'NO'}\n")
     w(f"triatt_sdpa_hifi_site, default False : {'yes' if site and not hard else 'see below'}\n")
     w(f"Boltz-2 sites passing it             : {len(b2)} "
