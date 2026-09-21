@@ -88,9 +88,8 @@ TABLE = {
     "D8":  (USER, "The assembled pairformer block's pair-track gradients are an order of "
                   "magnitude outside the bar; re-attributed but not closed."),
     "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
-                  "forward and is 16.6 % out on the gradient."),
-    "D31": (USER, "Every attention site ships a fused SDPA carrying a 3.3e-02 deficit while the "
-                  "tape returns the gradient of a precise path it did not run."),
+                  "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
+                  "the repair, re-measured from ONE harness at pass 222."),
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
@@ -99,8 +98,6 @@ TABLE = {
                   "gradient component, which the entry itself calls a port gap."),
     "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
                   "measured on two independent modules -- and the tape is shipped training code."),
-    "D63": (USER, "Five of five shipped models construct a site the softmax lever patches and "
-                  "only three reach one at runtime, so a repair's reach differs by model."),
     "D107": (USER, "A parameter disabled on every sample of a step: upstream still steps it from "
                    "decaying momentum and tt_bio's AdamW skips it -- a real update divergence."),
     "D117": (USER, "safe_multi_chain_permutation_alignment raises KeyError on these batches and "
@@ -137,6 +134,10 @@ TABLE = {
                   "an instrument defect in the comparison, not in the model."),
     "D62": (CAMP, "Two determinations of block 8's cancellation ratio differ by 7,532x, one of "
                   "them interpolated off the curve it was explaining."),
+    "D63": (CAMP, "RE-CLASSIFIED pass 222, see BOUNDARY. Its own heading says 'UNFIXED as a "
+                  "REVIEWING CONVENTION': the measurement is complete and nothing in the shipped "
+                  "models is wrong; what is wrong is estimating blast radius from a construction "
+                  "count."),
     "D64": (CAMP, "Everything was measured against float64 and never against what OpenFold3's own "
                   "training precision achieves -- a choice of reference."),
     "D71": (CAMP, "The negative control the reference-precision result rests on is not a "
@@ -169,6 +170,9 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
+    "D126": (CAMP, "RE-CLASSIFIED pass 223, see BOUNDARY. A training loop that omits "
+                   "params.rebind() trains for one step -- but recipes.py:186 calls it, so this "
+                   "is a harness trap and not something a user of train_loop hits."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
@@ -181,12 +185,35 @@ BOUNDARY = {
     "D37": "Could be read as USER-FACING: 'block 47's gradient is INFLATED by 1.18x' is a fact "
            "about our port. Kept CAMPAIGN-INTERNAL because the DEFECT as filed is that the "
            "campaign registered the wrong direction; the magnitude itself is D8's.",
-    "D63": "Could be read as CAMPAIGN-INTERNAL: it measures a default-off lever's reach. Kept "
-           "USER-FACING because the statement is about five SHIPPED models' runtime paths and it "
-           "bounds which of them any softmax repair can ever help.",
+    "D63": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 222, and the move is in the "
+           "direction that flatters me, so the argument is given in full and can be reversed in "
+           "one line. The USER-FACING test published here is 'changes what someone using the "
+           "shipped tt-bio gets today -- an inference output, a crash, or a training run's result "
+           "on the shipped default'. D63 changes none of those: its table is complete and "
+           "CORRECT, Boltz-2 and RF3 come back byte-identical because they take the fused-SDPA "
+           "branch, and the negative controls move (1.3207 A, 0.2005 A) so the instrument works. "
+           "It is a true measured fact ABOUT the shipped tree, not a defect IN it -- its own "
+           "heading says 'UNFIXED as a reviewing convention'. It stays UNFIXED either way, so the "
+           "gate's keyword clause is unaffected; only the USER-FACING count moves, 12 -> 11. I "
+           "looked for a defect to move the other way at the same time and did not find one; that "
+           "absence is recorded rather than balanced by a manufactured move.",
     "D73": "Arguably already closed by of3t-refprec and of3t-wholemodel, which measured exactly "
            "what it says was never measured. Left UNFIXED and CAMPAIGN-INTERNAL here because "
            "closing a defect is a status edit in DEFECTS.md, not a side effect of a triage.",
+    "D126": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 223, in the SAME pass that filed "
+            "it as USER-FACING, and the move flatters me, so: I filed it on of3t-modeltraj's "
+            "phrase 'the SHIPPED default', having verified the row's numbers against its "
+            "artifacts and its commits against git but NOT the library. tt_bio/train/recipes.py:186 "
+            "calls params.rebind() immediately after opt.step(), with a comment saying why, and "
+            "lora.py:434's docstring names the failure before anyone measured it. So the row's "
+            "'shipped' arm is its own loop without the repair. The mechanism is real and confirmed "
+            "at line level (optim.py:253 replaces t.value; autograd.py:1311/1337-38 key on "
+            "id(raw.value) and guard t.value is raw), and a hand-written loop that omits rebind "
+            "really does train for one step -- so it stays UNFIXED as a trap worth a regression "
+            "test. What keeps it open rather than closed: whether EVERY training entry point "
+            "reaches recipes.py:186, and whether check_displacement() would actually have fired. "
+            "of3t-rebind is amended to answer both. Same shape as D117, one pass after I wrote the "
+            "memory about it.",
     "D28": "Could be read as USER-FACING: the forwards really do disagree. Kept CAMPAIGN-INTERNAL "
            "because the defect it FILES is that the gradient comparisons taken there are void; "
            "the forward disagreement is D19 (closed for the trunk) and D87 (refuted).",
