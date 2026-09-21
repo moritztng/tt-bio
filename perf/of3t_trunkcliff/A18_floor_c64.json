@@ -1,0 +1,45 @@
+{
+  "what": "A18 for the trunk: both tracks, masked, padding fraction beside each.",
+  "reference": "/home/ttuser/of3t_trunk043ref/ref_043_f64_c64.pt",
+  "reference_dtype_policy": "upstream 0.4.3, every parameter and every activation float64, checkpoint upcast once at load, no cast on the path",
+  "bar": 0.05,
+  "bar_a26_reachable": 0.07071067811865477,
+  "tokens": 64,
+  "real_tokens": 56,
+  "padding_fraction_single": 0.125,
+  "padding_fraction_pair": 0.234375,
+  "arms": {
+    "UPSTREAM_BF16": {
+      "s_masked": {
+        "rel": 0.006681862908441668,
+        "ratio": 0.9993026840259721,
+        "cos": 0.9999779040709722
+      },
+      "z_masked": {
+        "rel": 0.0051554845868528095,
+        "ratio": 1.0000692912839533,
+        "cos": 0.999986713810562
+      },
+      "config": null,
+      "overrides": null,
+      "s_verdict": "PASS",
+      "z_verdict": "PASS"
+    },
+    "UPSTREAM_F32": {
+      "s_masked": {
+        "rel": 8.849065269180841e-07,
+        "ratio": 0.999999777211637,
+        "cos": 0.9999999999996327
+      },
+      "z_masked": {
+        "rel": 4.862434695991846e-07,
+        "ratio": 1.0000000127153668,
+        "cos": 0.9999999999998717
+      },
+      "config": null,
+      "overrides": null,
+      "s_verdict": "PASS",
+      "z_verdict": "PASS"
+    }
+  }
+}
