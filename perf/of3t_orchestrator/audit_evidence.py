@@ -814,12 +814,56 @@ if DEF.is_file() and ORCH.is_file():
     # a FAILURE rather than a silent exclusion. The pattern is a status DECLARATION, not any
     # mention of the word -- D66's body discusses other defects' UNFIXED status and must not
     # trip it.
+    #
+    # Pass 240, two false positives in one compose, both from the same root: the split was on
+    # `### D\d+\.` only, so an `### Dn UPDATE ...` heading did NOT start a new entry and its body
+    # was charged to whichever `.`-heading came before it. D132's "body" therefore swallowed
+    # D129 UPDATE 2's `**UNFIXED**`. Split on every heading. And after that, D134's own body still
+    # tripped it on the sentence "Only D69's status actually moves, to **UNFIXED**" -- a
+    # declaration ABOUT ANOTHER DEFECT, which is the exact false positive the paragraph above
+    # says this check must not make. So a declaration counts only when the sentence carrying it
+    # does not name a different defect.
     _dt_u = DEF.read_text()
-    _parts = _re.split(r"(?m)^(### D\d+\..*)$", _dt_u)
+    _parts = _re.split(r"(?m)^(### D\d+\b.*)$", _dt_u)
     _ents = [(_parts[i], _parts[i + 1]) for i in range(1, len(_parts) - 1, 2)]
     _decl = _re.compile(r"\*\*UNFIXED[.*]|\bUNFIXED\b\s*(?:--|\u2014|\.)")
-    _bodyonly = [_re.match(r"### (D\d+)\.", h).group(1) for h, b in _ents
-                 if "UNFIXED" not in h and _decl.search(b)]
+
+    def _quoted_spans(text):
+        """Character ranges inside the house emphasis-quote form *"..."*.
+
+        Pass 252: correcting a status honestly means QUOTING the wrong one -- D21's update says
+        its heading `read *"UNFIXED -- the forward discriminator has not been run"*`. That is a
+        report of what the heading said, not a declaration, and reading it as one pressures an
+        author to paraphrase history rather than quote it, which is the opposite of what this
+        ledger wants.
+        """
+        return [(m.start(), m.end()) for m in _re.finditer(r'\*"[^"]*"\*', text)]
+
+    def _declares_own_unfixed(head, body):
+        """True when BODY declares UNFIXED about THIS defect rather than about another one."""
+        _me = _re.match(r"### (D\d+)\b", head).group(1)
+        _q = _quoted_spans(body)
+        for _m in _decl.finditer(body):
+            if any(a <= _m.start() < b for a, b in _q):
+                continue                      # inside a quotation: a report, not a declaration
+            _lo = body.rfind(".", 0, max(0, _m.start() - 1)) + 1
+            _hi = body.find(".", _m.end())
+            _sent = body[_lo: _hi if _hi != -1 else len(body)]
+            _others = {d for d in _re.findall(r"\bD\d+\b", _sent) if d != _me}
+            if not _others:
+                return True
+        return False
+
+    # Probe: a body-only declaration must still fire, and one about another defect must not.
+    _bo_probe = [_declares_own_unfixed("### D1. FIXED.", "It stays UNFIXED. More text."),
+                 _declares_own_unfixed("### D2. FIXED.", "Only D69's status moves, to **UNFIXED**."),
+                 _declares_own_unfixed("### D3. CLOSED.",
+                                       'Its heading read *"UNFIXED -- not run"* until now.')]
+    if _bo_probe != [True, False, False]:
+        bad.append("the body-only-UNFIXED probe did not fire on both shapes -- the check is "
+                   "either inert or it is flagging talk about other defects (pass-240 shape)")
+    _bodyonly = [_re.match(r"### (D\d+)\b", h).group(1) for h, b in _ents
+                 if "UNFIXED" not in h and _declares_own_unfixed(h, b)]
     if _bodyonly:
         bad.append("defect(s) declare UNFIXED in the BODY but not on the heading, where this "
                    "audit and GAP's coverage check read it, so they are invisible to both: "
@@ -834,12 +878,18 @@ if DEF.is_file() and ORCH.is_file():
     # The conservative clause matters: if a later heading carries NO status word at all, the
     # defect keeps the last status that had one. Otherwise "### D8 UPDATE (pass N). More data."
     # would silently drop a live defect out of the set this check protects.
-    _STATUS_RE = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
-    _last = {}
-    for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
-        _t = _STATUS_RE.findall(_m.group(2).upper())
-        if _t:
-            _last[_m.group(1)] = _t[-1]
+    # The vocabulary is defined ONCE, in perf/of3t_orchestrator/status_vocab.py. It used to
+    # be written out five times across four files, which is the shape of half the defects
+    # this campaign has filed against its own instruments (pass 241).
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from status_vocab import STATUS_RE as _STATUS_RE, PATTERN as _STATUS_PATTERN, \
+        recorded_escape_hatches as _recorded_escape_hatches
+    # One implementation, in status_vocab: upper-case in the source and unnegated, because a
+    # guard that merely REPORTS a prose status while the parser commits it is two answers to one
+    # question (pass 241; the D134 guard and this loop disagreed for a pass).
+    from status_vocab import statuses_by_defect as _statuses_by_defect, declarations as _decls
+    _last = _statuses_by_defect(_dt_u)
     unfixed = sorted((n for n, st in _last.items() if st == "UNFIXED"),
                      key=lambda d: int(d[1:]))
 
@@ -897,6 +947,173 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+    # --- RECORDED may not be used to retire a defect, and the gate must share the vocabulary ---
+    # Pass 241. RECORDED was added so that a FINDING -- "block 47 is worth one per cent of the
+    # model's gradient mass" -- can declare a status at all; twenty entries had none and were
+    # invisible to every clause built on `unfixed` (D133). A new status word is an escape hatch
+    # unless it is fenced, so: a defect that EVER declared UNFIXED may not later be restated
+    # RECORDED. That is retirement by relabelling and it is refused, not judged.
+    _hatch = _recorded_escape_hatches(_dt_u)
+    if _hatch:
+        bad.append("defect(s) restated RECORDED after having declared UNFIXED: "
+                   + ", ".join(_hatch) + " -- RECORDED asserts the entry was never a defect, so "
+                   "it cannot retire one that was. Use FIXED, REFUTED, WITHDRAWN or say UNFIXED")
+    else:
+        ok.append("no defect is retired into RECORDED after having declared UNFIXED "
+                  "(the fence status_vocab.py exists for)")
+
+    # And the fifth copy of the vocabulary, which cannot import: `_of3t_donecheck.py` runs from
+    # ~/.coworker, not from this tree. It carries the pattern as a literal, so it is checked
+    # against the shared one rather than trusted -- the two-readers pattern the release gate uses.
+    _gate_p = Path("/home/moritz/.coworker/workstreams/_of3t_donecheck.py")
+    if not _gate_p.is_file():
+        warn.append("the gate script is not on this host, so its copy of the status vocabulary "
+                    "could not be checked against status_vocab.PATTERN")
+    else:
+        _gm = _re.search(r're\.compile\(r"(\\b\(\?:UN\)\?[^"]+)"\)', _gate_p.read_text())
+        if _gm is None:
+            bad.append("could not find a status-vocabulary regex in _of3t_donecheck.py -- it had "
+                       "one, and a check that stops finding what it reads is not a passing check")
+        elif _gm.group(1) != _STATUS_PATTERN:
+            bad.append("the gate's status vocabulary has drifted from status_vocab.PATTERN:\n"
+                       f"      gate: {_gm.group(1)}\n      here: {_STATUS_PATTERN}")
+        else:
+            ok.append("the gate's own copy of the status vocabulary is identical to "
+                      "status_vocab.PATTERN (it cannot import it; it is compared instead)")
+
+    # --- a status read out of ORDINARY PROSE, or out of a NEGATION ----------------------------
+    # Pass 240, and it is D87's mirror image. `_last` uppercases the whole heading before matching,
+    # so an English word does the work of a declaration:
+    #   D69  "...against a reading fixed before the arm produced output"  -> reads FIXED
+    #   D116 "...and D8 is NOT closed by it"                              -> reads CLOSED
+    # Nobody ever closed either one. D69 is a live finding recorded as FIXED because of a past
+    # participle, and D116's heading says the OPPOSITE of what the parser stored, because a
+    # word-level regex cannot see a negation. D87 was a real closure the parser could not read;
+    # this is a non-closure the parser reads as a closure, and it is the more dangerous direction
+    # because it removes a defect from `unfixed` silently.
+    #
+    # The house convention already writes the status in CAPITALS, usually bolded. So the rule is:
+    # a status declaration must be upper-case in the source, and must not be immediately preceded
+    # by a negation. This does not decide any defect's status -- it refuses to read one out of
+    # prose, which is what D87's guard does from the other side.
+    _NEG = _re.compile(r"\b(?:NOT|NEVER|NO LONGER|ISN'T|IS NOT|WAS NOT)\s+$", _re.I)
+
+    def _prose_statuses(doc):
+        """(defect, word, why) for a defect whose LATEST status-bearing heading is prose/negated.
+
+        Latest-bearing, not every heading: the stored status is the last heading that carried a
+        vocabulary word, so an old prose heading that a later capitalised one supersedes is
+        history, not a live misreading. Flagging every heading made this check demand that the
+        record be rewritten rather than corrected forward, which is not how this ledger works.
+        """
+        latest = {}
+        for m in _re.finditer(r"^### (D\d+)\b(.*)$", doc, _re.M):
+            if _STATUS_RE.findall(m.group(2).upper()):
+                latest[m.group(1)] = m.group(2)
+        out = []
+        for _n, h in latest.items():
+            up = _STATUS_RE.findall(h.upper())
+            if not up:
+                continue
+            exact = list(_STATUS_RE.finditer(h))        # genuine upper-case occurrences
+            good = [x for x in exact if not _NEG.search(h[:x.start()])]
+            if not good:
+                why = "lower-case prose" if not exact else "negated"
+                bad_word = exact[-1].group(0) if exact else up[-1]
+                out.append((_n, bad_word, why))
+        return sorted(out, key=lambda x: int(x[0][1:]))
+
+    # Probe, run every time: two synthetic headings in exactly the shapes D69 and D116 had.
+    _pp = _prose_statuses("### D1. a reading fixed before the arm ran.\n"
+                          "### D2. and D8 is NOT CLOSED by it.\n"
+                          "### D3. UNFIXED, and here is why.\n")
+    if [x[0] for x in _pp] != ["D1", "D2"]:
+        bad.append("the prose-status probe did not fire -- this check is inert, which is how "
+                   "D69 read FIXED off an adjective for seventy passes")
+    else:
+        _prose = _prose_statuses(_dt_u)
+        if _prose:
+            bad.append("defect(s) whose latest heading declares a status only in prose or under "
+                       "a negation, so the parser stored something nobody wrote: "
+                       + "; ".join(f"{n} ({w}, {why})" for n, w, why in _prose)
+                       + " -- write the status in CAPITALS and unnegated on a heading")
+        else:
+            ok.append("no defect's status is read out of lower-case prose or out of a negation "
+                      "(probe fires on both shapes)")
+
+    # --- a row CONCLUDES and the field its result supersedes still carries the old one --------
+    # This campaign's two longest-lived record defects are the same shape: a measurement landed
+    # and the answer field went on saying what it said before. D136's trajectory headline was
+    # wrong for 25 passes; A15's mass shares were computed on a disqualified bundle for over 100
+    # (D146). Both were found by reading, which is not a mechanism.
+    #
+    # So: a SMALL hand-declared table of (row, token that its conclusion supersedes, why). When
+    # the row has a concluded marker and VERDICT still carries the token, this fails. The table
+    # is deliberately tiny and every entry names its reason -- a big one would rot, and a rotted
+    # table of expectations is worse than none.
+    _SUPERSEDES = {
+        "of3t-trajwide": ("on a CONFIGURATION (D136)",
+                          "it measures the REAL shipped arm at ~89.2 % scope, which either "
+                          "replaces the repin-arm figure GO condition 3 quotes or blocks it; "
+                          "either way the bullet cannot still read as it does now"),
+    }
+    _conc = Path("/home/moritz/.coworker/state/concluded")
+    _vtxt = _re.search(r"^VERDICT:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
+    _vtxt = _vtxt.group(1) if _vtxt else ""
+    _late = []
+    for _row, (_tok, _why) in _SUPERSEDES.items():
+        if _conc.is_dir() and list(_conc.glob(_row)) and _tok in _vtxt:
+            _late.append(f"{_row} has concluded and VERDICT still says \"{_tok}\" -- {_why}")
+    if _late:
+        bad.append("a row's conclusion supersedes a figure the answer field still carries: "
+                   + "; ".join(_late))
+    else:
+        ok.append(f"no concluded row leaves a superseded figure in VERDICT "
+                  f"({len(_SUPERSEDES)} declared)")
+
+    # --- a defect whose headings NEVER declare a status is invisible to all of the above -------
+    # Pass 240. D87 was closed in a word the parser cannot READ. This is the other half: a defect
+    # whose headings carry NO status word at all. The parser's clause is deliberately conservative
+    # -- a status-free heading must not drop a live defect -- but a defect that has NEVER declared
+    # one simply never enters `_last`, so it is absent from `unfixed`, from UNFIXED_TRIAGE.json,
+    # from GAP's naming requirement, and therefore from GO condition 5 and the USER-FACING gate
+    # clause. D120 sat in that state for 29 passes while GAP's prose called it UNFIXED; so did
+    # D121, which GAP calls "UNFIXED as a standing rule". 29 of 132 defects were in it when this
+    # check was written.
+    #
+    # Failing on all 29 at once would abort every compose until someone triages them in a hurry,
+    # which is how a defect gets a status word chosen for convenience. So this is a RATCHET: the
+    # list is frozen in state/of3t/STATUSLESS_BACKLOG.json and the check fails on anything NOT in
+    # it, and equally on an entry that has since acquired a status. The list can only shrink.
+    _sl_p = Path("/home/moritz/.coworker/state/of3t/STATUSLESS_BACKLOG.json")
+    _seen_d, _has_d = set(), set()
+    for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
+        _seen_d.add(_m.group(1))
+        if _decls(_m.group(2)):                 # the same rule `_last` uses, from status_vocab,
+            _has_d.add(_m.group(1))             # or this check answers a different question
+    _statusless = sorted(_seen_d - _has_d, key=lambda d: int(d[1:]))
+    if not _sl_p.is_file():
+        bad.append(f"state/of3t/STATUSLESS_BACKLOG.json is absent and {len(_statusless)} "
+                   f"defect(s) declare no status on any heading -- they are invisible to the "
+                   f"UNFIXED set and to every gate clause built on it")
+    else:
+        _frozen = set(json.loads(_sl_p.read_text()).get("defects", []))
+        _new = [d for d in _statusless if d not in _frozen]
+        _healed = sorted(_frozen - set(_statusless), key=lambda d: int(d[1:]))
+        if _new:
+            bad.append(f"defect(s) with NO status word on any heading and not in the frozen "
+                       f"backlog: {', '.join(_new)} -- they are invisible to `unfixed`, to "
+                       f"UNFIXED_TRIAGE.json and to GAP's naming requirement. Write a word from "
+                       f"the vocabulary on a heading, or add them to the backlog with a reason")
+        elif _healed:
+            bad.append(f"STATUSLESS_BACKLOG.json still lists {', '.join(_healed)}, which now "
+                       f"declare a status -- the ratchet only counts if it is tightened; drop "
+                       f"them from the file")
+        else:
+            ok.append(f"no defect declares a status only outside the vocabulary, and the "
+                      f"statusless backlog is exactly its frozen {len(_frozen)} "
+                      f"({len(_seen_d)} defects total)")
+
     # --- the TRIAGE SPLIT the summary quotes, against the file the GATE reads -------------------
     # Pass 237. The summary states "N scope-excluded, M USER-FACING, K campaign-internal" in the
     # field Moritz reads as the answer, and nothing checked it. It had drifted to 4/10/33 while
@@ -908,8 +1125,19 @@ if DEF.is_file() and ORCH.is_file():
     # Same shape as the check-count guard (D130) and as pass 133: a figure recomputed somewhere
     # else, quoted by hand, and never reconciled. Both directions fail here -- a split that
     # disagrees with the file, and a split that disagrees with itself.
+    # Pass 262: this used to search the WHOLE document. Deleting the split from VERDICT while
+    # trimming it to its cap did not fail the check -- it silently matched a historical copy in
+    # PASSLOG and reported the pass-236 numbers as current. A check that falls back to history
+    # cannot see a deletion, which is the failure it exists to catch. VERDICT first; the whole
+    # document only if VERDICT has none, and then it says so.
     _tri_p = Path("/home/moritz/.coworker/state/of3t/UNFIXED_TRIAGE.json")
-    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
+    _tri_v = _re.search(r"^VERDICT:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
+    _tri_where = "VERDICT"
+    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal",
+                        _tri_v.group(1) if _tri_v else "")
+    if _tri_m is None:
+        _tri_where = "the document outside VERDICT"
+        _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
     if not _tri_p.is_file():
         warn.append("UNFIXED_TRIAGE.json is absent, so the triage split the gate reads cannot be "
                     "checked against the split the summary states")
@@ -926,13 +1154,13 @@ if DEF.is_file() and ORCH.is_file():
             bad.append(f"the summary states a triage split of {_said[0]}/{_said[1]}/{_said[2]} "
                        f"(scope-excluded/USER-FACING/campaign-internal) but "
                        f"UNFIXED_TRIAGE.json, which the GATE reads, holds "
-                       f"{_live[0]}/{_live[1]}/{_live[2]}")
+                       f"{_live[0]}/{_live[1]}/{_live[2]} (read from {_tri_where})")
         elif sum(_said) != len(unfixed):
             bad.append(f"the triage split {_said[0]}/{_said[1]}/{_said[2]} sums to {sum(_said)} "
                        f"but DEFECTS.md has {len(unfixed)} UNFIXED defects -- the split and the "
                        f"total in the same field disagree")
         else:
-            ok.append(f"the triage split the summary states ({_said[0]}/{_said[1]}/{_said[2]}) "
+            ok.append(f"the triage split VERDICT states ({_said[0]}/{_said[1]}/{_said[2]}) "
                       f"matches UNFIXED_TRIAGE.json and sums to the {len(unfixed)} UNFIXED "
                       f"defects in DEFECTS.md")
 
@@ -949,7 +1177,7 @@ if DEF.is_file() and ORCH.is_file():
     # WITHDRAWN" are honest and carry more information than either word alone. So a mismatch
     # fires only when GAP's own parenthetical says UNFIXED and does NOT also name the status
     # DEFECTS.md gives it. Nuance passes; an unreconciled contradiction does not.
-    _DEAD = ("FIXED", "WITHDRAWN", "REFUTED", "CLOSED", "RESOLVED", "ROOT-CAUSED")
+    from status_vocab import DEAD as _DEAD
     _st = _last          # one definition of "a defect's status", shared with the check above
 
     def _gap_contradictions(gap_text, statuses):
@@ -1268,12 +1496,13 @@ if ORCH.is_file():
             # green, which is how this one's absence went unnoticed for 175 passes.
             ok.append(f"all {len(_valid)} defect headings parse over {n_def} distinct defects, "
                       f"so none is invisible to its audit")
-        _STAT_H = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
-        _cur = {}
-        for _d, _rest in _valid:                       # file order, so a later UPDATE wins
-            _t = _STAT_H.findall(_rest.upper())
-            if _t:
-                _cur[_d] = _t[-1]
+        # Pass 241: this used to be a THIRD parse -- `findall(rest.upper())`, file order -- and it
+        # read D3's "UNFIXED, out of scope, recorded so it is not lost" as RECORDED the moment that
+        # word entered the vocabulary, along with D123 and D124. The audit then reported 46 UNFIXED
+        # while `statuses_by_defect` reported 49, in the same run. Two parses, two answers, one
+        # question. There is one parse now.
+        from status_vocab import statuses_by_defect as _sbd
+        _cur = _sbd(_dt)
         n_unf = sum(1 for _v in _cur.values() if _v == "UNFIXED")
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
