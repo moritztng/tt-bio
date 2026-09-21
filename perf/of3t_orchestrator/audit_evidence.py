@@ -1095,8 +1095,19 @@ if DEF.is_file() and ORCH.is_file():
     # Same shape as the check-count guard (D130) and as pass 133: a figure recomputed somewhere
     # else, quoted by hand, and never reconciled. Both directions fail here -- a split that
     # disagrees with the file, and a split that disagrees with itself.
+    # Pass 262: this used to search the WHOLE document. Deleting the split from VERDICT while
+    # trimming it to its cap did not fail the check -- it silently matched a historical copy in
+    # PASSLOG and reported the pass-236 numbers as current. A check that falls back to history
+    # cannot see a deletion, which is the failure it exists to catch. VERDICT first; the whole
+    # document only if VERDICT has none, and then it says so.
     _tri_p = Path("/home/moritz/.coworker/state/of3t/UNFIXED_TRIAGE.json")
-    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
+    _tri_v = _re.search(r"^VERDICT:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
+    _tri_where = "VERDICT"
+    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal",
+                        _tri_v.group(1) if _tri_v else "")
+    if _tri_m is None:
+        _tri_where = "the document outside VERDICT"
+        _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
     if not _tri_p.is_file():
         warn.append("UNFIXED_TRIAGE.json is absent, so the triage split the gate reads cannot be "
                     "checked against the split the summary states")
@@ -1113,13 +1124,13 @@ if DEF.is_file() and ORCH.is_file():
             bad.append(f"the summary states a triage split of {_said[0]}/{_said[1]}/{_said[2]} "
                        f"(scope-excluded/USER-FACING/campaign-internal) but "
                        f"UNFIXED_TRIAGE.json, which the GATE reads, holds "
-                       f"{_live[0]}/{_live[1]}/{_live[2]}")
+                       f"{_live[0]}/{_live[1]}/{_live[2]} (read from {_tri_where})")
         elif sum(_said) != len(unfixed):
             bad.append(f"the triage split {_said[0]}/{_said[1]}/{_said[2]} sums to {sum(_said)} "
                        f"but DEFECTS.md has {len(unfixed)} UNFIXED defects -- the split and the "
                        f"total in the same field disagree")
         else:
-            ok.append(f"the triage split the summary states ({_said[0]}/{_said[1]}/{_said[2]}) "
+            ok.append(f"the triage split VERDICT states ({_said[0]}/{_said[1]}/{_said[2]}) "
                       f"matches UNFIXED_TRIAGE.json and sums to the {len(unfixed)} UNFIXED "
                       f"defects in DEFECTS.md")
 
