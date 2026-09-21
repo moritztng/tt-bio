@@ -1,0 +1,10 @@
+leg on rc=0 flag=1
+f00fc60a2383dd4ce586dc62f447b9bd7747fc8057bf62cadeab1bfb7ea47c28  /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d56/fold_on/openfold3_results_cdk2x2_512/structures/cdk2x2_512.cif
+stats: 
+leg off rc=0 flag=0
+f00fc60a2383dd4ce586dc62f447b9bd7747fc8057bf62cadeab1bfb7ea47c28  /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d56/fold_off/openfold3_results_cdk2x2_512/structures/cdk2x2_512.cif
+stats: 
+leg on2 rc=0 flag=1
+f00fc60a2383dd4ce586dc62f447b9bd7747fc8057bf62cadeab1bfb7ea47c28  /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d56/fold_on2/openfold3_results_cdk2x2_512/structures/cdk2x2_512.cif
+stats: 
+ALL LEGS DONE 2026-09-21T17:50:16Z
