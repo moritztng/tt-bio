@@ -1,0 +1,24 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "0.4.3 and 0.5.0 GENUINELY DIFFER in the ending-node bias orientation, and the difference is entirely in what the caller passes. Our port targets 0.4.3, our checkpoint is of3-p2-155k (preview2), and tt-bio ships the pre-0.5.0 orientation -- so our setting is CORRECT for the checkpoint we run and of3t-trunkfwd scored it against a 0.5.0 reference. The product-defect escalation is WITHDRAWN.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device. Read from ~/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3 and .../up0.5.0, the two release trees D22 had already unpacked. Two greps.",
+ "the_cheapest_confirmation_still_owed": "upstream's own 0.4.3 PairFormerBlock scored against the same captured boundary should disagree with the 0.5.0 reference by about what our port does. One arm. If it does, the mismatch is fully explained; if it does not, something beyond the orientation is in play.",
+ "the_source": {
+  "0.4.3": {
+   "caller": "core/model/latent/base_blocks.py:394 -- self.tri_att_end(z, mask=pair_mask.transpose(-1,-2), chunk_size=...) with no transpose_bias",
+   "layer": "core/model/layers/triangular_attention.py -- forward() has NO transpose_bias parameter; the bias is permute_final_dims(self.linear_z(x), (2, 0, 1))",
+   "orientation": "(2, 0, 1), fixed"
+  },
+  "0.5.0": {
+   "caller": "base_blocks.py:394 -- self.tri_att_end(z, mask=..., transpose_bias=True, ...). The CALLER passes True.",
+   "layer": "forward(..., transpose_bias: bool = False) -- (2, 1, 0) when True, else (2, 0, 1). NOTE the default equals 0.4.3's behaviour.",
+   "orientation": "(2, 1, 0)"
+  },
+  "so": "the revisions differ, and they differ because of the call site, not the layer default. A reader checking only the layer would conclude they agree."
+ },
+ "what": "Deliverable 0 of of3t-foldab, answered by READING the two upstream release trees rather than by measuring: which ending-node triangle-attention bias orientation each revision uses, and therefore whether the 46.67x trunk disagreement is a defect or a reference-revision mismatch.",
+ "what_D22_did_not_cover": "D22 showed the 0.4.3/0.5.0 skew cannot explain the DIFFUSION transformer: no vendored model layers, operands exact at 0.000e+00, and every DiT-path file functionally inert between the revisions. That argument is sound and is about the DiT path. The trunk's triangle attention was never in it, and it is precisely a file that is NOT inert. The campaign carried D22's conclusion further than D22's evidence reached.",
+ "what_survives": "with the conventions matched the trunk forward still reads 4.971863e-02, 8.31x upstream's own bf16 and on the 5.0e-02 bar. A real disagreement remains -- an order of magnitude smaller than the 46.67x -- and its gradient consequence is unmeasured.",
+ "what_this_withdraws": "D90's product-defect escalation, which I made and which was wrong. And, per a pre-registration written before the answer arrived, D91 withdraws the refutation of 'the failure is one module' -- that rested on the trunk's 18.89 % error-mass share, computed from a reading against the wrong revision, so the claim returns to UNMEASURED.",
+ "which_is_right_for_our_checkpoint": "0.4.3. Our port targets it -- D22 measured our vendored tree at 537 differing lines / 19 files against 0.4.3 versus 2,028 / 50 against 0.5.0, i.e. 3.8x closer -- and the checkpoint is of3-p2-155k, preview2. tt_bio/openfold3_trunk.py's own comment says its shipped transpose_bias=True is the pre-0.5.0 orientation and that 'no weights change, so the checkpoint has to select it'. Our setting matches our checkpoint."
+}
