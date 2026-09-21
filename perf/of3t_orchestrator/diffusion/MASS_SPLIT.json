@@ -1,0 +1,22 @@
+{
+ "measured": "one pass over bundle_min_043/grads_f64_043.pt (sha256 1d4ea922..., 4,170 tensors), summing squared reference gradient norms per group",
+ "model_total_sq_norm": 10.27964,
+ "diffusion_total_sq_norm": 9.170529,
+ "diffusion_share_of_model_pct": 89.211,
+ "groups": {
+  "diffusion_CARRIED":             {"n": 573, "sq": 9.054509,   "pct_of_diffusion": 98.735, "pct_of_model": 88.082},
+  "diffusion_UNCARRIED_atom":      {"n": 92,  "sq": 0.08810786, "pct_of_diffusion": 0.961,  "pct_of_model": 0.857},
+  "diffusion_UNCARRIED_fused_qkv": {"n": 96,  "sq": 0.02791195, "pct_of_diffusion": 0.304,  "pct_of_model": 0.272},
+  "non_diffusion":                 {"n": 3409,"sq": 1.109114,   "pct_of_model": 10.789}
+ },
+ "headline": "the 188 uncarried diffusion tensors hold 1.265 % of the diffusion module's gradient mass and 1.13 % of the model's. NOT 38 %.",
+ "this_refutes_D46s_central_claim": "D46 said 38.07 % of the model's gradient mass is in diffusion tensors the instrument cannot compare, and attributed it to the uncarried set. The uncarried set is 1.13 % of the model. The attribution was wrong and so was the magnitude.",
+ "where_the_38_percent_actually_comes_from_is_now_OPEN": "device_gradient_043all.json reports share_of_diffusion_sq_norm = 0.5732 while 98.735 % of the diffusion mass is carriable. That run compared 547 of 761 reference tensors and named 547 of 870 reachable device weights -- so 323 reachable device weights went unnamed and 214 reference tensors unmatched. The ~41-point gap between 57.32 % compared and 98.74 % carriable is a limitation of THAT RUN's naming, not of what the port builds. What it is has NOT been determined.",
+ "what_stands": [
+  "the diffusion module really is 89.211 % of the model's squared gradient norm -- now confirmed directly from the reference file rather than from a derived table",
+  "the fused-QKV finding from pass 144 stands as a fact about the bijection, but it is worth only 0.272 % of the model, so unfusing is a correctness fix and not a coverage lever",
+  "the atom transformers' 92 tensors are 0.857 % of the model -- also small"
+ ],
+ "what_this_does_to_the_queue": "amendment 29 asked the row for exactly this number before building the DiT ladder. It is now measured, and it says the DiT ladder should NOT be built around unfusing: unfusing buys 0.27 % of the model. The real question is why a run that can carry 98.74 % of the diffusion mass compared 57.32 % of it, and that is a question about the run's own bijection, answerable without a card.",
+ "honest_limit": "the group sums are exact over the reference file. The claim about WHY the all-48 run compared only 57.32 % is an inference from its own counters (547/761 reference, 547/870 device) and is NOT established -- it is the next thing to measure."
+}
