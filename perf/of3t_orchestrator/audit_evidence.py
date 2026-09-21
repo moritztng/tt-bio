@@ -1177,41 +1177,122 @@ if DEF.is_file() and ORCH.is_file():
     # WITHDRAWN" are honest and carry more information than either word alone. So a mismatch
     # fires only when GAP's own parenthetical says UNFIXED and does NOT also name the status
     # DEFECTS.md gives it. Nuance passes; an unreconciled contradiction does not.
-    from status_vocab import DEAD as _DEAD
+    from status_vocab import DEAD as _DEAD, NOT_A_DEFECT_IN_WORDS as _NAD_WORDS, asserts as _asserts
     _st = _last          # one definition of "a defect's status", shared with the check above
 
+    # SYMMETRIC as of pass 270 (D115, the class). The pass-196 version fired on exactly one
+    # shape -- ledger dead, GAP label says UNFIXED -- which is the direction that had already
+    # happened. It was filed UNFIXED as a class precisely because nobody had looked for the
+    # others. Two more exist, and both were live:
+    #
+    #   A  ledger dead, GAP says UNFIXED          the pass-196 check. 0 occurrences since.
+    #   B  ledger UNFIXED, GAP says a dead word   never occurred in 208 published revisions.
+    #   C  both dead, but they ASSERT different   3 defects, 181 revision-hits, 2 still live.
+    #      things (see status_vocab.asserts)
+    #
+    # C is the one that mattered and the one a word-level check cannot see. CLOSED and REFUTED
+    # are both "dead", so the pass-196 check passed them; but CLOSED tells a reader the campaign
+    # had a bug and dealt with it, and REFUTED tells them the bug was never real. D8 carried
+    # exactly that disagreement for 82 revisions, D85 for 70 and D52 for 29.
+    #
+    # B has never fired and is here anyway, because "this direction has not drifted yet" is the
+    # sentence that preceded every defect in this family. It costs one branch.
+    #
+    # Nuance still passes, and the bar for it is unchanged: a label may reconcile the two words
+    # in its own parenthetical. "UNFIXED -- escalation WITHDRAWN", "UNFIXED in effect, fixed in
+    # code" and "CLOSED as a NON-DEFECT" are all honest and all clean.
+    def _reconciled(label, st):
+        """True when the label already accounts for the status DEFECTS.md gives."""
+        # When the LEDGER says UNFIXED, a label saying UNFIXED agrees, and what else it mentions
+        # is commentary. D56's "UNFIXED; mechanism REFUTED pass 232, magnitude COLLAPSED pass
+        # 233" is the honest form: the mechanism was refuted, the defect stands. The first
+        # version of this branch stripped UNFIXED before comparing -- correct for the case
+        # below, wrong here -- and reported D56 as a contradiction on its first real run. That
+        # is the fourth time a guard in this campaign has been too wide on its first run, so the
+        # shape is now in the nuance control rather than only in this comment.
+        if st == "UNFIXED":
+            return "UNFIXED" in label
+        # "FIXED" is a SUBSTRING of "UNFIXED", so a naive `st in label` reconciles every FIXED
+        # defect against a label saying the exact opposite -- FIXED being the commonest status,
+        # the pass-196 check would have been born unable to fire on the six cases that motivated
+        # it. Its break control caught that on the first run. Strip UNFIXED before asking.
+        rest = label.replace("UNFIXED", "")
+        if st in rest:
+            return True
+        return (_asserts(st) == "NOT-A-DEFECT"
+                and any(w in label for w in _NAD_WORDS))
+
     def _gap_contradictions(gap_text, statuses):
-        """Defects whose GAP label says UNFIXED while DEFECTS.md says the opposite."""
+        """Every unreconciled disagreement between a GAP label and the ledger, both ways."""
         out = []
         for m in _re.finditer(r"\*\*(D\d+)\s*\n?\(([^)]*)\)", gap_text):
             n, label = m.group(1), m.group(2).upper()
             st = statuses.get(n)
-            # "FIXED" is a SUBSTRING of "UNFIXED", so a naive `st not in label` reconciles every
-            # FIXED defect against a label that says the exact opposite -- and FIXED is the
-            # commonest status, so the check would have been born unable to fire on the six
-            # cases that motivated it. The break control below is what caught that. Strip the
-            # UNFIXED occurrences before asking whether the label also names the real status.
-            rest = label.replace("UNFIXED", "")
-            if st in _DEAD and "UNFIXED" in label and st not in rest:
+            if st is None or _reconciled(label, st):
+                continue
+            # what the LABEL declares, with the same UNFIXED-is-not-FIXED care
+            said = [w for w in _DEAD if _re.search(rf"(?<!UN){w}", label)]
+            if st in _DEAD and "UNFIXED" in label:                       # A
                 out.append(f"{n} (GAP says UNFIXED, DEFECTS.md says {st})")
+            elif st == "UNFIXED" and said:                               # B
+                out.append(f"{n} (GAP says {'/'.join(said)}, DEFECTS.md says UNFIXED)")
+            elif st in _DEAD and said and not any(                       # C
+                    _asserts(w) == _asserts(st) for w in said):
+                out.append(f"{n} (GAP says {'/'.join(said)}, which asserts "
+                           f"{_asserts(said[0])}; DEFECTS.md says {st}, which asserts "
+                           f"{_asserts(st)})")
         return out
 
-    # Break control, run before the real one: the check must FAIL on a document that contradicts
-    # itself, or its silence on the real input means nothing. A17 -- a negative control has to
-    # break exactly what the check reads, which here is the pairing, not the presence.
-    _probe = _gap_contradictions("**D1 (UNFIXED)**: synthetic.", {"D1": "FIXED"})
-    if len(_probe) != 1:
-        bad.append("the GAP-vs-DEFECTS contradiction check does not fire on a known "
-                   "contradiction, so its silence on the real document is uninformative")
+    # Break controls, run before the real one: each DIRECTION must fire on a document that
+    # contradicts itself in that direction, or the check's silence on the real document is
+    # uninformative for that direction. A17 -- a negative control has to break exactly what the
+    # check reads, and a check with three branches needs three of them. One shared probe would
+    # have passed on the pass-196 code, which is how a one-way check survived a break control.
+    _probes = [
+        ("A  ledger dead, GAP says UNFIXED", "**D1 (UNFIXED)**: synthetic.", {"D1": "FIXED"}),
+        ("B  ledger UNFIXED, GAP says dead", "**D1 (FIXED)**: synthetic.", {"D1": "UNFIXED"}),
+        ("C  dead vs dead, different claim", "**D1 (CLOSED)**: synthetic.", {"D1": "REFUTED"}),
+    ]
+    _dead_probes = [w for w, t, m in _probes if len(_gap_contradictions(t, m)) != 1]
+    # and a nuance control: a reconciled label must stay clean, or the check is merely loud
+    _nuance = [t for t, m in (
+        ("**D1 (CLOSED as a NON-DEFECT)**: x.", {"D1": "REFUTED"}),
+        ("**D1 (UNFIXED -- escalation WITHDRAWN)**: x.", {"D1": "WITHDRAWN"}),
+        # D56's real shape: still UNFIXED, with a part of it refuted. Agreement, not drift.
+        ("**D1 (UNFIXED; mechanism REFUTED pass 232)**: x.", {"D1": "UNFIXED"}),
+        ("**D1 (UNFIXED in effect, fixed in code)**: x.", {"D1": "FIXED"}),
+    ) if _gap_contradictions(t, m)]
+    # Positive control on REAL data: the three labels that actually drifted past the pass-196
+    # check, replayed verbatim out of the published record. A probe shows the branch can fire;
+    # this shows it fires on the cases that motivated it. Pass 196's own fix carried one of
+    # these and it is what caught the FIXED-inside-UNFIXED bug.
+    _real = [("**D8 (CLOSED pass 232)**: x.", {"D8": "REFUTED"}, "D8"),      # 82 revisions
+             ("**D52 (FIXED this pass)**: x.", {"D52": "RECORDED"}, "D52"),  # 29 revisions
+             ("**D85 (WITHDRAWN, mine)**: x.", {"D85": "FIXED"}, "D85")]     # 70 revisions
+    _missed = [n for t, m, n in _real if not _gap_contradictions(t, m)]
+
+    if _dead_probes:
+        bad.append("the GAP-vs-DEFECTS contradiction check does not fire in direction(s) "
+                   + "; ".join(_dead_probes) + " -- its silence there is uninformative")
+    elif _missed:
+        bad.append("the GAP-vs-DEFECTS contradiction check misses " + ", ".join(_missed)
+                   + " -- the real labels that drifted past its one-way predecessor for 181 "
+                     "revisions of the published record. A check that cannot catch its own "
+                     "motivating cases is not a fix")
+    elif _nuance:
+        bad.append("the GAP-vs-DEFECTS contradiction check fires on a RECONCILED label, so it "
+                   "would force the record to paraphrase honest nuance: " + "; ".join(_nuance))
     else:
         _contra = _gap_contradictions(gap, _st)
+        _n_labels = len(_re.findall(r"\*\*D\d+\s*\n?\([^)]*\)", gap))
         if _contra:
             bad.append("GAP contradicts DEFECTS.md on: " + ", ".join(_contra)
                        + " -- relabel in GAP, or reconcile the two words in GAP's own "
                          "parenthetical if the nuance is real")
         else:
-            ok.append(f"GAP's {len(_st)} defect labels do not contradict DEFECTS.md "
-                      f"(contradiction probe fired)")
+            ok.append(f"GAP's {_n_labels} defect labels do not contradict DEFECTS.md in any of "
+                      f"the three directions (3 probes fire, 3 real historical cases caught, "
+                      f"4 nuance controls clean)")
 
 # --- an UNFIXED defect must not leave a hypothesis hanging ------------------------------------
 # Pass 82's own finding, and I am the case that motivates it. D19 carried a paragraph headed
@@ -1838,6 +1919,56 @@ else:
                    f"adding the column up gets a different answer from the one stated")
     else:
         ok.append(f"THE_ANSWER by_scope sums to its own total ({_sum} over {len(_rows)} scopes)")
+
+# --- the charter's four conditions are RECOMPUTED here, not believed (D122) -------------------
+# The gate that ends this campaign now reads state/of3t/CHARTER_EVIDENCE.json beside its four
+# prose clauses. A published summary is last week's answer unless something re-derives it, and
+# this campaign has filed that defect against itself more than once. So: re-evaluate the gate's
+# own spec against the artifacts in THIS tree and compare, field by field.
+#
+# This is the same two-readers shape as the status vocabulary above -- the gate cannot import
+# from the tt-bio tree, so it is compared against instead of shared with.
+_CH = ROOT / "perf/of3t_orchestrator/charter"
+if (_CH / "charter_evidence.py").is_file():
+    import hashlib as _hl
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location("charter_evidence", _CH / "charter_evidence.py")
+    _ce_mod = _ilu.module_from_spec(_spec)
+    try:
+        _spec.loader.exec_module(_ce_mod)
+        _gate_src = _ce_mod.GATE.read_text()
+        _cspec = _ce_mod.lift_spec(_gate_src)
+        _broken = _ce_mod.break_control(_cspec)
+        _live = _ce_mod.evaluate(_cspec, ROOT)
+        _pub_p = _CH / "CHARTER_EVIDENCE.json"
+        _pub = json.loads(_pub_p.read_text()) if _pub_p.is_file() else None
+    except Exception as _e:                                       # pragma: no cover
+        bad.append(f"charter_evidence.py does not evaluate ({_e}) -- the gate's four charter "
+                   f"conditions have no second reader on this compose")
+    else:
+        if _broken:
+            bad.append("charter_evidence.py's break control fails: " + "; ".join(_broken))
+        elif _pub is None:
+            bad.append("perf/of3t_orchestrator/charter/CHARTER_EVIDENCE.json is missing -- run "
+                       "charter_evidence.py; the gate reads its published twin")
+        else:
+            _sha = _hl.sha256(json.dumps(_cspec, sort_keys=True).encode()).hexdigest()
+            if _pub.get("spec_sha256") != _sha:
+                bad.append("CHARTER_EVIDENCE.json was evaluated against a different spec than "
+                           "the gate now carries -- re-run charter_evidence.py")
+            else:
+                _drift = [f"{a['field']} published {a['met']}, recomputes {b['met']}"
+                          for a, b in zip(_pub.get("conditions", []), _live)
+                          if a.get("met") != b.get("met") or a.get("field") != b.get("field")]
+                if _drift:
+                    bad.append("the published charter evidence does not recompute: "
+                               + "; ".join(_drift))
+                else:
+                    _met = sum(c["met"] for c in _live)
+                    ok.append(f"the charter's {len(_live)} conditions recompute from their "
+                              f"artifacts as published ({_met} met); every clause can report "
+                              f"MET on a synthetic artifact")
+
 
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count

@@ -1,0 +1,173 @@
+{
+  "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
+  "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
+  "spec_sha256": "dc92efc5023c3980f6937ebb1e773517c6f46206af014f0265336bd9b2ef4a33",
+  "tree": "/home/moritz/.coworker/wt/of3t-d122-d115",
+  "break_control": "every condition can report MET on a synthetic artifact",
+  "n_met": 0,
+  "n_conditions": 4,
+  "conditions": [
+    {
+      "field": "THEIR-TEST",
+      "artifact": "perf/of3t_theirtest/RESULT.json",
+      "why": "their own test_training_full.py EXECUTED on our backend. The prose clause already says 'a CUDA skip is not a pass'; this reads that off the file the run writes instead of off the sentence the orchestrator writes about the run.",
+      "artifact_exists": false,
+      "artifact_sha256": null,
+      "met": false,
+      "misses": [
+        "executed is True -- artifact has artifact absent (the test ran)",
+        "skipped is False -- artifact has artifact absent (it was not skipped (A1/A3/A4 in BLOCKERS.md are the CUDA gates that fire today))",
+        "exit_code is 0 -- artifact has artifact absent (and it passed)",
+        "ran_on_our_backend is True -- artifact has artifact absent (on ttnn, not on CPU torch -- D2 records that this needs a PrivateUse1 backend with a Lightning Accelerator, which does not exist yet)"
+      ],
+      "checks": [
+        {
+          "key": "executed",
+          "op": "is",
+          "bar": true,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "the test ran"
+        },
+        {
+          "key": "skipped",
+          "op": "is",
+          "bar": false,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "it was not skipped (A1/A3/A4 in BLOCKERS.md are the CUDA gates that fire today)"
+        },
+        {
+          "key": "exit_code",
+          "op": "is",
+          "bar": 0,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "and it passed"
+        },
+        {
+          "key": "ran_on_our_backend",
+          "op": "is",
+          "bar": true,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "on ttnn, not on CPU torch -- D2 records that this needs a PrivateUse1 backend with a Lightning Accelerator, which does not exist yet"
+        }
+      ]
+    },
+    {
+      "field": "GRADIENTS",
+      "artifact": "perf/of3t_wholemodel/MODEL_shipped.json",
+      "why": "per-parameter gradient equivalence at MODEL scope, against a float64 reference rather than against another device arm.",
+      "artifact_exists": true,
+      "artifact_sha256": "a33bd07a25f111769196217d33610fb9f8e49f52f9b96c459184990856f990d8",
+      "met": false,
+      "misses": [
+        "stats.shipped_vs_FLOAT64.n_over_per_tensor_bar is 0 -- artifact has 678 (no parameter is over the campaign's own per-tensor bar, which the artifact carries as bars.per_tensor_bar -- so this threshold is read, not chosen)",
+        "coverage_total.pct_of_model_compared >= 99.2594 -- artifact has 92.1568 (at the structural coverage ceiling COVERAGE_CEILING_IS_NOT_100.json measured at pass 175. 'every parameter' cannot mean 100 %: 0.74055 % of the gradient mass is not measurable on device at all)"
+      ],
+      "checks": [
+        {
+          "key": "inputs.float64.sha256",
+          "op": "present",
+          "bar": null,
+          "actual": "present",
+          "passed": true,
+          "why": "scored against a float64 reference, pinned by digest"
+        },
+        {
+          "key": "stats.shipped_vs_FLOAT64.n_over_per_tensor_bar",
+          "op": "is",
+          "bar": 0,
+          "actual": "678",
+          "passed": false,
+          "why": "no parameter is over the campaign's own per-tensor bar, which the artifact carries as bars.per_tensor_bar -- so this threshold is read, not chosen"
+        },
+        {
+          "key": "coverage_total.pct_of_model_compared",
+          "op": ">=",
+          "bar": 99.2594,
+          "actual": "92.1568",
+          "passed": false,
+          "why": "at the structural coverage ceiling COVERAGE_CEILING_IS_NOT_100.json measured at pass 175. 'every parameter' cannot mean 100 %: 0.74055 % of the gradient mass is not measurable on device at all"
+        }
+      ]
+    },
+    {
+      "field": "TRAJECTORY",
+      "artifact": "perf/of3t_modeltraj/traj_shipped.json",
+      "why": "an N-step weight trajectory at MODEL scope, with the two sides actually moving.",
+      "artifact_exists": true,
+      "artifact_sha256": "c471cd33556c3aa9c19ca9c4a32b80bc9ca6dca4e272cc53865447dfcf2c4171",
+      "met": false,
+      "misses": [
+        "scope.pct_of_model_sq_grad_norm >= 99.2594 -- artifact has 36.9462 (on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %)",
+        "d1.zero_both_sides is False -- artifact has True (the campaign's own lesson: d_1 == 0 on both sides is not agreement, it is two stationary weight vectors. An arm that never moves proves nothing about the update rule)"
+      ],
+      "checks": [
+        {
+          "key": "steps",
+          "op": ">=",
+          "bar": 20,
+          "actual": "20",
+          "passed": true,
+          "why": "at least the 20 steps of3t-traj20 pre-registered"
+        },
+        {
+          "key": "scope.pct_of_model_sq_grad_norm",
+          "op": ">=",
+          "bar": 99.2594,
+          "actual": "36.9462",
+          "passed": false,
+          "why": "on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %"
+        },
+        {
+          "key": "d1.zero_both_sides",
+          "op": "is",
+          "bar": false,
+          "actual": "True",
+          "passed": false,
+          "why": "the campaign's own lesson: d_1 == 0 on both sides is not agreement, it is two stationary weight vectors. An arm that never moves proves nothing about the update rule"
+        },
+        {
+          "key": "d1.rel_d",
+          "op": "<=",
+          "bar": 0.05,
+          "actual": "0",
+          "passed": true,
+          "why": "and where they do move they agree to the per-tensor bar PROTOCOL already fixes"
+        }
+      ]
+    },
+    {
+      "field": "COVERAGE",
+      "artifact": "perf/of3t_gradients/coverage_census.json",
+      "why": "every loss term and every conditional path demonstrated to FIRE, on the batch, at runtime -- not enumerated in prose.",
+      "artifact_exists": true,
+      "artifact_sha256": "d51094740d3cb9b6b6a35d42fcba94eb47d18cb11f2a9f197ebcb902dc9c500b",
+      "met": false,
+      "misses": [
+        "union.*.covered all True -- artifact has 7 of 8, missing: bond (all 8 of upstream's LossWeights terms fire. 7 do; `bond` has an empty mask on 5nw3)",
+        "conditional_paths.*.covered all True -- artifact has 4 of 11, missing: bond, diffusion_rollout, disabled_parameters, model_forward, multichain_permutation, nucleotide, templates (all 11 conditional paths fire. 4 do; templates, bond, nucleotide, the diffusion rollout, multichain permutation, the disabled-parameter path and the OF3 training forward itself do not)"
+      ],
+      "checks": [
+        {
+          "key": "union.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "7 of 8, missing: bond",
+          "passed": false,
+          "why": "all 8 of upstream's LossWeights terms fire. 7 do; `bond` has an empty mask on 5nw3"
+        },
+        {
+          "key": "conditional_paths.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "4 of 11, missing: bond, diffusion_rollout, disabled_parameters, model_forward, multichain_permutation, nucleotide, templates",
+          "passed": false,
+          "why": "all 11 conditional paths fire. 4 do; templates, bond, nucleotide, the diffusion rollout, multichain permutation, the disabled-parameter path and the OF3 training forward itself do not"
+        }
+      ]
+    }
+  ]
+}
