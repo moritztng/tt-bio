@@ -43,7 +43,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 sys.path.insert(0, str(ROOT / "perf" / "c14_bfp8"))
 
-STATE = {"dev": None, "on": False, "depth": 1}
+STATE = {"dev": None, "on": False, "depth": 1, "count_only": False}
 STACK: list = []
 REC: dict = {}
 
@@ -105,15 +105,24 @@ def discover(TT):
         for cname, cls in list(vars(mod).items()):
             if not isinstance(cls, type) or cls.__module__ != name or id(cls) in seen:
                 continue
-            attr = None
+            attrs = []
             if issubclass(cls, TT.TorchWrapper) and "forward" in cls.__dict__:
-                attr = "forward"
+                attrs.append("forward")
             elif "__call__" in cls.__dict__ and callable(cls.__dict__["__call__"]):
-                attr = "__call__"
-            if attr is None:
+                attrs.append("__call__")
+            # A block can be entered by a second, named method instead of `__call__`, and the
+            # tape was blind to it: `esmc.SwiGLUFFN.residual` is how every pair transition in
+            # the tree is called, so 7.2919 s of ESMFold2 -- 26 % of the fold -- was charged to
+            # the caller's self time with no row of its own. Taped under `Class.method` so the
+            # two entry points stay distinguishable.
+            if "residual" in cls.__dict__ and callable(cls.__dict__["residual"]):
+                attrs.append("residual")
+            if not attrs:
                 continue
             seen.add(id(cls))
-            out.append((name.rsplit(".", 1)[-1], cname, cls, attr))
+            for attr in attrs:
+                label = cname if attr in ("forward", "__call__") else f"{cname}.{attr}"
+                out.append((name.rsplit(".", 1)[-1], label, cls, attr))
     return out
 
 
@@ -123,6 +132,14 @@ def install(ttnn, targets):
 
         def f(self, *a, **kw):
             if not STATE["on"]:
+                return orig(self, *a, **kw)
+            if STATE["count_only"]:
+                # Membership is COUNTED at run time, at every depth, with no device sync: the
+                # question "does this model execute this class at all" needs the count and not
+                # the wall, and a sync per frame would price a 1.5 s design out of reach.
+                r = REC.setdefault(key, {"n": 0, "incl": 0.0, "self": 0.0,
+                                         "depths": defaultdict(int)})
+                r["n"] += 1
                 return orig(self, *a, **kw)
             if len(STACK) >= STATE["depth"]:
                 STACK.append(None)
@@ -280,7 +297,9 @@ def main() -> int:
         # `B:2` is a taped fold at depth 2. One session can therefore carry the whole ladder --
         # the coarse split and the split of its dominant block -- with the untaped folds that
         # bracket it giving the A/A floor for both.
-        taped = tag.split(":")[0] == "B"
+        count_only = tag.split(":")[0] == "K"
+        taped = tag.split(":")[0] == "B" or count_only
+        STATE["count_only"] = count_only
         STATE["depth"] = int(tag.split(":")[1]) if taped and ":" in tag else a.depth
         reset()
         STATE["on"] = taped
@@ -288,7 +307,8 @@ def main() -> int:
         t, metrics = one_fold()
         STATE["on"] = False
         row = {"tag": tag, "fold_s": round(t, 4), "clock": clk.take(),
-               "depth": STATE["depth"] if taped else None,
+               "depth": None if count_only else (STATE["depth"] if taped else None),
+               "count_only": count_only,
                "plddt": metrics.get("plddt"), "n_tokens": metrics.get("n_tokens")}
         if taped:
             row["blocks"] = snapshot()
