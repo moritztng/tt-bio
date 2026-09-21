@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 183 -- a check of the campaign's own wording against its own artifact",
+
+ "headline": "THE_ANSWER says the readable part of the unread bucket is 'the trunk's 240 unplaced fused-qkv leaves and small embedders'. The COUNT is solid and now reconciled exactly. The words 'fused-qkv' are NOT checkable from the committed artifact, and I repeated them without checking.",
+
+ "what_is_solid": {
+  "source": "origin/wk/of3t, perf/of3t_gradients/full_model_of3_full_mat64_conf.json -- the newest of the three censuses",
+  "their_total": 4935,
+  "their_placed": 3569,
+  "sample_diffusion_is_a_bitwise_identical_copy": "763 of 763 tensors, shared suffixes, bitwise identical to diffusion_module -- which CORRECTS LEDGER K22, that had recorded the two prefixes as carrying distinct parameters",
+  "honest_denominator": "4935 - 763 = 4172, which is why the campaign quotes reach as 3569 of ~4170 (85.5 %) rather than 3569 of 4935 (72.3 %)",
+  "real_unplaced_by_section": {"pairformer_stack": 240, "diffusion_module": 190, "input_embedder": 93, "msa_module": 32, "template_embedder": 28, "aux_heads": 20, "total": 603},
+  "so": "the '240' is exact and it is pairformer_stack's row in unplaced_by_top_level. The arithmetic closes: 603 real unplaced across six sections."
+ },
+
+ "what_is_NOT_checkable_from_the_artifact": {
+  "the_claim": "that those 240 are FUSED-QKV leaves",
+  "why_I_cannot_confirm_it_here": "the artifact's `unplaced_sample` field holds 60 names and NONE of them is a pairformer_stack tensor. It is a truncated sample, not the list. So the file records how many trunk leaves are unplaced and does not record WHICH, and no amount of re-reading it will say whether they are fused qkv, small embedders, or something else.",
+  "it_is_probably_right": "the bijection reports 536 concat_axis1 fusions and 208 device-unmatched tensors, and the device_unmatched sample does show fused `attention_pair_bias.qkv_weight` / `qkv_bias` entries -- for confidence_head, not the trunk. So the mechanism plainly exists in the stack. That makes the characterisation PLAUSIBLE and still not MEASURED.",
+  "the_campaign's_own_rule_this_hits": "a result file that keeps only a sample cannot be reanalysed -- recorded after an earlier row kept only extremes. The fix is the same: emit the full unplaced list, or at least a per-leaf-name histogram, rather than 60 names."
+ },
+
+ "what_I_am_changing_and_what_I_am_not": "not the number -- 240 is exact and 603/4172 now reconciles. The WORDING: anywhere the campaign says 'fused-qkv leaves' it should say 'unplaced trunk leaves, characterisation unverified'. I repeated 'fused-qkv' in a dispatch brief and in THE_ANSWER without checking it, which is the same failure as quoting a ratio without naming how its denominator was built (A27), one level up: quoting a CATEGORY without naming what established it.",
+
+ "is_it_worth_chasing": "the whole readable remainder is ~1.266 % of gradient mass (2.0067 % unread minus the 0.74055 % that sits on a host-applied weight and can never be read), spread over 603 individually tiny leaves in six sections. It is honestly reported as unread and it is not what stands between this campaign and its answer -- the 51.1358 % softmax scope and the 5.8282 % trunk are, and both have a row on them right now. Recorded so nobody re-derives it, and so the wording gets fixed rather than repeated."
+}
