@@ -1,0 +1,146 @@
+{
+ "target": "/home/ttuser/.coworker/wt/of3t-d10-d107/perf/of3t_d10_d107/targets/fkbp_sb3.yaml",
+ "model": "openbind",
+ "card": "1",
+ "seed": 1,
+ "samples": 5,
+ "sampling_steps": 200,
+ "wall_s": 119.22,
+ "returncode": 0,
+ "aiclk_during": {
+  "n": 11,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350
+ },
+ "hook_installed": true,
+ "per_sample": [
+  {
+   "kind": "sample",
+   "ptm_masked": 0.962409,
+   "iptm_masked": 0.933217,
+   "ptm_shipped": 0.962409,
+   "iptm_shipped": 0.933217,
+   "has_frame_passed": true,
+   "frame_ms": 101.83093999512494,
+   "n_token": 140,
+   "n_frameless": 0,
+   "n_atomized": 33,
+   "n_frameless_atomized": 0,
+   "n_frameless_standard": 0,
+   "n_atom": 864
+  },
+  {
+   "kind": "sample",
+   "ptm_masked": 0.970222,
+   "iptm_masked": 0.966777,
+   "ptm_shipped": 0.970222,
+   "iptm_shipped": 0.966777,
+   "has_frame_passed": true,
+   "frame_ms": 113.49270600476302,
+   "n_token": 140,
+   "n_frameless": 0,
+   "n_atomized": 33,
+   "n_frameless_atomized": 0,
+   "n_frameless_standard": 0,
+   "n_atom": 864
+  },
+  {
+   "kind": "sample",
+   "ptm_masked": 0.966961,
+   "iptm_masked": 0.958018,
+   "ptm_shipped": 0.966961,
+   "iptm_shipped": 0.958018,
+   "has_frame_passed": true,
+   "frame_ms": 111.08856700593606,
+   "n_token": 140,
+   "n_frameless": 0,
+   "n_atomized": 33,
+   "n_frameless_atomized": 0,
+   "n_frameless_standard": 0,
+   "n_atom": 864
+  },
+  {
+   "kind": "sample",
+   "ptm_masked": 0.969646,
+   "iptm_masked": 0.968476,
+   "ptm_shipped": 0.969646,
+   "iptm_shipped": 0.968476,
+   "has_frame_passed": true,
+   "frame_ms": 112.002713009133,
+   "n_token": 140,
+   "n_frameless": 0,
+   "n_atomized": 33,
+   "n_frameless_atomized": 0,
+   "n_frameless_standard": 0,
+   "n_atom": 864
+  },
+  {
+   "kind": "sample",
+   "ptm_masked": 0.964809,
+   "iptm_masked": 0.944176,
+   "ptm_shipped": 0.964809,
+   "iptm_shipped": 0.944176,
+   "has_frame_passed": true,
+   "frame_ms": 107.08453599363565,
+   "n_token": 140,
+   "n_frameless": 0,
+   "n_atomized": 33,
+   "n_frameless_atomized": 0,
+   "n_frameless_standard": 0,
+   "n_atom": 864
+  }
+ ],
+ "ranking": {
+  "shipped_scores": [
+   0.939055,
+   0.967466,
+   0.959807,
+   0.96871,
+   0.948303
+  ],
+  "fixed_scores": [
+   0.939055,
+   0.967466,
+   0.959807,
+   0.96871,
+   0.948303
+  ],
+  "shipped_order": [
+   3,
+   1,
+   2,
+   4,
+   0
+  ],
+  "fixed_order": [
+   3,
+   1,
+   2,
+   4,
+   0
+  ],
+  "orders_agree": true,
+  "served_same": true,
+  "max_abs_ptm_delta": 0.0,
+  "max_abs_iptm_delta": 0.0,
+  "frameless_tokens": [
+   0
+  ],
+  "frameless_standard_residues": [
+   0
+  ],
+  "atomized_tokens": [
+   33
+  ],
+  "n_atom": [
+   864
+  ],
+  "frame_ms": {
+   "min": 101.831,
+   "max": 113.493,
+   "total_s": 0.545
+  },
+  "frame_share_of_fold_pct": 0.4572
+ }
+}
