@@ -109,7 +109,10 @@ def main() -> int:
                  "aiclk_median": statistics.median(
                      [c["aiclk"]["median"] for c in g if c["aiclk"]["median"]]),
                  "wall_s": [c["wall_s"] for c in g], "rules": {}, "reach": {}}
+        has_rmsd = all(s["rmsd_ca"] is not None for c in g for s in c["samples"])
         for rule in RULES:
+            if not has_rmsd:
+                break
             if RULES[rule] is None:
                 vals = [statistics.mean([s["rmsd_ca"] for s in c["samples"]]) for c in g]
             else:
