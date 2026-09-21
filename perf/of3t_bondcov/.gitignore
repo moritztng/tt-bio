@@ -1,0 +1,5 @@
+# structures and caches are fetched, never redistributed (campaign provenance rule)
+*.npz
+*.sdf
+*.pt
+training_cache*.json

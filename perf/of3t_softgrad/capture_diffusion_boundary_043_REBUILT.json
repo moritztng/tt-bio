@@ -1,0 +1,156 @@
+{
+ "backward_seconds": 172.12647199630737,
+ "breakdown": {
+  "confidence_loss": 0.000525253790923465,
+  "diffusion_loss": 1.2041810159615485,
+  "distogram_loss": 2.0960384073976974,
+  "experimentally_resolved_loss": 0.014976679185629985,
+  "loss": 1.2675874205688995,
+  "mse_loss": 1.1081120421076485,
+  "pae_loss": 1.9513598881711818,
+  "pde_loss": 1.165739684682953,
+  "plddt_loss": 2.1204617898851574,
+  "scaled_distogram_loss": 0.06288115081642764,
+  "smooth_lddt_loss": 0.2616004896848077
+ },
+ "bundle_dir": "/home/ttuser/of3t_refprec/bundle_ref",
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "missing": [
+   "version_tensor"
+  ],
+  "n_loaded": 4935,
+  "n_missing": 1
+ },
+ "draws": {
+  "n_python_random": 2,
+  "n_torch_randn": 45,
+  "num_recycles": 0
+ },
+ "forward": {
+  "bundle_loss": 1.267624369070698,
+  "drawn_recycles": 0,
+  "loss": 1.2675874205688995,
+  "rel": 2.9147831723739198e-05,
+  "seconds": 578.8383991718292
+ },
+ "hashes": {
+  "batch_step003.pt": {
+   "bytes": 100822382,
+   "declared": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "draws_recycles0.pt": {
+   "bytes": 525598,
+   "declared": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "match": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "grad_presence_043.json": {
+   "bytes": 344595,
+   "declared": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a",
+   "match": true,
+   "sha256": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a"
+  },
+  "grads_f64_043.pt": {
+   "bytes": 2947844653,
+   "declared": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "match": true,
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4"
+  }
+ },
+ "instrument": "capture of the diffusion-module boundary of BUNDLE-MIN's r = 0 step",
+ "manifest": "/home/ttuser/of3t_refprec/bundle_ref/MANIFEST.json",
+ "manifest_commit": "89a24748420b98e51df44cd2a89667370e8b6487",
+ "no_samples": 48,
+ "reference": {
+  "fd_max_rel": null,
+  "file": "grads_f64_043.pt",
+  "global_norm": 3.206188185139011,
+  "loss": 1.267624369070698,
+  "n_parameters": 4170,
+  "num_recycles": 0
+ },
+ "replay": {
+  "mismatches": [],
+  "n_mismatch": 0,
+  "randn_consumed": 45,
+  "random_consumed": 2
+ },
+ "saved": {
+  "bytes": 1981203612,
+  "cot_norm": 0.019426651390714835,
+  "file": "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt",
+  "kwarg_shapes": {
+   "atom_mask": [
+    1,
+    1,
+    422
+   ],
+   "si_input": [
+    1,
+    1,
+    384,
+    449
+   ],
+   "si_trunk": [
+    1,
+    1,
+    384,
+    384
+   ],
+   "t": [
+    1,
+    48
+   ],
+   "token_mask": [
+    1,
+    1,
+    384
+   ],
+   "xl_noisy": [
+    1,
+    48,
+    422,
+    3
+   ],
+   "zij_trunk": [
+    1,
+    1,
+    384,
+    384,
+    128
+   ]
+  },
+  "n_grad": 761,
+  "out_shape": [
+   1,
+   48,
+   422,
+   3
+  ]
+ },
+ "their_build_disabled": {
+  "disabled": true,
+  "n_nn_dropout_modules": 61,
+  "n_of3_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "vs_bundle": {
+  "absent_either_side": 0,
+  "bundle_total_sq_norm": 10.279642678524985,
+  "compared": 761,
+  "median_rel": 0.0,
+  "share_of_bundle_sq_norm": 0.8921058020840099,
+  "sq_norm_bundle": 9.170528876862551,
+  "sq_norm_here": 9.170528876862551,
+  "what": "D19's reach into this row's scope: their model on CPU float64 at a replayed forward, against the bundle's own diffusion entries. Not this row's number.",
+  "worst_rel": 0.0,
+  "worst_tensor": "diffusion_module.diffusion_conditioning.layer_norm_z.weight"
+ }
+}
