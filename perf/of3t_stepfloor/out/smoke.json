@@ -1,0 +1,195 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "1",
+  "--samples",
+  "2",
+  "--reps",
+  "1",
+  "--out",
+  "perf/of3t_stepfloor/out/smoke.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "renorm": null,
+  "commit": "a518037a8bbc23456ade9afa0aff6f69fc90e939",
+  "branch": "wk/of3t-stepfloor",
+  "started_utc": "2026-09-21T16:51:40Z",
+  "loadavg_start": [
+   11.5673828125,
+   10.919921875,
+   10.3779296875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1343,
+    "max": 1350,
+    "median": 1350,
+    "n": 187
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 187 samples, polled DURING the work",
+  "loadavg_end": [
+   24.2275390625,
+   21.77001953125,
+   16.6826171875
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 1,
+  "diffusion_samples": 2,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "build_fold_s": 5.74,
+ "prep_to_sampler_s": 9.85,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.35,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 896,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 275,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 4.342,
+   "trunk_s": 4.342,
+   "dram_after_trunk": 4400854016,
+   "diffusion_s": 1.181,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3206.1709,
+     2.8337
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "per_sample_s": [
+     0.986,
+     0.078
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 16752232448,
+   "losses_s": 1.619,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 1.616,
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "seed_upload_s": 0.001,
+   "tape_nodes": 6708,
+   "backward_s": 625.886,
+   "params_with_grad": "2935 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4198198272,
+   "optimizer_s": 9.512,
+   "optimizer_updated": 3152,
+   "step_s": 642.541
+  }
+ ],
+ "cold_s": 642.541,
+ "steady": {
+  "n": 0,
+  "values_s": [],
+  "median_s": null,
+  "min_s": null,
+  "max_s": null,
+  "spread_s": null
+ }
+}

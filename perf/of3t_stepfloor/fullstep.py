@@ -76,6 +76,7 @@ def declare_all(trunk, sampler, out):
     the optimizer would step it twice.
     """
     from tt_bio import autograd as ag
+    from tt_bio.train.lora import Parameters
     found = {}
     stats = {}
     for label, root, pre in (("trunk", trunk, "trunk."),
@@ -84,14 +85,30 @@ def declare_all(trunk, sampler, out):
         stats[label] = {"found": len(f), "walk_depth": st["max_depth"],
                         "truncated": st["truncated"]}
         found.update(f)
-    by_id, params = {}, {}
-    for n, (_o, _k, t) in sorted(found.items()):
+    # The SLOTS come with the walk: walk_weights already returns the owner object and the
+    # attribute key it found each tensor under, which is exactly what _Params.rebind needs.
+    # Building a plain dict instead is what made this harness rep 1 train nothing. AdamW.step
+    # replaces t.value, and the engine value setter re-keys the TAPE registry for it
+    # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
+    # it back closes that half.
+    by_id, flat, slots, unwritable = {}, {}, {}, []
+    for n, (o, k, t) in sorted(found.items()):
         if id(t) in by_id:
             continue
         by_id[id(t)] = n
-        params[n] = ag.parameter(t)
+        flat[n] = ag.parameter(t)
+        if isinstance(o, tuple):
+            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
+            # weight back to. Counted here rather than raised mid-arm, because a timing run
+            # that dies ten minutes into its backward tells you nothing about the timing.
+            unwritable.append(n)
+            continue
+        slots[n] = (o, k)
+    params = Parameters(flat, slots=slots)
     out["params"] = {
         "declared": len(params),
+        "slots": len(params.slots),
+        "slots_unwritable": len(unwritable),
         "elements": sum(S._numel(t.value) for t in params.values()),
         "per_root": stats,
         "duplicate_handles_dropped": len(found) - len(params),
@@ -133,6 +150,7 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     once and the per-sample work is `dc.single` plus the module -- which is what makes the
     per-sample rate a rate.
     """
+    import numpy as np
     import torch
     import ttnn
     from tt_bio.openfold3_sample_diffusion import fourier_noise_emb, pad_dim
@@ -198,10 +216,25 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
         print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
     out["per_sample_s"] = per_sample
     out["n_atom"] = int(n_atom)
-    return roots, (zij_pad, inv_cache)
+    out["n_token"] = int(n_token)
+    # The representative atom per token, taken from the shipped atom->token map rather than
+    # from a fixture field this harness does not have. `af3_loss` is a TOKEN-scope objective
+    # -- `losses.distogram` documents its logits as "[N, N, 64] on representative atoms" --
+    # so handing it n_atom coordinates builds three [n_atom, n_atom, 64] logit arrays, which
+    # at 384 tokens is 4.6 GB each. The first run of this harness did exactly that and was
+    # killed at 41.8 GB RSS.
+    a2t = ttnn.to_torch(atom_to_token_idx_tt).reshape(-1).long()[:n_atom].numpy()
+    rep = np.full(int(n_token), -1, dtype=np.int64)
+    for ai, ti in enumerate(a2t):
+        if 0 <= ti < n_token and rep[ti] < 0:
+            rep[ti] = ai
+    out["tokens_without_an_atom"] = int((rep < 0).sum())
+    rep = np.clip(rep, 0, n_atom - 1)
+    out["rep_atom_index"] = "first atom of each token, from atom_to_token_idx"
+    return roots, (zij_pad, inv_cache), rep
 
 
-def host_losses(roots, n_atom, weights, rng, out):
+def host_losses(roots, rep, weights, rng, out):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
     The loss is where it lives. `tt_bio.train.objectives.af3_loss` is numpy: a training step
@@ -216,11 +249,16 @@ def host_losses(roots, n_atom, weights, rng, out):
     from tt_bio import autograd as ag
 
     dl_s, host_s, seeds_out, fired = 0.0, 0.0, [], None
-    for r in roots:
+    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}", flush=True)
+    for k, r in enumerate(roots):
         t0 = time.perf_counter()
         raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
-        pred = ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)
+        atoms = ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)
+        n_atom = atoms.shape[0]
+        pred = atoms[rep]                      # token scope, one atom per token
         dl_s += time.perf_counter() - t0
+        print(f"  [losses] root {k} downloaded {n_atom} atoms -> {pred.shape[0]} tokens "
+              f"in {time.perf_counter() - t0:.2f}s", flush=True)
 
         t0 = time.perf_counter()
         n = pred.shape[0]
@@ -249,13 +287,21 @@ def host_losses(roots, n_atom, weights, rng, out):
                    "resolved_logits": lg(n, 2)}
         total, breakdown, seeds = af3_loss(labels, outputs, weights)
         host_s += time.perf_counter() - t0
-        seeds_out.append(seeds.get("pred_xyz"))
+        g = seeds.get("pred_xyz")
+        # The cotangent goes back on the ATOM tensor the module returned: the loss touched
+        # one atom per token, so every other atom's seed is a true zero, not a dropped term.
+        g_atom = np.zeros((n_atom, 3))
+        if g is not None:
+            np.add.at(g_atom, rep, np.asarray(g, np.float64))
+        seeds_out.append(g_atom)
+        print(f"  [losses] root {k} af3_loss done, {sum(1 for v in breakdown.values() if v['value'] is not None)} terms", flush=True)
         if fired is None:
             fired = {k: {"weight": v["weight"], "skipped": v.get("skipped"),
                          "fired": bool(v["weight"] != 0.0 and v["value"] is not None)}
                      for k, v in breakdown.items()}
     out["terms"] = fired
     out["terms_fired"] = sum(1 for v in (fired or {}).values() if v["fired"])
+    out["scope"] = "token, one representative atom per token"
     out["download_s"] = round(dl_s, 3)
     out["host_loss_s"] = round(host_s, 3)
     out["value_claimed"] = False
@@ -275,6 +321,12 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--renorm-per-rep", default="",
+                    help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
+                         "THIS process. The lever is a module global read inside the "
+                         "backward closure, so an ON rep and an OFF rep can share one warm "
+                         "process and one set of weights, which is the only way to price it "
+                         "against a run-to-run spread this large")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -318,10 +370,22 @@ def main() -> int:
                                 "params": 0 if opt is None else len(opt.params)}
             dump()
 
+            # D56's lever, read off the module rather than off the environment, with its own
+            # REACH counter beside it: a flag that is set and never fires is the fleet's
+            # standing  case and the counter is what tells them
+            # apart. Sampled again after the reps so the delta is the work's, not the import's.
+            out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
+                             "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
+            plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            out["renorm"]["per_rep_plan"] = plan or None
             reps = []
             for rep in range(a.reps):
                 rng = np.random.default_rng(SEED + rep)
                 row = {"rep": rep, "cold": rep == 0}
+                if plan:
+                    ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
+                row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
+                rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
                 for t in params.values():
                     t.grad = None
                 ttnn.synchronize_device(dev)
@@ -346,16 +410,18 @@ def main() -> int:
 
                     # --- 2. diffusion ------------------------------------------------------
                     t0 = time.perf_counter()
-                    roots, keep = diffusion_train(sampler, sargs, s_tr, z_tr,
-                                                  a.samples, rng, d_out)
+                    roots, keep, rep = diffusion_train(sampler, sargs, s_tr, z_tr,
+                                                       a.samples, rng, d_out)
                     row["diffusion_s"] = round(time.perf_counter() - t0, 3)
                     row["diffusion"] = d_out
+                    print("  [tape] leaving the tape context", flush=True)
                     row["dram_after_diffusion"] = _dram(dev)
 
+                print("  [tape] left the tape context", flush=True)
                 # --- 3. loss heads --------------------------------------------------------
                 l_out = {}
                 t0 = time.perf_counter()
-                seeds = host_losses(roots, d_out.get("n_atom"), weights, rng, l_out)
+                seeds = host_losses(roots, rep, weights, rng, l_out)
                 row["losses_s"] = round(time.perf_counter() - t0, 3)
                 row["losses"] = l_out
 
@@ -393,6 +459,23 @@ def main() -> int:
                 if opt is not None and got:
                     t0 = time.perf_counter()
                     upd = opt.step()
+                    # Put the optimizer new weights back where the walk found them, which
+                    # is the line tt_bio/train/recipes.py:185 runs after its own opt.step().
+                    # Without it the next forward reads the pre-step handle and tapes
+                    # nothing. moved is published per rep so that is visible rather than
+                    # inferred from whether the reach counter happened to hold up.
+                    row["rebind_moved"] = params.rebind()
+                    # Does the MODEL now hold handles the tape knows as leaves? Both halves
+                    # have to hold: the value setter re-keys _PARAMS (autograd.py:248) and
+                    # rebind writes the new handle into the slot the walk found. Read here,
+                    # one rep before the next backward, so a dead rep shows up at ten
+                    # minutes instead of at twenty.
+                    live = 0
+                    for _n, (_o, _k) in params.slots.items():
+                        cur = _o[_k] if isinstance(_o, (dict, list)) else getattr(_o, _k)
+                        if ag._PARAMS.get(id(cur)) is params[_n]:
+                            live += 1
+                    row["leaves_live_after_rebind"] = f"{live} of {len(params.slots)}"
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
@@ -409,6 +492,10 @@ def main() -> int:
                 if a.no_tape:
                     row["step_s_UNTAPED"] = row.pop("step_s")
                     row["step_s"] = None
+                row["renorm_applied"] = (ag.SOFTMAX_BW_RENORM_STATS["applied"]
+                                         - rs0["applied"])
+                row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
+                                          - rs0["declined"])
                 reps.append(row)
                 out["reps"] = reps
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
@@ -417,10 +504,20 @@ def main() -> int:
                       f"backward {row['backward_s']:.2f}s  "
                       f"optimizer {row['optimizer_s']:.2f}s  = "
                       f"{(row['step_s'] or row.get('step_s_UNTAPED')):.2f}s "
-                      f"({row['params_with_grad']} weights, {row['tape_nodes']} nodes)",
+                      f"({row['params_with_grad']} weights, {row['tape_nodes']} nodes, "
+                      f"renorm {'ON' if row['renorm_flag'] else 'OFF'} "
+                      f"{row['renorm_applied']}a/{row['renorm_declined']}d, "
+                      f"leaves {row.get('leaves_live_after_rebind')})",
                       flush=True)
                 dump()
 
+            out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
+            out["renorm"]["applied_during_reps"] = (
+                out["renorm"]["stats_after"]["applied"]
+                - out["renorm"]["stats_before"]["applied"])
+            out["renorm"]["declined_during_reps"] = (
+                out["renorm"]["stats_after"]["declined"]
+                - out["renorm"]["stats_before"]["declined"])
             key = "step_s_UNTAPED" if a.no_tape else "step_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
