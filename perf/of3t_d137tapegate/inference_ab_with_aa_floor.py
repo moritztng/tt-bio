@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the tape gate make a shipped inference fold slower? A/B against an A/A floor.
+"""Does a shipped-default flip make an inference fold slower, or move its output? A/B with a floor.
 
 Moritz, 2026-09-21: "make sure regular inference is not changed to softmax fp64, not made
 slower. cause it was already in a good state. we did this only for training. i dont want to see
@@ -9,20 +9,30 @@ folds.
 
 Three arms per model, all on one card, same fixture and seed:
 
-  base   the tree immediately before the gate commit -- the path present and ungated
-  off    this tree, selector unset: what a user gets
-  on     this tree, TT_BIO_HOST_F64_SOFTMAX_AB=all -- the flag a person can set
+  base   a named earlier commit -- the reference the tree is read against
+  off    this tree, lever unset: what a user gets today
+  on     this tree, `--lever-env=--lever-value` -- the lever under test
+
+`--lever-env` / `--lever-value` default to the host-float64 gate this file was written for, so
+the D137 invocations reproduce unchanged.
+
+THE VERDICT HAS TWO AXES AND THEY ARE NOT THE SAME CLAIM (D163). `off -> on` is the LEVER.
+`base -> off` is THE TREE, and on a branch that is commits ahead of its base it is expected to
+differ for reasons that have nothing to do with the lever. The first version of this file folded
+both into one sentence, and `of3t-d137digest`'s openfold3 artifact still carries
+"FAIL: the gate changed the fold output" for a difference that was `701ddcf63`, D1's trunk
+sqrt(24) pair-bias fix, landing between the two trees. The base arm stays -- it is how a tree
+difference gets named instead of assumed -- but it is reported as its own axis.
 
 Every arm runs TWICE and the six folds are interleaved, direction alternating between rounds.
 The A/A floor is |rep1 - rep2| within an arm and it is reported BEFORE the A/B, because a fold's
 run-to-run spread is the only thing that makes a fold-to-fold difference readable. An A/B inside
 the floor is not a small regression, it is no reading at all.
 
-Two digest properties, and the second is the one the gate added:
-  base == off   the path present and off changes nothing (this is D63's claim, re-taken)
-  base == on    the FLAG changes nothing either, because the gate refuses it without a tape.
-                Before the gate this was false by measurement: `accf5df02` recorded the on arm
-                moving the digest on all three models.
+Two digest properties, reported separately:
+  off == on     LEVER: does the lever move a user's fold output?
+  base == off   TREE: does this tree differ from its base? Informational -- a difference here
+                is a fact about what landed in between, to be named, not a lever verdict.
 
 AICLK is sampled DURING each fold, not before it. On Blackhole the clock sets the fold time, so
 an arm whose clock sat low is an artifact and is reported as one rather than as a regression.
@@ -49,13 +59,14 @@ def digest(p: Path) -> str:
 
 
 def fold(py, tree: Path, model: str, fixture: Path, out: Path, env_extra: dict, card: str,
-         stats: bool):
+         stats: bool, scrub=()):
     env = dict(os.environ)
     env.update({"TT_VISIBLE_DEVICES": card, "TT_BIO_LEASE_CARDS": card,
                 "TT_BIO_LEASE_HOLDER": os.environ.get(
                     "TT_BIO_LEASE_HOLDER", "worker:of3t-d137-tapegate"),
                 "PYTHONPATH": str(tree)})
-    env.pop("TT_BIO_HOST_F64_SOFTMAX_AB", None)
+    for k in scrub:
+        env.pop(k, None)
     env.update(env_extra)
     if stats:
         # Read the softmax census off the fold itself, without touching the engine: a
@@ -97,7 +108,16 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--base-tree", required=True,
-                    help="a checkout of 6d7f32dc0, the commit before the gate landed")
+                    help="a checkout of the commit this tree is read against")
+    ap.add_argument("--lever-env", default="TT_BIO_HOST_F64_SOFTMAX_AB",
+                    help="the environment variable the `on` arm sets")
+    ap.add_argument("--lever-value", default="all", help="what the `on` arm sets it to")
+    ap.add_argument("--tree-must-have", default="host_softmax_hook",
+                    help="a symbol the tree must contain, or there is nothing to measure")
+    ap.add_argument("--base-must-lack", default="host_softmax_hook",
+                    help="a symbol the base must NOT contain, or base-vs-off is an A/A; empty "
+                         "to skip, which is right when base differs by a default rather than "
+                         "by a symbol")
     ap.add_argument("--tree", required=True, help="this worktree")
     ap.add_argument("--python", required=True, help="the interpreter with ttnn and torch")
     ap.add_argument("--workdir", required=True)
@@ -118,24 +138,26 @@ def main():
     base, tree = Path(a.base_tree), Path(a.tree)
     if not (base / "tt_bio/tenstorrent.py").is_file():
         return die("--base-tree has no tt_bio/tenstorrent.py: %s" % base)
-    if "host_softmax_hook" in (base / "tt_bio/tenstorrent.py").read_text():
-        return die("--base-tree ALREADY HAS THE GATE, so base-vs-off would be an A/A wearing "
-                   "an A/B's label. Check out 6d7f32dc0, not a branch tip: wk/of3t took the "
-                   "gate commit in on 2026-09-21 and stopped being the 'before' tree.")
-    if "host_softmax_hook" not in (tree / "tt_bio/tenstorrent.py").read_text():
-        return die("--tree does not have the gate; there is nothing to measure")
+    if a.base_must_lack and a.base_must_lack in (base / "tt_bio/tenstorrent.py").read_text():
+        return die("--base-tree already contains %r, so base-vs-off would be an A/A wearing an "
+                   "A/B's label. Point --base-tree at the commit before it, not a branch tip."
+                   % a.base_must_lack)
+    if a.tree_must_have and a.tree_must_have not in (tree / "tt_bio/tenstorrent.py").read_text():
+        return die("--tree does not contain %r; there is nothing to measure"
+                   % a.tree_must_have)
 
     wd = Path(a.workdir)
     wd.mkdir(parents=True, exist_ok=True)
+    scrub = (a.lever_env, "TT_BIO_HOST_F64_SOFTMAX_AB")
     plan = {"base": (base, {}), "off": (tree, {}),
-            "on": (tree, {"TT_BIO_HOST_F64_SOFTMAX_AB": "all"})}
+            "on": (tree, {a.lever_env: a.lever_value})}
     res = {k: [] for k in ARMS}
     for r in range(a.reps):
         for name in (ARMS if r % 2 == 0 else ARMS[::-1]):
             t_, env = plan[name]
             out = wd / ("out_%s_%s_r%d" % (a.model, name, r))
             f = fold(a.python, t_, a.model, Path(a.fixture), out, env, a.card,
-                     stats=(name != "base"))
+                     stats=(name != "base"), scrub=scrub)
             res[name].append(f)
             print("[%s r%d] rc=%d %.2fs %s | %s" % (name, r, f["rc"], f["seconds"],
                                                     f["clock_line"], f["cifs"]), flush=True)
@@ -158,15 +180,17 @@ def main():
 
     digs = {k: [f["cifs"] for f in v] for k, v in res.items()}
     stable = all(all(d == v[0] for d in v) and bool(v[0]) for v in digs.values())
-    base_eq_off = digs["base"][0] == digs["off"][0]
-    base_eq_on = digs["base"][0] == digs["on"][0]
+    off_eq_on = digs["off"][0] == digs["on"][0]          # the LEVER axis
+    base_eq_off = digs["base"][0] == digs["off"][0]      # the TREE axis
 
     clocks = {k: [f["clock"] for f in v] for k, v in res.items()}
     lows = [k for k, v in clocks.items()
             if any((c or {}).get("median", 0) < 1200 for c in v)]
 
     slower = [k for k, d in ab.items() if d > floor]
-    rep = {"model": a.model, "fixture": a.fixture,
+    lever_slower = ab["on_minus_off"] > floor
+    rep = {"lever_env": a.lever_env, "lever_value": a.lever_value,
+           "model": a.model, "fixture": a.fixture,
            "host": socket.gethostname(), "card": a.card,
            "host_card": "%s card %s" % (socket.gethostname(), a.card), "reps": a.reps,
            "seconds": secs, "median_seconds": med,
@@ -177,23 +201,45 @@ def main():
            "softmax_calls_per_fold": {k: (v[0]["softmax_census"] or {}).get("declined")
                                       for k, v in res.items() if k != "base"},
            "digests": digs, "digest_stable_within_arm": stable,
-           "base_equals_off": base_eq_off, "base_equals_on": base_eq_on,
+           "off_equals_on": off_eq_on, "base_equals_off": base_eq_off,
            "arms": res}
-    rep["verdict"] = (
-        "ARTIFACT: %s ran below 1200 MHz, so these timings are the clock's, not the gate's"
-        % ", ".join(lows) if lows else
-        "FAIL: digests are not stable within an arm, so nothing here is comparable"
-        if not stable else
-        "FAIL: the gate changed the fold output (base==off %s, base==on %s)"
-        % (base_eq_off, base_eq_on) if not (base_eq_off and base_eq_on) else
-        "REGRESSION: %s exceeds the %.2f s A/A floor" % (", ".join(slower), floor) if slower else
-        "FREE: output byte-identical across all three arms, and every A/B (%s) is inside the "
-        "%.2f s A/A floor" % (ab, floor))
+
+    # Two axes, two verdicts. `verdict_lever` is the only one that is about the lever; folding
+    # the tree axis into it is D163, where a trunk commit that landed between the two trees was
+    # reported as the gate changing fold output.
+    blocked = ("ARTIFACT: %s ran below 1200 MHz, so these timings are the clock's, not the "
+               "lever's" % ", ".join(lows) if lows else
+               "FAIL: digests are not stable within an arm, so nothing here is comparable"
+               if not stable else None)
+    rep["verdict_lever"] = blocked or (
+        "LEVER MOVES OUTPUT: off != on, so %s=%s changes a user's fold; %s"
+        % (a.lever_env, a.lever_value,
+           ("and it costs %.2f s, above the %.2f s A/A floor" % (ab["on_minus_off"], floor))
+           if lever_slower else
+           ("its %.2f s cost is inside the %.2f s A/A floor" % (ab["on_minus_off"], floor)))
+        if not off_eq_on else
+        "LEVER REGRESSION: on-minus-off is %.2f s, above the %.2f s A/A floor"
+        % (ab["on_minus_off"], floor) if lever_slower else
+        "LEVER FREE: off == on byte for byte, and on-minus-off (%.2f s) is inside the %.2f s "
+        "A/A floor" % (ab["on_minus_off"], floor))
+    rep["verdict_tree"] = blocked or (
+        "TREE IDENTICAL: base == off byte for byte, and off-minus-base (%.2f s) is inside the "
+        "%.2f s A/A floor" % (ab["off_minus_base"], floor)
+        if base_eq_off and ab["off_minus_base"] <= floor else
+        "TREE DIFFERS: base != off%s -- NAME THE COMMITS between the two trees; this axis is "
+        "not a lever reading" % ("" if base_eq_off else " by digest")
+        + (", and off-minus-base is %.2f s against a %.2f s floor"
+           % (ab["off_minus_base"], floor) if ab["off_minus_base"] > floor else ""))
+    # Kept so an older reader does not silently get nothing, and so `slower` stays used.
+    rep["verdict"] = "LEVER: %s | TREE: %s" % (rep["verdict_lever"], rep["verdict_tree"])
+    rep["arms_slower_than_floor"] = slower
     print(json.dumps({k: v for k, v in rep.items() if k != "arms"}, indent=1), flush=True)
     if a.out:
         json.dump(rep, open(a.out, "w"), indent=1, sort_keys=True)
         print("wrote", a.out)
-    return 0 if rep["verdict"].startswith("FREE") else 3
+    # Exit status is the LEVER's, because that is what a caller is asking about. The tree axis
+    # is reported and never gates: a branch ahead of its base is the normal case.
+    return 0 if rep["verdict_lever"].startswith("LEVER FREE") else 3
 
 
 def die(msg):
