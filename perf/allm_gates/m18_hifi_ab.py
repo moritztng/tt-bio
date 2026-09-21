@@ -183,9 +183,19 @@ def main() -> int:
     # turns on only the instances reached through that construction site. Per site is the whole
     # point: the sites differ in sequence length and in how many blocks they run, so a lever that
     # pays on the trunk can still be the one moving the structure somewhere small.
+    # An arm may carry a "+1k" suffix, which additionally sets `tri_att_one_k_chunk` on the same
+    # instances. That is the fidelity-for-speed trade the campaign asked for rather than a second
+    # lever: `_tri_att_sdpa_hifi`'s own docstring says one k chunk spans the whole key length so the
+    # online softmax makes no running-max rescale and reduces each row IN THE SAME ORDER as the
+    # torch reference and `_fp32_softmax_attention`. If the structural divergence is an artefact of
+    # the chunked reduction order rather than of the fused kernel itself, this is what collapses it.
     def set_arm(name):
+        one_k = name.endswith("+1k")
+        base = name[:-3] if one_k else name
         for q, o in targets:
-            setattr(o, ATTR, name == "on" or (name != "off" and _grp(q) == name))
+            on = base == "on" or (base != "off" and _grp(q) == base)
+            setattr(o, ATTR, on)
+            o.tri_att_one_k_chunk = bool(on and one_k)
         T.TRIATT_FUSED_HIFI_STATS.update(served=0, declined=0, too_short=0)
         T.TRIATT_FUSED_HIFI_PICKS.clear()
         T.SDPA_HIFI_CALLS[0] = 0
