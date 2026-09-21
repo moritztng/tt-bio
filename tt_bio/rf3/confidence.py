@@ -194,5 +194,8 @@ def summary(out: dict, f: dict, is_real_atom: torch.Tensor,
         "ptm": p,
         "iptm": ip,
         "has_clash": clash,
-        "ranking_score": round(ranking_score(ip, p, float(plddt.mean()), clash), 4),
+        # UNROUNDED. worker.py orders on this and rounds to 4 for the published
+        # summary_confidences.json. It used to be rounded here, which made the
+        # ordering break near-ties by sample index.
+        "ranking_score": ranking_score(ip, p, float(plddt.mean()), clash),
     }

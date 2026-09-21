@@ -35,6 +35,12 @@ RULES = {
                           + 0.5 * s["disorder"] - 100.0 * s["has_clash"]),
     "old_rf3": lambda s: (0.8 * (s["iptm"] or s["ptm"]) + 0.2 * s["ptm"]
                           - 100.0 * s["has_clash"]),
+    # What rf3 ACTUALLY served: worker.py sorted on summary["ranking_score"], which is
+    # rounded to 4 decimals for the published summary_confidences.json, and  is
+    # stable, so a pair that collides at 1e-4 was ordered by sample index.  returns the
+    # first maximal element, which reproduces that tie-break exactly.
+    "old_rf3_shipped": lambda s: round(0.8 * (s["iptm"] or s["ptm"]) + 0.2 * s["ptm"]
+                                       - 100.0 * s["has_clash"], 4),
     "old_protenix": lambda s: (0.8 * s["iptm"] + 0.2 * s["ptm"] if s["iptm"]
                                else (s["ptm"] if s["ptm"] > 0 else s["plddt"])),
     "plddt": lambda s: s["plddt"],
@@ -43,7 +49,7 @@ RULES = {
 }
 
 #: Which rule each model shipped at wk/of3t 7aed7253b, so "before" is that model's own before.
-SHIPPED = {"openfold3": "old_of3", "openbind": "old_of3", "rf3": "old_rf3",
+SHIPPED = {"openfold3": "old_of3", "openbind": "old_of3", "rf3": "old_rf3_shipped",
            "protenix-v1": "old_protenix", "protenix-v2": "old_protenix",
            "opendde": "old_protenix", "opendde-abag": "old_protenix"}
 
@@ -134,6 +140,35 @@ def main() -> int:
         entry["reach"] = {"per_seed": moved,
                           "n_moved": sum(m["before_digest"] != m["after_digest"] for m in moved),
                           "n_seeds": len(moved)}
+        # REGRET, the statistic that can actually separate two rules.
+        #
+        # Mean rank-0 Ca-RMSD cannot: the differences are 0.01-0.04 A against seed floors of
+        # 0.3-1.3 A. But the seed floor governs comparing ACROSS seeds. Two rules are compared
+        # on the SAME five samples of the SAME fold, so the comparison is PAIRED and the floor
+        # does not apply to the difference. Regret is served RMSD minus the best of the five:
+        # 0.0 means the rule picked the best sample available, and it is bounded by how much
+        # the samples differ rather than by how much a reseed moves the structure.
+        if has_rmsd:
+            for rule in RULES:
+                if RULES[rule] is None:
+                    continue
+                reg, sel = [], []
+                for c in g:
+                    ss = c["samples"]
+                    pick = served(c, rule)
+                    best = min(x["rmsd_ca"] for x in ss)
+                    reg.append(pick["rmsd_ca"] - best)
+                    sel.append(sorted(x["rmsd_ca"] for x in ss).index(pick["rmsd_ca"]))
+                entry["rules"][rule]["regret"] = round(statistics.mean(reg), 4)
+                entry["rules"][rule]["selected_rank"] = round(statistics.mean(sel), 2)
+            # Paired, per seed: unified minus shipped on the same samples.
+            d = [served(c, "unified")["rmsd_ca"] - served(c, base)["rmsd_ca"] for c in g]
+            entry["paired_delta"] = {"per_seed": [round(x, 4) for x in d],
+                                     "mean": round(statistics.mean(d), 4),
+                                     "n_better": sum(x < -1e-9 for x in d),
+                                     "n_worse": sum(x > 1e-9 for x in d),
+                                     "n_same": sum(abs(x) <= 1e-9 for x in d)}
+
         # Why a rule change can be inert: if pLDDT and pTM induce the same order over a
         # model's samples, no reweighting between them can move the served structure. That is
         # a property of the confidence head, so it is measured per model rather than assumed.
@@ -169,22 +204,32 @@ def main() -> int:
                              for k, v in rhos.items()}
         entry["spearman"]["n_seeds"] = n_ok
 
+        if base == "old_rf3_shipped":
+            entry["rounding_only"] = sum(
+                served(c, "old_rf3_shipped")["sample"] != served(c, "old_rf3")["sample"]
+                for c in g)
+
         # INTERFACE: on a sample that HAS an interface the unified rule must equal the
         # site's own old rule exactly. The test proves that algebraically; this proves the
         # branch is executed, on recorded scalars from a real fold, which is the part a test
         # cannot do (of3t-softmax D63: construction is not execution).
+        # Against the site's RULE, not against what it served. rf3's shipped ordering rounds
+        # to 4 decimals (see D-FOUND); comparing the unified rule to that rounding would
+        # report a 5e-5 "interface difference" that is the rounding defect, already reported
+        # separately, and not a difference in the branch.
+        rule_of = {"old_rf3_shipped": "old_rf3"}.get(base, base)
         iface = {"n_samples_with_iptm": 0, "n_exact": 0, "worst_abs_diff": 0.0,
-                 "served_sample_same": True}
+                 "served_sample_same": True, "compared_against": rule_of}
         for c in g:
             for s_ in c["samples"]:
                 if not s_["iptm"]:
                     continue
                 iface["n_samples_with_iptm"] += 1
-                d = abs(RULES["unified"](s_) - RULES[base](s_))
-                iface["n_exact"] += int(RULES["unified"](s_) == RULES[base](s_))
+                d = abs(RULES["unified"](s_) - RULES[rule_of](s_))
+                iface["n_exact"] += int(RULES["unified"](s_) == RULES[rule_of](s_))
                 iface["worst_abs_diff"] = max(iface["worst_abs_diff"], d)
             if all(x["iptm"] for x in c["samples"]):
-                iface["served_sample_same"] &= (served(c, base)["sample"]
+                iface["served_sample_same"] &= (served(c, rule_of)["sample"]
                                                 == served(c, "unified")["sample"])
         entry["interface"] = iface
         # Seed floor under the unified rule: served structure against served structure.
@@ -210,6 +255,19 @@ def main() -> int:
         print(f"{k:28s} {len(e['seeds']):5d} {g(e['shipped_rule']):>8s} {g('unified'):>8s} "
               f"{g('plddt'):>7s} {g('ptm'):>7s} {g('random'):>7s} {fl:>7s} "
               f"{e['reach']['n_moved']}/{e['reach']['n_seeds']:<4d} {e['aiclk_median']:5.0f}")
+    print()
+    hdr2 = (f"{'model/target':28s} {'regret shipped':>14s} {'regret unified':>14s} "
+            f"{'sel rank ship':>13s} {'sel rank unif':>13s} {'paired mean':>11s} {'b/w/s':>9s}")
+    print(hdr2)
+    print("-" * len(hdr2))
+    for k, e in report.items():
+        r, pd = e["rules"], e.get("paired_delta")
+        if "regret" not in r.get("unified", {}):
+            continue
+        b = e["shipped_rule"]
+        print(f"{k:28s} {r[b]['regret']:14.4f} {r['unified']['regret']:14.4f} "
+              f"{r[b]['selected_rank']:13.2f} {r['unified']['selected_rank']:13.2f} "
+              f"{pd['mean']:+11.4f} {pd['n_better']}/{pd['n_worse']}/{pd['n_same']:<5d}")
     print()
     print(f"{'model/target':28s} {'iptm samples':>13s} {'exact':>6s} {'worst diff':>11s} {'served same':>12s}")
     for k, e in report.items():
