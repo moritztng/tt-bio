@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 180 -- of3t-trunkback still running; committed interim finding",
+ "headline": "The trunk's backward defect is NOT in any leaf op: one block's backward alone reads 4.125325e-02 to 5.313206e-01 against a 0.4.3 float64 reference, while the composition of 48 of them reads 5.351880e+00 -- the per-block backward is between 130x and 10x BETTER than their chain. The locus is the SINGLE-TRACK COTANGENT CHAIN, whose direction collapses with depth: cosine 0.999988 over one block, 0.137306 over 24, 0.015239 over 48. The pair track holds up at 0.774.",
+
+ "the_two_measurements_that_settle_it": {
+  "per_block_backward_alone": {"block_0": 4.125325e-02, "block_23": 6.124381e-02, "block_47": 5.313206e-01,
+    "note": "each on its OWN captured boundary, so no upstream error is inherited"},
+  "chained": {"blocks_0_to_23": 6.514019e+00, "all_48": 5.351880e+00},
+  "reading": "if a leaf op were wrong, the single-block figure would carry it. It does not: the block backward is 10x to 130x better than the chain of 48. So the arithmetic inside a block is not what fails -- composing it is."
+ },
+
+ "the_input_gradient_names_the_track": {
+  "why_this_is_the_right_quantity": "dL/d(input) separates a WRONG COTANGENT CHAIN from wrongly formed WEIGHT gradients. Weight gradients can be wrong because the cotangent arriving at them is wrong; the input gradient shows which.",
+  "single_track_dL_ds_in": {"1_block": {"rel": 6.285448e-03, "cos": 0.999988},
+                            "24_blocks": {"rel": 3.586977e+00, "cos": 0.137306},
+                            "48_blocks": {"rel": 2.835360e+00, "cos": 0.015239}},
+  "pair_track_dz_in": {"1_block": 8.662420e-03, "24_blocks": 1.793569e-01, "48_blocks": 6.407335e-01, "cos_at_48": 0.774},
+  "reading": "the single track's cotangent starts essentially exact (cos 0.999988) and ends essentially ORTHOGONAL (cos 0.015239). That is not a magnitude problem and not a bad op -- it is a direction destroyed by accumulation. The pair track, chained the same number of times, keeps cos 0.774."
+ },
+
+ "my_brief_was_wrong_about_where_to_look": "I told this row to 'locate by MEDIAN per leaf op, never the worst tensor' and named pair_transition as a starting point. The row tested that framing and refuted it: no leaf op creates this, and the pair track -- where pair_transition lives -- is the half that holds up. The instruction to compare medians rather than worst tensors was right; the assumption that the answer was a leaf was not, and the row found that out by measuring one block alone against its own boundary, which the brief did not ask for.",
+
+ "how_this_relates_to_the_forward": "the trunk's FORWARD problem was also the single track (1.065338e-01 while the pair track passed at 4.947045e-02), and of3t-trunkcliff traced that to the pair-bias scale convention. The backward's single track now degenerates too. They are NOT obviously the same defect: of3t-trunkgrad measured that pre-scaling the bias -- which fixes the forward's single track -- makes the GRADIENT worse, 5.367727e+00 to 8.855764e+00. So the trunk has a single-track problem in both directions and at least one of them is not explained by the convention.",
+
+ "what_is_NOT_established": "of3t-trunkback is still running. This is a located mechanism, not a fix, and not a cause: 'the cotangent chain degenerates' says where and not why. Nothing here says whether it is catastrophic cancellation in the s-track accumulation, a small systematic rotation compounding over depth, or the tape recomputing something the fused forward did differently.",
+
+ "provenance": "of3t-trunkback on qb2, origin/wk/of3t-trunkback at 9c7b6f183, built on of3t-trunkgrad's 0.4.3 reference. Its instruments: ref_grad.py takes --first so any contiguous block window can be built and both harnesses dump input gradients; score_grad.py decomposes rel^2 into magnitude and direction halves. No number here is mine."
+}
