@@ -1,0 +1,50 @@
+{
+  "block": 45,
+  "config": {
+    "scale_pair_bias": false,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": true
+  },
+  "shipped_config": {
+    "scale_pair_bias": false,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false
+  },
+  "overrides": [
+    "accurate_softmax=true"
+  ],
+  "s_input_dtype": "DataType.BFLOAT16",
+  "permuted": false,
+  "tokens": 64,
+  "real_tokens": 56,
+  "state": "/home/ttuser/of3t_trunk043ref/ladder_c64/ladder_ref043_k45.pt",
+  "chain": {
+    "z2_in_vs_z1": 966.2346773900534,
+    "z3_in_vs_z2": 1104.9240724953427,
+    "z4_in_vs_z3": 2218.5072768179043,
+    "z5_in_vs_z4": 2152.826012200416,
+    "z_out_vs_z5": 0.0016701067149767208,
+    "s_out_vs_s1_plus_u2": 0.0018955091862318818
+  },
+  "shared_norms": {
+    "z1": 1300194.8061038116,
+    "z2": 1300240.5071932646,
+    "z3": 1300013.0456349945,
+    "z4": 1300081.1921144915,
+    "z5": 1273696.0397541244,
+    "sn": 30.646810788325062,
+    "u1": 42507.79764560684,
+    "s1": 1686608.8863768617,
+    "u2": 981241.0803913849,
+    "s2": 2181422.177234904
+  },
+  "s_fed_norm": 1683193.0737332508,
+  "z_fed_norm": 1300077.6704661613,
+  "s_out_norm": 2181422.177234904,
+  "z_out_norm": 1273894.2187183043,
+  "seconds": 2.146669587999895
+}
