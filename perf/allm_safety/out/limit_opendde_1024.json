@@ -1,0 +1,41 @@
+{
+ "model": "opendde",
+ "size": 1024,
+ "verdict": "FOLDED",
+ "rc": 0,
+ "wall_s": 535.5,
+ "sampling_steps": 20,
+ "single_sequence": true,
+ "chip": "1",
+ "structures": [
+  "cdk2x2_1024.cif"
+ ],
+ "quiet_seconds_at_end": 5.0,
+ "tail": [
+  "05:02:08  [tt-quietbox:tt1]   diffusion 0/20",
+  "05:02:20  [tt-quietbox:tt1]   diffusion 1/20",
+  "05:02:21  [tt-quietbox:tt1]   diffusion 2/20",
+  "05:02:21  [tt-quietbox:tt1]   diffusion 3/20",
+  "05:02:21  [tt-quietbox:tt1]   diffusion 4/20",
+  "05:02:21  [tt-quietbox:tt1]   diffusion 5/20",
+  "05:02:21  [tt-quietbox:tt1]   diffusion 6/20",
+  "05:02:22  [tt-quietbox:tt1]   diffusion 7/20",
+  "05:02:22  [tt-quietbox:tt1]   diffusion 8/20",
+  "05:02:22  [tt-quietbox:tt1]   diffusion 9/20",
+  "05:02:22  [tt-quietbox:tt1]   diffusion 10/20",
+  "05:02:22  [tt-quietbox:tt1]   diffusion 11/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 12/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 13/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 14/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 15/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 16/20",
+  "05:02:23  [tt-quietbox:tt1]   diffusion 17/20",
+  "05:02:24  [tt-quietbox:tt1]   diffusion 18/20",
+  "05:02:24  [tt-quietbox:tt1]   diffusion 19/20",
+  "05:02:24  [tt-quietbox:tt1]   confidence",
+  "05:02:36  [tt-quietbox:tt1]   saving",
+  "05:02:36  [tt-quietbox:tt1] \u2713 cdk2x2_1024 \u2014 503.1s",
+  "",
+  "Done: 1 ok, 0 failed \u2014 perf/allm_safety/out/.rung-opendde-1024/structures/opendde_results_cdk2x2_1024/results.json"
+ ]
+}

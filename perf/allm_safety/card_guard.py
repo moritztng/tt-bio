@@ -75,8 +75,21 @@ def _requested_cards():
     return {t.strip() for t in v.split(",") if t.strip()}
 
 
-def preflight(row_grant=None, holder=None):
-    """Refuse an ungranted card, then hold the lease for the whole launch. Call before torch."""
+def preflight(row_grant=None, holder=None, hold=True):
+    """Refuse an ungranted card; optionally hold the lease for the whole launch.
+
+    `hold=True` (default) is for a harness that opens the device IN THIS PROCESS: the lease is
+    acquired now, before torch and the model load, and handed to `tenstorrent._device_lease` so the
+    later open reuses it.
+
+    `hold=False` is for a runner that SPAWNS a child which opens the device. Holding the lease here
+    would make the parent a co-tenant of its own child: `tt_bio` refuses the child with "physical
+    card N is in use by worker:<me> -- the same holder identity in a DIFFERENT process", which is
+    exactly what happened to the first opendde 1024 rung (rc=75, 0 structures, 130 s wasted). The
+    child's own acquire is the right owner in that shape -- its lease then spans its launch, which
+    is the property that matters -- so this checks the grant and the holder and releases at once.
+    `in-process-patch-never-reaches-a-spawn-child`.
+    """
     row_grant = set(row_grant or ROW_GRANT_DEFAULT)
     holder = holder or os.environ.get("TT_BIO_LEASE_HOLDER", "worker:allm-safety")
 
@@ -110,6 +123,13 @@ def preflight(row_grant=None, holder=None):
     except DeviceInUseError as e:
         print(f"card_guard: {e}", flush=True)
         sys.exit(REFUSE_EXIT)
+    if not hold:
+        # Grant and holder are checked; the child owns the device from here.
+        release()
+        print(f"card_guard: {sorted(want)} granted and unheld by others; released so the spawned "
+              f"child can acquire it.", flush=True)
+        return None
+
     # HAND THE LEASE OVER to the module that would otherwise take it again.
     # `tenstorrent.get_device` does `if _device_lease is None: _device_lease = CardSetLease()...`
     # (tenstorrent.py:5285). Without this the guard's flock and tt_bio's acquire are two holders of
