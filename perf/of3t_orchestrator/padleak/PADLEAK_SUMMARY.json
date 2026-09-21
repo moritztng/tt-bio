@@ -1,0 +1,92 @@
+{
+  "what": "Can the PAD reach the REAL block in our torch pairformer? Two controls, 48 blocks deep.",
+  "why": "of3t-modelboundary measured the trunk gradient norm at 12.3912543630 with 8 pad rows and 43.2103398400 with 328, 3.487164x, on real inputs verified bit-identical between the two boundaries (checked pass 325: s_in and z_in real blocks agree to 0.0). D174 proposed a missing transition mask as the mechanism. This asks whether the model's SEMANTICS can produce any such dependence at all.",
+  "tree": "wk/of3t-orchestrator, tt_bio/reference.py as shipped -- Transition.forward has no mask parameter",
+  "host": "pc, CPU only, torch 2.8.0+cpu, no Tenstorrent device opened",
+  "non_vacuity": "of3t-ditmodel found its own control vacuous twice: a freshly built Transition has a zero LayerNorm bias and a zeroed fc3, so it returns exactly 0 on a zero pad row whatever the mask does. Every zero-initialised parameter and every LayerNorm bias is forced non-zero here, and both controls assert the pad actually moved before reporting.",
+  "control_1_width": {
+    "desc": "same 56 real tokens padded to 64 and to 384",
+    "rows": [
+      {
+        "blocks": 1,
+        "forced_nonzero_params": 32,
+        "pad_out_norm_n384": 161.12730063264047,
+        "s_real_absdiff": 5.503800293010271e-06,
+        "s_real_rel": 6.093481366959816e-08,
+        "s_bit_identical": false,
+        "z_real_absdiff": 8.394976196248289e-06,
+        "z_real_rel": 1.793864388009979e-08,
+        "z_bit_identical": false
+      },
+      {
+        "blocks": 2,
+        "forced_nonzero_params": 64,
+        "pad_out_norm_n384": 165.96094398508876,
+        "s_real_absdiff": 1.1440072981535609e-05,
+        "s_real_rel": 1.2216829578889244e-07,
+        "s_bit_identical": false,
+        "z_real_absdiff": 5.113398087132838e-05,
+        "z_real_rel": 1.0663303756983485e-07,
+        "z_bit_identical": false
+      },
+      {
+        "blocks": 4,
+        "forced_nonzero_params": 128,
+        "pad_out_norm_n384": 212.44231285946952,
+        "s_real_absdiff": 2.244793731080607e-05,
+        "s_real_rel": 2.1515201745328942e-07,
+        "s_bit_identical": false,
+        "z_real_absdiff": 9.155593318014562e-05,
+        "z_real_rel": 1.7703403450601405e-07,
+        "z_bit_identical": false
+      },
+      {
+        "blocks": 8,
+        "forced_nonzero_params": 256,
+        "pad_out_norm_n384": 254.0710570603492,
+        "s_real_absdiff": 4.081550907900542e-05,
+        "s_real_rel": 3.376463248831172e-07,
+        "s_bit_identical": false,
+        "z_real_absdiff": 0.00015608432515634374,
+        "z_real_rel": 2.7045989668613464e-07,
+        "z_bit_identical": false
+      },
+      {
+        "blocks": 16,
+        "pad_out_norm": 289.22024555583755,
+        "s_real_rel": 5.011473913783262e-07,
+        "z_real_rel": 3.98709842347571e-07
+      },
+      {
+        "blocks": 48,
+        "pad_out_norm": 464.7040369992973,
+        "s_real_rel": 9.08806196245186e-07,
+        "z_real_rel": 6.316005901636129e-07
+      }
+    ]
+  },
+  "control_2_pad_value": {
+    "desc": "same width 384, pad filled 0.7 against -3.1 -- no reduction-extent confound",
+    "rows": [
+      {
+        "blocks": 8,
+        "pad_output_moved_between_arms": 778.6198306404791,
+        "s_real_absdiff": 0.0,
+        "s_bit_identical": true,
+        "z_real_absdiff": 0.0,
+        "z_bit_identical": true
+      },
+      {
+        "blocks": 48,
+        "pad_output_moved_between_arms": 778.6203268984349,
+        "s_real_absdiff": 0.0,
+        "s_bit_identical": true,
+        "z_real_absdiff": 0.0,
+        "z_bit_identical": true
+      }
+    ]
+  },
+  "result": "PAD VALUES: at 8 and at 48 blocks the pad output moves 7.7862e+02 between arms and the real block is BIT-IDENTICAL, absdiff exactly 0.0 on both the single and the pair track. PAD WIDTH: the real block differs 9.088062e-07 (s) and 6.316006e-07 (z) at 48 blocks, growing about linearly with depth from 6.09e-08 at one block -- the fp32 reduction-order floor, not a leak.",
+  "conclusion": "Our pairformer's masking is semantically correct: the pad cannot reach the real block at any depth, and pad EXTENT moves it only at fp32 rounding. So the device's 3.487164x cannot be model semantics, and a transition output mask cannot fix a real-block answer that is already exact. D174's correctness framing is refuted; the extent sensitivity is a DEVICE effect and is reopened as its own object.",
+  "does_not_show": "this is the torch reference with non-degenerate RANDOM weights, not the served checkpoint, and it is a FORWARD result. Masking could still suppress a device-side parameter-gradient contamination, because a parameter gradient reduces over pad positions and the device's pad cotangent is only known to be exactly zero AT THE BOUNDARY. That is what the MASKON arm and a mid-stack cotangent capture decide, and neither has run."
+}
