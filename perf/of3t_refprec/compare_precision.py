@@ -46,6 +46,19 @@ DEVICE_READS = {
     },
 }
 
+# The device arm does not cover every tensor of a section, so a section-level comparison against
+# it is a scope mismatch. These are the sets the device arm ACTUALLY measured, defined so their
+# mass reproduces the figure the campaign published for them -- which is the check that the
+# subset is the same subset, not merely a plausible one.
+#   perf/of3t_orchestrator/smoff/FP32_SOFTMAX_UNDER_A23.json: blocks 0, 8, 16, 23, 32, 40, 47,
+#   399 tensors, 1.64401 % of the model, mass-weighted 0.14053 on / 0.13707 off.
+SEVEN_BLOCKS = re.compile(r"^pairformer_stack\.blocks\.(0|8|16|23|32|40|47)\.")
+BLOCK47 = re.compile(r"^pairformer_stack\.blocks\.47\.")
+MATCHED_SCOPE_MASS = {
+    "pairformer_stack, the seven blocks the device arm measured, device reads 0.14053": 1.64401,
+    "pairformer_stack block 47 alone, 64.86 % of that set, device reads 0.20129": 1.06624,
+}
+
 ATTENTION_SIDE = re.compile(
     r"^diffusion_module\.(diffusion_transformer\.blocks\.\d+"
     r"|atom_attn_(enc|dec)\.atom_transformer\.blocks\.\d+)\.attention_pair_bias\.")
@@ -197,9 +210,23 @@ def main():
         sets.append(stat([r for r in arm_rows if not ONE_LEAF.match(r["param"])], total_sq,
                          "diffusion device-arm scope minus the one leaf, "
                          "device reads 0.2929"))
+        sets.append(stat([r for r in rows if SEVEN_BLOCKS.match(r["param"])], total_sq,
+                         "pairformer_stack, the seven blocks the device arm measured, "
+                         "device reads 0.14053"))
+        sets.append(stat([r for r in rows if BLOCK47.match(r["param"])], total_sq,
+                         "pairformer_stack block 47 alone, 64.86 % of that set, "
+                         "device reads 0.20129"))
         for sec in sections:
             sets.append(stat([r for r in rows if r["section"] == sec], total_sq,
                              f"section {sec}"))
+        # A20: a matched-scope set is only matched if its DENOMINATOR matches. Assert it rather
+        # than trust the regex -- a subset that silently drifts would read as a comparison.
+        for st in sets:
+            want = MATCHED_SCOPE_MASS.get(st["set"])
+            if want is not None:
+                assert abs(st["pct_of_model_mass"] - want) < 5e-4, (
+                    f"{st['set']}: mass {st['pct_of_model_mass']:.5f} % is not the published "
+                    f"{want} %, so this is not the set the device arm measured")
 
         heavy = sorted(rows, key=lambda r: -r["ref_sq"])[:12]
         ordered = sorted((r for r in rows if r["rel_l2"] is not None),
