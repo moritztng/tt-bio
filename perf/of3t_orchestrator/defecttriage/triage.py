@@ -100,8 +100,6 @@ TABLE = {
                   "measured on two independent modules -- and the tape is shipped training code."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
-    "D21": (CAMP, "Instrument A's first device reading was an instrument defect; replaced by a "
-                  "real measurement whose failure is carried by D30, not by this entry."),
     "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "
                   "with 0.5.0. A property of the reference, not of the port."),
     "D23": (CAMP, "The reference bundle runs the preview2 checkpoint on a version upstream "

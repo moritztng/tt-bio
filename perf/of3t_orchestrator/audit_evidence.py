@@ -828,10 +828,24 @@ if DEF.is_file() and ORCH.is_file():
     _ents = [(_parts[i], _parts[i + 1]) for i in range(1, len(_parts) - 1, 2)]
     _decl = _re.compile(r"\*\*UNFIXED[.*]|\bUNFIXED\b\s*(?:--|\u2014|\.)")
 
+    def _quoted_spans(text):
+        """Character ranges inside the house emphasis-quote form *"..."*.
+
+        Pass 252: correcting a status honestly means QUOTING the wrong one -- D21's update says
+        its heading `read *"UNFIXED -- the forward discriminator has not been run"*`. That is a
+        report of what the heading said, not a declaration, and reading it as one pressures an
+        author to paraphrase history rather than quote it, which is the opposite of what this
+        ledger wants.
+        """
+        return [(m.start(), m.end()) for m in _re.finditer(r'\*"[^"]*"\*', text)]
+
     def _declares_own_unfixed(head, body):
         """True when BODY declares UNFIXED about THIS defect rather than about another one."""
         _me = _re.match(r"### (D\d+)\b", head).group(1)
+        _q = _quoted_spans(body)
         for _m in _decl.finditer(body):
+            if any(a <= _m.start() < b for a, b in _q):
+                continue                      # inside a quotation: a report, not a declaration
             _lo = body.rfind(".", 0, max(0, _m.start() - 1)) + 1
             _hi = body.find(".", _m.end())
             _sent = body[_lo: _hi if _hi != -1 else len(body)]
@@ -842,8 +856,10 @@ if DEF.is_file() and ORCH.is_file():
 
     # Probe: a body-only declaration must still fire, and one about another defect must not.
     _bo_probe = [_declares_own_unfixed("### D1. FIXED.", "It stays UNFIXED. More text."),
-                 _declares_own_unfixed("### D2. FIXED.", "Only D69's status moves, to **UNFIXED**.")]
-    if _bo_probe != [True, False]:
+                 _declares_own_unfixed("### D2. FIXED.", "Only D69's status moves, to **UNFIXED**."),
+                 _declares_own_unfixed("### D3. CLOSED.",
+                                       'Its heading read *"UNFIXED -- not run"* until now.')]
+    if _bo_probe != [True, False, False]:
         bad.append("the body-only-UNFIXED probe did not fire on both shapes -- the check is "
                    "either inert or it is flagging talk about other defects (pass-240 shape)")
     _bodyonly = [_re.match(r"### (D\d+)\b", h).group(1) for h, b in _ents
