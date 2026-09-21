@@ -45,26 +45,15 @@ PLAN = {
     # the plan shrank: at a fixed width the pad output moves 7.7862e+02 and the real block stays
     # bit-identical through 48 blocks, so the transition mask our port omits cannot be what costs
     # the trunk. Its residue is D175, which is the measurement rather than the mechanism.
-    "D175": {
-        "needs": CARD,
-        "one_line": "the device's trunk gradient depends on PAD EXTENT where the model's semantics say it cannot",
-        "closes_when": ("one capture decides it: the device cotangent at a mid-stack block boundary "
-                        "at n384, asking whether its pad part is exactly zero the way the block-47 "
-                        "boundary's is. Non-zero locates it in the transported cotangent and makes "
-                        "TT_BIO_MASK_TRANS a mitigation with a mechanism; exactly zero puts it in "
-                        "the parameter-gradient reduction itself, and the next place to look is "
-                        "_sum_leading and the matmul backwards at tt_bio/autograd.py:432"),
-        "evidence_held": ("trunk gradient norm 12.3912543630 at 8 pad rows against 43.2103398400 at "
-                          "328, 3.487164x, all 2,736 tensors differing; the two boundaries are "
-                          "bit-identical on the real block (s_in 5.6235488078e+03, z_in "
-                          "6.4263673501e+04 on both); in torch the pad does not reach the real block "
-                          "at 48 blocks (absdiff exactly 0.0 under a pad move of 7.7862e+02) and pad "
-                          "extent moves it 9.088062e-07; the boundary cotangent is exactly zero on "
-                          "every padded position, measured twice independently"),
-        "would_a_row_help": False,
-        "asked": ("not asked -- it is a measurement. It reaches Moritz only if the fix changes "
-                  "inference numerics, which D174's refutation makes less likely than it looked"),
-    },
+    # D175 was here from pass 325 and is gone because `of3t-padshape` REFUTED it as filed at pass
+    # 327, not because the plan shrank. It is not a width law: the sweep is non-monotone, peaking
+    # at 192/256 (which agree to seven digits) and coming back down at 384, so the two banked
+    # endpoints were the ends of a curve with a maximum between them. Its premise was also D56-OFF
+    # and the shipped repair removes 26.6x. The forward does not follow it (1.0345x against
+    # 3.487x), so it is backward-only. Worth 21.1 % of the trunk's error; closing it entirely
+    # leaves the trunk at 5.4139x upstream's own bf16, carried by the attention-pair-bias and the
+    # single transition. That residual is the trunk's real object and is not yet a plan item
+    # because it has no owner -- when it gets one it belongs here.
     "D10": {
         "needs": MERGE,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",

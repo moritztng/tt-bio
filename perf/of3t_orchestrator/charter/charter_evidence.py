@@ -32,6 +32,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -100,6 +101,22 @@ def test_one(doc, key, op, bar):
         return (not stuck), (f"{len(ref_moving)} of {len(rows)} step(s) move upstream-side"
                              + (f", ours stationary at k = {stuck}" if stuck
                                 else ", ours moves at every one"))
+    if op == "<=key":
+        # The bar is ANOTHER PATH IN THE SAME ARTIFACT, not a literal. PROTOCOL's own §3d rule:
+        # "when a reference's own replay of a scope exceeds the bar at that scope, a §3d
+        # comparison against the published artifact there is void, not pessimistic -- measure the
+        # floor first". A clause whose bar is a measured property of the REFERENCE cannot be
+        # loosened by whoever writes the clause, which is the point.
+        found, v = dig(doc, key)
+        if not found:
+            return False, "key absent"
+        found_b, b = dig(doc, bar)
+        if not found_b:
+            return False, f"the bar's own key {bar} is absent from the artifact"
+        for name, val in ((key, v), (bar, b)):
+            if not isinstance(val, (int, float)) or isinstance(val, bool):
+                return False, f"{name} is {val!r}, not numeric"
+        return v <= b, f"{v:.6g} against {bar} = {b:.6g}"
     found, v = dig(doc, key)
     if not found:
         return False, "key absent"
@@ -110,6 +127,48 @@ def test_one(doc, key, op, bar):
     if not isinstance(v, (int, float)) or isinstance(v, bool):
         return False, f"{v!r} is not numeric"
     return ((v >= bar) if op == ">=" else (v <= bar)), f"{v:.6g}"
+
+
+def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
+    """Is this artifact OLDER than the engine code its clause is about?
+
+    D178: `traj_shipped.json` was written 2026-09-21 02:35:02 and the `_PARAMS` re-key that fixes
+    the very defect it reports landed at 02:55:54, twenty minutes later (965c24f52). The charter
+    then read TRAJECTORY as NOT MET for ~22 hours on an artifact that predated its own repair, and
+    nobody noticed because an artifact carries no notion of the tree it ran against. D177 was the
+    same class one condition over: GRADIENTS graded the pre-D56 arm after D56 became the shipped
+    default. Twice is a pattern, so it gets a reader rather than another hand-check.
+
+    Reported, never failed. Re-taking an artifact needs a card, so a hard failure here would block
+    every compose on work that cannot be done in a compose.
+    """
+    def ts(*args) -> int | None:
+        try:
+            r = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%ct", *args],
+                               capture_output=True, text=True, timeout=30)
+            out = r.stdout.strip()
+            return int(out) if out.isdigit() else None
+        except Exception:
+            return None
+    a = ts("--", artifact)
+    c = ts("--", *code_paths)
+    if a is None and (root / artifact).is_file():
+        # Generated at compose time from sources pinned by digest (D179's COVERAGE_MERGED.json is
+        # the first). It exists but has no commit, and that is the point: it cannot be older than
+        # its inputs because it is rebuilt from them every run.
+        return {"comparable": False, "generated_not_committed": True,
+                "why": "composed at compose time from digest-pinned sources, so it cannot be stale"}
+    if a is None or c is None:
+        return {"comparable": False,
+                "why": "the artifact or the code path has no commit in this tree"}
+    return {"comparable": True, "artifact_commit_unixtime": a, "code_commit_unixtime": c,
+            "artifact_is_older_than_code": a < c,
+            "seconds_behind": max(0, c - a),
+            "note": ("this artifact predates the newest commit under "
+                     + "/".join(code_paths)
+                     + ", so its numbers describe an earlier tree. A clause reading it is "
+                       "reporting history, and a re-take may change the verdict"
+                     if a < c else "the artifact is at or after the newest code commit")}
 
 
 def evaluate(spec, root: Path) -> list:
@@ -138,6 +197,7 @@ def evaluate(spec, root: Path) -> list:
                                 if art.is_file() else None),
             "met": bool(checks) and all(c["passed"] for c in checks),
             "misses": misses, "checks": checks,
+            "code_staleness": code_staleness(root, cond["artifact"]),
         })
     return out
 
@@ -169,6 +229,14 @@ def break_control(spec) -> list[str]:
                 # the whole content of D169.
                 cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
                                   {"k": 2, ref_k: 1.0, our_k: 1.0}]
+                continue
+            if op == "<=key":
+                # both sides have to exist, and EQUAL satisfies <=
+                for path, val in ((key, 1.0), (bar, 1.0)):
+                    cur, parts = doc, path.split(".")
+                    for part in parts[:-1]:
+                        cur = cur.setdefault(part, {})
+                    cur[parts[-1]] = val
                 continue
             cur, parts = doc, key.split(".")
             for part in parts[:-1]:
@@ -212,6 +280,13 @@ def negative_control(spec) -> list[str]:
                 # theirs moves, ours does not -- the one thing this clause exists to catch
                 cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
                                   {"k": 2, ref_k: 1.0, our_k: 0.0}]
+            elif op == "<=key":
+                # ours WORSE than the reference's own measured floor, which is the whole subject
+                for path, val in ((key, 2.0), (bar, 1.0)):
+                    cur, parts = doc, path.split(".")
+                    for part in parts[:-1]:
+                        cur = cur.setdefault(part, {})
+                    cur[parts[-1]] = val
             else:
                 if op == "present":
                     v = None

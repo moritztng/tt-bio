@@ -1,95 +1,57 @@
 {
   "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
   "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
-  "spec_sha256": "dc92efc5023c3980f6937ebb1e773517c6f46206af014f0265336bd9b2ef4a33",
-  "tree": "/home/moritz/.coworker/wt/of3t-d122-d115",
-  "break_control": "every condition can report MET on a synthetic artifact",
+  "spec_sha256": "b30412ba5d48388d2ad6624fb51313cc5523e6e633e520746c438477e69c0ab8",
+  "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
+  "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
   "n_met": 0,
-  "n_conditions": 4,
+  "n_conditions": 3,
   "conditions": [
     {
-      "field": "THEIR-TEST",
-      "artifact": "perf/of3t_theirtest/RESULT.json",
-      "why": "their own test_training_full.py EXECUTED on our backend. The prose clause already says 'a CUDA skip is not a pass'; this reads that off the file the run writes instead of off the sentence the orchestrator writes about the run.",
+      "field": "GRADIENTS",
+      "artifact": "perf/of3t_ditmodel/MODEL_d56_retake.json",
+      "why": "per-parameter gradient equivalence at MODEL scope, against a float64 reference rather than against another device arm.",
       "artifact_exists": false,
       "artifact_sha256": null,
       "met": false,
       "misses": [
-        "executed is True -- artifact has artifact absent (the test ran)",
-        "skipped is False -- artifact has artifact absent (it was not skipped (A1/A3/A4 in BLOCKERS.md are the CUDA gates that fire today))",
-        "exit_code is 0 -- artifact has artifact absent (and it passed)",
-        "ran_on_our_backend is True -- artifact has artifact absent (on ttnn, not on CPU torch -- D2 records that this needs a PrivateUse1 backend with a Lightning Accelerator, which does not exist yet)"
-      ],
-      "checks": [
-        {
-          "key": "executed",
-          "op": "is",
-          "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "the test ran"
-        },
-        {
-          "key": "skipped",
-          "op": "is",
-          "bar": false,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "it was not skipped (A1/A3/A4 in BLOCKERS.md are the CUDA gates that fire today)"
-        },
-        {
-          "key": "exit_code",
-          "op": "is",
-          "bar": 0,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "and it passed"
-        },
-        {
-          "key": "ran_on_our_backend",
-          "op": "is",
-          "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "on ttnn, not on CPU torch -- D2 records that this needs a PrivateUse1 backend with a Lightning Accelerator, which does not exist yet"
-        }
-      ]
-    },
-    {
-      "field": "GRADIENTS",
-      "artifact": "perf/of3t_wholemodel/MODEL_shipped.json",
-      "why": "per-parameter gradient equivalence at MODEL scope, against a float64 reference rather than against another device arm.",
-      "artifact_exists": true,
-      "artifact_sha256": "a33bd07a25f111769196217d33610fb9f8e49f52f9b96c459184990856f990d8",
-      "met": false,
-      "misses": [
-        "stats.shipped_vs_FLOAT64.n_over_per_tensor_bar is 0 -- artifact has 678 (no parameter is over the campaign's own per-tensor bar, which the artifact carries as bars.per_tensor_bar -- so this threshold is read, not chosen)",
-        "coverage_total.pct_of_model_compared >= 99.2594 -- artifact has 92.1568 (at the structural coverage ceiling COVERAGE_CEILING_IS_NOT_100.json measured at pass 175. 'every parameter' cannot mean 100 %: 0.74055 % of the gradient mass is not measurable on device at all)"
+        "inputs.float64.sha256 present None -- artifact has artifact absent (scored against a float64 reference, pinned by digest)",
+        "stats.d56on_vs_UPSTREAM_BF16.mass_weighted_rel_l2 <=key 'bars.A26_reachable_bar_vs_their_bf16' -- artifact has artifact absent (our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here)",
+        "stats.d56on_vs_FLOAT64.n_over_per_tensor_bar <=key 'stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar' -- artifact has artifact absent (and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted)",
+        "coverage_total.pct_of_model_compared >= 99.2594 -- artifact has artifact absent (the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists)"
       ],
       "checks": [
         {
           "key": "inputs.float64.sha256",
           "op": "present",
           "bar": null,
-          "actual": "present",
-          "passed": true,
+          "actual": "artifact absent",
+          "passed": false,
           "why": "scored against a float64 reference, pinned by digest"
         },
         {
-          "key": "stats.shipped_vs_FLOAT64.n_over_per_tensor_bar",
-          "op": "is",
-          "bar": 0,
-          "actual": "678",
+          "key": "stats.d56on_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+          "op": "<=key",
+          "bar": "bars.A26_reachable_bar_vs_their_bf16",
+          "actual": "artifact absent",
           "passed": false,
-          "why": "no parameter is over the campaign's own per-tensor bar, which the artifact carries as bars.per_tensor_bar -- so this threshold is read, not chosen"
+          "why": "our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here"
+        },
+        {
+          "key": "stats.d56on_vs_FLOAT64.n_over_per_tensor_bar",
+          "op": "<=key",
+          "bar": "stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar",
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted"
         },
         {
           "key": "coverage_total.pct_of_model_compared",
           "op": ">=",
           "bar": 99.2594,
-          "actual": "92.1568",
+          "actual": "artifact absent",
           "passed": false,
-          "why": "at the structural coverage ceiling COVERAGE_CEILING_IS_NOT_100.json measured at pass 175. 'every parameter' cannot mean 100 %: 0.74055 % of the gradient mass is not measurable on device at all"
+          "why": "the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists"
         }
       ]
     },
@@ -97,45 +59,41 @@
       "field": "TRAJECTORY",
       "artifact": "perf/of3t_modeltraj/traj_shipped.json",
       "why": "an N-step weight trajectory at MODEL scope, with the two sides actually moving.",
-      "artifact_exists": true,
-      "artifact_sha256": "c471cd33556c3aa9c19ca9c4a32b80bc9ca6dca4e272cc53865447dfcf2c4171",
+      "artifact_exists": false,
+      "artifact_sha256": null,
       "met": false,
       "misses": [
-        "scope.pct_of_model_sq_grad_norm >= 99.2594 -- artifact has 36.9462 (on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %)",
-        "d1.zero_both_sides is False -- artifact has True (the campaign's own lesson: d_1 == 0 on both sides is not agreement, it is two stationary weight vectors. An arm that never moves proves nothing about the update rule)"
+        "steps >= 20 -- artifact has artifact absent (at least the 20 steps of3t-traj20 pre-registered)",
+        "scope.pct_of_model_sq_grad_norm >= 99.2594 -- artifact has artifact absent (on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %)",
+        "per_step moves ['d_theirs_norm', 'd_ours_norm'] -- artifact has artifact absent (the campaign's own lesson, repaired at pass 319 (D169): an arm that never moves proves nothing about the update rule, so OUR side must move at every step where THEIRS does. This read `d1.zero_both_sides is False` until pass 319 and that clause was UNSATISFIABLE by any faithful reproduction -- upstream's AlphaFoldLRScheduler warms up linearly from base_lr=0.0, so lr(0) == 0.0 exactly and step 1 leaves the weights bit-identical on BOTH sides with a non-zero gradient (D169_FIRST_STEP_IS_A_NO_OP.json). The replacement is strictly stronger: it reads all 20 steps rather than the one that carries no information, and it is not satisfied by the live artifacts being any closer than they were)"
       ],
       "checks": [
         {
           "key": "steps",
           "op": ">=",
           "bar": 20,
-          "actual": "20",
-          "passed": true,
+          "actual": "artifact absent",
+          "passed": false,
           "why": "at least the 20 steps of3t-traj20 pre-registered"
         },
         {
           "key": "scope.pct_of_model_sq_grad_norm",
           "op": ">=",
           "bar": 99.2594,
-          "actual": "36.9462",
+          "actual": "artifact absent",
           "passed": false,
           "why": "on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %"
         },
         {
-          "key": "d1.zero_both_sides",
-          "op": "is",
-          "bar": false,
-          "actual": "True",
+          "key": "per_step",
+          "op": "moves",
+          "bar": [
+            "d_theirs_norm",
+            "d_ours_norm"
+          ],
+          "actual": "artifact absent",
           "passed": false,
-          "why": "the campaign's own lesson: d_1 == 0 on both sides is not agreement, it is two stationary weight vectors. An arm that never moves proves nothing about the update rule"
-        },
-        {
-          "key": "d1.rel_d",
-          "op": "<=",
-          "bar": 0.05,
-          "actual": "0",
-          "passed": true,
-          "why": "and where they do move they agree to the per-tensor bar PROTOCOL already fixes"
+          "why": "the campaign's own lesson, repaired at pass 319 (D169): an arm that never moves proves nothing about the update rule, so OUR side must move at every step where THEIRS does. This read `d1.zero_both_sides is False` until pass 319 and that clause was UNSATISFIABLE by any faithful reproduction -- upstream's AlphaFoldLRScheduler warms up linearly from base_lr=0.0, so lr(0) == 0.0 exactly and step 1 leaves the weights bit-identical on BOTH sides with a non-zero gradient (D169_FIRST_STEP_IS_A_NO_OP.json). The replacement is strictly stronger: it reads all 20 steps rather than the one that carries no information, and it is not satisfied by the live artifacts being any closer than they were"
         }
       ]
     },

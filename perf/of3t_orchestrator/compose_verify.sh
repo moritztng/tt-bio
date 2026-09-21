@@ -812,6 +812,15 @@ echo "--- capture provenance records unexpected_keys"
 # the composition every pass, so the evaluation the gate reads is of `wk/of3t` and is never older
 # than the compose that blessed it. The instrument REFUSES if its own break control fails, which
 # is why this runs before the audit rather than after.
+# D179. COVERAGE's two halves live in two rows' artifacts: the census has the eight loss terms,
+# `of3t-covpaths` has the eleven paths under a key named `union` that means something else. Compose
+# them here rather than committing a derived artifact, so it can never be older than its sources --
+# it pins both by sha256 and refuses if `COVERAGE_UNION.json`'s cited census digest does not match
+# the census in this tree, which is the case where merging would silently join two measurements.
+echo "--- compose COVERAGE's two halves (D179)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/coverage/merge_coverage.py ) || \
+  { echo "COMPOSE: merge_coverage.py refused -- its two sources disagree, see its output"; exit 1; }
+
 echo "--- publish the charter evaluation from the composition"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/charter/charter_evidence.py ) || \
   { echo "COMPOSE: charter_evidence.py refused to publish -- see its break control"; exit 1; }
