@@ -72,6 +72,14 @@ def main() -> int:
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     a = ap.parse_args()
 
+    # Card grant enforced HERE, before torch and before the model load -- a probe at launch
+    # cannot say who owns the card three minutes later, so the lease is taken now and held for
+    # the whole launch. See card_guard.py for the incident this closes.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import card_guard
+    card_guard.preflight()
+
+
     import torch
     torch.set_grad_enabled(False)
     import tt_bio as _TB

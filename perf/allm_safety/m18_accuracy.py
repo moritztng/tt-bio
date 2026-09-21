@@ -93,6 +93,14 @@ def main() -> int:
                     help="tt_baseline.SEED; two runs differing only in this give the seed floor")
     a = ap.parse_args()
 
+    # Card grant enforced HERE, before torch and before the model load -- a probe at launch
+    # cannot say who owns the card three minutes later, so the lease is taken now and held for
+    # the whole launch. See card_guard.py for the incident this closes.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import card_guard
+    card_guard.preflight()
+
+
     # Another worker deleted biotite's bundled `components.bcif` out of the SHARED venv at
     # 2026-09-21 01:28Z (the directory mtime says so; every other file in it is dated Sep 1), which
     # makes any OpenFold3 fold die in `build_openfold3_features` with "Internal CCD not found".
