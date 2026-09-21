@@ -9474,3 +9474,37 @@ replacement measurement found — median **1.6588e-01**, 8.3x the bar, on 474 of
 D21's subject. D21 is about whether the instrument was sound; the number it produced is **D30**'s
 (*"the diffusion module's backward costs 19.6x the forward it is taken at"*), which is UNFIXED,
 USER-FACING, and owned by `of3t-ditcot`. The closure moves no evidence and drops no obligation.
+
+### D139. I asked Moritz to rule on a question this campaign's own PROTOCOL had answered forty passes earlier, and it sat in his queue for thirty-four. FOUND and WITHDRAWN by the orchestrator (pass 253). **FIXED** — the ask is withdrawn; nothing in the record changes, because the fix was already in force.
+
+Pin **9597**, authored at pass 215: *"the 'more accurate than upstream' protocol question ... my
+recommendation, and the default if no answer comes: measure both, and never score 'closer to float64
+than upstream' as a failure."* The worked case is `diffusion_conditioning`, **36.9462 %** of the
+model, scored a FAILURE at **1.0414x** against upstream's own training step while being **8x more
+accurate** than that step against the float64 ideal (0.015328 against 0.121864, cosine **−0.2727**).
+
+**PROTOCOL A25's ADDENDUM, written at pass 175, already says it:**
+
+> *"The 1.0414x is against the 'equals float64' threshold, and **A26 shows no bf16 port can reach
+> that threshold** ... Against the bar a bf16 port can actually reach, **the same measurement passes
+> at 0.7363x** ... clause 3's model sentence should now read: 'passes the reachable bar at 0.7363x
+> while being 8x more accurate than the step it reproduces' rather than 'fails agreement at 1.0414x'
+> ... the second scores it against a bar nothing can meet."*
+
+A26 replaced the bar, every headline since is scored against A26, and the campaign's own artifacts
+carry both columns (`ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json`, superseded by
+`THE_ANSWER.json`). **The question was stale when I sent it**, which is the recorded class
+`stale-open-ask-outdated-by-later-finding` — and the aggravating detail is that the thing it was
+stale against is a protocol **I own and wrote**.
+
+**Withdrawn rather than left standing.** An open ask is a claim on Moritz's attention, and this one
+had been making that claim for thirty-four passes while asking for a decision already taken. The
+withdrawal was sent as a normal alert rather than a new ask, because adding a question to retire a
+question is the wrong direction. **Known behaviour to expect**: `state/pending-input/9597.md` will
+keep reading `status: open` until he replies, since only `tg_agent.sh` flips that field — the
+campaign's own view is corrected here instead.
+
+**The lesson is not "check before asking", which I did.** I checked the *pending-input queue* for
+duplicate asks and found none. What I did not check was whether the campaign had already **decided**
+the thing — a different question, answered by PROTOCOL rather than by the ask log. Before an ask
+goes out, grep the protocol for the rule it proposes, not just the queue for the question.

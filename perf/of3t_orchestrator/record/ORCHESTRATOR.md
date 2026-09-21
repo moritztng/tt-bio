@@ -752,18 +752,13 @@ document was still quoting the superseded reading. Each line says who closed it,
    - performance is a named debt, not a blocker — what `precise_config()` recovers at 1.46x on one
      op, and whether round trips can be batched, overlapped or confined.
 
-7. **The "more accurate than upstream" protocol question — ASKED at pass 215 (pin `9597`), with a
-   default I will apply if he would rather not spend a call.** It is no longer one oddity; it is a
-   pattern with a mechanism. `diffusion_conditioning` — **36.9462 % of the model** — was scored a
-   FAILURE at **1.0414x** against upstream's own training step **while being eight times more
-   accurate than that step against the float64 ideal** (0.015328 against their 0.121864), failing
-   only because the two errors are anti-aligned. D120 then found the same shape at the softmax: our
-   fp32 one is **3.2x more accurate** than upstream's bf16 one, which is precisely why turning it
-   OFF *improved* the gradient — it moved us toward what they compute. So "distance from upstream's
-   gradient" and "distance from the ideal" can disagree in sign, and we can lose on the first by
-   winning on the second. **My recommendation, and the default if no answer comes**: measure both,
-   and never score "closer to float64 than upstream" as a failure — report it as a difference with
-   the precision floor beside it.
+7. **The "more accurate than upstream" protocol question — WITHDRAWN at pass 253 (pin `9597`),
+   because PROTOCOL had answered it forty passes before I asked (D139).** A25's ADDENDUM, written
+   at pass 175, already says the worked case *"passes the reachable bar at 0.7363x while being 8x
+   more accurate than the step it reproduces"* and that the 1.0414x failure is against *"a bar
+   nothing can meet"*. A26 replaced that bar and every headline since is scored against it. Nothing
+   in the record changes; the ask was stale on arrival and has been retired rather than left
+   claiming Moritz's attention.
 
 **So the honest shape of what is left, at pass 199**: **one located defect** — the trunk's
 backward, 5.8282 % of the model, 92.68 % of its error mass on four LayerNorm affine leaves — plus one memory-engineering item now sized (crops 640 and 768, a 12.3 GB
@@ -828,9 +823,17 @@ an **identity** at relative difference **0.0**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred thirty-eight defects, fifty-one UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred thirty-nine defects, fifty-one UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 252 — one defect closed by reading its own artifact, and 51 of the other 52 survived the same scan.** I scanned every UNFIXED entry for bodies carrying closure-sounding language — the D125 shape, where a defect is declared closed inside prose the status parser cannot see. Four hits, and **three of the four are correctly open**: D26 says outright *"until that is settled the compared set is at most 73.88 %"*; D56 is open because the **shipped** configuration is still the unrepaired one, which is a release decision and already priced as such; D82 says *"what closes it is a port fix, not a measurement"*. That is a negative result worth recording — the 52 was not padded.
+PASSLOG: **Pass 253 — I withdrew an ask that had been sitting in Moritz's queue for thirty-four passes asking him to decide something my own PROTOCOL decided forty passes before I sent it (D139).** Pin 9597 proposed that the campaign stop scoring *"closer to float64 than upstream"* as a failure, with the worked case `diffusion_conditioning` — 36.9462 % of the model — failing at **1.0414x** while being **8x more accurate** than the step it reproduces (0.015328 against 0.121864, cosine **−0.2727**).
+
+**A25's ADDENDUM says it, at pass 175:** *"A26 shows no bf16 port can reach that threshold ... against the bar a bf16 port can actually reach, the same measurement passes at 0.7363x ... the second scores it against a bar nothing can meet."* A26 replaced the bar; every headline since — including the 0.9592x I re-derived at pass 248 — is scored against A26; and the artifacts carry both columns. The question was stale when it was sent.
+
+**What makes it worth a defect rather than a shrug is which check I skipped.** I did check before asking — the memory rule is *check pending asks first*, and I checked the pending-input queue for a duplicate question and found none. That is the wrong index. The thing to grep is the **protocol for the rule being proposed**, not the ask log for the question, and those come apart exactly when the campaign has already decided something and nobody closed the loop. The aggravating detail is that the protocol in question is one I own and wrote.
+
+**Withdrawn as a normal alert, not as a new ask**, because adding a question in order to retire a question is the wrong direction. Expect `state/pending-input/9597.md` to keep reading `status: open` — only `tg_agent.sh` flips that field, on a reply — so the campaign's own view is corrected in DIRECTIVE-STATUS instead. That leaves **9629** as the one ask that genuinely needs him: D1, D10, D24, D56, four ship-or-hold calls, default hold.
+
+**Pass 252 — one defect closed by reading its own artifact, and 51 of the other 52 survived the same scan.** I scanned every UNFIXED entry for bodies carrying closure-sounding language — the D125 shape, where a defect is declared closed inside prose the status parser cannot see. Four hits, and **three of the four are correctly open**: D26 says outright *"until that is settled the compared set is at most 73.88 %"*; D56 is open because the **shipped** configuration is still the unrepaired one, which is a release decision and already priced as such; D82 says *"what closes it is a port fix, not a measurement"*. That is a negative result worth recording — the 52 was not padded.
 
 **D21 is the fourth and it does not survive.** Its only heading has read *"UNFIXED — the forward discriminator has not been run"* since pass 21. Checked against `perf/of3t_rebase/device_gradient_043all.json` rather than against the body that claims otherwise: `forward_rel_median` **0.008474800850934073**, inside the 5.0e-02 gate A19 fixed, and `forward_rel` is **a list of 48** — the discriminator ran on *every* structure, not once. `median_rel` **0.16588485538135056**, `worst_rel` **18.503974843073646**, `zero_model_median` **1.0**, 48 of 48. Both halves of the heading are disposed of: the instrument defect was real and was fixed by replacement at pass 116, and the "has not been run" clause has been false for **136 passes**.
 
