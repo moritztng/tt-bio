@@ -12,6 +12,18 @@ values the card saw, so what is scored is the operation and never the input roun
 """
 import argparse, json, os, time
 
+import os, pathlib, sys
+
+# `python perf/of3t_d116/x.py` puts THIS file's directory on sys.path, not the repo root, so
+# `import tt_bio` silently resolves to whatever is installed -- on this host the SHARED
+# checkout /home/ttuser/tt-bio-dev. Measured the hard way: the first run of this script
+# scored the shared tree and both arms came back bit-identical. Root first, then assert it.
+_ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+sys.path.insert(0, _ROOT)
+import tt_bio as _tt_bio
+assert pathlib.Path(_tt_bio.__file__).resolve().parents[1] == pathlib.Path(_ROOT), (
+    f"tt_bio came from {_tt_bio.__file__}, not {_ROOT}")
+
 import torch
 import ttnn
 

@@ -28,8 +28,11 @@ from typing import Optional, Sequence
 
 import ttnn
 
+from tt_bio.envflags import env_flag
+
 __all__ = [
-    "Tensor", "precise_config", "no_grad", "parameter", "forget_parameters",
+    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
+    "forget_parameters",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
@@ -53,6 +56,41 @@ def precise_config():
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
     )
+
+
+# `ttnn.softmax` does not return rows that sum to one. Measured over the OF3 trunk's own
+# shapes (`perf/of3t_d116/rowsum.json`, float64-referenced): mean row sum 0.9934, rms
+# deviation 1.20e-02, worst row 0.9506, and fp32 storage does not fix it (0.9954). So what
+# the card computes is `c * softmax(x)` for a per-row `c`, and the vjp of THAT is
+# `y * (g - sum(g*y)/sum(y))`. The plain rule `y * (g - sum(g*y))` is the vjp of a function
+# the card did not evaluate.
+#
+# The cost is not in the rel_l2 of `dx`, which barely moves (2.0156e-02 against 2.0154e-02
+# at the trunk shape, so an op-level audit is blind to this). It is that the plain rule
+# leaves `dx` with a nonzero ROW SUM -- 4.62e-03 rms against the reference's 1.29e-16 --
+# and the attention backward below it consumes exactly that: `dq_i = sum_j dx_ij k_j`
+# equals `sum_j dx_ij (k_j - kbar)` only when the row sums vanish. When they do not, `dq`
+# picks up `(row residual) * kbar`, a term the true gradient does not contain, worth 1.00x
+# to 13.09x on `||dq||` as the common component of k grows (`perf/of3t_d116/amplify.json`).
+#
+# Off by default: it moves a gradient, so it is release-gated and `land-standing` owns the
+# default. It is inside backward closures only, so no forward and no inference result can
+# move whichever way the flag is set.
+SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", False)
+
+
+def softmax_bw_inner(y, g, dim=-1, config=None):
+    """`sum_j g_j y_j` for the softmax backward `dx = y * (g - inner)`, row-sum corrected.
+
+    One helper for both callers -- `triangle_attention` below and
+    `taped_ttnn._v_softmax` -- because the defect is the rule, not the site, and a repair
+    applied to one of two identical expressions is the kind of half-fix that reads as fixed.
+    """
+    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    if not SOFTMAX_BW_RENORM:
+        return inner
+    return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
+                                       compute_kernel_config=config or precise_config()))
 
 
 _GRAD_ENABLED = True
@@ -798,7 +836,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
                                      compute_kernel_config=cfg)
-                    inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)
+                    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
                     if bias is not None:
