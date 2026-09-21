@@ -150,62 +150,77 @@ def main() -> int:
     ref_sq = {k: float((v.double() ** 2).sum()) for k, v in ref.items() if torch.is_tensor(v)}
     total_sq = sum(ref_sq.values())
 
-    # Our walked paths carry the device port's own attribute names; upstream's carry the torch
-    # module's. Matched by SHAPE-AND-VALUE fingerprint rather than by name, which is the only
-    # bijection that survives a port that transposes a weight on the way to the device
-    # (`of3t-modeltraj`'s `fingerprint`). Shape alone is not unique at this scale.
-    def fp_ref(x):
-        x = x.double()
-        return (tuple(sorted(x.shape)), round(float(x.sum()), 6),
-                round(float(x.abs().max()), 6), x.numel())
+    # Our walked paths carry the device port's own attribute names, upstream's carry the torch
+    # module's, and the port transposes on the way to the device. So the bijection is by VALUE,
+    # not by name, on quantities a transpose cannot move: element count, sorted shape, L1, L2
+    # and the absolute maximum. All four are taken on the CHECKPOINT CAST TO BFLOAT16, because
+    # that is what the device holds -- fingerprinting fp32 against a bf16 readback matched 393
+    # of 4,170 and the mismatch was the cast, not the model.
+    def fp(x):
+        x = x.double().reshape(-1)
+        return (float(x.abs().sum()), float((x * x).sum()), float(x.abs().max()))
 
     sd = torch.load(os.path.expanduser("~/of3-weights/of3-p2-155k.pt"),
                     map_location="cpu", weights_only=False)
     sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
     sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
-    by_fp, clash = {}, set()
+    buckets = {}
     for k, v in sd.items():
         if not torch.is_tensor(v) or not v.is_floating_point() or k not in ref_sq:
             continue
-        f = fp_ref(v)
-        if f in by_fp:
-            clash.add(f)
-        by_fp[f] = k
+        buckets.setdefault((v.numel(), tuple(sorted(v.shape))), []).append(
+            (k, fp(v.to(torch.bfloat16))))
 
-    def fp_dev(t):
-        x = ttnn.to_torch(t).double()
-        return (tuple(sorted(x.shape)), round(float(x.sum()), 6),
-                round(float(x.abs().max()), 6), x.numel())
-
-    matched, unmatched = {}, []
+    dev_fp = {}
     for path, _o, _k, t in walked:
         try:
-            f = fp_dev(t)
+            x = ttnn.to_torch(t)
         except Exception:                                                     # noqa: BLE001
+            dev_fp[path] = None
+            continue
+        dev_fp[path] = (int(x.numel()), tuple(sorted(x.shape))) + fp(x)
+
+    def close(a, b, tol=2e-2):
+        return all(abs(p - q) <= tol * (abs(q) + 1e-12) for p, q in zip(a, b))
+
+    matched, unmatched, ambiguous = {}, [], []
+    for path, f in dev_fp.items():
+        if f is None:
             unmatched.append(path)
             continue
-        nm = by_fp.get(f)
-        if nm is None or f in clash:
-            unmatched.append(path)
+        cand = [k for k, g in buckets.get((f[0], f[1]), []) if close(f[2:], g)]
+        if len(cand) == 1:
+            matched[path] = cand[0]
+        elif len(cand) > 1:
+            ambiguous.append(path)
         else:
-            matched[path] = nm
+            unmatched.append(path)
 
-    hit = {v for v in matched.values()}
+    hit = set(matched.values())
+    missing = sorted(set(ref_sq) - hit)
     res["reach"] = {
         "reference_tensors": len(ref_sq),
         "reference_sq_norm": total_sq,
         "walked_device_tensors": len(walked),
         "matched_to_reference": len(hit),
+        "ambiguous_walked_paths": len(ambiguous),
         "unmatched_walked_paths": len(unmatched),
-        "fingerprint_clashes": len(clash),
         "sq_norm_matched": sum(ref_sq[n] for n in hit),
         "pct_of_model_sq_grad_norm": 100.0 * sum(ref_sq[n] for n in hit) / total_sq,
-        "reference_names_not_walked": sorted(set(ref_sq) - hit)[:40],
-        "reference_names_not_walked_count": len(set(ref_sq) - hit),
-        "sq_norm_not_walked": sum(ref_sq[n] for n in set(ref_sq) - hit),
+        "reference_names_not_matched_count": len(missing),
+        "sq_norm_not_matched": sum(ref_sq[n] for n in missing),
+        "pct_not_matched": 100.0 * sum(ref_sq[n] for n in missing) / total_sq,
+        "reference_names_not_matched_top20_by_sq_norm":
+            [[n, ref_sq[n]] for n in sorted(missing, key=lambda n: -ref_sq[n])[:20]],
+        "unmatched_walked_paths_sample": unmatched[:20],
     }
+    # Dumped so the bijection can be re-derived offline without another card-hour.
+    res["device_fingerprints"] = {k: v for k, v in dev_fp.items()}
+    res["matched_names"] = matched
     print("[reach] " + json.dumps({k: v for k, v in res["reach"].items()
-                                   if k != "reference_names_not_walked"}, indent=1), flush=True)
+                                   if not k.startswith("reference_names_not_matched_top")
+                                   and k != "unmatched_walked_paths_sample"}, indent=1),
+          flush=True)
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     json.dump(res, open(a.out, "w"), indent=1)

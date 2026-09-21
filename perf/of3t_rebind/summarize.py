@@ -25,12 +25,12 @@ for arm in ARMS:
         "d_theirs_20": last["d_theirs_norm"],
         "worst": last.get("worst_tensor"),
         "worst_rel": last.get("worst_rel"),
-        "exp": d["growth_k2_20"]["exponent"],
-        "r2": d["growth_k2_20"]["r2"],
-        "resolve_min": min(L[k]["tape_resolves_after_step"] for k in L),
-        "resolve_max": max(L[k]["tape_resolves_after_step"] for k in L),
-        "of_walked": L[1]["of_walked"],
-        "gn1": L[1]["grad_norm"], "gn20": L[max(L)]["grad_norm"],
+        "exp": d["growth_k2_20"].get("exponent"),
+        "r2": d["growth_k2_20"].get("r2"),
+        "resolve_min": min((L[k].get("tape_resolves_after_step", -1) for k in L), default=-1),
+        "resolve_max": max((L[k].get("tape_resolves_after_step", -1) for k in L), default=-1),
+        "of_walked": L[1].get("of_walked", -1),
+        "gn1": L[1].get("grad_norm", float("nan")), "gn20": L[max(L)].get("grad_norm", float("nan")),
         "renorm": d["flag_reach"].get("_SOFTMAX_BW_RENORM"),
         "s": round(d["timing_s"]["total"], 1),
     })
@@ -38,9 +38,9 @@ for arm in ARMS:
 print("%-12s %12s %12s %12s %9s %8s %7s %11s %11s %6s" %
       ("arm", "d_1", "k=2", "k=20", "resolve", "exp", "r2", "gn k=1", "gn k=20", "s"))
 for r in rows:
-    print("%-12s %12.6e %12.6e %12.6e %4d-%-4d %8.4f %7.3f %11.6e %11.6e %6.0f" %
+    print("%-12s %12.6e %12.6e %12.6e %4d-%-4d %8s %7s %11.6e %11.6e %6.0f" %
           (r["arm"], r["d1"], r["k2"], r["k20"], r["resolve_min"], r["resolve_max"],
-           r["exp"], r["r2"], r["gn1"], r["gn20"], r["s"]))
+           ("%.4f"%r["exp"]) if r["exp"] is not None else "-", ("%.3f"%r["r2"]) if r["r2"] is not None else "-", r["gn1"], r["gn20"], r["s"]))
 print()
 for r in rows:
     print("%-12s worst@20 %-46s %s  ||d20_ours||=%.6e ||d20_theirs||=%.6e renorm=%s" %

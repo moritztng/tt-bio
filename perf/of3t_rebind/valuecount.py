@@ -9,9 +9,15 @@ backward, optimizer step and rebind.
 
 Only the tape builds `Tensor`s, so inference reads this property zero times.
 """
+import os
 import runpy
 import sys
 import time
+
+# The CHECKOUT, not the installed package. `python3 perf/of3t_rebind/valuecount.py` puts the
+# SCRIPT s directory on sys.path[0], so a bare `import tt_bio` resolves to whatever is installed
+# and this instrument would measure a tree that is not the one under test.
+sys.path.insert(0, os.getcwd())
 
 sys.argv = ["rebind_traj.py", "--arm", "shipped", "--steps", "1",
             "--out", "/tmp/of3t/rebind/valuecount_traj.json"]
