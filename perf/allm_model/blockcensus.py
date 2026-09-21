@@ -191,7 +191,10 @@ def stats_snapshot():
         if mod is None:
             continue
         for name, val in vars(mod).items():
-            if not name.endswith("_STATS"):
+            # `*_REJECTS` too: `_gout_eligible` counts its declines in `TRIMUL_GOUT_STATS`
+            # but names the CLAUSE in `TRIMUL_GOUT_REJECTS`, and a lever declined on 100 % of
+            # calls is only actionable once you know which clause did it.
+            if not (name.endswith("_STATS") or name.endswith("_REJECTS")):
                 continue
             if isinstance(val, list):
                 out[f"{modname.rsplit('.', 1)[-1]}.{name}"] = list(val)

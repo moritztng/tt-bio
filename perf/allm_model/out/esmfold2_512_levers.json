@@ -1,0 +1,433 @@
+{
+ "host": "tt-quietbox2",
+ "model": "esmfold2",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "32fd02b3a72c777cd5b8424c23a6054a8c1c5225",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 78,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 20.04,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_esmfold2_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-esmfold2-bqd4xl74/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 100
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 42.3325,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 127,
+    "power_w_mean": 86.3
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.9286,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 17216, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1084
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     1084
+    ],
+    "esmc.L1_FC1_STATS": [
+     17216,
+     0
+    ],
+    "esmc.L1_LN_STATS": [
+     8608,
+     0
+    ],
+    "esmc.L1_SLICE_STATS": [
+     538,
+     0
+    ],
+    "esmc.FUSED_RESID_STATS": [
+     538,
+     0
+    ],
+    "esmc.FILL_ASSEMBLY_STATS": [
+     538,
+     0
+    ],
+    "esmc.SPLIT_STATS": [
+     538,
+     87
+    ],
+    "esmc.WINDOW_FALLBACK_STATS": [
+     0,
+     87
+    ]
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 28.1932,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 111,
+    "power_w_mean": 93.0
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.9286,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 34432, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1084
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     1084
+    ],
+    "esmc.L1_FC1_STATS": [
+     17216,
+     0
+    ],
+    "esmc.L1_LN_STATS": [
+     8608,
+     0
+    ],
+    "esmc.L1_SLICE_STATS": [
+     538,
+     0
+    ],
+    "esmc.FUSED_RESID_STATS": [
+     538,
+     0
+    ],
+    "esmc.FILL_ASSEMBLY_STATS": [
+     538,
+     0
+    ],
+    "esmc.SPLIT_STATS": [
+     538,
+     87
+    ],
+    "esmc.WINDOW_FALLBACK_STATS": [
+     0,
+     87
+    ]
+   }
+  },
+  {
+   "tag": "B:3",
+   "fold_s": 28.9911,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 103,
+    "power_w_mean": 85.1
+   },
+   "depth": 3,
+   "count_only": false,
+   "plddt": 0.9286,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 51648, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1084
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     0,
+     1084
+    ],
+    "esmc.L1_FC1_STATS": [
+     17216,
+     0
+    ],
+    "esmc.L1_LN_STATS": [
+     8608,
+     0
+    ],
+    "esmc.L1_SLICE_STATS": [
+     538,
+     0
+    ],
+    "esmc.FUSED_RESID_STATS": [
+     538,
+     0
+    ],
+    "esmc.FILL_ASSEMBLY_STATS": [
+     538,
+     0
+    ],
+    "esmc.SPLIT_STATS": [
+     538,
+     87
+    ],
+    "esmc.WINDOW_FALLBACK_STATS": [
+     0,
+     87
+    ]
+   },
+   "blocks": {
+    "esmfold2.SWAAtomTransformerModel": {
+     "n": 137,
+     "incl_s": 1.709748,
+     "self_s": 0.019106,
+     "depths": {
+      "1": 136,
+      "2": 1
+     }
+    },
+    "esmfold2.AtomEncoder": {
+     "n": 69,
+     "incl_s": 0.876016,
+     "self_s": 0.016782,
+     "depths": {
+      "0": 68,
+      "1": 1
+     }
+    },
+    "esmfold2.InputsEmbedder": {
+     "n": 1,
+     "incl_s": 0.12099,
+     "self_s": 0.107746,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.RelPosEncoding": {
+     "n": 1,
+     "incl_s": 0.362016,
+     "self_s": 0.362016,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmc.ESMCHiddenStatesModel": {
+     "n": 1,
+     "incl_s": 0.285744,
+     "self_s": 0.285744,
+     "depths": {
+      "2": 1
+     }
+    },
+    "esmc.ESMCLanguageModel": {
+     "n": 1,
+     "incl_s": 0.333525,
+     "self_s": 0.047781,
+     "depths": {
+      "1": 1
+     }
+    },
+    "esmfold2_runtime._ESMCAdapter": {
+     "n": 1,
+     "incl_s": 0.333765,
+     "self_s": 0.00024,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.LanguageModelShimModel": {
+     "n": 1,
+     "incl_s": 0.039912,
+     "self_s": 0.039912,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.MSAEncoderBlock": {
+     "n": 4,
+     "incl_s": 0.807217,
+     "self_s": 0.807217,
+     "depths": {
+      "2": 4
+     }
+    },
+    "esmfold2.MSAEncoderModel": {
+     "n": 1,
+     "incl_s": 0.80806,
+     "self_s": 0.000843,
+     "depths": {
+      "1": 1
+     }
+    },
+    "esmfold2.MSAEncoder": {
+     "n": 1,
+     "incl_s": 1.195693,
+     "self_s": 0.387633,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 1064,
+     "incl_s": 12.407247,
+     "self_s": 12.407247,
+     "depths": {
+      "2": 1064
+     }
+    },
+    "esmc.SwiGLUFFN.residual": {
+     "n": 532,
+     "incl_s": 6.079019,
+     "self_s": 6.079019,
+     "depths": {
+      "2": 532
+     }
+    },
+    "esmfold2.PairUpdateBlock": {
+     "n": 538,
+     "incl_s": 19.730376,
+     "self_s": 1.24411,
+     "depths": {
+      "1": 532,
+      "2": 6
+     }
+    },
+    "esmfold2.FoldingTrunkModel": {
+     "n": 14,
+     "incl_s": 19.735481,
+     "self_s": 0.005105,
+     "depths": {
+      "0": 12,
+      "1": 2
+     }
+    },
+    "esmfold2.FoldingTrunk": {
+     "n": 2,
+     "incl_s": 0.90372,
+     "self_s": 0.684327,
+     "depths": {
+      "0": 2
+     }
+    },
+    "esmfold2.DistogramHead": {
+     "n": 1,
+     "incl_s": 0.001423,
+     "self_s": 0.001423,
+     "depths": {
+      "1": 1
+     }
+    },
+    "esmfold2.DistogramHeadModel": {
+     "n": 1,
+     "incl_s": 0.214727,
+     "self_s": 0.213304,
+     "depths": {
+      "0": 1
+     }
+    },
+    "esmfold2.TransitionLayer": {
+     "n": 138,
+     "incl_s": 0.049343,
+     "self_s": 0.049343,
+     "depths": {
+      "0": 138
+     }
+    },
+    "esmfold2.SWAAtomBlock": {
+     "n": 408,
+     "incl_s": 1.690643,
+     "self_s": 1.690643,
+     "depths": {
+      "2": 408
+     }
+    },
+    "esmfold2.AdaLN": {
+     "n": 1632,
+     "incl_s": 0.177938,
+     "self_s": 0.177938,
+     "depths": {
+      "2": 1632
+     }
+    },
+    "esmfold2.AttentionPairBias": {
+     "n": 816,
+     "incl_s": 0.790998,
+     "self_s": 0.701849,
+     "depths": {
+      "1": 816
+     }
+    },
+    "esmfold2.ConditionedTransitionBlock": {
+     "n": 816,
+     "incl_s": 0.227633,
+     "self_s": 0.138844,
+     "depths": {
+      "1": 816
+     }
+    },
+    "esmfold2.DiffusionTransformerModel": {
+     "n": 68,
+     "incl_s": 1.080358,
+     "self_s": 0.061726,
+     "depths": {
+      "0": 68
+     }
+    },
+    "esmfold2.AtomDecoder": {
+     "n": 68,
+     "incl_s": 0.86438,
+     "self_s": 0.013865,
+     "depths": {
+      "0": 68
+     }
+    }
+   }
+  }
+ ]
+}
