@@ -1,0 +1,44 @@
+{
+ "what": "a cross-check of of3t-adaln's two independent determinations of the same quantity, both published in state/of3t-adaln.md. Nothing new was run.",
+
+ "the_contradiction": {
+  "A_inferred": "the MECHANISM section interpolates the synthetic K-ladder AT block 8's model rel of 18.504 and reads off K ~ 1.3e+06.",
+  "B_measured": "AMENDMENT5 measures K DIRECTLY on the reference's own float64 arithmetic as sum_i||term_i|| / ||sum_i term_i|| over the gain sum's per-token summands, with a self-check that the summands add back to the reference's gamma gradient at 3e-15 or better. Block 8 reads K = 172.60.",
+  "gap": "a factor of 7,532. Both are in the same document and only one can be right; the measured one is the measurement."
+ },
+
+ "every_block_against_the_ladder_at_its_own_measured_K": {
+  "columns": "block, measured K, the ladder's device rel at that K, the model's rel, ratio",
+  "rows": [
+   [0,  36.37, 2.330e-03, 2.7329, 1173],
+   [1,  17.12, 1.172e-03, 0.8331,  711],
+   [5,  52.82, 2.974e-03, 4.5419, 1527],
+   [6, 207.90, 7.277e-03, 2.8408,  390],
+   [7,  87.45, 4.133e-03, 5.3071, 1284],
+   [8, 172.60, 6.444e-03, 18.5040, 2872],
+   [9, 175.60, 6.517e-03, 0.1237,   19],
+   [12, 72.90, 3.670e-03, 5.6459, 1538]
+  ],
+  "reading": "every block is 19x to 2,872x above the ladder's own device curve at its own measured cancellation ratio. THE LADDER EXPLAINS THE LADDER. It does not explain the model."
+ },
+
+ "what_this_kills": {
+  "the_framing": "'the campaign's worst gradient component is an ill-conditioned reduction, and this may simply not be computable' is DEAD. At the measured K of 17 to 208 the ladder's own HOST FP32 column reads ~1e-06 to ~3e-06. Single precision has no difficulty with these sums. Conditioning at the real K is not a constraint on anybody, and nothing here is unfixable in principle.",
+  "the_interpolated_K": "K ~ 1.3e+06 was never a measurement. It was read off a curve at the value being explained, which is circular, and the direct measurement contradicts it by three and a half orders of magnitude.",
+  "D56_as_written": "its mechanism section is withdrawn. Its DATA -- the ladder itself, the host-fp32 column, the constant ~2,172x device-to-fp32 ratio -- all stand as measurements of the synthetic construction."
+ },
+
+ "what_survives_untouched": "the softmax finding, because it is a direct A/B and not an inference from a curve: a float64 softmax takes block 8's leaf from 8.060854e-01 to 1.459256e-02 (55x), the sister AdaLN with no softmax above it moves 1.23x, and the whole block comes inside the 2.0e-02 bar at 1.489217e-02. The softmax is the locus. What is now unexplained is HOW it produces the magnitudes observed.",
+
+ "the_two_gaps_that_replace_the_one_explanation": {
+  "gap_1_synthetic_to_real_operands": {"size": "125x", "from": "ladder device 6.444e-03 at K=172.6", "to": "block arm 8.060854e-01 at block 8 with real operands and the same K",
+   "note": "same cancellation ratio, same code, synthetic operands versus the model's own. The ladder holds a and s constant across tokens and alternates the cotangent's sign to construct K; the real block does not."},
+  "gap_2_block_arm_to_model": {"size": "23x", "from": "block arm 8.060854e-01", "to": "model rel 18.5040",
+   "note": "the row attributes this to the real cotangent, which is consistent with blocks 8 and 9 sitting 1.7 % apart in K and 150x apart in the model."},
+  "product": "125 x 23 = 2,872x, which is the whole discrepancy. Neither factor is conditioning."
+ },
+
+ "the_caveat_that_must_be_checked_first": "the measured K is over the 384 PER-TOKEN summands of one sample's gain sum. The model's gain gradient sums over 384 tokens x 48 samples = 18,432 terms. If cancellation across the sample axis is severe, the model's effective K could exceed the per-sample one. That cannot plausibly supply 2,872x -- 48 terms cannot add three and a half orders of magnitude of cancellation unless they nearly annihilate, and the accumulation probe shows the opposite (26.68x growth over 48, i.e. strongly CORRELATED, not cancelling) -- but it is the one measurement that would close the question and it has not been made.",
+
+ "provenance": "computed 2026-09-20 pass 161 by of3t-orchestrator on pc, CPU only, no device opened. Both inputs are of3t-adaln's own published numbers in state/of3t-adaln.md (MECHANISM ladder and AMENDMENT5 K table); the accumulation-probe reading is from device_gradient_043pt.json and is interpreted per D61."
+}
