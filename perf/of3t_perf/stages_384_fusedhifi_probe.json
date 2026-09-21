@@ -1,0 +1,68 @@
+{
+ "doc": "Where an OpenFold3 training step spends its time, stage by stage, before any lever.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "1",
+  "--no-rollout",
+  "--out",
+  "perf/of3t_perf/stages_384_fusedhifi_probe.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "commit": "ce2aeab7c597110caafe17933695259fbf334caf",
+  "started_utc": "2026-09-19T14:35:48Z",
+  "loadavg": [
+   3.9814453125,
+   7.35498046875,
+   7.71826171875
+  ],
+  "arch": "Arch.BLACKHOLE"
+ },
+ "their_step": {
+  "per_rank_batch": 1,
+  "crop": 384,
+  "trunk_cycles_pinned": 4,
+  "grad_on_final_cycle_only": true,
+  "mini_rollout_steps": 20,
+  "diffusion_half": "EXCLUDED: 5 ttnn.embedding gathers have no tape entry (perf/of3t_perf/verb_census.json)"
+ },
+ "tape_gap": "ttnn.add_ with a fused MUL_UNARY_SFPU params=[0.25] on input_tensor_a_activations has no backward in tt_bio.taped_ttnn (_activation, taped_ttnn.py:270). Raised at tenstorrent.py:3758 in _fp32_softmax_tail, reached from the OF3 trunk's pairformer at crop 384. SHARED path, not an OF3 file, and owned by of3t-tape.",
+ "build_fold_s": 2.49,
+ "prep_to_sampler_s": 7.2,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.052,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "dram": {
+  "after_prep": 1544401920
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "error": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-perf/perf/of3t_perf/step.py\", line 513, in main\n    s, z = cycle_once(trunk, held, 1, taped=not a.no_tape)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/perf/of3t_perf/step.py\", line 331, in cycle_once\n    return trunk(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/openfold3_trunk.py\", line 191, in __call__\n    z_tmpl = self.template(template_feat, z, template_slots, a_tmpl,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/openfold3_template.py\", line 166, in __call__\n    t_stack = self.ps(t_embed, pair_mask, attn_mask)    # [n_distinct, N, N, 64]\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/openfold3_template.py\", line 129, in __call__\n    v = blk(None, v, pair_mask, attn_mask, attn_mask)[1]\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 8831, in __call__\n    z_update = self.triangle_attention_start(z, attn_mask_start)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 7867, in __call__\n    o = attend(qkv, triangle_bias, len(g.shape) == 4, g)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 7540, in attend\n    return _attend_heads(q, k, v, bias, keep_heads, gate)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 7563, in _attend_heads\n    o = _fp32_softmax_attention(\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 3674, in _fp32_softmax_attention\n    return _with_dram_narrowing(\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 2991, in _with_dram_narrowing\n    return run(blk)\n           ^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 3652, in run\n    parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 3713, in _fp32_softmax_attention_block\n    attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/tenstorrent.py\", line 3758, in _fp32_softmax_tail\n    attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=[\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/taped_ttnn.py\", line 793, in call\n    out = impl(shipped, args, kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/taped_ttnn.py\", line 316, in impl\n    fa = _activation(kwargs, \"input_tensor_a_activations\")\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-perf/tt_bio/taped_ttnn.py\", line 270, in _activation\n    raise NotImplementedError(\nNotImplementedError: tt_bio.autograd has no backward for the fused activation UnaryWithParam(op_type=UnaryOpType::MUL_UNARY_SFPU, params=[0.25]) on input_tensor_a_activations. Add it to tt_bio.taped_ttnn._FUSED_UNARY -- forwarding it to the shipped verb and ignoring it here gives a correct forward and a wrong gradient, which is how the TriangleAttention gate read 4.88x high.\n",
+ "clock": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 7
+  }
+ }
+}
