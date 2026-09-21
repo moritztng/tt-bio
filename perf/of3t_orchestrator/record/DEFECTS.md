@@ -10201,7 +10201,7 @@ and `_protenix_emit` is reached by **three** callers, not one: `_predict_proteni
 
 **Standing note for whoever reaches GO**: the four charter clauses have never executed in anger. `charter_evidence.py`'s own docstring makes the point — no orchestrator document has ever carried a THEIR-TEST, GRADIENTS, TRAJECTORY or COVERAGE field, so those regexes *"first run on the one pass that ends the campaign."* This instrument is the only thing that has ever exercised them.
 
-### D1 UPDATE (pass 280, heading restated). **FIXED in the composition** — the trunk pair bias now computes `scale_pair_bias=True` and no longer ships at 0.204 of the value the architecture specifies. Still UNMERGED to main.
+### D1 UPDATE (pass 280, heading restated). **FIXED in the composition** — the trunk pair bias now computes `scale_pair_bias=True` and no longer ships at 0.204 of the value the architecture specifies. Main still carries the old value.
 
 `of3t-d1-pairbias` concluded GO and I landed it, which required deciding between two rows that reached opposite conclusions on the same lines. That is not a stale-base conflict and it is recorded rather than quietly resolved:
 
