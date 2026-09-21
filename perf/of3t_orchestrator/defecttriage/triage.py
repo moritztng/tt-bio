@@ -88,9 +88,11 @@ TABLE = {
     "D8":  (USER, "The assembled pairformer block's pair-track gradients are an order of "
                   "magnitude outside the bar; re-attributed but not closed."),
     "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
-                  "forward and is 16.6 % out on the gradient."),
-    "D31": (USER, "Every attention site ships a fused SDPA carrying a 3.3e-02 deficit while the "
-                  "tape returns the gradient of a precise path it did not run."),
+                  "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
+                  "the repair, re-measured from ONE harness at pass 222."),
+    "D126": (USER, "On the shipped default the training loop produces a gradient exactly once and "
+                   "then zero forever: the optimizer replaces a leaf's value and the "
+                   "identity-keyed tape loses it. d_20 is bit-identical to the A16 zero model."),
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
