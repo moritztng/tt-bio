@@ -1,0 +1,304 @@
+{
+ "host": "tt-quietbox2",
+ "model": "rfd3",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "rfd3",
+ "git_head": "752bc8de4b5f6d8a072b0ab3a6cb3dfc520dbb01",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 49,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "spec": "/home/ttuser/.coworker/wt/allm-model/perf/dsfix/fixtures/rfd3_R4.json",
+  "weights": "/home/ttuser/.boltz/rfd3/weights",
+  "protocol": {
+   "num_timesteps": 200,
+   "num_designs": 1,
+   "batch_size": 1
+  },
+  "timed_region": "run_design (featurise + sample + CIF write)"
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 111.2033,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 457,
+    "power_w_mean": 58.5
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    }
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 108.5792,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 445,
+    "power_w_mean": 59.0
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    }
+   }
+  },
+  {
+   "tag": "K",
+   "fold_s": 107.3862,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 442,
+    "power_w_mean": 59.2
+   },
+   "depth": null,
+   "count_only": true,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    }
+   },
+   "blocks": {
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.Transition": {
+     "n": 3192,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.PairformerBlock": {
+     "n": 798,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.PairformerAttention": {
+     "n": 798,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 199,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LocalAtomTransformer": {
+     "n": 199,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.RFD3AtomBlock": {
+     "n": 8955,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LocalTokenTransformer": {
+     "n": 398,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "model.LinearSequenceHead": {
+     "n": 398,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    }
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 138.4161,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 576,
+    "power_w_mean": 54.2
+   },
+   "depth": 2,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    }
+   },
+   "blocks": {
+    "model.Transition": {
+     "n": 1596,
+     "incl_s": 6.795393,
+     "self_s": 6.795393,
+     "depths": {
+      "1": 1596
+     }
+    },
+    "model.PairformerBlock": {
+     "n": 798,
+     "incl_s": 15.993128,
+     "self_s": 15.993128,
+     "depths": {
+      "1": 798
+     }
+    },
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 17.993199,
+     "self_s": 17.939345,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.LocalAtomTransformer": {
+     "n": 199,
+     "incl_s": 11.218562,
+     "self_s": 11.218562,
+     "depths": {
+      "1": 199
+     }
+    },
+    "model.LocalTokenTransformer": {
+     "n": 398,
+     "incl_s": 25.263335,
+     "self_s": 25.263335,
+     "depths": {
+      "1": 398
+     }
+    },
+    "model.RFD3AtomBlock": {
+     "n": 1194,
+     "incl_s": 12.838162,
+     "self_s": 12.838162,
+     "depths": {
+      "1": 1194
+     }
+    },
+    "model.LinearSequenceHead": {
+     "n": 398,
+     "incl_s": 0.443462,
+     "self_s": 0.443462,
+     "depths": {
+      "1": 398
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 199,
+     "incl_s": 119.760322,
+     "self_s": 47.262133,
+     "depths": {
+      "0": 199
+     }
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "fold_s": 128.0359,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 538,
+    "power_w_mean": 54.6
+   },
+   "depth": 1,
+   "count_only": false,
+   "plddt": null,
+   "n_tokens": null,
+   "lever_counts": {
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    }
+   },
+   "blocks": {
+    "model.TokenInitializer": {
+     "n": 1,
+     "incl_s": 17.603453,
+     "self_s": 17.603453,
+     "depths": {
+      "0": 1
+     }
+    },
+    "model.RFD3DiffusionModule": {
+     "n": 199,
+     "incl_s": 109.677952,
+     "self_s": 109.677952,
+     "depths": {
+      "0": 199
+     }
+    }
+   }
+  }
+ ]
+}
