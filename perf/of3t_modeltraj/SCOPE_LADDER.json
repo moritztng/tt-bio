@@ -1,0 +1,85 @@
+{
+ "what": "per-step cost of upstream's own float64 side, the binding constraint on how far up the scope ladder a 20-step model-in-the-loop trajectory can go",
+ "rungs": {
+  "diffusion_module.diffusion_conditioning": {
+   "scope": "diffusion_module.diffusion_conditioning",
+   "build_s": 0.5560755729675293,
+   "n_parameters": 26,
+   "forward_s": 2.187418222427368,
+   "backward_s": 0.3206503391265869,
+   "one_fwd_bwd_s": 2.508068561553955,
+   "est_20_step_s": 200.6454849243164,
+   "est_20_step_h": 0.05573485692342122,
+   "n_sub_per_step": 4
+  },
+  "diffusion_module": {
+   "scope": "diffusion_module",
+   "build_s": 29.75214910507202,
+   "n_parameters": 761,
+   "forward_s": 5.857134819030762,
+   "backward_s": 14.815356731414795,
+   "one_fwd_bwd_s": 20.672491550445557,
+   "est_20_step_s": 19845.591888427734,
+   "est_20_step_h": 5.512664413452148,
+   "n_sub_per_step": 48
+  },
+  "pairformer_stack": {
+   "scope": "pairformer_stack",
+   "refused": "OOM: host kernel oom-kill",
+   "how": "the float64 PairFormerStack build+forward on upstream's own module, run as rung 3 of this script at 2026-09-21T02:16:31Z",
+   "host_anon_rss_kb_high_water": 215529508,
+   "host_anon_rss_gb_high_water": 215.53,
+   "host_total_vm_kb": 222080784,
+   "host_mem_total_gb": 249,
+   "killed_pid": 1602127,
+   "provenance": "/var/log/kern.log 2026-09-21T02:16:33Z: 'Out of memory: Killed process 1602127 (python3) total-vm:222080784kB, anon-rss:215529508kB' and dmesg oom-kill constraint=CONSTRAINT_NONE global_oom",
+   "note": "This is a HOST-RAM refusal on the reference side, not a card refusal. It was not re-triggered after being measured once: a 215 GB allocation on a 249 GB box that is running other workers' device jobs would evict them."
+  },
+  "whole_model": {
+   "scope": "whole_model",
+   "refused": "not reached -- the process was oom-killed at the pairformer rung above it",
+   "note": "The trunk is a strict subset of the whole model, so a rung that cannot build the trunk in float64 cannot build the model that contains it. Separately, a taped whole-model forward needs a full featurised batch and this row's capture is a diffusion boundary, not a batch."
+  }
+ },
+ "diffusion_boundary_keys": [
+  "args",
+  "cot",
+  "grad_f64",
+  "kwargs",
+  "loss",
+  "no_samples",
+  "out"
+ ],
+ "diffusion_boundary_kwargs": [
+  "_mask_trans",
+  "atom_mask",
+  "batch",
+  "si_input",
+  "si_trunk",
+  "t",
+  "token_mask",
+  "use_conditioning",
+  "use_high_precision_attention",
+  "xl_noisy",
+  "zij_trunk"
+ ],
+ "binding_constraint": {
+  "conditioning": {
+   "one_fwd_bwd_s": 2.508068561553955,
+   "n_sub_per_step": 4,
+   "est_20_step_s": 200.6454849243164,
+   "est_20_step_h": 0.0557,
+   "verdict": "RAN -- this is the scope the trajectory was measured at"
+  },
+  "diffusion_module": {
+   "one_fwd_bwd_s": 20.672491550445557,
+   "n_parameters": 761,
+   "n_sub_per_step": 48,
+   "est_20_step_s": 19845.591888427734,
+   "est_20_step_h": 5.512664413452148,
+   "verdict": "BUILDS AND RUNS one fwd+bwd, but 5.51 h for the reference side of 20 steps alone, before our device side. Priced, not refused: this is a wall-clock refusal for one turn."
+  },
+  "note": "Both rungs price the model's own full 48 noise levels per step: conditioning as 4 calls of 12 levels, diffusion_module as 48 calls of 1 level."
+ },
+ "contention": "Timings were taken with the box at load average 6.4-8.3 of 16 cores, with other workers' device jobs running. They are upper bounds on a quiet box; the conditioning rung read 2.19 s at load 5.3 and 2.51 s at load 6.4, so the spread from contention is ~15 % and changes no verdict here."
+}

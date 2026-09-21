@@ -1,0 +1,140 @@
+{
+ "defect": "D107",
+ "bar": "PROTOCOL 5: 1e-06 relative per parameter per step, fp32 master precision",
+ "reference": "OpenFold3 0.4.3 PerSampleGradManager + torch.optim.Adam, run from the reference checkout by path",
+ "arms": [
+  {
+   "label": "break-control/single",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": true,
+   "worst_rel_all": 0.001104047105538565,
+   "worst_row": {
+    "k": 20,
+    "param": "conf.b",
+    "participation": 4
+   },
+   "worst_row_zero_baseline": 0.009158230067668877,
+   "worst_row_separation_from_zero": 8.295144311982416,
+   "worst_rel_zero_participation": 0.001102512381329205,
+   "worst_rel_live": 0.001104047105538565,
+   "n_over_bar": 36,
+   "n_readings": 60
+  },
+  {
+   "label": "post-fix/always",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 0.0,
+   "worst_row": {
+    "k": 1,
+    "param": "conf.b",
+    "participation": 0
+   },
+   "worst_row_zero_baseline": 0.0,
+   "worst_row_separation_from_zero": Infinity,
+   "worst_rel_zero_participation": 0.0,
+   "worst_rel_live": 0.0,
+   "n_over_bar": 0,
+   "n_readings": 60
+  },
+  {
+   "label": "post-fix/never",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 2.0694673128604433e-08,
+   "worst_row": {
+    "k": 20,
+    "param": "conf.w",
+    "participation": 4
+   },
+   "worst_row_zero_baseline": 0.015289830345267366,
+   "worst_row_separation_from_zero": 738829.275062749,
+   "worst_rel_zero_participation": null,
+   "worst_rel_live": 2.0694673128604433e-08,
+   "n_over_bar": 0,
+   "n_readings": 60
+  },
+  {
+   "label": "post-fix/single",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 2.008602765560849e-08,
+   "worst_row": {
+    "k": 20,
+    "param": "conf.w",
+    "participation": 4
+   },
+   "worst_row_zero_baseline": 0.013436748824937256,
+   "worst_row_separation_from_zero": 668959.9882725144,
+   "worst_rel_zero_participation": 0.0,
+   "worst_rel_live": 2.008602765560849e-08,
+   "n_over_bar": 0,
+   "n_readings": 60
+  },
+  {
+   "label": "pre-fix/always",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 0.0,
+   "worst_row": {
+    "k": 1,
+    "param": "conf.b",
+    "participation": 0
+   },
+   "worst_row_zero_baseline": 0.0,
+   "worst_row_separation_from_zero": Infinity,
+   "worst_rel_zero_participation": 0.0,
+   "worst_rel_live": 0.0,
+   "n_over_bar": 0,
+   "n_readings": 60
+  },
+  {
+   "label": "pre-fix/never",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 2.0694673128604433e-08,
+   "worst_row": {
+    "k": 20,
+    "param": "conf.w",
+    "participation": 4
+   },
+   "worst_row_zero_baseline": 0.015289830345267366,
+   "worst_row_separation_from_zero": 738829.275062749,
+   "worst_rel_zero_participation": null,
+   "worst_rel_live": 2.0694673128604433e-08,
+   "n_over_bar": 0,
+   "n_readings": 60
+  },
+  {
+   "label": "pre-fix/single",
+   "bar": 1e-06,
+   "reference": "/home/moritz/.coworker/scratch/of3t-reference/upstream/openfold3/core/utils/grad_manager.py",
+   "reference_dtype": "torch.float32",
+   "reference_skip_zero_participation": false,
+   "worst_rel_all": 0.0011025049559922086,
+   "worst_row": {
+    "k": 3,
+    "param": "conf.b",
+    "participation": 0
+   },
+   "worst_row_zero_baseline": 0.003871536615974038,
+   "worst_row_separation_from_zero": 3.5115820522455756,
+   "worst_rel_zero_participation": 0.0011025049559922086,
+   "worst_rel_live": 0.0010322156725474595,
+   "n_over_bar": 36,
+   "n_readings": 60
+  }
+ ]
+}

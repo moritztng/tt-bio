@@ -1,0 +1,32 @@
+{
+ "instrument": "D31 gradient half: the taped chain's gradient with the fused forward against the same chain's gradient with the forward its backward differentiates. One arm, both sides ours, no external reference.",
+ "shape": {
+  "depth": 1,
+  "B": 32,
+  "heads": 4,
+  "n": 64,
+  "dim": 32,
+  "scale": 0.1767766952966369
+ },
+ "sdpa_sites_taped_per_arm": {
+  "fused": 1,
+  "selfvalue": 1
+ },
+ "forward_rel_l2_fused_vs_selfvalue": 0.030084348497945664,
+ "gradient_mass_weighted_rel_l2": 0.0,
+ "gradient_worst_rel_l2": 0.0,
+ "gradient_worst_tensor": null,
+ "per_tensor_bar": 0.05,
+ "rows": [
+  {
+   "name": "bias",
+   "rel_l2": 0.0,
+   "norm_self": 3.1199832018024987
+  },
+  {
+   "name": "x",
+   "rel_l2": 0.0,
+   "norm_self": 44.266054857784205
+  }
+ ]
+}

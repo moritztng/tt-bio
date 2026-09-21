@@ -1,0 +1,75 @@
+{
+ "1hzh": {
+  "covale_links": 16,
+  "examples": [],
+  "polymer_ligand": 0,
+  "satisfies_predicate": false
+ },
+ "1oxr": {
+  "covale_links": 0,
+  "examples": [],
+  "polymer_ligand": 0,
+  "satisfies_predicate": false
+ },
+ "3pte": {
+  "covale_links": 0,
+  "examples": [],
+  "polymer_ligand": 0,
+  "satisfies_predicate": false
+ },
+ "4byh": {
+  "covale_links": 20,
+  "examples": [
+   "ASN[polymer]--NAG[branched]"
+  ],
+  "polymer_ligand": 2,
+  "satisfies_predicate": true
+ },
+ "4g5j": {
+  "covale_links": 1,
+  "examples": [
+   "CYS[polymer]--0WN[non-polymer]"
+  ],
+  "polymer_ligand": 1,
+  "satisfies_predicate": true
+ },
+ "5t3x": {
+  "covale_links": 114,
+  "examples": [
+   "ASN[polymer]--NAG[branched]",
+   "ASN[polymer]--NAG[non-polymer]"
+  ],
+  "polymer_ligand": 19,
+  "satisfies_predicate": true
+ },
+ "6lu7": {
+  "covale_links": 4,
+  "examples": [],
+  "polymer_ligand": 0,
+  "satisfies_predicate": false
+ },
+ "6o0k": {
+  "covale_links": 0,
+  "examples": [],
+  "polymer_ligand": 0,
+  "satisfies_predicate": false
+ },
+ "6vxx": {
+  "covale_links": 63,
+  "examples": [
+   "ASN[polymer]--NAG[branched]",
+   "ASN[polymer]--NAG[non-polymer]"
+  ],
+  "polymer_ligand": 48,
+  "satisfies_predicate": true
+ },
+ "7kj2": {
+  "covale_links": 55,
+  "examples": [
+   "ASN[polymer]--NAG[branched]",
+   "ASN[polymer]--NAG[non-polymer]"
+  ],
+  "polymer_ligand": 38,
+  "satisfies_predicate": true
+ }
+}

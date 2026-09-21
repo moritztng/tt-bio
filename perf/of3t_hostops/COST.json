@@ -1,0 +1,48 @@
+{
+ "pct_matmul_only": 1.5202245665990222,
+ "pct_behind_blocked_gather": 1.3917513872262156e-05,
+ "groups": [
+  {
+   "group": "diffusion_module.atom_attn_enc ref_atom_embed -> cl (per-atom linears, no blocking)",
+   "n": 5,
+   "pct": 0.7530255115951472,
+   "needs": "matmul only"
+  },
+  {
+   "group": "diffusion_module.atom_attn_enc ref_atom_embed -> plm (blocked pair rep)",
+   "n": 3,
+   "pct": 1.3917513872219391e-05,
+   "needs": "needs the blocked gather"
+  },
+  {
+   "group": "input_embedder.atom_attn_enc ref_atom_embed -> cl (per-atom linears, no blocking)",
+   "n": 5,
+   "pct": 0.02669405207550336,
+   "needs": "matmul only"
+  },
+  {
+   "group": "input_embedder.atom_attn_enc ref_atom_embed -> plm (blocked pair rep)",
+   "n": 3,
+   "pct": 1.1816671277171582e-17,
+   "needs": "needs the blocked gather"
+  },
+  {
+   "group": "input_embedder.atom_attn_enc.pair completion (linear_l, linear_m, pair_mlp)",
+   "n": 5,
+   "pct": 3.0949689140068634e-17,
+   "needs": "needs the blocked gather"
+  },
+  {
+   "group": "input_embedder.atom_attn_enc.linear_q aggregation leg",
+   "n": 1,
+   "pct": 0.7405050029283716,
+   "needs": "matmul + relu + matmul"
+  },
+  {
+   "group": "input_embedder.atom_attn_enc.atom_transformer (already on device inside run_input_atom_encoder)",
+   "n": 79,
+   "pct": 0.0004433746763328356,
+   "needs": "already device"
+  }
+ ]
+}
