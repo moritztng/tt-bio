@@ -1,0 +1,71 @@
+{
+ "a16_zero_model_vs_their_step": 1.0,
+ "arms": {
+  "accurate_permuted_cot": {
+   "cos_between_error_vectors": -0.10940523978541558,
+   "cos_vs_their_step": 0.012959382146835516,
+   "norm_ratio_vs_their_step": 1.167852019182222,
+   "our_error_over_theirs": 26.434850665269714,
+   "ours_from_float64": 1.5469721960249112,
+   "ours_from_their_step": 1.5276154809014635,
+   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_accpermcot.pt",
+   "theirs_from_float64": 0.05852017912313512,
+   "x_perfect_fix_threshold": 26.56286038902176
+  },
+  "shipped": {
+   "cos_between_error_vectors": 0.2071360340581336,
+   "cos_vs_their_step": 0.4113786450226055,
+   "norm_ratio_vs_their_step": 7.781448263009438,
+   "our_error_over_theirs": 129.3338026219283,
+   "ours_from_float64": 7.568637296111446,
+   "ours_from_their_step": 7.4262166534719745,
+   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_shipped.pt",
+   "theirs_from_float64": 0.05852017912313512,
+   "x_perfect_fix_threshold": 129.13037256495866
+  },
+  "softmax_accurate": {
+   "cos_between_error_vectors": -0.1929983331449505,
+   "cos_vs_their_step": 0.9951115771146254,
+   "norm_ratio_vs_their_step": 0.9522997437675084,
+   "our_error_over_theirs": 1.400836429121639,
+   "ours_from_float64": 0.0819771987544113,
+   "ours_from_their_step": 0.10763736424619687,
+   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_accurate.pt",
+   "theirs_from_float64": 0.05852017912313512,
+   "x_perfect_fix_threshold": 1.8716465726223126
+  },
+  "softmax_host_f64": {
+   "cos_between_error_vectors": 0.09772281578974716,
+   "cos_vs_their_step": 0.9971408939377359,
+   "norm_ratio_vs_their_step": 0.9787279409871664,
+   "our_error_over_theirs": 1.0134390881768371,
+   "ours_from_float64": 0.059306636970495236,
+   "ours_from_their_step": 0.07777579628927792,
+   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_sm64.pt",
+   "theirs_from_float64": 0.05852017912313512,
+   "x_perfect_fix_threshold": 1.352400289409182
+  },
+  "softmax_precise": {
+   "cos_between_error_vectors": 0.3250382668105048,
+   "cos_vs_their_step": 0.9713404697469352,
+   "norm_ratio_vs_their_step": 1.0681124577258878,
+   "our_error_over_theirs": 4.68619771525519,
+   "ours_from_float64": 0.2742371297031603,
+   "ours_from_their_step": 0.2566369215532318,
+   "path": "/home/ttuser/of3t_softgrad/device_grads_043all_precise.pt",
+   "theirs_from_float64": 0.05852017912313512,
+   "x_perfect_fix_threshold": 4.46251743525408
+  }
+ },
+ "float64": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+ "model_squared_gradient_norm": 10.279642678524981,
+ "perfect_fix_threshold_vs_their_step": 0.05750944960478789,
+ "scope_pct_of_model_squared_gradient_norm": 51.135764125230956,
+ "scope_tensors": 547,
+ "theirs_cos_vs_float64": 0.9984690415459404,
+ "theirs_from_float64": 0.05852017912313512,
+ "theirs_norm_ratio_vs_float64": 1.0175750163719717,
+ "upstream_bf16": "/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt",
+ "upstream_bf16_sha256": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+ "what": "A25 in one pass: three distances and the cosine BETWEEN THE TWO ERROR VECTORS, per arm."
+}

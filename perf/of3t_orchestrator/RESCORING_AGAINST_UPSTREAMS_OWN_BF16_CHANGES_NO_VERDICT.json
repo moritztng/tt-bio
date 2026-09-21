@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 182 -- completes D72's table with a row that did not exist when it was written; no new measurement",
+
+ "why_I_did_this": "the trunk's backward reads 5.367727e+00 against a 2.0e-02 float64 bar, which is 268x, and pass 182 measured that upstream's OWN all-bf16 run over the same 48 blocks reaches cos 0.194. That raises a fair objection to the whole campaign: is the bar simply stricter than any bf16 implementation, including OpenFold3's own? If so the failures would be an artefact of the yardstick. This is the stress test of that objection, and it is the generous direction -- so it had to be run before the campaign's verdict can be trusted.",
+
+ "the_answer": "RE-SCORING AGAINST UPSTREAM'S OWN BF16 FLOOR CHANGES NO VERDICT. Both failing scopes stay failing by a wide margin: the diffusion transformer is 141.6x the recipe's own error and the pairformer trunk is 12.75x it. The objection is real in principle -- and D70/D72 already established the float64 bar is missed by upstream's own training dtype -- but it does not rescue anything that currently fails.",
+
+ "what_is_new_here": "D72's table had `pairformer_stack` at 5.8282 % marked 'no section arm'. of3t-trunkback has since built one. Filling it is the only change, and it moves that mass from UNKNOWN to FAR PAST, i.e. against the campaign rather than for it.",
+
+ "the_completed_split": {
+  "at_or_better_than_upstreams_own_bf16_pct": 42.2794,
+  "within_10x_of_it_pct": 7.1207,
+  "far_past_it_pct": 49.7218,
+  "no_arm_pct": 0.8007,
+  "checksum": "99.9226, which is what D72's section table itself sums to -- the residual 0.0774 % is unlisted there and is not introduced here",
+  "far_past_is_now_two_scopes_not_one": [
+   {"scope": "diffusion_transformer", "pct": 43.8936, "bf16_floor": 5.788e-2, "ours": 8.195, "ratio": "141.6x"},
+   {"scope": "pairformer_stack", "pct": 5.8282, "bf16_floor": 0.4196175, "ours": 5.351880, "ratio": "12.75x", "NEW": true}
+  ],
+  "no_arm_is_now_input_embedder_alone": "0.8007 %, down from 6.6289 %"
+ },
+
+ "a_discrepancy_I_am_NOT_papering_over": "D72 quotes a bf16 floor of 3.148e-01 for pairformer_stack; of3t-trunkback measures 4.196175e-01. These are different scopes and different statistics -- D72's is a section-level parameter-gradient reading, trunkback's is the 48-block chain over 99.2499 % of the trunk's gradient norm with every parameter and activation in bf16 and no autocast. I use trunkback's pair because OURS and ITS FLOOR come from the same arms in the same process, which is the only way the ratio means anything. The two floors are not reconciled and I am not treating either as the other.",
+
+ "what_STILL_blocks_D72_and_it_is_unchanged": "the shared-subtrahend rule. Both columns are distances from the SAME float64 reference, and two deviations from a shared reference DO NOT ORDER EACH OTHER: our 7.865e-03 beside bf16's 6.2532e-02 does not establish that we agree with bf16's gradient to 6e-02, because the errors may point in different directions and our distance FROM bf16 could exceed both. So 'at or better than upstream's own bf16' remains a statement about two distances, not a measured agreement, and D72 stays OPEN. What would close it is a DIRECT ours-vs-their-bf16 score on one scope. Note this cuts both ways and does not weaken the finding above: a direct comparison could only make the 141.6x and 12.75x larger, never smaller, since they are already the ratio of our distance to a floor that the same argument says understates the true separation.",
+
+ "the_honest_summary_for_the_campaign_verdict": "the bar is stricter than upstream's own training dtype, and the campaign should say so plainly -- on 42.2794 % of the model we already deviate no more than the recipe itself does, and on diffusion_conditioning we are 7.95x BETTER than upstream's own bf16 step, which means upstream's own implementation would fail a scope we pass. But the two scopes that fail are not close to the floor and do not become passes under any re-scoring. The failures are real."
+}

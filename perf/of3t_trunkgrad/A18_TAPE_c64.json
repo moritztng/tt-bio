@@ -1,0 +1,85 @@
+{
+ "what": "the reference this row built against of3t-trunk043ref's published forward, and the TAPED device forward against the UNTAPED one over the same boundary",
+ "reference_identity": {
+  "ours": "/home/ttuser/of3t_trunkgrad/REF043_F64_fwd.pt",
+  "published": "/home/ttuser/of3t_trunk043ref/ref_043_f64_c64.pt",
+  "s_bit_identical": true,
+  "z_bit_identical": true,
+  "s_rel": 0.0,
+  "z_rel": 0.0
+ },
+ "tokens": 64,
+ "real_tokens": 56,
+ "padding_fraction_single": 0.125,
+ "padding_fraction_pair": 0.234375,
+ "arms": {
+  "SHIPPED": {
+   "taped": {
+    "s_masked": {
+     "rel": 0.10648432457122708,
+     "ratio": 0.9077795240472815,
+     "cos": 0.9984388856989139
+    },
+    "z_masked": {
+     "rel": 0.04880487221590301,
+     "ratio": 1.0326648095704625,
+     "cos": 0.9993633336995987
+    }
+   },
+   "untaped": {
+    "s_masked": {
+     "rel": 0.1065338121878499,
+     "ratio": 0.9078125209129787,
+     "cos": 0.9984297849097793
+    },
+    "z_masked": {
+     "rel": 0.04947045199709192,
+     "ratio": 1.032792427121818,
+     "cos": 0.9993357898895163
+    }
+   },
+   "of3t_trunkcliff_published": {
+    "s_masked": 0.1065338,
+    "z_masked": 0.04947045
+   },
+   "taped_vs_untaped_output": {
+    "s": 0.004583460591403795,
+    "z": 0.01397302763468639
+   }
+  },
+  "SCALED": {
+   "taped": {
+    "s_masked": {
+     "rel": 0.01691313313889029,
+     "ratio": 0.9889345843837646,
+     "cos": 0.9999172793365714
+    },
+    "z_masked": {
+     "rel": 0.04880487221590301,
+     "ratio": 1.0326648095704625,
+     "cos": 0.9993633336995987
+    }
+   },
+   "untaped": {
+    "s_masked": {
+     "rel": 0.016552629860870322,
+     "ratio": 0.9892165519408351,
+     "cos": 0.9999202870175603
+    },
+    "z_masked": {
+     "rel": 0.04947045199709192,
+     "ratio": 1.032792427121818,
+     "cos": 0.9993357898895163
+    }
+   },
+   "of3t_trunkcliff_published": {
+    "s_masked": 0.01655263,
+    "z_masked": 0.04947045
+   },
+   "taped_vs_untaped_output": {
+    "s": 0.0038168980432366716,
+    "z": 0.01397302763468639
+   }
+  }
+ }
+}
