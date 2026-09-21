@@ -4,8 +4,8 @@ WT=/home/ttuser/.coworker/wt/allm-gates
 cd $WT || exit 1
 CARD=$1; MODELS=$2
 export PYTHONPATH=$WT ESM_ROOT=/home/ttuser/esm OF3_CKPT=/home/ttuser/of3-weights/of3-p2-155k.pt
-LEASE=2; [ "$CARD" != 2 ] && LEASE=2,$CARD
-export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$LEASE TT_BIO_LEASE_HOLDER=worker:allm-gates
+# lease is the card itself; see run_ab.sh for why widening it by default was a defect
+export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=${LEASE_CARDS:-$CARD} TT_BIO_LEASE_HOLDER=worker:allm-gates
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 for M in ${MODELS//,/ }; do
   echo "=== $M on card $CARD $(date -u +%FT%TZ) ==="
