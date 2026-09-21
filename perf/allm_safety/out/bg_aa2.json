@@ -1,0 +1,32 @@
+{
+  "label": "bg-aa2",
+  "arm": "off",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "design",
+    "/home/ttuser/.coworker/wt/allm-safety/examples/binder.yaml",
+    "--model",
+    "boltzgen",
+    "--num_designs",
+    "1",
+    "--seed",
+    "0",
+    "--out_dir",
+    "perf/allm_safety/out/design_bg_aa2"
+  ],
+  "rc": 0,
+  "cut_short": false,
+  "wall_s": 78.403,
+  "processes": 1,
+  "state": {
+    "fuse_calls": 656,
+    "fuse_qkv_flag": 0,
+    "fuse_reject|qkv_already_fused_with_gate": 1168,
+    "fuse_returned_none": 656,
+    "fuse_served": 0,
+    "gate_epilogue_flag": 0,
+    "gate_rejected": 0,
+    "gate_served": 0
+  }
+}

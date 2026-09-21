@@ -43,7 +43,14 @@ def _install():
 
     def counting(*a, **k):
         STATE["fuse_calls"] += 1
-        return orig(*a, **k)
+        out = orig(*a, **k)
+        # SERVED is the RETURN VALUE, not calls-minus-rejects. `sdpa_fused_qkv` opens with
+        #   if not (_FUSE_QKV or force) or bias is None: return None
+        # which returns WITHOUT calling `_fuse_reject`, so that exit is invisible to the reject
+        # counters and the subtraction counted it as a serve: an `off` arm read 656 served with
+        # the flag at 0. Observing the return makes the count true on both arms.
+        STATE["fuse_served" if out is not None else "fuse_returned_none"] += 1
+        return out
 
     TS.sdpa_fused_qkv = counting
     TS._allm_lever_wrapped = True
@@ -64,9 +71,10 @@ def _snapshot():
         out[k] = out.get(k, 0) + n
     for reason, n in (getattr(TS, "FUSE_REJECTS", {}) or {}).items():
         out[f"fuse_reject|{reason}"] = out.get(f"fuse_reject|{reason}", 0) + n
-    inside = sum(n for r, n in (getattr(TS, "FUSE_REJECTS", {}) or {}).items()
-                 if r not in FUSE_REJECT_OUTSIDE)
-    out["fuse_served"] = max(0, out.get("fuse_calls", 0) - inside)
+    # fuse_served comes from the wrapper's observed return value (see `counting`), so nothing is
+    # derived here. The reject tallies stay, because they say WHY a call did not serve.
+    out.setdefault("fuse_served", 0)
+    out.setdefault("fuse_returned_none", 0)
     out["gate_epilogue_flag"] = int(bool(getattr(TS, "_GATE_EPILOGUE", False)))
     out["fuse_qkv_flag"] = int(bool(getattr(TS, "_FUSE_QKV", False)))
     return out
