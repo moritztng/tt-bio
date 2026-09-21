@@ -23,6 +23,7 @@ from __future__ import annotations
 import gc
 import contextlib
 import math
+import os
 import sys
 from typing import Optional, Sequence
 
@@ -74,10 +75,43 @@ def precise_config():
 # picks up `(row residual) * kbar`, a term the true gradient does not contain, worth 1.00x
 # to 13.09x on `||dq||` as the common component of k grows (`perf/of3t_d116/amplify.json`).
 #
-# Off by default: it moves a gradient, so it is release-gated and `land-standing` owns the
-# default. It is inside backward closures only, so no forward and no inference result can
-# move whichever way the flag is set.
-SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", False)
+# ON by default since 2026-09-21, on Moritz's ask-9629 ruling. It is inside backward closures
+# only, so no forward and no inference result can move whichever way the flag is set, and that
+# is checked rather than asserted: `perf/of3t_d56renorm/renorm_reach.py` proves by AST that
+# every read of this flag is inside `softmax_bw_inner` or a `bw(g)` closure and that every
+# caller of `softmax_bw_inner` is itself inside one, with negative controls; the counter below
+# reads zero over a real fold on three models while the same counter goes non-zero under a
+# tape. Set the variable to 0 for the old backward.
+#
+# ONE definition. The name below is the only parse of this variable in the package --
+# `taped_ttnn._SOFTMAX_BW_RENORM` is an alias of it, not a second `os.environ.get`. Two parses
+# is how a flag acquires two defaults, and flipping one of them would have left the host
+# float64 backward in `host_f64_softmax` on the other: the same half-fix d116 unified the two
+# INLINE EXPRESSIONS to prevent, one level up.
+SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)
+
+# Reached only from a backward closure, and this counts the reaching so that claim is a
+# reading rather than an argument. Every site that honours the flag bumps it -- both device
+# callers of `softmax_bw_inner` and the host float64 backward -- so a fold that leaves this at
+# zero has demonstrably entered none of them. `applied` is the branch taken, `declined` the
+# branch evaluated and not taken; both can only happen under the tape, which is the claim.
+SOFTMAX_BW_RENORM_STATS = {"applied": 0, "declined": 0}
+
+if os.environ.get("TT_BIO_RENORM_STATS_DIR"):
+    # Per process, because a `predict` run does its device work in SPAWNED workers and the
+    # counters the parent can see are not the ones that ran the model. One file per pid, and
+    # the reader sums them; a claim that the flag was never reached has to be read where the
+    # model actually ran or it is a claim about the launcher.
+    import atexit as _atexit
+    import json as _json
+
+    @_atexit.register
+    def _dump_renorm_stats():
+        d = os.environ["TT_BIO_RENORM_STATS_DIR"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "%d.json" % os.getpid()), "w") as f:
+            _json.dump({"pid": os.getpid(), "flag": bool(SOFTMAX_BW_RENORM),
+                        **SOFTMAX_BW_RENORM_STATS}, f)
 
 
 def softmax_bw_inner(y, g, dim=-1, config=None):
@@ -88,6 +122,7 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     applied to one of two identical expressions is the kind of half-fix that reads as fixed.
     """
     inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
     if not SOFTMAX_BW_RENORM:
         return inner
     return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
@@ -888,7 +923,6 @@ def host_f64_softmax(x, dim: int = -1):
             "inference has no use for. Open one with `with tt_bio.autograd.tape():`, or call "
             "`ttnn.softmax` / `tt_bio.autograd.host_f64_softmax_values` for the raw arithmetic.")
 
-    from . import taped_ttnn as TT
     from .tenstorrent import HOST_F64_SOFTMAX_STATS as stats
 
     xt = x if isinstance(x, Tensor) else None
@@ -903,7 +937,9 @@ def host_f64_softmax(x, dim: int = -1):
         def bw(g):
             g64 = ttnn.to_torch(g).double()
             inner = (g64 * y64).sum(dim=dim, keepdim=True)
-            if TT._SOFTMAX_BW_RENORM:
+            SOFTMAX_BW_RENORM_STATS[
+                "applied" if SOFTMAX_BW_RENORM else "declined"] += 1
+            if SOFTMAX_BW_RENORM:
                 # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
                 # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
                 # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
