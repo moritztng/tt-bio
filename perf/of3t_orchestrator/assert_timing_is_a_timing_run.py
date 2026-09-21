@@ -63,8 +63,20 @@ def _walk(node, path=""):
 def instrumented(doc):
     """(is_flagged, seconds_literals, why) for one loaded artifact."""
     argv = " ".join(str(x) for x in (doc.get("argv") or []))
-    m = re.search(r"--probe-every[= ]+(\d+)", argv)
-    subsampled = bool(m) and int(m.group(1)) > 1
+    m = re.search(r"--probe-every[= ]+(-?\d+)", argv)
+    # Match `Peak.probe`'s OWN branch, not a guess at it:
+    #     if self.every <= 0: return   # probing OFF: the only mode whose wall clock means anything
+    #     if self.every > 1 and self.calls % self.every: return
+    # so <=0 is OFF and >1 is subsampled; only `1` (or an absent flag, which defaults to 1) probes
+    # every call. Pass 306: the first genuinely clean artifact this guard ever saw was run with
+    # `--probe-every 0`, and the first version of this function read only the `> 1` case -- so it
+    # flagged the campaign's own correct measurement as instrumented and refused to let it be
+    # quoted. `self.calls` increments with probing off BY DESIGN (that is what keeps verb_calls
+    # comparable between arms), so verb_calls alone can never distinguish the two modes, and the
+    # ms/call heuristic does not save it either: the clean rung reads 1.44 ms/call.
+    _n = int(m.group(1)) if m else None
+    probing_off = _n is not None and _n <= 0
+    subsampled = _n is not None and _n > 1
     calls, secs = 0, []
     for _p, d in _walk(doc):
         if not isinstance(d, dict) or "verb_calls" not in d:
@@ -80,7 +92,7 @@ def instrumented(doc):
         return False, [], ""
     total = sum(secs)
     ms = total / calls * 1000.0
-    if subsampled or ms < THRESHOLD_MS:
+    if probing_off or subsampled or ms < THRESHOLD_MS:
         return False, [], ""
     lits = [f"{v:.2f}" for v in secs] + [f"{total:.2f}"]
     why = (f"{calls} verb calls with no --probe-every subsample, {ms:.2f} ms of wall clock "
@@ -179,6 +191,15 @@ def self_test():
     clean = {"argv": ["--probe-every", "500"],
              "forward": {"s": 3.41, "verb_calls": 82610}}
     assert not instrumented(clean)[0], "a subsampled run must not be flagged"
+    # The real pass-306 arm: probing OFF, and verb_calls still counted, at 1.44 ms/call. The first
+    # version of this guard flagged exactly this and blocked the campaign's own measurement.
+    off = {"argv": ["--tokens", "384", "--backward", "--probe-every", "0"],
+           "forward": {"s": 13.53, "verb_calls": 84996},
+           "backward": {"s": 357.32, "verb_calls": 173248}}
+    assert not instrumented(off)[0], "--probe-every 0 is probing OFF and must NOT be flagged"
+    on = dict(off, argv=["--tokens", "384", "--backward", "--probe-every", "1"])
+    assert instrumented(on)[0], "--probe-every 1 probes every call and MUST be flagged"
+    print("  probe-every 0 is silent and probe-every 1 fires, on the real arm's own shape")
     slow = {"argv": [], "forward": {"s": 0.2, "verb_calls": 82610}}
     assert not instrumented(slow)[0], "a cheap per-call run must not be flagged"
     print("  does not fire on a subsampled run or a cheap per-call run")
