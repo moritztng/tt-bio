@@ -7554,3 +7554,69 @@ looking for them.
 Neither is ours to fix and neither is in our tree. They are recorded here because the campaign's
 claim rests on upstream's artifacts, and a reader who tries to re-run `of3t-theirtest`'s evidence
 will meet both.
+
+### D9 UPDATE (pass 220, heading restated). RESOLVED. D120 settled this four passes ago inside its OWN entry and nobody restated D9's heading, so the status parser kept the old label and every count carried it.
+
+No new measurement. D120 says it in as many words: *"**D9 is RESOLVED as a policy mismatch, not a
+defect, and the resolution inverts the fp32 story.**"* `openfold3_trunk.py:139` ships
+`fp32_softmax=True` while OF3 0.4.3 runs that softmax in bf16, so D9's measured **3.2x** gradient
+improvement with the flag **off** is a move *toward* 0.4.3's own policy. Our fp32 softmax is
+**3.2x more accurate** than upstream's bf16 one (5.110116e-04 against 1.617567e-03), and being more
+accurate than the reference is precisely what makes the gradient worse **against that reference**.
+The paradox dissolves; there is no defect left to fix.
+
+This is the same bookkeeping shape as D87 this pass, in a different direction: D87 was closed on a
+word the parser cannot read, D9 was closed **inside another defect's body** and never on its own
+heading. Both were found by looking rather than by a check. See D125 for the scan and its ruling on
+the other four candidates.
+
+### D125. Four more defects are declared closed inside some OTHER defect's body; three of the four declarations do not survive reading, and I am recording the adjudication rather than acting on the phrase. UNFIXED as a standing discipline.
+
+Pass 220. Prompted by D87 and D9, I scanned `DEFECTS.md` for any place where a defect still carrying
+**UNFIXED** on its own heading is declared RESOLVED / REFUTED / RETIRED / CLOSED / WITHDRAWN inside a
+different entry. Five hits. One was real (**D9**, restated above). The other four are not, and the
+reason each fails is the point:
+
+  * **D8, inside D116** — the matched text is *"D8 IS NOT CLOSED"*. A **negation**. Acting on the
+    phrase match would have closed a live user-facing defect.
+  * **D8, inside D120** — *"D8's attention **hypothesis** is RETIRED at 0.4.3"*. A hypothesis inside
+    a defect is not the defect; D120's own next sentence says *"this does not close D8"*.
+  * **D56, inside D62** — *"D56's **mechanism section** is WITHDRAWN"*. D56's own heading already
+    carries "mechanism withdrawn" and its substance stands: what produces the observed magnitudes
+    is unexplained.
+  * **D24, inside D10** — *"a rule that gave 0.8 of its weight to a term that is identically zero
+    (D24), now fixed"*. This one is genuinely unclear rather than a false positive: the rule change
+    exists, D10 itself is UNFIXED, and whether the corrected rule is the SHIPPED default is a
+    different question from whether a fix was written. **Left UNFIXED, and named here so the next
+    reader inherits the question rather than the phrase.** It is the one candidate a row could close
+    cheaply, by reading the shipped selector.
+
+**Why this is not a check.** Three of five hits were false positives and one needed judgement, so a
+guard on this pattern would fire every pass on text that is correct, and a guard that fires on
+correct behaviour is one the next caller deletes — this campaign has already lost two that way. The
+discipline instead: **a defect is closed on its own heading or it is not closed**, and a later entry
+that resolves an earlier one must go back and restate that heading in the same pass.
+
+### D24 UPDATE (pass 220). UNFIXED, and now LOCATED in the shipped tree at file and line. D125's one genuinely-unclear candidate, settled by reading in ten minutes, and it settles the OPPOSITE way to the phrase that raised it.
+
+D10's body says *"a rule that gave 0.8 of its weight to a term that is identically zero (D24), now
+fixed"*. D125 flagged that as the one closure claim needing judgement rather than a false positive.
+Read, no card, no run:
+
+  * `tt_bio/openfold3_fold.py:277` — the shipped selector is still
+    `ranking_score = 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash`, and
+    `:421` picks `max(..., key=ranking_score)`.
+  * `tt_bio/protenix.py:1708-1716` — `iptm` is initialised to `0.0` and only assigned when
+    `asym_id.unique().numel() > 1`. Its own docstring says *"iptm is 0.0 for single-chain inputs"*.
+  * `tt_bio/openfold3_fold.py:92-103` — `_has_clash` iterates `for right in chains[i + 1:]`, so with
+    one chain the inner loop never executes and it returns `0.0` unconditionally.
+
+**So on a single chain the shipped rule is `0.2*ptm + 0.5*disorder`, with 0.8 of its weight on a
+term that cannot be non-zero and a −100 penalty that cannot fire.** The candidate rule D10 measured
+did not ship; "now fixed" describes a fix that was written, not one a user gets. D24 stays UNFIXED
+and is no longer merely asserted — it is three line references in the tree we ship today.
+
+The lesson is D125's, arriving one entry later than the entry that stated it: **"now fixed" in prose
+is not a status, and the ten minutes it costs to read the shipped selector is cheaper than carrying
+the ambiguity another pass.** It also flips the expected direction — I raised the candidate as
+probably-closable and it is confirmed live.

@@ -87,8 +87,6 @@ TABLE = {
     # --- ships to users: training on the shipped default -------------------------------------
     "D8":  (USER, "The assembled pairformer block's pair-track gradients are an order of "
                   "magnitude outside the bar; re-attributed but not closed."),
-    "D9":  (USER, "fp32_softmax moves the triangle-attention weight gradient 3.2x under a 12 % "
-                  "forward change -- a shipped flag's effect on a shipped gradient."),
     "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
                   "forward and is 16.6 % out on the gradient."),
     "D31": (USER, "Every attention site ships a fused SDPA carrying a 3.3e-02 deficit while the "
@@ -169,6 +167,8 @@ TABLE = {
                    "claimed, and project.py still carries the unit error. Campaign tooling."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
+    "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
+                   "the four do not survive reading. A bookkeeping discipline, not a port defect."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
