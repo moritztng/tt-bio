@@ -18,6 +18,7 @@
  },
  "plan": {
   "D1": {
+   "asked": "pin 9629 (2026-09-21), with a stated default: hold",
    "closes_when": "Moritz decides whether to ship the written repair and accept the measured 0.149 A regression at rank 0, or to declare the deviation intentional and close it with that measurement as the reason",
    "evidence_held": "the coefficient sweep fits c = 1/sqrt(24) at 6.9e-03 to 1.7e-02 on all four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written and measured; D10, its original blocker, is resolved",
    "needs": "DECISION",
@@ -25,6 +26,7 @@
    "would_a_row_help": false
   },
   "D10": {
+   "asked": "pin 9629, together with D24; pin 9597 answers its framing",
    "closes_when": "Moritz decides whether to ship one consistent ranking rule on CONSISTENCY grounds. No accuracy argument is available: of3t-rankunify withdrew it",
    "evidence_held": "+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds the WRONG way, every difference inside its seed floor, p = 0.146",
    "needs": "DECISION",
@@ -44,6 +46,7 @@
    "would_a_row_help": true
   },
   "D24": {
+   "asked": "pin 9629, together with D10",
    "closes_when": "the same decision as D10, followed by a merge",
    "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
    "needs": "DECISION",
@@ -79,6 +82,7 @@
    "would_a_row_help": true
   },
   "D56": {
+   "asked": "pin 9629, with a stated default: stays gated",
    "closes_when": "TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is that the SHIPPED configuration is still the unrepaired one",
    "evidence_held": "matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms",
    "needs": "RELEASE",

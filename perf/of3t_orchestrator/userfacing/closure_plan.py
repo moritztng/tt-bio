@@ -38,6 +38,7 @@ PLAN = {
                           "four blocks against 9.1e-02 to 3.3e-01 for c = 1; the repair is written "
                           "and measured; D10, its original blocker, is resolved"),
         "would_a_row_help": False,
+        "asked": "pin 9629 (2026-09-21), with a stated default: hold",
     },
     "D10": {
         "needs": DECISION,
@@ -47,6 +48,7 @@ PLAN = {
         "evidence_held": ("+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds "
                           "the WRONG way, every difference inside its seed floor, p = 0.146"),
         "would_a_row_help": False,
+        "asked": "pin 9629, together with D24; pin 9597 answers its framing",
     },
     "D24": {
         "needs": DECISION,
@@ -54,6 +56,7 @@ PLAN = {
         "closes_when": "the same decision as D10, followed by a merge",
         "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
         "would_a_row_help": False,
+        "asked": "pin 9629, together with D10",
     },
     "D56": {
         "needs": RELEASE,
@@ -64,6 +67,7 @@ PLAN = {
         "evidence_held": ("matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 "
                           "norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms"),
         "would_a_row_help": False,
+        "asked": "pin 9629, with a stated default: stays gated",
     },
     "D30": {
         "needs": CARD,
@@ -159,6 +163,8 @@ def main() -> int:
                 print(f"      row:         {e['row']}")
             if e.get("shares_object_with"):
                 print(f"      same object: {', '.join(e['shares_object_with'])}")
+            if e.get("asked"):
+                print(f"      asked:       {e['asked']}")
         print()
 
     dec = by_need.get(DECISION, []) + by_need.get(RELEASE, [])
@@ -169,8 +175,14 @@ def main() -> int:
     print(f"{len(card)} need a card: {', '.join(card)}. Of those, {len(shared)} "
           f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
           f"`of3t-ditcot` is dispatched against it and held until a card frees.")
+    asked = [n for n in order if PLAN[n].get("asked")]
+    print(f"All {len(asked)} of the decision/release items are ASKED as one bundle (pin 9629), each "
+          f"with a default I apply if no answer comes -- hold, which is the current state. Asking "
+          f"rather than assuming a saturated channel: the pending-input queue is 46 records, 16 "
+          f"open and 30 resolved, so roughly two thirds of asks get answered.")
     print("So condition 5 is one decision bundle and one measurement, not nine investigations. "
-          "Stated as a plan, not a promise: naming a closure condition is not meeting it.")
+          "Stated as a plan, not a promise: naming a closure condition is not meeting it, and an "
+          "asked question is not an answered one.")
 
     OUT.write_text(json.dumps({
         "what": ("What it would take to clear GO condition 5, per USER-FACING defect. Asserted "

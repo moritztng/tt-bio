@@ -777,8 +777,8 @@ relative difference **0.0**.
   cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
   device and we are not one. Two closures costed, in GAP.
 - **no unfixed or user-facing defect in GAP — NOT MET, now PRICED (pass 243, in PASSLOG).**
-  Nine USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56;
-  ask 9597 is upstream of two) **and five need a card**, three of them (D30, D58, D129) one object
+  Nine USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56 —
+  ASKED as one bundle, pin **9629**, default hold; 9597 is upstream of two) **and five need a card**, three of them (D30, D58, D129) one object
   — the tape's backward, `of3t-ditcot`'s, held. `userfacing/closure_plan.py` refuses rather than
   going stale. Still defective (D122). It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
   defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
@@ -791,7 +791,15 @@ relative difference **0.0**.
 
 Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-five defects, fifty UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **The fuller VERDICT paragraph on the closing measurement, moved here at pass 243**; nothing in it is changed.
+PASSLOG: **Pass 244 — the four decisions are ASKED as one bundle (pin 9629), and I checked the channel before deciding they were unaskable.** Pass 243 priced GO condition 5 and left four items marked DECISION/RELEASE with nowhere to go. My first instinct this pass was that the ask channel was saturated — `state/pending-input/` holds 46 records — and that a 48th question would be noise, which would have turned "four decisions" into "four items nobody will ever rule on" on the strength of a directory listing. **I counted instead: 46 records, 16 open, 30 resolved.** Roughly two thirds of asks get answered, and of3t has exactly one open (9597, asked this morning). The channel works. The instinct was wrong and would have quietly changed the campaign's endgame advice.
+
+**So one short ask carries all four**, each with the number that decides it and a default I apply if no answer comes: **D1** — the trunk pair bias ships at 1/sqrt(24) = 0.204 of intended, the repair is written, applying it makes rank-0 structures **0.149 Å worse**; ship to match upstream, or declare the deviation intentional? **D10/D24** — one unified ranking rule exists on a branch and no accuracy argument survives it (**+0.046 Å**, **+0.020 Å**, **9 of 12** changed folds the wrong way, all inside seed floors, **p = 0.146**); merge on consistency grounds, or keep three? **D56** — `TT_BIO_SOFTMAX_BW_RENORM` collapses the diffusion-scope error **333x** and is default-off; ship it on, or keep it gated?
+
+**The default for all four is HOLD, which is deliberately the current state**, so the question is safe to leave unanswered: no merge, nothing flipped, nothing that could change an accuracy number without a decision. What the default changes is the bookkeeping, not the tree — a decided hold with a reason rather than an open defect nobody has ruled on. The ask says outright that nothing is blocked on it today, because `of3t-trajwide` and `of3t-ditcot` have work either way.
+
+**The closure plan now carries the pin**, so a reader cannot mistake "asked" for "answered" — its summary says exactly that, next to the line saying that naming a closure condition is not meeting one.
+
+**The fuller VERDICT paragraph on the closing measurement, moved here at pass 243**; nothing in it is changed.
 
 **The closing measurement** (`of3t-wholemodel`). With `of3t-apbgrad`'s softmax-backward repair on
 and **nothing else — no host round trip** — the model-scope gradient reads **1.006695e-01** against
