@@ -1,0 +1,63 @@
+{
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "f64",
+  "quantise_input": false,
+  "block": 44,
+  "tensors_loaded": 57,
+  "dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "hooked": [
+    "pair_stack.tri_mul_out",
+    "pair_stack.tri_mul_in",
+    "pair_stack.tri_att_start",
+    "pair_stack.tri_att_end",
+    "pair_stack.pair_transition",
+    "attn_pair_bias",
+    "attn_pair_bias.layer_norm_a",
+    "single_transition"
+  ],
+  "dtype_policy": "every parameter and activation float64; checkpoint upcast once at load; no cast on the path; upstream's CUDA autocast contexts are inert on CPU",
+  "s_in_norm": 1564551.2534620161,
+  "z_in_norm": 1301132.9253241098,
+  "s_out_norm": 1683421.2599765668,
+  "z_out_norm": 1300101.750775666,
+  "recon": {
+    "z5_vs_z_out": 0.0,
+    "s2_vs_s_out": 0.0
+  },
+  "shared_norms": {
+    "z1": 1301235.0450208406,
+    "z2": 1301237.6979228558,
+    "z3": 1301262.3943282736,
+    "z4": 1300906.734535058,
+    "z5": 1300101.750775666,
+    "sn": 45.417778737724106,
+    "u1": 96893.41068858285,
+    "s1": 1592816.565192584,
+    "u2": 110315.96885639383,
+    "s2": 1683421.2599765668
+  },
+  "update_norms": {
+    "pair_stack.tri_mul_out": 5562.4549329622,
+    "pair_stack.tri_mul_in": 6410.406042083512,
+    "pair_stack.tri_att_start": 9928.415878132588,
+    "pair_stack.tri_att_end": 8910.168330003946,
+    "pair_stack.pair_transition": 22395.909877168506,
+    "attn_pair_bias.layer_norm_a": 45.417778737724106,
+    "attn_pair_bias": 96893.41068858285,
+    "single_transition": 110315.96885639383
+  }
+}

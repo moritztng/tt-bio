@@ -1,0 +1,448 @@
+{
+  "batch": {
+    "file": "batch_step003.pt",
+    "n_tokens": 56,
+    "pdb_id": [
+      "5nw3"
+    ],
+    "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "bundle": "BUNDLE-MIN",
+  "cast_policy": {
+    "device": "cpu",
+    "mode": "removed",
+    "n_autocast_contexts_entered": 1644,
+    "n_autocast_contexts_torch_actually_enabled": 0,
+    "n_tensor_float_calls": 480,
+    "n_tensor_float_calls_that_changed_dtype": 476,
+    "tensor_float_source_dtypes": {
+      "float32": 4,
+      "int32": 168,
+      "int64": 308
+    }
+  },
+  "checkpoint": {
+    "file": "of3-p2-155k.pt",
+    "gate_enforced": true,
+    "missing_sample": [
+      "version_tensor"
+    ],
+    "n_loaded": 4935,
+    "n_missing": 1,
+    "n_unexpected": 0,
+    "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+    "unexpected_all": [],
+    "unexpected_sample": []
+  },
+  "deterministic_kernels": {
+    "cublas_workspace_config": ":4096:8",
+    "enabled": true,
+    "warn_only": true,
+    "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
+  },
+  "device": "cpu",
+  "draws": {
+    "n_torch_randn_calls": 45,
+    "noise_level": [
+      23.70532989501953,
+      5.8532257080078125,
+      10.730204582214355,
+      43.23538589477539,
+      3.303701639175415,
+      6.519556999206543,
+      0.7765187621116638,
+      13.467145919799805,
+      6.258777618408203,
+      6.348093509674072,
+      14.073968887329102,
+      2.600276470184326,
+      79.57238006591797,
+      0.2129417210817337,
+      7.900660514831543,
+      2.399001121520996,
+      20.153663635253906,
+      1.4617451429367065,
+      37.4316520690918,
+      0.8039768934249878,
+      4.435697555541992,
+      12.2774019241333,
+      0.2220625877380371,
+      0.5450646281242371,
+      10.923543930053711,
+      39.70489501953125,
+      5.965137004852295,
+      1.973209261894226,
+      18.526941299438477,
+      1.5750857591629028,
+      3.3082594871520996,
+      0.7829480171203613,
+      15.004582405090332,
+      3.0285587310791016,
+      6.547150611877441,
+      6.474541187286377,
+      1.7710777521133423,
+      44.37581253051758,
+      11.03666877746582,
+      4.620262145996094,
+      0.4975874423980713,
+      10.353649139404297,
+      238.21585083007812,
+      5.721548080444336,
+      1.0468207597732544,
+      1.083431601524353,
+      4.285765171051025,
+      49.191104888916016
+    ],
+    "num_recycles": 0,
+    "python_random_values": [
+      0.6334896914538571,
+      0.8063837539475641
+    ],
+    "torch_randn_shapes": [
+      [
+        1,
+        1,
+        422,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        48,
+        4
+      ],
+      [
+        1,
+        48,
+        3
+      ],
+      [
+        1,
+        48
+      ],
+      [
+        1,
+        48,
+        422,
+        3
+      ]
+    ]
+  },
+  "dropout": {
+    "disabled": true,
+    "n_nn_dropout_modules": 61,
+    "n_of3_dropout_modules": 61,
+    "rates_before": [
+      0.15,
+      0.25
+    ],
+    "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+  },
+  "dtype": "float32",
+  "files": {
+    "draws.pt": {
+      "bytes": 275884,
+      "sha256": "49209f76bcc5a658a895a8d7c55f439f127abbd3b6e40b546bf586b3769eca08"
+    },
+    "grad_presence.json": {
+      "bytes": 344595,
+      "sha256": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a"
+    },
+    "grads_f64.pt": {
+      "bytes": 2947844653,
+      "sha256": "0343f86cbfa81e64c85a66da89add6186c7bdd3014802975bc333b25ab81f330"
+    },
+    "w0.pt": {
+      "bytes": 2287568329,
+      "sha256": "17667d457c5a66116b54a5fbb1086d82b481a09440a1d1ae53bd3454b0cedd16"
+    }
+  },
+  "finite_difference_validation": {
+    "by_section": {},
+    "checks": [],
+    "h": 1e-05,
+    "max_rel_err": null,
+    "median_rel_err": null,
+    "min_abs_analytic_sampled": 1e-06,
+    "n_samples": 0,
+    "n_tensors_covered": 0,
+    "n_tensors_total": 4170,
+    "n_tensors_uncovered": 0,
+    "sampling": "one entry per tensor; tensors drawn by squared gradient norm, one-per-section floor at 1 %",
+    "uncovered_sample": [],
+    "weighting": {
+      "mode": "squared gradient norm, one-per-section floor at 1 %",
+      "section_floor_applied_to": [
+        "diffusion_module",
+        "pairformer_stack",
+        "aux_heads",
+        "msa_module"
+      ],
+      "section_mass_share": {
+        "aux_heads": 0.028431453164796113,
+        "diffusion_module": 0.8921062362465343,
+        "input_embedder": 0.008006449506340763,
+        "layer_norm_s": 1.4750110138628433e-05,
+        "layer_norm_z": 3.9016627668640655e-05,
+        "linear_s": 1.2753216288720225e-06,
+        "linear_z": 4.458789525741712e-06,
+        "msa_module": 0.012399586948639801,
+        "msa_module_embedder": 0.0006124420803716445,
+        "pairformer_stack": 0.05828131176964638,
+        "template_embedder": 0.0001030194347090633
+      },
+      "total_squared_norm": 10.27961137367512
+    },
+    "worst": null,
+    "zero_gradient_entry_fraction": 0.0185
+  },
+  "gradient": {
+    "clip_coef_their_grad_manager_would_apply": 1.0,
+    "global_norm": 3.2061833031932405,
+    "n_absent": 0,
+    "n_nonzero": 4161,
+    "n_params": 4170,
+    "n_with_gradient": 4170,
+    "n_zero_init_weight_tensors": 0,
+    "note": "grads_f64.pt holds the per-sample gradient BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef_their_grad_manager_would_apply."
+  },
+  "loss": 1.267598032951355,
+  "loss_bit_identical_on_replay": true,
+  "loss_replayed_same_rng": 1.267598032951355,
+  "loss_terms": {
+    "confidence_loss": 0.0005364887183532119,
+    "diffusion_loss": 1.2041804790496826,
+    "distogram_loss": 2.096038579940796,
+    "experimentally_resolved_loss": 0.015040408819913864,
+    "loss": 1.267598032951355,
+    "mse_loss": 1.1081093549728394,
+    "pae_loss": 1.9897937774658203,
+    "pde_loss": 1.1759623289108276,
+    "plddt_loss": 2.1840908527374268,
+    "scaled_distogram_loss": 0.06288115680217743,
+    "smooth_lddt_loss": 0.26160040497779846
+  },
+  "num_recycles_pinned": 0,
+  "replayed_draws": {
+    "file": "draws_recycles0.pt",
+    "mismatch": [],
+    "n_mismatch": 0,
+    "n_python_random_consumed": 2,
+    "n_python_random_recorded": 2,
+    "n_randn_consumed": 45,
+    "n_torch_randn_recorded": 45,
+    "recorded_num_recycles": 0,
+    "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "seed": 20260919,
+  "their_fp32_autocast_blocks_disabled": true,
+  "timings_s": {
+    "backward": 1658.6151254177094,
+    "forward": 551.4860887527466
+  },
+  "versions": {
+    "cuda": null,
+    "numpy": "2.5.2",
+    "openfold3": "0.4.3 (from PKG-INFO beside the imported tree)",
+    "torch": "2.8.0+cpu"
+  }
+}
