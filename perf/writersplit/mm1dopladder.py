@@ -273,29 +273,43 @@ def main() -> int:
                            "native_ms": nv, "generic_ms": gn, "split_ms": sp,
                            "generic_over_native": gn / nv, "native_over_split": nv / sp,
                            "generic_over_split": gn / sp, "aa_floor_pct": floor,
+                           "usable": floor <= a.aa_bar,
                            "ns": list(c.get("ns", ())),
                            "generic_bitexact": c["generic_bitexact"],
                            "split_bitexact": c["split_bitexact"]})
         print("%-24s n=%-6d native %.5f generic %.5f split %.5f ms | gen/nat %.4fx  "
-              "nat/split %.4fx  gen/split %.4fx  A/A %.3f %%"
-              % ("%s" % (c["a"],), c["n"], nv, gn, sp, gn / nv, nv / sp, gn / sp, floor),
-              flush=True)
+              "nat/split %.4fx  gen/split %.4fx  A/A %.3f %% %s"
+              % ("%s" % (c["a"],), c["n"], nv, gn, sp, gn / nv, nv / sp, gn / sp, floor,
+                 "OK" if floor <= a.aa_bar else "REFUSED"), flush=True)
 
     floors = [c["aa_floor_pct"] for c in R["cases"]]
+    ok = [c for c in R["cases"] if c["usable"]]
     R["aa_floor_max_pct"] = max(floors) if floors else None
-    R["usable"] = bool(floors) and R["aa_floor_max_pct"] <= a.aa_bar
+    R["usable_signatures"] = len(ok)
+    R["total_signatures"] = len(R["cases"])
+    R["usable"] = bool(floors) and len(ok) == len(R["cases"])
     R["weighted_ms_per_fold"] = tot
-    print("\nweighted by real call counts, these %d signatures cost per fold:" % len(cases))
-    print("  native %.2f ms   generic %.2f ms   split %.2f ms"
-          % (tot["native"], tot["generic"], tot["split"]))
-    if tot["split"]:
-        print("  split saves %.2f ms against native and %.2f ms against the transcription"
-              % (tot["native"] - tot["split"], tot["generic"] - tot["split"]))
-    print("\nA/A floor worst %.3f %% against a %.3f %% bar; host_quiet=%s; stat=%s -> "
-          "usable=%s" % (R["aa_floor_max_pct"], a.aa_bar, host_quiet, a.stat, R["usable"]))
+    if all(c["usable"] for c in R["cases"]):
+        print("\nweighted by real call counts, these %d signatures cost per fold:" % len(cases))
+        print("  native %.2f ms   generic %.2f ms   split %.2f ms"
+              % (tot["native"], tot["generic"], tot["split"]))
+        if tot["split"]:
+            print("  split saves %.2f ms against native and %.2f ms against the transcription"
+                  % (tot["native"] - tot["split"], tot["generic"] - tot["split"]))
+    print("\n%d of %d signatures inside the %.3f %% A/A bar (worst %.3f %%); host_quiet=%s; "
+          "stat=%s" % (len(ok), len(R["cases"]), a.aa_bar, R["aa_floor_max_pct"], host_quiet,
+                       a.stat))
+    for c in R["cases"]:
+        if c["usable"]:
+            print("  CERTIFIED  %-22s A/A %.3f %%  nat/split %.4fx  gen/nat %.4fx"
+                  % ("%s" % (c["a"],), c["aa_floor_pct"], c["native_ms"] / c["split_ms"],
+                     c["generic_ms"] / c["native_ms"]))
+        else:
+            print("  REFUSED    %-22s A/A %.3f %%  -- no ratio from this signature this session"
+                  % ("%s" % (c["a"],), c["aa_floor_pct"]))
     if not R["usable"]:
-        print("This session cannot price the lever: its own A/A twin moves more than the "
-              "bar.  No ratio from it may be quoted.")
+        print("The weighted per-fold total is NOT reported: a sum needs every term, and %d "
+              "signature(s) were refused." % (len(R["cases"]) - len(ok)))
     Path(a.out).write_text(json.dumps(
         {k: v for k, v in R.items() if k != "_"}, indent=1, default=str))
     return 0
