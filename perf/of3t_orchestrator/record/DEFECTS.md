@@ -8571,3 +8571,47 @@ also came back inert.
 What remains unmeasured is `autograd.py:847`, the site with three configured matmuls around one
 unconfigured reduction. The precision story D55 tells is looking thinner with each site that gets
 measured, and that is worth saying before a third pass is spent on it.
+
+### D56 UPDATE 4 (pass 233). The diffusion-scope concentration COLLAPSES 333x under the repair that already shipped behind a flag, measured as a matched same-branch A/B — and the row refused the comparison I told it to make, correctly.
+
+`of3t-lnaffine` concluded. Read from its pushed artifact `perf/of3t_lnaffine/DIT24_AB_c64.json` at
+**`21ce9073f`** and **`f202f4175`**; its three commits touch **nothing under `tt_bio/`**.
+
+    leaf_error_mass_total          pre 878.8518760076167  ->  renorm 2.635596280124493   (333x)
+    the four 5,7,8,12 as a share   pre 0.9892529          ->  renorm 0.2977056
+    block 8, norm ratio                87.643            ->  1.732     cos -0.169 -> +0.694
+    block 8, share of the leaf         95.9032 %         ->  6.6208 %
+    tensors compared                   523                   523
+
+**AMENDMENT 2's selectivity puzzle closes on a repair that already exists.** Blocks 5, 7, 8 and 12
+carried 98.93 % of the leaf and now carry 29.77 %; block 8's ratio falls from 87.6 to 1.7 and its
+cosine inverts from −0.169 to +0.694.
+
+**And the row refused my instruction, for a reason I should have seen.** AMENDMENT 2 told it to set
+its renorm table beside the pass-155 pre-repair one. It did not, because the two are not
+differenceable: `device_gradient_real043_pertensor.json` compares **547** tensors at
+`share_of_diffusion_sq_norm` **0.5732029** with `forward_rel_median` **8.474801e-03**, while this
+branch compares **523** at **0.6547415** with **8.361083e-02** — **a forward 9.87x worse**.
+Differencing them would attribute a branch-wide *forward* change to a *backward-only* flag, **and it
+inflates in the flag's favour**: against the pass-155 artifact the collapse reads 300.94 → 2.636
+(114x), against the matched control 878.85 → 2.636 (333x). The row ran both arms on its own branch
+instead, with **byte-equal `forward_rel_median` on both**, which is also the check that
+`TT_BIO_SOFTMAX_BW_RENORM` touches only the backward.
+
+**So my pass-231 flag was right and my pass-232 instruction was wrong in the same breath**: the
+pre-repair table *was* stale, and the fix for a stale baseline is a fresh matched control, not a
+cross-run difference. A cross-run difference that moves a headline 114x versus 333x depending on
+which baseline you pick is not a measurement of the lever.
+
+**Consequence for D56.** Its remaining explanandum — the 18.504, and the 99.925 % concentration I
+reported at pass 230 — is a **pre-repair** figure on a leaf the repair collapses 333x. Together with
+pass 232's direct KAPPA measurement (the leaf's conditioning is the *lowest* of ten sites, bounding
+any bf16-class evaluation 165x short of 3.040) and the teacher-forcing result (the error is
+inherited, not local), D56 has no surviving mechanism and no surviving magnitude at diffusion scope
+on the repaired arm. It stays UNFIXED only because the **shipped** configuration is still the
+default-off one, which is the same position as every other repair this campaign holds.
+
+**And a figure of mine to retire**: the per-block table I published at pass 231 quoted block 8's
+norm ratio as **19.2415** from the pass-155 artifact. This row's control reads **87.643** for the
+same block on its own branch. Both are correct for their own run and **neither is comparable to the
+other** — exactly the trap the row avoided. My table should be read as pass-155's, not as current.
