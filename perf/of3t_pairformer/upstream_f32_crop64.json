@@ -1,0 +1,342 @@
+{
+ "what": "Upstream's own pairformer trunk, at a chosen precision, over the boundary our device arm runs.",
+ "block": 0,
+ "stack": 48,
+ "last_block": 47,
+ "dtype": "float32",
+ "autocast": "none",
+ "crop": 64,
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "capture_dir": "/home/ttuser/of3t_gradients/cap",
+ "boundary": {
+  "inputs_from_block": 0,
+  "cotangent_from_block": 47
+ },
+ "probe": {
+  "tokens": 64,
+  "real_tokens": 56,
+  "s_norm": 5850.166196032644,
+  "z_norm": 1320432.5314623325,
+  "cot_s_norm": 3.378536937441942e-05,
+  "cot_z_norm": 0.000543022003375725
+ },
+ "their_dims": {
+  "c_s": 384,
+  "c_z": 128,
+  "c_hidden_pair_bias": 24,
+  "no_heads_pair_bias": 16,
+  "c_hidden_mul": 128,
+  "c_hidden_pair_att": 32,
+  "no_heads_pair": 4,
+  "transition_type": "swiglu",
+  "transition_n": 4,
+  "pair_dropout": 0.25,
+  "fuse_projection_weights": false,
+  "inf": 1000000000.0
+ },
+ "their_load": [
+  {
+   "block": 0,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 1,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 2,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 3,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 4,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 5,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 6,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 7,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 8,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 9,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 10,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 11,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 12,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 13,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 14,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 15,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 16,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 17,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 18,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 19,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 20,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 21,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 22,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 23,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 24,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 25,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 26,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 27,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 28,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 29,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 30,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 31,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 32,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 33,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 34,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 35,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 36,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 37,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 38,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 39,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 40,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 41,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 42,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 43,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 44,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 45,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 46,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  },
+  {
+   "block": 47,
+   "tensors": 57,
+   "missing": [],
+   "unexpected": []
+  }
+ ],
+ "their_tensor_count": 2736,
+ "forward": {
+  "loss": 0.00018561555771157146,
+  "s_out_norm": 2170028.1327689937,
+  "z_out_norm": 1287511.459517832,
+  "rel_vs_captured_s": 1.8079453125904665e-05,
+  "rel_vs_captured_z": 0.004280546922623639
+ },
+ "gradients": {
+  "with_grad": 2736,
+  "without_grad": 0,
+  "absent": []
+ },
+ "dumped_to": "/home/ttuser/of3t_pairformer/upstream_f32_crop64.pt",
+ "seconds": 13.929076116999568
+}
