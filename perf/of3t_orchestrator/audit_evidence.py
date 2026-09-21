@@ -943,10 +943,19 @@ if DEF.is_file() and ORCH.is_file():
     _NEG = _re.compile(r"\b(?:NOT|NEVER|NO LONGER|ISN'T|IS NOT|WAS NOT)\s+$", _re.I)
 
     def _prose_statuses(doc):
-        """(defect, word, why) for headings whose only status match is prose or negated."""
-        out = []
+        """(defect, word, why) for a defect whose LATEST status-bearing heading is prose/negated.
+
+        Latest-bearing, not every heading: the stored status is the last heading that carried a
+        vocabulary word, so an old prose heading that a later capitalised one supersedes is
+        history, not a live misreading. Flagging every heading made this check demand that the
+        record be rewritten rather than corrected forward, which is not how this ledger works.
+        """
+        latest = {}
         for m in _re.finditer(r"^### (D\d+)\b(.*)$", doc, _re.M):
-            h = m.group(2)
+            if _STATUS_RE.findall(m.group(2).upper()):
+                latest[m.group(1)] = m.group(2)
+        out = []
+        for _n, h in latest.items():
             up = _STATUS_RE.findall(h.upper())
             if not up:
                 continue
@@ -955,8 +964,8 @@ if DEF.is_file() and ORCH.is_file():
             if not good:
                 why = "lower-case prose" if not exact else "negated"
                 bad_word = exact[-1].group(0) if exact else up[-1]
-                out.append((m.group(1), bad_word, why))
-        return out
+                out.append((_n, bad_word, why))
+        return sorted(out, key=lambda x: int(x[0][1:]))
 
     # Probe, run every time: two synthetic headings in exactly the shapes D69 and D116 had.
     _pp = _prose_statuses("### D1. a reading fixed before the arm ran.\n"
