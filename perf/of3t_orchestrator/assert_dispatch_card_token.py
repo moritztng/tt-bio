@@ -14,6 +14,7 @@ usage: assert_dispatch_card_token.py <brief.txt> [...]   (no args -> every of3t-
 """
 import glob
 import os
+import pathlib
 import re
 import sys
 
@@ -36,11 +37,25 @@ WS = f"{D}/workstreams"
 # English prose about devices is NOT a signal here. It was tried and it does not separate.
 
 
+#: A brief may have NO `#DISPATCH` only if it says, in the literal form below, that it is retired
+#: and WHICH ROW TOOK OVER. A retired brief with no successor named is a dropped row, which is the
+#: thing this check exists to make impossible -- so the marker has to carry the hand-off, and a
+#: bare "RETIRED" does not clear it. (Pass 271: `of3t-f64gate` into `of3t-d137-tapegate`.)
+RETIRED = re.compile(r"^#\s*RETIRED\b.*\bSUPERSEDED BY\s+`([a-z0-9-]+)`", re.M | re.I)
+
+
 def check(path):
     src = open(path).read()
     m = re.search(r"^#DISPATCH:.*$", src, flags=re.M)
     if not m:
-        return [f"{path}: no #DISPATCH line"]
+        r = RETIRED.search(src)
+        if r:
+            succ = pathlib.Path(path).with_name(r.group(1) + ".txt")
+            if not succ.is_file():
+                return [f"{path}: retired into `{r.group(1)}`, which has no brief on disk"]
+            return []
+        return [f"{path}: no #DISPATCH line, and no "
+                f"'# RETIRED ... SUPERSEDED BY `<row>`' marker naming what took it over"]
     line, body = m.group(0), src[m.end():]
     ct = re.search(r"\bcard=(\S+)", line)
     if not ct:
