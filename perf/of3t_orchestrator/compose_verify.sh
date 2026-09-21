@@ -142,6 +142,29 @@ _RESOLVE
         git add tt_bio/openfold3_trunk.py && git commit --no-edit -q
         echo "  NOTE of3t-$r: openfold3_trunk.py conflict resolved by keeping BOTH inserts"\
              " (pairbias comment + foldab env lever), asserted from the AST, not assumed"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "auxfind" ]; then
+        # Third file where a conflict is not a disagreement: two rows APPEND keyword arguments to
+        # the same signature -- one `s_path`/`dtype`, of3t-auxfind `token_mask`/`single_mask` for
+        # the reference-mask fix behind the aux_heads A18 failure. Both are optional, so the union
+        # is what each side meant and no existing caller changes. Shipped code, so it is ASSERTED
+        # from the AST: all four names present, each still with a default (a merge that dropped
+        # one side would compile and import, and fail only at runtime on a device). Five negative
+        # controls, including one that reorders a parameter into a SyntaxError.
+        python3 - <<'_RESOLVE'
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-auxfind\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+merged = ours[:-2].rstrip().rstrip(",") + ", " + theirs.strip()
+open(p, "w").write(s[:i] + merged + "\n" + s[k + len(">>>>>>> origin/wk/of3t-auxfind\n"):])
+_RESOLVE
+        python3 "$HERE/assert_confidence_forward_signature.py" tt_bio/openfold3_confidence.py \
+          || { echo "CONFLICT merging of3t-$r: openfold3_confidence.py resolution FAILED its assert"; exit 1; }
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: openfold3_confidence.py signature conflict resolved by keeping BOTH"\
+             " parameter sets, asserted from the AST with defaults intact"
       else
         echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
       fi
@@ -198,20 +221,49 @@ done
 #   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
 #   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
 #   of3t-updaterule's brief is amended to re-state that number under the merged code.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
+#   tt_bio/openfold3_trunk.py: of3t-foldab owns the env-gated measurement lever
+#   `TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR`, which forces `tri_att_end_bias_follows_pair` (the
+#   TRANSPOSE_BIAS orientation); of3t-trunkcliff owns the construction-site comment recording
+#   what the PAIR-BIAS SCALE convention costs at the activation level. Two DIFFERENT flags on
+#   adjacent lines, and unlike the entries above the hunks OVERLAP -- both start at line 132
+#   (foldab +7 lines, trunkcliff +27), so disjointness is NOT the argument here.
+#   The argument is that the merged result was CHECKED and carries both, which is asserted
+#   below rather than declared: a silent pick of one side is the exact failure this list could
+#   otherwise wave through (memory: parallel-branches-independently-fix-same-defect).
+#   Semantic coupling, which a reader must not confuse: they are different conventions and they
+#   do not interact -- of3t-trunkcliff measured the pair track BIT-IDENTICAL under its
+#   convention change, and of3t-trunk043ref measured the single track unmoved across foldab's
+#   orientation (0.101290 vs 0.101335). Both must stay; neither may flip a default.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py"
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
   if printf '%s\n' "$dup" | grep -qx "$a"; then
     printf 'ownership: %s co-edited by' "$a"
     grep " $a\$" "$SLUG_TMP/own.txt" | awk '{printf " %s",$1}'
-    echo " -- DECLARED, regions verified disjoint"
+    case "$a" in
+      tt_bio/openfold3_trunk.py)
+        # Do NOT claim disjointness here: these hunks OVERLAP (both start at line 132). What is
+        # verified for this file is that the merged result carries both sides, asserted below.
+        echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
+      *)
+        echo " -- DECLARED, regions verified disjoint" ;;
+    esac
   fi
   dup=$(printf '%s\n' "$dup" | grep -vx "$a" || true)
 done
 dup=$(printf '%s\n' "$dup" | sed '/^$/d')
 if [ -z "$dup" ]; then
   echo "ownership: no undeclared file is edited by more than one row"
+  # The one co-edited file whose hunks OVERLAP: prove both sides survived, do not assume it.
+  _tf="$CO/tt_bio/openfold3_trunk.py"
+  _miss=""
+  grep -q "TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR" "$_tf" || _miss="$_miss of3t-foldab's env lever"
+  grep -q "folds the bias inside its own score scale" "$_tf" || _miss="$_miss of3t-trunkcliff's pair-bias note"
+  if [ -n "$_miss" ]; then
+    echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
+  fi
+  echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
 else
   echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
   while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
@@ -351,6 +403,32 @@ for f in perf/of3t_equivalence/instrument_b_lr.py \
     { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
 
+# (3d) EVERY PUBLISHED HEADLINE RE-DERIVED FROM ITS OWN PER-TENSOR SIDECAR.
+# recompute_from_sidecar.py was written at pass 175 with "exits non-zero if any --expect
+# disagrees, so it can gate a compose" in its own docstring -- and was never wired in. It ran
+# once, verified five headlines, and became a historical artifact. A check that ran once is not
+# a guard: three headlines have changed since. This gates the four that cover 90.9251 % of the
+# model's gradient mass, on CPU, with no device and no trust in any row's arithmetic -- only in
+# its per-tensor diff_norm/ref_norm, which is why the campaign requires those instead of
+# summary statistics. Controls run at pass 181: a wrong value and a missing section both exit 1.
+echo "--- headlines re-derived from sidecars"
+_RS="$HERE/recompute_from_sidecar.py"
+_sc_fail=0
+_sc() {  # <sidecar-path-in-CO> <section=value>
+  [ -f "$CO/$1" ] || { echo "  SIDECAR MISSING: $1"; _sc_fail=1; return; }
+  "$PY" "$_RS" "$CO/$1" --expect "$2" >/dev/null 2>&1 \
+    || { echo "  HEADLINE DOES NOT RE-DERIVE: $1 expected $2"; _sc_fail=1; }
+}
+_sc perf/of3t_direct/sidecar_diffusion_conditioning/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "diffusion_module.diffusion_conditioning=0.06463839"
+_sc perf/of3t_direct/sidecar_aux_heads/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "aux_heads=0.2360143"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_vs_UPSTREAM_BF16.json "ALL=7.426217"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16.json \
+    "ALL=0.0777758"
+[ "$_sc_fail" = 0 ] || { echo "COMPOSE: a published headline no longer re-derives from its sidecar"; exit 1; }
+echo "  4 headlines re-derive from their per-tensor sidecars (90.9251 % of the gradient mass)"
+
 # (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
@@ -360,6 +438,13 @@ done
 # days of deferrals), and 2026-09-20, mine, two rows at once. The memory entry asked twice for
 # a check; this is it. Deliberately narrow -- see the script's SCOPE comment for the wider
 # version that flagged 12 of 30 rows including one that plainly needed its card.
+# (3c) a SUPERSEDED artifact must be NULLED, not merely stamped -- found unapplied to SEVEN of
+# my own artifacts at pass 180, each still exposing structured number fields a reader or a
+# script would consume as current. The stamp is documentation; the suffix is the interlock.
+echo "--- superseded artifacts nulled"
+"$PY" "$HERE/assert_superseded_is_nulled.py" || \
+  { echo "COMPOSE: a superseded artifact still exposes live data fields"; exit 1; }
+
 echo "--- dispatch card tokens"
 "$PY" "$HERE/assert_dispatch_card_token.py" || \
   { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
@@ -514,6 +599,26 @@ git worktree remove --force "$BASE"
 # This is deliberately NOT a general "no default moved" check, which would need a definition of
 # `default` this script cannot honestly give. It is a named assertion about a named line, and when
 # D1+D10 are approved to ship together the line here changes with them.
+# The SECOND shipped default the composition must not move, added pass 177. of3t-auxfind's
+# confidence-mask fix is RELEASE-GATED and rides in the composition: it takes aux_heads' A18 from
+# 4 of 5 heads at 5.174368e-01 to 0 of 5 at 3.865648e-03, and it would move pLDDT, PAE, PTM/IPTM
+# and the ranking score on any padded fold. That is safe ONLY while it is off by default, and
+# "off by default" is a property of the composed branch, not of the row's write-up -- so it is
+# read from the tree. The asserter checks the default VALUE is None (a default merely EXISTING
+# is not enough) and that the shipped fold path still does not pass the masks.
+"$PY" "$HERE/assert_confidence_forward_signature.py" "$CO/tt_bio/openfold3_confidence.py" \
+  || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
+
+# The THIRD and FOURTH shipped defaults, added pass 209 after both pass-207 repairs landed in the
+# composition. Neither can ride in live: TT_BIO_SOFTMAX_BW_RENORM moves every taped gradient (it is
+# what takes the trunk from 9.025172e+00 to 3.833066e-01) and the host float64 softmax moves fold
+# output and costs a round trip at any site where it is on. The asserter reads the composed tree and
+# checks BOTH halves per lever -- the default exists as off, AND no construction site overrides it to
+# True -- because a selector defaulting False says nothing when a site passes default=True, which is
+# exactly how opendde.refiner ships the accurate-softmax chain ON.
+"$PY" "$HERE/assert_new_levers_default_off.py" "$CO" \
+  || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
+
 _trunk="$CO/tt_bio/openfold3_trunk.py"
 _want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then

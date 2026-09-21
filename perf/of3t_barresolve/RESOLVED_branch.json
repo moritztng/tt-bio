@@ -1,0 +1,48 @@
+{
+ "label": "branch",
+ "cwd": "/home/ttuser/.coworker/wt/of3t-barresolve",
+ "executable": "/home/ttuser/tt-bio-dev/env/bin/python",
+ "trajwide_module": "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_trajwide/trajwide.py",
+ "refpath_module": "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_trajwide/refpath.py",
+ "OF3PKG_constant": "/home/ttuser/of3t_refprec/of3pkg043",
+ "REFDEPS_constant": [
+  "/home/ttuser/of3t_refprec/deps",
+  "/home/ttuser/of3t_refprec/pylibs"
+ ],
+ "REF_TREE_before_build": null,
+ "sys_path_head_after_install": [
+  "/home/ttuser/of3t_refprec/of3pkg043",
+  "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_tape",
+  "/home/ttuser/.coworker/wt/of3t-barresolve",
+  "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_trajbar",
+  "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_trajwide",
+  "/home/ttuser/.coworker/wt/of3t-barresolve/perf/of3t_barresolve"
+ ],
+ "REF_TREE_after_build": "/home/ttuser/of3t_refprec/of3pkg043",
+ "openfold3___file__": "/home/ttuser/of3t_refprec/of3pkg043/openfold3/__init__.py",
+ "resolved_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "resolved_equals_REF_TREE": true,
+ "openfold3_version": null,
+ "n_parameters": 761,
+ "n_elements": 203239484,
+ "state_dict_entries_loaded": 763,
+ "missing_keys": 0,
+ "unexpected_keys": 0,
+ "layer_norm_z_realigned": [],
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "checkpoint_bytes": 2287928196,
+ "tree": {
+  "package_root": "/home/ttuser/of3t_refprec/of3pkg043/openfold3",
+  "n_py_files": 293,
+  "tree_sha256": "1b27f5754b32b8e35e98f3f9246ebe09a9dcccc36b6f8e688d2b5e11b1aa57b5",
+  "witness_files": {
+   "core/model/latent/base_blocks.py": "5f78e1426e4bdfbd6855b0983ff2624c4138da1581f2d2653beb5dd5bc09e90c",
+   "core/model/latent/pairformer.py": "bb94fa0cf53d096b7170e56062460e61f26c249d7c7e632f020ef8af1b99daa5",
+   "core/model/layers/triangular_attention.py": "2ca2f33f3c2e67e047f8bfbe22d8bef2c09dc1ed766da230965863d2595f85de",
+   "core/model/layers/attention_pair_bias.py": "6c215a9f4317a98f2f11867b9c8f32350ce35bcef0211615a760a06700c329b7",
+   "core/model/primitives/attention.py": "030a42816b8d0dfc2374b7361967af1cbe50e6515fb1375eacc9eca68a5e8703",
+   "entry_points/parameters.py": "3df880a408ea02a536a7a1b734c86413cc38a959174834f928bbd6791093a5ad"
+  }
+ },
+ "wall_s": 15.0
+}
