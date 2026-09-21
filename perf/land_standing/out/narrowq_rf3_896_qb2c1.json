@@ -1,0 +1,76 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_TRIATT_NARROW_Q_FALLBACK=1",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "rf3",
+      "rung": 896,
+      "off": [
+        96.3,
+        94.8,
+        105.3
+      ],
+      "on": [
+        104.6,
+        105.5,
+        115.1
+      ],
+      "folds": [
+        {
+          "arm": "off",
+          "rep": 1,
+          "runtime_s": 96.3,
+          "t_start": 1790028856.182831,
+          "t_end": 1790028960.6931257
+        },
+        {
+          "arm": "on",
+          "rep": 1,
+          "runtime_s": 104.6,
+          "t_start": 1790028960.6932218,
+          "t_end": 1790029073.6891494
+        },
+        {
+          "arm": "off",
+          "rep": 2,
+          "runtime_s": 94.8,
+          "t_start": 1790029073.6892493,
+          "t_end": 1790029177.156921
+        },
+        {
+          "arm": "on",
+          "rep": 2,
+          "runtime_s": 105.5,
+          "t_start": 1790029177.157021,
+          "t_end": 1790029292.613593
+        },
+        {
+          "arm": "off",
+          "rep": 3,
+          "runtime_s": 105.3,
+          "t_start": 1790029292.6137404,
+          "t_end": 1790029414.2221599
+        },
+        {
+          "arm": "on",
+          "rep": 3,
+          "runtime_s": 115.1,
+          "t_start": 1790029414.2222965,
+          "t_end": 1790029545.4478626
+        }
+      ],
+      "off_median": 96.3,
+      "on_median": 105.5,
+      "aa_spread_pct": 10.903426791277258,
+      "ab_median_pct": 9.55347871235722,
+      "inside_aa": true
+    }
+  ]
+}

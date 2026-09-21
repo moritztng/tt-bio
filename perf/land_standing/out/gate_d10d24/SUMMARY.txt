@@ -1,0 +1,48 @@
+D10+D24 gate, tip 12fb56480, three shards on qb2 p300c cards 1/2/3, started 2026-09-21T20:25:24Z
+D10+D24 gate, tip 12fb56480, three shards on qb2 p300c cards 1/2/3, started 2026-09-21T20:27:06Z
+openbind rc=0 verdict=PASS wall=161s card=3 2026-09-21T20:29:47Z
+l1-budget rc=0 verdict=PASS wall=209s card=3 2026-09-21T20:33:16Z
+rfd3 rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:16Z
+rf3 rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:16Z
+esmfold2-fast rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:16Z
+esmfold2 rc=1 verdict=none wall=1s card=3 2026-09-21T20:33:17Z
+opendde rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:17Z
+rfd3-fusion rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:17Z
+protenix-v2 rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:17Z
+boltz2 rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:17Z
+protenix-v1 rc=1 verdict=none wall=0s card=3 2026-09-21T20:33:17Z
+SHARD card=3 DONE 2026-09-21T20:33:17Z
+opendde-abag rc=0 verdict=PASS wall=402s card=2 2026-09-21T20:33:48Z
+batch-position rc=1 verdict=none wall=0s card=2 2026-09-21T20:33:48Z
+rf3-1024aa rc=1 verdict=none wall=1s card=2 2026-09-21T20:33:49Z
+boltzgen rc=1 verdict=none wall=0s card=2 2026-09-21T20:33:49Z
+openfold3 rc=1 verdict=none wall=0s card=2 2026-09-21T20:33:49Z
+SHARD card=2 DONE 2026-09-21T20:33:49Z
+retry runner, card 3, load ceiling 18, started 2026-09-21T20:35:49Z
+cheap runner, card 1, load ceiling 20, started 2026-09-21T20:36:17Z
+nesso1 rc=0 verdict=PASS wall=18s card=1 round=1 2026-09-21T20:36:35Z
+pxdesign rc=1 verdict=FAIL wall=125s card=1 round=1 2026-09-21T20:38:40Z
+cheap runner, card 2, load ceiling 20, started 2026-09-21T20:39:28Z
+pxdesign rc=0 verdict=PASS wall=8s card=2 round=1 2026-09-21T20:39:36Z
+esmc-300m rc=0 verdict=PASS wall=6s card=2 round=1 2026-09-21T20:39:42Z
+batch-position rc=0 verdict=PASS wall=243s card=3 round=1 2026-09-21T20:39:52Z
+esmc-600m rc=0 verdict=PASS wall=11s card=2 round=1 2026-09-21T20:39:53Z
+SHARD card=2 DONE 2026-09-21T20:39:53Z
+capacity rc=- verdict=PASS wall=~1250s card=1 round=1 TRANSCRIBED-FROM-LOG (its runner was killed mid-arm when I rewrote the shard script under it; the arm itself ran to completion and capacity.log ends GATE PASS)
+tail runner, card 2, load ceiling 20, started 2026-09-21T20:42:19Z
+rf3-1024aa rc=0 verdict=PASS wall=170s card=3 round=1 2026-09-21T20:42:42Z
+boltzgen rc=1 verdict=FAIL wall=66s card=3 round=1 2026-09-21T20:43:48Z
+openfold3 rc=0 verdict=PASS wall=121s card=3 round=1 2026-09-21T20:46:49Z
+rfd3 rc=0 verdict=PASS wall=61s card=3 round=1 2026-09-21T20:47:50Z
+rf3 rc=0 verdict=PASS wall=42s card=3 round=1 2026-09-21T20:48:32Z
+esmfold2-fast rc=0 verdict=PASS wall=44s card=3 round=1 2026-09-21T20:49:16Z
+esmfold2 rc=0 verdict=PASS wall=45s card=3 round=1 2026-09-21T20:50:01Z
+opendde rc=0 verdict=PASS wall=51s card=3 round=1 2026-09-21T20:50:52Z
+rfd3-fusion rc=0 verdict=PASS wall=34s card=3 round=1 2026-09-21T20:51:26Z
+protenix-v2 rc=0 verdict=PASS wall=42s card=3 round=1 2026-09-21T20:52:08Z
+boltz2 rc=0 verdict=PASS wall=33s card=3 round=1 2026-09-21T20:52:41Z
+protenix-v1 rc=0 verdict=PASS wall=33s card=3 round=1 2026-09-21T20:53:14Z
+boltzgen rc=0 verdict=PASS wall=139s card=3 round=2 2026-09-21T20:55:33Z
+SHARD card=3 DONE 2026-09-21T20:55:33Z
+protenix-v1 rc=1 verdict=PASS wall=1802s card=2 round=1 2026-09-21T21:12:21Z
+SHARD card=2 DONE 2026-09-21T21:13:21Z
