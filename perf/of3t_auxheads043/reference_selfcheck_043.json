@@ -1,0 +1,75 @@
+{
+ "n_bit_identical": 5,
+ "n": 5,
+ "heads": {
+  "distogram_logits": {
+   "bit_identical": true,
+   "rel_l2": 0.0,
+   "max_abs": 0.0,
+   "norm_ref": 7928700.559880996,
+   "norm_mine": 7928700.559880996
+  },
+  "experimentally_resolved_logits": {
+   "bit_identical": true,
+   "rel_l2": 0.0,
+   "max_abs": 0.0,
+   "norm_ref": 102.30470922717292,
+   "norm_mine": 102.30470922717292
+  },
+  "pae_logits": {
+   "bit_identical": true,
+   "rel_l2": 0.0,
+   "max_abs": 0.0,
+   "norm_ref": 4801.859055459928,
+   "norm_mine": 4801.859055459928
+  },
+  "pde_logits": {
+   "bit_identical": true,
+   "rel_l2": 0.0,
+   "max_abs": 0.0,
+   "norm_ref": 14311.013980342595,
+   "norm_mine": 14311.013980342595
+  },
+  "plddt_logits": {
+   "bit_identical": true,
+   "rel_l2": 0.0,
+   "max_abs": 0.0,
+   "norm_ref": 587.0393362550751,
+   "norm_mine": 587.0393362550751
+  }
+ },
+ "cotangent_keys": [
+  "distogram_logits",
+  "experimentally_resolved_logits",
+  "pae_logits",
+  "pde_logits",
+  "plddt_logits"
+ ],
+ "cotangent_mass": {
+  "pae_logits": {
+   "sq_norm": 2.540105639421151e-12,
+   "sq_norm_real_block": 2.540105639421151e-12,
+   "share_real_block": 1.0
+  },
+  "pde_logits": {
+   "sq_norm": 1.897851266863355e-12,
+   "sq_norm_real_block": 1.8978512668633547e-12,
+   "share_real_block": 0.9999999999999998
+  },
+  "experimentally_resolved_logits": {
+   "sq_norm": 4.285700946282958e-14,
+   "sq_norm_real_block": null,
+   "share_real_block": null
+  },
+  "plddt_logits": {
+   "sq_norm": 1.999976270441441e-11,
+   "sq_norm_real_block": null,
+   "share_real_block": null
+  },
+  "distogram_logits": {
+   "sq_norm": 2.243188333319594e-07,
+   "sq_norm_real_block": 2.243188333319594e-07,
+   "share_real_block": 1.0
+  }
+ }
+}
