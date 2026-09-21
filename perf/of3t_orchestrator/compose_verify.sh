@@ -57,6 +57,29 @@ ROWS="$ROWS_FLOOR"
 for _r in $ROWS_SEEN; do
   case " $ROWS_FLOOR " in *" $_r "*) ;; *) ROWS="$ROWS $_r" ;; esac
 done
+
+# HELD OUT, announced every run and never silent. A row lands here only when its branch cannot be
+# composed with the others AT ALL -- not a conflict a resolver can take, but two independent
+# implementations of one file -- and only after it has been told, in its brief, what to base on
+# instead. The alternative is a composition that stops composing until a mid-flight row rebases,
+# which hides every OTHER row's evidence behind one row's duplicate work.
+#
+#   d10d24-unify  pass 271. Wrote `tt_bio/ranking.py` and `tests/test_sample_ranking.py` from
+#                 scratch; both already exist finished on `wk/of3t-rankunify`, which CONCLUDED and
+#                 is what Moritz's 9629 decision means by "merge the unified rule". add/add, 7 and
+#                 2 hunks. AMENDMENT 1 tells it to rebase onto rankunify and keep ITS files.
+#   d56-renorm    pass 271. Edits `perf/of3t_orchestrator/assert_new_levers_default_off.py` --
+#                 the instrument that checks its own lever, which is the one file a row may not
+#                 change -- and conflicts there in 3 hunks plus 2 in tt_bio/ from a stale base.
+#                 AMENDMENT 1 tells it to flip the default in its own namespace, say what the
+#                 assert must become, and rebase onto d116's unified helper.
+HELD_OUT="d10d24-unify d56-renorm"
+for _h in $HELD_OUT; do
+  _keep=""
+  for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
+  ROWS="$(printf '%s' "$_keep" | sed 's/^ //')"
+  echo "HELD OUT of3t-$_h: told to rebase (see its brief); NOT in this composition and NOT silently dropped"
+done
 for _r in $ROWS; do
   case " $ROWS_FLOOR " in *" $_r "*) _inf=1 ;; *) _inf=0 ;; esac
   case " $ROWS_SEEN " in *" $_r "*) _ins=1 ;; *) _ins=0 ;; esac
@@ -257,6 +280,12 @@ _ASSERT
             cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
             rm -f /tmp/.gi_ours /tmp/.gi_theirs
             git add .gitignore
+          elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
+            # d116 unified the softmax-backward inner term across its two identical call sites
+            # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
+            # HEAD's box read and `__all__`, take d116's helper call and its new name. The
+            # resolver refuses the moment the hunk stops having that exact shape.
+            git add "$_f"
           elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             git add "$_f"
           else
@@ -347,7 +376,15 @@ done
 #   instrument -- a private copy would fork the campaign's only diffusion-scope floor -- and that
 #   the merged result is ASSERTED to carry both rather than assumed. Added pass 238, when
 #   of3t-cond043 was still unpushed and the collision was still avoidable.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py"
+#   tt_bio/autograd.py: of3t-d116 owns `softmax_bw_inner`, the ONE expression it factored out of
+#   `triangle_attention` and `_v_softmax` so the TT_BIO_SOFTMAX_BW_RENORM repair cannot be applied
+#   to one of two identical sites -- which matters now that Moritz's 9629 decision is SHIP IT ON;
+#   of3t-d137-tapegate owns `host_f64_softmax` / `host_f64_softmax_values` and the tape gate, the
+#   D137 safety fix. The hunks OVERLAP in `__all__`, so disjointness is NOT the argument -- both
+#   are wanted in the one tape, and the merged result is ASSERTED below to carry both rather than
+#   assumed. Added pass 271. NOTE of3t-d116 is based on a main from before `_v_softmax` moved to
+#   the box pattern; `resolve_d116_softmax_inner.py` bridges that and the row is told to rebase.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py"
 _coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
@@ -385,6 +422,18 @@ if [ -z "$dup" ]; then
     echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
   fi
   echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
+  # The third overlapping co-edit, asserted only when both rows are in this composition.
+  if printf '%s ' $PRESENT | grep -q "d116 " && printf '%s ' $PRESENT | grep -q "d137-tapegate "; then
+    _af="$CO/tt_bio/autograd.py"
+    _amiss=""
+    grep -q "def softmax_bw_inner" "$_af" || _amiss="$_amiss of3t-d116's unified softmax_bw_inner"
+    grep -q "SOFTMAX_BW_RENORM" "$_af" || _amiss="$_amiss the D56 renorm branch inside it"
+    grep -q "host_f64_softmax" "$_af" || _amiss="$_amiss of3t-d137-tapegate's host_f64_softmax"
+    if [ -n "$_amiss" ]; then
+      echo "CO-EDIT LOST A SIDE in tt_bio/autograd.py --$_amiss"; exit 1
+    fi
+    echo "co-edit: autograd.py carries BOTH d116's unified softmax_bw_inner (with the D56 renorm) and d137-tapegate's host_f64_softmax"
+  fi
   # The second overlapping co-edit, asserted only when both rows are actually in this composition.
   if [ "$_coedit_floor" = "1" ]; then
     _ff="$CO/perf/of3t_condtrans/floor_bf16.py"
@@ -623,6 +672,14 @@ echo "--- summary paragraphs are stamped and fresh"
 echo "--- capture provenance records unexpected_keys"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
   { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
+
+# (3j) D149. `of3t-trajwide` ran openfold3 0.5.0 for its whole life while its constant and its
+# prose said 0.4.3, because three `sys.path.insert(1, p)` calls reverse the order they were written
+# to set. Narrow on purpose: the reversing LOOP, not the absence of a resolution read -- the broad
+# version flagged 18 further files whose second insert is `os.getcwd()`.
+echo "--- sys.path order: no new tree-resolution trust (D149)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_path_order_ratchet.py . ) || \
+  { echo "COMPOSE: a new of3t script trusts a package-path constant instead of the resolution"; exit 1; }
 
 echo "--- inference: no float64 softmax on main"
 git fetch -q origin main 2>/dev/null || true
