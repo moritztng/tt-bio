@@ -42,7 +42,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-from .tenstorrent import Pairformer, accurate_softmax_site
+from .tenstorrent import Pairformer, accurate_softmax_site, triatt_sdpa_hifi_site
 from .openfold3_weights import remap_pairformer_stack
 
 # aux_heads.pairformer_embedding distance bins (config.model_config).
@@ -86,7 +86,8 @@ class OF3ConfidenceHead:
         self.pf = Pairformer(n_blocks, tri_att_head_dim, tri_att_n_heads,
                              att_head_dim, att_n_heads, True, pf_sd, compute_kernel_config,
                              scale_pair_bias=False, fp32_softmax=True,
-                             accurate_softmax=accurate_softmax_site("openfold3.confidence"))
+                             accurate_softmax=accurate_softmax_site("openfold3.confidence"),
+                             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence"))
         self.n_blocks = n_blocks
 
         bins = torch.linspace(_MIN_BIN, _MAX_BIN, _NO_BIN, dtype=torch.float32)

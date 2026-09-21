@@ -31,6 +31,17 @@ NOT_DERIVABLE = [
     (4, 1), (12, 1), (2, 1),
     (4, 13), (8, 25), (12, 37),   # base + 1, which is not a fusion of two
     (16, 48),  # a kt with no registered width at all
+    # A width paired with ITSELF is not a fusion: qkv is 3 * heads * head_dim and the gate is
+    # heads * head_dim, so the two operands of a real concatenation always differ. The first
+    # version of the rule allowed b is a, which configured these two on models nobody had folded
+    # -- rfdiffusion3 (2, 24) at 80 calls a fold and boltzgen (2, 4) at 96 -- and made
+    # (12, 24)/(12, 25)/(12, 72)/(12, 73) derivable from the two entries the table records as not
+    # bit-exact. These pin it shut.
+    (2, 4),    # 2 + 2, boltzgen
+    (2, 24),   # 12 + 12, rfdiffusion3
+    (2, 12),   # 6 + 6: registered as a BASE width, so it must resolve from the table, not derive
+    (12, 24), (12, 25), (12, 72), (12, 73),   # self-pairs of the two non-bit-exact opendde entries
+    (4, 24), (8, 48),                          # self-pairs of the registered qkv widths
 ]
 
 

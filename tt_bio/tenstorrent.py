@@ -7144,7 +7144,7 @@ def _mm_fused_block(kt: int, nt: int):
     The inner loop starts at `i + 1`, so an operand pairs only with a DIFFERENT one. Letting a
     width pair with itself invents a concatenation no kernel performs -- qkv is always 3 * heads * head_dim and
     the gate is heads * head_dim, so a real fusion is never `a + a` -- and the self-paired form
-    configured rfdiffusion3's (2, 24) on 80 calls a fold and boltzgen's (2, 4) on 96, two models
+    configured RoseTTAFold3's (2, 24) on 80 calls a fold and boltzgen's (2, 4) on 96, two models
     this rule was never folded against, plus (12, 24)/(12, 25)/(12, 72)/(12, 73), which would have
     inherited the two opendde entries the table records as NOT bit-exact. All six deleted literals
     still reproduce byte-for-byte and both opendde keys survive, so the measured 1.438 s is
@@ -7356,7 +7356,12 @@ class TriangleAttention(Module):
         # would leave those A/B legs silently running one arm twice. A bool pins this attention
         # and ignores the variable, which is how a model scopes the lever to its own blocks
         # without reaching into a stack it does not own.
-        self.fused_hifi = fused_hifi
+        # `or None`: a site flag of False means "this site did not ask for it", NOT "pin it off
+        # against `TT_BIO_TRIATT_FUSED_HIFI`". `triatt_sdpa_hifi_site` returns False for every site
+        # that has not flipped its default, and forwarding that as a hard False would take the
+        # process-wide env override away from every Pairformer-built block -- which is the only way
+        # anyone A/Bs this today. True still pins on, and an explicit pin-off has no caller.
+        self.fused_hifi = fused_hifi or None
         # Which of this block's two biases ride inside their matmul rather than in a separate
         # `ttnn.add_`, over {g, o}. `None` follows the process-wide screen, which is empty unless
         # TT_BIO_PAIR_BIAS_IN_MATMUL says otherwise; a model that names it pins its own blocks and
@@ -8847,7 +8852,28 @@ class PairformerLayer(Module):
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
+            # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
+            # reads a different one in each of its two branches: `fused_hifi` when the site
+            # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
+            # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
+            # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
+            # Whichever branch the site is in, the other attribute is simply never read.
+            fused_hifi=tri_att_sdpa_hifi,
             sdpa_hifi=tri_att_sdpa_hifi,
+            # The faithful reduction order rides the SAME decision, so the configuration that
+            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+            # the whole key length, so the online softmax makes no running-max rescale and
+            # reduces each row in the order the torch reference and _fp32_softmax_attention
+            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+            # only a site that has turned the route ON receives it. A site A/B'ing the route
+            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+            # only combination that has cleared an accuracy standard.
+            tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.triangle_attention_end = TriangleAttention(
@@ -8862,7 +8888,28 @@ class PairformerLayer(Module):
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
             accurate_softmax=tri_acc,
+            # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
+            # reads a different one in each of its two branches: `fused_hifi` when the site
+            # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
+            # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
+            # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
+            # Whichever branch the site is in, the other attribute is simply never read.
+            fused_hifi=tri_att_sdpa_hifi,
             sdpa_hifi=tri_att_sdpa_hifi,
+            # The faithful reduction order rides the SAME decision, so the configuration that
+            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+            # the whole key length, so the online softmax makes no running-max rescale and
+            # reduces each row in the order the torch reference and _fp32_softmax_attention
+            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+            # only a site that has turned the route ON receives it. A site A/B'ing the route
+            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+            # only combination that has cleared an accuracy standard.
+            tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.transition_z = Transition(
