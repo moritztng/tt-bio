@@ -10423,3 +10423,20 @@ The pass-267 guard holds one declared pair — `of3t-trajwide` -> `"on a CONFIGU
   5. **agreement AND accuracy, both** (A25), with the reachable bar named (A26).
 
 If the row reports a number that cannot carry all five, the bullet says what is missing and stays **owed**. A figure that arrives without its denominator is how D136 happened in the first place: a trajectory headline that was right about a configuration and read as being about the model, for 25 passes.
+
+### D158. Source citations in this ledger do not say WHICH TREE they are in, and `attention.py`, `pairformer.py` and `normalization.py` all exist in both tt-bio and upstream openfold3. FOUND by the orchestrator (pass 292) while auditing for stale line numbers. **UNFIXED as a convention; no stale citation found.**
+
+D32's pass-222 update records *"5 of 21 line numbers stale — the `defect-located-only-by-line-number-decays` trap a third time in this file"*, so I audited all of them: **140 distinct `file.py:NNN` citations** in `DEFECTS.md`, resolved against the composition.
+
+    resolvable and within the file          119
+    file not in the composition              20   all upstream openfold3 paths (core/model/...)
+                                                  and _of3t_donecheck.py, which live outside it
+    line past end of file                     1   and it is my checker's error, not a citation's
+
+**The one hit is a false positive and looking at it is the finding.** `attention.py:314` is cited as *"`attention.py:314` in 0.4.3, `:321` in 0.5.0"* — an **upstream** file. My check resolved it by basename against the composition, found **tt-bio's own** `attention.py` at 313 lines, and called it out of range. Two different files, same name. That is the pass-284 substring-inventory mistake in a new costume: **a name that looks like a location**, and this time I caught it before filing rather than after.
+
+**So no citation in the ledger is demonstrably stale by this test, and the test is weaker than it looks.** It can only catch a line past EOF; a line that MOVED inside a file it still fits in is invisible, which is exactly the decay D32 hit. Detecting that needs the cited snippet recorded beside the number, and 140 retrofits is not worth it.
+
+**What is worth it is the convention, and one clause in this file already does it right.** Line 123 writes *"`attention.py:314` in 0.4.3, `:321` in 0.5.0"* — the citation names its tree and its two revisions. Everything the campaign has learned about references says the same thing in a different place: D149 (a constant is not a resolution), D153 (a path that no longer exists resolves to the wrong tree silently), D112 (the same arms re-scored against 0.4.3 flip four of six). **A citation that does not name its tree is the same defect at documentation scale**, and this campaign reads both trees constantly.
+
+**Not filed as a guard.** Requiring a tree on all 140 would be a retrofit with no way to verify the answer, and the pass-261 threshold applies. Recorded as the convention new entries should follow: name the tree when the filename exists in both.
