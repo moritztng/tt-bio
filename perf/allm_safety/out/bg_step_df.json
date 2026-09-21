@@ -1,0 +1,35 @@
+{
+  "label": "bg-step-df",
+  "arm": "on",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "design",
+    "/home/ttuser/.coworker/wt/allm-safety/examples/binder.yaml",
+    "--model",
+    "boltzgen",
+    "--num_designs",
+    "1",
+    "--seed",
+    "0",
+    "--steps",
+    "design,inverse_folding,design_folding",
+    "--out_dir",
+    "perf/allm_safety/out/design_bg_step_df"
+  ],
+  "rc": 0,
+  "cut_short": false,
+  "wall_s": 50.186,
+  "processes": 1,
+  "state": {
+    "fuse_calls": 640,
+    "fuse_qkv_flag": 1,
+    "fuse_reject|head_dim": 16,
+    "fuse_reject|qkv_already_fused_with_gate": 544,
+    "fuse_returned_none": 16,
+    "fuse_served": 624,
+    "gate_epilogue_flag": 1,
+    "gate_rejected": 0,
+    "gate_served": 544
+  }
+}
