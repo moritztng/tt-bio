@@ -631,6 +631,8 @@ record its own.
 
 **D140 (UNFIXED; argued in full in PASSLOG)**: two of `of3t-trajwide`'s arms — **`norebind` and `zero`, both CONTROLS** — died with **no error, no traceback, no `done rc=` marker and no process**, while the row was between passes and its state doc read IN FLIGHT. `norebind` walked its 980 weights, took one forward at **2.002969e-02**, and vanished; `zero`, the A16 baseline, never started. **Not an OOM** — kern.log's last kill is 02:16:33, the pairformer rung, and the host has 193 GB of 249 free. `ours_chain.log` is **empty**, so the sequencer left no record of its own exit. The reference side is alive and healthy at 987 % CPU, so half the row runs and half stopped silently. **A run that loses its controls and keeps its treatment arms looks finished and proves nothing**; the brief is amended in place to assert a `done rc=` marker AND a steplog per arm before scoring, re-run both, and refuse a verdict whose controls did not run.
 
+**D141 (UNFIXED; argued in full in PASSLOG)**: the shared diffusion capture records `missing_keys` and **not `unexpected_keys`**, so `capture_diffusion_boundary_043_REBUILT.json` reads *n_loaded 4935, n_missing 1, missing `['version_tensor']`* — a clean load — while **24 trained `attention_pair_bias.layer_norm_z.weight` tensors were dropped as unexpected**. `capture_trunk_boundary.py` has recorded `n_unexpected` all along; the diffusion side never had it. **Every diffusion-scope figure is scored against a reference built that way**, including the D129 ratio; whether those numbers move is **not decided here**, and what is established is that **no artifact among them carries the field that would settle it**. Found from a mismatch `of3t-trajwide` is still working (BLOCKED, its numbers its own). Three reports frozen as a shrink-only ratchet; a fourth fails the compose.
+
 **D119 (UNFIXED, mine)**: the observational floor I built for the crop ladder is close to vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so the control tests only that a projection exceeds the card and cannot separate two that both do. Plus a unit error under it: the card is 34,225,520,128 B (**34.2255 decimal GB = 31.875 GiB**) and `project.py` compares against 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; it does not change 640's GO, and it is why 768 is closed on a measured lower bound rather than on a projection.
 
 **Both pass-207 repairs are guarded off (pass 209); argued in full in PASSLOG.** `TT_BIO_SOFTMAX_BW_RENORM` and the host float64 softmax are default-off and asserted so on every compose.
@@ -819,15 +821,25 @@ an **identity** at relative difference **0.0**.
   going stale. Still defective (D122). It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
   defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
   them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
-  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 39 campaign-internal**. I did not
+  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 40 campaign-internal**. I did not
   move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
   while any UNFIXED defect ships to users.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty defects, fifty-two UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-one defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **A fuller GAP paragraph, moved here at pass 254**; nothing in it is changed.
+PASSLOG: **Pass 255 — the reference every diffusion figure in this campaign is scored against was built by a loader whose provenance block is blind to the half of the load where the error was (D141).** `of3t-trajwide` relaunched, read the amendment, and went further than it: it found that upstream 0.4.3 hoists the pair LayerNorm to the transformer level as one shared `LayerNorm(c_z)` while `of3-p2-155k.pt` stores it **per block** — 24 tensors under `attention_pair_bias.layer_norm_z.weight`. Loading that checkpoint into their module with `strict=False` leaves the shared weight at its **all-ones init** and drops the 24 trained ones as *unexpected*. Its verdict moved **NO-GO → BLOCKED**, and its numbers are its own to publish.
+
+**What I own is why nobody saw it for a hundred passes.** `perf/of3t_diffusion/capture_diffusion_boundary.py` writes `n_loaded`, `n_missing` and `missing` — and **never reads `inc.unexpected_keys` at all**. So the rebuilt capture's report says *n_loaded 4935, n_missing 1, missing `['version_tensor']`*, which is what a clean load looks like. The 24 appeared on **stdout** and in no artifact. `perf/of3t_gradients/capture_trunk_boundary.py`, the trunk equivalent, records `n_unexpected` and always has: **the trunk side had the guard and the diffusion side never did.**
+
+**The blast radius is the part I am careful about.** Every diffusion-scope figure — the floors, the D129 ratio — is scored against a reference built by that loader. Whether any of those numbers move is **not decided here and must not be guessed**; what is established is narrower and worse: **no artifact among them carries the field that would settle it.** That is a statement about the evidence, not about the results, and it is the only one available until a capture is rebuilt with both halves recorded.
+
+**Guarded so a fourth cannot ship blind.** `assert_capture_records_unexpected.py` fails any artifact whose `checkpoint` block records `n_missing` without `n_unexpected`, with a probe on a synthetic missing-only block so its silence means something. It found exactly three — `capture_diffusion_boundary.json`, `capture_diffusion_boundary_043.json`, `capture_diffusion_boundary_043_REBUILT.json` — all frozen as a **shrink-only** ratchet, because failing on them would abort every compose until captures costing reference-side hours are re-run, and that work belongs to whoever rebuilds the reference.
+
+**The row is healthy and self-correcting, which is worth saying after last pass.** It wrote `run_ours_controls.sh` for exactly the two arms D140 named, with the right scoping argument in its own header — *"our side never reads the reference module, so shipped/shipped_aa2/permute/stale carry over unchanged and only these two were never run"* — and it is re-running `theirs` because the **reference** changed, not because the amendment told it to.
+
+**A fuller GAP paragraph, moved here at pass 254**; nothing in it is changed.
 
 **D120's ranking carries a positive result the record did not (pass 211); argued in full in PASSLOG.** On the most-executed island in the model we BEAT upstream against the right boundary.
 

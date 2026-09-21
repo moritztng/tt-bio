@@ -9546,3 +9546,50 @@ is a run that will look finished and prove nothing.
 this orchestrator holds neither. `workstreams/of3t-trajwide.txt` is amended so the row's next pass
 checks every arm for a `done rc=` marker and a steplog before it scores anything, and re-runs what
 is missing — and refuses to publish a verdict whose controls did not run.
+
+### D141. The shared diffusion capture's provenance records `missing_keys` and NOT `unexpected_keys`, so a checkpoint that silently drops 24 trained tensors reads as a clean load in every artifact derived from it. FOUND by the orchestrator (pass 255), from a finding `of3t-trajwide` is still working. **UNFIXED.**
+
+`perf/of3t_diffusion/capture_diffusion_boundary.py` — the script that built **`diffcap043`**, the
+capture every diffusion-scope arm in this campaign is scored against — does:
+
+```python
+inc = model.load_state_dict(sd, strict=False)
+rep["checkpoint"] = {"file": CKPT.name, "n_loaded": len(sd),
+                     "n_missing": len(inc.missing_keys),
+                     "missing": list(inc.missing_keys)}
+```
+
+**`inc.unexpected_keys` is never read, never recorded and never asserted empty.** The rebuilt
+capture's report therefore says:
+
+    n_loaded 4935 | n_missing 1 | missing ['version_tensor'] | n_unexpected  -- ABSENT
+
+which reads as a clean load. `perf/of3t_gradients/capture_trunk_boundary.py`, the trunk equivalent,
+**does** record `n_unexpected` — so the trunk side has had the guard all along and the diffusion
+side has never had it.
+
+**What lives in the field that is not recorded.** `of3t-trajwide` (live, BLOCKED, its numbers are
+its own to publish) reports that upstream 0.4.3 hoists the pair LayerNorm to the transformer level
+as one shared `LayerNorm(c_z)` while `of3-p2-155k.pt` stores it **per block** — 24 tensors under
+`attention_pair_bias.layer_norm_z.weight`. Loading that checkpoint into their module with
+`strict=False` leaves the shared weight at its **all-ones init** and drops the 24 trained ones as
+*unexpected*; the row measures those 24 at **0.2982 to 0.7355** relative away from ones, median
+**0.5196**, and says our side loads all 24 bit-exactly. Its own words: *"the two sides run different
+architectures for the pair-bias normalisation in all 24 blocks."*
+
+**The defect filed here is not that finding — it is that the instrument could not show it.** A
+provenance block whose purpose is to prove the reference was loaded correctly omits exactly the
+field in which this class of error appears, so twenty-four dropped trained tensors produced a report
+reading *1 missing, `version_tensor`*. The row could only call it *"the 1 missing / 24 unexpected the
+last pass recorded as a footnote"* because the 24 appeared on **stdout** and never in an artifact.
+
+**Blast radius, and it is why this is filed separately and immediately.** Every figure scored
+against `diffcap043` or `/home/ttuser/of3t_diffusion_cap` inherits a reference built this way — which
+includes the diffusion-scope floors and the D129 ratio. Whether those numbers move is **not**
+decided here and must not be guessed; what is established is that **no artifact among them carries
+the evidence that would settle it**, because the field is absent from all of them.
+
+**The fix is two lines and a check.** Record `n_unexpected` and `unexpected` beside the missing
+pair, and **assert both are empty or enumerated with a reason**. A compose guard now fails any
+capture report that carries a `checkpoint` block without an `n_unexpected` field, so a provenance
+block cannot again be silent about the half of the load where the error was.

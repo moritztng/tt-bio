@@ -180,6 +180,10 @@ TABLE = {
                    "no error and no done marker while the row was between passes. A fleet/row "
                    "observability defect in this campaign's own execution, not something a user "
                    "of the shipped tree can reach."),
+    "D141": (CAMP, "The shared diffusion capture records missing_keys and not unexpected_keys, so "
+                   "a load that drops 24 trained tensors reads clean in every artifact derived "
+                   "from it. An instrument-provenance defect in this campaign's own reference "
+                   "chain; it changes nothing a user of the shipped tree gets."),
     "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
                   "and the shipped default is the other way; by mass it is 2.5 %. A training-"
                   "gradient decision, not an inference output a user sees."),
