@@ -9225,3 +9225,64 @@ vocabulary that hole re-read four entries silently — **D3**'s heading is *"UNF
 recorded so it is not lost"*, and its last lower-case word would have retired it, along with D117,
 D123 and D124. Case matters, the house convention is capitals, and `statuses_by_defect` now enforces
 it with a self-test carrying D3's, D116's and D69's exact shapes.
+
+### D4 UPDATE (pass 241). **FIXED** — declared, on what the entry's own body already records: "Fixed in the shared path."
+
+The loader-hooked census was blind to anything a module derived in its own `__init__`, by the same
+32-tensor shortfall on OpenFold3, Protenix-v2, Boltz-2 and BoltzGen — 2119 weights found by the
+loader against 2531 reachable from the built model, and 2314 of 2531 carrying a gradient once
+discovery walks the built model. `of3t-leaves` closed it in the shared path, which is what the
+UNIFIED rule requires. No status word had ever been written on a heading (**D133**); this declares
+the one the body states.
+
+### D5 UPDATE (pass 241). **FIXED** — declared, with the scope note the entry already carries.
+
+Both arms were closed by `of3t-leaves` against upstream's real `grad_manager`: the disabled-parameter
+exclusion **8.333e-01 → 1.989e-08**, and per-sample clipping **1.957e-01 → 0.000e+00**. The honest
+scope note stands and is not a defect: per-sample clipping **has no caller**, because the shipped
+loop runs one forward per batch. The rule is equivalent; the loop that would exercise it does not
+exist.
+
+### D6 UPDATE (pass 241). **FIXED** — declared, and the fourth blind spot verified in the tree rather than taken from the entry.
+
+Three of the four are recorded closed in the body (the function-local `import ttnn` census with its
+allowlist and reasons, the `_Ttnn.__getattr__` proxy, and `triatt_qkv.py` fixed **as a class**). The
+fourth — *"OF3's `fp32_softmax=True` path had no backward at all"* — was checked against the
+composed tree rather than assumed: `taped_ttnn.py` registers the derivative for the
+`MUL_UNARY_SFPU` activation the fp32-softmax tail rides, with the note that *"openfold3's trunk,
+template and MSA stacks all take that path by default — `fp32_softmax=True` at every one of them —
+so this is the shipped path for a whole model, not an opt-in corner."* The path has a backward.
+
+### D7 UPDATE (pass 241). **FIXED** — declared, both halves verified in the tree.
+
+`_triangle_mul_memory_config` now returns DRAM under a tape (`if seq_len in _TRIMUL_DRAM_SHAPES or
+ops.taping()`), carrying the defect and its reason in its own comment: a tape keeps what the forward
+frees, so every chunk's split, both channel moves, the input projection and the chunk matmul stayed
+resident and the fourth block's QKV projection refused. And `docs/openfold3-vendor.md`, the dangling
+`NOTICE` reference that existed nowhere, exists — closed by `of3t-data`.
+
+### D18 UPDATE (pass 241). **FIXED** — the rebuild it was waiting on is not only published, it is the reference every diffusion arm in this campaign is scored against.
+
+D18 was filed at pass 40 as *"FIX IN FLIGHT — the rebuild reproduces bit-identically; publication
+pending"*, and the publication is long since done: `bundle_min_043` is the campaign's reference, and
+`of3t-cond043` re-validated it at pass 240 with `vs_bundle` worst_rel **0.0** over 761 tensors and
+all four declared sha256 hashes matching. A defect whose stated exit condition has been met for two
+hundred passes should not still be reading as in-flight.
+
+### D1 UPDATE (pass 241). **UNFIXED**, and USER-FACING: the repair is written and measured, it is deliberately HELD because applying it measured WORSE, and the deviation is what ships.
+
+`openfold3_trunk.py` builds all 48 pairformer blocks with `scale_pair_bias=False`, so the trunk pair
+bias lands at **1/sqrt(24) = 0.204** of its intended value in every OF3 fold served. The sweep is
+unambiguous: `c = 1/sqrt(24)` fits all four blocks at 6.9e-03 to 1.7e-02 while the reference `c = 1`
+is off by 9.1e-02 to 3.3e-01.
+
+**Why it is still UNFIXED after the fix was written.** The compose asserts the shipped default every
+run — *"OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.149 Å worse at rank
+0, `of3t-confhead` final, `5588d889a`; not blocked on D10, which is resolved)"*. So the original
+blocker is gone and what holds it now is its own measurement: flipping it made the served structures
+**0.149 Å worse** at rank 0. That is a real reason to hold and not a reason to close.
+
+**So it is recorded as what it is**: a deviation from upstream's intended arithmetic that ships
+today, with a repair in hand that measured worse. **USER-FACING**, because it changes the inference
+output a user gets, and the gate should count it. Whether to ship the repair against a 0.149 Å
+regression is Moritz's decision, not a row's — it is the same shape as D10 and D24.

@@ -166,6 +166,10 @@ TABLE = {
                   "247x inside the bar, so the share our device failed is a port gap and not a bar "
                   "problem. A statement about this campaign's bar, never disposed of; it changes "
                   "nothing a user of the shipped tree gets."),
+    "D1": (USER, "The trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value in every "
+                 "OF3 fold served. The repair is written and HELD because applying it measured "
+                 "0.149 A WORSE at rank 0, so what ships is a deviation with a repair in hand. "
+                 "Whether to take the regression is Moritz's call, like D10 and D24."),
     "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
                   "and the shipped default is the other way; by mass it is 2.5 %. A training-"
                   "gradient decision, not an inference output a user sees."),
