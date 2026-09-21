@@ -1439,12 +1439,13 @@ if ORCH.is_file():
             # green, which is how this one's absence went unnoticed for 175 passes.
             ok.append(f"all {len(_valid)} defect headings parse over {n_def} distinct defects, "
                       f"so none is invisible to its audit")
-        _STAT_H = _STATUS_RE
-        _cur = {}
-        for _d, _rest in _valid:                       # file order, so a later UPDATE wins
-            _t = _STAT_H.findall(_rest.upper())
-            if _t:
-                _cur[_d] = _t[-1]
+        # Pass 241: this used to be a THIRD parse -- `findall(rest.upper())`, file order -- and it
+        # read D3's "UNFIXED, out of scope, recorded so it is not lost" as RECORDED the moment that
+        # word entered the vocabulary, along with D123 and D124. The audit then reported 46 UNFIXED
+        # while `statuses_by_defect` reported 49, in the same run. Two parses, two answers, one
+        # question. There is one parse now.
+        from status_vocab import statuses_by_defect as _sbd
+        _cur = _sbd(_dt)
         n_unf = sum(1 for _v in _cur.values() if _v == "UNFIXED")
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
