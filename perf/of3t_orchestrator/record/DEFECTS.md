@@ -8954,3 +8954,145 @@ would abort every compose on a collision that has not happened.
 cond043's --expect-version* (its side is genuinely absent today, which is why the flag is
 conditional); with that flag added, both sides present; deleting `--capture-ln` reports it lost;
 renaming `"f64"` reports the f64 policy lost. No arm of the check is vacuous.
+
+### D129 UPDATE 2 (pass 240). The bar barely moves across the boundary: upstream 0.4.3's own bf16 floor on this leaf is 1.5931532097e-01 against 0.5.0's 1.5815634233e-01, **0.73 %** apart, so A26's bar goes 0.223667 → 0.2253059. Still **UNFIXED**, and the ratio that would settle it is still uncomputed.
+
+`of3t-cond043` returned **GO** on `wk/of3t-cond043` at `e633d89bf`, CPU only, nothing under
+`tt_bio/`. Package `/home/ttuser/of3t_refprec/of3pkg043` (0.4.3), capture
+`/home/ttuser/of3t_softgrad/diffcap043`, reference `grad_f64` from that capture's own
+`sub_boundary.pt`, `OMP_NUM_THREADS=8`, 761 tensors.
+
+    whole diffusion scope, n=761      mass-weighted rel 1.8817643472e-01
+    D129's leaf, n=30                 1.5931532097e-01   (0.5.0: 1.5815634233e-01, +0.73 %)
+    attention_pair_bias...   n=24     2.8190352687e-01   (0.5.0: 4.8070180113e-01, -41 %)
+    f32 instrument floor              2.0628292805e-05   four orders below every bf16 arm
+    A/A                               max |difference| exactly 0.0
+    break control                     scope 0.188176 -> 1.234348, leaf 0.159315 -> 1.389184
+    A16                               exactly 1.0;   A14  nothing near the 1e-12 floor
+
+**So the caveat the orchestrator attached to D129 is answered on the denominator side and only
+there.** The bar at the boundary the served checkpoint is bound to is **2.2530588761e-01**. Whether
+D129 survives depends on our arm *at the 0.4.3 capture*, which no artifact in this campaign holds
+and which needs a device lease the row was explicitly dispatched without.
+
+**The row refuses the quotient everyone wants, and it is right to.** 0.693974 was taken at
+`/home/ttuser/of3t_diffusion_cap` against that capture's float64 reference under 0.5.0; the floor
+was taken at `diffcap043` against a different float64 reference under 0.4.3. A27 permits a ratio
+only inside one capture, one package, one reference.
+
+**The prediction was registered before the first arm (`63030ff0f`) and scored honestly**: right that
+the 0.4.3 floor on D129's leaf would be larger and by far less than 2x; **wrong** on the other leaf
+and on the whole scope, both of which came back *smaller*; and wrong in its reasoning even where the
+arithmetic survived. The row says the miss is worth more than the hit, and the next entry is why.
+
+### D120 UPDATE 2 (pass 240). Its mechanism is CORRECTED at the diffusion boundary: 0.4.3 and 0.5.0 are two different FUNCTIONS there, not two roundings of one. A cross-version difference in that scope was never a precision measurement. D120 stays **UNFIXED**.
+
+D120 says our port is within 1.8x of upstream at 0.4.3 and 19,000–30,000x away at 0.5.0 *"with
+nothing about our arithmetic different between those two sentences"*, and attributes the whole of it
+to an autocast boundary that moved — LayerNorm and the attention softmax in bf16 at 0.4.3, fp32 at
+0.5.0. `of3t-cond043`'s version-only arm holds the **capture fixed** and swaps only the package, all
+four cells scored against the **same** float64 reference (`BARS_VERSION_ONLY.json`, 737 tensors,
+reference mass 12.6504, verified by the orchestrator from the pushed artifact):
+
+| arm | scope mass-weighted rel | D129's leaf | the other leaf |
+|---|---|---|---|
+| `pkg050_f32` | **1.94959719e-05** | 1.52003152e-05 | 2.24336157e-05 |
+| `pkg050_bf16auto` | 3.02183704e-01 | 1.58156342e-01 | 4.80701801e-01 |
+| `pkg043_f32` | **7.66979728e-01** | 6.47233715e-01 | 7.80768803e-01 |
+| `pkg043_bf16auto` | 7.71559363e-01 | 7.29764343e-01 | 6.94323455e-01 |
+
+**Read the two rows that matter.** Within **0.5.0**, going f32 → bf16 moves the scope from
+1.95e-05 to 0.302 — a factor of **15,500**, which is what a precision boundary looks like. Within
+**0.4.3**, the same f32 → bf16 switch moves it from 0.76698 to 0.77156 — **0.6 %**. The dtype does
+essentially nothing. The entire **0.767** is the package, at **39,340x** the instrument floor, with
+no bf16 anywhere in the f32 cell.
+
+**What this corrects and what it does not.** It does **not** refute D120's island measurements,
+which were taken on trunk/attention fp32 islands at crop-384 and are a different scope. It does
+refute *"only the boundary moved"* **as an account of the diffusion boundary**: there, the two
+upstream trees compute materially different functions, so any figure that differences 0.4.3 against
+0.5.0 in that scope is measuring a model change and a precision change at once and cannot separate
+them. D120's own durable lesson — *any of3t gradient number is unreadable without its boundary
+version* — is strengthened, not weakened: at the diffusion boundary the two versions are not
+comparable at all, not merely comparable-with-a-caveat.
+
+**And it retires a question of the orchestrator's own.** Pass 236 filed D129 with the caveat that
+4.388x *"cannot say whether the same ratio holds at 0.4.3"* and framed that as a precision question
+after D120. It is not a precision question. It is a *which model* question, which is why the ratio
+has to be rebuilt rather than translated.
+
+### D69 UPDATE (pass 240). Never closed by anyone: the parser has been reading it as FIXED since pass 169 because its heading contains the English word "fixed". Restated **UNFIXED**.
+
+D69's only heading ends *"...against a reading fixed before the arm produced output"*. The status
+parser uppercases the whole heading before matching its vocabulary, so that past participle has
+stood in for a declaration for seventy-one passes, and D69 has been absent from the UNFIXED set,
+from `state/of3t/UNFIXED_TRIAGE.json` and from GAP's naming requirement the entire time.
+
+**Its substance was never disposed of.** Upstream's own single precision reproduces its float64
+gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a
+port gap and not a bar problem. Later work has moved the surrounding numbers a great deal — the
+whole-model reading is now 0.9592x of its reachable bar — but no row has ever addressed D69's claim
+as such, and inventing a closure for it now would repeat the error in the other direction. It is
+**UNFIXED** until something measures it.
+
+### D116 UPDATE 5 (pass 240). Restated **FIXED** in capitals, because its previous heading said "D8 is NOT closed by it" and the parser read that negation as CLOSED.
+
+No substantive change. D116 was fixed at pass 207, release-gated and unmerged, and GAP has said so
+throughout; the ledger agreed only by accident, having stored `CLOSED` out of the phrase *"and D8 is
+NOT closed by it"*. A word-level regex cannot see a negation. The status is **FIXED**.
+
+### D8 UPDATE 4 (pass 240). Restated **REFUTED** in capitals; no substantive change.
+
+D8's pass-232 heading read *"REFUTED — closed as a NON-DEFECT"*, and the parser stored `CLOSED` from
+the lower-case second word rather than `REFUTED` from the first. Both mean the same thing here, so
+nothing about D8 changes; the heading is restated so the stored status is the one that was written.
+The four LayerNorm affine leaves read 0.747x–0.849x of upstream's own bf16 floor, inside A26.
+
+### D113 UPDATE 2 (pass 240). Restated **REFUTED** in capitals; no substantive change.
+
+Its pass-198 heading ended *"...is refuted by measurement"* and the parser stored `REFUTED` off the
+lower-case word. It happened to be the right answer, which is exactly why it is worth restating: a
+guard that is right by luck is not a guard. Real as a code defect, inert as an explanation.
+
+### D134. The status parser reads a defect's state out of ORDINARY PROSE and out of NEGATIONS, which is D87's failure inverted and in the more dangerous direction. FOUND by the orchestrator (pass 240). **FIXED** by a guard; four defects restated.
+
+`_last` in `audit_evidence.py` uppercases each `### D<n>` heading before matching the status
+vocabulary. An English word therefore counts as a declaration:
+
+| defect | heading text | parser stored | truth |
+|---|---|---|---|
+| **D69** | *"...a reading fixed before the arm produced output"* | `FIXED` | never closed by anyone |
+| **D116** | *"...and D8 is NOT closed by it"* | `CLOSED` | FIXED at pass 207, and the heading is a negation |
+| D8 | *"REFUTED — closed as a NON-DEFECT"* | `CLOSED` | REFUTED; same meaning, wrong source |
+| D113 | *"...is refuted by measurement"* | `REFUTED` | right answer, by luck |
+
+**Two of the four are false closures**, and one of those, D116, is a heading that says the
+**opposite** of what was stored — a word-level regex cannot see `NOT`. D87 was a real closure the
+parser could not read and it cost twenty-four passes; this is the inverse and it is worse, because
+it removes a defect from `unfixed` **silently** rather than leaving one in.
+
+**The guard does not decide any status**; it refuses to read one out of prose. A declaration must be
+UPPER-CASE in the source — which is already the house convention, always capitalised and usually
+bolded — and must not be immediately preceded by a negation. A probe with two synthetic headings in
+exactly D69's and D116's shapes runs on every compose, so the check cannot ship inert the way three
+guards in this file already have.
+
+D69, D116, D8 and D113 are restated above. Only D69's status actually moves, to **UNFIXED**.
+
+### D133. Twenty-nine of a hundred and thirty-two defects declare no status on any heading, so they are invisible to the UNFIXED set and to every gate clause built on it. FOUND by the orchestrator (pass 240). **FIXED** by a ratchet, with the backlog published.
+
+The parser's clause is deliberately conservative — a status-free heading must not drop a live
+defect — but a defect that has **never** declared one never enters `_last` at all. It is absent from
+`unfixed`, from `state/of3t/UNFIXED_TRIAGE.json`, from GAP's naming requirement, and therefore from
+GO condition 5 and from the additive USER-FACING clause in `_of3t_donecheck.py`.
+
+**D120 sat in that state for twenty-nine passes** while GAP's prose called it UNFIXED; it entered
+the set only when pass 240 gave it a heading with a word on it. **D121** is there too, and GAP calls
+it *"UNFIXED as a standing rule"*. So the summary and the ledger have been disagreeing about which
+defects exist, in a direction no check could see.
+
+**Frozen as a RATCHET, not an exemption.** `state/of3t/STATUSLESS_BACKLOG.json` records the
+twenty-nine at pass 240. The audit fails on any statusless defect **not** in that list, and equally
+on any entry that has **since acquired** a status, so the list can only shrink and cannot quietly
+absorb new ones. Failing on all twenty-nine at once would have aborted every compose until they were
+triaged in a hurry, which is how a status word gets chosen for convenience rather than measured.
