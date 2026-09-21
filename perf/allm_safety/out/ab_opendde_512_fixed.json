@@ -106,6 +106,39 @@
     1056
    ],
    "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg2_main"
+  },
+  {
+   "i": 3,
+   "arm": "cand",
+   "fold_s": 88.212,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 41
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 41 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    2432,
+    0
+   ],
+   "fused_derived": {
+    "kt=2,nt=9": 320,
+    "kt=12,nt=49": 2112
+   },
+   "qkvg": [
+    1216,
+    0
+   ],
+   "qkvgb": [
+    1216,
+    0
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg3_cand"
   }
  ],
  "ttnn": "0.68.0",
@@ -113,5 +146,23 @@
   11,
   10
  ],
- "cold_s": 223.678
+ "cold_s": 223.678,
+ "medians": {
+  "main": 90.369,
+  "cand": 87.11
+ },
+ "aa_floor": {
+  "main": 4.782000000000011,
+  "cand": 2.2040000000000077
+ },
+ "digests": {
+  "main": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ],
+  "cand": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ]
+ },
+ "ratio": 1.03741,
+ "delta_s": 3.259
 }
