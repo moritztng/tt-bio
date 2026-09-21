@@ -1,0 +1,76 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_SDPA_WIDE_K=0",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "protenix-v2",
+      "rung": 352,
+      "off": [
+        36.4,
+        32.9,
+        33.2
+      ],
+      "on": [
+        31.3,
+        31.3,
+        31.3
+      ],
+      "folds": [
+        {
+          "arm": "off",
+          "rep": 1,
+          "runtime_s": 36.4,
+          "t_start": 1789974675.7076888,
+          "t_end": 1789974725.0183384
+        },
+        {
+          "arm": "on",
+          "rep": 1,
+          "runtime_s": 31.3,
+          "t_start": 1789974725.0184934,
+          "t_end": 1789974769.7404842
+        },
+        {
+          "arm": "off",
+          "rep": 2,
+          "runtime_s": 32.9,
+          "t_start": 1789974769.7406266,
+          "t_end": 1789974815.9720562
+        },
+        {
+          "arm": "on",
+          "rep": 2,
+          "runtime_s": 31.3,
+          "t_start": 1789974815.9722493,
+          "t_end": 1789974860.2369566
+        },
+        {
+          "arm": "off",
+          "rep": 3,
+          "runtime_s": 33.2,
+          "t_start": 1789974860.237113,
+          "t_end": 1789974907.0838742
+        },
+        {
+          "arm": "on",
+          "rep": 3,
+          "runtime_s": 31.3,
+          "t_start": 1789974907.0840685,
+          "t_end": 1789974951.812675
+        }
+      ],
+      "off_median": 33.2,
+      "on_median": 31.3,
+      "aa_spread_pct": 10.542168674698795,
+      "ab_median_pct": -5.722891566265067,
+      "inside_aa": true
+    }
+  ]
+}
