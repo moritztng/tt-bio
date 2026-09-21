@@ -1568,7 +1568,14 @@ class _WorkerState:
             polymer_mask=polymer_token[atom_to_token],
             repr_batch={k: features[k] for k in (
                 "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
-                "start_atom_index", "atom_mask", "token_mask")})
+                "start_atom_index", "atom_mask", "token_mask")},
+            # `get_token_frame_atoms` reads the representative-atom features plus the two
+            # that place an atom in a chain, which is how it rejects a frame whose three
+            # atoms straddle one.
+            frame_batch={k: features[k] for k in (
+                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+                "start_atom_index", "atom_mask", "token_mask",
+                "num_atoms_per_token", "asym_id")})
 
         n_sample = int(cfg["diffusion_samples"])
         result = model.fold(
