@@ -1,0 +1,482 @@
+{
+ "instrument": "PROTOCOL SS6 step 1: bond_mask on a polymer-ligand covale target",
+ "package": "openfold3",
+ "data_dir": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets",
+ "cache_file": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets/training_cache_with_templates_subset_2.json",
+ "stage": "finetune_1",
+ "dataset": "weighted-pdb",
+ "crop": 256,
+ "seed": 20260920,
+ "n_datapoints": 19,
+ "n_walked": 19,
+ "n_with_nonzero_bond_mask": 9,
+ "rows": [
+  {
+   "index": 0,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 144,
+   "n_ligand_tokens": 112,
+   "token_bonds_nnz": 230,
+   "token_bonds_pairs": 115,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "1",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 1,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 213,
+   "n_ligand_tokens": 43,
+   "token_bonds_nnz": 70,
+   "token_bonds_pairs": 35,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "2",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 2,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 50,
+   "n_ligand_tokens": 206,
+   "token_bonds_nnz": 466,
+   "token_bonds_pairs": 233,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     50,
+     25
+    ],
+    [
+     161,
+     49
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 50,
+     "j": 25,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 161,
+     "j": 49,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "3",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 3,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 46,
+   "n_ligand_tokens": 210,
+   "token_bonds_nnz": 462,
+   "token_bonds_pairs": 231,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     135,
+     30
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 135,
+     "j": 30,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "4",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 4,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 148,
+   "n_ligand_tokens": 108,
+   "token_bonds_nnz": 224,
+   "token_bonds_pairs": 112,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "5",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 5,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 150,
+   "n_ligand_tokens": 106,
+   "token_bonds_nnz": 220,
+   "token_bonds_pairs": 110,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "6",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 6,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 154,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 206,
+   "token_bonds_pairs": 103,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '2']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 7,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 103,
+   "n_ligand_tokens": 153,
+   "token_bonds_nnz": 352,
+   "token_bonds_pairs": 176,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     103,
+     48
+    ],
+    [
+     200,
+     96
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 103,
+     "j": 48,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 200,
+     "j": 96,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '3']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 8,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 189,
+   "n_ligand_tokens": 67,
+   "token_bonds_nnz": 136,
+   "token_bonds_pairs": 68,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '5']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 9,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 107,
+   "n_ligand_tokens": 149,
+   "token_bonds_nnz": 308,
+   "token_bonds_pairs": 154,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     135,
+     60
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 135,
+     "j": 60,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "['2', '4']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 10,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 99,
+   "n_ligand_tokens": 157,
+   "token_bonds_nnz": 308,
+   "token_bonds_pairs": 154,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['2', '6']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 11,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 46,
+   "n_ligand_tokens": 210,
+   "token_bonds_nnz": 476,
+   "token_bonds_pairs": 238,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     46,
+     21
+    ],
+    [
+     156,
+     45
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 46,
+     "j": 21,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 156,
+     "j": 45,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "['3', '4']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 12,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 197,
+   "n_ligand_tokens": 59,
+   "token_bonds_nnz": 136,
+   "token_bonds_pairs": 68,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4g5j",
+   "datapoint": "1",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 13,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 158,
+   "n_ligand_tokens": 98,
+   "token_bonds_nnz": 226,
+   "token_bonds_pairs": 113,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     187,
+     82
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 187,
+     "j": 82,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "2",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 14,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 154,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 234,
+   "token_bonds_pairs": 117,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     183,
+     35
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 183,
+     "j": 35,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "3",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 15,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 215,
+   "n_ligand_tokens": 41,
+   "token_bonds_nnz": 84,
+   "token_bonds_pairs": 42,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4g5j",
+   "datapoint": "4",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 16,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 217,
+   "n_ligand_tokens": 39,
+   "token_bonds_nnz": 82,
+   "token_bonds_pairs": 41,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '2']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 17,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 157,
+   "n_ligand_tokens": 99,
+   "token_bonds_nnz": 226,
+   "token_bonds_pairs": 113,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     183,
+     23
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 183,
+     "j": 23,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '3']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 18,
+   "n_tokens_real": 256,
+   "n_polymer_tokens": 173,
+   "n_ligand_tokens": 83,
+   "token_bonds_nnz": 188,
+   "token_bonds_pairs": 94,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     200,
+     15
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 200,
+     "j": 15,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '4']",
+   "silent_substitutions": 0
+  }
+ ],
+ "total_s": 106.61933493614197
+}
