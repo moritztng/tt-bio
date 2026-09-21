@@ -10274,3 +10274,20 @@ The standing instruction is explicit: **pc card 0 must not host hash-equality or
 **What it costs D137's evidence, stated rather than glossed.** `of3t-d137ab`'s *"byte-identical across base, off and on, twelve folds each"* for `openfold3` and `opendde` was taken on a card excluded from exactly that kind of gating. Twelve stable folds each is real evidence the fault did not fire, but it is not the bit-exactness proof it reads as. **The timing half is unaffected** — the fault is matmul correctness, not speed — so *"not made slower"* stands as written. The digest half wants one re-run on a clean card, and it is the only thing D137 still owes.
 
 **My own failure, which is the reusable part.** I filed a USER-FACING defect against a shipped model without checking which card produced it, on a fleet that maintains an explicit exclusion list for that card — and the root-cause row is called `protenix-v2-nondeterminism-rootcause`. The check that would have caught it is one line: **before attributing a digest instability to a model, name the card and look it up.** A row reporting from pc card 0 has not measured determinism, whatever it saw.
+
+### D152 UPDATE (pass 283, heading restated). **UNFIXED as a class** — and the mitigation it asked of one row is now VERIFIED on that row rather than promised.
+
+`of3t-trajwide` took both halves of AMENDMENT 4, checked on qb2 rather than read off its state doc:
+
+  * **the record is out of `/tmp`.** Its run root is `/home/ttuser/of3t_runs/trajwide/w/{shipped,theirs,zero}/`, with ten `k??.npz` written so far, and `/tmp/of3t/trajwide/` is **empty**. A reboot now costs the rungs since the last write instead of the whole arm.
+  * **the park is written on liveness, not on a clock.** Its `notbefore` reason ends: *"check `ls /home/ttuser/of3t_runs/trajwide/w/*/k??.npz | wc -l` advancing and the four chain pids alive to know it is running rather than parked."* That is exactly the thing whose absence cost 2h20m at pass 276 — a reader can now falsify the park in one command instead of trusting its ETA.
+
+**And it caught me out in the right direction.** Checking for live processes on **pc** showed nothing and I briefly read the row as dead a second time; the runs are detached on **qb2**, where the row's worker is parked between passes. The row's own park text is what told me where to look — which is the point of requiring it.
+
+**Still UNFIXED at fleet level**, unchanged: nothing stops the next row putting a multi-hour run in `/tmp`, and nothing checks a parked row's subject is alive before its clock expires. One row doing it right is not the fleet doing it right.
+
+### D137 UPDATE 3 (pass 283, heading restated). **FIXED**, with one owed re-run now dispatched: the digest half was taken on pc card 0 and needs a card whose digests mean something.
+
+`of3t-d137ab`'s *"byte-identical across base, off and on, twelve folds each"* ran on the card the fleet excludes from exactly that gating (D155). Twelve stable folds each is real evidence the fault did not fire; it is not the bit-exactness proof it reads as. **The timing half is unaffected** — the fault is matmul correctness, not speed — so *"not made slower"* stands as written, at call level measured and at fold level bounded.
+
+`of3t-d137digest` is dispatched to qb1/qb2 with the same script, fixture and command, explicitly not pc, and told that a DISAGREEMENT is the more important outcome and must be reported loudly rather than retried until it agrees. It also adds the `host` field the artifacts lack — card 0 being different hardware on three machines is how a pc-card-0 result reached a defect filing in the first place, and a correctly-hosted artifact is how the pass-282 ratchet shrinks.
