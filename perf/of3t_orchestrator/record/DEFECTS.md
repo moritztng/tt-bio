@@ -7324,3 +7324,35 @@ the live `of3t-f64softmax` row on the inference that a float64 softmax therefore
 at 0.4.3, and the row's premise holds. The same row's item 3 says so directly: the multi-op fp32
 regions are "executed once or a few times per step, which is what makes a host round trip
 affordable."
+
+### §51 SCOPE CLOSED (pass 212), not headed with a defect number. `of3t-f64softmax` returned GO: the diffusion scope is REACHABLE at 0.956x, and the cheap repair takes 99.6 % of the ground for a tenth of the cost.
+
+**The host float64 softmax is a supported per-site path**, selected by the same grammar the other
+softmax levers use (`TT_BIO_HOST_F64_SOFTMAX_AB`), three tokens, off everywhere, and
+`tests/test_host_f64_softmax_defaults.py` fails if its site set ever diverges from `softmax_ckc`'s
+so it cannot silently miss a site. A shipped fold does not move **by one byte** with the path
+present and off.
+
+**The reading, on the 51.1358 % scope, five arms, 48 structures, 547 tensors, the same rebuilt
+0.4.3 boundary, both references scored in one pass (A27):**
+
+| arm | ours_vs_their_bf16 | cost |
+|---|---|---|
+| host float64 softmax | **7.777580e-02** — 0.956x A26's reachable bar, 3.889x the 2.0e-02 bar | **1.47x** |
+| the two-op backward repair | **1.057023e-01** | **1.049x** |
+
+**So the scope is REACHABLE but not REPRODUCED**, landing in the second pre-registered band — and
+**the amendment changed what the row recommends.** `of3t-apbgrad`'s repair, scored on this scope for
+the first time, **takes 99.6 % of the ground the round trip takes for a tenth of the cost**. The
+round trip is now needed **only where the FORWARD softmax precision matters**, which is a much
+smaller set of sites than the row was dispatched assuming. That is Moritz's deferred "confine the
+round trips" question answered before the round trips were built out.
+
+**And the free cross-check came back better than predicted.** Arm B asked whether the renormalisation
+is a no-op on a float64 softmax, whose rows sum to one. Prediction: agreement to float64 round-off.
+Result: **547 of 547 tensors bit-identical, largest absolute difference exactly 0.0** — the division
+moves the float64 backward by **less than one fp32 ULP**. Two independently derived repairs
+cross-validating exactly, for the cost of one arm.
+
+**Both arms were added by the orchestrator mid-flight** (pass 208 amendment) and neither was in the
+row's original brief; the row ran them without letting them displace its four deliverables.
