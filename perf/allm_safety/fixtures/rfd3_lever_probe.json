@@ -1,0 +1,6 @@
+{
+ "lever-probe": {
+  "input": "perf/ceilrfd3/targets/laczc_1008.cif",
+  "contig": "A1-200,50"
+ }
+}

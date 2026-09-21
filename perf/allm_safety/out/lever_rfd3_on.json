@@ -1,0 +1,32 @@
+{
+  "label": "rfd3-on",
+  "arm": "on",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "design",
+    "/home/ttuser/.coworker/wt/allm-safety/perf/allm_safety/fixtures/rfd3_lever_probe.json",
+    "--model",
+    "rfd3",
+    "--from_pdb",
+    "--num_timesteps",
+    "20",
+    "--num_designs",
+    "1",
+    "--seed",
+    "0",
+    "--out_dir",
+    "perf/allm_safety/out/design_lever_rfd3_on"
+  ],
+  "rc": 0,
+  "cut_short": false,
+  "wall_s": 82.716,
+  "processes": 1,
+  "state": {
+    "fuse_qkv_flag": 1,
+    "fuse_served": 0,
+    "gate_epilogue_flag": 1,
+    "gate_rejected": 0,
+    "gate_served": 0
+  }
+}
