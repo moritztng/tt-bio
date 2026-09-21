@@ -103,7 +103,11 @@ def main():
     ap.add_argument("--out", default="perf/of3t_softmax/softmax_cost_qb2c0.json")
     ap.add_argument("--iters", type=int, default=30)
     ap.add_argument("--rounds", type=int, default=6)
-    ap.add_argument("--shapes", default="")
+    ap.add_argument("--shapes", default="",
+                    help="comma-separated AxBxCxD, optionally @fp32 or @bf16 (default fp32). "
+                         "The dtype is part of the shape here: the lever buys 11-12x on an "
+                         "fp32 input and 1.96x on a bf16 one for more cost, so a rung without "
+                         "its dtype prices nothing")
     ap.add_argument("--card", type=int, default=0, help="the PHYSICAL card, for the record")
     a = ap.parse_args()
 
@@ -119,8 +123,10 @@ def main():
         ((1, 16, 1024, 1024), "fp32", 8.0),
     ]
     if a.shapes:
-        shapes = [(tuple(int(v) for v in s.split("x")), "fp32", 8.0)
-                  for s in a.shapes.split(",")]
+        shapes = []
+        for s in a.shapes.split(","):
+            dims, _, dt = s.partition("@")
+            shapes.append((tuple(int(v) for v in dims.split("x")), dt or "fp32", 8.0))
 
     # A lone p300 chip is a CUSTOM cluster and ttnn.open_device aborts without a mesh
     # graph descriptor. Use the engine's own resolver so this harness opens the card the

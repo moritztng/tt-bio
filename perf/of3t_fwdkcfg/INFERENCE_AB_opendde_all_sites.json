@@ -1,0 +1,249 @@
+{
+ "AA_floor_seconds": 10.86,
+ "AA_floor_seconds_per_arm": {
+  "base": 10.86,
+  "off": 1.46,
+  "on": 0.85
+ },
+ "AB_seconds": {
+  "off_minus_base": -0.15,
+  "on_minus_off": 1.37
+ },
+ "arms": {
+  "base": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 20
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 20 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 46.9,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 16
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 16 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 36.04,
+    "softmax_census": {},
+    "tail": ""
+   }
+  ],
+  "off": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 17
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 42.05,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 17
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.59,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ],
+  "on": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "71fddbc62ea11f2dfd6877b1a3299bfc2c51bbf774d685e9ca1b1f89683329b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 18
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 43.11,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "71fddbc62ea11f2dfd6877b1a3299bfc2c51bbf774d685e9ca1b1f89683329b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 17
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 42.26,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ]
+ },
+ "arms_below_1200MHz": [],
+ "arms_slower_than_floor": [],
+ "base_equals_off": true,
+ "card": "0",
+ "clock": {
+  "base": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 20
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 16
+   }
+  ],
+  "off": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 17
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 17
+   }
+  ],
+  "on": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 18
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 17
+   }
+  ]
+ },
+ "digest_stable_within_arm": true,
+ "digests": {
+  "base": [
+   {
+    "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+   },
+   {
+    "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+   }
+  ],
+  "off": [
+   {
+    "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+   },
+   {
+    "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+   }
+  ],
+  "on": [
+   {
+    "cdk2x2_128.cif": "71fddbc62ea11f2dfd6877b1a3299bfc2c51bbf774d685e9ca1b1f89683329b8"
+   },
+   {
+    "cdk2x2_128.cif": "71fddbc62ea11f2dfd6877b1a3299bfc2c51bbf774d685e9ca1b1f89683329b8"
+   }
+  ]
+ },
+ "fixture": "/home/ttuser/.coworker/wt/of3t-fwdkcfg/perf/size512/fixtures/cdk2x2_128.yaml",
+ "host": "tt-quietbox2",
+ "host_card": "tt-quietbox2 card 0",
+ "lever_env": "TT_BIO_SOFTMAX_PRECISE_AB",
+ "lever_value": "all",
+ "median_seconds": {
+  "base": 41.47,
+  "off": 41.32,
+  "on": 42.69
+ },
+ "model": "opendde",
+ "off_equals_on": false,
+ "readable_above_the_floor": {
+  "off_minus_base": false,
+  "on_minus_off": false
+ },
+ "reps": 2,
+ "seconds": {
+  "base": [
+   46.9,
+   36.04
+  ],
+  "off": [
+   42.05,
+   40.59
+  ],
+  "on": [
+   43.11,
+   42.26
+  ]
+ },
+ "softmax_calls_per_fold": {
+  "off": 0,
+  "on": 0
+ },
+ "verdict": "LEVER: LEVER MOVES OUTPUT: off != on, so TT_BIO_SOFTMAX_PRECISE_AB=all changes a user's fold; its 1.37 s cost is inside the 10.86 s A/A floor | TREE: TREE IDENTICAL: base == off byte for byte, and off-minus-base (-0.15 s) is inside the 10.86 s A/A floor",
+ "verdict_lever": "LEVER MOVES OUTPUT: off != on, so TT_BIO_SOFTMAX_PRECISE_AB=all changes a user's fold; its 1.37 s cost is inside the 10.86 s A/A floor",
+ "verdict_tree": "TREE IDENTICAL: base == off byte for byte, and off-minus-base (-0.15 s) is inside the 10.86 s A/A floor"
+}
