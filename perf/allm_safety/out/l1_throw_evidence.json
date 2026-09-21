@@ -1,0 +1,18 @@
+{
+ "what": "TT_THROW counts, opendde 512 aa, qb1 card 0, p150a, grid 11x10",
+ "control_main_pass1": {
+  "log": "perf/allm_safety/logs/opendde.log",
+  "tt_throw": 0
+ },
+ "candidate_arm": {
+  "log": "perf/allm_safety/logs/ab_opendde_512_fixed_c0.log",
+  "tt_throw": 2,
+  "lines": [
+   "2026-09-21 00:57:15.488 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)",
+   "2026-09-21 00:57:17.247 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)"
+  ]
+ },
+ "l1_cap_bytes": 1572864,
+ "handler": "tt_bio/tenstorrent.py:4619-4632 retire-on-refusal, adds key to _L1_OUT_REFUSED",
+ "note": "_L1_OUT_REFUSED is process-lifetime, so the cand arm poisons later main legs; an interleaved in-process A/B is not a valid instrument for this lever."
+}
