@@ -261,7 +261,7 @@ Recomputed from the artifacts on every compose (165 checks, 0 drifted):
   tensors**. Its worst point, rel **5.088e-03**, falls on the #2 tensor — the reference's own
   validation is loosest exactly at the mass peak, still ~10x inside the bar.
 - **39.7893 % of OpenFold3's gradient mass is measured against a float64 reference and inside
-  the bars** (pass 152). Two section-scope arms with their own controls carry all of it:
+  the bars** (pass 152) — **and read that scoping strictly: these are distances from FLOAT64, not from upstream's own gradient.** D82 took all three of this bullet's AT-OR-BETTER scopes to the direct test and none survived it (`diffusion_conditioning` 1.0414x), and `layer_norm_s` is the measured proof that such a reading can invert. The float64 pass below stands as taken; it is not a claim about reproducing what upstream computes. Two section-scope arms with their own controls carry all of it:
   `diffusion_conditioning` — **36.9462 % of the model over 26 tensors** — at **7.865e-03**
   mass-weighted against the 2.0e-02 bar, 26 of 26 inside the per-tensor bar, the four tensors
   holding 33.9354 % of the model at cos > 0.9999 with norm ratios bracketing unity, a measured
