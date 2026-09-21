@@ -741,6 +741,8 @@ record its own.
 
 **The 0.74055 % question I left open at pass 202 is CLOSED (pass 213), by reading, so no row spends a pass on it.** I had asked whether the taped *training* route takes the same host round-trip as the inference one, since `run_input_atom_encoder`'s only engine caller is `worker.py:1544`. **There is no other route**: it is the sole implementation of the input embedder's atom-encoder leg, its tail does `ttnn.to_torch` at `openfold3_host_prep.py:256` and a host `F.linear` at `:259`, and `ai` then feeds the trunk **on device** — so the cotangent that would reach that weight has to return through a graph the forward already severed. Two adjacent lines rather than the one I said; remedy unchanged, port the op. And a naming trap worth flagging: the gradient instrument's `atom_attn_enc` is `diffusion_module.atom_attn_enc`, a **different module** from the `input_embedder.atom_attn_enc` that carries this share, so nothing in the campaign measures the latter and nothing can while the leg is host-applied.
 
+**The trunk headline's per-tensor companion, and D8's real status (pass 216).** Read from `perf/of3t_apbgrad/SCOPE_c64.json` rather than from the row's prose: across the repair the mass-weighted error falls **23.5x** while the count over the 5.0e-02 float64 per-tensor bar goes **2733 → 2734 of 2736** — it rises by one. Both are true and the record now carries both. The repair achieves **parity with upstream's own bf16 recipe**, the target D70 argued for and the right statistic under A23; it does **not** achieve the float64 per-tensor bar, which nothing bf16 reaches. **So D8 is NOT closed by the repair** — its pair-track gradients are still over that bar — but D120 has already moved its substance (attention hypothesis retired at 0.4.3, residual a LayerNorm-gradient class) and the bar it fails is the unreachable one. **D8 should be re-stated against upstream's own bf16 before more engineering is spent on it**, exactly the correction D120 applied to D9. Two details kept: the worst tensor by rel against float64 is 1.66e+14 at `ref_norm` **1.83e-18**, an A14 near-zero artefact and not a finding; and the worst by **error mass** against upstream's bf16 is block 44's `attn_pair_bias.layer_norm` at rel 1.846 with **cos −0.957** — anti-aligned, a direction failure the mass-weighted headline does not describe.
+
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
 document was still quoting the superseded reading. Each line says who closed it, or what is left.
@@ -867,7 +869,10 @@ since `_accurate_softmax`'s docstring and never asked what it does to the **back
 `d_logits` vanish when it does not: **1.903e-05 → 5.398e-21**. At scope over **2,736 of 2,736**
 tensors the trunk goes **9.025172e+00 → 3.833066e-01**, which is **1.0251x upstream's own bf16 arm**
 (3.739355e-01 rebuilt in the same environment), with the break control at 8.261372e+00 and the A16
-zero model at 1.0. The `single_transition` sibling is bit-for-bit unmoved while
+zero model at 1.0. **Read that as parity, not as a bar pass**: the per-tensor count over the
+5.0e-02 float64 bar goes 2733 → **2734 of 2736** across the repair, so a 23.5x reduction in
+mass-weighted error leaves essentially every tensor still outside a bar **no bf16 port reaches,
+upstream's own included**. The defensible statement is parity with upstream's own bf16 recipe. The `single_transition` sibling is bit-for-bit unmoved while
 `attn_pair_bias.layer_norm_a` goes r **33.298 → 1.028** at block 15. **Nothing ships**: behind
 `TT_BIO_SOFTMAX_BW_RENORM`, default off, entirely inside a backward closure, 19 added lines — and
 that default is now **asserted from the composed tree on every compose**, alongside the host float64

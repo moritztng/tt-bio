@@ -7383,3 +7383,38 @@ it. Also worth separating, because the names invite it: the gradient instrument'
 `diffusion_module.atom_attn_enc`, a **different module** from
 `input_embedder.atom_attn_enc` which carries this 0.74055 %. Nothing in the campaign measures the
 latter, and nothing can while the leg is host-applied.
+
+### D116 UPDATE 4 (pass 216). The trunk repair's headline needs its per-tensor companion, and D8 is NOT closed by it.
+
+Read from `perf/of3t_apbgrad/SCOPE_c64.json` rather than from the row's prose, because the headline
+and the per-tensor picture say different things and only the headline had been carried forward.
+
+| arm | mass-weighted vs float64 | over the 5.0e-02 per-tensor bar | of that mass |
+|---|---|---|---|
+| shipped | 9.025172e+00 | **2733 / 2736** | 98.75 % |
+| **repaired** | **3.833066e-01** | **2734 / 2736** | **99.54 %** |
+| break control | 8.261372e+00 | 2736 / 2736 | 100 % |
+
+**The repair drops the mass-weighted error 23.5x and the per-tensor bar count does not move — it
+goes up by one.** Both facts are true and the campaign must carry both. What the repair achieves is
+**parity with upstream's own bf16 recipe** (1.0251x), which is the defensible target this campaign
+argued for at D70 and the right statistic under A23. What it does **not** achieve is the float64
+per-tensor bar, which essentially every tensor still misses — as they do for upstream's own bf16
+run, because that bar is one **no bf16 port reaches**.
+
+So "9.025172e+00 → 3.833066e-01" reads like a bar pass and is not one. It is a 23.5x reduction to
+parity with what upstream's own training achieves.
+
+**And that answers a question I opened this pass: D8 is not closed by the repair.** D8 is the
+assembled pairformer block's pair-track gradients being outside the bar; they are still over the
+per-tensor bar after the repair. But D120 has already moved D8's substance — its attention
+hypothesis is retired at 0.4.3 and its residual is a LayerNorm-gradient class — and the bar it fails
+is the float64 one nothing bf16 meets. **D8 should be re-stated against upstream's own bf16 before
+any more engineering is spent on it**, which is the same correction D120 applied to D9.
+
+**Two details from the same file worth keeping.** The worst tensor by rel against float64 is
+1.66e+14 at `ref_norm` **1.83e-18** — an A14 near-zero-reference artefact, not a finding. And the
+worst tensor by **error mass** against upstream's bf16 is
+`pairformer_stack.blocks.44.attn_pair_bias.layer_norm...` at rel 1.846 with **cos −0.957**:
+anti-aligned, which is a direction failure rather than a magnitude one and is not what the
+mass-weighted headline describes.
