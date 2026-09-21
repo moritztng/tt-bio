@@ -1,6 +1,6 @@
 # of3t-stepfloor — the RENORM prediction, registered before the paired rep ran
 
-Written 2026-09-21T17:47Z, while arm A (`step_rekey_384.json`) is on rep 1 and has not yet
+Written 2026-09-21T17:37Z, while arm A (`step_rekey_384.json`) is inside its first rep and has not yet
 reached the OFF rep. Committed before the number exists, so it is a prediction and not a
 reading dressed as one.
 
