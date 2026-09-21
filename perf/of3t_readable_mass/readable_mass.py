@@ -35,11 +35,15 @@ be removed FIRST, and where two stack the doc says so.
                            gradient, and no instrument in this scope applies the inverse
                            selection. The trunk's instrument does exactly that for its own
                            fusion; the diffusion transformer's has not been given one.
-  NO_ARM                   nothing structural is in the way. No device arm covering that scope
-                           on the model's batch has been run.
+  ARM_RAN_DID_NOT_CARRY    an arm DID run over that section on the model's batch and read other
+                           tensors in it, and produced nothing for this one. No blocker is
+                           established; the arm's own coverage is the thing to look at.
+  NO_ARM                   no device arm covering that section on the model's batch has been
+                           run at all. Nothing establishes a blocker either; nobody has looked.
 
-NO_ARM is the only class that means "we have not compared it yet". Every other class names
-something that has to change in the port or in an instrument before a reading exists at all.
+NO_ARM and ARM_RAN_DID_NOT_CARRY are the two classes that mean "we have not compared it yet".
+Every other class names something that has to change in the port or in an instrument before a
+reading exists at all.
 """
 from __future__ import annotations
 
@@ -156,6 +160,11 @@ def main():
     if missing_host:
         raise SystemExit(f"STOP: host-applied name not in the reference: {sorted(missing_host)}")
 
+    # A section holding at least one compared tensor had an arm run over it on the model's own
+    # batch. That separates "nobody has looked here" from "somebody looked and this one did not
+    # come back", which are different next steps and were one bucket before.
+    sections_with_an_arm = {section_of(n) for n in compared}
+
     cls, both = {}, {}
     for n in mass:
         m = LAZY_RE.search(n)
@@ -174,6 +183,8 @@ def main():
                 both[n] = "also NO_ARM: no device arm covers input_embedder on the model's batch"
         elif dit:
             cls[n] = "FUSED_NOT_SPLIT"
+        elif section_of(n) in sections_with_an_arm:
+            cls[n] = "ARM_RAN_DID_NOT_CARRY"
         else:
             cls[n] = "NO_ARM"
 
