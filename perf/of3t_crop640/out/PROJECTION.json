@@ -1,0 +1,406 @@
+{
+ "card_GB": 34.22,
+ "floor_640_GB": 34.215,
+ "rungs": [
+  {
+   "path": "perf/of3t_crop640/out/split_256.json",
+   "tokens": 256,
+   "peak_b": 7317427200,
+   "walk_b": 7317427200,
+   "walk_gap_pct": 0.0,
+   "census_dram_b": 7316968448,
+   "parts": {
+    "boundaries": 81264640,
+    "weights": 359055360,
+    "weight_grads": 104202240,
+    "tape": 368525312,
+    "cotangents": 16777216,
+    "recompute": 5207572480,
+    "other_leaf": 14942208,
+    "unattributed": 1164628992
+   },
+   "boundary_pins": 106,
+   "allocs": 6251,
+   "boundary_shapes": [
+    {
+     "shape": [
+      1,
+      256,
+      256,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      256,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      256,
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "boundaries_after_forward_b": 903348224,
+   "card": "0",
+   "commit": "69e678e4074098db58838f402fee5efd4ef34cbf",
+   "branch": "wk/of3t-crop640",
+   "host": "tt-quietbox2",
+   "aiclk": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 123 samples, polled DURING the work"
+  },
+  {
+   "path": "perf/of3t_crop640/out/split_384.json",
+   "tokens": 384,
+   "peak_b": 17924142080,
+   "walk_b": 17924142080,
+   "walk_gap_pct": 0.0,
+   "census_dram_b": 17924142080,
+   "parts": {
+    "boundaries": 2021916672,
+    "weights": 359055360,
+    "weight_grads": 2850816,
+    "tape": 826474496,
+    "cotangents": 37748736,
+    "recompute": 13053984768,
+    "other_leaf": 524288,
+    "unattributed": 1621586944
+   },
+   "boundary_pins": 106,
+   "allocs": 4870,
+   "boundary_shapes": [
+    {
+     "shape": [
+      1,
+      384,
+      384,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      384,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      384,
+      384,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "boundaries_after_forward_b": 2021916672,
+   "card": "2",
+   "commit": "69e678e4074098db58838f402fee5efd4ef34cbf",
+   "branch": "wk/of3t-crop640",
+   "host": "tt-quietbox2",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 302 samples, polled DURING the work"
+  }
+ ],
+ "base_tokens": 384,
+ "owner_exponents": {
+  "boundaries": 7.927,
+  "weights": 0.0,
+  "weight_grads": -8.876,
+  "tape": 1.992,
+  "cotangents": 2.0,
+  "recompute": 2.266,
+  "other_leaf": -8.262,
+  "unattributed": 0.816
+ },
+ "exponents_fitted_on": [
+  256,
+  384
+ ],
+ "boundary_closed_form": {
+  "form": "a*N^2 + b*N, substituted into the shape census, not fitted",
+  "a_b_per_token2": 13568,
+  "b_b_per_token": 55296,
+  "built_on_tokens": 256,
+  "reproduces_base_rung_b": 2021916672,
+  "measured_base_rung_after_forward_b": 2021916672,
+  "measured_base_rung_at_peak_b": 2021916672,
+  "rel_err_pct": 0.0,
+  "reproduces_every_rung_after_forward": true,
+  "cross_check_vs_fitted_exponent": 7.927,
+  "shapes": [
+   {
+    "shape": [
+     1,
+     384,
+     384,
+     128
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "space": "DRAM",
+    "n": 52
+   },
+   {
+    "shape": [
+     1,
+     384,
+     384
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "space": "DRAM",
+    "n": 48
+   },
+   {
+    "shape": [
+     1,
+     36,
+     384,
+     64
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "space": "DRAM",
+    "n": 4
+   },
+   {
+    "shape": [
+     1,
+     384,
+     384,
+     64
+    ],
+    "dtype": "DataType.BFLOAT16",
+    "space": "DRAM",
+    "n": 2
+   }
+  ]
+ },
+ "at_base": {
+  "peak_GB": 16.693,
+  "boundaries_GB": 1.883,
+  "boundary_share_of_peak_pct": 11.28,
+  "non_boundary_GB": 14.81,
+  "recompute_GB": 12.157,
+  "recompute_share_of_non_boundary_pct": 82.09,
+  "by_owner_GB": {
+   "boundaries": 1.883,
+   "weights": 0.334,
+   "weight_grads": 0.003,
+   "tape": 0.77,
+   "cotangents": 0.035,
+   "recompute": 12.157,
+   "other_leaf": 0.0,
+   "unattributed": 1.51
+  }
+ },
+ "pre_registered_branch": "recompute >= 50 % of the non-boundary term",
+ "projections": {
+  "640": {
+   "structural_N2": {
+    "projected_peak_GB": 45.749,
+    "deficit_GB": 11.529,
+    "by_owner_GB": {
+     "boundaries": 5.209,
+     "weights": 0.334,
+     "weight_grads": 0.003,
+     "tape": 2.138,
+     "cotangents": 0.098,
+     "recompute": 33.771,
+     "other_leaf": 0.001,
+     "unattributed": 4.195
+    },
+    "lever_boundary_spill": {
+     "saves_GB": 5.209,
+     "share_of_deficit_pct": 45.2,
+     "peak_after_GB": 40.54,
+     "fits": false
+    },
+    "lever_halve_recompute": {
+     "saves_GB": 16.885,
+     "share_of_deficit_pct": 146.5,
+     "peak_after_GB": 28.863,
+     "fits": true
+    },
+    "both_levers": {
+     "saves_GB": 22.094,
+     "peak_after_GB": 23.655,
+     "margin_GB": 10.565,
+     "fits": true
+    }
+   },
+   "fitted_exponent": {
+    "projected_peak_GB": 48.75,
+    "deficit_GB": 14.53,
+    "by_owner_GB": {
+     "boundaries": 5.209,
+     "weights": 0.334,
+     "weight_grads": 0.003,
+     "tape": 2.129,
+     "cotangents": 0.098,
+     "recompute": 38.686,
+     "other_leaf": 0.0,
+     "unattributed": 2.291
+    },
+    "lever_boundary_spill": {
+     "saves_GB": 5.209,
+     "share_of_deficit_pct": 35.8,
+     "peak_after_GB": 43.541,
+     "fits": false
+    },
+    "lever_halve_recompute": {
+     "saves_GB": 19.343,
+     "share_of_deficit_pct": 133.1,
+     "peak_after_GB": 29.407,
+     "fits": true
+    },
+    "both_levers": {
+     "saves_GB": 24.552,
+     "peak_after_GB": 24.198,
+     "margin_GB": 10.022,
+     "fits": true
+    }
+   }
+  },
+  "768": {
+   "structural_N2": {
+    "projected_peak_GB": 65.722,
+    "deficit_GB": 31.502,
+    "by_owner_GB": {
+     "boundaries": 7.493,
+     "weights": 0.334,
+     "weight_grads": 0.003,
+     "tape": 3.079,
+     "cotangents": 0.141,
+     "recompute": 48.63,
+     "other_leaf": 0.002,
+     "unattributed": 6.041
+    },
+    "lever_boundary_spill": {
+     "saves_GB": 7.493,
+     "share_of_deficit_pct": 23.8,
+     "peak_after_GB": 58.229,
+     "fits": false
+    },
+    "lever_halve_recompute": {
+     "saves_GB": 24.315,
+     "share_of_deficit_pct": 77.2,
+     "peak_after_GB": 41.407,
+     "fits": false
+    },
+    "both_levers": {
+     "saves_GB": 31.808,
+     "peak_after_GB": 33.914,
+     "margin_GB": 0.306,
+     "fits": true
+    }
+   },
+   "fitted_exponent": {
+    "projected_peak_GB": 72.167,
+    "deficit_GB": 37.947,
+    "by_owner_GB": {
+     "boundaries": 7.493,
+     "weights": 0.334,
+     "weight_grads": 0.003,
+     "tape": 3.062,
+     "cotangents": 0.141,
+     "recompute": 58.476,
+     "other_leaf": 0.0,
+     "unattributed": 2.659
+    },
+    "lever_boundary_spill": {
+     "saves_GB": 7.493,
+     "share_of_deficit_pct": 19.7,
+     "peak_after_GB": 64.674,
+     "fits": false
+    },
+    "lever_halve_recompute": {
+     "saves_GB": 29.238,
+     "share_of_deficit_pct": 77.0,
+     "peak_after_GB": 42.929,
+     "fits": false
+    },
+    "both_levers": {
+     "saves_GB": 36.731,
+     "peak_after_GB": 35.436,
+     "margin_GB": -1.216,
+     "fits": false
+    },
+    "third_lever": {
+     "must_save_GB": 1.216,
+     "largest_remaining_owners_GB": {
+      "recompute": 29.238,
+      "tape": 3.062,
+      "unattributed": 2.659,
+      "weights": 0.334
+     },
+     "as_pct_of_largest_remaining": 4.2
+    }
+   }
+  }
+ },
+ "controls": {
+  "reproduces_base_rung": {
+   "structural_N2": {
+    "projected_b": 17924142080,
+    "measured_b": 17924142080,
+    "rel_err_pct": 0.0
+   },
+   "fitted_exponent": {
+    "projected_b": 17924142080,
+    "measured_b": 17924142080,
+    "rel_err_pct": 0.0
+   }
+  },
+  "clears_640_observational_floor": {
+   "structural_N2": true,
+   "fitted_exponent": true
+  },
+  "640_floor_GB": 34.215,
+  "walk_gap_to_peak_pct": {
+   "256": 0.0,
+   "384": 0.0
+  }
+ }
+}
