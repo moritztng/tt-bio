@@ -165,8 +165,111 @@ _RESOLVE
         git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
         echo "  NOTE of3t-$r: openfold3_confidence.py signature conflict resolved by keeping BOTH"\
              " parameter sets, asserted from the AST with defaults intact"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "confidence" ]; then
+        # Fourth: same file, DIFFERENT rule, and the difference matters. main gained M18's
+        # `tri_att_sdpa_hifi=...` at OF3's Pairformer-family sites on 2026-09-21; of3t-confidence
+        # (concluded 09-19) carries `s_fp32_residual=True`. Those two are a union like auxfind's.
+        # But the same hunk ALSO disagrees on `scale_pair_bias`: main ships **False**, the row's
+        # branch carries **True**, and that is **D1** -- a repair that is HELD because applying it
+        # measured 0.149 A WORSE at rank 0, and which pin 9629 asks Moritz to decide. A blind union
+        # would take one of them arbitrarily; taking the row's would apply a held repair inside the
+        # composition. So the rule is: union the NAMES, and on a collision **HEAD wins**, because
+        # HEAD is main and main is what ships. Asserted below, by value, not just by presence.
+        python3 - <<'_RESOLVE'
+import re
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-confidence\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+indent = re.match(r"\s*", ours).group(0)
+
+def kwargs(text):
+    """name -> full `name=value` source, splitting only at top-level commas.
+
+    The trailing `)` closes the CALL and must come off before the depth counter runs, or it
+    drives depth negative and every later top-level comma is missed -- which is exactly what
+    the first version did: it dropped the last two kwargs and the closing paren, and the AST
+    assert caught it on a SyntaxError rather than on a device.
+    """
+    t = text.rstrip()
+    if not t.endswith(")"):
+        raise SystemExit("resolution: a conflict side does not end the call with ')'")
+    out, depth, cur = {}, 0, ""
+    for ch in t[:-1].replace("\n", " ") + ",":
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            x = cur.strip()
+            if "=" in x:
+                out[x.split("=", 1)[0].strip()] = x
+            cur = ""
+        else:
+            cur += ch
+    return out
+
+a, b = kwargs(ours), kwargs(theirs)
+merged = dict(b); merged.update(a)          # HEAD (main) wins every collision
+order = list(a) + [n for n in b if n not in a]
+body = ",\n".join(indent + merged[n] for n in order) + ")"
+open(p, "w").write(s[:i] + body + "\n" + s[k + len(">>>>>>> origin/wk/of3t-confidence\n"):])
+_RESOLVE
+        python3 - <<'_ASSERT' || { echo "CONFLICT merging of3t-$r: confidence resolution FAILED its assert"; exit 1; }
+import ast, sys
+src = open("tt_bio/openfold3_confidence.py").read()
+tree = ast.parse(src)                                   # a lost bracket fails HERE, not on a device
+need = {"scale_pair_bias", "fp32_softmax", "accurate_softmax",
+        "tri_att_sdpa_hifi", "s_fp32_residual"}
+found = {}
+for n in ast.walk(tree):
+    if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "Pairformer":
+        for kw in n.keywords:
+            if kw.arg in need:
+                found[kw.arg] = ast.unparse(kw.value)
+miss = sorted(need - set(found))
+if miss:
+    print("Pairformer(...) lost keyword(s):", ", ".join(miss)); sys.exit(1)
+if found["scale_pair_bias"] != "False":
+    print("scale_pair_bias resolved to", found["scale_pair_bias"],
+          "-- main ships False and D1 is HELD (0.149 A worse at rank 0, pin 9629)"); sys.exit(1)
+print("  confidence Pairformer keeps all five kwargs; scale_pair_bias=False as main ships")
+_ASSERT
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: confidence conflict resolved by UNION of names with HEAD winning"\
+             " scale_pair_bias (D1 is HELD), asserted from the AST by VALUE"
       else
-        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+        # GENERIC LAST RESORT, and it exists because the per-row cases above do not scale. When
+        # main touches a shared signature -- 2026-09-21, M18's `tri_att_sdpa_hifi` at OF3's four
+        # Pairformer-family sites -- EVERY concluded row that had appended a kwarg at one of
+        # those sites conflicts on the same shape at once. resolve_kwarg_tail_conflict.py takes
+        # only conflicts where BOTH sides are pure keyword-argument tails, unions the names,
+        # lets HEAD win any collision (main is what ships; at confidence the contested name is
+        # `scale_pair_bias`, which is D1 and HELD), and refuses with exit 2 on anything else.
+        # A `.gitignore` in the same merge is unioned first, since that rule is already settled.
+        _left=""
+        for _f in $_u; do
+          if [ "$_f" = ".gitignore" ]; then
+            git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+            git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+            cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+            rm -f /tmp/.gi_ours /tmp/.gi_theirs
+            git add .gitignore
+          elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            git add "$_f"
+          else
+            _left="$_left $_f"
+          fi
+        done
+        if [ -n "$_left" ]; then
+          echo "CONFLICT merging of3t-$r, and these are not keyword-argument tails:"
+          printf '  %s\n' $_left; exit 1
+        fi
+        git commit --no-edit -q
+        echo "  NOTE of3t-$r: conflict(s) resolved by kwarg-tail UNION with HEAD winning"\
+             " collisions; anything that was not a kwarg tail would have stopped the compose"
       fi
     fi
     PRESENT="$PRESENT $r"
@@ -484,6 +587,64 @@ echo "--- dispatch card tokens"
 # cause, twice in one session at pass 236. This probe lifts that block out of the live audit
 # and shows it refusing to evaluate while another check is down, while still firing on a
 # genuinely stale count. CPU-only, no artifacts read.
+# (3e) GO condition 5, priced. The plan for each USER-FACING defect is asserted against the live
+# triage the gate reads, so it refuses rather than reporting a stale plan as a current one.
+# (3f) INFERENCE MUST NOT REGRESS (Moritz, 2026-09-21, verbatim: "make sure regular inference is
+# not changed to softmax fp64, not made slower. cause it was already in a good state. we did this
+# only for training. i dont want to see regression in inference.")
+#
+# The fp32 softmax sites are on the SHARED triangle path -- af2.py, openfold3_trunk.py,
+# openfold3_template.py, openfold3_msa_embedder.py and openfold3_confidence.py all set
+# fp32_softmax=True -- and the composition already wires host_f64_softmax_site into Protenix as
+# well as OpenFold3. So a default that reaches inference reaches EVERY model in tt-bio.
+#
+# The shipping line is main. This asserts it on every compose rather than once: no float64
+# softmax symbol may exist on origin/main at all. Defaults-off in the composition is checked
+# separately by assert_new_levers_default_off.py; this is the stronger, simpler property.
+# (3g) D141. A capture's checkpoint provenance must prove BOTH halves of the load. The shared
+# diffusion capture recorded missing_keys and not unexpected_keys, so 24 trained layer_norm_z
+# tensors were dropped while the report read "1 missing, version_tensor". Three existing reports
+# are frozen; a fourth must never ship blind.
+# (3h) D142. PROTOCOL is read top to bottom by every row, so a clause conditioned on a defect
+# that has since closed teaches a verdict the campaign no longer stands behind. Live conditions
+# only -- ordinary provenance ("Record: D96") stays correct after a defect closes.
+echo "--- PROTOCOL rests on no closed defect"
+"$PY" "$HERE/assert_protocol_defect_refs.py" || \
+  { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
+
+# (3i) D148/A30. A summary of what the campaign still owes is composed from the state at the TOP
+# of a pass, and rows report inside it -- DIRECTIVE-STATUS's "honest shape of what is left, at pass
+# 199" was already wrong that same pass and stayed on the page for seventy more. The stamp must be
+# present AND within ten passes; presence alone would have passed all seventy.
+echo "--- summary paragraphs are stamped and fresh"
+"$PY" "$HERE/assert_summary_stamped.py" || \
+  { echo "COMPOSE: a 'what is left' summary is unstamped or more than ten passes stale -- see A30"; exit 1; }
+
+echo "--- capture provenance records unexpected_keys"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
+  { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
+
+echo "--- inference: no float64 softmax on main"
+git fetch -q origin main 2>/dev/null || true
+_f64_on_main=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/main -- tt_bio/ 2>/dev/null || true)
+# Probe: the same grep must FIND the path on the composition, or this check is reading nothing
+# and its silence on main means nothing (A17).
+_f64_on_compose=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/wk/of3t -- tt_bio/ 2>/dev/null || true)
+if [ -z "$_f64_on_compose" ]; then
+  echo "COMPOSE: the float64-softmax grep finds nothing on wk/of3t either, so its silence on main"
+  echo "         is uninformative -- the probe did not fire (A17)"; exit 1
+fi
+if [ -n "$_f64_on_main" ]; then
+  echo "COMPOSE: a float64 softmax path is ON MAIN, which is the shipping line for every model in"
+  echo "         tt-bio, not just OpenFold3 --"; printf '           %s\n' $_f64_on_main
+  echo "         Moritz: \"i dont want to see regression in inference\". Revert it."; exit 1
+fi
+echo "  ok    no float64 softmax symbol on origin/main; the probe finds $(printf '%s\n' $_f64_on_compose | wc -l) file(s) on wk/of3t, so the grep reads something"
+
+echo "--- user-facing closure plan"
+"$PY" "$HERE/userfacing/closure_plan.py" | tail -4 || \
+  { echo "COMPOSE: the USER-FACING closure plan is stale against UNFIXED_TRIAGE.json"; exit 1; }
+
 echo "--- check-count evaluability"
 "$PY" "$HERE/countstable/count_is_not_evaluable_while_drifted.py" | tail -2 || \
   { echo "COMPOSE: the check-count guard no longer refuses an unevaluable run"; exit 1; }
