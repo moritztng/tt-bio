@@ -811,14 +811,18 @@ document was still quoting the superseded reading. Each line says who closed it,
    - performance is a named debt, not a blocker — what `precise_config()` recovers at 1.46x on one
      op, and whether round trips can be batched, overlapped or confined.
 
-7. **`diffusion_conditioning` as a protocol question — STANDING.** `of3t-direct` retracted it at
-   1.0414x while it was **eight times more accurate than upstream's own training step** (0.015328
-   against their 0.121864), failing only because the two errors are anti-aligned. The same question
-   now has a second and sharper instance: at the trunk we **deliberately compute a different
-   function** from upstream because computing theirs serves 0.149 A worse. For inference that is a
-   defensible measured trade. For a training-reproduction claim it is load-bearing in a way it is
-   not for inference — **you cannot reproduce a training step for a function you do not compute** —
-   which is why `of3t-trunkg043` reads the flipped arm and reports the shipped arm beside it.
+7. **The "more accurate than upstream" protocol question — ASKED at pass 215 (pin `9597`), with a
+   default I will apply if he would rather not spend a call.** It is no longer one oddity; it is a
+   pattern with a mechanism. `diffusion_conditioning` — **36.9462 % of the model** — was scored a
+   FAILURE at **1.0414x** against upstream's own training step **while being eight times more
+   accurate than that step against the float64 ideal** (0.015328 against their 0.121864), failing
+   only because the two errors are anti-aligned. D120 then found the same shape at the softmax: our
+   fp32 one is **3.2x more accurate** than upstream's bf16 one, which is precisely why turning it
+   OFF *improved* the gradient — it moved us toward what they compute. So "distance from upstream's
+   gradient" and "distance from the ideal" can disagree in sign, and we can lose on the first by
+   winning on the second. **My recommendation, and the default if no answer comes**: measure both,
+   and never score "closer to float64 than upstream" as a failure — report it as a difference with
+   the precision floor beside it.
 
 **So the honest shape of what is left, at pass 199**: **one located defect** — the trunk's
 backward, 5.8282 % of the model, 92.68 % of its error mass on four LayerNorm affine leaves — plus one memory-engineering item now sized (crops 640 and 768, a 12.3 GB
