@@ -1,0 +1,63 @@
+{
+ "REF_TREE_resolved": "/home/ttuser/of3t-campaign-refs/of3pkg050",
+ "cap": "/home/ttuser/of3t_diffusion_cap",
+ "capture_fingerprint": {
+  "architecture": "0.5.0-family: DiffusionAttentionPairBias, no per-block layer_norm_z",
+  "n_parameters": 738,
+  "n_perblock_layer_norm_z": 0,
+  "n_shared_layer_norm_z": 1,
+  "perblock_blocks": [],
+  "sample_perblock": [],
+  "shared_layer_norm_z": [
+   "diffusion_transformer.layer_norm_z.weight"
+  ]
+ },
+ "capture_keys_equal_tree_parameters": true,
+ "checkpoint": {
+  "file": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "missing": [
+   "diffusion_transformer.layer_norm_z.weight"
+  ],
+  "missing_keys": 1,
+  "n_in_scope": 763,
+  "unexpected": [
+   "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight"
+  ],
+  "unexpected_keys": 24
+ },
+ "refusals": [],
+ "stamped_at": "2026-09-21T18:24:59Z",
+ "stamped_by": "perf/of3t_ditref/capstamp.py",
+ "tree_fingerprint": {
+  "architecture": "0.5.0-family: DiffusionAttentionPairBias, no per-block layer_norm_z",
+  "n_parameters": 738,
+  "n_perblock_layer_norm_z": 0,
+  "n_shared_layer_norm_z": 1,
+  "perblock_blocks": [],
+  "sample_perblock": [],
+  "shared_layer_norm_z": [
+   "diffusion_transformer.layer_norm_z.weight"
+  ]
+ },
+ "verdict": "OK",
+ "what": "the tree read back in-process by refpath.assert_resolved(), plus the architecture fingerprint of the capture's own grad_f64 key set checked against that tree's DiffusionModule parameter names"
+}
