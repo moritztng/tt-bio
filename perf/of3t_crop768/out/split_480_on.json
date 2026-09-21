@@ -1,0 +1,1704 @@
+{
+ "doc": "Who owns the bytes at the backward's DRAM high-water, at a crop where it COMPLETES.",
+ "argv": [
+  "--tokens",
+  "480",
+  "--walk-from-gb",
+  "18",
+  "--walk-step-mb",
+  "32",
+  "--dead-values",
+  "on",
+  "--out",
+  "perf/of3t_crop768/out/split_480_on.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "1",
+  "tt_bio_lease_cards": "0,1",
+  "commit": "51be36ad82e0187987be030c82ea38d7eccbbcaa",
+  "branch": "wk/of3t-crop768",
+  "started_utc": "2026-09-21T12:25:50Z",
+  "loadavg": [
+   19.33740234375,
+   19.966796875,
+   17.03466796875
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 236
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 236 samples, polled DURING the work"
+ },
+ "build_fold_s": 6.8,
+ "prep_to_sampler_s": 24.07,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 18.326,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 1892099072,
+  "ok": true,
+  "s": 79.48,
+  "dram_peak_b": 10155762688,
+  "l1_peak_b": 0,
+  "at_verb": "typecast",
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "outer_tensors_noted": 2474,
+  "ckpt_pins": 106,
+  "walk": {
+   "label": "backward high-water",
+   "dram_now_b": 19731309568,
+   "census_total_b": 19731309568,
+   "census_dram_b": 19731309568,
+   "buffers": 4107,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 2863,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 3153002496,
+     "dram_b": 3153002496,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 35,
+     "b": 2949120,
+     "dram_b": 2949120,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 1289715712,
+     "dram_b": 1289715712,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 58982400,
+     "dram_b": 58982400,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 77,
+     "b": 12316344320,
+     "dram_b": 12316344320,
+     "l1_b": 0
+    },
+    "other_leaf": {
+     "n": 4,
+     "b": 524288,
+     "dram_b": 524288,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 15.98,
+    "weights": 1.82,
+    "weight_grads": 0.01,
+    "tape": 6.54,
+    "cotangents": 0.3,
+    "recompute": 62.42,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 1305,
+    "b": 2550735872,
+    "dram_b": 2550735872,
+    "dram_share_pct": 12.93,
+    "top_by_bytes": [
+     {
+      "each_b": 884736000,
+      "n": 1,
+      "total_b": 884736000
+     },
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 58982400,
+      "n": 4,
+      "total_b": 235929600
+     },
+     {
+      "each_b": 9437184,
+      "n": 24,
+      "total_b": 226492416
+     },
+     {
+      "each_b": 14745600,
+      "n": 9,
+      "total_b": 132710400
+     },
+     {
+      "each_b": 117964800,
+      "n": 1,
+      "total_b": 117964800
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 31719424,
+      "n": 3,
+      "total_b": 95158272
+     },
+     {
+      "each_b": 88473600,
+      "n": 1,
+      "total_b": 88473600
+     },
+     {
+      "each_b": 73728000,
+      "n": 1,
+      "total_b": 73728000
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       480,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 12
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 9
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       512,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "tape": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       480,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       1,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       480,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 30
+     },
+     {
+      "shape": [
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 11
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       128,
+       480,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       1,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       1,
+       480,
+       128,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     }
+    ]
+   },
+   "walk_s": 0.183
+  },
+  "walks": 5,
+  "trace": [
+   {
+    "dram_b": 19403990016,
+    "buffers": 4031,
+    "walk_s": 0.171,
+    "unattributed_b": 2284692480,
+    "boundaries": 3153002496,
+    "weights": 359055360,
+    "weight_grads": 917504,
+    "tape": 1289715712,
+    "cotangents": 58982400,
+    "recompute": 12257361920,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     480,
+     480,
+     128
+    ]
+   },
+   {
+    "dram_b": 19438986240,
+    "buffers": 4199,
+    "walk_s": 0.19,
+    "unattributed_b": 1726456832,
+    "boundaries": 3153002496,
+    "weights": 359055360,
+    "weight_grads": 2031616,
+    "tape": 1289715712,
+    "cotangents": 58982400,
+    "recompute": 12849217536,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     48,
+     480,
+     512
+    ]
+   },
+   {
+    "dram_b": 19560162304,
+    "buffers": 4186,
+    "walk_s": 0.189,
+    "unattributed_b": 1896031232,
+    "boundaries": 3153002496,
+    "weights": 359055360,
+    "weight_grads": 2850816,
+    "tape": 1289715712,
+    "cotangents": 58982400,
+    "recompute": 12800000000,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     48,
+     480,
+     128
+    ]
+   },
+   {
+    "dram_b": 19678127104,
+    "buffers": 4187,
+    "walk_s": 0.19,
+    "unattributed_b": 2013996032,
+    "boundaries": 3153002496,
+    "weights": 359055360,
+    "weight_grads": 2850816,
+    "tape": 1289715712,
+    "cotangents": 58982400,
+    "recompute": 12800000000,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     48,
+     480,
+     128
+    ]
+   },
+   {
+    "dram_b": 19731309568,
+    "buffers": 4107,
+    "walk_s": 0.183,
+    "unattributed_b": 2550735872,
+    "boundaries": 3153002496,
+    "weights": 359055360,
+    "weight_grads": 2949120,
+    "tape": 1289715712,
+    "cotangents": 58982400,
+    "recompute": 12316344320,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     480,
+     480,
+     128
+    ]
+   }
+  ],
+  "first_recompute": {
+   "label": "backward high-water",
+   "dram_now_b": 19403990016,
+   "census_total_b": 19403990016,
+   "census_dram_b": 19403990016,
+   "buffers": 4031,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 2861,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 3153002496,
+     "dram_b": 3153002496,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 6,
+     "b": 917504,
+     "dram_b": 917504,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 1289715712,
+     "dram_b": 1289715712,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 58982400,
+     "dram_b": 58982400,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 76,
+     "b": 12257361920,
+     "dram_b": 12257361920,
+     "l1_b": 0
+    },
+    "other_leaf": {
+     "n": 2,
+     "b": 262144,
+     "dram_b": 262144,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 16.25,
+    "weights": 1.85,
+    "weight_grads": 0.0,
+    "tape": 6.65,
+    "cotangents": 0.3,
+    "recompute": 63.17,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 1261,
+    "b": 2284692480,
+    "dram_b": 2284692480,
+    "dram_share_pct": 11.77,
+    "top_by_bytes": [
+     {
+      "each_b": 884736000,
+      "n": 1,
+      "total_b": 884736000
+     },
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 9437184,
+      "n": 24,
+      "total_b": 226492416
+     },
+     {
+      "each_b": 58982400,
+      "n": 3,
+      "total_b": 176947200
+     },
+     {
+      "each_b": 14745600,
+      "n": 9,
+      "total_b": 132710400
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 31719424,
+      "n": 3,
+      "total_b": 95158272
+     },
+     {
+      "each_b": 73728000,
+      "n": 1,
+      "total_b": 73728000
+     },
+     {
+      "each_b": 1179648,
+      "n": 55,
+      "total_b": 64880640
+     },
+     {
+      "each_b": 589824,
+      "n": 96,
+      "total_b": 56623104
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       480,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       512,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "tape": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       480,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       480,
+       449
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       39
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       480,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       1,
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 29
+     },
+     {
+      "shape": [
+       480,
+       480,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 11
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       128,
+       480,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       1,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       480,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       1,
+       4,
+       480,
+       480
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ]
+   },
+   "walk_s": 0.171
+  },
+  "ok": true,
+  "s": 842.13,
+  "dram_peak_b": 19731309568,
+  "l1_peak_b": 0,
+  "at_verb": "deallocate",
+  "at_stage": "enter",
+  "dram_live_allocs": 4107,
+  "census": {
+   "DRAM": {
+    "count": 4107,
+    "sum_b": 19731309568,
+    "largest_b": 1769472000,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     1769472000,
+     1769472000,
+     1769472000,
+     884736000,
+     884736000,
+     884736000,
+     884736000,
+     235929600,
+     235929600,
+     176947200
+    ],
+    "by_size": {
+     "distinct_sizes": 41,
+     "top_by_bytes": [
+      {
+       "each_b": 58982400,
+       "n": 124,
+       "total_b": 7313817600
+      },
+      {
+       "each_b": 1769472000,
+       "n": 3,
+       "total_b": 5308416000
+      },
+      {
+       "each_b": 884736000,
+       "n": 4,
+       "total_b": 3538944000
+      },
+      {
+       "each_b": 29491200,
+       "n": 27,
+       "total_b": 796262400
+      },
+      {
+       "each_b": 235929600,
+       "n": 2,
+       "total_b": 471859200
+      },
+      {
+       "each_b": 176947200,
+       "n": 2,
+       "total_b": 353894400
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 14745600,
+       "n": 18,
+       "total_b": 265420800
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 117964800,
+       "n": 1,
+       "total_b": 117964800
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 31719424,
+       "n": 3,
+       "total_b": 95158272
+      },
+      {
+       "each_b": 88473600,
+       "n": 1,
+       "total_b": 88473600
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1460,
+       "total_b": 23920640
+      },
+      {
+       "each_b": 32768,
+       "n": 900,
+       "total_b": 29491200
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 58982400,
+       "n": 124,
+       "total_b": 7313817600
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 49152,
+       "n": 56,
+       "total_b": 2752512
+      },
+      {
+       "each_b": 376832,
+       "n": 55,
+       "total_b": 20725760
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 4107
+  },
+  "free": {
+   "free_b": 14494210560,
+   "largest_contiguous_free_per_bank_b": 1641397184,
+   "largest_contiguous_free_across_banks_b": 13131177472
+  },
+  "params_with_grad": 1639,
+  "params_declared": 2531,
+  "max_colive_boundaries_plus_recompute": {
+   "dram_b": 19438986240,
+   "boundaries_b": 3153002496,
+   "recompute_b": 12849217536,
+   "sum_b": 16002220032,
+   "share_of_that_moment_pct": 82.32
+  },
+  "max_boundaries_b": 3153002496,
+  "max_recompute_b": 12849217536,
+  "walk_gap_to_peak_b": 0,
+  "walk_gap_to_peak_pct": 0.0,
+  "walk_step_b_final": 33554432
+ },
+ "after_forward": {
+  "label": "after forward, before backward",
+  "dram_now_b": 6142305280,
+  "census_total_b": 6142305280,
+  "census_dram_b": 6142305280,
+  "buffers": 3910,
+  "duplicate_addresses": 0,
+  "live_taped_tensors": 2691,
+  "by_owner": {
+   "boundaries": {
+    "n": 106,
+    "b": 3153002496,
+    "dram_b": 3153002496,
+    "l1_b": 0
+   },
+   "weights": {
+    "n": 2531,
+    "b": 359055360,
+    "dram_b": 359055360,
+    "l1_b": 0
+   },
+   "weight_grads": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "tape": {
+    "n": 48,
+    "b": 1289715712,
+    "dram_b": 1289715712,
+    "l1_b": 0
+   },
+   "cotangents": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "recompute": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "other_leaf": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   }
+  },
+  "owner_share_of_dram_pct": {
+   "boundaries": 51.33,
+   "weights": 5.85,
+   "weight_grads": 0.0,
+   "tape": 21.0,
+   "cotangents": 0.0,
+   "recompute": 0.0,
+   "other_leaf": 0.0
+  },
+  "unattributed": {
+   "n": 1225,
+   "b": 1340531712,
+   "dram_b": 1340531712,
+   "dram_share_pct": 21.82,
+   "top_by_bytes": [
+    {
+     "each_b": 4718592,
+     "n": 72,
+     "total_b": 339738624
+    },
+    {
+     "each_b": 9437184,
+     "n": 24,
+     "total_b": 226492416
+    },
+    {
+     "each_b": 14745600,
+     "n": 9,
+     "total_b": 132710400
+    },
+    {
+     "each_b": 58982400,
+     "n": 2,
+     "total_b": 117964800
+    },
+    {
+     "each_b": 2359296,
+     "n": 48,
+     "total_b": 113246208
+    },
+    {
+     "each_b": 31719424,
+     "n": 3,
+     "total_b": 95158272
+    },
+    {
+     "each_b": 73728000,
+     "n": 1,
+     "total_b": 73728000
+    },
+    {
+     "each_b": 1179648,
+     "n": 55,
+     "total_b": 64880640
+    },
+    {
+     "each_b": 589824,
+     "n": 96,
+     "total_b": 56623104
+    },
+    {
+     "each_b": 29491200,
+     "n": 1,
+     "total_b": 29491200
+    }
+   ]
+  },
+  "shapes": {
+   "boundaries": [
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      480,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      480,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "weights": [
+    {
+     "shape": [
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 838
+    },
+    {
+     "shape": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 417
+    },
+    {
+     "shape": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 208
+    },
+    {
+     "shape": [
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 194
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 144
+    },
+    {
+     "shape": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      544
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    }
+   ],
+   "weight_grads": [],
+   "tape": [
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 23
+    },
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 8
+    },
+    {
+     "shape": [
+      1,
+      480,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      1
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    },
+    {
+     "shape": [
+      1,
+      480,
+      449
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      480,
+      480,
+      39
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      36,
+      480,
+      34
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    }
+   ],
+   "cotangents": [],
+   "recompute": [],
+   "other_leaf": []
+  },
+  "walk_s": 0.136
+ }
+}
