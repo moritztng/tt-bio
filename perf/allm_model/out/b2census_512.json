@@ -1,0 +1,402 @@
+{
+ "host": "tt-quietbox2",
+ "model": "boltz2",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "df4ef95d4efeceda56ca9145935911e7ba446f3a",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 78,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 3,
+  "load_s": 2.85,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_boltz2_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-boltz2-flpz5mpv/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 17.2303,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 65,
+    "power_w_mean": 75.6
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null
+  },
+  {
+   "tag": "A",
+   "fold_s": 17.7374,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 74,
+    "power_w_mean": 72.5
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null
+  },
+  {
+   "tag": "K",
+   "fold_s": 18.3728,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 74,
+    "power_w_mean": 71.0
+   },
+   "depth": null,
+   "count_only": true,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "blocks": {
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairAssemblyDevice": {
+     "n": 2,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.RelPosGather": {
+     "n": 2,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TrunkRecycle": {
+     "n": 4,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.MSA": {
+     "n": 4,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.MSALayer": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Transition": {
+     "n": 960,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 16,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 280,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 560,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 560,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Pairformer": {
+     "n": 5,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 6264,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairConditioningDevice": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 200,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Diffusion": {
+     "n": 200,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionTransformer": {
+     "n": 600,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.DiffusionTransformerLayer": {
+     "n": 6000,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AdaLN": {
+     "n": 12000,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.ConditionedTransitionBlock": {
+     "n": 6000,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairformerModule": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.ConfidenceHeadsDevice": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    }
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 18.0485,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 68,
+    "power_w_mean": 72.1
+   },
+   "depth": 2,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "blocks": {
+    "tenstorrent.PairAssemblyDevice": {
+     "n": 2,
+     "incl_s": 0.140796,
+     "self_s": 0.114566,
+     "depths": {
+      "0": 1,
+      "1": 1
+     }
+    },
+    "tenstorrent.TrunkRecycle": {
+     "n": 4,
+     "incl_s": 0.011758,
+     "self_s": 0.011758,
+     "depths": {
+      "1": 4
+     }
+    },
+    "tenstorrent.MSA": {
+     "n": 4,
+     "incl_s": 0.808528,
+     "self_s": 0.808528,
+     "depths": {
+      "1": 4
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 5,
+     "incl_s": 8.003286,
+     "self_s": 8.003286,
+     "depths": {
+      "1": 5
+     }
+    },
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 8.835086,
+     "self_s": 0.213395,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairConditioningDevice": {
+     "n": 1,
+     "incl_s": 0.200069,
+     "self_s": 0.200069,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.Diffusion": {
+     "n": 200,
+     "incl_s": 5.255964,
+     "self_s": 5.255964,
+     "depths": {
+      "1": 200
+     }
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 200,
+     "incl_s": 5.894417,
+     "self_s": 0.638453,
+     "depths": {
+      "0": 200
+     }
+    },
+    "tenstorrent.RelPosGather": {
+     "n": 1,
+     "incl_s": 0.026231,
+     "self_s": 0.026231,
+     "depths": {
+      "1": 1
+     }
+    },
+    "tenstorrent.PairformerModule": {
+     "n": 1,
+     "incl_s": 0.246297,
+     "self_s": 0.003578,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.ConfidenceHeadsDevice": {
+     "n": 1,
+     "incl_s": 0.025199,
+     "self_s": 0.025199,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "fold_s": 17.5457,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 73,
+    "power_w_mean": 74.5
+   },
+   "depth": 1,
+   "count_only": false,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "blocks": {
+    "tenstorrent.TrunkModule": {
+     "n": 1,
+     "incl_s": 8.956214,
+     "self_s": 8.956214,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairConditioningDevice": {
+     "n": 1,
+     "incl_s": 0.149204,
+     "self_s": 0.149204,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.DiffusionModule": {
+     "n": 200,
+     "incl_s": 5.333838,
+     "self_s": 5.333838,
+     "depths": {
+      "0": 200
+     }
+    },
+    "tenstorrent.PairAssemblyDevice": {
+     "n": 1,
+     "incl_s": 0.066216,
+     "self_s": 0.066216,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.PairformerModule": {
+     "n": 1,
+     "incl_s": 0.250193,
+     "self_s": 0.250193,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.ConfidenceHeadsDevice": {
+     "n": 1,
+     "incl_s": 0.044472,
+     "self_s": 0.044472,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  }
+ ]
+}

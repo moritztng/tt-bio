@@ -177,6 +177,45 @@ def install(ttnn, targets):
         wrap(cls, attr, f"{modname}.{cname}")
 
 
+# --------------------------------------------------------------------------- lever counters
+def stats_snapshot():
+    """Every `*_STATS` counter the engine keeps, per fold.
+
+    Firing is COUNTED at run time, never read off a gate
+    (`eligibility-firing-condition-is-not-a-code-fact`). Discovered by name rather than listed,
+    so a lever that grows a counter is picked up without editing this file.
+    """
+    out = {}
+    for modname in ("tt_bio.tenstorrent", "tt_bio.esmc"):
+        mod = sys.modules.get(modname)
+        if mod is None:
+            continue
+        for name, val in vars(mod).items():
+            if not name.endswith("_STATS"):
+                continue
+            if isinstance(val, list):
+                out[f"{modname.rsplit('.', 1)[-1]}.{name}"] = list(val)
+            elif isinstance(val, dict):
+                out[f"{modname.rsplit('.', 1)[-1]}.{name}"] = dict(val)
+    return out
+
+
+def stats_delta(before, after):
+    d = {}
+    for k, a in after.items():
+        b = before.get(k)
+        if isinstance(a, list):
+            b = b or [0] * len(a)
+            v = [x - y for x, y in zip(a, b)]
+        else:
+            b = b or {}
+            v = {kk: a[kk] - b.get(kk, 0) for kk in a}
+            v = {kk: vv for kk, vv in v.items() if vv}
+        if any(v.values()) if isinstance(v, dict) else any(v):
+            d[k] = v
+    return d
+
+
 def snapshot():
     out = {}
     for k, r in REC.items():
@@ -311,12 +350,15 @@ def main() -> int:
         reset()
         STATE["on"] = taped
         clk.take()
+        st_before = stats_snapshot()
         t, metrics = one_fold()
+        st_after = stats_snapshot()
         STATE["on"] = False
         row = {"tag": tag, "fold_s": round(t, 4), "clock": clk.take(),
                "depth": None if count_only else (STATE["depth"] if taped else None),
                "count_only": count_only,
-               "plddt": metrics.get("plddt"), "n_tokens": metrics.get("n_tokens")}
+               "plddt": metrics.get("plddt"), "n_tokens": metrics.get("n_tokens"),
+               "lever_counts": stats_delta(st_before, st_after)}
         if taped:
             row["blocks"] = snapshot()
         res["folds"].append(row)
