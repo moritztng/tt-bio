@@ -1,0 +1,656 @@
+{
+ "doc": "Does the taped OF3 trunk fit the card at a crop their recipe trains at?",
+ "argv": [
+  "--tokens",
+  "256",
+  "--backward",
+  "--out",
+  "perf/of3t_l1/out/r3_256.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "commit": "3f13afe18cb39b2ead8c84fbc8d268d5878c2e40",
+  "branch": "wk/of3t-l1",
+  "started_utc": "2026-09-19T17:05:51Z",
+  "loadavg": [
+   1.490234375,
+   3.060546875,
+   5.2451171875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 106
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 106 samples, polled DURING the work"
+ },
+ "build_fold_s": 2.14,
+ "prep_to_sampler_s": 5.69,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 4.086,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "resting": {
+  "dram_b": 1369592832,
+  "census": {
+   "DRAM": {
+    "count": 3620,
+    "sum_b": 1369592832,
+    "largest_b": 20971520,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     20971520,
+     17039360,
+     17039360,
+     17039360,
+     16777216,
+     16777216,
+     9437184,
+     9437184,
+     9437184,
+     9437184
+    ],
+    "by_size": {
+     "distinct_sizes": 29,
+     "top_by_bytes": [
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 17039360,
+       "n": 3,
+       "total_b": 51118080
+      },
+      {
+       "each_b": 4194304,
+       "n": 9,
+       "total_b": 37748736
+      },
+      {
+       "each_b": 131072,
+       "n": 267,
+       "total_b": 34996224
+      },
+      {
+       "each_b": 16777216,
+       "n": 2,
+       "total_b": 33554432
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 32768,
+       "n": 839,
+       "total_b": 27492352
+      },
+      {
+       "each_b": 16384,
+       "n": 1290,
+       "total_b": 21135360
+      },
+      {
+       "each_b": 20971520,
+       "n": 1,
+       "total_b": 20971520
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1290,
+       "total_b": 21135360
+      },
+      {
+       "each_b": 32768,
+       "n": 839,
+       "total_b": 27492352
+      },
+      {
+       "each_b": 131072,
+       "n": 267,
+       "total_b": 34996224
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 65536,
+       "n": 217,
+       "total_b": 14221312
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 147456,
+       "n": 108,
+       "total_b": 15925248
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 49152,
+       "n": 54,
+       "total_b": 2654208
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 393216,
+       "n": 27,
+       "total_b": 10616832
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 3620
+  }
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 1425740800,
+  "ok": true,
+  "s": 47.27,
+  "dram_peak_b": 2930365440,
+  "l1_peak_b": 0,
+  "at_verb": "softmax_in_place",
+  "at_stage": "pairformer",
+  "verb_calls": 31898,
+  "dram_live_allocs": 4343,
+  "l1_live_allocs": 0,
+  "dram_largest_b": 50331648,
+  "l1_largest_b": 0,
+  "census": {
+   "DRAM": {
+    "count": 4343,
+    "sum_b": 2930365440,
+    "largest_b": 50331648,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     50331648,
+     37748736,
+     37748736,
+     20971520,
+     18874368,
+     17039360,
+     17039360,
+     17039360,
+     16777216,
+     16777216
+    ],
+    "by_size": {
+     "distinct_sizes": 35,
+     "top_by_bytes": [
+      {
+       "each_b": 16777216,
+       "n": 67,
+       "total_b": 1124073472
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 253,
+       "total_b": 298450944
+      },
+      {
+       "each_b": 8388608,
+       "n": 27,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 2359296,
+       "n": 51,
+       "total_b": 120324096
+      },
+      {
+       "each_b": 37748736,
+       "n": 2,
+       "total_b": 75497472
+      },
+      {
+       "each_b": 4194304,
+       "n": 16,
+       "total_b": 67108864
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 17039360,
+       "n": 3,
+       "total_b": 51118080
+      },
+      {
+       "each_b": 50331648,
+       "n": 1,
+       "total_b": 50331648
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 32768,
+       "n": 901,
+       "total_b": 29523968
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1569,
+       "total_b": 25706496
+      },
+      {
+       "each_b": 32768,
+       "n": 901,
+       "total_b": 29523968
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 253,
+       "total_b": 298450944
+      },
+      {
+       "each_b": 65536,
+       "n": 217,
+       "total_b": 14221312
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 147456,
+       "n": 108,
+       "total_b": 15925248
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 16777216,
+       "n": 67,
+       "total_b": 1124073472
+      },
+      {
+       "each_b": 49152,
+       "n": 58,
+       "total_b": 2850816
+      },
+      {
+       "each_b": 196608,
+       "n": 55,
+       "total_b": 10813440
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 4343
+  },
+  "free": {
+   "free_b": 31295154688,
+   "largest_contiguous_free_per_bank_b": 3910166464,
+   "largest_contiguous_free_across_banks_b": 31281331712
+  },
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "ok": true,
+  "s": 193.49,
+  "dram_peak_b": 7384437760,
+  "l1_peak_b": 115343360,
+  "at_verb": "add_",
+  "at_stage": "enter",
+  "verb_calls": 65504,
+  "dram_live_allocs": 6249,
+  "l1_live_allocs": 0,
+  "dram_largest_b": 134217728,
+  "l1_largest_b": 0,
+  "census": {
+   "DRAM": {
+    "count": 6249,
+    "sum_b": 7383979008,
+    "largest_b": 134217728,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     134217728,
+     134217728,
+     134217728,
+     134217728,
+     134217728,
+     67108864,
+     67108864,
+     67108864,
+     57671680,
+     57671680
+    ],
+    "by_size": {
+     "distinct_sizes": 45,
+     "top_by_bytes": [
+      {
+       "each_b": 16777216,
+       "n": 84,
+       "total_b": 1409286144
+      },
+      {
+       "each_b": 57671680,
+       "n": 24,
+       "total_b": 1384120320
+      },
+      {
+       "each_b": 28835840,
+       "n": 32,
+       "total_b": 922746880
+      },
+      {
+       "each_b": 134217728,
+       "n": 5,
+       "total_b": 671088640
+      },
+      {
+       "each_b": 4718592,
+       "n": 76,
+       "total_b": 358612992
+      },
+      {
+       "each_b": 1179648,
+       "n": 274,
+       "total_b": 323223552
+      },
+      {
+       "each_b": 8388608,
+       "n": 27,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 37748736,
+       "n": 6,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 67108864,
+       "n": 3,
+       "total_b": 201326592
+      },
+      {
+       "each_b": 22544384,
+       "n": 8,
+       "total_b": 180355072
+      },
+      {
+       "each_b": 3604480,
+       "n": 40,
+       "total_b": 144179200
+      },
+      {
+       "each_b": 2359296,
+       "n": 59,
+       "total_b": 139198464
+      },
+      {
+       "each_b": 50331648,
+       "n": 2,
+       "total_b": 100663296
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 2312,
+       "total_b": 37879808
+      },
+      {
+       "each_b": 32768,
+       "n": 1151,
+       "total_b": 37715968
+      },
+      {
+       "each_b": 65536,
+       "n": 623,
+       "total_b": 40828928
+      },
+      {
+       "each_b": 131072,
+       "n": 379,
+       "total_b": 49676288
+      },
+      {
+       "each_b": 1179648,
+       "n": 274,
+       "total_b": 323223552
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 196608,
+       "n": 156,
+       "total_b": 30670848
+      },
+      {
+       "each_b": 262144,
+       "n": 154,
+       "total_b": 40370176
+      },
+      {
+       "each_b": 589824,
+       "n": 147,
+       "total_b": 86704128
+      },
+      {
+       "each_b": 147456,
+       "n": 108,
+       "total_b": 15925248
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 16777216,
+       "n": 84,
+       "total_b": 1409286144
+      },
+      {
+       "each_b": 4718592,
+       "n": 76,
+       "total_b": 358612992
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 6249
+  },
+  "free": {
+   "free_b": 26841082368,
+   "largest_contiguous_free_per_bank_b": 3300267968,
+   "largest_contiguous_free_across_banks_b": 26402143744
+  },
+  "params_with_grad": 1639,
+  "params_declared": 2531
+ }
+}
