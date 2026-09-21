@@ -100,6 +100,22 @@ def test_one(doc, key, op, bar):
         return (not stuck), (f"{len(ref_moving)} of {len(rows)} step(s) move upstream-side"
                              + (f", ours stationary at k = {stuck}" if stuck
                                 else ", ours moves at every one"))
+    if op == "<=key":
+        # The bar is ANOTHER PATH IN THE SAME ARTIFACT, not a literal. PROTOCOL's own §3d rule:
+        # "when a reference's own replay of a scope exceeds the bar at that scope, a §3d
+        # comparison against the published artifact there is void, not pessimistic -- measure the
+        # floor first". A clause whose bar is a measured property of the REFERENCE cannot be
+        # loosened by whoever writes the clause, which is the point.
+        found, v = dig(doc, key)
+        if not found:
+            return False, "key absent"
+        found_b, b = dig(doc, bar)
+        if not found_b:
+            return False, f"the bar's own key {bar} is absent from the artifact"
+        for name, val in ((key, v), (bar, b)):
+            if not isinstance(val, (int, float)) or isinstance(val, bool):
+                return False, f"{name} is {val!r}, not numeric"
+        return v <= b, f"{v:.6g} against {bar} = {b:.6g}"
     found, v = dig(doc, key)
     if not found:
         return False, "key absent"
@@ -170,6 +186,14 @@ def break_control(spec) -> list[str]:
                 cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
                                   {"k": 2, ref_k: 1.0, our_k: 1.0}]
                 continue
+            if op == "<=key":
+                # both sides have to exist, and EQUAL satisfies <=
+                for path, val in ((key, 1.0), (bar, 1.0)):
+                    cur, parts = doc, path.split(".")
+                    for part in parts[:-1]:
+                        cur = cur.setdefault(part, {})
+                    cur[parts[-1]] = val
+                continue
             cur, parts = doc, key.split(".")
             for part in parts[:-1]:
                 cur = cur.setdefault(part, {})
@@ -212,6 +236,13 @@ def negative_control(spec) -> list[str]:
                 # theirs moves, ours does not -- the one thing this clause exists to catch
                 cur[parts[-1]] = [{"k": 1, ref_k: 0.0, our_k: 0.0},
                                   {"k": 2, ref_k: 1.0, our_k: 0.0}]
+            elif op == "<=key":
+                # ours WORSE than the reference's own measured floor, which is the whole subject
+                for path, val in ((key, 2.0), (bar, 1.0)):
+                    cur, parts = doc, path.split(".")
+                    for part in parts[:-1]:
+                        cur = cur.setdefault(part, {})
+                    cur[parts[-1]] = val
             else:
                 if op == "present":
                     v = None
