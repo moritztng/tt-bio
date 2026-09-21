@@ -10063,3 +10063,25 @@ All six live rows now carry both rules as a STANDING section, with the concluded
 
 1. **The D151 guard's probe broke the moment the defect was repaired.** It grepped `os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0")` out of the real tree and flipped it; once that read became an alias the probe could not find its line and the guard **refused** instead of checking. Correct behaviour, wrong design — a probe should test the CHECKER, not the tree. It now builds a two-module fixture with one variable and opposite defaults, plus a second fixture proving agreeing defaults stay quiet.
 2. **The compose printed `shipped defaults: TT_BIO_SOFTMAX_BW_RENORM off` in the pass the lever went on.** The asserter verified the tree correctly and then announced a hard-coded sentence about it. That is the prose-versus-shipped-default disagreement already on the campaign's record; the line now reports the state that was verified.
+
+### D137 UPDATE (pass 275, heading restated). **FIXED in the composition and AUDITED by the orchestrator**, with one arm still unmeasured and a follow-up row dispatched to measure it.
+
+`of3t-d137-tapegate` concluded PARTIAL. I read the composed tree rather than its write-up, because this is the defect that reaches every model's inference:
+
+    tenstorrent.site_softmax(x, dim, *, host_f64=False)
+        host_f64 False -> `ttnn.softmax(x, dim=dim, **kw)` and nothing else
+        host_f64 True  -> ops.host_softmax_hook(); None -> ttnn.softmax, and the refusal COUNTED
+    ops.host_softmax_hook()
+        return _HOST_SOFTMAX if grad_hook() is not None else None
+    autograd.install / uninstall
+        ops.set_host_softmax_hook(host_f64_softmax) / (None)
+
+**Two conditions, not one, and the second is the one I would not have thought to require**: the row's own docstring says `taped_ttnn.tape()` restores the grad hook on the way out and leaves the other slots filled, so the slot ALONE would stay live for the rest of the process and *a fold after a training block could still reach the path*. Requiring `grad_hook()` too closes that. `TT_BIO_HOST_F64_SOFTMAX_AB` can no longer open the path on its own, which is exactly what the 2026-09-21 hard constraint demands, and `tests/test_host_f64_softmax_defaults.py` holds both directions.
+
+**What is measured**: the gate is free at CALL level — 21 instructions before and 21 after, one conditional jump inverted, **−3.31 ns against a 10.16 ns A/A floor**.
+
+**What is NOT measured, and the row said so instead of hedging**: the fold-level A/B with its A/A floor on OpenFold3, Protenix-v2 and OpenDDE. Its harness is written, compiles and passes its guards against a real pre-gate tree; it never ran because **the row was dispatched `card=cpu`, and a `card=cpu` line cannot reach a chip** — `fleet.log` 13:42:36 and 13:44:17 show the dispatcher wanting a card for it and falling back. That is a dispatch defect, not a row failure, and it is mine: **`of3t-d137ab` dispatched at this pass with `card=any`** to run that exact command, outputs in its own namespace.
+
+**An instrument defect it found on the way, worth more than the arm it blocked**: `perf/clocksample.py` pinned `TT_SMI` to `/home/ttuser/.local/bin/tt-smi`, which does not exist on pc, so every sample raised and `line()` reported NOT SAMPLED — a harness that runs clean and produces unclocked numbers, on a campaign where every perf claim owes a DURING-sampled AICLK. It resolves per host now and reads pc card 0 at 800 MHz idle.
+
+**Why this reads FIXED and not UNFIXED, since the heading and the body must not disagree**: D137 is *"the path is gated on an env flag rather than on the tape"*, and that is repaired and verified in the composed tree. What is open is the COST of the repair at fold scope, which is a different question and now has its own owner — `of3t-d137ab`. Filing the cost under D137 would keep a repaired defect open; filing it nowhere would lose it. It is the new row's, and *"not made slower"* is answered only at call level until that row reports.
