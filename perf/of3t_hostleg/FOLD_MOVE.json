@@ -1,0 +1,192 @@
+{
+ "instrument": "of3t-hostleg fold_move.py -- the Angstrom move of the device atom-featurization legs on an OpenFold3 fold, against the seed floor",
+ "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
+ "target": "examples/ubq.yaml, 76 aa, 602 atoms, --single_sequence, 1 sample, 20 steps",
+ "runs": {
+  "off_s0_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_a/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "off_s0_b": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_b/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "off_s0_c": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_c/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "off_s0_d": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_d/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "off_s0_r1": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_r1/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "off_s1_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/off_s1_a/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "47bb63a9e49029f45549431b1ca7e0e0170873dade8b28bb420c146dd1215663",
+   "n_ca": 76
+  },
+  "on_s0_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/on_s0_a/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d",
+   "n_ca": 76
+  },
+  "on_s0_b": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/on_s0_b/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d",
+   "n_ca": 76
+  },
+  "on_s0_c": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/on_s0_c/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d",
+   "n_ca": 76
+  },
+  "on_s0_d": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/on_s0_d/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d",
+   "n_ca": 76
+  }
+ },
+ "distinct_digests": [
+  "47bb63a9e49029f45549431b1ca7e0e0170873dade8b28bb420c146dd1215663",
+  "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+  "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d"
+ ],
+ "pairs": {
+  "AA_off_a_vs_off_b": {
+   "a": "off_s0_a",
+   "b": "off_s0_b",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A floor, flag OFF"
+  },
+  "AA_off_a_vs_off_c": {
+   "a": "off_s0_a",
+   "b": "off_s0_c",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A floor, flag OFF"
+  },
+  "AA_off_a_vs_off_r1": {
+   "a": "off_s0_a",
+   "b": "off_s0_r1",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A floor, flag OFF"
+  },
+  "AA_on_a_vs_on_b": {
+   "a": "on_s0_a",
+   "b": "on_s0_b",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A floor, flag ON"
+  },
+  "AA_on_a_vs_on_c": {
+   "a": "on_s0_a",
+   "b": "on_s0_c",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A floor, flag ON"
+  },
+  "LEVER_off_vs_on_s0_a": {
+   "a": "off_s0_a",
+   "b": "on_s0_a",
+   "ca_rmsd_A": 0.1143906747292671,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "the flag, matched seed 0 and card 1"
+  },
+  "LEVER_off_vs_on_s0_b": {
+   "a": "off_s0_b",
+   "b": "on_s0_b",
+   "ca_rmsd_A": 0.1143906747292671,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "the flag, matched seed 0 and card 1"
+  },
+  "LEVER_off_vs_on_s0_c": {
+   "a": "off_s0_c",
+   "b": "on_s0_c",
+   "ca_rmsd_A": 0.1143906747292671,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "the flag, matched seed 0 and card 1"
+  },
+  "LEVER_off_vs_on_s0_d": {
+   "a": "off_s0_d",
+   "b": "on_s0_d",
+   "ca_rmsd_A": 0.1143906747292671,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "the flag, matched seed 0 and card 1"
+  },
+  "SEEDFLOOR_off_s0_vs_s1": {
+   "a": "off_s0_a",
+   "b": "off_s1_a",
+   "ca_rmsd_A": 0.6283377920613509,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "same arm, seed 0 vs seed 1"
+  }
+ },
+ "controls": {
+  "ZERO_self_vs_self_A": 2.1878789317184617e-07,
+  "BREAK_residue_order_reversed_A": 12.641786976640928,
+  "n_ca": 76
+ },
+ "vs_experimental": {
+  "off_s0_a": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "off_s0_b": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "off_s0_c": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "off_s0_d": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "off_s0_r1": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "off_s1_a": {
+   "ca_rmsd_A": 0.7837427121726331,
+   "n_ca": 76
+  },
+  "on_s0_a": {
+   "ca_rmsd_A": 0.6606121558962205,
+   "n_ca": 76
+  },
+  "on_s0_b": {
+   "ca_rmsd_A": 0.6606121558962205,
+   "n_ca": 76
+  },
+  "on_s0_c": {
+   "ca_rmsd_A": 0.6606121558962205,
+   "n_ca": 76
+  },
+  "on_s0_d": {
+   "ca_rmsd_A": 0.6606121558962205,
+   "n_ca": 76
+  }
+ },
+ "vs_experimental_source": "examples/ground_truth_structures/ubiquitin.pdb"
+}

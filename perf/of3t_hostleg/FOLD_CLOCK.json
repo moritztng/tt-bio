@@ -1,0 +1,115 @@
+{
+ "instrument": "of3t-hostleg clkwin.py -- per-fold wall clock and the AICLK sampled DURING the fold, board class p150a Blackhole, qb1 (tt-quietbox) card 1",
+ "per_run": {
+  "off_s0_a": {
+   "fold_s": 13.4,
+   "aiclk_n": 16,
+   "aiclk_mean": 1349.6,
+   "aiclk_min": 1343,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1349.4
+  },
+  "off_s0_b": {
+   "fold_s": 13.2,
+   "aiclk_n": 16,
+   "aiclk_mean": 1212.5,
+   "aiclk_min": 800,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1132.1
+  },
+  "off_s0_c": {
+   "fold_s": 12.5,
+   "aiclk_n": 15,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1230.4
+  },
+  "off_s0_d": {
+   "fold_s": 11.9,
+   "aiclk_n": 14,
+   "aiclk_mean": 1153.6,
+   "aiclk_min": 800,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1103.1
+  },
+  "off_s1_a": {
+   "fold_s": 13.9,
+   "aiclk_n": 16,
+   "aiclk_mean": 1349.6,
+   "aiclk_min": 1343,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1349.9
+  },
+  "on_s0_a": {
+   "fold_s": 16.0,
+   "aiclk_n": 19,
+   "aiclk_mean": 1349.6,
+   "aiclk_min": 1343,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1349.7
+  },
+  "on_s0_b": {
+   "fold_s": 13.5,
+   "aiclk_n": 16,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1281.1
+  },
+  "on_s0_c": {
+   "fold_s": 13.2,
+   "aiclk_n": 16,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1349.7
+  },
+  "on_s0_d": {
+   "fold_s": 13.4,
+   "aiclk_n": 16,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "whole_run_mean": 1350.0
+  }
+ },
+ "per_arm": {
+  "off_s0": {
+   "n": 4,
+   "folds_s": [
+    11.9,
+    12.5,
+    13.2,
+    13.4
+   ],
+   "median_s": 12.85,
+   "min_s": 11.9,
+   "max_s": 13.4,
+   "spread_s": 1.5
+  },
+  "off_s1": {
+   "n": 1,
+   "folds_s": [
+    13.9
+   ],
+   "median_s": 13.9,
+   "min_s": 13.9,
+   "max_s": 13.9,
+   "spread_s": 0.0
+  },
+  "on_s0": {
+   "n": 4,
+   "folds_s": [
+    13.2,
+    13.4,
+    13.5,
+    16.0
+   ],
+   "median_s": 13.45,
+   "min_s": 13.2,
+   "max_s": 16.0,
+   "spread_s": 2.8
+  }
+ }
+}
