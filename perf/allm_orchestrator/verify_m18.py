@@ -68,6 +68,70 @@ def _pairformer_calls(path):
     return out
 
 
+def _hifi_attr_per_branch():
+    """Which hifi attribute does each branch of `_attend_heads` actually read?
+
+    THE DEFECT THIS EXISTS FOR. This script used to check only that `tri_att_sdpa_hifi` was
+    plumbed, never that the attribute it lands on is the one the model READS. `_attend_heads` has
+    two branches reading DIFFERENT attributes: the `fp32_softmax` branch gates on
+    `_fused_hifi_on(self.fused_hifi)` and the else-branch on `self.sdpa_hifi`. OpenFold3 passes
+    `fp32_softmax=True` at all four sites, so it is always in the first branch and never reads
+    `sdpa_hifi` -- the attribute the kwarg sets. `allm-gates` proved it by counting: a full six-leg
+    A/B flipping `sdpa_hifi` on all 108 TriangleAttention instances moved the counter not at all,
+    0 served / 0 declined on both arms, and read 1.00018x. The A/B was VACUOUS and this script
+    passed on it.
+
+    So: read the two branches out of the source and report the attribute each one gates on.
+    """
+    src = TS.read_text(errors="replace")
+    fn = next((n for n in ast.walk(ast.parse(src))
+               if isinstance(n, ast.FunctionDef) and n.name == "_attend_heads"), None)
+    if fn is None:
+        return None, None, "no `_attend_heads` in tenstorrent.py"
+    br = next((n for n in ast.walk(fn) if isinstance(n, ast.If)
+               and "fp32_softmax" in (ast.get_source_segment(src, n.test) or "")), None)
+    if br is None:
+        return None, None, "`_attend_heads` has no `fp32_softmax` branch any more"
+
+    def attrs(nodes):
+        found = set()
+        for st in nodes:
+            for n in ast.walk(st):
+                if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+                        and n.value.id == "self" and n.attr.endswith("hifi")):
+                    found.add(n.attr)
+        return found
+
+    return attrs(br.body), attrs(br.orelse), None
+
+
+def _kwarg_lands_on():
+    """Which TriangleAttention attribute does `tri_att_sdpa_hifi` set? -> attr name or None."""
+    src = TS.read_text(errors="replace")
+    for n in ast.walk(ast.parse(src)):
+        if isinstance(n, ast.Call):
+            for kw in n.keywords:
+                if (kw.arg and isinstance(kw.value, ast.Name) and kw.value.id == KWARG
+                        and kw.arg != KWARG):
+                    return kw.arg
+    return None
+
+
+def _site_takes_fp32_branch(path):
+    """Does every Pairformer construction in `path` pass fp32_softmax=True?"""
+    try:
+        tree = _tree(path)
+    except (OSError, SyntaxError):
+        return None
+    vals = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call):
+            for kw in n.keywords:
+                if kw.arg == "fp32_softmax":
+                    vals.append(getattr(kw.value, "value", None) is True)
+    return all(vals) if vals else None
+
+
 def main():
     if not TS.is_file():
         print("run me from the repo root", file=sys.stderr)
@@ -108,7 +172,40 @@ def main():
         for ln, kw in calls:
             (plumbed if KWARG in kw else unplumbed).append(f"{path}:{ln} ({token})")
 
+    # 5: THE CHECK THAT WAS MISSING -- does the plumbed kwarg land on the attribute the branch
+    #    OpenFold3 actually takes reads? Plumbing the wrong attribute passes every test above.
+    fp32_attrs, else_attrs, why = _hifi_attr_per_branch()
+    lands_on = _kwarg_lands_on()
+    reach = None
+    if why:
+        hard.append(why)
+    else:
+        takes_fp32 = {t: _site_takes_fp32_branch(p) for t, p in OF3_SITES.items()}
+        all_fp32 = all(v is True for v in takes_fp32.values())
+        needed = fp32_attrs if all_fp32 else else_attrs
+        reach = (all_fp32, needed, lands_on)
+        if lands_on is None:
+            hard.append(f"`{KWARG}` no longer forwards to any TriangleAttention attribute")
+        elif needed and lands_on not in needed:
+            hard.append(
+                f"`{KWARG}` sets `self.{lands_on}`, but OpenFold3 passes fp32_softmax=True at every "
+                f"site and that branch of `_attend_heads` gates on "
+                f"{' / '.join('self.' + a for a in sorted(needed))}. Plumbing this kwarg CANNOT "
+                f"change what OpenFold3 runs -- counted by allm-gates as 0 served / 0 declined on "
+                f"both arms of a six-leg A/B reading 1.00018x. Plumb the attribute the branch "
+                f"reads, not the one the ledger named.")
+
     w = sys.stdout.write
+    if reach:
+        all_fp32, needed, lands = reach
+        w(f"OpenFold3 takes the fp32_softmax branch : {'all four sites' if all_fp32 else 'NOT all'}\n")
+        w(f"  that branch gates on                  : "
+          f"{' / '.join('self.' + a for a in sorted(fp32_attrs or [])) or '-'}\n")
+        w(f"  the else-branch gates on              : "
+          f"{' / '.join('self.' + a for a in sorted(else_attrs or [])) or '-'}\n")
+        w(f"  {KWARG} sets              : self.{lands}\n")
+        w(f"  -> reaches OpenFold3                  : "
+          f"{'YES' if needed and lands in needed else 'NO -- plumbing it is inert'}\n\n")
     w(f"Pairformer accepts {KWARG}          : {'yes' if sig else 'NO'}\n")
     w(f"triatt_sdpa_hifi_site, default False : {'yes' if site and not hard else 'see below'}\n")
     w(f"Boltz-2 sites passing it             : {len(b2)} "
