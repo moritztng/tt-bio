@@ -76,6 +76,12 @@ def main() -> int:
     ap.add_argument("--sites", default="", help="substring of the walked path; empty = all sites")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--attr", default="fused_hifi", choices=("fused_hifi", "sdpa_hifi"),
+                    help="which TriangleAttention attribute the arm flips. `fused_hifi` is "
+                         "the fp32_softmax branch (OpenFold3, M18); `sdpa_hifi` is the "
+                         "else-branch precision config (Protenix-v2 / OpenDDE, M26), which "
+                         "changes the fidelity of a fused path those models ALREADY take "
+                         "rather than switching route")
     ap.add_argument("--seed", type=int, default=None,
                     help="override tt_baseline.SEED; a second seed turns a single "
                          "deterministic effect into a distribution comparable to the floor")
@@ -176,7 +182,7 @@ def main() -> int:
                      f"({len(found)} total) -- the A/B would be vacuous")
     res["shipped_sdpa_hifi"] = sorted({bool(o.sdpa_hifi) for _, o in found})
     res["shipped_fused_hifi"] = sorted({repr(o.fused_hifi) for _, o in found})
-    res["arm_attr"] = "fused_hifi"
+    res["arm_attr"] = a.attr
 
     # `fused_hifi`, NOT `sdpa_hifi`. `_attend_heads` has two branches and they read DIFFERENT
     # attributes: the `_FP32_SOFTMAX or self.fp32_softmax` branch gates the fused route on
@@ -186,7 +192,7 @@ def main() -> int:
     # counters not at all, 0 served / 0 declined / 0 too_short on both arms of a six-leg run.
     # `fused_hifi` is `bool | None`: None follows the process-wide TT_BIO_TRIATT_FUSED_HIFI (False
     # by default), a bool pins the instance and ignores it.
-    ATTR = "fused_hifi"
+    ATTR = a.attr
 
     # An arm is "off" (nothing on), "on" (every targeted instance on), or a SITE GROUP token, which
     # turns on only the instances reached through that construction site. Per site is the whole
