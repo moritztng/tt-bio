@@ -4,9 +4,14 @@
 ``tt_bio/mm_generic.py`` did this for ``minimal_matmul``; this is the same exercise against
 ``process_mcast_in1_program_and_create_override_variables`` in
 ``ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_1d_program_factory.cpp``
-at the ``v0.67.4`` tag, which is the tag the installed ``ttnn 0.67.4`` wheel is cut from. The
-wheel ships those kernel sources in place, so they are pointed at through ``ttnn_cpp_root()`` and
-nothing here needs a tt-metal build.
+at the ``v0.68.0`` tag. That is the tag the installed wheel is cut from, checked rather than
+assumed: all four kernels this program loads are byte-identical between the wheel and
+``git show v0.68.0``, and differ from ``v0.67.4``. The wheel ships those kernel sources in place,
+so they are pointed at through ``ttnn_cpp_root()`` and nothing here needs a tt-metal build.
+
+Getting that tag wrong is not a documentation slip. Between v0.67.4 and v0.68.0 the in0 sender
+gained two compile-time args ahead of its ``TensorAccessorArgs``, so a v0.67.4 argument vector
+leaves the kernel reading its accessors two words early and indexing past the end of the list.
 
 Why: the writer split (`perf/writersplit`) lives in that factory, the factory is compiled into the
 wheel's ``.so``, and a source patch therefore cannot reach a user. Driving the same program through
@@ -90,7 +95,10 @@ def _num_cores_to_corerangeset(start, target, grid, row_wise=True):
 
 # ---------------------------------------------------------------------------------------------
 # The block-config chooser, transcribed from
-# ttnn/cpp/ttnn/operations/matmul/device/config/matmul_program_config.cpp at v0.67.4.
+# ttnn/cpp/ttnn/operations/matmul/device/config/matmul_program_config.cpp at v0.68.0.
+# The chooser did change between v0.67.4 and v0.68.0, but every change is gated on a
+# sharded memory config (BLOCK_SHARDED on a 1D grid, and a user shard spec threaded into
+# get_mcast_1d_config). This path is DRAM-interleaved and unsharded, so it is unaffected.
 #
 # One deliberate difference, and it is the reason a fold A/B here needs three arms rather than
 # two: the C++ `get_max_l1_space` reads `device->lowest_occupied_compute_l1_address()`, which is
@@ -283,6 +291,19 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
     Nt = in1_shape[-1] // TILE_HW
     assert Kt % in0_block_w == 0, (Kt, in0_block_w)
 
+    # v0.68.0 splits the single ``B`` the v0.67.4 factory carried into ``in0_B`` and ``in1_B``,
+    # and adds ``reuse_in0_in_CB``: with in0 [1,1,M,K] against in1 [1,H,K,N] the in0 block is held
+    # in the CB for every in1 batch instead of being refetched.  Both new words are read by the in0
+    # sender at indices 21 and 22, AHEAD of its TensorAccessorArgs, so omitting them does not merely
+    # lose two arguments -- it shifts every accessor after them and the kernel indexes off the end.
+    in1_B = 1
+    for d in in1_shape[:-2]:
+        in1_B *= d
+    reuse_in0_in_CB = (B == 1 and in1_B > 1) and not bcast_batch
+    assert not reuse_in0_in_CB, (
+        "reuse_in0_in_CB resizes the in0 CB and rebatches the in1 sender, the in1 receiver and the "
+        "compute kernel; not transcribed")
+
     num_blocks = Kt // in0_block_w
     packer_l1_acc_en = bool(packer_l1_acc) and num_blocks > 2
     if packer_l1_acc_en:
@@ -302,7 +323,7 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
     in0_block_tiles = in0_block_h * in0_block_w
     in0_CB_size = in0_block_tiles * (2 if B * num_blocks > 1 else 1) * in0_tile_size
     in1_block_tiles = out_block_w * in0_block_w
-    in1_CB_size = in1_block_tiles * (2 if B * num_blocks > 1 else 1) * in1_tile_size
+    in1_CB_size = in1_block_tiles * (2 if in1_B * num_blocks > 1 else 1) * in1_tile_size
     out_block_tiles = out_block_h * out_block_w
     out_CB_size = out_block_tiles * out_tile_size
     interm0_CB_size = out_block_tiles * interm0_tile_size
@@ -355,7 +376,7 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
         0, 0, 0,                                    # extract_shard_sub_blocks, shard w/h in tiles
         num_blocks, out_num_blocks_x, out_num_blocks_y,
         0, 0, 0, 0,                                 # in0 mcast args, unused on this path
-        Mt * Kt, B,
+        Mt * Kt, B, in1_B, int(reuse_in0_in_CB),    # in0_B, in1_B, reuse_in0_in_CB
         0, 0, 1, 0,                                 # batchB, sparsity_pagesize, bcast_A, get_batch
         0,                                          # fuse_op
     ] + acc_in0 + ACCESSOR_PLACEHOLDER
@@ -375,7 +396,7 @@ def build(device, in0, in1, out, pc, ckc, kernel_dir=None, defines=(), bcast_bat
         num_blocks, out_num_blocks_x, out_num_blocks_y,
         sem_sender, sem_receiver,
         num_cores - 1, in1_mcast_receiver_num_cores - 1,
-        Kt * Nt, B, int(bcast_batch),
+        Kt * Nt, B, int(bcast_batch),               # B: reuse_in0_in_CB ? in1_B : in0_B
         0, 0,                                       # batchB, sparsity_pagesize
     ] + writer_ct + [
         0,                                          # in3_tensor_stride_w placeholder (no bias)
