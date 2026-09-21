@@ -2180,3 +2180,44 @@ subsystem. COVERAGE is NOT MET and the charter still reads **0 of 3**.
 slot. Two slots were free, but the job measures nothing and is a composition of two existing
 artifacts; spending an opus5 row on it would have cost more than the work. The judgement call is
 recorded because "hold it for a row" was the previous pass's stated plan and this reverses it.
+
+### D181. GRADIENTS passed its accuracy clause by being graded on a scope that excludes the part the model is worst at. FOUND by `of3t-orchestrator`, pass 328, checking its own reporting. **FIXED** this pass, and it moves a clause from PASS to FAIL.
+
+D177 repointed GRADIENTS at `MODEL_d56_retake.json` because it is the shipped ARM. It is — and it
+covers 907 tensors and **92.1568 %** of the mass, a set that **excludes the pairformer trunk**.
+
+    over 92.1568 %, trunk excluded    0.102076 against the bar 0.1049544980174316   0.9726x  PASS
+    over 97.9850 %, trunk included    0.520124 against the bar 0.1473526832644032    3.53x   FAIL
+
+**So the accuracy clause passed precisely because the thing the model is worst at was outside the
+scope being graded, while the coverage clause failed for exactly the same reason.** Two clauses,
+and what made one pass is what made the other fail. A row could satisfy the A26 clause by measuring
+less, which is the opposite of what a GO condition is for.
+
+**And I reported it that way.** Passes 326 and 327 told Moritz "on the configuration we ship the
+gradient is inside the reachable bar" and "GRADIENTS fails on coverage alone". Both are true of the
+clause set and both are substantively misleading, because the uncompared mass IS the failing mass.
+The honest sentence is: **over the mass we compare, the gradient is at upstream's own accuracy;
+over the mass we do not, it is several times worse, and the uncompared mass is the trunk.**
+
+**The repair.** `of3t-modelboundary`'s `MODEL_withtrunk_n384.json` is the same shipped
+configuration — its `renorm` arm is D56-on — over 3,643 tensors and 97.98499 %, and it recomputes
+its **own A26 bar for its own scope**, 0.14735268326440318 against the narrow set's
+0.1049544980174316. That is the correct denominator rather than the friendlier one: a wider scope
+that includes more of upstream's own error earns a wider bar, and we still miss it by 3.53x.
+
+    A26 clause        0.520124 vs 0.147353    3.53x   FAIL
+    per-tensor count  3,311 vs upstream 3,478         PASS
+    coverage          97.98499 vs 99.2594             FAIL, 5.83 points closer than before
+
+**This is the fourth artifact repoint in three passes and the first that makes the campaign look
+worse**, which is the evidence that the previous three were following the artifacts rather than
+fitting the gate. PROTOCOL §9's guard asked whether a change lets the campaign declare success;
+this one asks the mirror question and answers it the other way.
+
+**The standing rule it leaves.** An accuracy clause and a coverage clause on the same condition
+must be read over the **same tensor set**, and where two artifacts differ the charter takes the
+WIDER one. Narrowing scope is not a way to pass. No brittle equality clause was added to enforce it
+— within one artifact the two figures agree to 4e-14 and a `>=` on that would fail on float noise —
+so it is a rule for whoever points a condition at an artifact, recorded here and in the clause's
+own comment.

@@ -793,7 +793,7 @@ campaign — which is the D122 failure this campaign already filed against its o
                                                         same reference (ref_norm ratio exactly
                                                         1.0000), D56 live on the other arm reads
                                                         0.1167, a factor of 70.2
-    model scope, 92.1568 % of the mass       MEASURED   0.083010 vs upstream's own bf16 at
+    model scope, 92.1568 % -- TRUNK EXCLUDED MEASURED   0.083010 vs upstream's own bf16 at
                                                         0.075251 -- 1.1031x it, INSIDE the A26
                                                         reachable bar of 0.1049. Pass 322's
                                                         1.1226x projection was right and is now
@@ -869,7 +869,7 @@ gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random
 missing term, not rounding.
 
 VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-one** of3t rows concluded, **one hundred eighty defects** filed,
+**Ninety-one** of3t rows concluded, **one hundred eighty-one defects** filed,
 **fifty-eight UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
 archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
 reading the tail as the ledger cost.
@@ -2078,3 +2078,31 @@ census reading from the explanation even while the number was current. And `code
 returned a bare "not comparable" for the merged artifact because a compose-generated file has no
 commit; it now says it is composed from digest-pinned sources and therefore cannot be stale, which
 is the actual reason rather than an absence.
+
+**Pass 328, second finding — D181, and it corrects what I told Moritz twice.** GRADIENTS was
+graded on `MODEL_d56_retake.json`, which is the shipped arm but covers 907 tensors and
+**92.1568 %** of the mass — a set that **excludes the pairformer trunk**:
+
+    over 92.1568 %, trunk excluded    0.102076 against bar 0.1049544980174316   0.9726x  PASS
+    over 97.9850 %, trunk included    0.520124 against bar 0.1473526832644032    3.53x   FAIL
+
+**The accuracy clause passed precisely because the thing the model is worst at was outside the
+scope being graded, and the coverage clause failed for the same reason.** Passes 326 and 327
+reported "the gradient is inside the reachable bar" and "GRADIENTS fails on coverage alone". Both
+are true of the clause set and both mislead, because **the uncompared mass is the failing mass**.
+The honest sentence: over the mass we compare the gradient is at upstream's own accuracy; over the
+mass we do not it is several times worse, and that mass is the trunk.
+
+Repointed to `of3t-modelboundary`'s `MODEL_withtrunk_n384.json` — same shipped configuration, its
+`renorm` arm is D56-on, 3,643 tensors at 97.98499 %, and it recomputes its **own A26 bar for its
+own scope** (0.14735268326440318 against 0.1049544980174316), which is the correct denominator and
+not the friendlier one. GRADIENTS now reads 3.53x on accuracy, PASS on the per-tensor count
+(3,311 against upstream's 3,478), and 97.98499 on coverage — 5.83 points closer to the bar and
+failing honestly on both halves at the same scope.
+
+**Fourth repoint in three passes and the first that makes the campaign look worse.** That is the
+evidence the other three were following the artifacts rather than fitting the gate; §9's guard asks
+whether a change lets the campaign declare success, and this one answers the mirror question the
+other way. **Standing rule:** an accuracy clause and a coverage clause on one condition are read
+over the SAME tensor set, and where two artifacts differ the charter takes the WIDER one. Narrowing
+scope is not a way to pass.
