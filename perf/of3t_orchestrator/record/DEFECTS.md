@@ -9746,3 +9746,39 @@ term into its own conclusion and nobody had read it against the later result.
 `NO_DEVICE_SOFTMAX_REACHES_THE_GRADIENT_BAR.json` says **DEVICE** in its name and its headline, and
 `SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR.json` carries `WITHDRAWN_AT_PASS_158` with its data fields
 nulled. The over-broad title was the one file that had neither guard.
+
+### D144. `ONE_LEAF_IS_THE_DEFECT.json` carries a pre-repair headline, one leaf became two, and for that leaf the defect turned out not to be in the leaf. FOUND and FIXED by the orchestrator (pass 261). **FIXED** in place. The scan that found it is reported honestly: 13 universal-titled artifacts examined, **one** needed this, and no guard was shipped.
+
+Generalising D143 — *a title is a claim* — over the orchestrator's 60 assertively-named artifacts.
+**13** have universal-shaped titles (`NO_`, `EVERY_`, `ONLY_`, `X_IS_SUFFICIENT`, `X_IS_THE_Y`,
+`X_DOES_NOT_`). **Five** carry no scope-limiting or correction field. Reading those five, **one** is
+genuinely stale.
+
+**`ONE_LEAF_IS_THE_DEFECT.json`.** Its headline: *"24 tensors — one leaf,
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — are
+**25.5795 %** of the model's squared gradient norm and read mass-weighted rel_l2 **10.6980**."*
+Three things happened after it was written:
+
+  * **The number is pre-repair.** `of3t-lnaffine`'s matched same-branch A/B collapses that leaf's
+    error mass **878.8518760076167 → 2.635596280124493**, a factor of **333**, with
+    `TT_BIO_SOFTMAX_BW_RENORM` on. The 10.6980 is not comparable to any post-repair figure.
+  * **One leaf became two.** Post-repair the scope splits `attention_pair_bias.layer_norm_a…`
+    **59.510 %** and `conditioned_transition.layer_norm.layer_norm_s.weight` **28.313 %** — two
+    LayerNorm affine leaves at 87.8 %, which is what D129 was filed on.
+  * **And for the second leaf the defect is not in the leaf.** `of3t-condtrans` put all of it in the
+    **cotangent arriving** — isolation 1.5217e-03, 456x under the reading, input exact to 1.98e-08.
+    *"One leaf is the defect"* is the right name for a **localisation** and the wrong name for a
+    **cause**.
+
+**What still stands, and it is the part worth keeping**: the localisation and the arithmetic that
+produced it — 24 tensors holding 25.5795 % of the model's squared gradient norm against 523 holding
+almost exactly the same mass. That contrast is why the leaf was worth chasing and the repair does
+not touch it.
+
+**No guard was shipped, deliberately.** The mechanical test — does a universal-shaped title carry a
+scope field — flags 5 of 13, and reading them shows 4 of those 5 are fine (`EVERY_HEADLINE_RECOMPUTES`
+and `NO_CONVENTION_SATISFIES_BOTH…` are scoped by their own structure; the others state their pass
+and their population). A guard wrong 80 % of the time gets ignored, which is worse than no guard —
+the argument `assert_dispatch_card_token.py` already makes and which cost me a rewrite at pass 258.
+**The finding is that the title class is worth re-reading when the campaign's answer moves, not that
+it can be machine-checked.**
