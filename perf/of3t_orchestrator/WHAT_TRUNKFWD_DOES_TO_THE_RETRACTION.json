@@ -1,4 +1,10 @@
 {
+ "OUTCOME": {
+  "but_the_CONSEQUENCE_is_branch_3": "the trunk reading does not measure our port, so the retraction of 'the failure is one module' is WITHDRAWN and the claim returns to UNMEASURED, with pairformer_stack moving back from void to unread and coverage falling 97.6952 % -> 92.1651 %. That is exactly what branch 3 said it would cost, and D91 pays it.",
+  "what_it_missed_and_why": "I enumerated ways the MEASUREMENT could be wrong and not ways the REFERENCE could be. The campaign already had a memory for exactly that gap -- a reference's code revision is part of the measurement -- and D22 had even quantified this specific skew. Next time, add 'the reference is the wrong revision/convention' as a standing branch.",
+  "what_the_pre_registration_was_worth": "it did not anticipate the mechanism -- I listed instrument, tape and product, not 'the reference is a different upstream revision'. What it did was fix the PRICE of the outcome in advance, so when the answer arrived I paid it instead of arguing about it. A pre-registration that misses the mechanism can still bind the conclusion, and that is most of its value.",
+  "which_branch_fired": "NONE of the three literally. of3t-trunkfwd landed on branch (1) -- shipped inference disagrees -- but reading the source afterwards showed the disagreement is a REFERENCE-REVISION MISMATCH (D90): our port implements 0.4.3's bias orientation, which is correct for the of3-p2-155k checkpoint, and the reference is the 0.5.0 step, which upstream changed. That possibility is not among the three I pre-registered."
+ },
  "as_of": "2026-09-20, orchestrator pass 175, while of3t-trunkfwd is live",
  "pre_registered_effect_of_each_outcome": [
   {
