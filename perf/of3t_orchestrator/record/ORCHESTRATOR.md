@@ -827,9 +827,21 @@ an **identity** at relative difference **0.0**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-one defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-two defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 257 — I told you last pass that every diffusion figure in this campaign might be scored against a broken reference. That was an inference from two call sites, and it is wrong. Measured, the references are clean.**
+PASSLOG: **Pass 258 — PROTOCOL, the document every row reads top to bottom, was teaching two verdicts the campaign no longer stands behind (D142).** A25's own ADDENDUM states the rule I applied: *"an amendment that supersedes another's conclusion has to say so **inside it**. A row reads PROTOCOL top to bottom and stops when it has what it needs."*
+
+**A clause resting on a closed defect.** §4's coverage paragraph ended *"converts **89.2106 %** of the squared gradient norm from unmeasurable to measurable **while D19 stays open**."* D19 CLOSED at pass 196 — **62 passes earlier**. The sentence had already been maintained once, its parenthetical correcting a stale 91.21 %, and the condition was missed on that pass.
+
+**A18's worked example, whose verdict D120 inverted.** A18 teaches *"an agreeing forward is necessary, never sufficient"* using **D9 as "the counterexample"** — 1.389e-01 → 4.283e-02 and 1.449e-01 → 5.239e-02, a **3.2x** gradient change under forwards moving **12 %**. D9 was RESOLVED at pass 220 as a **policy mismatch**: we ship `fp32_softmax=True` while 0.4.3 runs it in bf16, so the 3.2x is a move *toward* their policy and our softmax is **3.2x more accurate** than theirs.
+
+**Every number stands and the lesson is stronger than when it was written**, which is why the clause is corrected in place rather than deleted. A 12 % forward change concealed a 3.2x gradient change that turned out **not to be a defect at all** — so a forward comparison cannot distinguish a defect from a deliberate policy difference, or tell you which side of the reference you are on. It did not reveal that the port was the *more accurate* one. That is a sharper "necessary, never sufficient" than the original.
+
+**The guard I nearly shipped was wrong and the campaign's own rule caught it.** My first version flagged every clause naming a defect that has since closed: **9 of 11 hits were ordinary provenance** — *"Record: D96"*, *"raised after D17's finding"* — which stay correct forever after a defect closes. `assert_dispatch_card_token.py` already argues that a guard wrong 40 % of the time gets ignored, which is worse than none; this one was wrong 80 % of the time. Narrowed to a **live condition** — *"while Dn stays open"*, *"blocked by Dn"*, *"pending Dn"* — with a two-shape probe: fires on the condition, silent on the provenance.
+
+**And the scan's limit is written into its own output**, because a reader will otherwise take it for more than it is: it checks **defect references**, not **figures**. A22 alone carries 25 numbers. The figures are what a row copies, and nothing here verifies them.
+
+**Pass 257 — I told you last pass that every diffusion figure in this campaign might be scored against a broken reference. That was an inference from two call sites, and it is wrong. Measured, the references are clean.**
 
 Three reads, each of the key list in the file a ratio actually divides by:
 

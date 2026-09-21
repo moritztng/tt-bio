@@ -512,8 +512,10 @@ feeds another path makes the captured cotangent an incomplete gradient, and the 
 would be wrong in the flattering direction.
 
 Applied here it converts **89.2106 %** of the squared gradient norm from unmeasurable to
-measurable while D19 stays open. (Measured on the 0.4.3 reference at pass 151; the 91.21 %
-this sentence used to carry was the 0.5.0 / 4,147 bundle that pass 91 disqualified.)
+measurable. (Measured on the 0.4.3 reference at pass 151; the 91.21 %
+this sentence used to carry was the 0.5.0 / 4,147 bundle that pass 91 disqualified. **And it
+used to end "while D19 stays open" — D19 CLOSED at pass 196 on its own pre-registered
+branch, so the clause no longer rests on anything; corrected at pass 258, D142.**)
 
 **A16 — 2026-09-19, raised by `of3t-orchestrator` from `of3t-gradients`' stack-scope run, §3d
 and §3e gain a reporting requirement. No bar moves; what a FAILING number is allowed to mean
@@ -797,6 +799,21 @@ confidence" would be reading in a guarantee the campaign has already measured to
 move **2.610e-02 → 2.923e-02** and **2.390e-02 → 2.677e-02**, about **12 %**. A 3.2x gradient
 change hiding under a 12 % forward change is, in D9's own words, *the shape of error a forward
 comparison structurally cannot see.*
+
+**A18 ADDENDUM — 2026-09-21 (pass 258), D142. The example above calls D9 a "3.2x gradient
+defect". It is not one any more, the arithmetic is untouched, and the lesson is STRONGER for it.**
+D9 was RESOLVED at pass 220 as a **policy mismatch**: `openfold3_trunk.py` ships
+`fp32_softmax=True` while 0.4.3 runs that softmax in **bf16**, so the 3.2x measured with the flag
+off is a move *toward* 0.4.3's own policy, and our fp32 softmax is **3.2x MORE accurate** than
+upstream's bf16 one (5.110116e-04 against 1.617567e-03). Every number in the worked example stands
+— 1.389e-01 → 4.283e-02, 1.449e-01 → 5.239e-02, forwards moving about 12 %.
+
+**Read the example for what it now shows, which is more than it was written to show.** A 12 %
+forward change concealed a 3.2x gradient change that turned out not to be a defect at all. So a
+forward comparison cannot distinguish a defect from a deliberate policy difference **or** tell you
+which side of the reference you are on — it did not even reveal that the port was the more accurate
+one. That is a sharper statement of "necessary, never sufficient" than the original, and it is why
+the clause is corrected in place rather than deleted.
 
 **So the clause reads, in full:** a disagreeing forward invalidates the gradient comparison taken
 at it, and must be resolved first — that is why the gate exists. **An agreeing forward clears

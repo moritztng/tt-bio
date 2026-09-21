@@ -9672,3 +9672,39 @@ a reference module built on the transformer-level path — which is exactly what
 `n_unexpected` field would reveal and which no existing artifact records. Until a capture is rebuilt
 with both halves recorded, "these three are clean" is a statement about three files, not a property
 of the chain.
+
+### D142. PROTOCOL — the document every row reads top to bottom — was teaching two verdicts the campaign no longer stands behind: a clause conditioned on a defect closed 62 passes ago, and A18's worked example calling a RESOLVED policy mismatch a "3.2x gradient defect". FOUND and FIXED by the orchestrator (pass 258). **FIXED** in place.
+
+A25's own ADDENDUM states the rule this entry applies: *"an amendment that supersedes another's
+conclusion has to say so **inside it**. A row reads PROTOCOL top to bottom and stops when it has
+what it needs; leaving the correction only in [the later clause] means [the earlier one] goes on
+teaching a failure the campaign no longer stands behind."* Two clauses were in that state.
+
+**1. A clause resting on a closed defect.** §4's coverage paragraph read *"converts **89.2106 %** of
+the squared gradient norm from unmeasurable to measurable **while D19 stays open**."* **D19 CLOSED
+at pass 196** on its own pre-registered branch. The sentence had already been maintained once — its
+parenthetical corrects a stale 91.21 % — and the condition was missed on that pass. Corrected: the
+clause no longer rests on anything, and the history is kept in the parenthetical rather than
+deleted.
+
+**2. A18's worked example, whose verdict D120 inverted.** A18's addendum teaches *"an agreeing
+forward is necessary, never sufficient"* using **D9 as "the counterexample"** — `fp32_softmax`
+moving `tri_att_start` **1.389e-01 → 4.283e-02** and `tri_att_end` **1.449e-01 → 5.239e-02**, a
+**3.2x** gradient change under forwards moving about **12 %**. **D9 was RESOLVED at pass 220 as a
+policy mismatch, not a defect**: `openfold3_trunk.py` ships `fp32_softmax=True` while 0.4.3 runs
+that softmax in bf16, so the 3.2x with the flag off is a move *toward* 0.4.3's own policy, and our
+fp32 softmax is **3.2x more accurate** than upstream's bf16 one (5.110116e-04 against 1.617567e-03).
+
+**Every number in that example is untouched, and the lesson is stronger than when it was written.**
+A 12 % forward change concealed a 3.2x gradient change that turned out **not to be a defect at
+all** — so a forward comparison cannot distinguish a defect from a deliberate policy difference, or
+even tell you which side of the reference you are on; it did not reveal that the port was the *more
+accurate* one. That is a sharper statement of "necessary, never sufficient" than the original, which
+is why the clause is corrected in place rather than deleted.
+
+**Scope of the scan, stated so the next reader knows what was NOT checked.** PROTOCOL has 36 A-clauses.
+This pass checked every clause that names a defect by number against that defect's current status,
+which is a mechanical test. It did **not** re-verify every figure in every clause against its
+artifact; A22 alone carries 25. So this closes the "teaches a stale verdict" class for defect
+references and not for figures, and the distinction matters because the figures are the ones a row
+would copy.
