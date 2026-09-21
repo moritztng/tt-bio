@@ -59,7 +59,7 @@
    "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a memory-ladder run's wall clock at 3.53 ms per verb call and is not a timing at all -- the same backward clean reads 222.48 s, so this row must re-establish its own baseline before it extends one",
    "needs": "CARD",
    "one_line": "21 sites in 9 shipped modules route differently while a tape is open, so no training throughput can be projected from inference",
-   "row": null,
+   "row": "of3t-stepfloor",
    "would_a_row_help": true
   },
   "D55": {

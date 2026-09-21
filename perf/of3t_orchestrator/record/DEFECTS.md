@@ -10631,3 +10631,239 @@ Each resolves per site with its default passed **at the call**, so there is no s
 **The first partial reading of the corrected measurement**, recorded here as partial and not as a result: `shipped` reads **0.4538 at k=2 falling to 0.3817 at k=8**, a growth exponent of **−0.13415 over k = 2..9** at **88.0819 %** of the model squared gradient norm. It carries its scope and its mass (A23) and it is explicitly not a k=2..20 fit. **It may not be quoted into VERDICT** — the pass-291 pre-registration requires reference, arm, scope-with-mass, denominator construction (A27) and agreement-and-accuracy against the reachable bar (A25/A26), and a k=2..9 exponent with two controls outstanding has three of the five.
 
 **And it settles the card question I was tempted by.** One chip freed when `shipped_aa2` finished, and the row's own table says of `permute`: *"first card to free takes it"* — so the free chip is that arm's, not idle capacity, and releasing `of3t-ditcot` early would contend rather than fill a gap. At pass 295 I nearly did exactly that on an inference; this time the answer comes from the row's scheduling note plus `lsof`, which is the pairing that should have been used then.
+
+### D164. The campaign's headline cross-stack number — 870.75 s on a p300c against 7–8 s on an H200, "~116x" — is read out of a MEMORY-FIT run instrumented with an allocator read on every one of its 246,510 ttnn verb calls, and the campaign's own later clean timing of the same backward graph on the same host reads 3.91x less. FOUND and ROOT-CAUSED by `of3t-orchestrator`, pass 304, from the artifact's own fields. UNFIXED in the artifact (not mine to edit); the three sentences that quote it are corrected here.
+
+**The two figures, and they cannot both describe the same tree.**
+
+    pass 54  (of3t-l1,        perf/of3t_l1/out/r3_384.json)   forward 172.43 s   backward 698.32 s   total 870.75 s
+    pass 222 (of3t-tapediverge, perf/of3t_perf/step.py)        forward   3.41 s   backward 219.07 s   total 222.48 s
+
+Same crop **384**, same batch **1**, same host **tt-quietbox2**, same p300c, both with AICLK
+sampled DURING. And — the fact that removes the easy explanations — **the same backward graph**:
+`r3_384.json` records `tape_nodes: 2473`, and pass 222 records *"1,639 of 2,531 declared weights
+over 2,473 tape nodes, identical between reps"*. It is not a different scope, not a different
+weight reach, and not a cold-vs-steady story either: pass 222's own COLD rep is 284.61 s against
+870.75 s. The forward alone differs **50.6x**.
+
+**The cause is in the pass-54 artifact's own fields and its own docstring.** `r3_384.json` says
+what it was for: *"Does the taped OF3 trunk fit the card at a crop their recipe trains at?"* It is
+D14's memory ladder — the run whose product is the DRAM high-water marks 2.522 / 7.384 / 17.983 GB.
+`ladder.py`'s `--probe-every` defaults to **1** ("allocator reads per verb; above 1 subsamples a
+long run") and the artifact's recorded `argv` is `['--tokens','384','--backward','--out',...]` —
+**the flag was never passed, so it ran at the default**. The artifact counts its own calls:
+`verb_calls` 82,610 forward and 163,900 backward. That is **246,510 host round-trips to the device
+allocator inside the timed window**, at 870.75 s / 246,510 = **3.53 ms per verb call**. The seconds
+field is dominated by the instrument.
+
+**So the figure is not wrong, it is the wrong KIND of figure.** As a memory answer `r3_384.json` is
+current and correct, and D14's closure stands. As a *time* it measures a probe-instrumented run and
+nothing in the record says so.
+
+**What it changes, and the direction matters.** Every version of the sentence asserts *"a true TT
+step is strictly larger than 870.75 s, so the real gap is wider than 116x"* — in DOESNOT, in
+`EVIDENCE.md`, and in `LEDGER.md` R90. The campaign's own later measurement of the identical scope
+reads **222.48 s**, so the claim is false in the direction that **overstates our own gap to the
+H200 by 3.91x**. Like-for-like against the same 7–8 s: **~28–32x**, not ~116x. Taking instead the
+four-cycle taped trunk step that is upstream's own trunk shape — 230.11 s steady — **~29–33x**.
+
+**What does NOT change.** Both remain trunk-only floors: no diffusion module, no loss heads, no
+optimizer. The H200 number is a complete Lightning step averaging over an unpinned U{0..3} recycle
+draw, so it does not satisfy §4a either. The verdict — *neither side has a §4a-satisfying s/step
+and the TT side has no* step *at all* — is untouched. Only the magnitude moves, and this is
+exactly the quantity that leaves the campaign for outside readers.
+
+**Why no guard caught it.** `audit_evidence.py` recomputes 172.43 + 698.32 = 870.75 from the
+artifact and asserts `forward.cycles == 1`, so the sentence and its number cannot drift apart —
+but a guard that binds a sentence to an artifact cannot notice that the artifact is the wrong
+instrument. Two weaknesses, both repaired this pass in my own namespace:
+
+  * the block is guarded by `if _t384:`, so if the artifact ever leaves the composition both
+    assertions vanish without failing. **Latent, not firing**: `audit_evidence.py` refuses to run
+    outside `wk/of3t` (exit 2), so the composed tree always has the file — my first draft of this
+    bullet said the assertions "silently skip" from the orchestrator worktree, which is wrong,
+    because the audit will not run there at all. What is true is the narrower thing: the fixture's
+    existence is never asserted, and that inversion is on the record twice before;
+  * nothing asserted that a cross-stack *timing* figure comes from a run without per-call
+    instrumentation. `assert_timing_is_a_timing_run.py` now does, with `r3_384.json` as the
+    positive hit it must catch.
+
+**Not repaired in the artifact.** `perf/of3t_l1/out/r3_384.json` belongs to the concluded `of3t-l1`
+row and lives on `wk/of3t`; rewriting another row's evidence is the thing this campaign refuses.
+The correction lives in the sentences that quote it and in the guard. **The confirming
+measurement** — a clean re-time of the same rung, `--probe-every` large enough to be inert, against
+the pass-222 figure — is deliverable 0 of `of3t-stepfloor`, dispatched this pass, which needs a
+trunk baseline anyway before it can price a full step.
+
+### D164 UPDATE 1 (pass 304, same pass). **ROOT-CAUSED, still UNFIXED in the artifact** — a second uncontrolled variable sits in the field next to the two I quoted, and it does not change the case.
+
+`r3_384.json`'s `env` records **`loadavg [9.36, 10.78, 7.41]`** at the start of the run. I read
+`argv` and `verb_calls` out of that same dict and did not read the field beside them — the exact
+habit this campaign keeps filing against itself.
+
+**It does not move the conclusion.** The forward is device-bound and the dominant term is 2.09 ms
+of wall clock per verb call across 82,610 calls; nine runnable threads on a sixteen-core box does
+not produce a 50.6x forward. But it is a **second variable the comparison never controlled**, and
+saying "the probe did it" while an unquoted loadavg sits in the artifact is a narrower claim than
+I made. The honest statement: **the probe is the mechanism and the load is unmeasured**, and
+`of3t-stepfloor`'s deliverable 0 now controls both — AMENDMENT 1 requires `os.getloadavg()` beside
+the AICLK on every timed arm, and prefers a re-run that lands near 222 s **at** a loadavg near 9,
+which rules the confound out rather than avoiding it.
+
+**The same constraint now binds the row itself.** `of3t-trajwide`'s `theirs_aa2` started on qb2 at
+16:22Z — 10 threads at ~890 % on 16 cores for ~2.4 h — so a timing arm launched beside it would
+measure the contention. The brief says to build, fixture and A/A first and time last.
+
+### D165. `DEPENDS_ON: none` is taken literally: the row dispatched to answer an UNDER-USED alarm spent the tick HELD waiting for a workstream called `none` to conclude — and the fleet's own DEPENDS_ON lint checks token SHAPE, which `none` passes. FOUND and FIXED by `of3t-orchestrator`, pass 305, with a lint and a five-case negative control.
+
+**What happened.** `of3t-stepfloor` was written at pass 304 with a header copied from `of3t-ditcot`
+and the dependency filled in as `DEPENDS_ON: none`, meaning *no dependency*. `fleet.sh`'s
+`task_depends()` splits that line into tokens and holds the row until `state/concluded/<token>`
+exists for each. Nothing writes `state/concluded/none`. fleet.log, 18:14:04:
+
+    of3t-stepfloor: HELD by DEPENDS_ON until none concludes
+
+**The sentence reads like scheduling, not like a defect**, which is why it can sit. The row
+dispatched specifically to answer `campaign_alive`'s *"only 0/8 cards busy ... author rows against
+the known open defects instead of waiting"* was parked by its own header while that alarm went
+from three consecutive checks to four.
+
+**This was already written down and I walked into it anyway.** Memory
+`fleet-depends-on-none-is-taken-literally` records the same trap. Reading a lesson is not applying
+it; the only thing that reliably applies one is a check.
+
+**Why the existing lint did not catch it.** `scripts/reconcile_tags_check.sh` already has
+`check_depends_on_syntax`, written after two real 2026-08-21 incidents where trailing prose leaked
+onto the line. It asks whether each token *looks* like a slug — `[A-Za-z0-9._-]+`. **`none` looks
+exactly like a slug.** The check tests the shape of the token and not whether the token can ever
+resolve, and those are different properties. A guard written against one failure mode is not
+evidence against its neighbours.
+
+**The repair.** `check_depends_on_resolves()`, beside the syntax check and called from the same
+place: every DEPENDS_ON token must name a `workstreams/<slug>.txt` that exists. A dependency with
+no brief can never conclude, so the rule has no false-positive shape — and it subsumes `none`,
+`n/a`, `tbd`, typos and renamed rows in one condition. The message says the fix in the words the
+author needs: *if you meant "no dependency", DELETE the line*.
+
+**Negative control, five cases, run before the lint shipped**: `none` FIRES, a one-character typo
+(`probe-nnone`) FIRES, a real dependency is silent, a brief with no DEPENDS_ON line is silent, and
+a comma-separated multi-slug list of two real briefs is silent. Then the whole fleet: **no other
+brief carries an unresolvable dependency and no live brief false-positives** — clean, with the
+14 pre-existing HIST findings unchanged.
+
+**Scope note.** This is fleet-wide machinery, not of3t's, and it is not one of the five
+control-plane scripts this row may not touch. The change is additive — one new FLAG — and the
+class it catches is every campaign's.
+
+### D164 UPDATE 2 (pass 305). **The answer was in a docstring the whole time — the probe prices itself at 3.7x and says its own wall clock is not a perf number. Still UNFIXED in the artifact** — the probe documents that its own wall clock is not a perf number, and prices itself at 3.7x.
+
+`of3t-stepfloor` launched deliverable 0 as `ladder.py --tokens 384 --backward --probe-every 0`.
+My brief said *"`--probe-every <large>`"*; **0 is the better argument and the row was right to
+use it.** `Peak.probe` in `perf/of3t_memory/alloc_profile.py:171`:
+
+    self.calls += 1
+    if self.every <= 0:
+        return              # probing OFF: the only mode whose wall clock means anything
+    if self.every > 1 and self.calls % self.every:
+        return
+
+`self.calls` still increments with probing off, so `verb_calls` stays comparable between the two
+arms — which is exactly what the control needs and what a large-but-finite subsample would have
+blurred.
+
+**And the docstring above it states the defect outright**, three files away from where the number
+was being quoted:
+
+> *"`tenstorrent.dram_peak` documents what this costs: `get_memory_view` drains the pipeline, and
+> a 117 aa fold went **12.0 s to 44.7 s** under dense tags. The BYTES are unaffected — a drain
+> changes when ops finish, not what is resident — so the census is sound and **the wall clock from
+> this script is not a perf number**."*
+
+So the campaign quoted, as its headline cross-stack timing for 250 passes, a number produced by a
+function whose own docstring says it is not one — **with the cost already measured at 3.7x on a
+small fold**, and our crop-384 case is 3.91x. The two figures agreeing is the strongest
+confirmation available before the re-run lands.
+
+**What this changes in the finding.** D164 as first filed said no guard asked *"was this run
+trying to measure time?"* That is true and it is not the whole of it: **nobody had to ask, because
+the answer was written down by the person who built the probe.** The failure was not an
+unanswerable question, it was an unread file one import away from the artifact being quoted. I
+read `ladder.py`'s argparse help and did not open `alloc_profile.py`.
+
+**Still not a measurement.** 3.7x on a 117 aa fold and 3.91x at crop 384 are different folds on
+different work, and neither is the re-timed rung. The row's own arm settles it.
+
+### D164 UPDATE 3 (pass 306). **The re-run landed at 370.85 s against 870.75 s — the mechanism is confirmed and my pass-304 correction overshot. Three variables moved, one of them deliberately, and the A/B that settles it has not been run. ROOT-CAUSED, still UNFIXED in the artifact.**
+
+`of3t-stepfloor` ran the pass-54 rung with the probe off, on `tt-quietbox2`:
+
+    arm                       forward     backward    total      verb_calls        tape_nodes  loadavg              AICLK DURING
+    pass 54,  probe ON        172.43 s    698.32 s    870.75 s   82,610 + 163,900   2,473      [9.36, 10.78, 7.41]  median 1350 / 325
+    pass 306, probe OFF        13.53 s    357.32 s    370.85 s   84,996 + 173,248   2,473      [10.16, 9.60, 9.72]  median 1350 / 78
+
+**Forward 12.74x, backward 1.95x, total 2.35x** — the probe accounted for **499.90 s, 57.4 % of the
+number this campaign has quoted as its cross-stack timing.** `tape_nodes` is **2,473 on both**, so
+it is the same backward graph; `verb_calls` differ by 4.8 %, as designed, because `self.calls`
+still increments with probing off. **Loadavg is matched** (10.16 against 9.36), so the confound
+named in UPDATE 1 is *controlled*, not avoided — the stronger of the two outcomes the brief asked
+for.
+
+**My pass-304 correction was too aggressive and I am withdrawing its number.** I wrote that the
+like-for-like figure was **222.48 s** — pass 222's steady, four-cycle, card-0, `step.py` arm — and
+that the ratio was **~28–32x**. The matched-scope clean rung is **370.85 s**, so:
+
+    quoted           870.75 s   ~116x
+    pass 304 claim   222.48 s   ~28-32x     WITHDRAWN -- a different harness, steady not cold, different chip
+    measured         370.85 s   ~46-53x     against the H200's 7-8 s, matched scope, matched load
+
+The direction of the pass-304 correction holds — the campaign **was** overstating its own gap —
+but by **2.35x, not 3.91x**. I reached for the most favourable number on the record instead of the
+one that matched the scope, which is the same error in the opposite direction from the one D164
+started as.
+
+**Three variables moved and only one was the lever.** Probe ON→OFF is deliberate. But the re-run
+is on **card 3** where pass 54 was on card 0, and on commit **`4e996a0c9`** where pass 54 was on
+**`3f13afe18`** — two days of tree. Load is the only confound that got controlled. So **2.35x is
+an upper bound on the probe's share**, not a measurement of it, and the sentence "the probe cost
+499.9 s" is not yet earned.
+
+**The A/B that settles it has not been run**: `ladder.py --tokens 384 --backward --probe-every 1`
+on **card 3**, on **`4e996a0c9`** — one variable, same chip, same tree, same day. That is ~870 s if
+the probe's cost is what it looks like and ~371 s if it is not, and either answer is decisive. The
+brief is amended to run it FIRST next time, before any step work, because every figure that row
+publishes rests on knowing which of the three variables moved its baseline.
+
+**What is settled regardless.** `r3_384.json` remains a memory answer and not a timing: its own
+probe's docstring says so, its `argv` never subsampled, and the clean rung of the same graph on
+the same host is less than half its wall clock under every reading. The ~116x is dead. What
+replaces it is **~46–53x** on the matched scope and **~29–33x** on pass 222's steady four-cycle
+trunk step, and the campaign should quote whichever it names the scope for.
+
+### D164 UPDATE 4 (pass 306). **The guard I built at pass 304 false-positived on the first genuinely clean artifact it ever saw and refused to let the campaign quote its own measurement. FIXED; still UNFIXED in the artifact.**
+
+`assert_timing_is_a_timing_run.py` flagged `d164_probeoff_384.json` — the probe-**off** arm — and
+failed the compose with *"quotes 370.85 s from a probe-instrumented run"*. Three things lined up:
+
+  * `verb_calls` is still recorded with probing off, **by design** (`self.calls` increments before
+    the early return; that is exactly what keeps the two arms comparable), so `verb_calls` alone
+    can never distinguish the modes;
+  * my argv test was `--probe-every (\d+) > 1`, which reads `0` as *not subsampled* and therefore
+    as instrumented;
+  * the ms/call heuristic did not save it: the clean rung is **1.44 ms/call**, over the 0.5 ms
+    threshold, because the backward is genuinely slow per call.
+
+**The fix is to read the same branch the code reads**, instead of guessing at it. `Peak.probe`:
+
+    if self.every <= 0: return   # probing OFF: the only mode whose wall clock means anything
+    if self.every > 1 and self.calls % self.every: return
+
+so `<= 0` is OFF, `> 1` is subsampled, and only `1` — or an absent flag, which defaults to 1 —
+probes every call. The guard now encodes all three cases, and the self-test carries the real
+arm's own shape: `--probe-every 0` silent, `--probe-every 1` fires, on the identical dict.
+
+**Worth saying plainly: the guard's model of "instrumented" was a guess, and the artifact it was
+built from could not falsify it** — `r3_384.json` has no `--probe-every` in its argv at all, so
+every reading of the flag's semantics scored it the same. The first artifact that could tell the
+readings apart was the first one produced after the guard shipped. This campaign's own rule is
+*a guard's first real run must not be inside a gate*; this one's was, and the gate caught it,
+which is the cheap version of that lesson rather than the expensive one.
