@@ -89,6 +89,57 @@
    "backward_valid": true,
    "dram_after_backward": 2109862912,
    "trunk_step_s": 230.10706058199867
+  },
+  {
+   "rep": 2,
+   "forward_nograd_prefix_s": 7.534258179002791,
+   "forward_taped_cycle_s": 3.4144693589987583,
+   "dram_after_taped_forward": 4621054976,
+   "download_s": 0.023779676004778594,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.05603473399969516,
+   "root_was_taped": true,
+   "tape_nodes_from_root": 2473,
+   "device_backward_s": 224.6776618130025,
+   "params_with_grad": "1639 of 2531",
+   "backward_valid": true,
+   "dram_after_backward": 2109862912,
+   "trunk_step_s": 235.7062037610085
   }
- ]
+ ],
+ "rollout": {
+  "rungs": [
+   {
+    "steps": 4,
+    "s": 0.254
+   },
+   {
+    "steps": 12,
+    "s": 0.57
+   },
+   {
+    "steps": 20,
+    "s": 0.894
+   }
+  ],
+  "full_schedule_steps": 200,
+  "warmup_discarded_s": 0.528,
+  "full_schedule_note": "our shipped sampler's schedule is this many steps; their mini rollout is 20, so the 20-step rung IS their rollout and the longer rungs are not part of their step",
+  "per_step_s": 0.04,
+  "fixed_s": 0.093,
+  "fit_max_residual_s": 0.003,
+  "fit_monotonic": true,
+  "fit_valid": true,
+  "their_mini_rollout_20_s": 0.893,
+  "their_mini_rollout_20_s_DIRECT": 0.894
+ },
+ "clock": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 226
+  }
+ }
 }
