@@ -39,10 +39,16 @@ import os
 import sys
 import time
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.append(_HERE)
+import refpath                                                            # noqa: E402
+
 CAP = "/home/ttuser/of3t_cond_cap/cond_boundary.pt"
 DIFFCAP = "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt"
-OF3PKG = "/home/ttuser/of3t_refprec/of3pkg043"
-REFDEPS = ("/home/ttuser/of3t_refprec/deps", "/home/ttuser/of3t_refprec/pylibs")
+OF3PKG = refpath.OF3PKG
+REFDEPS = refpath.REFDEPS
+REF_TREE = None
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 PREFIX = "diffusion_module."
 SCRATCH = "/tmp/of3t/trajwide"
@@ -250,9 +256,11 @@ def build_theirs(dtype):
     """Upstream 0.4.3 own `DiffusionModule`, standalone, at the captured boundary.
     `scope_ladder.build_diff` verbatim, which is `of3_all_atom/model.py:102` construction:
     the config OBJECT, not a splat, because splatting raises on `atom_attn_dec`."""
+    global REF_TREE
     import torch
     from openfold3.core.model.structure.diffusion_module import DiffusionModule
     from openfold3.projects.of3_all_atom.project_entry import OF3ProjectEntry
+    REF_TREE = refpath.assert_resolved()
 
     cfg = OF3ProjectEntry().get_model_config_with_presets(presets=["train"])
     m = DiffusionModule(config=cfg.architecture.diffusion_module).to(dtype=dtype)
@@ -400,6 +408,7 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
               f"clip={row['coefs']} spread={row['participation_spread']}", flush=True)
 
     run_theirs.last = {
+        "ref_tree": REF_TREE,
         "n_parameters": len(A["params"]),
         "n_elements": int(sum(p.numel() for p in A["params"].values())),
         "dropout": census, "layer_norm_z_realigned": A["zn_moved"],
@@ -818,9 +827,7 @@ def main() -> int:
 
     os.environ.setdefault("OMP_NUM_THREADS", str(a.threads))
     os.environ.setdefault("MKL_NUM_THREADS", str(a.threads))
-    for p in (OF3PKG,) + REFDEPS:
-        if p not in sys.path:
-            sys.path.insert(1, p)
+    refpath.install()
 
     import torch
     t0 = time.time()
@@ -858,7 +865,8 @@ def main() -> int:
 
     if a.side:
         sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
-        json.dump({"arm": a.arm, "side": a.side, "steps": log, "evidence": side_ev,
+        json.dump({"arm": a.arm, "side": a.side, "ref_tree": REF_TREE,
+                   "steps": log, "evidence": side_ev,
                    "wall_s": time.time() - t0}, open(sl, "w"), indent=1, default=str)
         print(f"wrote {sl} ({len(log)} steps, {time.time()-t0:.0f}s)", flush=True)
 
@@ -878,9 +886,18 @@ def main() -> int:
         p = os.path.join(a.out_dir, f"steplog_{arm}.json")
         return json.load(open(p)) if os.path.exists(p) else None
 
+    their_tree = REF_TREE or (steplog(a.theirs_arm) or {}).get("ref_tree")
+    if os.path.realpath(their_tree or "") != os.path.realpath(OF3PKG):
+        raise SystemExit(
+            f"reference arm {a.theirs_arm!r} was taken against {their_tree!r}, not the "
+            f"tree under test {OF3PKG!r}. 0.4.3 and 0.5.0 are a different FUNCTION at "
+            f"this boundary (D120: 1.94959719e-05 against 7.66979728e-01, f32/f32), so "
+            f"this pairing is not scorable. Re-run the reference side. See D149.")
+
     res = {
         "arm": a.arm,
         "w0_baseline": a.w0,
+        "ref_tree": their_tree,
         "scope": scope_share(names),
         "steps_scored": ks, "steps_asked": a.steps,
         "accumulate_grad_batches": a.per_step, "warmup_no_steps": a.warmup,

@@ -73,7 +73,11 @@ done
 #                 change -- and conflicts there in 3 hunks plus 2 in tt_bio/ from a stale base.
 #                 AMENDMENT 1 tells it to flip the default in its own namespace, say what the
 #                 assert must become, and rebase onto d116's unified helper.
-HELD_OUT="d10d24-unify d56-renorm"
+#   d1-pairbias   pass 272. Branched from main, so it conflicts in five tt_bio/ files at once, and
+#                 it created `perf/of3t_pairbias/attn_f64.py` -- the concluded row of3t-pairbias's
+#                 namespace -- add/add. Its brief now carries the STANDING base-on-wk/of3t and
+#                 own-namespace rules that the whole 9629 dispatch wave was sent out without.
+HELD_OUT="d10d24-unify d56-renorm d1-pairbias"
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
