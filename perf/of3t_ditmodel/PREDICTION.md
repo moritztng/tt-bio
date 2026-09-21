@@ -60,3 +60,64 @@ reading at or above it publishes as a ceiling rather than as a failure. Before a
 number is believed, the forward at this boundary is checked: `of3t-ditref` recorded it at
 **8.474800850934073e-03** bit-identical across two runs, and an arm whose forward moves is a
 different capture and is refused.
+
+---
+
+# AMENDMENT 2 pre-registration — D174, the transition output mask
+
+Registered 2026-09-22, after deliverable 1 closed (commit `7f0a6521a`) and **before any D174 arm
+ran**. The lever is committed in the same series but unmeasured at this point; every artifact
+below carries a start epoch later than this commit.
+
+## The lever, stated so a null result is readable
+
+Upstream masks the output of every transition. Our port had no parameter to pass a mask through.
+`TT_BIO_MASK_TRANS=1` gives `Transition.__call__` an optional `mask` and has `Pairformer` build
+`pair_trans_mask` and `single_trans_mask` once per stack call. Default OFF.
+
+## What I expect
+
+The orchestrator's prediction, adopted and recorded as his, not re-derived as mine:
+
+  * the trunk's **2.1595** against float64 falls **below 1.0**, plausibly toward upstream's own
+    **0.3147698**;
+  * the c64/n384 gradient-norm ratio **3.487164** falls toward **1.0**;
+  * model scope **0.532795** over 97.98499 % falls toward the **0.105921** upstream reads.
+
+**My own expectation differs on one point and I am registering the disagreement before the
+run, not after it.** `of3t-auxfind` already measured this exact lever on the reference:
+upstream 0.4.3 in float64 with `_mask_trans=False` against the same tree with it True differs by
+**7.4e+02 on the padded rows of z and EXACTLY 0.0 on the real block**, on all five heads
+(`perf/of3t_auxfind/arm_p.json`, arm P, quoted in `openfold3_confidence.py:326`). So on the
+FORWARD the mask moves padded positions only. For the mask to move a parameter GRADIENT, the
+cotangent this instrument feeds must be nonzero on padded positions, or some op below the
+transition must carry pad content into a real cell. I have not verified either, so:
+
+  * **Primary registered outcome: the trunk moves materially, 2.1595 -> below 1.0.** That is the
+    hypothesis under test and the one the row acts on.
+  * **Registered alternative, with its diagnostic: the trunk does not move.** If the masked arm
+    lands within run-to-run noise of 2.1595, D174 is **wrong as a gradient mechanism** and I
+    report it as a result. The diagnostic that separates the two is cheap and I will run it
+    either way: the norm of the captured cotangent restricted to padded rows. If that is zero,
+    no transition mask can move a parameter gradient and the mechanism has to be somewhere the
+    pad extent still reaches.
+
+Registering both is not hedging. AMENDMENT 2 asks for the first and says plainly that failing to
+find it is a real result; the second names in advance what would have to be true for the first to
+be impossible, so the row cannot rescue the hypothesis after seeing the number.
+
+## Controls
+
+  * **Break control**: `TT_BIO_MASK_TRANS=1 TT_BIO_MASK_TRANS_ONES=1` substitutes an all-ones
+    mask. It must reproduce the unmasked arm **bit-identically**. Anything else means the lever
+    is not the mask.
+  * **Reach**: `tenstorrent.MASK_TRANS_STATS` is read out of the loaded module after every arm.
+    A masked arm reporting `stacks: 0` is a hard failure, not a null result.
+  * **A16**: the zero-model baseline travels with the scoring, as on every arm in this row.
+
+## The forward, and the release gate
+
+The same flag changes inference output on every padded batch across five modules. It is
+default-OFF and stays on `wk/of3t-ditmodel`. Before it could ship it owes an inference fold A/B
+against an A/A floor on every model executing `PairformerLayer`, with accuracy improved and time
+not regressed. That decision is Moritz's.
