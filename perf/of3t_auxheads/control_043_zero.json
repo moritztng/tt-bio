@@ -1,0 +1,1561 @@
+{
+ "instrument": "instrument A at aux_heads scope, 0.4.3 boundary",
+ "boundary": {
+  "file": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+  "n_tokens": 384,
+  "n_tokens_real": 56,
+  "use_zij_trunk_embedding": true
+ },
+ "bars": {
+  "per_tensor": 0.05,
+  "median": 0.02
+ },
+ "bijection": {
+  "n_taped": 180,
+  "n_unmapped": 48,
+  "unmapped": [
+   [
+    "blocks.0.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ]
+  ],
+  "inverse_worst": [
+   "pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+   0.005669813059511369
+  ]
+ },
+ "forward": {
+  "rows": [
+   {
+    "head": "plddt_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     50
+    ],
+    "rel_l2": 0.36515146695185124,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 440.5110497037706
+   },
+   {
+    "head": "experimentally_resolved_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     2
+    ],
+    "rel_l2": 0.33314948329023314,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 71.16845756249629
+   },
+   {
+    "head": "pae_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "rel_l2": 0.18199134342683382,
+    "rel_l2_real_block": 0.5177081904801654,
+    "ref_norm": 4801.859055459928,
+    "ref_norm_real_block": 1618.8245439992772,
+    "our_norm": 4805.456738475321
+   },
+   {
+    "head": "pde_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "rel_l2": 0.08789744912491466,
+    "rel_l2_real_block": 0.30008547453153417,
+    "ref_norm": 14311.013980342595,
+    "ref_norm_real_block": 3930.8446098366344,
+    "our_norm": 14474.962305729136
+   },
+   {
+    "head": "distogram_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "rel_l2": 0.0028277270060162256,
+    "rel_l2_real_block": 0.003479065043983219,
+    "ref_norm": 7928700.559880996,
+    "ref_norm_real_block": 40409.16297008335,
+    "our_norm": 7940087.56639042
+   }
+  ],
+  "worst_head": "plddt_logits",
+  "worst_rel_l2": 0.36515146695185124,
+  "n_over_bar": 4,
+  "n_heads": 5,
+  "a18_first_clause": "FAIL -- a head is outside the 5.0e-02 bar, so any gradient taken at this boundary is invalid until the forward is localised"
+ },
+ "gradient": {
+  "n_scored": 108,
+  "n_skipped": 68,
+  "n_a14_excluded": 4,
+  "a14_floor": 4.244963940901899e-14,
+  "a14_median_ref_norm": 4.244963940901899e-06,
+  "a14_excluded": [
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 7.653292202369041e-23,
+    "our_norm": 0.0
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 8.101674691975864e-22,
+    "our_norm": 0.0
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 1.2917909945543593e-21,
+    "our_norm": 0.0
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.bias",
+    "ref_norm": 3.595104686588728e-21,
+    "our_norm": 0.0
+   }
+  ],
+  "median_rel_l2": 1.0,
+  "worst": {
+   "name": "aux_heads.distogram.linear.weight",
+   "rel_l2": 1.0,
+   "ref_norm": 0.5406145932303079,
+   "our_norm": 0.0,
+   "ref_sq": 0.292264138413571
+  },
+  "n_over_bar": 108,
+  "rows": [
+   {
+    "name": "aux_heads.distogram.linear.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 0.5406145932303079,
+    "our_norm": 0.0,
+    "ref_sq": 0.292264138413571
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 5.306623222125213e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.8160250021598583e-11
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.403514763399285e-07,
+    "our_norm": 0.0,
+    "ref_sq": 1.158391274467689e-13
+   },
+   {
+    "name": "aux_heads.experimentally_resolved.linear.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.458132899070404e-07,
+    "our_norm": 0.0,
+    "ref_sq": 7.154001213833712e-13
+   },
+   {
+    "name": "aux_heads.pae.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 7.3116139985057885e-06,
+    "our_norm": 0.0,
+    "ref_sq": 5.34596992631458e-11
+   },
+   {
+    "name": "aux_heads.pae.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.099771195777609e-06,
+    "our_norm": 0.0,
+    "ref_sq": 6.560629342394864e-11
+   },
+   {
+    "name": "aux_heads.pae.linear.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.2400412665547448e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.5377023427586962e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_distance.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.4778053839987966e-06,
+    "our_norm": 0.0,
+    "ref_sq": 6.1395195209734195e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_i.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.899927259532449e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.400928714870917e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.linear_j.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.5776773297467425e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.0955129735277253e-09
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 3.4622124461556997e-07,
+    "our_norm": 0.0,
+    "ref_sq": 1.1986915022315432e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.825110544860941e-07,
+    "our_norm": 0.0,
+    "ref_sq": 4.658213394957203e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.3155902385148023e-07,
+    "our_norm": 0.0,
+    "ref_sq": 5.3619581527050387e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 7.701868015953145e-07,
+    "our_norm": 0.0,
+    "ref_sq": 5.9318770935162e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.0806622409933292e-08,
+    "our_norm": 0.0,
+    "ref_sq": 1.167830879108726e-16
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 9.062140791901107e-07,
+    "our_norm": 0.0,
+    "ref_sq": 8.212239573224133e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.7479285461257936e-07,
+    "our_norm": 0.0,
+    "ref_sq": 3.055254202361435e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 3.071262092831261e-08,
+    "our_norm": 0.0,
+    "ref_sq": 9.43265084286226e-16
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.4369202773966594e-07,
+    "our_norm": 0.0,
+    "ref_sq": 5.938580438387158e-14
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.4020401642165247e-07,
+    "our_norm": 0.0,
+    "ref_sq": 1.1573877278942276e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 2.00802620119729e-05,
+    "our_norm": 0.0,
+    "ref_sq": 4.0321692246948207e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.8682741151236017e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.490448169240877e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.4078594191885813e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.9820681441980092e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.7564577018958242e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.08514365854916e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.6438658118126064e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.70229480724632e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.441227043388993e-05,
+    "our_norm": 0.0,
+    "ref_sq": 5.959589477373764e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.4610517641228624e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.1346722574465258e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.8046475472809934e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.2567527699073055e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 5.157000368952439e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.6594652805375594e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.11791436879625e-06,
+    "our_norm": 0.0,
+    "ref_sq": 9.721390011146116e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.linear_out.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.244963940901899e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.801971885955736e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.swiglu.linear_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.4606712753947486e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.1335605747633863e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.single_transition.swiglu.linear_b.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.359084993712651e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.90016219824109e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_a.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 2.8374943826061767e-06,
+    "our_norm": 0.0,
+    "ref_sq": 8.05137437132161e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.352940081931466e-07,
+    "our_norm": 0.0,
+    "ref_sq": 4.035984768461138e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.7730830833765059e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.143823620555937e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.linear_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.077642279980135e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.5782451123441872e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 9.007459034053661e-08,
+    "our_norm": 0.0,
+    "ref_sq": 8.113431825015502e-15
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.8775216090342045e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.5035173828527162e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.2077020352741017e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.4585442060052082e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 8.993949270077387e-07,
+    "our_norm": 0.0,
+    "ref_sq": 8.089112347272562e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.243805199287854e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.8009882569502637e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_v.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.953241364600438e-07,
+    "our_norm": 0.0,
+    "ref_sq": 1.5628117286787918e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.5859676156703675e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.5152932779551494e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.1019334671519006e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.2142573660294087e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.8837378910980724e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.4618371571143245e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 7.518216596408368e-06,
+    "our_norm": 0.0,
+    "ref_sq": 5.652358079051023e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 2.173993101338421e-05,
+    "our_norm": 0.0,
+    "ref_sq": 4.726246004667046e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.145493297176295e-05,
+    "our_norm": 0.0,
+    "ref_sq": 4.6031414882284104e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.797988043002119e-06,
+    "our_norm": 0.0,
+    "ref_sq": 4.6212641432799825e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 9.091392766401984e-06,
+    "our_norm": 0.0,
+    "ref_sq": 8.265342243298625e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.1116373764999935e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.2357376568317889e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.6211591271765817e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.628156915627936e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.linear_out.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.2329698293626108e-06,
+    "our_norm": 0.0,
+    "ref_sq": 4.986154258843672e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.swiglu.linear_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.6554049936007137e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.7403656928382164e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.single_transition.swiglu.linear_b.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.4554100979882572e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.1182185533262255e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_a.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 6.036736152094039e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.644218336999913e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.4051072197274694e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.1594755177840136e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.8094274898352903e-06,
+    "our_norm": 0.0,
+    "ref_sq": 7.892882820642218e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.linear_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.907759590900497e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.4901623383876806e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.048890342599104e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.100170950797655e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_k.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.247790944931788e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.903489169157155e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.2567513786673546e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.5794240277822879e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.2701246013781078e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.6132165030258976e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.122497180983824e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.6239977369187184e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_v.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.093444476712154e-07,
+    "our_norm": 0.0,
+    "ref_sq": 2.5943176637349157e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 2.5624914314611253e-05,
+    "our_norm": 0.0,
+    "ref_sq": 6.566362336311687e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.527517159551488e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.3333086727242457e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.86113361334785e-06,
+    "our_norm": 0.0,
+    "ref_sq": 7.851968891360318e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.1434613999423639e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.3075039731581508e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.5673893281902014e-05,
+    "our_norm": 0.0,
+    "ref_sq": 2.4567093061245305e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 9.63418500187982e-06,
+    "our_norm": 0.0,
+    "ref_sq": 9.281752065044607e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.870183015515271e-06,
+    "our_norm": 0.0,
+    "ref_sq": 4.7199414666674474e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.31652798942282e-06,
+    "our_norm": 0.0,
+    "ref_sq": 6.916463779885312e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 4.178800787504197e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.7462376021645693e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.4444951984028195e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.0865663782088004e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.linear_out.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.5452667621333338e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.3878493661540387e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.swiglu.linear_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.968650768418039e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.5624791995339195e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.single_transition.swiglu.linear_b.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 7.616756125064624e-07,
+    "our_norm": 0.0,
+    "ref_sq": 5.801497386870906e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.1446688648149287e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.3102668100766972e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.6596775836911967e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.75452968180705e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 6.0877221305249595e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.7060360738483354e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.linear_z.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 9.684257729323332e-06,
+    "our_norm": 0.0,
+    "ref_sq": 9.37848477679587e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 5.027761646568065e-07,
+    "our_norm": 0.0,
+    "ref_sq": 2.527838717470075e-13
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_k.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.2588033614133153e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.5845859027054655e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.5648303123078597e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.448693906317518e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 2.3329451048216087e-06,
+    "our_norm": 0.0,
+    "ref_sq": 5.442632862111106e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.56106401228449e-06,
+    "our_norm": 0.0,
+    "ref_sq": 7.329181702243275e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_v.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.0688029301303409e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.1423397034552025e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 5.796996522463417e-06,
+    "our_norm": 0.0,
+    "ref_sq": 3.360516868145295e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.818597966326667e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.3218886361087487e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.825109008194477e-06,
+    "our_norm": 0.0,
+    "ref_sq": 2.32816769409595e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.5397173633902035e-06,
+    "our_norm": 0.0,
+    "ref_sq": 6.450164285905694e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.0189512759992955e-05,
+    "our_norm": 0.0,
+    "ref_sq": 1.0382617028605926e-10
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 8.406101209460907e-06,
+    "our_norm": 0.0,
+    "ref_sq": 7.066253754370012e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.mha.linear_g.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.2729516679110675e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.8258115956303998e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_start.mha.linear_o.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.788869575105151e-06,
+    "our_norm": 0.0,
+    "ref_sq": 7.777793506947187e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 4.057956253015665e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.6467008951388942e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.454240708118977e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.193177886962629e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.linear_out.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.4109915181090545e-06,
+    "our_norm": 0.0,
+    "ref_sq": 5.812880100393826e-12
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.swiglu.linear_a.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 4.175568009992507e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.743536820607293e-11
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.single_transition.swiglu.linear_b.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.3486400816581767e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.8188300698549857e-12
+   },
+   {
+    "name": "aux_heads.pde.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 1.906721623538559e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.635587349669518e-10
+   },
+   {
+    "name": "aux_heads.pde.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 7.249877048786971e-06,
+    "our_norm": 0.0,
+    "ref_sq": 5.2560717222528074e-11
+   },
+   {
+    "name": "aux_heads.pde.linear.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 1.8431376691697658e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.3971564675125704e-10
+   },
+   {
+    "name": "aux_heads.plddt.layer_norm.bias",
+    "rel_l2": 1.0,
+    "ref_norm": 5.722888474893741e-05,
+    "our_norm": 0.0,
+    "ref_sq": 3.275145249607161e-09
+   },
+   {
+    "name": "aux_heads.plddt.layer_norm.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 3.948987336743555e-06,
+    "our_norm": 0.0,
+    "ref_sq": 1.5594500985760963e-11
+   },
+   {
+    "name": "aux_heads.plddt.linear.weight",
+    "rel_l2": 1.0,
+    "ref_norm": 2.6747902545201878e-05,
+    "our_norm": 0.0,
+    "ref_sq": 7.154502905676274e-10
+   }
+  ],
+  "skipped": [
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.fc1.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.fc2.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.fc3.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.norm.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.norm.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.fc1.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.fc2.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.fc3.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.norm.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.norm.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.fc1.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.fc2.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.fc3.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.norm.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.pair_transition.norm.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.fc1.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.fc2.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.fc3.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.norm.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.pair_transition.norm.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.p_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.g_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_in.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_in.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_out.bias",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_out.weight",
+    "skip": "no reference gradient under this name"
+   },
+   {
+    "name": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.p_out.weight",
+    "skip": "no reference gradient under this name"
+   }
+  ],
+  "reach": {
+   "aux_heads_squared_norm": 0.2922641907817471,
+   "model_squared_norm": 10.279642678524985,
+   "aux_heads_share_of_model": 0.028431356995735943,
+   "compared_squared_norm": 0.29226415495361857,
+   "share_of_aux_heads_own_norm": 0.9999998774118429,
+   "share_of_model_squared_norm": 0.028431353510388287,
+   "n_aux_heads_tensors": 244
+  },
+  "zero_model_arm": true,
+  "perturbation": null
+ }
+}
