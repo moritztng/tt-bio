@@ -69,7 +69,7 @@ def test_the_readme_table_names_no_flag_the_package_does_not_read():
             first = node.args[0]
             if not isinstance(first, ast.Constant) or not isinstance(first.value, str):
                 continue
-            if name in ("env_flag", "env_int"):
+            if name in ("env_flag", "env_int", "_site_flag"):
                 read_by_code.add(first.value)
             elif name == "get" and isinstance(fn, ast.Attribute) and first.value.isupper():
                 read_by_code.add(first.value)

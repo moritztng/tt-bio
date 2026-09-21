@@ -1012,6 +1012,39 @@ Every model's token bucket answers to this, and the legacy per-model flags are A
 
 Off-lattice counts are slower. They are also what `docs/size-generality.md` asks for when checking that a size claim is a property of the model and not an artifact of the bucket lattice: a ceiling measured only at multiples of 32 cannot tell the two apart.
 
+## `TT_BIO_TRIATT_SDPA_HIFI_AB` — on for `openfold3.trunk`, off at every other site
+
+Triangle attention has two routes on Blackhole: a materialised chain that takes its softmax in
+fp32, and the fused SDPA kernel. This one picks the fused kernel at HiFi4 with `math_approx` off
+and `fp32_dest_acc` on, spanning the whole key length in a single k chunk so each row reduces in
+the order the torch reference uses.
+
+Per site rather than global, because the four OpenFold3 sites do not agree. The trunk alone scores
+0.396 A closer to the deposited structure than the incumbent route; all four together land 0.676 A
+further out. So the trunk ships on and msa, template and confidence ship off. Boltz-2
+(`boltz2.trunk`) and RoseTTAFold3 (`rf3.tri_att`) build the same block and are untouched.
+
+**Speed.** OpenFold3 at 512 residues: 34.138 s to 22.574 s, 1.5123x, on a p300c with the AICLK
+sampled during every leg at a median of 1350 MHz, six legs interleaved in one process on one device
+open, against A/A floors of 0.888 and 0.950 s. The win grows with length, 57.946 s to 33.501 s at
+640 residues. Firing was counted rather than assumed on every leg: 384 calls served, 0 declined, 0
+below the length floor.
+
+**Accuracy.** Not bit-exact, and scored as a distribution against a distribution, because a single
+pair of folds cannot separate a route change from a seed. At 298 residues over three matched seeds
+the structure moves 2.5805 / 7.7510 / 8.0075 A CA against a six-pair main-against-main seed floor
+of 5.2283 / 7.7276 / 9.7768 A: the median is exactly 1.00x the floor median and the worst case is
+0.82x its maximum, so the route stays inside the variation re-seeding already produces. pLDDT moves
+the same way, 0.50319 to 0.56667. The reduction order is what clears that bar. The same route
+without it sits at 1.61x the floor median, which is why the two ship together.
+
+**Where it does nothing.** The kernel declines what it cannot fit. At 1088 residues on a p300c it
+declines all seven attempts, five on fill preconditions and two on the L1 budget, and the fold is
+byte-identical to the incumbent route down to the CIF sha256. At 1024 it serves 384 and declines 5.
+Both sizes fold with the backbone intact, 0 breaks and a CA-CA median of 3.77-3.81 A. Below 256
+residues the kernel declines every call, so short targets are unaffected, including the release
+gate 117-residue fixture: that arm is a no-regression result and not evidence for this route.
+
 ## `TT_BIO_TRIMUL_MASK_AFTER_MOVE` — on
 
 Masking before the channel move puts a masked tensor in front of the fused reader, which cannot address it. Masking after the move is the same arithmetic and leaves the reader a shape it can take, so this is what lets `TT_BIO_REBLOCK_PERMUTE_GATED` reach a masked trimul at all.
