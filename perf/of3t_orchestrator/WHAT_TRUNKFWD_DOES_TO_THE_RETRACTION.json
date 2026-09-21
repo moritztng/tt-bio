@@ -1,0 +1,25 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175, while of3t-trunkfwd is live",
+ "pre_registered_effect_of_each_outcome": [
+  {
+   "on_the_campaign": "this stops being a training-reproduction finding and becomes a PRODUCT escalation. JapanFold serves OpenFold3.",
+   "on_the_retraction": "STANDS, and hardens: the trunk's error is real, reaches production, and is a port defect rather than an instrument artefact.",
+   "outcome": "shipped inference also disagrees at ~1e-01"
+  },
+  {
+   "on_the_campaign": "a training-path defect, the same category as the softmax but a different mechanism, and the campaign has two blockers not one.",
+   "on_the_retraction": "STANDS. The trunk's training-path output really is that far out, so the error is not confined to the diffusion transformer.",
+   "outcome": "shipped agrees (<=1e-02), taped disagrees"
+  },
+  {
+   "on_the_campaign": "coverage drops by 5.5301 % back to unread and the trunk needs re-measuring on a fixed instrument.",
+   "on_the_retraction": "MUST BE REVISITED. The 1.061553e+01 would then measure the instrument's composition rather than the port, the trunk's true error mass would be UNKNOWN, and 'one module' returns to UNMEASURED -- neither confirmed nor refuted. I would have to withdraw the retraction, which is a withdrawal of a withdrawal and must be said plainly rather than quietly restoring the earlier claim.",
+   "outcome": "shipped and taped agree per block; only the 48-block composition disagrees"
+  }
+ ],
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. No measurement; this records a dependency and commits to its consequences before the measurement lands.",
+ "the_distinction_that_resolves_it": "YES for one reading of the claim and NO for the other, and the campaign had not said which it meant. 'Where does our training step's OUTPUT differ from upstream's' is a property of what we emit, and we do emit a trunk gradient 10.6x further from their step than zeros; that is true whatever causes it, so the SCOPE claim -- the error is not confined to one module -- stands. 'Which module contains the DEFECT' is a claim about mechanism, and for that A18's veto binds: the trunk's contribution cannot be attributed to a backward or precision defect while its forward disagrees. The retraction is of the SCOPE claim. It was never entitled to be a mechanism claim and I should have said so when I made it.",
+ "the_tension": "I retracted 'the failure is one module' on of3t-pairformer's error-mass arithmetic: diffusion transformer 80.79 %, pairformer trunk 18.89 %, against the 0.4 % that framing allotted to everything outside the transformer. But the trunk's 1.061553e+01 is VOID under A18 -- its forward disagrees at 2.796859e-01 -- and a gradient A18 voids cannot be used as evidence about a backward. So: can a void number carry a retraction?",
+ "what": "what each of of3t-trunkfwd's three possible outcomes does to the pass-175 retraction of 'the failure is one module'. Written BEFORE the row reports, because the retraction rests on a number that A18 itself voids and I want the dependency on the record ahead of the answer rather than reasoned out after it.",
+ "why_write_this_now": "because the third outcome is the one where I would be tempted to reason my way to a convenient reading after the fact -- it restores a headline I liked and it lets a retraction I made look unnecessary. Pre-registering what each answer costs is the only way that temptation is visible. The campaign has a defect filed for exactly this shape (D76: a branch pre-registered so it could not fire) and the fix is not to stop pre-registering, it is to pre-register outcomes that can actually happen and say what each one takes away."
+}
