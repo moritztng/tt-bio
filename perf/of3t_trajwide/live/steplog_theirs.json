@@ -226,10 +226,26 @@
    ],
    "k": 14,
    "wall_s": 6685.937335729599
+  },
+  {
+   "lr": 2.52e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.6137298345565796,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 15,
+   "wall_s": 7084.357820034027
   }
  ],
  "evidence": null,
- "n_steps": 14,
+ "n_steps": 15,
  "complete": false,
- "wall_s": 6283.986223459244
+ "wall_s": 6682.346480131149
 }
