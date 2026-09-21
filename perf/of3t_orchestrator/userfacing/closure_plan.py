@@ -232,14 +232,29 @@ def main() -> int:
     # it counted the card-bound defects and named the row for three of them, which reads as
     # "all of them are dispatched". An unowned defect is the one thing a closure plan must not
     # let pass silently, so derive it rather than narrate it.
+    # Pass 312. The check above derived the row-is-None case and stopped there, so a defect whose
+    # named row has CONCLUDED still read as owned: `of3t-ditcot` concluded STOP at 20:0x CEST and
+    # D30, D58 and D129 went on printing "Every card-bound defect has a row." A finished owner is
+    # not an owner, and it is the harder case to notice precisely because the field is populated.
+    # Same shape as the D32 `row: None` miss this block was written for, one step over.
+    _CONC = Path("/home/moritz/.coworker/state/concluded")
+    _done = lambda r: bool(r) and _CONC.is_dir() and (_CONC / r).exists()
     _orphan = [n for n in card if not PLAN[n].get("row")]
+    _stale = [n for n in card if _done(PLAN[n].get("row"))]
     if _orphan:
         _verb = "needs a card and has" if len(_orphan) == 1 else "need a card and have"
         print(f"  UNOWNED, and this is the line that was missing: {', '.join(_orphan)} "
               f"{_verb} NO ROW. Dispatch one or say why not.")
-    else:
+    if _stale:
+        _byrow = {}
+        for n in _stale:
+            _byrow.setdefault(PLAN[n]["row"], []).append(n)
+        for _r, _ns in _byrow.items():
+            print(f"  OWNER FINISHED: {', '.join(_ns)} name `{_r}`, which has CONCLUDED. "
+                  f"A concluded row is not an owner -- dispatch a successor or say why not.")
+    if not _orphan and not _stale:
         _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in card)
-        print(f"  Every card-bound defect has a row: {_owned}.")
+        print(f"  Every card-bound defect has a LIVE row: {_owned}.")
     asked = [n for n in order if PLAN[n].get("asked")]
     print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
           f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "
