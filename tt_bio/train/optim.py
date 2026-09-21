@@ -163,12 +163,12 @@ class AdamW:
             self.master[n].shape) for n, t in params.items()}
         self.exp_avg = {n: np.zeros_like(v) for n, v in self.master.items()}
         self.exp_avg_sq = {n: np.zeros_like(v) for n, v in self.master.items()}
-        # The per-sample clipping accumulator. Empty means the caller clips the batch once,
-        # which is what this file did before and what every caller does today; non-empty means
-        # `clip_and_accumulate` ran per sample and `step()` must use what it summed rather than
-        # clip a second time. `participation` is their per-parameter active count
-        # (`parameter_participation_counts`), kept because a parameter absent from most samples
-        # must not be averaged by the batch size.
+        # The per-sample clipping accumulator. Empty means the caller clips the batch once;
+        # non-empty means `clip_and_accumulate` ran per sample and `step()` uses what it
+        # summed rather than clipping a second time. `recipes.py`'s loop fills it, which is
+        # upstream's shape. `participation` is their per-parameter active count
+        # (`parameter_participation_counts`) and `step()` divides by it, because a parameter
+        # absent from most samples must not be averaged by the batch size.
         self.accum: Dict[str, "np.ndarray"] = {}
         self.participation: Dict[str, int] = {}
         self.accum_count = 0
@@ -190,6 +190,17 @@ class AdamW:
         self._reduce(replicas)
         disabled = set(disabled)
         per_sample = bool(self.accum)
+        if per_sample:
+            # Upstream's `_sync_and_average_grads` divides each parameter's accumulated
+            # gradient by ITS OWN participation count (`grad_manager.py:225-232`), not by the
+            # batch size. The counts genuinely differ: their runner disables the confidence
+            # head on any sample whose confidence weight is zero, which `initial_training.yml`
+            # does on 4 of its 5 datasets, so a parameter absent from most samples would
+            # otherwise be averaged by a divisor it never contributed to. Adam does not cancel
+            # it -- a uniform per-tensor scaling it does cancel, and this is not uniform.
+            for name, count in self.participation.items():
+                if count > 1:
+                    self.accum[name] = self.accum[name] / np.float32(count)
         # The schedule is read BEFORE the counter moves, and the order is the whole of it.
         # Upstream steps the optimizer and THEN the scheduler (`runner.py:464-465`), and
         # `AlphaFoldLRScheduler` is built with `last_epoch=-1`, so `_LRScheduler.__init__`
@@ -259,12 +270,41 @@ class AdamW:
         dividing by chip count here is exactly the substitution ``accelerate`` makes at
         ``data_loader.py:347-348`` that turns one recipe into a different one per box.
         """
+        import numpy as np
         width = 1 if self.data_parallel is None else self.data_parallel.width
         if width == 1:
             if replicas:
                 raise ValueError(
                     "per-chip gradients were passed but the optimizer has no data-parallel "
                     "axis wider than one chip. Hand it data_parallel=mesh.axis('dp')")
+            return
+        if self.accum:
+            # Under per-sample clipping the step's gradient is the ACCUMULATOR, not the tape:
+            # the tape holds whichever sample ran last. So the axis sums the accumulator, and
+            # the per-parameter participation counts with it, because upstream divides by the
+            # GLOBAL count. Averaging each rank's own samples first and summing the averages
+            # is a different number the moment the counts differ across ranks, which is the
+            # only case the count exists for.
+            if replicas:
+                raise ValueError(
+                    "per-chip gradients were passed alongside a per-sample accumulator. The "
+                    "tape holds the last sample, not the step, so step() reduces the "
+                    "accumulator itself and replicas must be empty. Call zero_grad() after "
+                    "the last clip_and_accumulate()")
+            # Every parameter, not only the ones this rank accumulated: the axis flattens in
+            # name order, so two ranks with different key sets would exchange vectors of
+            # different lengths and sum the wrong bytes into each other's gradients. Upstream
+            # keeps a zeros_like entry for every parameter for the same reason.
+            zero = {n: np.zeros_like(v) for n, v in self.master.items()}
+            summed = self.data_parallel.reduce_all(
+                {n: [self.accum.get(n, zero[n])] for n in self.master})
+            counts = self.data_parallel.reduce_all(
+                {n: [np.float32([self.participation.get(n, 0)])] for n in self.master})
+            self.participation = {n: int(v.ravel()[0]) for n, v in counts.items()}
+            # A parameter no rank activated is dropped rather than stepped on a zero
+            # gradient. Upstream zeroes its grad and lets Adam step it from momentum alone;
+            # ours skips it, and that difference is recorded rather than papered over.
+            self.accum = {n: summed[n] for n in self.master if self.participation.get(n, 0)}
             return
         if not replicas:
             raise UnreducedGradients(
@@ -395,6 +435,8 @@ class AdamW:
         Call it after each sample's backward, then `zero_grad()` before the next sample's. The
         caller owns the per-sample loop because only the caller knows what a sample is; `step()`
         consumes the accumulator when there is one and clips the batch once when there is not.
+        `train_loop` is that caller, and it clears the tape after the last sample so the
+        gradient the data-parallel axis reduces is the accumulator rather than one sample.
         """
         import numpy as np
         disabled = set(disabled)
