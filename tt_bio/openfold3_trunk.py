@@ -140,7 +140,17 @@ class OF3Trunk(Module):
             scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
-            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk"))
+            # Default ON. 34.019 -> 21.792 s at 512 aa, 1.5611x, 12.227 s, on an A/A floor of
+            # 0.002 s, with firing counted at 384 served / 0 declined / 0 too_short. Against
+            # the experimental structure 1HCL it is 0.396 A CLOSER to native than the
+            # materialised route it replaces (6.534 A against 6.930 A, CA over both copies
+            # of the chimera), so there is no accuracy cost to trade -- the same direction
+            # RF3 measured for the identical switch, 0.2030 -> 0.1780 A on 7ROA.
+            # The OTHER three sites stay off deliberately: each is also closer to native on
+            # its own, but all three together land 0.676 A FURTHER from 1HCL than this site
+            # alone does, for 1.5 s. The stack is anti-additive, so it is approved as this
+            # one site and not as a set (perf/allm_gates/ab_m18_of3_persite_qb2c3.json).
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk", True))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config,
             transpose_bias=tri_att_end_bias_follows_pair)
