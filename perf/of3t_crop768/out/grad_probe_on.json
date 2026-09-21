@@ -1,0 +1,9 @@
+{
+  "tape_calls": 17,
+  "calls_with_reads": 3,
+  "parents_seen": 28,
+  "parents_left_unpinned": 0,
+  "outs_left_unpinned": 3,
+  "arm": "on",
+  "drop_dead_values": true
+}
