@@ -10085,3 +10085,27 @@ All six live rows now carry both rules as a STANDING section, with the concluded
 **An instrument defect it found on the way, worth more than the arm it blocked**: `perf/clocksample.py` pinned `TT_SMI` to `/home/ttuser/.local/bin/tt-smi`, which does not exist on pc, so every sample raised and `line()` reported NOT SAMPLED — a harness that runs clean and produces unclocked numbers, on a campaign where every perf claim owes a DURING-sampled AICLK. It resolves per host now and reads pc card 0 at 800 MHz idle.
 
 **Why this reads FIXED and not UNFIXED, since the heading and the body must not disagree**: D137 is *"the path is gated on an env flag rather than on the tape"*, and that is repaired and verified in the composed tree. What is open is the COST of the repair at fold scope, which is a different question and now has its own owner — `of3t-d137ab`. Filing the cost under D137 would keep a repaired defect open; filing it nowhere would lose it. It is the new row's, and *"not made slower"* is answered only at call level until that row reports.
+
+### D152. A qb2 reboot destroyed `of3t-trajwide`'s in-flight 20-step float64 reference run and every trace of it, because the run's only record was `/tmp` on a host that hangs daily — and the row was parked on a CLOCK, so it would not have noticed until 16:40. FOUND and MITIGATED by the orchestrator (pass 276). **UNFIXED** as a class: the branch-side durability is now required of one row, not of the fleet.
+
+**Sequence, from `fleet.log` and the host itself.**
+
+    14:00:26 CEST  of3t-trajwide launched on qb2-card0, corrected 0.4.3 reference (D149 repaired)
+    14:20:29       row parks until 16:40: "theirs at k=1/20 ... the corrected reference lands
+                   ~14:35Z and nothing else can be scored until it does"   <- true when written
+    ~14:46         fleet.log: "aiclk_watch: qb2 unreachable"
+    14:46:53       "waking qb2 for land-standing"
+    12:48 UTC      qb2 boots (uptime 5 min at 12:53 UTC)
+    14:48:21       land-standing takes qb2-card0 -- the card the run had
+    12:53 UTC      no trajwide process; /tmp/of3t/trajwide/ does not exist
+
+**Two independent failures, and the second is the expensive one.**
+
+1. **The record lived only in `/tmp`.** Gone: every steplog, every done-marker, and the `INVALID_pre_lnz_fix/` archive of the pre-D149 arms, which was the evidence for how the wrong-tree reference behaved. What survived is what was COMMITTED — `refpath.py` and the D149 repair on `wk/of3t-trajwide` — so the reference rebuilds exactly and only the run is lost.
+2. **The park was written on an ETA, not on liveness.** It would have held until 16:40, when the row would wake to a dead process, a wiped scratch and a reassigned card: **2h20m of a p300c and of campaign time spent waiting on a corpse.** Cleared at pass 276 with the reasoning in `state/notbefore/cleared/of3t-trajwide.cleared-by-orchestrator-pass276`.
+
+**Why this is a class and not an incident.** qb2's daily disconnect is a silent host hang rather than a network blip, and its watchdog resets scale with load — which is exactly when a 5.5-hour float64 arm is running. The campaign's longest runs are therefore the most exposed, and the exposure is total: one reset and the run has never happened. It has now been paid for twice.
+
+**Mitigation, required of the row in AMENDMENT 4**: steplogs and done-markers under `perf/of3t_trajwide/` rather than only `/tmp`; push the steplog as it grows, because a 20-rung arm that pushes each rung loses one rung to a reset instead of twenty, and the branch is the only storage on this fleet that survives a reboot; and any future park must say what a reader can check to know the thing it waits for is still alive.
+
+**Not fixed at fleet level, and that is not mine.** Nothing stops the next row putting a multi-hour run in `/tmp`, and nothing checks that a parked row's subject is alive before the clock expires. Both are dispatch-layer properties. This entry records the requirement; `of3t-d137ab`'s brief, written one pass earlier, sends its workdir to `/tmp/of3t/d137ab` — acceptable at ~45 minutes, and a demonstration of how easily the default recurs.

@@ -180,6 +180,10 @@ TABLE = {
                    "a load that drops 24 trained tensors reads clean in every artifact derived "
                    "from it. An instrument-provenance defect in this campaign's own reference "
                    "chain; it changes nothing a user of the shipped tree gets."),
+    "D152": (CAMP, "A qb2 reboot destroyed an in-flight float64 reference run whose only record "
+                   "was /tmp, and the row was parked on a clock rather than on liveness. A defect "
+                   "in how this campaign stores and waits on its own long runs; no shipped "
+                   "behaviour depends on it."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "
