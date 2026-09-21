@@ -1,0 +1,47 @@
+{
+ "tokens": 37,
+ "apb_heads": 16,
+ "apb_head_dim": 24,
+ "tri_heads": 4,
+ "tri_head_dim": 32,
+ "card": "3",
+ "f64_control": {
+  "apb": 0.05481199157916475,
+  "tri": 0.5963370313893518
+ },
+ "arms": [
+  {
+   "arm": "shipped",
+   "scale_pair_bias": false,
+   "tri_att_scale_pair_bias": null,
+   "apb_vs_ref": 0.057576931973073286,
+   "apb_pcc": 0.998521945385828,
+   "apb_vs_scaled": 0.018119290859269006,
+   "tri_vs_ref": 0.03422154415716561,
+   "tri_pcc": 0.9996595796973997,
+   "tri_vs_scaled": 0.5934660358872044
+  },
+  {
+   "arm": "fixed",
+   "scale_pair_bias": true,
+   "tri_att_scale_pair_bias": false,
+   "apb_vs_ref": 0.017795061645000037,
+   "apb_pcc": 0.9999771108698169,
+   "apb_vs_scaled": 0.05555415498954643,
+   "tri_vs_ref": 0.03422154415716561,
+   "tri_pcc": 0.9996595796973997,
+   "tri_vs_scaled": 0.5934660358872044
+  },
+  {
+   "arm": "both_true",
+   "scale_pair_bias": true,
+   "tri_att_scale_pair_bias": true,
+   "apb_vs_ref": 0.017795061645000037,
+   "apb_pcc": 0.9999771108698169,
+   "apb_vs_scaled": 0.05555415498954643,
+   "tri_vs_ref": 0.034287307531703795,
+   "tri_pcc": 0.9996572038264799,
+   "tri_vs_scaled": 0.5933019790819001
+  }
+ ]
+}
