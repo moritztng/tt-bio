@@ -91,7 +91,10 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
         return {"error": f"no readable results.json: {e}"}
     if not ts:
         return {"error": "fold ok but results.json carries no runtime_s"}
-    return {"runtime_s": max(ts), "wall": wall}
+    # The fold's own wall interval travels with its timing. Without it a clock sampler's records
+    # cannot be intersected with THIS fold, and the reader falls back to the whole-run min/max --
+    # which mixes the clock the fold ran at with the clock the card idled at between folds.
+    return {"runtime_s": max(ts), "wall": wall, "t_start": t0_wall, "t_end": time.time()}
 
 
 def cell(model: str, rung: int, reps: int, workdir: Path,
@@ -102,22 +105,24 @@ def cell(model: str, rung: int, reps: int, workdir: Path,
         print("  warm-up FAILED: %s" % warm["error"], flush=True)
         return {"model": model, "rung": rung, "error": warm["error"]}
     print("  warm-up (discarded)  %.4fs" % warm["runtime_s"], flush=True)
-    off, on = [], []
+    off, on, folds = [], [], []
     for rep in range(1, reps + 1):
         for arm, acc in (("off", off), ("on", on)):
             r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value)
             if "error" in r:
                 print("  %s rep%d FAILED: %s" % (arm, rep, r["error"]), flush=True)
                 return {"model": model, "rung": rung, "error": r["error"],
-                        "off": off, "on": on}
+                        "off": off, "on": on, "folds": folds}
             acc.append(r["runtime_s"])
+            folds.append({"arm": arm, "rep": rep, "runtime_s": r["runtime_s"],
+                          "t_start": r["t_start"], "t_end": r["t_end"]})
             print("  %-3s rep%d  %.4fs" % (arm, rep, r["runtime_s"]), flush=True)
     # Floor first: the spread of the same-arm reps is what makes the delta a measurement.
     aa = 100.0 * (max(off) - min(off)) / st.median(off)
     ab = 100.0 * (st.median(on) - st.median(off)) / st.median(off)
     verdict = "INSIDE THE FLOOR" if abs(ab) <= aa else "outside the floor"
     print("  A/A floor %+.3f%%   A/B %+.3f%%   %s" % (aa, ab, verdict), flush=True)
-    return {"model": model, "rung": rung, "off": off, "on": on,
+    return {"model": model, "rung": rung, "off": off, "on": on, "folds": folds,
             "off_median": st.median(off), "on_median": st.median(on),
             "aa_spread_pct": aa, "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
 

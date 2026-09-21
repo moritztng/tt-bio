@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-card AICLK + host contention, sampled every 30 s for the size-ladder arm.
+"""Per-card AICLK + host contention, sampled on a settable interval.
 
 Two things this exists to record, because neither can be reconstructed afterwards:
 
@@ -14,12 +14,14 @@ Two things this exists to record, because neither can be reconstructed afterward
   size-independent host term, so contention inflates the small rungs most and pushes the exponent
   down. A red judged without this record cannot be told from a co-tenant.
 
-qb2 has 16 cores. Nothing here kills or throttles anything: other rows' jobs are their work.
+The interval is an argument because 30 s was calibrated for size-ladder folds that run for minutes
+and is useless against a short one. A 25 s fold can contain ZERO samples, and the reader then has
+nothing to intersect and falls back to the whole-run min/max -- which on this host mixes the 1350
+of the fold with the 800 of the idle gap beside it and reports "min 800 max 1350" for a fold that
+never left 1350. Size the interval so the SHORTEST scored fold contains at least two samples.
 """
-import json, os, subprocess, time
+import argparse, json, os, subprocess, time
 
-OUT = os.environ.get("CONTENTION_OUT",
-                     "/home/ttuser/pvx_arms/gateland_sizeladder_contention.jsonl")
 TT = os.path.expanduser("~/.local/bin/tt-smi")
 
 
@@ -48,12 +50,29 @@ def top(n=4):
     return rows
 
 
-while True:
-    rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-           "loadavg": os.getloadavg(), "ncpu": os.cpu_count(),
-           "aiclk": aiclk(), "top": top()}
-    with open(OUT, "a") as fh:
-        fh.write(json.dumps(rec) + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-    time.sleep(30)
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=os.environ.get(
+        "CONTENTION_OUT", "/home/ttuser/pvx_arms/gateland_sizeladder_contention.jsonl"),
+        help="jsonl to append to. Defaults to $CONTENTION_OUT, then the size-ladder path.")
+    ap.add_argument("--interval", type=float, default=30.0,
+                    help="seconds between samples. Must be short enough that the shortest scored "
+                         "fold contains at least two samples; 30 s cannot see a 25 s fold.")
+    a = ap.parse_args()
+    if a.interval <= 0:
+        ap.error("--interval must be positive")
+    while True:
+        # `t` is the epoch second the sample was taken. The reader intersects it with each fold's
+        # own [t_start, t_end], so it has to be a number, not only the human-readable ts.
+        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "t": time.time(),
+               "loadavg": os.getloadavg(), "ncpu": os.cpu_count(),
+               "aiclk": aiclk(), "top": top()}
+        with open(a.out, "a") as fh:
+            fh.write(json.dumps(rec) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        time.sleep(a.interval)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
