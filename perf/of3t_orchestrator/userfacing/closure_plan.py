@@ -74,11 +74,19 @@ PLAN = {
                           "compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the "
                           "shapes the existing `inner` reduction already uses. It lives in `bw`, so "
                           "it runs ONLY under the tape: an inference fold cannot execute it and the "
-                          "inference cost is zero STRUCTURALLY, not by measurement. The training "
-                          "cost is unmeasured, and there is no baseline to measure it against -- "
-                          "that is D32, `no training throughput can be projected`. So the decision "
-                          "does not wait on a number: nothing it could cost is currently knowable, "
-                          "and nothing it could cost reaches a user's fold."),
+                          "inference cost is zero STRUCTURALLY, not by measurement, and the fold "
+                          "A/B agrees: three legs at 512 aa, flag on / off / on, all three the same "
+                          "CIF sha256 on an A/A floor of exactly zero (land-standing, 04ad2cf7a). "
+                          "TRAINING COST MEASURED at pass 311, and this field said for sixteen "
+                          "passes that it could not be: `of3t-stepfloor` re-ran the pass-54 trunk "
+                          "rung with the lever OFF and the probe inert -- backward 356.00 s against "
+                          "357.32 s with it ON, so the lever is +0.37 %, 1.32 s of a 357 s backward, "
+                          "at a 1350 MHz median over 69 DURING samples. The baseline this field said "
+                          "did not exist is D32's, and D32 now has one. Caveat the row raised "
+                          "itself: the two arms are separate processes and the forward moved "
+                          "13.53 -> 4.04 s on a warm JIT cache, so the STEP-scope ON/OFF pair has to "
+                          "be re-taken inside one process; the backward-only figure is unaffected "
+                          "because the lever lives in `bw`."),
         "would_a_row_help": False,
         "asked": ("pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the "
                   "composition since pass 274, verified backward-only by AST, and not merged"),
@@ -119,15 +127,26 @@ PLAN = {
         "row": "of3t-ditcot",
         "shares_object_with": ["D30", "D58"],
     },
+    # D55's BACKWARD half closed at pass 311 and the entry stays, rewritten to its forward half.
+    # Not removed: `of3t-ditcot`'s commit subject reads "D55 closed" and it is not, it is half.
+    # The four it measured are backward reductions inside bw rules; the forward half is one
+    # missing compute_kernel_config on the softmax FORWARD, which changes what the card computes.
     "D55": {
         "needs": CARD,
-        "one_line": "four of the tape's ten reductions still lack the precise kernel config, two of them inside the LayerNorm cancellation the rule's own comment is about",
-        "closes_when": ("all four are pulled together with a LoFi break control. Six of the ten are "
-                        "already measured inert with reach proven, so this is one arm, not a study"),
-        "evidence_held": ("the pass-237 AST census, keyed by symbol; dn_mean x4 inert at 2736/2736 "
-                          "with the break control moving 2733; softmax:inner x2 inert"),
+        "one_line": ("the softmax FORWARD is missing one compute_kernel_config, worth 11.2-12.3x "
+                     "accuracy for 1.35-1.50x cost on fp32 and inverting to 1.96x for 2.32x on bf16. "
+                     "The BACKWARD half of this defect is CLOSED (pass 311, all four inert)"),
+        "closes_when": ("of3t-fwdkcfg takes the forward arm with a fold A/B against an A/A floor. It "
+                        "is a FORWARD change, so it moves fold output and the 2026-09-21 inference "
+                        "constraint binds: an accuracy gain that costs inference time is a regression "
+                        "here. The row is HELD behind of3t-ditcot, which owns the same file"),
+        "evidence_held": ("BACKWARD, closed: pulled on the RENORM arm, A/A and PULL identical on every "
+                          "scope (diffusion 547/547, trunk 2736/2736, T1 3/3, T3 4/4) with the LoFi "
+                          "break control MOVING on all four (546/547, 2732/2736, 2/3, 3/4), and reach "
+                          "measured rather than assumed. FORWARD, open: the four-rung fp32 ladder at a "
+                          "pinned 1350 MHz plus the bf16 rung that inverts the trade"),
         "would_a_row_help": True,
-        "row": "of3t-ditcot",
+        "row": "of3t-fwdkcfg",
     },
     "D32": {
         "needs": CARD,
@@ -201,9 +220,14 @@ def main() -> int:
         print(f"{len(mrg)} are DECIDED and BUILT and wait only to be merged: {', '.join(mrg)}. "
               f"That is not a measurement this campaign can take: the merge gate is Moritz's, and "
               f"it is now on the critical path to condition 5 rather than beside it.")
+    # Pass 311: this line used to end "and `of3t-ditcot` is dispatched against it and held until
+    # a card frees." It was held when that was typed and has been running on qb2 card 0 since
+    # 19:20 CEST. A closure plan has no business asserting SCHEDULING state: which row owns a
+    # defect changes rarely and is derived two lines down, while whether that row is on a card
+    # right now changes by the minute and is stale the moment it is written. Same lesson as the
+    # D32 orphan comment below -- derive it or drop it, never narrate it.
     print(f"{len(card)} need a card: {', '.join(card)}. Of those, {len(shared)} "
-          f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
-          f"`of3t-ditcot` is dispatched against it and held until a card frees.")
+          f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward.")
     # Pass 304. D32 sat here with `row: None` for 180 passes and this summary never said so:
     # it counted the card-bound defects and named the row for three of them, which reads as
     # "all of them are dispatched". An unowned defect is the one thing a closure plan must not

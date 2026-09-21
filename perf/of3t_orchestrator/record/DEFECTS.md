@@ -10924,3 +10924,64 @@ where `tt_bio.autograd.softmax` is unrepaired. **No measured result is affected*
 has no call site in `tt_bio/`, `perf/` or `tests/` on `wk/of3t`, checked — so this is a tidiness
 item against the campaign's own reference tree, not a correctness one, and it resolves by itself
 when D56 lands on main and the composition recomposes from it.
+
+### D55 UPDATE 5 (pass 311, heading restated). **UNFIXED — and its BACKWARD half is CLOSED.** `of3t-ditcot` measured all four remaining unconfigured reductions INERT at 17:44 CEST (`674282e49`). The defect stays UNFIXED because its FORWARD half is a different object, is live, and is owned by a row that has not started.
+
+**Read the commit subject carefully, because taken at face value it closes the whole defect.** It
+says *"D55 closed: all four remaining unconfigured reductions are inert."* Those four are the
+**backward** sites — the reductions inside `_taped_layer_norm.make.bw`, `softmax_bw_inner` and the
+two isolated twins. They are closed and the evidence is the campaign's standard:
+
+    scope             A/A          pull         LoFi control        max rel
+    diffusion (547)   547/547 id   547/547 id   546/547 moved       1.557e+01
+    trunk     (2736)  2736/2736    2736/2736    2732/2736 moved     1.466e+02
+    T1 isolated (3)   3/3          3/3          2/3 moved           2.537e-03
+    T3 isolated (4)   4/4          4/4          3/4 moved           5.095e-03
+
+Pulled together on the RENORM arm, which is the composition default. A/A identical and the PULL
+identical on every scope, so the four are inert; **the LoFi break control MOVES on all four**, so
+the instrument can fail and "inert" is a reading rather than a dead arm. **Reach measured, not
+assumed**: only T2 and T4 execute at model scope (`_taped_layer_norm.make.bw` 163/816 firings,
+`softmax_bw_inner` 30/240), T1 and T3 record zero, the row says why, and measured them at op level
+instead. Measurement only — nothing in `tt_bio/` edited, and all four sites are inside backward
+rules no inference fold reaches.
+
+**What stays open is the forward half, and it is not a near-cancellation question at all.** UPDATE
+2 through UPDATE 4 (passes 297-300) are about **one missing `compute_kernel_config` on the softmax
+FORWARD**, worth **11.2-12.3x accuracy for 1.35-1.50x cost on fp32 and inverting to 1.96x for
+2.32x on bf16** — size-dependent, and a FORWARD change, so it moves fold output and the 2026-09-21
+inference constraint binds on it. `of3t-fwdkcfg` owns it and is HELD behind `of3t-ditcot`, which
+owns the same file. Nothing `of3t-ditcot` measured touches it: inert backward reductions say
+nothing about a forward kernel config that changes what the card computes.
+
+**Why this entry exists rather than a status flip.** The status parser reads the LATEST
+status-bearing heading, so a heading saying CLOSED here would have marked the whole defect closed
+while its live half sat with a held owner and a binding inference constraint. The orchestrator
+nearly did exactly that, and nearly removed D55 from `CLOSURE_PLAN.json` on the strength of a
+commit subject. **A row's sentence is evidence for exactly what it says**: this one says four
+backward reductions are inert, and that is what it proves.
+
+### D164 UPDATE 4 (pass 311). The residual's named candidate is **REFUTED**, and the re-measurement turned up a confound that invalidates the step-scope arm the row had queued. D164 itself is unchanged and still settled.
+
+R127 left the 2.35x as an **upper bound** on the allocator probe's share, with three variables
+moved between the arms: the probe (deliberate), the chip (3 against 0) and the tree (two days,
+which is where `TT_BIO_SOFTMAX_BW_RENORM` went default-ON at pass 274). The 1.63x that separates
+the clean 357.32 s backward from pass 222's 219.07 s had RENORM as its named tree-axis candidate.
+
+**`of3t-stepfloor` ran it and RENORM is not the factor** (`9b1fa2ee9`). The same rung with the
+lever **OFF** and the probe still inert: forward 4.04 s, backward **356.00 s**, 168,922 backward
+verb calls, 2,473 tape nodes, 1,639 of 2,531 weights reached, AICLK median **1350 MHz** over 69
+DURING samples, loadavg 11.23. Against **357.32 s** with the lever ON that is **+0.37 %** — 1.32 s
+of a 357 s backward. So the lever costs essentially nothing in training and explains none of the
+1.63x. The remaining candidates are the chip axis and the rest of the two-day tree.
+
+**And the row found the confound that matters more than the answer.** The forward moved
+**13.53 s to 4.04 s** between the two arms, and the lever cannot touch a forward: that gap is the
+**kernel JIT cache**, warm on the second arm. So a cross-process cold figure on this host carries
+a compile term, which is why the row's step-scope ON/OFF pair reads **-100 s** — a negative cost
+for adding two ops — and has to be re-taken inside one process. The backward-only figure above is
+unaffected, because the lever lives in `bw` and both arms paid the same compile.
+
+**This is the D164 lesson recurring inside D164's own follow-up**: a wall clock that answers a
+different question than the one being asked. There it was an allocator probe; here it is a JIT
+cache. Both were visible in the artifact's own fields before anyone quoted the seconds.
