@@ -8193,3 +8193,46 @@ the campaign has been quoting reach denominators that exclude it without saying 
 
 Any claim that this stack can train OpenFold3 is bounded by 3.6438 % of the gradient it cannot
 compute on device, and the remedy is porting those ops, not repairing a gradient.
+
+### D127 UPDATE (pass 227, minutes after filing). CORRECTED BY ME: 2.8431 of its 3.6438 points are not a device-residency fact, and the two halves are different defects with different remedies.
+
+I filed D127 at pass 225 from `of3t-rebind`'s REACH ceiling and dispatched `of3t-hostops` to port
+the ops. Checking the artifacts one pass later, the `aux_heads` half does not survive.
+
+**`of3t-wholemodel` scored a device gradient for `aux_heads`.** `MODEL_arms.json`,
+`coverage_by_section`:
+
+    aux_heads   pct_of_model 2.843135699573598   pct_of_model_compared 2.843135608822624
+
+and `instrument_a_aux_renorm.json` scores **176 tensors, 0 skipped**, at `aux_heads` scope on the
+0.4.3 boundary, median rel_l2 1.0421, gradients dumped to `aux_grads_renorm.pt`. A scope with a
+scored device gradient is not a scope with no device gradient.
+
+**The error is mine, not `of3t-rebind`'s.** Its words were *"zero walked paths matching
+`distogram`/`pae`/`plddt`/`pde`/`resolved`"* — a statement about **the parameter walk's path
+matching** — and I generalised it into device residency when I filed the defect. Its own
+`REACH_baseline.json` shows the walk has a large matching problem on its own terms:
+
+    ambiguous_walked_paths 829      unmatched_walked_paths 691
+    fully_covered_reference_names 2678 of 4170      pct_fully_covered 95.12858566374045
+
+**The two halves are now different defects.** `input_embedder`, **0.8007 %**, stands as a port
+question: `pct_of_model_compared` is 0.0 in the same table, the weight is applied host-side at
+`openfold3_host_prep.py:222` with the tail doing `ttnn.to_torch` at `:256` and a host `F.linear` at
+`:259`, and `of3t-auxheads` reported it independently inside D58's body. `aux_heads`, **2.8431 %**,
+is — if it holds at all — a **discovery/bijection** defect: a gradient that exists on device and an
+optimizer walk that cannot match the parameter, so **a training run never updates those weights**.
+Still user-facing, and the remedy is naming, not ttnn.
+
+**And 1.2276 % is unaccounted either way.** The walk fully covers 95.1286 %, so 4.8714 % is not
+covered; D127 named 3.6438 % of it and nothing in the record explains the rest.
+
+`of3t-hostops`'s brief was amended in place minutes after dispatch, before it could spend a card
+porting an op that already runs on device. Its main result is now the **corrected** headline: the
+share of the squared gradient norm a training run cannot update, **split by reason**. If that turns
+out to be only the 0.8007 %, the bound shrinks by 78 % and that is the finding.
+
+**The lesson, and it is the fourth of this shape in six passes.** `of3t-rebind` wrote a precise
+sentence about path matching; I turned it into a claim about silicon. Same class as taking "the
+shipped default" at face value at pass 222 and as reading one tree at pass 220 — a row's sentence is
+evidence for exactly what it says, and the orchestrator's job is to notice when a filing widens it.
