@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import statistics as st
 import subprocess
 import sys
@@ -71,6 +72,9 @@ def main() -> int:
     ap.add_argument("--tag", default="sc_splitwide", help="route record to take signatures from")
     ap.add_argument("--top", type=int, default=6, help="signatures to price, by call count")
     ap.add_argument("--reps", type=int, default=15)
+    ap.add_argument("--target-ms", type=float, default=3.0,
+                    help="bracket length the largest n should reach, per signature")
+    ap.add_argument("--max-n", type=int, default=256)
     ap.add_argument("--warm", type=int, default=3)
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--clock", type=int, default=1350)
@@ -181,7 +185,8 @@ def main() -> int:
 
     AGG = min if a.stat == "min" else st.median
 
-    def ladder(fn, c, ns=(1, 2, 4, 8, 16)):
+    def ladder(fn, c, ns=None):
+        ns = ns or c.get("ns", (1, 2, 4, 8, 16))
         pts = []
         for n in ns:
             ts = []
@@ -200,11 +205,38 @@ def main() -> int:
         L, cc, res = fit([p[0] for p in pts], [p[1] for p in pts])
         return {"pts": pts, "L": L, "c": cc, "resid": res}
 
+    def ns_for(c):
+        """An n-ladder sized to this signature, not to the list.
+
+        A fixed ladder prices a 0.23 ms op and a 0.025 ms op with the same brackets, so the cheap
+        one spends most of every bracket inside the ~0.05 ms sync floor and its A/A floor comes
+        out an order of magnitude looser -- measured, 0.017 % on the dearest signature against
+        4.025 % on the cheapest, in the same session. Sizing the top of the ladder to a fixed
+        bracket length instead equalises what each point is actually measuring.
+        """
+        ttnn.synchronize_device(device)
+        t0 = time.perf_counter()
+        rs = [native(c) for _ in range(4)]
+        ttnn.synchronize_device(device)
+        per = max((time.perf_counter() - t0) * 1e3 / 4.0, 1e-4)
+        for r in rs:
+            ttnn.deallocate(r)
+        top = min(a.max_n, max(16, 1 << max(0, int(math.ceil(math.log2(a.target_ms / per))))))
+        ns, n = [], 1
+        while n < top:
+            ns.append(n)
+            n *= 2
+        ns.append(top)
+        return tuple(ns), per
+
     for c in cases:
         for fn in ARMS.values():
             for _ in range(3):
                 fn(c)
         ttnn.synchronize_device(device)
+        c["ns"], per = ns_for(c)
+        print("  %-24s per-call ~%.4f ms -> ladder n = %s"
+              % ("%s" % (c["a"],), per, c["ns"]), flush=True)
 
     if not cases:
         print("no signature built; nothing to price")
@@ -241,6 +273,7 @@ def main() -> int:
                            "native_ms": nv, "generic_ms": gn, "split_ms": sp,
                            "generic_over_native": gn / nv, "native_over_split": nv / sp,
                            "generic_over_split": gn / sp, "aa_floor_pct": floor,
+                           "ns": list(c.get("ns", ())),
                            "generic_bitexact": c["generic_bitexact"],
                            "split_bitexact": c["split_bitexact"]})
         print("%-24s n=%-6d native %.5f generic %.5f split %.5f ms | gen/nat %.4fx  "
