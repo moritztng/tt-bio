@@ -136,9 +136,13 @@ PLAN = {
                         "s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and "
                         "the defect is that nobody can price training without it"),
         "evidence_held": ("the 21 sites enumerated by module and line; the trunk-only taped step "
-                          "measured at 230.11 s against 9.721 s for inference, 24x, at crop 384"),
+                          "measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. "
+                          "D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a "
+                          "memory-ladder run's wall clock at 3.53 ms per verb call and is not a "
+                          "timing at all -- the same backward clean reads 222.48 s, so this row "
+                          "must re-establish its own baseline before it extends one"),
         "would_a_row_help": True,
-        "row": None,
+        "row": "of3t-stepfloor",
     },
 }
 
@@ -200,6 +204,18 @@ def main() -> int:
     print(f"{len(card)} need a card: {', '.join(card)}. Of those, {len(shared)} "
           f"({', '.join(shared)}) are the SAME OBJECT -- the tape's backward -- and "
           f"`of3t-ditcot` is dispatched against it and held until a card frees.")
+    # Pass 304. D32 sat here with `row: None` for 180 passes and this summary never said so:
+    # it counted the card-bound defects and named the row for three of them, which reads as
+    # "all of them are dispatched". An unowned defect is the one thing a closure plan must not
+    # let pass silently, so derive it rather than narrate it.
+    _orphan = [n for n in card if not PLAN[n].get("row")]
+    if _orphan:
+        _verb = "needs a card and has" if len(_orphan) == 1 else "need a card and have"
+        print(f"  UNOWNED, and this is the line that was missing: {', '.join(_orphan)} "
+              f"{_verb} NO ROW. Dispatch one or say why not.")
+    else:
+        _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in card)
+        print(f"  Every card-bound defect has a row: {_owned}.")
     asked = [n for n in order if PLAN[n].get("asked")]
     print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
           f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "

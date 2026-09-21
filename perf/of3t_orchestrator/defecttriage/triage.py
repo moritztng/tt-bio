@@ -183,6 +183,18 @@ TABLE = {
     "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
                    "filenames exist in both tt-bio and upstream openfold3. A documentation "
                    "convention in this campaign's own ledger; nothing a user runs depends on it."),
+    "D164": (CAMP, "The campaign's most-quoted number outside its own walls -- 870.75 s on a "
+             "p300c against 7-8 s on an H200, ~116x -- is the wall clock of `of3t-l1`'s MEMORY "
+             "ladder, which took an allocator read on every one of 246,510 verb calls "
+             "(3.53 ms/call). The campaign's own clean timing of the same 2,473-node backward "
+             "reads 222.48 s, so the ratio is ~28-32x and the error overstated our own gap by "
+             "3.91x. CAMPAIGN-INTERNAL and it is the borderline case in this table: nothing a "
+             "user of tt-bio gets today is different, which is the published test, but this is "
+             "the one figure that travels outside the campaign, so the cost of the "
+             "misclassification is a reader's, not a fold's. Left UNFIXED because the artifact "
+             "belongs to a concluded row and will not be rewritten; the three sentences that "
+             "quoted it are corrected and `assert_timing_is_a_timing_run.py` holds the line. "
+             "of3t-stepfloor re-measures it as deliverable 0."),
     "D163": (CAMP, "An artifact's own verdict field says the tape gate changed a fold output "
                    "when D1's landing did. A defect in this campaign's own evidence files; the "
                    "conclusion it contradicts is correct and recorded."),

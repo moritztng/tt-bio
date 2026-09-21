@@ -748,6 +748,17 @@ echo "--- site-flag call-site defaults (D162)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_site_flag_defaults.py . ) || \
   { echo "COMPOSE: a construction site ships a per-site lever ON by default, unpinned -- see D162"; exit 1; }
 
+# (3o) D164. A guard that binds a sentence to its artifact cannot notice the artifact is the
+# wrong INSTRUMENT. audit_evidence.py recomputed 172.43 + 698.32 = 870.75 and asserted cycles==1
+# for 250 passes -- both true -- while the run those seconds came from was D14's MEMORY ladder,
+# taking an allocator read on every one of 246,510 verb calls at 3.53 ms each. The same backward
+# timed clean reads 222.48 s. Ask the question those assertions cannot: was it timing?
+echo "--- a timing figure comes from a timing run (D164)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_timing_is_a_timing_run.py ) || \
+  { echo "COMPOSE: live prose quotes a probe-instrumented run's wall clock as a timing figure -- see D164"; exit 1; }
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_timing_is_a_timing_run.py --self-test >/dev/null ) || \
+  { echo "COMPOSE: the D164 guard's own negative control does not fire -- the guard is not a guard"; exit 1; }
+
 echo "--- digest claims name their hardware (D155)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
   { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
