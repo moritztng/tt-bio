@@ -1,0 +1,87 @@
+{
+ "model": "opendde",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "chip": "1",
+ "grid": [
+  11,
+  10
+ ],
+ "throw": [
+  {
+   "op": "sdpa",
+   "msg": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 si",
+   "frames": [
+    "tenstorrent.py:8991 __call__",
+    "ops.py:104 checkpoint_segment",
+    "tenstorrent.py:8992 <lambda>",
+    "tenstorrent.py:8893 __call__",
+    "tenstorrent.py:7929 __call__",
+    "tenstorrent.py:7592 attend",
+    "tenstorrent.py:7665 _attend_heads",
+    "tenstorrent.py:1828 _tri_att_sdpa",
+    "tenstorrent.py:1806 _sdpa_masked",
+    "tenstorrent.py:1839 _tri_att_sdpa_inner",
+    "tenstorrent.py:2122 _tri_att_sdpa_at",
+    "triatt_sdpa.py:434 sdpa"
+   ]
+  },
+  {
+   "op": "sdpa",
+   "msg": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 si",
+   "frames": [
+    "tenstorrent.py:8991 __call__",
+    "ops.py:104 checkpoint_segment",
+    "tenstorrent.py:8992 <lambda>",
+    "tenstorrent.py:8893 __call__",
+    "tenstorrent.py:7929 __call__",
+    "tenstorrent.py:7592 attend",
+    "tenstorrent.py:7665 _attend_heads",
+    "tenstorrent.py:1828 _tri_att_sdpa",
+    "tenstorrent.py:1806 _sdpa_masked",
+    "tenstorrent.py:1839 _tri_att_sdpa_inner",
+    "tenstorrent.py:2122 _tri_att_sdpa_at",
+    "triatt_sdpa.py:434 sdpa"
+   ]
+  }
+ ],
+ "record": [
+  {
+   "recorder": "triatt_sdpa._PM_OVER_L1",
+   "key": "(1024, 1024, 1024, 256, 2, DataType.BFLOAT16)",
+   "frames": [
+    "tenstorrent.py:8991 __call__",
+    "ops.py:104 checkpoint_segment",
+    "tenstorrent.py:8992 <lambda>",
+    "tenstorrent.py:8893 __call__",
+    "tenstorrent.py:7929 __call__",
+    "tenstorrent.py:7592 attend",
+    "tenstorrent.py:7665 _attend_heads",
+    "tenstorrent.py:1828 _tri_att_sdpa",
+    "tenstorrent.py:1806 _sdpa_masked",
+    "tenstorrent.py:1839 _tri_att_sdpa_inner",
+    "tenstorrent.py:2122 _tri_att_sdpa_at",
+    "triatt_sdpa.py:449 sdpa"
+   ]
+  },
+  {
+   "recorder": "triatt_sdpa._PM_OVER_L1",
+   "key": "(1024, 1024, 512, 256, 2, DataType.BFLOAT16)",
+   "frames": [
+    "tenstorrent.py:8991 __call__",
+    "ops.py:104 checkpoint_segment",
+    "tenstorrent.py:8992 <lambda>",
+    "tenstorrent.py:8893 __call__",
+    "tenstorrent.py:7929 __call__",
+    "tenstorrent.py:7592 attend",
+    "tenstorrent.py:7665 _attend_heads",
+    "tenstorrent.py:1828 _tri_att_sdpa",
+    "tenstorrent.py:1806 _sdpa_masked",
+    "tenstorrent.py:1839 _tri_att_sdpa_inner",
+    "tenstorrent.py:2122 _tri_att_sdpa_at",
+    "triatt_sdpa.py:449 sdpa"
+   ]
+  }
+ ]
+}
