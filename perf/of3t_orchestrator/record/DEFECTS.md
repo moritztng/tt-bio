@@ -9842,3 +9842,37 @@ quantity. That found this cluster and confirmed 36.9462 %, 51.1358 % and the aux
 as current. It did **not** check non-percentage figures — the e-notation readings, the bars, the
 per-block tables — and A22's 25 numbers were examined separately and are self-consistent: its claim
 is that three powers of two agree to all six digits, which the table demonstrates internally.
+
+### D147. Main landed M18's `tri_att_sdpa_hifi` at OpenFold3's four Pairformer-family sites and the composition stopped composing — every concluded row that had appended a kwarg at one of those sites conflicted at once. FOUND and FIXED by the orchestrator (pass 265). **FIXED** by a generic resolver; per-row cases do not scale.
+
+`origin/main` moved at **2026-09-21 10:37:48 UTC** (`0de600bd7`). The next compose aborted on
+`of3t-confidence`, and clearing that one revealed `of3t-gradients` behind it, on three files. Both
+rows concluded on 09-19 and neither had changed; **main moved under them**, which
+`compose_verify.sh`'s own comment anticipates for `.gitignore` and had no answer for in code.
+
+**Three shapes, one mechanical rule each, anything else still stops the compose (exit 2).**
+
+  * **kwarg TAIL** — both sides end the call with `)`. Union the names.
+  * **kwarg FRAGMENT** — git cut the argument list mid-way, so neither side closes the call. Same
+    union; the missing case that made the first version refuse `of3t-gradients`.
+  * **IMPORT block** — both sides are nothing but imports. Same-module `from` lines are **merged**
+    rather than duplicated: keeping both parses and even runs, since the second rebinds the same
+    names, but it is not what either side wrote, and *"compiles and is not what anyone meant"* is
+    the failure this resolver exists to avoid.
+
+**On a collision, HEAD wins, and that is not a tie-break for tidiness.** At
+`openfold3_confidence.py` the contested name is **`scale_pair_bias`** — main ships **False**, both
+row branches carry **True**, and that is **D1**, a repair HELD because applying it measured
+**0.149 Å worse at rank 0** and which pin **9629** asks Moritz to decide. A union that took the
+row's value would have applied a held repair inside the composition, and the shipped-defaults assert
+would then have failed a check about something else entirely.
+
+**Every resolution is AST-parsed before it is written**, which earned its keep immediately: the
+first splitter drove the depth counter negative on the call's own closing paren, dropped the last
+two kwargs and the `)`, and the parse caught it as a SyntaxError rather than a device failing hours
+later. The splitter was then tested **offline against both real sides** before the compose ran
+again.
+
+**Result**: `openfold3_confidence.py` carries all six kwargs with `scale_pair_bias=False`, and
+`openfold3_template.py` one merged `from .tenstorrent import ...` plus `from . import ops`. Compose
+is green at **171 confirmed, 0 drifted**.
