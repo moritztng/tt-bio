@@ -1,0 +1,157 @@
+{
+ "arm": "norebind",
+ "side": "ours",
+ "ref_tree": null,
+ "steps": [
+  {
+   "k": 1,
+   "lr": 0.0,
+   "grad_norm": 3.906957735051199,
+   "clip": 1.0,
+   "per_sample": true,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": [
+    4
+   ],
+   "wall_s": 176.7914526462555
+  },
+  {
+   "k": 2,
+   "lr": 1.8e-06,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 194.35882830619812
+  },
+  {
+   "k": 3,
+   "lr": 3.6e-06,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 215.086172580719
+  },
+  {
+   "k": 4,
+   "lr": 5.4e-06,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 235.74627494812012
+  },
+  {
+   "k": 5,
+   "lr": 7.2e-06,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 255.6444206237793
+  },
+  {
+   "k": 6,
+   "lr": 9e-06,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 274.3798267841339
+  },
+  {
+   "k": 7,
+   "lr": 1.08e-05,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 294.52673292160034
+  },
+  {
+   "k": 8,
+   "lr": 1.26e-05,
+   "grad_norm": 0.0,
+   "clip": 1.0,
+   "per_sample": false,
+   "per_sample_clip_coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rebound": 0,
+   "tape_resolves_after_step": 0,
+   "of_walked": 980,
+   "participation_spread": null,
+   "wall_s": 314.40037727355957
+  }
+ ],
+ "evidence": null,
+ "n_steps": 8,
+ "complete": false,
+ "wall_s": 330.89319133758545
+}
