@@ -48,17 +48,37 @@ def sign_test_p(diffs):
 
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--ship", default="perf/of3t_pairbias/folds_ship.json")
-ap.add_argument("--fix", default="perf/of3t_pairbias/folds_fix.json")
+ap.add_argument("--ship", default="perf/of3t_pairbias/folds_ship_c3.json,"
+                                  "perf/of3t_pairbias/folds_ship_c2.json")
+ap.add_argument("--fix", default="perf/of3t_pairbias/folds_fix_c3.json,"
+                                 "perf/of3t_pairbias/folds_fix_c2.json")
 ap.add_argument("--out", default="perf/of3t_pairbias/fold_table.json")
 a = ap.parse_args()
 
-data = {arm: json.load(open(p)) for arm, p in (("ship", a.ship), ("fix", a.fix))}
+def load(paths):
+    """One arm can be split over cards, one card per target. Merge on target and keep which card
+    each target came from: a target whose two arms landed on different cards is a comparison this
+    row would have to throw away."""
+    parts = [json.load(open(q)) for q in paths.split(",")]
+    out = dict(card={}, targets={}, rows=[], wiring=parts[0]["wiring"])
+    for part in parts:
+        out["rows"] += part["rows"]
+        for t, meta in part["targets"].items():
+            if any(r["target"] == t for r in part["rows"]):
+                out["targets"][t] = meta
+                out["card"][t] = part["card"]
+        assert part["wiring"] == out["wiring"], "files of one arm disagree on their wiring"
+    return out
+
+
+data = {arm: load(p) for arm, p in (("ship", a.ship), ("fix", a.fix))}
 rows = {arm: {(r["target"], r["seed"], r["repeat"]): r for r in d["rows"]}
         for arm, d in data.items()}
 targets = [t for t in data["ship"]["targets"]
            if any(k[0] == t for k in rows["ship"]) and any(k[0] == t for k in rows["fix"])]
-print(f"cards: ship {data['ship']['card']}  fix {data['fix']['card']}")
+for _t, _c in data["ship"]["card"].items():
+    assert data["fix"]["card"].get(_t) == _c, f"{_t}: the two arms landed on different cards"
+    print(f"card {_c}: {_t}, both arms")
 print(f"wiring: ship {data['ship']['wiring']}\n        fix  {data['fix']['wiring']}")
 
 report = {"targets": {}, "pooled": {}}
