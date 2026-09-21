@@ -3,7 +3,8 @@
 
 Five arms, each one op class computed on the host in float64, forward and backward, by
 `perf/of3t_residual/host_f64.py`'s verb rule -- plus `--softmax-f64`, the same bound on the
-softmax verb. Nothing about the reference moves: every arm divides by the same 0.4.3 float64
+softmax verb. Six classes, so every arithmetic verb carrying real traffic on this scope gets an
+arm: softmax, layer_norm, add/multiply, linear and matmul. Nothing about the reference moves: every arm divides by the same 0.4.3 float64
 gradient at the same capture, `/home/ttuser/of3t_softgrad/diffcap043`, and every arm's resolved
 tree and capture stamp are read back in-process rather than labelled.
 
@@ -21,6 +22,8 @@ What the arms can and cannot say, stated before the numbers:
     precision of the value it hands on;
   * perturbations stack sub-additively, so SUM_OF_PARTS below is computed and compared against
     the joint arm rather than assumed. It is not a decomposition and it is not treated as one.
+    `linear` and `matmul` in particular overlap: each is worth more alone than it adds on top of
+    the other five, which is measured here and not argued.
 """
 from __future__ import annotations
 
@@ -42,10 +45,15 @@ ARMS = [
     ("layernorm", "abl_ln64",      "--host-f64 layer_norm"),
     ("addmul",    "abl_addmul64",  "--host-f64 add,add_,multiply,multiply_: the residual adds "
                                    "and the AdaLN scale/shift"),
-    ("linear",    "abl_linear64",  "--host-f64 linear: the attention matmuls and the SwiGLU "
-                                   "transition's projections"),
-    ("joint",     "abl_all64",     "all five classes at once: --softmax-f64 --host-f64 "
+    ("linear",    "abl_linear64",  "--host-f64 linear: the SwiGLU transition's projections "
+                                   "and every projection that goes through ops.linear"),
+    ("matmul",    "abl_matmul64",  "--host-f64 matmul: the attention matmuls, a DIFFERENT tape "
+                                   "verb from linear, which is why bounding linear leaves 2928 "
+                                   "of them on device"),
+    ("joint5",    "abl_all64",     "five classes at once, matmul still on device: "
+                                   "--softmax-f64 --host-f64 "
                                    "layer_norm,linear,add,add_,multiply,multiply_"),
+    ("joint",     "abl_all6_64",   "all six classes at once: joint5 plus matmul"),
 ]
 
 
@@ -113,7 +121,7 @@ for label, r in rows.items():
         / base["mass_weighted_rel"]
     r["forward_x_of_baseline"] = r["forward_rel_median"] / base["forward_rel_median"]
 
-singles = [rows[k] for k in ("softmax", "layernorm", "addmul", "linear")]
+singles = [rows[k] for k in ("softmax", "layernorm", "addmul", "linear", "matmul")]
 sum_parts = sum(r["median_reduction_abs"] for r in singles)
 share = {r["arm"]: r["median_reduction_abs"] / sum_parts for r in singles}
 
@@ -146,7 +154,17 @@ rep = {
                "stack is worth less than their sum, which is why no percentage below is called a "
                "decomposition.",
     },
-    "RESIDUAL_AFTER_ALL_FIVE": {
+    "MARGINAL_VALUE_OF_MATMUL_ON_TOP_OF_THE_OTHER_FIVE": {
+        "joint5_median_rel": rows["joint5"]["median_rel"],
+        "joint6_median_rel": joint["median_rel"],
+        "further_reduction_frac": (rows["joint5"]["median_rel"] - joint["median_rel"])
+                                  / rows["joint5"]["median_rel"],
+        "matmul_alone_reduction_frac": rows["matmul"]["median_reduction_frac"],
+        "why": "matmul alone is worth 9.59 % of the baseline, and on top of the other five it is "
+               "worth a further 5.4 %. Most of what it carries is already carried by the classes "
+               "around it, which is the sub-additivity below, measured rather than assumed.",
+    },
+    "RESIDUAL_AFTER_ALL_SIX": {
         "median_rel": joint["median_rel"],
         "x_of_baseline": joint["median_x_of_baseline"],
         "forward_rel_median": joint["forward_rel_median"],
@@ -154,12 +172,13 @@ rep = {
             k: v for k, v in json.loads(
                 (OUT / "device_gradient_census.json").read_text())["verb_census"].items()
             if k not in ("layer_norm", "linear", "add", "add_", "multiply", "multiply_",
-                         "softmax", "deallocate", "to_layout", "to_memory_config", "typecast",
-                         "reshape", "unsqueeze", "permute", "pad", "slice")},
-        "why": "the joint arm bounds five classes and leaves the rest on device. matmul at 2928 "
-               "calls is the largest unbounded arithmetic verb -- `linear` and `matmul` are "
-               "different tape verbs and only the first was bounded -- so the residual is an "
-               "upper bound on what the five classes cannot explain, not an instrument floor.",
+                         "softmax", "matmul", "deallocate", "to_layout", "to_memory_config",
+                         "typecast", "reshape", "unsqueeze", "permute", "pad", "slice")},
+        "why": "the joint arm bounds six classes, so every ARITHMETIC verb that carries real "
+               "traffic on this scope is in float64 and what is left is embedding, the QKV-head "
+               "split and relu. This is the floor of THIS instrument and still not a true floor: "
+               "those three are on device, and host_f64 rounds each float64 result back into the "
+               "device tensor's dtype, so the boundaries between the bounded ops are bf16.",
     },
     "AGAINST_THE_FLOOR": {
         "ours_scope_mass_weighted": floor["SCOPE"]["ours_mass_weighted"],
@@ -192,9 +211,10 @@ rep = {
                                   "exactly 1 by construction; BARS043.json measures it at 1.0 "
                                   "over all 761 tensors"},
         "INSTRUMENT_FLOOR": {"joint_arm_median_rel": joint["median_rel"],
-                             "what": "the lowest reading any arm in this row produced, with five "
-                                     "op classes in float64. Not a true floor: matmul is still "
-                                     "on device."},
+                             "what": "the lowest reading any arm in this row produced, with six "
+                                     "op classes in float64. Not a true floor: embedding, the "
+                                     "QKV-head split and relu are still on device, and every "
+                                     "bounded op hands its result on in the device dtype."},
     },
 }
 
@@ -218,10 +238,13 @@ s = rep["SUM_OF_PARTS"]
 print("=== sum of parts %.10f vs joint %.10f -> joint is %.4f of the sum: %s"
       % (s["sum_of_single_arm_median_reductions"], s["joint_arm_median_reduction"],
          s["joint_over_sum"], s["verdict"]))
-print("=== residual after all five: %.10f = %.4f of baseline; unbounded verbs still carrying "
+print("=== residual after all six: %.10f = %.4f of baseline; unbounded verbs still carrying "
       "traffic: %s" % (joint["median_rel"], joint["median_x_of_baseline"],
-                       rep["RESIDUAL_AFTER_ALL_FIVE"]
+                       rep["RESIDUAL_AFTER_ALL_SIX"]
                        ["unbounded_verbs_that_still_carry_traffic"]))
+m = rep["MARGINAL_VALUE_OF_MATMUL_ON_TOP_OF_THE_OTHER_FIVE"]
+print("=== matmul on top of the other five: %.10f -> %.10f, a further %.2f %%"
+      % (m["joint5_median_rel"], m["joint6_median_rel"], 100 * m["further_reduction_frac"]))
 a = rep["AGAINST_THE_FLOOR"]
 print("=== vs upstream 0.4.3's own bf16 floor: ours %.6f floor %.6f -> %.4fx"
       % (a["ours_scope_mass_weighted"], a["floor_scope_mass_weighted"], a["ours_over_floor_x"]))
