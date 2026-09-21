@@ -61,6 +61,21 @@ def grad_line(rep: dict) -> dict:
     }
 
 
+def null_control(ns, name: str, sources: dict, key: str) -> dict | None:
+    """The arm applied to a batch the path cannot act on. A no-op there is what makes the
+    positive reading attributable to the path rather than to the edit."""
+    p = ns / name
+    if not p.is_file():
+        return None
+    d = json.loads(p.read_text())
+    sources[key] = cite(p)
+    return {"target": d["target"]["pdb_id"], "edit": d["edit_applied"],
+            "molecule_type_tokens": d["target"]["molecule_type_tokens"],
+            "template_pseudo_beta_mask_nnz": d["target"]["template_pseudo_beta_mask_nnz"],
+            "tensors_compared": d["tensors_compared"],
+            "n_tensors_moved": d["n_tensors_moved"], "verdict": d["verdict"]}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--census", type=Path,
@@ -110,6 +125,10 @@ def main() -> int:
         ev["gradient"] = grad_line(rep)
         ev["template_embedder"] = rep.get("template_embedder")
         ev["mask_on_the_run_batch"] = rep["target"]["template_pseudo_beta_mask_nnz"]
+    nc = null_control(ns, "null_control_templates_5oid.json", sources,
+                      "templates_null_control")
+    if nc:
+        ev["null_control"] = nc
     add("templates", bool(g.is_file()), "EXTENDS", ev,
         reason=("the census's zero is correct FOR 5nw3, whose four template slots are "
                 "mask-zero, and is not a statement about the path: `initial_training` / "
@@ -154,6 +173,10 @@ def main() -> int:
             ev.setdefault("gradient", {})[tag] = grad_line(load(p))
             if tag in ("dna", "rna"):
                 covered = True
+    nc = null_control(ns, "null_control_nucleotide_1kvu.json", sources,
+                      "nucleotide_null_control")
+    if nc:
+        ev["null_control"] = nc
     add("nucleotide", covered, "EXTENDS", ev,
         reason=("the census's zero is correct FOR 5nw3, one protein chain plus Fe and Na. "
                 "Upstream's own training cache carries 19,572 DNA and 16,000 RNA chains "
@@ -186,6 +209,19 @@ def main() -> int:
         sources["disabled_gradient"] = cite(g)
         ev["gradient"] = grad_line(rep)
         ev["confidence_head"] = rep["contribution"]["confidence_head"]
+        ev["prediction_falsified"] = {
+            "predicted": "those parameters hold `grad is None` rather than a zero gradient",
+            "measured": ("all 243 hold an EXACTLY ZERO gradient and none holds None; "
+                         "autograd still builds the confidence terms and weights them by "
+                         "zero. The None in LEDGER R6 is the runner's own disabled-NAMES "
+                         "list, used for cross-rank gradient counting and for dropping "
+                         "them from the clip norm, not what autograd produces"),
+            "consequence": ("because their gradient is exactly zero on the batch that "
+                            "trips the gate, dropping them from grad_manager._clip_grads' "
+                            "params_enabled changes that norm by nothing on a real "
+                            "zero-confidence-weight batch"),
+            "registered_in": "perf/of3t_covpaths/PREDICTION.md, section 4",
+        }
         covered = True
     add("disabled_parameters", covered, "CONTRADICTS", ev,
         reason=("the census attributes the gap to the DATASET, 'the frozen batch is "
@@ -204,8 +240,8 @@ def main() -> int:
             "naive_fallback_invoked": d["verdict"]["naive_fallback_invoked"],
             "detectors_agree": d["verdict"]["detectors_agree"],
             "gt_atoms_moved": d["effect"]["gt_atoms_moved"],
-            "atoms_differing_from_naive": d["vs_naive"]["atoms_differing_from_naive"],
-            "max_abs_coord_diff_A": d["vs_naive"]["max_abs_coord_diff_A"],
+            "atoms_differing_from_naive": (d.get("vs_naive") or {}).get("atoms_differing_from_naive"),
+            "max_abs_coord_diff_A": (d.get("vs_naive") or {}).get("max_abs_coord_diff_A"),
             "n_ref_spaces": d["ref_spaces"].get("n_ref_spaces_sample0"),
             "n_ref_spaces_with_alternatives": d["ref_spaces"].get("n_ref_spaces_with_alternatives"),
             "errors": d["verdict"].get("errors") or [],
@@ -222,6 +258,10 @@ def main() -> int:
                            "guarded by add_ref_space_uid_to_perm which defaults True "
                            "(conformer.py:37) and is set False only on the inference dataset "
                            "(core/data/framework/single_datasets/inference.py:216)",
+         "selftest": ("perf/of3t_permalign/permalign_selftest.py over these ten arms: "
+                      "0 of 10 disagree with their configuration, the canary reaches both "
+                      "catch tiers and zeroes every loss weight, and the positive arm "
+                      "completes on batch_step003.pt. Exit 0."),
          "raised_at": "core/utils/permutation_alignment.py:1412, "
                       "pred_ref_space_uid_to_perm = single_batch['ref_space_uid_to_perm']"},
         reason=("the census reports a KeyError its own instrument never ran: the census has "
