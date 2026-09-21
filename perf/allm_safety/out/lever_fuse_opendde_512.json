@@ -1,0 +1,121 @@
+{
+ "model": "opendde",
+ "size": 512,
+ "lever": "fuse",
+ "host": "tt-quietbox",
+ "chip": "1",
+ "arms": "off,on",
+ "control": "off = the shipped default for both flags, so off IS main",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T01:47:19Z",
+ "loadavg": [
+  9.24951171875,
+  14.77001953125,
+  13.9267578125
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 86.174,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 1048,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 160,
+    "no_full_S_chunk": 8
+   },
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_fuse_leg0_off"
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 85.671,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 40
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 40 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "gate_served": 0,
+   "gate_rejected": 0,
+   "gate_rejects": {},
+   "fuse_served": 1048,
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 160,
+    "l1_budget": 1048,
+    "no_full_S_chunk": 8
+   },
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_fuse_leg1_on"
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 92.333,
+ "medians": {
+  "off": 86.174,
+  "on": 85.671
+ },
+ "aa_floor": {
+  "off": 0.0,
+  "on": 0.0
+ },
+ "digests": {
+  "off": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ],
+  "on": [
+   "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053"
+  ]
+ },
+ "ratio": 1.00587,
+ "delta_s": 0.503,
+ "resolvable": true,
+ "firing": {
+  "on_arm_served": {
+   "gate": [
+    0
+   ],
+   "fuse": [
+    1048
+   ]
+  },
+  "off_arm_served": {
+   "gate": [
+    0
+   ],
+   "fuse": [
+    1048
+   ]
+  },
+  "inert_on_this_model": {
+   "gate": true,
+   "fuse": false
+  },
+  "served_stable_across_on_legs": {
+   "gate": true,
+   "fuse": true
+  }
+ }
+}

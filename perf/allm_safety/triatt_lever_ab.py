@@ -76,12 +76,16 @@ def main() -> int:
         f"a lever is already on at import: gate={TS._GATE_EPILOGUE} fuse={TS._FUSE_QKV}; "
         f"the off arm would not be main")
 
-    # `sdpa_fused_qkv` has reject counters but no served counter. Wrap it to get one.
-    FUSE_SERVED = [0]
+    # `sdpa_fused_qkv` (triatt_sdpa.py:476) is the whole function INCLUDING its reject ladder --
+    # the `_FUSE_QKV` flag check, the precondition guards and the L1 budget test all live inside
+    # it. So a wrapper counts INVOCATIONS, not fusions served. Serves = invocations - rejects, and
+    # the JSON records all three rather than the ambiguous one. Counting the wrapper alone reads
+    # opendde as 1048 "served" when all 1048 are refused for l1_budget.
+    FUSE_CALLS = [0]
     _real_fused = TS.sdpa_fused_qkv
 
     def _counting_fused(*args, **kw):
-        FUSE_SERVED[0] += 1
+        FUSE_CALLS[0] += 1
         return _real_fused(*args, **kw)
     TS.sdpa_fused_qkv = _counting_fused
 
@@ -106,7 +110,7 @@ def main() -> int:
         TS.GATE_STATS[0] = TS.GATE_STATS[1] = 0
         TS.GATE_REJECTS.clear()
         TS.FUSE_REJECTS.clear()
-        FUSE_SERVED[0] = 0
+        FUSE_CALLS[0] = 0
 
     tgt = a.fixdir / f"cdk2x2_{a.size}.yaml"
     a3m = a.fixdir / f"cdk2x2_{a.size}.a3m"
@@ -144,7 +148,10 @@ def main() -> int:
                "aiclk": clk.summary(), "clock_line": clk.line(0), "digest": digest(struct_dir),
                "gate_served": TS.GATE_STATS[0], "gate_rejected": TS.GATE_STATS[1],
                "gate_rejects": {f"{r}|{s}": n for (r, s), n in TS.GATE_REJECTS.items()},
-               "fuse_served": FUSE_SERVED[0], "fuse_rejects": dict(TS.FUSE_REJECTS)}
+               "fuse_calls": FUSE_CALLS[0],
+               "fuse_rejected": sum(TS.FUSE_REJECTS.values()),
+               "fuse_served": FUSE_CALLS[0] - sum(TS.FUSE_REJECTS.values()),
+               "fuse_rejects": dict(TS.FUSE_REJECTS)}
         keep = a.out.parent / f"cif_{a.model}_{a.size}_{a.lever}_leg{i}_{arm}"
         keep.mkdir(parents=True, exist_ok=True)
         for f in sorted(struct_dir.glob("**/*")):
