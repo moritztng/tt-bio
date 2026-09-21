@@ -44,19 +44,79 @@ TRIATT_HEAD_MAJOR_QKV = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_HEAD_MAJOR_QKV", "1" if TRIATT_HEAD_MAJOR_QKV else "0") == "1"
 
+# --- the same writer at the diffusion / trunk AttentionPairBias site ------------------------------
+#
+# `c12-tail-classes-screen` priced the diffusion side's own head split at 0.31376 s / 423.6 Mcycles
+# per 512 aa fold, 7464 programs that compute nothing. Two of its four signatures are this one
+# projection: the token transformer's 4800 calls at 0.20470 s and the trunk's 264 at 0.00581 s, both
+# `AttentionPairBias` with `atom_level=False`. The atom-level pair (0.09016 s create + 0.01309 s
+# concat) is a different mechanism -- its q comes from a second matmul and is row-padded from the
+# 32-row window to 128 between the projection and the split -- and is not served here.
+#
+# Two things had to grow for it, both parameters rather than second code paths:
+#   * head_dim is 64 there, TWO tiles, so the chunk's N tile index splits as (head, channel).
+#     `HEAD_MAJOR_DT` carries that and defaults to 1, which is what the triangle attention compiles.
+#   * the projection carries a bias where the triangle attention's does not. `mm_generic` gained the
+#     wheel's own `FUSE_BIAS` branch, which adds the row in the fp32 accumulator before the pack --
+#     the same place `ttnn.linear(bias=...)` adds it today.
+#
+# The tile re-point is bit-exact against `minimal_matmul + nlp_create_qkv_heads` by construction and
+# is checked on the CPU at every converted shape (`perf/c12_diffusion_head/tile_map.py`). What is NOT
+# bit-exact is the op class: this site runs `ttnn.linear(core_grid=CORE_GRID_MAIN)` today, and
+# serving it means the projection becomes a `minimal_matmul` at the op's own default blocking. That
+# is the same two-step opendde's tri-attention took (`_MM_DEFAULT` in tenstorrent.py), it needs an
+# Angstrom reading against the seed-scatter floor, and it is why this ships OFF until the fold has
+# measured it.
+APB_HEAD_MAJOR_QKV = False
+_APB_ENABLED = os.environ.get(
+    "TT_BIO_APB_HEAD_MAJOR_QKV", "1" if APB_HEAD_MAJOR_QKV else "0") == "1"
 
-def _reject(reason, shape):
+# (served, declined) and the reject reasons at the AttentionPairBias site, kept apart from the
+# triangle attention's so a dark gate at one site cannot be read off the other's counter.
+APB_STATS = [0, 0]
+APB_REJECTS: dict = {}
+
+_SITES = {"triatt": (STATS, REJECTS), "apb": (APB_STATS, APB_REJECTS)}
+
+
+def enabled(site):
+    """Whether this site's gate is on at all, so a caller can skip building its arguments.
+
+    `qkv_heads` checks it again; this exists so the off arm is byte-for-byte today's code path and
+    not today's path plus a discarded `MinimalMatmulConfig` per call.
+    """
+    return _ENABLED if site == "triatt" else _APB_ENABLED
+
+
+def _reject(reason, shape, site="triatt"):
+    stats, rejects = _SITES[site]
     k = (reason, tuple(shape))
-    REJECTS[k] = REJECTS.get(k, 0) + 1
-    STATS[1] += 1
+    rejects[k] = rejects.get(k, 0) + 1
+    stats[1] += 1
     return None
 
 
-def _common_ok(x, w, dtype):
+def _m_rows(t):
+    """The matmul M the factory infers from this activation: the product of every dim but the last.
+
+    Written once because two call sites need it and one of them used to spell it `pad[0]*pad[-2]`,
+    which is the same number only at rank 3 and is 140x too small for the rank-4 atom activation.
+    """
+    # `padded_shape` is a ttnn Shape, and this wheel's __getitem__ takes an int only -- slicing it
+    # raises TypeError. Materialise the dims first, which is the idiom everywhere else in the tree
+    # (mm_generic.py:176, mm_dualnoc.py:90).
+    pad = [int(d) for d in t.padded_shape]
+    m = 1
+    for d in pad[:-1]:
+        m *= d
+    return m
+
+
+def _common_ok(x, w, dtype, rank=3):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
     if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
         return False
-    if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
+    if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != rank:
         return False
     xmc, wmc = x.memory_config(), w.memory_config()
     return (xmc.buffer_type == ttnn.BufferType.DRAM
@@ -64,45 +124,199 @@ def _common_ok(x, w, dtype):
             and wmc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
-    """`nlp_create_qkv_heads(minimal_matmul(x, w))` as one op, or `None` to leave it alone.
+def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
+              allow_m_le_n=False, site="triatt", refuse=None):
+    """`nlp_create_qkv_heads(minimal_matmul(x, w, bias))` as one op, or `None` to leave it alone.
 
     Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`, byte-identical to what the two
-    stock ops produce.
+    stock ops produce. `head_dim` is in ELEMENTS and must be a whole number of tiles in the padded
+    form the projection writes -- 32 for the triangle attention and the trunk, 64 for the diffusion
+    token transformer. A head that is not a whole number of tiles cannot be served at all: elements
+    would move inside a tile, which is a different op and not this one's destination change.
+
+    `allow_m_le_n` opens the other core-grid orientation (`transpose_core_grid` false), which the
+    AttentionPairBias shapes need and the triangle attention has never run.
+
+    `refuse` is the caller's own precondition, recorded in this site's reject dict so a guard that
+    lives at the call site still says why it fired.
     """
     from . import ops
     if ops.taping():
         return None   # no backward for `generic_op`; the three composed ops run instead
 
-    if not _ENABLED:
+    if not enabled(site):
         return None
+    stats, _ = _SITES[site]
     shape = [int(d) for d in x.shape]
-    if head_dim != TILE or n_heads * head_dim * 3 != int(w.shape[-1]):
-        return _reject("head_dim_or_width", shape)
+    if refuse:
+        return _reject(refuse, shape, site)
+    if head_dim % TILE or n_heads * head_dim * 3 != int(w.shape[-1]):
+        return _reject("head_dim_or_width", shape, site)
     if not _common_ok(x, w, dtype):
-        return _reject("dtype_or_memory", shape)
+        return _reject("dtype_or_memory", shape, site)
+    if bias is not None and (bias.dtype != ttnn.bfloat16
+                             or bias.memory_config().buffer_type != ttnn.BufferType.DRAM
+                             or int(bias.padded_shape[-1]) != int(w.shape[-1])):
+        return _reject("bias_dtype_or_width", shape, site)
     # The descriptor is a transcription of the factory for the shipped block entry only.
     if mm_config is None:
-        return _reject("no_mm_config", shape)
-    from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
-    blk = _mm_block_for(w)
+        return _reject("no_mm_config", shape, site)
+    from .tenstorrent import _mm_block_for_site, COMPUTE_GRID_MAIN
+    blk = _mm_block_for_site(w, site)
     if blk is None:
-        return _reject("no_block_entry", shape)
+        return _reject("no_block_entry", shape, site)
 
     pad = [int(d) for d in x.padded_shape]
-    if pad[0] * pad[-2] <= int(w.shape[-1]):
+    if _m_rows(x) <= int(w.shape[-1]) and not allow_m_le_n:
         # transpose_core_grid is false there, a core-grid orientation this has never been run on
-        return _reject("m_le_n", shape)
+        return _reject("m_le_n", shape, site)
 
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(
         ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    defines = {"HEAD_MAJOR_MT": pad[-2] // TILE}
+    if head_dim != TILE:
+        defines["HEAD_MAJOR_DT"] = head_dim // TILE
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
-    STATS[0] += 1
+        defines, KERNEL_DIR, bias=bias)
+    stats[0] += 1
     return tuple(outs)
+
+
+# --- the atom block's split, where head-major and plain coincide for q ----------------------------
+#
+# The remaining 0.09016 s / 121.7 Mcycles of the tail screen's lead, 1200 programs per 512 aa fold.
+# The shipped chain is six ops for a split that computes nothing:
+#
+#     q  = linear(s, Wq, bq)                 [B, K, 32, 128]
+#     kv = linear(s_kv, Wkv)                 [B, K, 128, 256]
+#     pad q from 32 rows to ATOM_DIM=128     so nlp_create_qkv_heads sees matching row counts
+#     reshape q, kv to [B*K, 1, 128, .]
+#     nlp_create_qkv_heads(q, kv)            3 x [B*K, 4, 128, 32]
+#     q = q[:, :, :ATOM_WINDOW, :]           throws the 96 padded rows straight back away
+#
+# The pad and the slice exist ONLY to satisfy the split's requirement that q and kv carry the same
+# row count. A destination written per head does not have that requirement, so both go with it.
+#
+# The q half needs no tile transform at all, and that is worth stating because it is not obvious:
+# the atom window is 32 rows, exactly ONE row tile, so `HEAD_MAJOR_MT` is 1 and the head-major
+# expression collapses to `row * logical_d1 + tidx` -- the plain writer's own. `[B, K, 32, 128]` and
+# `[B*K, 4, 32, 32]` are the SAME 560-tile buffer in the same order: tile (window, col) of the first
+# holds window `w`, rows 0..31, channels 32*col..32*col+31, and tile (window, head) of the second
+# holds window `w`, rows 0..31, head `col`'s 32 channels. Only the ttnn Shape differs. So q is
+# head-major by choosing its destination's shape, with no define and no kernel involved.
+#
+# `ttnn.reshape` cannot reach the same thing, and that is ttnn's own rule rather than an analogy:
+# `this_is_view` in the wheel's `reshape_view/reshape.cpp` requires the LAST dimension to be
+# unchanged, and 128 -> 32 fails it, so the call falls through to a real reshape that moves every
+# byte. The same predicate says the reshapes this function DOES rely on --
+# `[K, H, rows, 32] -> [1, K*H, rows, 32]` -- are free, and both halves are checked against the
+# executed capture in `perf/c12_diffusion_head/reshape_view.py`: a reshape the predicate calls a
+# view emits no device program and is absent from the fold's op list, while L2's token merge fails
+# the predicate on its logical head_dim of 48 and duly appears 4800 times at 0.10483 s.
+#
+# The kv half does need the transform, at `HEAD_MAJOR_MT = ATOM_DIM / 32 = 4`, and that is the shape
+# `perf/c12_diffusion_head/tile_map.py` checks as `atom_kv_512aa`.
+#
+# Separate flag from the token/trunk site: same mechanism, but two projections instead of one, two
+# op-class changes instead of one, and its own deleted pad and slice, so it earns its own arm.
+APB_ATOM_HEAD_MAJOR_QKV = False
+_ATOM_ENABLED = os.environ.get(
+    "TT_BIO_APB_ATOM_HEAD_MAJOR_QKV", "1" if APB_ATOM_HEAD_MAJOR_QKV else "0") == "1"
+
+ATOM_STATS = [0, 0]
+ATOM_REJECTS: dict = {}
+
+
+def atom_enabled():
+    """Whether the atom-block gate is on, so the caller can skip building two configs per call."""
+    return _ATOM_ENABLED
+
+
+def _atom_reject(reason, shape):
+    k = (reason, tuple(shape))
+    ATOM_REJECTS[k] = ATOM_REJECTS.get(k, 0) + 1
+    ATOM_STATS[1] += 1
+    return None
+
+
+def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q, cfg_kv,
+                   refuse=None):
+    """The atom block's q and kv projections written head-major, or `None` to leave all six ops.
+
+    Returns `(q, k, v)`, q as `[B, K * n_heads, W, head_dim]` and k, v as
+    `[B, K * n_heads, ATOM_DIM, head_dim]` -- exactly the three tensors the shipped chain hands
+    `_attention`, minus the pad and the slice.
+    """
+    if not _ATOM_ENABLED:
+        return None
+    shape = [int(d) for d in s.shape]
+    if refuse:
+        return _atom_reject(refuse, shape)
+    if len(shape) != 4 or len(s_kv.shape) != 4:
+        return _atom_reject("rank", shape)
+    if head_dim % TILE or n_heads * head_dim != int(w_q.shape[-1]) \
+            or n_heads * head_dim * 2 != int(w_kv.shape[-1]):
+        return _atom_reject("head_dim_or_width", shape)
+    dt = head_dim // TILE
+    if dt != 1:
+        # q is ONE output, so its writer is `write_block_sync`, which reads MM_OUT_TILE_ID -- and
+        # only MM_SPLIT_TILE_ID was generalised to (head, channel). A single-output head-major
+        # write is therefore expressible at one tile per head only. Reported BEFORE the block-entry
+        # guard on purpose: this is a capability limit that no table row can lift, where
+        # `no_block_entry` is a tuning gap that one can.
+        return _atom_reject("multi_tile_head_on_single_output", shape)
+    if not (_common_ok(s, w_q, dtype, rank=4) and _common_ok(s_kv, w_kv, dtype, rank=4)):
+        return _atom_reject("dtype_or_memory", shape)
+    if b_q is not None and (b_q.dtype != ttnn.bfloat16
+                            or b_q.memory_config().buffer_type != ttnn.BufferType.DRAM
+                            or int(b_q.padded_shape[-1]) != int(w_q.shape[-1])):
+        return _atom_reject("bias_dtype_or_width", shape)
+    if cfg_q is None or cfg_kv is None:
+        return _atom_reject("no_mm_config", shape)
+
+    from .tenstorrent import _mm_block_for_site, COMPUTE_GRID_MAIN
+    blk_q, blk_kv = _mm_block_for_site(w_q, "atom"), _mm_block_for_site(w_kv, "atom")
+    if blk_q is None or blk_kv is None:
+        return _atom_reject("no_block_entry", shape)
+
+    if shape[-2] % TILE or int(s_kv.shape[-2]) % TILE:
+        # A ragged row count would make the destination's rows and the matmul's M disagree
+        return _atom_reject("rows_not_whole_tiles", shape)
+    if _m_rows(s) <= int(w_q.shape[-1]) or _m_rows(s_kv) <= int(w_kv.shape[-1]):
+        # transpose_core_grid false, the orientation the token/trunk site runs and this one does not
+        return _atom_reject("m_le_n", shape)
+
+    dev = s.device()
+    b, k, w = shape[0], shape[1], shape[-2]
+    rows_kv = int(s_kv.shape[-2])
+
+    # q's define is HEAD_MAJOR_OUT_MT, the one `gate_proj` uses for its single output, and not
+    # HEAD_MAJOR_MT, which `write_block_sync` never looks at. Passing the wrong one is inert rather
+    # than loud, and at the atom window it would even give the right answer by accident, because MT
+    # is 1 there and the head-major id IS the plain id.
+    # kv is TWO outputs, so that call takes the split writer and HEAD_MAJOR_MT is the define it
+    # reads. No HEAD_MAJOR_DT: the guard above already refused a multi-tile head here.
+    def split_defines(rows):
+        return {"HEAD_MAJOR_MT": rows // TILE}
+
+    def alloc(rows):
+        return ttnn.allocate_tensor_on_device(
+            ttnn.Shape([b * k, n_heads, rows, head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+            dev, ttnn.DRAM_MEMORY_CONFIG)
+
+    q = alloc(w)
+    G.generic_minimal_matmul(dev, s, w_q, [q], (blk_q, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+                             {"HEAD_MAJOR_OUT_MT": w // TILE}, KERNEL_DIR, bias=b_q)
+    kv = [alloc(rows_kv), alloc(rows_kv)]
+    G.generic_minimal_matmul(dev, s_kv, w_kv, kv, (blk_kv, tuple(COMPUTE_GRID_MAIN)),
+                             G.ckc_args(ckc), split_defines(rows_kv), KERNEL_DIR)
+
+    out = [ttnn.reshape(t, (b, k * n_heads, int(t.shape[-2]), head_dim)) for t in (q, *kv)]
+    ATOM_STATS[0] += 1
+    return tuple(out)
 
 
 # --- K1b: the tail stays head-major, so nlp_concat_heads never runs -------------------------------

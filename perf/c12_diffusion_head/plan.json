@@ -1,0 +1,143 @@
+{
+ "all_guards_pass": true,
+ "grid": [
+  11,
+  10
+ ],
+ "signatures": [
+  {
+   "sig": "dit_token",
+   "calls_per_fold": 4800,
+   "in_situ_s": 0.2047,
+   "M": 512,
+   "K": 768,
+   "N": 3072,
+   "M_tiles": 16,
+   "K_tiles": 24,
+   "N_tiles": 96,
+   "block": [
+    8,
+    8,
+    8,
+    2,
+    2
+   ],
+   "is_MM_DEFAULT": true,
+   "transpose_core_grid": false,
+   "padded_M_tiles": 20,
+   "padded_N_tiles": 99,
+   "padded_K_tiles": 24,
+   "M_tiles_per_core": 2,
+   "N_tiles_per_core": 9,
+   "M_blocks_per_core": 1,
+   "N_blocks_per_core": 2,
+   "K_blocks": 3,
+   "HEAD_MAJOR_MT": 16,
+   "HEAD_MAJOR_DT": 2,
+   "N_tiles_per_chunk": 32,
+   "n_heads_times_DT": 32,
+   "chunks_divide_N": true,
+   "chunk_is_heads_times_DT": true,
+   "padded_head_dim_is_whole_tiles": true,
+   "head_dim_is_whole_tiles": false
+  },
+  {
+   "sig": "apb_trunk",
+   "calls_per_fold": 264,
+   "in_situ_s": 0.00581,
+   "M": 512,
+   "K": 384,
+   "N": 1536,
+   "M_tiles": 16,
+   "K_tiles": 12,
+   "N_tiles": 48,
+   "block": [
+    8,
+    8,
+    8,
+    2,
+    2
+   ],
+   "is_MM_DEFAULT": true,
+   "transpose_core_grid": false,
+   "padded_M_tiles": 20,
+   "padded_N_tiles": 55,
+   "padded_K_tiles": 16,
+   "M_tiles_per_core": 2,
+   "N_tiles_per_core": 5,
+   "M_blocks_per_core": 1,
+   "N_blocks_per_core": 1,
+   "K_blocks": 2,
+   "HEAD_MAJOR_MT": 16,
+   "HEAD_MAJOR_DT": 1,
+   "N_tiles_per_chunk": 16,
+   "n_heads_times_DT": 16,
+   "chunks_divide_N": true,
+   "chunk_is_heads_times_DT": true,
+   "padded_head_dim_is_whole_tiles": true,
+   "head_dim_is_whole_tiles": true
+  }
+ ],
+ "atom": {
+  "calls_per_fold": 1200,
+  "in_situ_s": 0.09016,
+  "parts": [
+   {
+    "part": "q",
+    "M": 4480,
+    "K": 128,
+    "N": 128,
+    "M_tiles": 140,
+    "K_tiles": 4,
+    "N_tiles": 4,
+    "n_chunks": 1,
+    "block": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "is_MM_DEFAULT": false,
+    "transpose_core_grid": true,
+    "M_tiles_per_core": 13,
+    "N_tiles_per_core": 1,
+    "K_blocks": 1,
+    "HEAD_MAJOR_MT": 1,
+    "HEAD_MAJOR_DT": 1,
+    "needs_no_define": true,
+    "chunks_divide_N": true,
+    "chunk_is_heads_times_DT": true,
+    "guards_pass": true
+   },
+   {
+    "part": "kv",
+    "M": 17920,
+    "K": 128,
+    "N": 256,
+    "M_tiles": 560,
+    "K_tiles": 4,
+    "N_tiles": 8,
+    "n_chunks": 2,
+    "block": [
+     8,
+     8,
+     8,
+     2,
+     2
+    ],
+    "is_MM_DEFAULT": true,
+    "transpose_core_grid": true,
+    "M_tiles_per_core": 51,
+    "N_tiles_per_core": 1,
+    "K_blocks": 1,
+    "HEAD_MAJOR_MT": 4,
+    "HEAD_MAJOR_DT": 1,
+    "needs_no_define": false,
+    "chunks_divide_N": true,
+    "chunk_is_heads_times_DT": true,
+    "guards_pass": true
+   }
+  ]
+ }
+}
