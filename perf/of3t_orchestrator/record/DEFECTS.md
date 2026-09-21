@@ -10330,3 +10330,27 @@ The mask rejects exactly what the code reading predicted — the single-atom ZN 
 **The live residual, named by the row rather than left implicit**: `openfold3` honours modified residues and **a modified residue IS atomized** (`tokenization.py:208`), so the mask can fire on `--model openfold3` by that route — and **no such target was folded**. So "latent, not a live accuracy change" is true of everything measured and untested on the one path that could falsify it. The test is one fold of a modified-residue target on `--model openfold3`, checking whether any token comes out frameless.
 
 **Why this matters beyond the defect**: D10 is USER-FACING and Moritz's ask-9629 ruling cited its framing. The ruling is unaffected — it turned on consistency between three ranking rules, not on this mask — but a reader comparing the ledger to the row would have found the ledger carrying the larger, retracted claim.
+
+### D55 UPDATE (pass 286, heading restated). **UNFIXED** — and `of3t-d116` priced the missing argument: one `compute_kernel_config` is worth **13.8x** on the softmax row sum, **13.2x** on the forward and **5.5x** on the backward, and it makes the lever Moritz just shipped ON a **wash on device**.
+
+Same shape, same draw, same reference (`of3t-d116`):
+
+    compute kernel config                    mean row sum   rms dev from 1   y rel L2 vs f64   dx rel L2 on device
+    none, as `_v_softmax` passes it through      0.993457        1.196e-02          2.281e-02             2.0183e-02
+    precise_config() (HiFi4 + fp32 dest acc)     0.999714        8.664e-04          1.722e-03             3.6605e-03
+    HiFi4 without fp32 dest acc                  1.000328        6.051e-03          6.352e-03             7.8949e-03
+    HiFi2                                        0.997497        7.201e-03          7.343e-03             8.4023e-03
+    LoFi                                         0.993591        8.957e-03          1.019e-02             1.2852e-02
+
+**The no-config call behaves like LoFi.** Its 2.281e-02 forward figure independently reproduces `of3t-fp32islands`' **2.268879e-02** for the same sites on a different draw at the same shape — the defect that row ranked fifth and said *"one argument closes it"*.
+
+**The part that changes a decision already taken.** `TT_BIO_SOFTMAX_BW_RENORM` ships ON in the composition on Moritz's ask-9629 ruling, and its value depends on the forward it corrects:
+
+  * **with no config** the renormalisation is worth real money — at peaked logits (std 12) the shipped rule reads 7.5768e-02 against the renormalised 1.7372e-02 in exact arithmetic (**4.4x**), and 7.6076e-02 against 1.9157e-02 on device (**4.0x**);
+  * **with `precise_config()`** the row sum is already 0.99971 and the renormalisation is **a wash on device** — 3.6605e-03 against 3.7217e-03 — because the extra reduction's own bf16 error is the same size as the leak it removes. In exact arithmetic it still zeroes the row sum at every config.
+
+So the renorm is a real repair **of a forward that is missing an argument**, and the larger, cheaper fix is upstream of it. Nothing here argues for reverting D56: the lever is a 4x win in the tree as it stands, and the tree as it stands is what ships. What it does say is that the justification changes the moment the forward sites are configured, and whoever lands that must re-price the lever rather than inherit the 4x.
+
+**Why this is not simply "add the argument".** These are **FORWARD** sites. Configuring them moves fold output — 13.2x closer to float64, which is very likely an improvement, but a change — so it is release-gated, owes the inference A/B against an A/A floor on every model that executes the site, and falls under the 2026-09-21 constraint: an accuracy improvement that costs inference time is a regression. The backward-only renorm needed none of that, which is exactly why it landed first.
+
+**Scope correction carried forward**: D55's heading says *four* reductions; the pass-237 AST census (`census_reduction_config.py`, keyed by symbol) found **ten**. The four no-config forward sites `of3t-d116` names are inside that ten and are *"named but untouched"* by its own verdict.
