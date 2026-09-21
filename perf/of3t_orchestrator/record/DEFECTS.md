@@ -7356,3 +7356,30 @@ cross-validating exactly, for the cost of one arm.
 
 **Both arms were added by the orchestrator mid-flight** (pass 208 amendment) and neither was in the
 row's original brief; the row ran them without letting them displace its four deliverables.
+
+### COVERAGE-CEILING QUESTION CLOSED (pass 213), not headed with a defect number. The 0.74055 % has exactly one implementation and it is the host one; there is no separate taped route, so the "one line" framing holds.
+
+At pass 202 I corrected "0.74055 % can never be read" to "blocked by one line, not by nature" and
+left one question open for whoever ports it: `run_input_atom_encoder` has exactly one engine caller,
+`tt_bio/worker.py:1544`, **which is the inference path** — so does the taped *training* route take the
+same host round-trip, or a different one? Settled here by reading, so no row spends a pass on it.
+
+**There is no different one.** `run_input_atom_encoder` is the only implementation of the input
+embedder's atom-encoder leg in the tree, and its tail is:
+
+    ql = ttnn.to_torch(ql_d).float().reshape(n_atom, 128)     # openfold3_host_prep.py:256
+    lq_w = _sub(enc, "linear_q")["0.weight"]
+    q = F.linear(ql * atom_mask[:, None], lq_w.float()).relu()  # :259
+    ai = aux["atom_to_token_mean"] @ q
+
+`ai` then feeds the trunk **on device**, so the cotangent that would reach `q` has to come back
+through the device graph — and the forward's `to_torch` severed it. The weight's gradient
+`dL/dq · qlᵀ` is therefore unobtainable, which is exactly what `of3t-auxheads` concluded and what
+`COVERAGE_CEILING_IS_NOT_100.json` means by *"no device gradient for it exists"*.
+
+**One refinement to my own wording**: it is two adjacent lines rather than one — the `to_torch` at
+:256 and the host `F.linear` at :259 — and the remedy is unchanged, port that op so the tape carries
+it. Also worth separating, because the names invite it: the gradient instrument's `atom_attn_enc` is
+`diffusion_module.atom_attn_enc`, a **different module** from
+`input_embedder.atom_attn_enc` which carries this 0.74055 %. Nothing in the campaign measures the
+latter, and nothing can while the leg is host-applied.
