@@ -15,6 +15,10 @@
 # It does NOT verify behaviour: on a host without ttnn no test executes. Say so when reporting.
 set -euo pipefail
 
+# Where this script lives -- the compose runs inside a scratch worktree, so a relative path to
+# the sibling asserters resolves against the wrong tree.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
@@ -112,6 +116,32 @@ for r in $ROWS; do
         git add .gitignore && git commit --no-edit -q
         echo "  NOTE of3t-$r: .gitignore conflict resolved by UNION (both sides append their"\
              " own scratch rule); every other path would have stopped the compose"
+      elif [ "$_u" = "tt_bio/openfold3_trunk.py" ] && [ "$r" = "foldab" ]; then
+        # The second file where a conflict is NOT a disagreement. Both sides INSERT around an
+        # unchanged anchor line: of3t-pairbias documents why the trunk default stays False,
+        # of3t-foldab adds an env-gated measurement lever after it and restates a shortened
+        # copy of pairbias's comment. Keeping the lever + pairbias's FULL comment is what each
+        # side meant. Unlike .gitignore this is shipped code, so the resolution is ASSERTED,
+        # not trusted: assert_trunk_lever_resolution.py checks from the AST that pairbias's
+        # unconditional default survived and that every env write to it sits inside a
+        # not-None guard, with three negative controls behind it. Any other path still stops.
+        python3 - <<'_RESOLVE'
+p = "tt_bio/openfold3_trunk.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-foldab\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j]
+theirs = s[j + len("=======\n"):k]
+lever = theirs.split("        # scale_pair_bias=False:")[0]
+open(p, "w").write(s[:i] + lever + ours + s[k + len(">>>>>>> origin/wk/of3t-foldab\n"):])
+_RESOLVE
+        python3 "$HERE/assert_trunk_lever_resolution.py" tt_bio/openfold3_trunk.py \
+          || { echo "CONFLICT merging of3t-$r: openfold3_trunk.py resolution FAILED its assert"; exit 1; }
+        python3 -m py_compile tt_bio/openfold3_trunk.py \
+          || { echo "CONFLICT merging of3t-$r: resolved openfold3_trunk.py does not compile"; exit 1; }
+        git add tt_bio/openfold3_trunk.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: openfold3_trunk.py conflict resolved by keeping BOTH inserts"\
+             " (pairbias comment + foldab env lever), asserted from the AST, not assumed"
       else
         echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
       fi
@@ -324,6 +354,16 @@ done
 # (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
+# (3b) DISPATCH HYGIENE. `card=-` reads as "any TT card" to fleet.sh, never "none", and the
+# failure is silent -- the row defers every two minutes with "no free card on any of [...]",
+# which reads as capacity rather than a typo. Three live hits: 2026-08-22, 2026-09-07 (three
+# days of deferrals), and 2026-09-20, mine, two rows at once. The memory entry asked twice for
+# a check; this is it. Deliberately narrow -- see the script's SCOPE comment for the wider
+# version that flagged 12 of 30 rows including one that plainly needed its card.
+echo "--- dispatch card tokens"
+"$PY" "$HERE/assert_dispatch_card_token.py" || \
+  { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
+
 echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }

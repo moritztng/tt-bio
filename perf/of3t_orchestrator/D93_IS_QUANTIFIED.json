@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176",
+ "headline": "D93 is MEASURED, and it needed no GPU. The trunk's second revision difference -- 0.5.0 running its attention under use_high_precision_attention=True with the score-value matmul moved inside the high-precision region -- is worth 6.070e-03 on the single track and 1.3865e-02 on the pair track, masked, bf16 base. That is 6.0 % of of3t-trunkfwd's own single-track disagreement: pre-registered branch MIDDLE, material but not dominant.",
+
+ "the_branch_that_fired": "MIDDLE (0.005 <= d < 0.02), pre-registered in D93_PREREGISTERED.json before the arms were read. Note which branch did NOT fire: SECOND_ORDER, the one the pre-registration explicitly names as 'what I have been ASSUMING since correcting D96, so it is the branch I am most at risk of wanting'. It missed by 21 %.",
+
+ "why_no_GPU_was_needed": "I wrote in D93 that this could not be sized on CPU because both halves act through torch.amp.autocast('cuda', ...), which CPU torch disables and says so. That was true of the FLAG and false of the ARITHMETIC. A flag that selects a dtype policy can have its policy written out by hand. The claim 'unmeasurable without hardware X' deserved one more minute of thought than I gave it.",
+
+ "the_control_is_exact": "policy A -- high precision off, which is 0.4.3's trunk -- against the UNPATCHED bf16 run of the same stack: 0.000000 on both tracks, norm ratio exactly 1.0. The hand-written _attention reproduces upstream's own bit for bit when the flag is off, so the instrument is faithful and the differences below are the policy and not my reimplementation.",
+
+ "the_numbers": {
+  "scope": "56 real tokens of 384, masked in numerator and denominator (D95); bf16 base dtype; 48-block PairFormerStack; real captured 0.4.3 boundary; of3-p2-155k weights",
+  "A_no_high_precision_0_4_3": "scores, softmax and value matmul all at input dtype",
+  "B_high_precision_0_4_3_placement": "scores and softmax fp32, downcast before the value matmul",
+  "C_high_precision_0_5_0_placement": "scores, softmax AND value matmul fp32 -- what the reference runs",
+  "A_to_C_single": 0.006070, "A_to_C_pair": 0.013865,
+  "A_to_B_single": 0.009309, "B_to_C_single": 0.005788,
+  "A_to_B_pair": 0.013750, "B_to_C_pair": 0.013489
+ },
+
+ "the_two_halves_PARTIALLY_CANCEL_and_do_not_decompose": "On the single track A->B is 0.009309 -- LARGER than the full A->C at 0.006070. Turning high precision on at 0.4.3's placement moves further from 0.4.3 than 0.5.0's complete configuration does, and the placement change then moves most of the way back. The angle at B between B->A and B->C is 39.4 degrees, so the second change substantially reverses the first. Any attribution of 'shares' to the two halves is invalid: computed naively they sum to 249 %. A percentage decomposition that exceeds 100 % is not a rounding problem, it is the decomposition telling you the terms are not orthogonal.",
+
+ "and_high_precision_is_NOT_more_accurate_here": "against the fp32 output of the same stack on the same boundary, the single track reads 1.2878e-02 under A and 1.3645e-02 under C -- 0.5.0's 'high precision' path is 6 % FURTHER from fp32 than 0.4.3's ordinary one. On the pair track they are a tie (2.4324e-02 vs 2.4410e-02). So on this boundary the change reorients the error rather than reducing it. SCOPE: one boundary, 56 real tokens, bf16 base, CPU. This is not a claim that upstream's change is useless -- at other sizes, dtypes or on CUDA kernels it may well pay -- only that it buys no accuracy HERE, which is the configuration the campaign's reference was built in.",
+
+ "what_it_means_for_the_campaign": "the trunk's revision exposure is now fully quantified and it is two terms, both measured: the transpose_bias orientation at 0.2104 on the pair track (85.6 % of the observed disagreement, THE_REVISION_ARM_RAN.json) and this at 6.070e-03 on the single track (6.0 % of the observed single-track disagreement). Neither is now an unknown. D93 moves from UNFIXED to QUANTIFIED.",
+
+ "provenance": "of3t-orchestrator pass 176 on pc, CPU only, no device, no card lease. revision/d93_policy.py, scored by the masked scorer; raw in revision/d93_score.json. Arms pre-registered and committed in D93_PREREGISTERED.json before being read."
+}
