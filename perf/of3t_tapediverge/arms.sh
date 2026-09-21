@@ -19,16 +19,22 @@ OUT=/home/ttuser/of3t_tapediverge
 mkdir -p "$OUT"
 LEV=""
 EXTRA=""
+RN=0
+# TT_BIO_SOFTMAX_BW_RENORM is read at IMPORT time by tt_bio.taped_ttnn. `tdrun.py` has to
+# import that module before it can patch it, so the harness's own --softmax-bw-renorm, which
+# sets the variable after argparse, lands too late and the arm silently runs shipped. The
+# harness's own reach check caught it; the fix is to export the variable before python starts.
 case "${1:-}" in
   shipped)   TAG=_td_shipped;   PT=_shipped ;;
   shipped2)  TAG=_td_shipped2;  PT=_shipped2 ;;
-  renorm)    TAG=_td_renorm;    PT=_renorm;    EXTRA="--softmax-bw-renorm" ;;
-  selfvalue) TAG=_td_selfvalue; PT=_selfvalue; EXTRA="--softmax-bw-renorm"; LEV="sdpa_selfvalue" ;;
-  sm216)     TAG=_td_sm216;     PT=_sm216;     EXTRA="--softmax-bw-renorm"; LEV="sm216_precise" ;;
-  sumall)    TAG=_td_sumall;    PT=_sumall;    EXTRA="--softmax-bw-renorm"; LEV="sum_precise_all" ;;
-  break)     TAG=_td_break;     PT=_break;     EXTRA="--softmax-bw-renorm --permute-cot" ;;
+  renorm)    TAG=_td_renorm;    PT=_renorm;    RN=1 ;;
+  selfvalue) TAG=_td_selfvalue; PT=_selfvalue; RN=1; LEV="sdpa_selfvalue" ;;
+  sm216)     TAG=_td_sm216;     PT=_sm216;     RN=1; LEV="sm216_precise" ;;
+  sumall)    TAG=_td_sumall;    PT=_sumall;    RN=1; LEV="sum_precise_all" ;;
+  break)     TAG=_td_break;     PT=_break;     RN=1; EXTRA="--permute-cot" ;;
   *) echo "usage: arms.sh {shipped|shipped2|renorm|selfvalue|sm216|sumall|break}"; exit 2 ;;
 esac
+if [ "$RN" = 1 ]; then export TT_BIO_SOFTMAX_BW_RENORM=1; EXTRA="$EXTRA --softmax-bw-renorm"; fi
 S=$(date +%s)
 echo "=== of3t-tapediverge arm ${1}, 48 structures, card $CARD  $(date -u +%FT%TZ) ==="
 echo "ARM_START ${1} $S"
