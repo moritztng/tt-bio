@@ -26,7 +26,17 @@ run() {  # run <tree> <commit> <tag> [folds]
     echo "=== $(date -u +%H:%M:%SZ) $tag already measured, skipping ==="; return 0
   fi
   echo "=== $(date -u +%H:%M:%SZ) $tag tree=$tree folds=$folds ==="
-  BENCHLOCK_WAIT_S=2400 BENCHLOCK_LOAD_WAIT_S=900 "$BL" allm-model -- \
+  # Wait for the box to go quiet BEFORE taking the lock, not inside it. benchlock's own quiet-wait
+  # runs with the lock held, so a co-tenant that ignores benchlock (a CPU training job on 2026-09-21)
+  # makes one waiter starve every other row for up to 900 s at a time.
+  local t0=$SECONDS
+  while [ $((SECONDS-t0)) -lt 2400 ]; do
+    l=$(cut -d" " -f1 /proc/loadavg)
+    awk -v a="$l" 'BEGIN{exit !(a+0<=2.0)}' && break
+    echo "$(date -u +%H:%M:%SZ) $tag waiting for a quiet box, loadavg $l (lock NOT held)"
+    sleep 30
+  done
+  BENCHLOCK_WAIT_S=2400 BENCHLOCK_LOAD_WAIT_S=300 "$BL" allm-model -- \
     env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:allm-model \
         ${TT_MESH_GRAPH_DESC_PATH:+TT_MESH_GRAPH_DESC_PATH=$TT_MESH_GRAPH_DESC_PATH} \
         PYTHONPATH="$tree" ALLM_AICLK_DIR="$NEW/perf/c14_bfp8" ALLM_TREE_COMMIT="$commit" \
