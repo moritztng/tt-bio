@@ -10530,3 +10530,28 @@ Recorded rather than dispatched: the campaign's card time is committed to `of3t-
 **1.46x on the op reframes the question.** It is not "land a free argument" but "is 46 % more on one op visible in a fold, and is 12.3x accuracy worth it if it is" — which is exactly the A/B against an A/A floor the row was already told to run, now with a prediction worth registering in advance: against `of3t-d137ab`'s measured fold floors of 13-35 s on a noisy host, an op-level 1.46x on softmax may be **unreadable**, and unreadable is the honest finding rather than free.
 
 **The brief is corrected in place** with its premise withdrawn rather than edited away, so the row sees what I got wrong and why. Everything else in it stands: the inference constraint binds, not pc card 0, host and card in full, and re-price the backward renorm against whichever forward it lands on.
+
+### D161. Three claims in a fortnight rested on a text pattern answering a narrower question than the claim, and each time the AST was available and slower to type. FOUND and MITIGATED by the orchestrator (pass 299). **FIXED** as a tool; the habit is not fixable by one.
+
+    D153  substring `of3t_rebase` read as a path -- two hits were `origin/wk/of3t-rebase` (a branch)
+          and `perf/of3t_rebase/*.json` (a repo-relative path). Two namespaces wrongly reported
+          broken, one of them mine.
+    D158  `attention.py:314` resolved by basename to tt-bio's file when the citation was about
+          UPSTREAM's file of the same name. A stale-citation report that was not one.
+    D55   `site_softmax(...)` reported as passing no `compute_kernel_config` because the call spans
+          two lines and grep stopped at the first. A row dispatched to add an argument already there.
+
+Every one is the same shape: **a question about the code answered against the text**. The campaign already owns AST tooling for this — `census_reduction_config.py` is keyed by symbol precisely because line numbers decay — and I reached for `grep` anyway, three times, because it was one line and the census was ten.
+
+**So the correct query is now the fast one.** `perf/of3t_orchestrator/kwarg_at_site.py <file-or-dir> <callee> [kwarg]` parses and reports every call, its enclosing def, its keywords and, when a keyword is named, PASSES or MISSING with the argument's expression. Its probe is D55's own case: a two-line call must read PASSES and a one-line call without the argument must read MISSING.
+
+Re-running this pass's claim through it:
+
+    5 call(s) to 'site_softmax'; 5 pass 'compute_kernel_config', 0 do not
+      openfold3_atom_transformer.py:186  = self._softmax_ckc
+      openfold3_diffusion_transformer.py:211  = self._softmax_ckc
+      protenix.py:570 / protenix.py:667 / tenstorrent.py:8604  = self._softmax_ckc
+
+**It is a QUERY and deliberately not a check.** Exit is 0 whatever it finds: a tool that fails the build on a question is one people stop asking, and the failure here was never a missing gate — it was reaching for the wrong instrument. Adding a guard would police the symptom in one file and leave the habit.
+
+**And it carries its own limit in its output**, because the limit is what this pass turned on: *"PASSES means the argument is AT THE CALL. It says nothing about its value."* D55's whole reframing was a passed argument whose value is `None` unless a per-site lever is on. A tool that answered "is the argument there" and let a reader hear "is it configured" would have replaced one truncation with another.

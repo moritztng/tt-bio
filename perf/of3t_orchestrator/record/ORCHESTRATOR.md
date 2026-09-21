@@ -854,9 +854,29 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty-one defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 298 — the missing argument I dispatched a row to add is not missing: it is passed with the value None, the lever behind it costs 1.46x on the op, and my evidence for "missing" was a grep that stopped at the end of a line.**
+PASSLOG: **Pass 299 — three wrong claims in a fortnight had one cause: a question about the code answered against the text, with the parser available and slower to type. The correct query is now the fast one.**
+
+    D153  substring `of3t_rebase` read as a path -- two hits were `origin/wk/of3t-rebase`, a branch,
+          and `perf/of3t_rebase/*.json`, a repo-relative path. Two namespaces wrongly reported
+          broken, one of them mine.
+    D158  `attention.py:314` resolved by basename to tt-bio's file when the citation was about
+          UPSTREAM's file of the same name. A stale-citation report that was not one.
+    D55   `site_softmax(...)` reported as passing no `compute_kernel_config` because the call spans
+          two lines and grep stopped at the first. A row dispatched to add an argument already there.
+
+The campaign already owns AST tooling for exactly this — `census_reduction_config.py` is keyed by symbol because line numbers decay — and I reached for `grep` anyway, three times, because it was one line and the census was ten. **That is the whole mechanism: the wrong instrument was cheaper.**
+
+`perf/of3t_orchestrator/kwarg_at_site.py <file-or-dir> <callee> [kwarg]` parses and reports every call, its enclosing def, its keywords, and PASSES/MISSING with the argument's expression when a keyword is named. Its probe is D55's own case — a two-line call must read PASSES, a one-line call without the argument must read MISSING. Re-running this pass's claim: **5 calls to `site_softmax`, 5 pass `compute_kernel_config`, 0 do not**, each `= self._softmax_ckc`.
+
+**It is a query and deliberately not a check.** Exit 0 whatever it finds. A tool that fails the build on a question is one people stop asking, and the failure was never a missing gate — it was reaching for the wrong instrument. A guard would police the symptom in one file and leave the habit.
+
+**Its output carries its own limit**, because that is what this pass turned on: *"PASSES means the argument is AT THE CALL. It says nothing about its value."* D55's reframing was a passed argument whose value is `None` unless a per-site lever is on. A tool that answered "is the argument there" while a reader heard "is it configured" would have swapped one truncation for another.
+
+**`of3t-trajwide`**: `stale` 17/20, `shipped_aa2` 15/20, `theirs` 12/20, the other three complete.
+
+**Pass 298 —  the missing argument I dispatched a row to add is not missing: it is passed with the value None, the lever behind it costs 1.46x on the op, and my evidence for "missing" was a grep that stopped at the end of a line.**
 
 I told `of3t-fwdkcfg` its first task was reconciling *"four no-config forward sites"* against the **one** I could find. The one does not exist either. `openfold3_diffusion_transformer.py:211` passes `compute_kernel_config=self._softmax_ckc` — on the **second line of a two-line call**, which my grep never saw. An AST census over `tt_bio/` keyed by symbol: **67 softmax-family forward calls, and every `site_softmax` site carries the argument.**
 
