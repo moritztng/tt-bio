@@ -1,4 +1,44 @@
 {
+ "LIMIT_OF_THIS_INSTRUMENT": {
+  "amended_at": "2026-09-21T19:40:01Z",
+  "amended_by": "of3t-ditref, on of3t-orchestrator's AMENDMENT 2 (pass 318)",
+  "consequence_for_D58": "the msa_module re-price still stands, on VB5's ground rather than on this diff's. See perf/of3t_ditref/msarun.sh, whose header was corrected in the same pass.",
+  "counter_example_the_campaign_already_held": {
+   "mechanism": "transpose_bias is the 0.5.0 convention: latent/base_blocks.py passes transpose_bias=True into tri_att_end on 0.5.0 and the argument does not exist on 0.4.3. 5.647x on a name-identical module, from the version boundary alone.",
+   "module": "pairformer_stack",
+   "named_parameters_on_both_trees": 2736,
+   "names_identical": true,
+   "one_arm_two_references_reference_the_only_variable": {
+    "LEVER_vs_043_f64_z": 0.211828,
+    "LEVER_vs_050_f64_z": 0.04971863,
+    "SHIPPED_vs_043_f64_z": 0.04947045,
+    "SHIPPED_vs_050_f64_z": 0.2793661,
+    "factor": 5.647
+   },
+   "row": "of3t-trunk043ref"
+  },
+  "do_not_re_measure": "of3t-trunk043ref closed the pair track against the 0.4.3 reference at 4.947045e-02, 0.9894x the per-tensor bar. This amendment is about how a scope claim is justified, not about new card work.",
+  "the_boundary_enumerated_at_source": {
+   "artifact": "perf/of3t_orchestrator/PARAMETER_NAME_IDENTITY_IS_NOT_FUNCTION_IDENTITY.json",
+   "figures_taken_from": "AMENDMENT 2's text in workstreams/of3t-ditref.txt, because the artifact was not yet pushed to origin/wk/of3t-orchestrator when this row read the amendment. Not re-derived here.",
+   "files_differing_in_openfold3_core_model": 23,
+   "files_differing_package_wide": 128,
+   "files_new_in_openfold3_core_model": 1,
+   "functional_changes_none_of_which_adds_a_parameter": {
+    "VB1": "the transpose_bias convention in tri_att_end",
+    "VB2": "0.5.0 passes use_high_precision_attention=True into the single track's attn_pair_bias",
+    "VB3": "0.5.0's LayerNorm upcasts a bf16 input to fp32 where 0.4.3 casts weight and bias DOWN to bf16",
+    "VB4": "0.5.0 moves the score-by-value einsum inside the autocast block",
+    "VB5": "the MSA fused-softmax kernel gate"
+   },
+   "not_on_origin_when_this_amendment_was_written": true,
+   "regenerator": "perf/of3t_orchestrator/version_boundary_at_source.py"
+  },
+  "what_is_withdrawn": "the sentence 'the whole 0.4.3 -> 0.5.0 boundary is 24 parameters in and 1 out, every one inside diffusion_module' as a claim that no other module is touched by the boundary. Five functional changes are, and one of them is worth 5.647x on pairformer_stack.",
+  "what_it_cannot_see": "any change that adds no parameter. A signature, a convention, a dtype rule and an autocast boundary are all invisible to named_parameters(), so `modules_identical` is a true statement about names and NOT a statement that the boundary leaves those modules alone.",
+  "what_survives": "the diffusion-scope claim this row acts on. 0.4.3 exposes 24 per-block attention_pair_bias.layer_norm_z tensors that 0.5.0 does not, which is a parameter-set difference and therefore exactly what this instrument CAN see, and it is the difference the repaired capture turns on. The 7.55x between the two captures is measured arm-to-arm (r043_ours vs r050_ours), not inferred from this diff.",
+  "what_this_file_measures": "the set of parameter NAMES the model exposes under each tree, diffed by top-level module"
+ },
  "REF_TREE_043": "/home/ttuser/of3t-campaign-refs/of3pkg043",
  "REF_TREE_050": "/home/ttuser/of3t-campaign-refs/of3pkg050",
  "modules": [

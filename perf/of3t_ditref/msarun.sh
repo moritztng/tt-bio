@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # D58's msa_module arm, re-taken on today's tree. Card 1 on qb2, clock sampled DURING.
 #
-# The repaired denominator cannot move this: perf/of3t_ditref/ARCHDIFF.json shows the whole
-# 0.4.3 -> 0.5.0 boundary is 24 in and 1 out, all inside diffusion_module, and msa_module is
-# name-identical at 227 parameters on both trees. What CAN have moved it is the same thing that
-# moved D30 from 19.6x to 11.03x with the forward bit-identical: our own backward.
+# The repaired denominator cannot move this, and the reason is NOT the parameter count. A
+# named_parameters() diff cannot see a refactor that adds no parameter (AMENDMENT 2: 5.647x on
+# pairformer_stack, 2736 name-identical parameters on both trees). The reason it holds is VB5:
+# the only functional MSA difference between the trees is `_get_pair_weighted_avg`, where 0.4.3
+# takes the fused triton softmax whenever triton is installed and z.is_cuda, and 0.5.0 gates it
+# on an explicit use_softmax_kernel defaulting False. On a CPU reference NEITHER tree takes the
+# kernel, so a CPU-run msa_module arm is version-invariant. What CAN have moved it is the same
+# thing that moved D30 from 19.6x to 11.03x with the forward bit-identical: our own backward.
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-ditref
 cd "$W"

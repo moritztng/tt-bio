@@ -1,0 +1,458 @@
+{
+ "AGAINST_THE_FLOOR": {
+  "consequence": "our arm already sits BELOW upstream's own bf16 floor at scope, so the ranking below orders the remaining deviation; it does not locate a defect. There is no defect at this scope to attribute.",
+  "floor_is_measured_on_043": true,
+  "floor_scope_mass_weighted": 0.18817643472062023,
+  "ours_over_floor_x": 0.5865346734980963,
+  "ours_scope_mass_weighted": 0.11037200369889481,
+  "why_that_matters": "AMENDMENT 2 VB3: 0.5.0's LayerNorm upcasts a bf16 input to fp32 where 0.4.3 casts weight and bias DOWN to bf16, so an upstream bf16 floor measured on 0.5.0 is lower than the same recipe on 0.4.3 and any ratio against it is inflated. This one divides by of3t-cond043's BARS043.json arm bf16auto, which is the 0.4.3 tree at this very capture, so the ratio is clean. A reader cannot tell that from the ratio, so it is said here."
+ },
+ "ARMS": {
+  "addmul": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1332.8,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 32.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--host-f64",
+    "add,add_,multiply,multiply_",
+    "--tag",
+    "_abl_addmul64"
+   ],
+   "arm": "addmul",
+   "artifact": "perf/of3t_ditref/device_gradient_abl_addmul64.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.008310602180759163,
+   "forward_x_of_baseline": 0.9806250703629441,
+   "host": "qb2",
+   "host_f64_calls_intercepted": {
+    "add": 5040,
+    "add_": 4320,
+    "multiply": 9456,
+    "multiply_": 3168
+   },
+   "host_f64_verbs": [
+    "add",
+    "add_",
+    "multiply",
+    "multiply_"
+   ],
+   "loadavg_end": "4.43 5.33 7.27",
+   "loadavg_start": "1.28 5.65 7.71",
+   "mass_weighted_rel": 0.10394162208679343,
+   "median_reduction_abs": 0.01619506046921057,
+   "median_reduction_frac": 0.17331585458364174,
+   "median_rel": 0.07724740333836268,
+   "median_x_of_baseline": 0.8266841454163583,
+   "mw_reduction_frac": 0.058260984639221254,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 157,
+   "softmax_calls_intercepted": 0,
+   "softmax_f64_bound": false,
+   "tag": "abl_addmul64",
+   "what": "--host-f64 add,add_,multiply,multiply_: the residual adds and the AdaLN scale/shift"
+  },
+  "baseline": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1292.1,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 19.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--dump-grads",
+    "/tmp/of3t/of3t-ditref/r043_ours.pt",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--tag",
+    "_r043_ours"
+   ],
+   "arm": "baseline",
+   "artifact": "perf/of3t_ditref/device_gradient_r043_ours.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.008474800850934073,
+   "host": "qb2",
+   "host_f64_calls_intercepted": null,
+   "host_f64_verbs": null,
+   "loadavg_end": "9.57 7.28 8.47",
+   "loadavg_start": "5.53 6.20 8.29",
+   "mass_weighted_rel": 0.11037200369889481,
+   "median_rel": 0.09344246380757325,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 94,
+   "softmax_calls_intercepted": 0,
+   "softmax_f64_bound": false,
+   "tag": "r043_ours",
+   "what": "the shipped arm, nothing bounded"
+  },
+  "joint": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1345.8,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 132.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--softmax-f64",
+    "--host-f64",
+    "layer_norm,linear,add,add_,multiply,multiply_",
+    "--tag",
+    "_abl_all64"
+   ],
+   "arm": "joint",
+   "artifact": "perf/of3t_ditref/device_gradient_abl_all64.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.002885551989730754,
+   "forward_x_of_baseline": 0.34048611176659277,
+   "host": "qb2",
+   "host_f64_calls_intercepted": {
+    "add": 5040,
+    "add_": 4320,
+    "layer_norm": 7824,
+    "linear": 6576,
+    "multiply": 9456,
+    "multiply_": 3168
+   },
+   "host_f64_verbs": [
+    "layer_norm",
+    "linear",
+    "add",
+    "add_",
+    "multiply",
+    "multiply_"
+   ],
+   "loadavg_end": "6.20 6.18 6.52",
+   "loadavg_start": "2.90 4.02 6.43",
+   "mass_weighted_rel": 0.021815518927250387,
+   "median_reduction_abs": 0.07064408933555813,
+   "median_reduction_frac": 0.7560169804708491,
+   "median_rel": 0.02279837447201512,
+   "median_x_of_baseline": 0.2439830195291509,
+   "mw_reduction_frac": 0.8023455387584957,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 658,
+   "softmax_calls_intercepted": 1440,
+   "softmax_f64_bound": true,
+   "tag": "abl_all64",
+   "what": "all five classes at once: --softmax-f64 --host-f64 layer_norm,linear,add,add_,multiply,multiply_"
+  },
+  "layernorm": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1343.1,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 166.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--host-f64",
+    "layer_norm",
+    "--tag",
+    "_abl_ln64"
+   ],
+   "arm": "layernorm",
+   "artifact": "perf/of3t_ditref/device_gradient_abl_ln64.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.007256826989810788,
+   "forward_x_of_baseline": 0.856282892949745,
+   "host": "qb2",
+   "host_f64_calls_intercepted": {
+    "layer_norm": 7824
+   },
+   "host_f64_verbs": [
+    "layer_norm"
+   ],
+   "loadavg_end": "6.67 8.27 8.74",
+   "loadavg_start": "7.49 8.17 8.50",
+   "mass_weighted_rel": 0.08525510524424476,
+   "median_reduction_abs": 0.022100297100527702,
+   "median_reduction_frac": 0.23651235423371333,
+   "median_rel": 0.07134216670704555,
+   "median_x_of_baseline": 0.7634876457662867,
+   "mw_reduction_frac": 0.22756584652727072,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 826,
+   "softmax_calls_intercepted": 0,
+   "softmax_f64_bound": false,
+   "tag": "abl_ln64",
+   "what": "--host-f64 layer_norm"
+  },
+  "linear": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1319.4,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 18.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--host-f64",
+    "linear",
+    "--tag",
+    "_abl_linear64"
+   ],
+   "arm": "linear",
+   "artifact": "perf/of3t_ditref/device_gradient_abl_linear64.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.008090913441095365,
+   "forward_x_of_baseline": 0.9547024860417344,
+   "host": "qb2",
+   "host_f64_calls_intercepted": {
+    "linear": 6576
+   },
+   "host_f64_verbs": [
+    "linear"
+   ],
+   "loadavg_end": "2.90 4.02 6.43",
+   "loadavg_start": "1.32 4.17 6.72",
+   "mass_weighted_rel": 0.08996541214235426,
+   "median_reduction_abs": 0.01458736646088031,
+   "median_reduction_frac": 0.15611067887636376,
+   "median_rel": 0.07885509734669294,
+   "median_x_of_baseline": 0.8438893211236362,
+   "mw_reduction_frac": 0.18488920081773316,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 89,
+   "softmax_calls_intercepted": 0,
+   "softmax_f64_bound": false,
+   "tag": "abl_linear64",
+   "what": "--host-f64 linear: the attention matmuls and the SwiGLU transition's projections"
+  },
+  "softmax": {
+   "aiclk_during": {
+    "max": 1350.0,
+    "mean": 1300.0,
+    "med": 1350.0,
+    "min": 800.0,
+    "n": 22.0
+   },
+   "argv": [
+    "perf/of3t_diffusion/device_gradient.py",
+    "--structs",
+    "all",
+    "--cap",
+    "/home/ttuser/of3t_softgrad/diffcap043",
+    "--ref-tree",
+    "/home/ttuser/of3t-campaign-refs/of3pkg043",
+    "--dump-per-tensor",
+    "--out-dir",
+    "perf/of3t_ditref",
+    "--softmax-f64",
+    "--tag",
+    "_abl_softmax64"
+   ],
+   "arm": "softmax",
+   "artifact": "perf/of3t_ditref/device_gradient_abl_softmax64.json",
+   "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+   "cap_keys_equal_tree_parameters": true,
+   "cap_stamp_architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+   "cap_stamp_n_parameters": 761,
+   "cap_stamp_verdict": "OK",
+   "card": 1,
+   "ckpt_missing_keys": 0,
+   "ckpt_unexpected_keys": 0,
+   "compared": 547,
+   "forward_rel_median": 0.006462246413995846,
+   "forward_x_of_baseline": 0.7625248696296613,
+   "host": "qb2",
+   "host_f64_calls_intercepted": null,
+   "host_f64_verbs": null,
+   "loadavg_end": "7.53 8.19 8.51",
+   "loadavg_start": "7.86 8.30 8.57",
+   "mass_weighted_rel": 0.0593066369704669,
+   "median_reduction_abs": 0.04458465152259528,
+   "median_reduction_frac": 0.47713480259262836,
+   "median_rel": 0.048857812284977965,
+   "median_x_of_baseline": 0.5228651974073716,
+   "mw_reduction_frac": 0.46266593897977093,
+   "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+   "reference_tensors": 761,
+   "seconds": 110,
+   "softmax_calls_intercepted": 1440,
+   "softmax_f64_bound": true,
+   "tag": "abl_softmax64",
+   "what": "--softmax-f64: the softmax verb, forward and backward, f64"
+  }
+ },
+ "CARD": 1,
+ "CONTROLS": {
+  "A16_ZERO_MODEL": {
+   "median_rel": 1.0,
+   "why": "rel_l2 of a zero gradient against any non-zero reference is exactly 1 by construction; BARS043.json measures it at 1.0 over all 761 tensors"
+  },
+  "AA": {
+   "arms": [
+    "r043_ours",
+    "r043_ours2"
+   ],
+   "bit_identical_tensors": "547 of 547",
+   "identical": true,
+   "median_rel_both": [
+    0.09344246380757325,
+    0.09344246380757325
+   ]
+  },
+  "BREAK": {
+   "arm": "r043_permcot",
+   "median_rel": 1.5675916191030375,
+   "what": "--permute-cot: the same boundary with the cotangent permuted. The reading has to move and it moves 16.78x on all 547 tensors.",
+   "x_of_baseline": 16.776009056559023
+  },
+  "INSTRUMENT_FLOOR": {
+   "joint_arm_median_rel": 0.02279837447201512,
+   "what": "the lowest reading any arm in this row produced, with five op classes in float64. Not a true floor: matmul is still on device."
+  }
+ },
+ "DENOMINATOR": {
+  "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+  "cap_stamp_verdict": "OK",
+  "identical_across_all_arms": true,
+  "ref_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+  "why": "A27: our arm only, denominator untouched. Every arm resolves the same 0.4.3 tree in-process via refpath.assert_resolved() and divides by the same float64 gradient at the same capture."
+ },
+ "HOST": "qb2",
+ "RANKING_BY_MEDIAN_REDUCTION": [
+  {
+   "arm": "softmax",
+   "median_rel": 0.048857812284977965,
+   "reduction_frac_of_baseline": 0.47713480259262836,
+   "share_of_sum_of_parts": 0.4574315381894487
+  },
+  {
+   "arm": "layernorm",
+   "median_rel": 0.07134216670704555,
+   "reduction_frac_of_baseline": 0.23651235423371333,
+   "share_of_sum_of_parts": 0.22674558512619122
+  },
+  {
+   "arm": "addmul",
+   "median_rel": 0.07724740333836268,
+   "reduction_frac_of_baseline": 0.17331585458364174,
+   "share_of_sum_of_parts": 0.1661587826417735
+  },
+  {
+   "arm": "linear",
+   "median_rel": 0.07885509734669294,
+   "reduction_frac_of_baseline": 0.15611067887636376,
+   "share_of_sum_of_parts": 0.14966409404258665
+  }
+ ],
+ "RESIDUAL_AFTER_ALL_FIVE": {
+  "forward_rel_median": 0.002885551989730754,
+  "median_rel": 0.02279837447201512,
+  "unbounded_verbs_that_still_carry_traffic": {
+   "embedding": 576,
+   "experimental.nlp_create_qkv_heads": 1152,
+   "matmul": 2928,
+   "relu": 240
+  },
+  "why": "the joint arm bounds five classes and leaves the rest on device. matmul at 2928 calls is the largest unbounded arithmetic verb -- `linear` and `matmul` are different tape verbs and only the first was bounded -- so the residual is an upper bound on what the five classes cannot explain, not an instrument floor.",
+  "x_of_baseline": 0.2439830195291509
+ },
+ "SUM_OF_PARTS": {
+  "joint_arm_median_reduction": 0.07064408933555813,
+  "joint_over_sum": 0.7247972866263221,
+  "sum_of_single_arm_median_reductions": 0.09746737555321386,
+  "verdict": "sub-additive",
+  "why": "the four single-op reductions sum to more than the joint arm achieves, so they are not shares of one budget. Each is an upper bound on its own class and the stack is worth less than their sum, which is why no percentage below is called a decomposition."
+ },
+ "WHAT": "Per-op attribution on the REPAIRED denominator, our arm only (A27).\n\nFive arms, each one op class computed on the host in float64, forward and backward, by\n`perf/of3t_residual/host_f64.py`'s verb rule -- plus `--softmax-f64`, the same bound on the\nsoftmax verb. Nothing about the reference moves: every arm divides by the same 0.4.3 float64\ngradient at the same capture, `/home/ttuser/of3t_softgrad/diffcap043`, and every arm's resolved\ntree and capture stamp are read back in-process rather than labelled.\n\nWhat the arms can and cannot say, stated before the numbers:\n\n  * the bound is on the VERB, so it is scope-agnostic. It bounds every softmax and every\n    LayerNorm the tape sees, not only the diffusion transformer's, which makes each reading an\n    UPPER bound on that op class's contribution rather than an estimate of it;\n  * it is forward AND backward. `host_f64._taped_f64` runs the float64 forward under torch\n    autograd and takes the backward from `torch.autograd.grad`, so an arm attributes the op\n    class, not its backward half alone. The forward rel is published per arm for exactly that\n    reason: it moved, so part of every gradient improvement is an improved forward;\n  * the float64 result is written back into the device tensor's own dtype\n    (`y.detach().float()`), so the arm bounds the op's INTERNAL arithmetic and not the\n    precision of the value it hands on;\n  * perturbations stack sub-additively, so SUM_OF_PARTS below is computed and compared against\n    the joint arm rather than assumed. It is not a decomposition and it is not treated as one."
+}

@@ -6,6 +6,16 @@ diffusion-scope repair, and "the trunk is out of reach of it" is exactly the kin
 campaign has had to withdraw before, so it is measured instead of argued: build the WHOLE model
 under each tree and diff the parameter names by top-level module.
 
+AMENDMENT 2, and read this before quoting the output: a `named_parameters()` diff is blind
+to every change that adds no parameter, and the campaign holds the counter-example on a
+module this script calls identical. `pairformer_stack` is 2736 on both trees with identical
+names, and `of3t-trunk043ref` measured 5.647x between the two references on it, because
+`transpose_bias` is a 0.5.0 convention rather than a 0.5.0 parameter. So "module X is
+identical" here means its parameter NAMES are, which is a weaker sentence than "the boundary
+does not reach module X". The functional boundary is enumerated at source in
+`perf/of3t_orchestrator/PARAMETER_NAME_IDENTITY_IS_NOT_FUNCTION_IDENTITY.json`; use a
+version-only arm, not this diff, before saying a module is out of reach.
+
 One tree per process -- the two packages cannot both be `openfold3` at once.
 """
 import argparse, json, os, sys

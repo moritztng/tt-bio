@@ -167,6 +167,37 @@ def _linear(shipped, args, kwargs):
     return _taped_f64("linear", parents, fn, x.value)
 
 
+def _matmul(shipped, args, kwargs):
+    """`ttnn.matmul` and `experimental.minimal_matmul`, the pair taped_ttnn._v_matmul covers.
+
+    `linear` was already bounded and `matmul` is a DIFFERENT tape verb, so an arm that bounds
+    `linear` leaves 2928 matmul calls on device -- which is what made the five-class residual an
+    upper bound rather than a floor. `transpose_a`/`transpose_b` transpose the OPERAND in the
+    product, so they are applied to the operand here; the autograd backward then follows from
+    the expression instead of being hand-derived, which is this module's whole point.
+    """
+    CALLS["matmul"] = CALLS.get("matmul", 0) + 1
+    kw = dict(kwargs)
+    a = TT._wrap(args[0] if args else kw.get("input_tensor"))
+    b = TT._wrap(args[1] if len(args) > 1 else kw.get("weight_tensor"))
+    bias = TT._wrap(kw.get("bias_tensor"))
+    ta, tb = bool(kw.get("transpose_a", False)), bool(kw.get("transpose_b", False))
+    if kw.get("activation") is not None:
+        raise NotImplementedError(
+            f"host_f64 matmul has no float64 form for the fused activation "
+            f"{kw['activation']!r}; taped_ttnn._v_matmul refuses it too")
+    parents = [t for t in (a, b, bias) if t is not None]
+
+    def fn(*ts):
+        it = iter(ts)
+        xv, wv = next(it), next(it)
+        y = torch.matmul(xv.transpose(-2, -1) if ta else xv,
+                         wv.transpose(-2, -1) if tb else wv)
+        return y + next(it) if bias is not None else y
+
+    return _taped_f64("matmul", parents, fn, a.value)
+
+
 _RULES = {
     "layer_norm": _layer_norm,
     "linear": _linear,
@@ -175,6 +206,7 @@ _RULES = {
     "add": _binary("add", lambda a, b: a + b),
     "add_": _binary("add_", lambda a, b: a + b),
     "subtract": _binary("subtract", lambda a, b: a - b),
+    "matmul": _matmul,
 }
 
 
