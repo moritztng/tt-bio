@@ -9906,3 +9906,30 @@ with a non-zero status instead of silence — no separate `.err` file needed.
 evidence is a log that stops mid-arm with no marker. Catching that needs something outside the
 wrapper, and nothing in the campaign has it. D140 stays open until the row reports, and this
 residual is what its report should say it did or did not cover.
+
+### D148. DIRECTIVE-STATUS — the field that tracks what Moritz's own two continuation directives asked for — closed with a summary stamped *"at pass 199"* that was wrong in three of its four nouns by pass 232 and stayed on the page until pass 269. FOUND by the orchestrator (pass 269). **UNFIXED** — the five stale items are corrected in place and A30 is adopted, but a rule is not a guard, and the pass-195 audit of this same field already showed that fixing the instances does not fix the practice.
+
+Seventy passes. What the closing paragraph told a reader was left:
+
+    claim (pass 199)                                    actual, when it was read at pass 269
+    "one located defect" = the trunk's backward,        D8, REFUTED pass 232 as a NON-DEFECT:
+      92.68 % of its error mass on four LayerNorm         the four leaves read 0.747x-0.849x of
+      affine leaves                                       upstream 0.4.3's own bf16 floor, A26
+    "D8/D9's backward-only error"                       D9 RESOLVED pass 220 (a boundary-version
+                                                          policy mismatch, not a precision cost)
+    "`of3t-nanfloor` also owes one pending check"       discharged by D111 UPDATE 3 -- written
+                                                          at pass 199, the SAME PASS
+    "two questions for Moritz that block nothing"       9562 answered and built, 9597 withdrawn;
+                                                          the live ask is pin 9629's four decisions
+    "eight are closed, two are the live rows, one is    a count of thirteen items that was true
+      bounded engineering, and two are decisions"         at 199 and false at 200
+
+The memory-engineering item was the one thing still live, and it was mis-sized: 640 fits at +5.82 GB, not the 12.3 GB deficit that paragraph describes, and 768 needs a third lever.
+
+**The nanfloor row is the sharp one.** D111 UPDATE 3 discharges that pending check and is dated pass 199 — the same pass as the paragraph asserting it is owed. The field was not merely allowed to decay; it was **already wrong the day it was written**, because the summary was composed from the state at the top of the pass and the row reported inside it.
+
+**Item 3 of Directive 1 is the same failure in the numbered list, not just the summary**: it read *"D8/D9 ... OPEN"* for thirty-seven passes after D9 resolved and twenty-eight after D8 was refuted. Both closures were recorded in DEFECTS.md on the pass they happened. Nothing was hidden; nobody looked across.
+
+**Why no guard.** The natural check — "every defect this document names must carry the ledger's current status" — is the one I declined to ship at pass 261 for being 4-of-5 false positives, and DIRECTIVE-STATUS is the worst case for it: the field is a HISTORY of what directives asked, so most of its defect references are correctly frozen at the reading of their day (item 1's D90/D111 narration, item 2's D19 withdrawal, item 4's D21 closure). Only the sentences making a CURRENT claim are checkable, and *"is left"* / *"— OPEN"* / *"owes one pending check"* are not distinguishable from narration by pattern. **A30** is the honest response, adopted this pass: a summary paragraph carries the pass it was composed in, a stamp more than ten passes old is read as history and never as status, the summary is composed LAST so a row reporting inside the pass cannot outrun it, and no count of a moving ledger is restated in prose.
+
+**This is the second occurrence in this exact field.** Its own header says: *"Audited against concluded rows at pass 195, because three of them turned out to be closed while this document was still quoting the superseded reading."* Same field, same cause, three items then and five now. The pass-195 audit fixed the instances and not the practice, which is what makes this a defect rather than an update. Related: [D142](#), [D146](#) — a document teaching a superseded state — and the memory note *"a row's sentence is evidence for exactly what it says"*.

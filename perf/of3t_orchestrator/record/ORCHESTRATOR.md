@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-nine amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, thirty amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -279,7 +279,7 @@ Recomputed from the artifacts on every compose (172 checks, 0 drifted); that tot
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **twenty-nine amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **thirty amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -639,6 +639,8 @@ record its own.
 
 **D141 (UNFIXED; argued in full in PASSLOG)**: the shared diffusion capture records `missing_keys` and **not `unexpected_keys`**, so a load that drops trained tensors reads as clean — `capture_diffusion_boundary_043_REBUILT.json` says *n_loaded 4935, n_missing 1, missing `['version_tensor']`*. `capture_trunk_boundary.py` has recorded `n_unexpected` all along; the diffusion side never had it. **My pass-255 blast-radius claim is WITHDRAWN**: measured against the reference files themselves, `pinned_p175/arm4_bf16_autocast` (4170 keys), `grads_f64_043.pt` (4170) and **`diffcap043/sub_boundary.pt`'s `grad_f64` (761) — the denominator of the D129 ratio — each carry all **24** per-block `attention_pair_bias.layer_norm_z.weight` tensors and no transformer-level key. The references are on the per-block path, the same architecture as our port. **The defect stands anyway**: a provenance block that reads identically whether 0 or 24 trained tensors were dropped is broken whether or not today's answer is 0. Three reports frozen as a shrink-only ratchet; a fourth fails the compose.
 
+**D148 (UNFIXED; in PASSLOG)**: DIRECTIVE-STATUS's closing summary, stamped pass 199, still said at pass 269 that D8/D9 were open and that `of3t-nanfloor` owed a check **D111 UPDATE 3 discharged inside pass 199 itself**. Corrected in place and **A30** adopted; the class stays open because a rule is not a guard, and the pass-195 audit of this field fixed instances, not practice.
+
 **D119 (UNFIXED, mine)**: the observational floor I built for the crop ladder is close to vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so the control tests only that a projection exceeds the card and cannot separate two that both do. Plus a unit error under it: the card is 34,225,520,128 B (**34.2255 decimal GB = 31.875 GiB**) and `project.py` compares against 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; it does not change 640's GO, and it is why 768 is closed on a measured lower bound rather than on a projection.
 
 **Both pass-207 repairs are guarded off (pass 209); argued in full in PASSLOG.** `TT_BIO_SOFTMAX_BW_RENORM` and the host float64 softmax are default-off and asserted so on every compose.
@@ -708,10 +710,14 @@ document was still quoting the superseded reading. Each line says who closed it,
    nothing to warn users about.
 2. **D19, the 7.811e-03 forward composing to 2.792e-01 — WITHDRAWN this pass.** Against the 0.4.3
    reference the composed pair track reads **4.947045e-02**, under the bar.
-3. **D8/D9, the gradient-only error a forward comparison cannot see — OPEN.** `fp32_softmax` alone
-   moves the triangle-attention weight gradient **3.2x** under a 12 % forward change
-   (`of3t-gradients`). Still the reason an agreeing forward is necessary and never sufficient, and
-   the reason `of3t-trunkg043` must take a gradient rather than infer one from A18.
+3. **D8/D9, the gradient-only error a forward comparison cannot see — BOTH CLOSED SINCE, and this
+   line kept saying OPEN for thirty-seven passes (D148).** D9 is **RESOLVED** (pass 220): D120 had
+   settled it four passes earlier — the 3.2x was a boundary-version policy mismatch, not a
+   precision cost — and nobody restated the heading. D8 is **REFUTED** (pass 232) as a
+   **NON-DEFECT**: its four LayerNorm affine leaves read 0.849x, 0.837x, 0.849x and 0.747x of
+   upstream 0.4.3's own bf16 floor, all inside A26. What survives is the reading, not the defect:
+   an agreeing forward is necessary and never sufficient (A18), and `of3t-trunkg043` was right to
+   take a gradient rather than infer one.
 4. **D21, the instrument defect whose bijection reached 283 of 870 — CLOSED.** On the corrected
    0.4.3 reference the device bijection carries **3,569 of 4,170 tensors (85.6 %)** holding
    **97.80 %** of the squared gradient norm.
@@ -755,10 +761,18 @@ document was still quoting the superseded reading. Each line says who closed it,
      more engineering is spent. `of3t-adaln` had already measured the D8 leaf at **8.06e-01** under
      our softmax against **1.46e-02** under float64 and concluded the attention-side gradient defect
      is the softmax and nothing else on that path — a reading that now has a mechanism under it;
-   - the live row `of3t-apbgrad` is **amended** to test this as its FIRST arm, ahead of its operand
-     sweep: its 33.30x AttentionPairBias defect sits on the same path with the same signature, and
-     if a float64 softmax drops its cotangent to the Transition sibling's level the operand sweep is
-     unnecessary and it should say so and stop;
+   - the amended row `of3t-apbgrad` **ran that first arm, and the ceiling was NOT the explanation
+     there**: the amendment's own stop condition did not fire, and the operand sweep it was written
+     to make unnecessary is what produced the answer. An exact float64 backward on the card's own
+     `y` and `g` returns the module cotangent at **3.3455e+01** against the reference where the card
+     returns **3.3294e+01** — the arithmetic reproduces itself, so the softmax backward is
+     **INNOCENT**. The 33.30x is an OPERAND: `ttnn.softmax` on a bf16 tensor returns rows summing to
+     one only to **2.439e-02** rms at block 15, so `d_logits`' row sums stop vanishing and `dq`
+     acquires a `kbar` term the gradient does not contain. Two ops of renormalisation, adding
+     precision nowhere, take the trunk gradient from **9.025172e+00** to **3.833066e-01**, which is
+     **1.0251x** upstream's own bf16 arm. The bullet above is right as a suspicion and wrong as a
+     diagnosis: *"we cannot get close enough on-device"* has at least two causes, and on the largest
+     one this campaign found, the cure cost no precision at all;
    - performance is a named debt, not a blocker — what `precise_config()` recovers at 1.46x on one
      op, and whether round trips can be batched, overlapped or confined.
 
@@ -770,25 +784,33 @@ document was still quoting the superseded reading. Each line says who closed it,
    in the record changes; the ask was stale on arrival and has been retired rather than left
    claiming Moritz's attention.
 
-**So the honest shape of what is left, at pass 199**: **one located defect** — the trunk's
-backward, 5.8282 % of the model, 92.68 % of its error mass on four LayerNorm affine leaves — plus one memory-engineering item now sized (crops 640 and 768, a 12.3 GB
-deficit at 640 that the proposed lever covers 41 % of), D8/D9's backward-only error, and two
-questions for Moritz that block nothing. The 51.1358 % re-score came back at pass 198 and
-**settled rather than reopened**: the dropped config is inert to the bit, the four-arm argument
-stands, and that scope is a product decision rather than an open measurement. `of3t-nanfloor` also
-owes one pending check — the OpenDDE fold that measures the softmax floor's blast radius by digest
-rather than at the op.
-**Nothing on that list is unexplained.** Of the thirteen items the two directives named, eight are
-closed, two are the live rows, one is bounded engineering, and two are decisions. That is a
-different campaign from the one whose VERDICT opened this pass, and the difference is almost
-entirely that concluded rows had answered questions this document was still asking.
+**The shape of what is left, RE-AUDITED at pass 269.** The paragraph this replaces was stamped
+*"at pass 199"*, and three of the four things it said were left had stopped being left — one of
+them in that same pass (D148). It is kept verbatim in PASSLOG. Corrected: there is **no located
+trunk-backward defect** — the four LayerNorm affine leaves it named are D8, REFUTED at pass 232
+as a non-defect inside A26, and D8/D9 as a pair are closed. **`of3t-nanfloor` owes nothing** —
+D111 UPDATE 3, written at pass 199 itself, records the floor's blast radius measured in a shipped
+model by digest. The **memory-engineering item is still open and differently sized than that
+paragraph says**: `of3t-crop512` refuted the N² arm, 640 fits at **+5.82 GB** rather than +10.56,
+and **768 needs a third lever** at a 9.72 GB overshoot. The 51.1358 % re-score reading stands as
+written. What is actually left is **three live rows** — `of3t-trajwide` running, `of3t-ditcot` and
+`of3t-f64gate` held on `DEPENDS_ON` — **one bundle of four ship/hold decisions** (pin `9629`: D1,
+D10, D24, D56, default hold), and the crop lever. The two questions that paragraph counted are
+both retired: 9562 answered and built (`of3t-f64softmax`, GO), 9597 withdrawn as stale.
+**Nothing on that list is unexplained, and the tally that used to close this field is retired
+rather than restated.** *"Eight closed, two live rows, one bounded engineering, two decisions"*
+was a true count of thirteen items at pass 199 and a false one by pass 200. A tally of a moving
+ledger belongs in the ledger, which is machine-readable now and was not then; in a prose field
+nobody recomputes it, it decays into a confident wrong number. The standing fact this field
+exists to carry is the one in the paragraph below it, and it now applies to this field's own
+summary twice over.
 
 **Two of my own near-misses this pass belong in this field rather than only in DEFECTS**, because
 they are the same error twice: I drafted a duplicate `of3t-trunkcliff` to root-cause a defect that
 row had already root-caused, and I drafted a dispatch for `atom_attn_dec` that `of3t-residual` had
 already dissolved. Both were caught by grepping the concluded rows' own documents for the subject
-before writing a brief. With forty-three rows on the record, **this document is no longer a
-reliable index of its own campaign**, and the orchestrator's read-before-dispatch step is what
+before writing a brief. With **sixty-one** rows on the record — it said forty-three when I wrote
+it — **this document is no longer a reliable index of its own campaign**, and the orchestrator's read-before-dispatch step is what
 stands between that and burning a row per pass.
 
 VERDICT: PARTIAL — **OpenFold3's training step now reproduces per-parameter at model scope, at
@@ -824,13 +846,54 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   as one bundle, pin **9629**, default hold) **and five need a card**, three of them (D30, D58,
   D129) one object — the tape's backward, `of3t-ditcot`'s, held. The condition itself is still
   defective (**D122**): a keyword test on GAP's prose, argued in full in PASSLOG. Triaged
-  against the ledger: **4 scope-excluded, 9 USER-FACING, 40 campaign-internal**.
+  against the ledger: **4 scope-excluded, 9 USER-FACING, 41 campaign-internal**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-seven defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-eight defects, fifty-four UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 268 — audited DOESNOT, the one summary field I had never checked, and it was understating the port rather than overstating it.** DOESNOT is the field that protects against over-claiming, so a drift there is dangerous in a way the others are not: a caveat that is too weak lets a wrong claim stand, and a caveat that is too strong makes the campaign's own result unreadable.
+PASSLOG: **Pass 269 — the field that tracks Moritz's own directives closed with a summary of what was left that was wrong in three of its four nouns, and one of them stopped being true inside the pass that wrote it.** DIRECTIVE-STATUS was the last summary field never audited, and it is the one where drift costs the most: it is the campaign's answer to *"you asked for thirteen things; here is where each one stands."*
+
+**What it said was left, against what was actually left.** The closing paragraph was stamped *"the honest shape of what is left, at pass 199"* and had sat unchanged until this pass, 70 later. *"One located defect"* — the trunk's backward, 92.68 % of its error mass on four LayerNorm affine leaves — is **D8, REFUTED at pass 232 as a NON-DEFECT**; those four leaves read 0.747x-0.849x of upstream 0.4.3's own bf16 floor, all inside A26. *"D8/D9's backward-only error"* — **D9 RESOLVED at pass 220**, a boundary-version policy mismatch rather than a precision cost. *"`of3t-nanfloor` also owes one pending check"* — discharged by **D111 UPDATE 3, dated pass 199**, the same pass. *"Two questions for Moritz"* — 9562 answered and built, 9597 withdrawn; the live ask is pin 9629's four ship/hold decisions. The memory-engineering item was the one thing genuinely still open, and it was mis-sized: `of3t-crop512` refuted the N² arm, so 640 fits at +5.82 GB rather than the 12.3 GB deficit described, and 768 needs a third lever.
+
+**The nanfloor line is the one worth keeping.** The summary was composed from the state at the top of the pass, and the row reported before the pass ended. That is not decay — it was **wrong the day it was written**, and no re-audit cadence catches a within-pass loss. Hence A30's first consequence: compose the summary last.
+
+**Item 3 of the numbered list was the same failure outside the summary**, reading *"D8/D9 ... OPEN"* for 37 passes after D9 closed and 28 after D8 was refuted. Both closures were recorded in DEFECTS.md on the pass they happened. Nothing was hidden; nobody read across.
+
+**A30 adopted, and deliberately not a guard.** The mechanical check — every defect a document names must carry the ledger's current status — is the one I built at pass 261 and declined to ship at 4-of-5 false positives, and DIRECTIVE-STATUS is its worst case, because the field is by design a history of readings of their day. Only sentences making a CURRENT claim are checkable and *"is left"* / *"— OPEN"* / *"owes one pending check"* are not separable from narration by pattern. So A30 puts the burden on the reader and gives them the one thing they need to pick it up: a pass stamp, history past ten passes, no prose counts of a moving ledger, and the superseded paragraph kept verbatim here.
+
+**Second occurrence in this exact field**, which is what makes it D148 rather than an update: the field's own header records a pass-195 audit that found three items closed while the document still quoted the superseded reading. That audit fixed the instances and left the practice alone.
+
+**Also corrected, same pass.** The closing paragraph of the field says *"with forty-three rows on the record, this document is no longer a reliable index of its own campaign"* — it is **sixty-one** rows now, so the sentence understates its own case; and Directive 1's float64 bullet predicted `of3t-apbgrad`'s 33.30x would fall to a float64 softmax. **It did not, and the row's finding is better than the prediction**: an exact float64 backward on the card's own `y` and `g` returns 3.3455e+01 against the card's 3.3294e+01, so the softmax backward is INNOCENT and the fp32 ceiling is not the explanation there. The cause is an OPERAND — `ttnn.softmax` on bf16 returns rows summing to one only to 2.439e-02 rms — and two ops of renormalisation, adding precision nowhere, take the trunk gradient from 9.025172e+00 to 3.833066e-01, 1.0251x upstream's own bf16 arm. *"We cannot get close enough on-device"* has at least two causes, and on the largest one this campaign found, the cure cost no precision at all.
+
+**The superseded paragraph, verbatim as it stood from pass 199 to pass 269:**
+
+> **So the honest shape of what is left, at pass 199**: **one located defect** — the trunk's
+> backward, 5.8282 % of the model, 92.68 % of its error mass on four LayerNorm affine leaves — plus one memory-engineering item now sized (crops 640 and 768, a 12.3 GB
+> deficit at 640 that the proposed lever covers 41 % of), D8/D9's backward-only error, and two
+> questions for Moritz that block nothing. The 51.1358 % re-score came back at pass 198 and
+> **settled rather than reopened**: the dropped config is inert to the bit, the four-arm argument
+> stands, and that scope is a product decision rather than an open measurement. `of3t-nanfloor` also
+> owes one pending check — the OpenDDE fold that measures the softmax floor's blast radius by digest
+> rather than at the op.
+> **Nothing on that list is unexplained.** Of the thirteen items the two directives named, eight are
+> closed, two are the live rows, one is bounded engineering, and two are decisions. That is a
+> different campaign from the one whose VERDICT opened this pass, and the difference is almost
+> entirely that concluded rows had answered questions this document was still asking.
+
+**And the superseded item 3 and float64 bullet, verbatim:**
+
+> 3. **D8/D9, the gradient-only error a forward comparison cannot see — OPEN.** `fp32_softmax` alone
+>    moves the triangle-attention weight gradient **3.2x** under a 12 % forward change
+>    (`of3t-gradients`). Still the reason an agreeing forward is necessary and never sufficient, and
+>    the reason `of3t-trunkg043` must take a gradient rather than infer one from A18.
+
+> - the live row `of3t-apbgrad` is **amended** to test this as its FIRST arm, ahead of its operand
+>   sweep: its 33.30x AttentionPairBias defect sits on the same path with the same signature, and
+>   if a float64 softmax drops its cotangent to the Transition sibling's level the operand sweep is
+>   unnecessary and it should say so and stop;
+
+**Pass 268 —  audited DOESNOT, the one summary field I had never checked, and it was understating the port rather than overstating it.** DOESNOT is the field that protects against over-claiming, so a drift there is dangerous in a way the others are not: a caveat that is too weak lets a wrong claim stand, and a caveat that is too strong makes the campaign's own result unreadable.
 
 **It was the second.** Its headline bullet read *"Measured directly against upstream's own training step, we do not reproduce it: **7.426217** mass-weighted over the 547 tensors the device arm covers (51.1358 % of the model)"* — a **pass-175, diffusion-scope, pre-repair** reading, correctly scoped and correctly attributed, but the widest and most current statement of the same thing is now the **SHIPPED arm at model scope**: **5.5518403e+00**, **52.898x** A26's reachable bar, over **92.1568 %** of the squared gradient norm, which I re-derived from `MODEL_arms.json` at pass 248. A reader meeting only 7.426217 takes the campaign's answer to be a number from a narrower scope on an older arm.
 

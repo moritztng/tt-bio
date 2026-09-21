@@ -1422,3 +1422,40 @@ with nothing establishing it, and "inert" for a module that is not. **A number c
 from an artifact, so a guard can own it; a word has only an author.** Green-on-numbers had been
 licensing the prose. A29 mechanises the one characterisation that was worth the most; the rest
 still need re-reading by hand.
+
+---
+
+**A30 — 2026-09-21, forced by D148 (pass 269), mine. A SUMMARY PARAGRAPH IS DATED, AND A DATED
+SUMMARY MORE THAN TEN PASSES OLD IS HISTORY, NOT STATUS.** Any paragraph that says what is *left*,
+what is *open*, or what the campaign *still owes* carries the pass it was composed in. A reader who
+finds one older than ten passes reads it as a record of what was believed then, and must not quote
+it forward without re-auditing every item against the ledger.
+
+D148 is the case: DIRECTIVE-STATUS closed with *"the honest shape of what is left, at pass 199"*
+and was read at pass 269. Three of its four nouns had stopped being true — one of them, the
+`of3t-nanfloor` pending check, discharged by D111 UPDATE 3 **inside pass 199 itself**, because the
+summary was composed from the state at the top of the pass and the row reported before it ended.
+It was not merely stale; it was wrong the day it was written.
+
+**Why the stamp rather than a guard.** The obvious check — every defect a document names must carry
+the ledger's current status — was built at pass 261 and not shipped: 4 of 5 hits were false
+positives, because a campaign document is mostly *narration of readings of their day*, which is
+correct frozen. DIRECTIVE-STATUS is the extreme case: it exists to record what two directives asked
+and how each item was answered. Only the sentences making a CURRENT claim are checkable, and
+*"is left"*, *"— OPEN"*, *"owes one pending check"* cannot be told from narration by pattern. So the
+burden goes on the reader, and the stamp is what tells the reader to pick it up.
+
+**Three consequences.**
+1. Compose the summary LAST, after the pass's rows have reported — the D111 case is a within-pass
+   loss, not a decay.
+2. Never restate a **count** of a moving ledger in prose ("eight closed, two live, two decisions").
+   A count is true for one pass and confidently wrong after. Counts belong where they are
+   recomputed; the ledger is machine-readable now, and prose is not.
+3. When re-auditing, replace the paragraph and keep the original **verbatim in PASSLOG**. The
+   superseded reading is evidence of how the campaign saw itself, and deleting it destroys the only
+   record that this drift happens.
+
+**This is the second occurrence in the same field.** DIRECTIVE-STATUS's own header records a
+pass-195 audit that found three items closed while the document still quoted the superseded
+reading. That audit fixed the instances and not the practice, which is precisely the gap A30
+closes. Record: D148, D142, D146, the pass-261 unshipped guard.
