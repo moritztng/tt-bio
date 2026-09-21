@@ -72,6 +72,18 @@ def main() -> int:
                         "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
                         "reaches all 24 DiT blocks and both atom transformers. What is left "
                         "after it is what the softmax cannot explain.")
+    p.add_argument("--host-f64", default="", dest="host_f64",
+                   help="comma-separated tape verbs to compute, forward and backward, on the "
+                        "host in float64 -- the same BOUND the softmax got, generalised. "
+                        "`layer_norm,multiply,multiply_,add,add_` bounds everything the "
+                        "conditioned transition does except its matmuls; adding `linear` "
+                        "bounds those too. Scope-agnostic like the softmax bound, so it "
+                        "bounds MORE than the transition and is therefore an upper bound on "
+                        "what the transition can contribute. Each verb's intercept count is "
+                        "published and a zero is a hard failure.")
+    p.add_argument("--verb-census", action="store_true", dest="verb_census",
+                   help="count every tape verb without changing any arithmetic, so the cost "
+                        "of a bound is known before it is paid")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -123,7 +135,19 @@ def main() -> int:
             fp_clash.add(f)
         fp_name[f] = k
 
-    reg = {}
+    # D83. THE ORIENTATION IS RECORDED HERE, NOT INFERRED FROM SHAPE AT COMPARISON TIME.
+    # `_w_tt` puts `w.t()` on the card, so the taped dW rule returns the gradient in the
+    # device's orientation and the comparison has to put it back. It used to do that with
+    # `if shape != want and shape[::-1] == want: gt = gt.t()`, which CANNOT FIRE ON A SQUARE
+    # WEIGHT -- and 87 of the 547 compared tensors are square. Every one of them was scored
+    # as dW against dW^T: rel_l2 1.40 (= sqrt(2)), norm ratio 1.00, cosine 0.002, in every
+    # arm, unmoved by any precision lever, because a transpose is norm-preserving and
+    # decorrelating. That was 56.03 % of the float64-softmax bound's squared error and none
+    # of it was the port's. The fingerprint is deliberately transpose-invariant, so it could
+    # never have caught this either. Here the tensor handed to `ttnn.from_torch` is compared
+    # to the checkpoint tensor BIT-EXACTLY in both orientations, so the answer is a fact
+    # about the load and not an inference from a shape.
+    reg, orient = {}, {}
     orig_from_torch = ttnn.from_torch
 
     def recording_from_torch(tensor, *args, **kw):
@@ -132,7 +156,18 @@ def main() -> int:
             if torch.is_tensor(tensor) and tensor.is_floating_point():
                 f = fingerprint(tensor)
                 if f in fp_name and f not in fp_clash:
-                    reg[id(v)] = fp_name[f]
+                    nm = fp_name[f]
+                    reg[id(v)] = nm
+                    ck = dmsd[nm]
+                    same = tensor.shape == ck.shape and bool(torch.equal(tensor, ck))
+                    flip = (tensor.dim() == 2 and ck.dim() == 2
+                            and tensor.shape == ck.t().shape
+                            and bool(torch.equal(tensor, ck.t().contiguous())))
+                    # A symmetric square weight satisfies both and the orientation does not
+                    # matter; anything that satisfies neither (a reshape, a pad, a fuse) is
+                    # recorded as unknown and falls back to the shape test, which is correct
+                    # for it because it is not a plain transpose.
+                    orient[id(v)] = "N" if same else ("T" if flip else "?")
         except Exception:
             pass
         return v
@@ -227,6 +262,20 @@ def main() -> int:
         print(f"[{time.perf_counter()-t0:.0f}s] float64 softmax bound installed on the tape verb",
               flush=True)
 
+    # The same bound on the other verbs, in this row's own namespace so the shared instrument
+    # keeps one hook rather than six rules.
+    hf64_verbs = [v for v in a.host_f64.split(",") if v]
+    if hf64_verbs or a.verb_census:
+        sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_residual"))
+        import host_f64 as HF
+        if a.verb_census:
+            HF.census_install()
+            print(f"[{time.perf_counter()-t0:.0f}s] verb census installed", flush=True)
+        if hf64_verbs:
+            HF.install(hf64_verbs)
+            print(f"[{time.perf_counter()-t0:.0f}s] float64 bound installed on "
+                  f"{','.join(hf64_verbs)}", flush=True)
+
     aux = build_dm_device_aux(
         dev, ft, cl0=cl0, plm0=plm0, atom_mask=atom_mask, atom_to_token_index=a2t,
         npe_q_indices=npe_q, npe_k_indices=npe_k, zij_mask=zij_mask,
@@ -250,6 +299,7 @@ def main() -> int:
     for t in walked.values():
         ag.parameter(t)
     named = {id(t): reg.get(id(t)) for t in walked.values()}
+    orient_by_name = {reg[i]: o for i, o in orient.items() if i in reg}
     n_named = sum(1 for v in named.values() if v)
     print(f"[{time.perf_counter()-t0:.0f}s] module built: {len(walked)} device weights "
           f"reachable, {n_named} carry a checkpoint name, {len(reg)} recorded at load",
@@ -418,8 +468,17 @@ def main() -> int:
         gt = to_t(g.value if hasattr(g, "value") else g)
         want = shape_by_name[nm]
         gt = gt.reshape(gt.shape[-len(want):]) if gt.dim() > len(want) else gt
-        if tuple(gt.shape) != want and tuple(gt.shape)[::-1] == want:
+        # D83: orientation from the recorded load, with the old shape test kept only for the
+        # weights whose load was not a plain transpose ("?"). The shape test is a no-op on a
+        # square weight, which is exactly the case it used to get wrong.
+        o = orient_by_name.get(nm, "?")
+        if o == "T" and gt.dim() == 2:
             gt = gt.t().contiguous()
+        elif o != "N" and tuple(gt.shape) != want and tuple(gt.shape)[::-1] == want:
+            gt = gt.t().contiguous()
+        if tuple(gt.shape) != want:
+            raise AssertionError(f"{nm}: gradient {tuple(gt.shape)} is not {want} after "
+                                 f"orientation {o}")
         rows[nm] = gt
 
     if a.dump_grads:
@@ -477,8 +536,21 @@ def main() -> int:
            "over_5e-2": sum(1 for d, _, _ in cmp_rows if d > 5.0e-2),
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
+           "orientation_recorded_at_load": {
+               "N": sum(1 for o in orient_by_name.values() if o == "N"),
+               "T": sum(1 for o in orient_by_name.values() if o == "T"),
+               "?": sum(1 for o in orient_by_name.values() if o == "?")},
+           "square_2d_compared": sum(1 for nm in rows
+                                     if len(shape_by_name[nm]) == 2
+                                     and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
            "softmax_calls_intercepted": softmax_calls[0],
+           "host_f64_verbs": hf64_verbs or None,
+           "host_f64_calls_intercepted": (
+               {v: __import__("host_f64").CALLS.get(v, 0) for v in hf64_verbs}
+               if hf64_verbs else None),
+           "verb_census": (dict(sorted(__import__("host_f64").CALLS.items()))
+                           if a.verb_census else None),
            "cotangent_permuted": bool(a.permute_cot),
            "grads_dumped_to": a.dump_grads or None,
            "per_tensor_dumped": bool(a.dump_per_tensor),
@@ -512,6 +584,13 @@ def main() -> int:
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10", "per_tensor")},
                      indent=1, default=str), flush=True)
     print("wrote", path, "and", side, flush=True)
+    if hf64_verbs:
+        counts, zero = __import__("host_f64").report(hf64_verbs)
+        print("host_f64 intercepts:", counts, flush=True)
+        if zero:
+            print(f"FAILED: --host-f64 intercepted 0 calls for {zero}, so those verbs are the "
+                  f"shipped ones under another name", flush=True)
+            return 3
     if a.softmax_f64 and softmax_calls[0] == 0:
         print("FAILED: --softmax-f64 intercepted 0 softmax calls, so this arm is the shipped "
               "arm under another name", flush=True)

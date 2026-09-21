@@ -1,0 +1,83 @@
+{
+  "what": "A18 for the trunk: both tracks, masked, padding fraction beside each.",
+  "reference": "/home/ttuser/of3t_trunk043ref/ref_043_f64_c64.pt",
+  "reference_dtype_policy": "upstream 0.4.3, every parameter and every activation float64, checkpoint upcast once at load, no cast on the path",
+  "bar": 0.05,
+  "bar_a26_reachable": 0.07071067811865477,
+  "tokens": 64,
+  "real_tokens": 56,
+  "padding_fraction_single": 0.125,
+  "padding_fraction_pair": 0.234375,
+  "arms": {
+    "SHIPPED": {
+      "s_masked": {
+        "rel": 0.1065338121878499,
+        "ratio": 0.9078125209129787,
+        "cos": 0.9984297849097793
+      },
+      "z_masked": {
+        "rel": 0.04947045199709192,
+        "ratio": 1.032792427121818,
+        "cos": 0.9993357898895163
+      },
+      "config": {
+        "scale_pair_bias": false,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      },
+      "overrides": [],
+      "s_verdict": "FAIL",
+      "z_verdict": "PASS"
+    },
+    "SCALED": {
+      "s_masked": {
+        "rel": 0.016552629860870322,
+        "ratio": 0.9892165519408351,
+        "cos": 0.9999202870175603
+      },
+      "z_masked": {
+        "rel": 0.04947045199709192,
+        "ratio": 1.032792427121818,
+        "cos": 0.9993357898895163
+      },
+      "config": {
+        "scale_pair_bias": true,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      },
+      "overrides": [
+        "scale_pair_bias=true"
+      ],
+      "s_verdict": "PASS",
+      "z_verdict": "PASS"
+    },
+    "SCALED_BREAK": {
+      "s_masked": {
+        "rel": 0.06715172319866365,
+        "ratio": 0.9892344558880048,
+        "cos": 0.9977793651634485
+      },
+      "z_masked": {
+        "rel": 0.5361274125545057,
+        "ratio": 1.0330838922418135,
+        "cos": 0.86141587303953
+      },
+      "config": {
+        "scale_pair_bias": true,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      },
+      "overrides": [
+        "scale_pair_bias=true"
+      ],
+      "s_verdict": "PASS-A26",
+      "z_verdict": "FAIL"
+    }
+  }
+}
