@@ -204,6 +204,55 @@ def reset():
     _ROLE.clear()
 
 
+# --------------------------------------------------------------------------- boltz-2 cfg
+def patch_boltz2_cfg():
+    """Inject the Boltz-2 hyperparameters `build_fold`'s cfg does not carry.
+
+    `tt_bio.main` builds them inside the click command body, where no caller can reach them, so
+    `_WorkerState.load_model` raises KeyError('conf_kwargs'). This is `perf/pvx_didit/cell.py`'s
+    `patch_boltz2_cfg` (md5 21e0770f080a4d965203b59a193107be) unchanged: it is the harness the
+    26.770 / 17.839 pair this row splits was measured with, so both arms load the model the same
+    way, and the same way that pair did. Process-local.
+    """
+    from tt_bio import worker as _W
+    import tt_baseline as B
+
+    _diffusion = {"step_scale": 1.5, "gamma_0": 0.8, "gamma_min": 1.0, "noise_scale": 1.003,
+                  "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0, "sigma_data": 16.0,
+                  "P_mean": -1.2, "P_std": 1.5, "coordinate_augmentation": True,
+                  "alignment_reverse_diff": True, "synchronize_sigmas": True}
+    _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
+    _msa = {"subsample_msa": True, "num_subsampled_msa": 1024, "use_paired_feature": True,
+            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+            "pairwise_head_width": 32, "pairwise_num_heads": 4,
+            "activation_checkpointing": True}
+    _steering = {"fk_steering": False, "physical_guidance_update": False,
+                 "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
+                 "fk_resampling_interval": 3, "num_gd_steps": 20}
+    _conf = dict(predict_args={"recycling_steps": B.RECYCLING_STEPS,
+                               "sampling_steps": B.SAMPLING_STEPS,
+                               "diffusion_samples": B.DIFFUSION_SAMPLES,
+                               "max_parallel_samples": None},
+                 diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+                 steering_args=_steering, use_kernels=True, use_tenstorrent=True, trace=False,
+                 diffusion_trace=False)
+    _aff = dict(predict_args={"recycling_steps": 5, "sampling_steps": 200, "diffusion_samples": 5,
+                              "max_parallel_samples": 1},
+                diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+                steering_args=dict(_steering, contact_guidance_update=False),
+                affinity_mw_correction=False, use_tenstorrent=True, trace=False,
+                diffusion_trace=False)
+    _orig = _W._WorkerState.load_model
+
+    def _load(self, cfg):
+        cfg.setdefault("conf_kwargs", _conf)
+        cfg.setdefault("aff_kwargs", _aff)
+        cfg.setdefault("use_potentials", False)
+        return _orig(self, cfg)
+
+    _W._WorkerState.load_model = _load
+
+
 def resolve_model(state):
     m = state.model
     for _ in range(5):
@@ -249,6 +298,8 @@ def main() -> int:
     # is being timed; a protocol imported from the other arm would be a different fold.
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
+    if a.model == 'boltz2':
+        patch_boltz2_cfg()
     one_fold, meta, state = B.build_fold(
         a.model, a.msadir, a.fixdir / f"cdk2x2_{a.size}.yaml",
         a.fixdir / f"cdk2x2_{a.size}.a3m")

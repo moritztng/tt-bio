@@ -1,0 +1,171 @@
+{
+ "host": "tt-quietbox2",
+ "tag": "b2stage_smoke",
+ "model": "boltz2",
+ "size": 512,
+ "card": 1,
+ "tree": "/home/ttuser/allm_audit/trees/new",
+ "tree_commit": "47810889f",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model",
+  "TT_MESH_GRAPH_DESC_PATH": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto"
+ },
+ "protocol": {
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1
+ },
+ "model_class": "tt_bio.boltz2.Boltz2",
+ "path_flags": {
+  "use_tenstorrent": true,
+  "is_msa_compiled": false,
+  "is_pairformer_compiled": false,
+  "is_template_compiled": false,
+  "confidence_prediction": true,
+  "predict_bfactor": true,
+  "run_trunk_and_structure": true,
+  "skip_run_structure": false,
+  "use_templates": true
+ },
+ "taped": [
+  "bfactor -> tt_bio.boltz2.BFactorModule.forward",
+  "confidence -> tt_bio.boltz2.ConfidenceModule.forward",
+  "diffusion_cond -> tt_bio.boltz2.DiffusionConditioning.forward",
+  "diffusion_cond_atoms -> tt_bio.boltz2.DiffusionConditioning.forward_atoms",
+  "diffusion_sample -> tt_bio.boltz2.AtomDiffusion.sample",
+  "distogram -> tt_bio.boltz2.DistogramModule.forward",
+  "input_embedder -> tt_bio.boltz2.InputEmbedder.forward",
+  "pair_assembly -> tt_bio.tenstorrent.PairAssemblyDevice.__call__",
+  "rel_pos -> tt_bio.boltz2.RelativePositionEncoder.forward",
+  "trunk -> tt_bio.tenstorrent.TrunkModule.forward"
+ ],
+ "missing": [],
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 3,
+  "load_s": 2.87,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/allm_model/msa_b2_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-boltz2-3fovf9gv/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350"
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "taped": false,
+   "fold_s": 15.5836,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 64,
+    "power_w_mean": 86.3
+   },
+   "plddt": 0.844645,
+   "n_tokens": null
+  },
+  {
+   "tag": "S",
+   "taped": true,
+   "fold_s": 14.3403,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 62,
+    "power_w_mean": 78.2
+   },
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "seams": {
+    "bfactor": {
+     "n": 1,
+     "incl_s": 0.000172,
+     "self_s": 0.000172
+    },
+    "confidence": {
+     "n": 1,
+     "incl_s": 0.349886,
+     "self_s": 0.307278
+    },
+    "diffusion_cond_atoms": {
+     "n": 1,
+     "incl_s": 0.192366,
+     "self_s": 0.192366
+    },
+    "diffusion_sample": {
+     "n": 1,
+     "incl_s": 4.345066,
+     "self_s": 4.345066
+    },
+    "distogram": {
+     "n": 1,
+     "incl_s": 0.031327,
+     "self_s": 0.031327
+    },
+    "input_embedder": {
+     "n": 1,
+     "incl_s": 0.140808,
+     "self_s": 0.140808
+    },
+    "pair_assembly#1": {
+     "n": 1,
+     "incl_s": 0.035384,
+     "self_s": 0.035384
+    },
+    "pair_assembly#2": {
+     "n": 1,
+     "incl_s": 0.042608,
+     "self_s": 0.042608
+    },
+    "rel_pos": {
+     "n": 1,
+     "incl_s": 0.104626,
+     "self_s": 0.104626
+    },
+    "trunk": {
+     "n": 1,
+     "incl_s": 8.75092,
+     "self_s": 8.715536
+    }
+   },
+   "stages": {
+    "trunk": {
+     "self_s": 8.715536,
+     "share": 60.78
+    },
+    "diffusion": {
+     "self_s": 4.537432,
+     "share": 31.64
+    },
+    "confidence": {
+     "self_s": 0.307278,
+     "share": 2.14
+    },
+    "embed_and_heads": {
+     "self_s": 0.354924,
+     "share": 2.48
+    },
+    "residual": {
+     "self_s": 0.425119,
+     "share": 2.96
+    }
+   }
+  }
+ ]
+}
