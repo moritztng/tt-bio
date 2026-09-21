@@ -1,0 +1,27 @@
+{
+ "arm": "theirs_aa2",
+ "side": "theirs",
+ "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "steps": [
+  {
+   "lr": 0.0,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.056923747062683,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 1,
+   "wall_s": 197.00603032112122
+  }
+ ],
+ "evidence": null,
+ "n_steps": 1,
+ "complete": false,
+ "wall_s": 215.4766435623169
+}
