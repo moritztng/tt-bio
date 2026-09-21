@@ -1375,6 +1375,24 @@ if ORCH.is_file():
     # on a field that was inside it, and the fix for the wrong field would have been to delete
     # real content. Same class as the heading form widened above -- the guard's pattern was
     # narrower than the document's own conventions.
+    # --- DOESNOT must say that the repairs are a CONFIGURATION, not the shipped port -----------
+    # Pass 212. Every headline repair this campaign has produced is behind a default-off,
+    # release-gated, unmerged lever: the trunk's 1.0251x needs TT_BIO_SOFTMAX_BW_RENORM on, the
+    # 51.1358 % bound needs the host float64 softmax on, and compose_verify.sh asserts on every
+    # compose that both stay off. PROVES and DOESNOT -- the two fields a reader treats as the
+    # campaign's claim -- said none of that; the distinction lived only in VERDICT and in the rows'
+    # own docs. "off by default is not a landed win" is already written down twice on this fleet,
+    # and the place it would be lost is a closing summary, so it is checked where the summary is.
+    _dn = _re.search(r"^DOESNOT:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
+    _dnt = (_dn.group(1) if _dn else "").lower()
+    _want_any = ("default off", "default-off", "unmerged", "release-gated", "not shipped")
+    if not any(w in _dnt for w in _want_any):
+        bad.append("DOESNOT does not say the repairs are a CONFIGURATION rather than the shipped "
+                   "port -- every headline fix here is behind a default-off unmerged lever, and a "
+                   "reader of this field cannot tell that nothing a user gets has changed")
+    else:
+        ok.append("DOESNOT states that the repairs are configured, not shipped")
+
     _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000,
              "DIRECTIVE-STATUS": 12000}
     _over = []
