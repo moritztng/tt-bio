@@ -84,7 +84,10 @@ done
 # definition and taped_ttnn._SOFTMAX_BW_RENORM an alias -- D151 repaired), dropped its edit to
 # assert_new_levers_default_off.py, and merges clean. That gate change is adopted here instead,
 # in the same pass, so the assert and the shipped default move together.
-HELD_OUT="d1-pairbias"
+# RELEASED pass 280: d1-pairbias CONCLUDED GO, and a concluded row's evidence must be in the
+# composition rather than held outside it. Its three remaining conflicts are resolved by
+# resolve_d1_pairbias.py, which takes the ROW's side on Moritz's ask-9629 ruling and records why.
+HELD_OUT=""
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done

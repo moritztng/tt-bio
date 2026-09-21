@@ -59,8 +59,15 @@ def main(argv):
     name = str(path)
     if name.endswith("perf/of3t_pairbias/attn_f64.py"):
         keep = "ours"          # the namespace owner's file
-    elif name.endswith("tt_bio/openfold3_trunk.py") or name.endswith("tt_bio/tenstorrent.py"):
-        keep = "theirs"        # the decided repair
+    elif name.endswith("tt_bio/openfold3_trunk.py"):
+        # NOT a side pick. HEAD's hunk carries two OTHER rows' declared contributions --
+        # of3t-foldab's `TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR` measurement lever and
+        # of3t-trunkcliff's pair-bias note -- and taking the row's side wholesale drops both,
+        # which is what the co-edit assertion caught on the first attempt. So: keep HEAD, and
+        # apply the ONE token the decision actually changes.
+        keep = "ours"
+    elif name.endswith("tt_bio/tenstorrent.py"):
+        keep = "theirs"        # a reworded comment, same content, no other row in the hunk
     else:
         return 2
     text = path.read_text()
@@ -77,14 +84,32 @@ def main(argv):
         except SyntaxError as e:
             print(f"{path}: resolution does not parse ({e})", file=sys.stderr)
             return 2
-    # The repair must be PRESENT afterwards, and the superseded reasoning must SURVIVE.
     if name.endswith("tt_bio/openfold3_trunk.py"):
-        if "scale_pair_bias=True" not in out:
-            print(f"{path}: resolved without the decided repair", file=sys.stderr)
+        # Now the one token. `scale_pair_bias=False` in the Pairformer construction becomes True:
+        # that single flag is what held the token pair bias at 1/sqrt(24) = 0.204 of reference in
+        # all 48 blocks of every fold served.
+        flip_from = "scale_pair_bias=False, tri_att_scale_pair_bias=False"
+        flip_to = "scale_pair_bias=True, tri_att_scale_pair_bias=False"
+        if flip_from not in out and flip_to not in out:
+            print(f"{path}: neither the pre- nor post-decision construction is here",
+                  file=sys.stderr)
             return 2
-        if "0.204 of reference" not in out:
-            print(f"{path}: the 0.204 provenance did not survive", file=sys.stderr)
+        out = out.replace(flip_from, flip_to, 1)
+        try:
+            ast.parse(out)
+        except SyntaxError as e:
+            print(f"{path}: the flip does not parse ({e})", file=sys.stderr)
             return 2
+        # Everything that has to survive: the decided repair, its provenance, and the two other
+        # rows whose work shares this hunk.
+        for needle, why in ((flip_to, "the decided repair"),
+                            ("0.204 of reference", "the 0.204 provenance"),
+                            ("TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR", "of3t-foldab's env lever"),
+                            ("folds the bias inside its own score scale",
+                             "of3t-trunkcliff's pair-bias note")):
+            if needle not in out:
+                print(f"{path}: resolution lost {why}", file=sys.stderr)
+                return 2
     path.write_text(out)
     return 0
 
