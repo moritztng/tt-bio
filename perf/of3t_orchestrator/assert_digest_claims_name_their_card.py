@@ -55,6 +55,17 @@ FROZEN = {
     "perf/of3t_d137ab/INFERENCE_AB_openfold3.json": "of3t-d137ab, concluded; pc card 0",
     "perf/of3t_d137ab/INFERENCE_AB_protenix-v2.json": "of3t-d137ab, concluded; pc card 0",
     "perf/of3t_d137ab/INFERENCE_AB_opendde.json": "of3t-d137ab, concluded; pc card 0",
+    # `of3t-modelboundary`, concluded 2026-09-21 23:56. Frozen for the OPPOSITE reason to the three
+    # above: its hardware is good and merely unrecorded. `fleet.log` has exactly one launch for the
+    # row, "2026-09-21 22:50:29 launched of3t-modelboundary on qb2-card0", its artifacts read and
+    # write under `/home/ttuser/` (the qb hosts; pc is `/home/moritz`), and `runarm.sh` pins
+    # `TT_VISIBLE_DEVICES=0`. So the claim IS attributable to qb2 card 0, which is not the banned
+    # card, and D155's actual concern does not apply. The gap is in the writer: `aa.py` emits no
+    # host field at all, so the artifact could not have carried one. Frozen here rather than by
+    # editing a concluded row's artifact (A33), and the fix that removes these two entries is one
+    # line in `aa.py`, not a re-run.
+    "perf/of3t_modelboundary/AA_c64_CTRL.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
+    "perf/of3t_modelboundary/AA_c64_CTRL_nocaptures.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
 }
 
 

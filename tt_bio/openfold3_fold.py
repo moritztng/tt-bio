@@ -13,6 +13,7 @@ from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
+from .protenix import ConfidenceHead
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -278,7 +279,6 @@ class OpenFold3(Module):
         )
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
-        from .protenix import ConfidenceHead
         # pTM and ipTM are a max over ALIGNMENT FRAMES, not over tokens, and a token that
         # has no frame can win that max and set the score a user's structure is ranked by.
         # Upstream builds the mask from the predicted coordinates and zeroes the row
