@@ -589,6 +589,8 @@ record its own.
 
 **D1 (UNFIXED, USER-FACING — newly VISIBLE, and the honest reading is uncomfortable; argued in full in PASSLOG)**: `openfold3_trunk.py` builds all 48 pairformer blocks with `scale_pair_bias=False`, so the trunk pair bias lands at **1/sqrt(24) = 0.204** of its intended value **in every OF3 fold we serve** — the sweep fits `c = 1/sqrt(24)` at 6.9e-03 to 1.7e-02 on all four blocks against 9.1e-02 to 3.3e-01 for `c = 1`. The repair is **written and measured**, and it is **HELD because applying it made the served structures 0.149 Å WORSE at rank 0**; the original blocker, D10, is resolved. So what ships is a deviation from upstream's intended arithmetic **with a repair in hand that measured worse**, which is a real reason to hold and not a reason to close. It had no status word on any heading for two hundred and forty passes (**D133**), so the gate has never counted it. Whether to take a 0.149 Å regression to match upstream is Moritz's decision, the same shape as D10 and D24.
 
+**D136 (UNFIXED as a record correction; argued in full in PASSLOG)**: GO condition 3's headline — **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape resolutions — is the **`repin`** arm, which `of3t-modeltraj` recorded as *default-off, unmerged*, while the arm named `shipped` moved **zero weight** over twenty steps and resolved **0 of 26** (that is **D126**, not a trajectory). The repair is live on main by a **different mechanism** — re-keying inside the value setter rather than re-pinning from the caller — so the two giving the same trajectory is an **inference**. `of3t-trajwide` is running the real shipped arm now, at ~89.2 % instead of 36.9462 %, and closes it on report.
+
 **D119 (UNFIXED, mine)**: the observational floor I built for the crop ladder is close to vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so the control tests only that a projection exceeds the card and cannot separate two that both do. Plus a unit error under it: the card is 34,225,520,128 B (**34.2255 decimal GB = 31.875 GiB**) and `project.py` compares against 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; it does not change 640's GO, and it is why 768 is closed on a measured lower bound rather than on a projection.
 
 **Both pass-207 repairs are guarded off (pass 209).** `TT_BIO_SOFTMAX_BW_RENORM` and the host float64 softmax are real fixes that would change numbers a user gets, and both now ride in the composition. `assert_new_levers_default_off.py` reads the composed tree on every compose and checks **both halves per lever** — the default exists as off, AND no construction site overrides it to `True` — because a selector defaulting `False` says nothing when a site passes `default=True`, which is exactly how `opendde.refiner` ships the accurate-softmax chain ON. Break control fires on a known-on tree and an end-to-end positive control catches both flips. The two branches also **coexist cleanly**: both levers are present in the published composition and the trunk's
@@ -751,31 +753,31 @@ VERDICT: PARTIAL — **OpenFold3's training step now reproduces per-parameter at
 parity with upstream's own bf16 recipe, and the campaign still does not meet its own GO bar.** I
 wrote GO at pass 218; the gate refused it and was right.
 
-**The shipped tree's split**: against the 2.0e-02 float64 mass-weighted bar the default-off tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) passing, **94.8836 %** failing, **2.0067 %** unread. That is the SHIPPED configuration; the readings below are the configured one, two default-off levers apart.
+**The shipped tree's split**: against the 2.0e-02 float64 mass-weighted bar the default-off tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) passing, **94.8836 %** failing, **2.0067 %** unread — the SHIPPED configuration, two default-off levers from the readings below.
 
-**The closing measurement** (`of3t-wholemodel`; argued in full in PASSLOG). With
-`of3t-apbgrad`'s softmax-backward repair on and **nothing else — no host round trip** — the
-model-scope gradient reads **1.006695e-01** against upstream 0.4.3's own bf16 training step over
-**92.1568 %** of the squared gradient norm, against a reachable bar of **1.049545e-01**:
-**0.9592x**. With the trunk composed, coverage **97.9850 %** and **1.528664e-01** against
-**1.627551e-01**: **0.9392x**. Pre-registered branch **B2**; the composition is an **identity** at
-relative difference **0.0**.
+**The closing measurement** (`of3t-wholemodel`; in PASSLOG). With the softmax-backward repair on
+and **nothing else — no host round trip** — the model-scope gradient reads **1.006695e-01** against
+upstream 0.4.3's own bf16 training step over **92.1568 %** of the squared gradient norm, against a
+reachable bar of **1.049545e-01**: **0.9592x**. Trunk composed: coverage **97.9850 %**,
+**1.528664e-01** against **1.627551e-01**, **0.9392x**. Pre-registered **B2**; the composition is
+an **identity** at relative difference **0.0**.
 
 **What GO requires** — of the gate's five conditions, two met and three not:
 - **per-parameter gradients at MODEL scope — MET**
-- **§6 coverage, all 8 loss terms fired — MET**, on OpenFold3's own cache.
-- **an N-step weight trajectory on the MODEL — MET at 36.9462 %, and the scope is REFERENCE-bound,
-  not ours; argued in full in PASSLOG.** The **shipped default** reads **4.763338e-02** at k=20,
-  exponent **−0.2482**, 26 of 26 tape resolutions, and `of3t-rebind` took reach from 0 to
-  **3,932 of 3,932**, so the limit is upstream's own float64 side: `SCOPE_LADDER.json` prices
-  `diffusion_module` at **5.51 h** for 20 steps and **refuses** `pairformer_stack` on a host kernel
-  OOM at **215.53 GB**. `of3t-trajwide` is running the diffusion-module rung, **~89.2 %**.
+- **§6 coverage, all 8 loss terms fired — MET**, on OF3's own cache.
+- **an N-step weight trajectory on the MODEL — MET at 36.9462 %, on a CONFIGURATION (D136), and
+  REFERENCE-bound; in PASSLOG.** **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape
+  resolutions — on the **`repin` arm**, recorded by its row as *default-off, unmerged*, while the
+  arm named `shipped` moved **zero weight** (that is D126). `of3t-trajwide` is measuring the real
+  shipped arm now. And `of3t-rebind` took reach from 0 to **3,932 of
+  3,932**, so the limit is upstream's float64 side: `diffusion_module` at **5.51 h** for 20 steps,
+  `pairformer_stack` **refused** on a host OOM at **215.53 GB**. `of3t-trajwide` runs the
+  diffusion-module rung, **~89.2 %**.
 - **upstream's `test_training_full.py` EXECUTED on our backend — NOT MET, COSTED; in PASSLOG.**
-  `of3t-theirtest` returned NO-GO, touching nothing under `tt_bio/`. Unmodified it skips
-  (*"Requires cuda; found cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases
-  fail at ONE key — Triton triangle kernels left on the EVAL path by upstream's own generator;
-  cleared, their step runs in **394.61 s**. On ttnn it is structural: Lightning dispatches by torch
-  device and we are not one. Two closures costed, in GAP.
+  `of3t-theirtest` NO-GO, nothing under `tt_bio/`. Unmodified it skips (*"Requires cuda; found
+  cpu"*). Off CUDA with three disclosed shims it EXECUTES and both cases fail at ONE key — Triton
+  triangle kernels left on the EVAL path by upstream's own generator; cleared, their step runs in
+  **394.61 s**. On ttnn it is structural: Lightning dispatches by torch device and we are not one.
 - **no unfixed or user-facing defect in GAP — NOT MET, now PRICED (pass 243, in PASSLOG).**
   Nine USER-FACING, not nine problems: **four are a DECISION or a RELEASE** (D1, D10, D24, D56 —
   ASKED as one bundle, pin **9629**, default hold; 9597 is upstream of two) **and five need a card**, three of them (D30, D58, D129) one object
@@ -783,15 +785,23 @@ relative difference **0.0**.
   going stale. Still defective (D122). It is a keyword test on GAP's prose — two texts both naming all forty-four UNFIXED
   defects, labelled "(UNFIXED)" and "(open)", are refused and accepted with no measurement between
   them — and read literally it is unreachable while D2, D3, D123 and D124 stand, none ours to fix.
-  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 37 campaign-internal**. I did not
+  Triaged against the ledger: **4 scope-excluded, 9 USER-FACING, 38 campaign-internal**. I did not
   move the bar; I added a clause beside it reading `state/of3t/UNFIXED_TRIAGE.json` that refuses GO
   while any UNFIXED defect ships to users.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-five defects, fifty UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-six defects, fifty-one UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 244 — the four decisions are ASKED as one bundle (pin 9629), and I checked the channel before deciding they were unaskable.** Pass 243 priced GO condition 5 and left four items marked DECISION/RELEASE with nowhere to go. My first instinct this pass was that the ask channel was saturated — `state/pending-input/` holds 46 records — and that a 48th question would be noise, which would have turned "four decisions" into "four items nobody will ever rule on" on the strength of a directory listing. **I counted instead: 46 records, 16 open, 30 resolved.** Roughly two thirds of asks get answered, and of3t has exactly one open (9597, asked this morning). The channel works. The instinct was wrong and would have quietly changed the campaign's endgame advice.
+PASSLOG: **Pass 245 — the one sentence in VERDICT that was exempt from the campaign's own caveat says "the shipped default", and the artifact it points at says zero (D136).** GO condition 3 has read *"the **shipped default** reads **4.763338e-02** at k=20, exponent **−0.2482**, 26 of 26 tape resolutions"* for twenty-five passes. Reading `perf/of3t_modeltraj/` instead of the summary: every one of those figures is the **`repin`** arm, and `of3t-modeltraj` says in its own words what that arm was — *"Carried as the `repin` arm, **default-off, unmerged**."* The arm actually named `shipped` reads **rel_d 1.0, d_ours_norm 0.0, exponent 0.0, and `tape_resolves_after_step` 0 at every one of the twenty steps**. It moved no weight at all. That is not a trajectory result; it is **D126**, the defect that row found.
+
+**The claim became true later, by a different program.** The repin arm repaired the tape **from the caller**, handing the leaf back to `autograd.parameter` after each step — the duty `parameter()`'s docstring names and no caller in `tt_bio/` performed. What is live on main is `autograd.py:167-168`, which re-keys `_PARAMS` **inside the value setter** so no caller has to. Same intent, arguably stronger, **not the same program** — and that the two give the same trajectory is an inference. This campaign's standard is that an inference is not a measurement, and I applied that standard to nine other things this month and not to this one.
+
+**It needs no dispatch, because the row already has it right.** `of3t-trajwide`'s `run_ours.sh` documents the arm it is running: *"shipped — the trajectory, on the shipped default, no repin flag, because `of3t-rebind` moved the re-keying into `autograd.Tensor.value` and the default and the repaired program are now the same program"*, and it is executing exactly that on a tree carrying the landed fix. So the gap closes when it reports, at the wider **~89.2 %** scope rather than the old 36.9462 %.
+
+**Until then condition 3 reads MET on a CONFIGURATION**, which is the caveat VERDICT already carries for everything else and should never have exempted its one MET-with-a-number condition from. **A smaller trap recorded beside it**: `traj_renorm.json`'s own `arm` field reads **`repin`**, so a reader selecting artifacts by filename gets the repin arm believing it is the renorm one — which is how I would have re-made this mistake while checking it.
+
+**Pass 244 — the four decisions are ASKED as one bundle (pin 9629), and I checked the channel before deciding they were unaskable.** Pass 243 priced GO condition 5 and left four items marked DECISION/RELEASE with nowhere to go. My first instinct this pass was that the ask channel was saturated — `state/pending-input/` holds 46 records — and that a 48th question would be noise, which would have turned "four decisions" into "four items nobody will ever rule on" on the strength of a directory listing. **I counted instead: 46 records, 16 open, 30 resolved.** Roughly two thirds of asks get answered, and of3t has exactly one open (9597, asked this morning). The channel works. The instinct was wrong and would have quietly changed the campaign's endgame advice.
 
 **So one short ask carries all four**, each with the number that decides it and a default I apply if no answer comes: **D1** — the trunk pair bias ships at 1/sqrt(24) = 0.204 of intended, the repair is written, applying it makes rank-0 structures **0.149 Å worse**; ship to match upstream, or declare the deviation intentional? **D10/D24** — one unified ranking rule exists on a branch and no accuracy argument survives it (**+0.046 Å**, **+0.020 Å**, **9 of 12** changed folds the wrong way, all inside seed floors, **p = 0.146**); merge on consistency grounds, or keep three? **D56** — `TT_BIO_SOFTMAX_BW_RENORM` collapses the diffusion-scope error **333x** and is default-off; ship it on, or keep it gated?
 

@@ -170,6 +170,10 @@ TABLE = {
                  "OF3 fold served. The repair is written and HELD because applying it measured "
                  "0.149 A WORSE at rank 0, so what ships is a deviation with a repair in hand. "
                  "Whether to take the regression is Moritz's call, like D10 and D24."),
+    "D136": (CAMP, "GO condition 3's headline was attributed to the shipped default and measured "
+                   "on the repin arm, which the row recorded as default-off and unmerged. A "
+                   "correction to this campaign's own record; of3t-trajwide is measuring the "
+                   "post-fix shipped default now."),
     "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
                   "and the shipped default is the other way; by mass it is 2.5 %. A training-"
                   "gradient decision, not an inference output a user sees."),

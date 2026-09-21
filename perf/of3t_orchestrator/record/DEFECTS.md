@@ -9286,3 +9286,43 @@ blocker is gone and what holds it now is its own measurement: flipping it made t
 today, with a repair in hand that measured worse. **USER-FACING**, because it changes the inference
 output a user gets, and the gate should count it. Whether to ship the repair against a 0.149 Å
 regression is Moritz's decision, not a row's — it is the same shape as D10 and D24.
+
+### D136. GO condition 3's headline is attributed to "the shipped default" and was measured on an arm the row itself recorded as default-off and unmerged — while the arm actually named `shipped` read exactly zero. FOUND by the orchestrator (pass 245). **UNFIXED** as a record correction; the measurement that would settle it is running.
+
+VERDICT has said, for twenty-five passes: *"the **shipped default** reads **4.763338e-02** at k=20,
+exponent **−0.2482**, 26 of 26 tape resolutions."* Read from `perf/of3t_modeltraj/` directly:
+
+| artifact | arm | rel_d @ k=20 | d_ours_norm | exponent | tape_resolves_after_step |
+|---|---|---|---|---|---|
+| `traj_repin.json` | repin | **4.7633384e-02** | 5.0872181e-01 | **−0.24817** | **26 → 26** |
+| `traj_renorm.json` | **repin** | 4.7633384e-02 | 5.0872181e-01 | −0.24817 | 26 → 26 |
+| `traj_repin_aa2.json` | repin | 4.7633384e-02 | 5.0872181e-01 | −0.24817 | 26 → 26 |
+| `traj_shipped.json` | **shipped** | **1.0** | **0.0** | **0.0** | **0 → 0** |
+| `traj_stale.json` | stale | 6.3472124e-02 | 5.1060321e-01 | −0.11923 | 26 → 26 |
+| `traj_permute.json` | permute | 1.4054243e+03 | 7.1493046e+02 | −2.21383 | 26 → 26 |
+
+**Every figure in the headline is the `repin` arm**, and `of3t-modeltraj` says in its own words what
+that arm was: *"Carried as the `repin` arm, **default-off, unmerged**."* The arm named `shipped`
+moved **zero weight over twenty steps** and resolved **0 of 26** parameters at every step — which is
+not a trajectory result at all, it is **D126**.
+
+**The claim became true afterwards, by a different mechanism, and nobody has measured it since.**
+The repin arm repaired the tape **from the caller**, handing the leaf back to `autograd.parameter`
+after each step — something `parameter()`'s docstring names as the caller's duty and no caller in
+`tt_bio/` performed. What landed on main is not that: `autograd.py:167-168` re-keys `_PARAMS`
+**inside the value setter**, so no caller action is needed. Same intent, arguably stronger, and a
+**different program**. That the two produce the same trajectory is an inference; this campaign's
+standard is that an inference is not a measurement.
+
+**Not a new dispatch, because the measurement is already running.** `of3t-trajwide`'s `run_ours.sh`
+has it exactly right in its own comment — *"shipped: the trajectory, on the shipped default — no
+repin flag, because `of3t-rebind` moved the re-keying into `autograd.Tensor.value` and the default
+and the repaired program are now the same program"* — and it is executing that arm on a tree
+carrying the landed fix. When it reports, GO condition 3 will have a shipped-default trajectory for
+the first time.
+
+**Until then the honest statement is a configuration, not the shipped port** — the same caveat
+VERDICT already applies to every other number it carries, and it should not have been the one
+sentence exempt from it. One smaller trap recorded with it: `traj_renorm.json`'s `arm` field reads
+**`repin`**, so a reader picking artifacts by filename gets the repin arm believing it is the renorm
+one.
