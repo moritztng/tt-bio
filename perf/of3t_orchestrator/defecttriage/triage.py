@@ -98,8 +98,6 @@ TABLE = {
                   "gradient component, which the entry itself calls a port gap."),
     "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
                   "measured on two independent modules -- and the tape is shipped training code."),
-    "D107": (USER, "A parameter disabled on every sample of a step: upstream still steps it from "
-                   "decaying momentum and tt_bio's AdamW skips it -- a real update divergence."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D21": (CAMP, "Instrument A's first device reading was an instrument defect; replaced by a "
