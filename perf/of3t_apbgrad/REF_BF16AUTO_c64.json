@@ -1,0 +1,55 @@
+{
+  "what": "Upstream's own 48-block pairformer stack, differentiated over the captured trunk boundary.",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "bf16auto",
+  "blocks": 48,
+  "crop": 64,
+  "dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "load": {
+    "tensors_loaded": 2736,
+    "missing": [],
+    "unexpected": []
+  },
+  "dtype_policy": "float32 parameters under torch.autocast('cpu', bfloat16), which is upstream's own training recipe",
+  "boundary": "/home/ttuser/of3t_trunk043ref/boundary_c64.pt",
+  "boundary_sha256": "85015b4a2622c1d3a6ae16f49c45cafd6f575dc0dab144fe08ffa87b83498ffa",
+  "cotangent_from": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "cotangent_sha256": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5",
+  "permuted_cotangent": null,
+  "pad_perturbation": null,
+  "probe": {
+    "s_in_norm": 5850.1650390625,
+    "z_in_norm": 1320394.0,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261,
+    "real_tokens": 56,
+    "tokens": 64
+  },
+  "loss": -0.30275363525224397,
+  "s_norm": 2186326.5841671745,
+  "z_norm": 1287367.0743683248,
+  "ds_in_norm": 0.038418032228946686,
+  "dz_in_norm": 0.0011533595388755202,
+  "gradient": {
+    "tensors": 2736,
+    "with_gradient": 2736,
+    "none": 0,
+    "squared_norm_total": 1.9851229034002649
+  },
+  "seconds_forward_backward": 1.6527154409996,
+  "out": "/home/ttuser/of3t_apbgrad/ref_bf16auto_c64.pt"
+}
