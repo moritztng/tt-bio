@@ -1472,3 +1472,39 @@ is re-reading each summary once per ten passes, which is the obligation A30 stat
 pass-195 audit that found three items closed while the document still quoted the superseded
 reading. That audit fixed the instances and not the practice, which is precisely the gap A30
 closes. Record: D148, D142, D146, the pass-261 unshipped guard.
+
+**A31 — 2026-09-21, forced by D169 (pass 319), mine. A CONDITION MUST BE SATISFIABLE BY THE THING
+IT IS ASKING FOR. Numbers already existed when this was raised, and the amendment moves no bar:
+the clause it replaces could never have been met, and the one that replaces it is strictly
+stronger and is met by nothing new.**
+
+`CHARTER_EVIDENCE`'s TRAJECTORY condition required `d1.zero_both_sides is False` — the weights
+must have moved at step 1. Upstream's `AlphaFoldLRScheduler` warms up linearly from
+`base_lr = 0.0`, so `lr(0) == 0.0` exactly and step 1 leaves the weights bit-identical on both
+sides with a non-zero gradient. **The only arm that could satisfy the clause is one that does not
+reproduce OpenFold3's warmup.** Proved at source (`lr_schedulers.py:83-84`) and executably
+(`probe_first_step_is_a_no_op.py`, `D169_FIRST_STEP_IS_A_NO_OP.json`).
+
+Replaced by a `moves` op over the whole `per_step` list: our side must move at every step where
+the reference does. Nineteen informative steps instead of one uninformative one, the original
+intent kept — a trajectory where the reference never moves is still refused — and a step where
+neither side moves is now read as agreement under upstream's schedule rather than as stasis.
+
+**Numbers existed and nothing got closer.** All four conditions read NOT MET before the amendment
+and all four read NOT MET after it. What changed is that TRAJECTORY now says something true: our
+arm is stationary at k = 2..20 on the artifact the condition names (D170). The clause it replaced
+reported nothing about that, and its neighbour `d1.rel_d <= 0.05` PASSED at exactly 0 on two
+vectors neither of which had moved. **A condition can be UNSATISFIABLE and VACUOUS on the same
+step, for the same reason.**
+
+**The general obligation this puts on every condition in this protocol, and on every row's
+pre-registered outcome:** a bar is fixed before the numbers, and it must also be checked against
+the SOURCE of the thing being reproduced before the numbers. `break_control` proves a clause can
+report MET on a synthetic artifact; that is reachability in the synthetic world, and it is not the
+same question as whether a faithful reproduction can reach it. Ask the second one explicitly.
+
+Added in the same pass and required from now on: `negative_control()`, which for EVERY requirement
+builds the artifact violating exactly that requirement and demands the evaluator refuse it. A
+clause that cannot say NOT MET makes its MET worthless, and until pass 319 nothing tested that
+direction. It is demonstrated rather than asserted — rigging `moves` to return True makes the
+control fire with the clause named.
