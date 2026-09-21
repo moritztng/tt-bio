@@ -11134,3 +11134,49 @@ prevent; and the namespace's OWNER never noticed, because the composition had th
 composition is what the orchestrator reads. **A file can be present in every tree you look at and
 absent from the only branch that is durable.** Fixed by taking the directory onto
 `wk/of3t-orchestrator`, where the repair in D169 then lands.
+
+### D172. The campaign's entire model-scope gradient error is ONE section, and the model-scope number has never been re-taken since the row that repaired it. FOUND by `of3t-orchestrator`, pass 321. **UNFIXED**, and it is the last thing between this campaign and a gradient-confidence statement.
+
+`perf/of3t_wholemodel/MODEL_shipped.json` is the artifact GO condition GRADIENTS reads. Its
+headline is a mass-weighted rel_L2 of **5.6379** against float64 over 907 tensors, which is worse
+than the A16 zero model's 1.0 and had been carried as if it were a distributed precision problem.
+Decomposed by section it is not distributed at all:
+
+    vs FLOAT64                               % mass    rel_L2  norm_rat     cos   over bar
+    diffusion_module.diffusion_transformer  43.6221    8.1943    8.5625  0.4187   397/456
+    diffusion_module.diffusion_conditioning 36.9462    0.0079    0.9983  1.0000     0/26
+    diffusion_module.atom_attn_enc           4.7348    0.1909    1.0393  0.9832    47/48
+    aux_heads                                2.8431    0.0023    0.9995  1.0000    89/180
+    diffusion_module.atom_attn_dec           1.2843    0.0204    1.0052  0.9998    14/40
+    msa_module                               1.2317    0.1621    1.0046  0.9869   130/154
+    diffusion_module.layer_norm_s            0.9835    0.0238    0.9769  1.0000     0/1
+    diffusion_module.layer_norm_a            0.2666    0.0095    1.0040  1.0000     0/1
+    diffusion_module.linear_s                0.2445    0.2272    1.0423  0.9761     1/1
+
+**Remove `diffusion_transformer` and the remaining 48.5347 % of the mass, 451 tensors, reads
+0.0675 against float64 — below upstream's own bf16 training step, which is 0.0753 from the same
+reference — and 0.1123 against upstream's own bf16, which is 1.07x the A26 reachable bar of
+0.1049.** On that half of the model we are slightly MORE accurate than the thing we are
+reproducing. Recomputed in `perf/of3t_orchestrator/closure/THE_ERROR_IS_ONE_SECTION.json` from
+the artifact's own per-section table, composing on squared mass shares.
+
+**And the signature says what kind of defect it is.** A norm ratio of **8.5625** with a cosine of
+**0.4187** is not precision: rounding error drives a cosine toward 1 and leaves the norm near 1.
+This is a different function or a different scale, which is also why no softmax and no dtype
+lever has ever moved it.
+
+**Why this is a finding about the ARTIFACT and not only about the DiT.** This arm's diffusion
+capture is `/home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt`. `of3t-ditref`
+(concluded GO, pass 318) re-measured the diffusion module on a different capture,
+`/home/ttuser/of3t_softgrad/diffcap043`, with the 0.4.3 reference tree resolved and **read back
+in-process**, and reported **0.0934424638** against float64 over 547 tensors and **0.5865x**
+upstream 0.4.3's own bf16 — below the floor A26's bar is built on. Different captures and
+different tensor sets, so they do not formally contradict. **What is certain is that the number
+the charter evaluates has not been re-taken since that repair, and no row owns re-taking it:
+`of3t-ditcot` and `of3t-ditref` have both concluded.**
+
+Third occurrence of this shape in three passes, after D170 (the exit criterion reading an arm
+that never trained) and D171 (the evaluator absent from its owner's branch). **The pattern is not
+that the measurements are wrong; it is that the artifacts the GATE reads go stale behind rows
+that concluded.** A row's repair is not the campaign's repair until the artifact the criterion
+names carries it.
