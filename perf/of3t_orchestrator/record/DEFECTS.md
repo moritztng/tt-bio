@@ -1991,3 +1991,159 @@ adjust, it should be held to the same test and the pattern itself treated as sus
 +1.52024 host-applied leg and `of3t-modelboundary` already landed +5.82817; together they reach
 99.50523 % against the 99.2594 % bar. The re-take's coverage field will need re-deriving at that
 point, because 92.1568 is this artifact's union and not the campaign's reachable one.
+
+### D178. GO condition TRAJECTORY is blocked by an artifact twenty minutes older than the fix for the defect it reports. FOUND by `of3t-orchestrator`, pass 327. **UNFIXED** — it needs a re-take on a card, not a repair.
+
+`perf/of3t_modeltraj/traj_shipped.json` fails the `moves` clause because our side is stationary at
+every step. Its own `our_step_log` says exactly why, and has since it was written:
+
+     k         lr    grad_norm  rebound  tape_resolves_after_step  of_walked
+     1          0     0.493534       26                         0         26
+     2    1.8e-06            0        0                         0         26
+    ...       ...          ...      ...                       ...        ...
+    20   3.42e-05            0        0                         0         26
+
+**The arm trains exactly zero steps.** At k=1 it computes a real gradient of 0.493534 and `rebind`
+rebinds 26 leaves, but **zero resolve on the tape after the step**, and from k=2 the gradient is
+exactly 0.0 forever while the walk keeps finding all 26 parameters. `lr` at k=1 is 0.0 because
+upstream's own scheduler warms up from `base_lr = 0.0`, so even that one gradient moved nothing.
+
+**That is D126's exact signature** — `rebind()` maintains the MODEL SLOT, not the tape registry, so
+`rebound: 26` is cosmetic without the engine-side `_PARAMS` re-key. And the dates settle it:
+
+    traj_shipped.json written      2026-09-21 02:35:02   (a0851ef8a, of3t-modeltraj)
+    the _PARAMS re-key landed      2026-09-21 02:55:54   (965c24f52, of3t-rebind)
+
+**Twenty minutes later.** The re-key is on `wk/of3t` today at `tt_bio/autograd.py:244` and nothing
+has re-taken the trajectory in the ~22 hours since. So TRAJECTORY is not reporting a live defect;
+it is reporting a defect that was repaired immediately after the measurement and never re-measured.
+
+**Two further reasons the artifact cannot be the one the charter reads.** `flag_reach` records
+`_SOFTMAX_BW_RENORM: false`, so it is the pre-D56 arm — the same staleness D177 just fixed on
+GRADIENTS, one condition over. And its `env` block records only `TT_VISIBLE_DEVICES`: **no tree, no
+commit, no host**, so the claim cannot be attributed to a tree at all. D155 requires a digest claim
+to name its hardware; a trajectory claim owes the same for its TREE, and this one does not give it.
+
+**And one thing that reads as a pass and is not.** `growth_k2_20` reports `exponent 0.0`,
+`intercept 0.0`, `r2 1.0`, `shape: "sub-linear"`. PROTOCOL §7's growth law is satisfied *perfectly*
+by an arm that never moves. The D169 `moves` clause is what catches it, but the growth field still
+publishes "sub-linear" beside it, and a reader taking that as evidence would be reading a constant
+zero. The growth law needs the same movement precondition the `moves` clause has.
+
+**What closes it:** re-take the 20-step trajectory on the composition, where the re-key is present
+and D56 is on, and stamp the tree and commit into the artifact. Dispatched as `of3t-trajretake`.
+
+### D179. GO condition COVERAGE reads a census 56 hours older than the code, and the campaign's real coverage is 9 of 11 rather than 4 of 11. FOUND by `of3t-orchestrator`, pass 327, by the staleness reader built the same pass. **UNFIXED** — one CPU-only merge, held for a slot.
+
+The `code_staleness` field added to `charter_evidence.py` this pass reported, on its first run, that
+**all three** charter artifacts predate the code they grade:
+
+    GRADIENTS     2,788 s behind      (46 minutes)
+    TRAJECTORY   73,377 s behind      (20.4 hours -- D178)
+    COVERAGE    202,394 s behind      (56.2 hours)
+
+COVERAGE is the largest and was entirely unflagged. `perf/of3t_gradients/coverage_census.json` is
+dated **2026-09-19 14:44:45** (`c624a8897`) and reads **4 of 11** conditional paths covered.
+`of3t-covpaths` was dispatched precisely to fire those paths, concluded inside that window, and its
+`perf/of3t_covpaths/COVERAGE_UNION.json` reads **9 of 11**:
+
+    union_summary   paths 11, covered 9
+    confirms        confidence_heads, diffusion_rollout, ligand, model_forward, msa, routed_call_census
+    extends         nucleotide, templates
+    contradicts     bond, disabled_parameters, multichain_permutation
+    still uncovered diffusion_rollout, model_forward
+
+Those last two are the ones its brief deliberately excluded: both need the OF3 training forward
+wired in `tt_bio/train/`, which is a subsystem and a separate object. Its rule is the right one and
+is stated in the artifact — *"a path is covered when a parameter gradient MOVES against an arm with
+the path off, not when a config key is set"* — and it cites the census by sha256
+`d51094740d3cb9b6b6a35d42fcba94eb47d18cb11f2a9f197ebcb902dc9c500b` rather than re-emitting it.
+
+**Why the charter cannot simply be repointed, which is the part that makes this a defect and not a
+one-line edit.** COVERAGE has two clauses, `union.*.covered` over upstream's 8 `LossWeights` terms
+and `conditional_paths.*.covered` over the 11 paths. In `COVERAGE_UNION.json` the key `union` holds
+**the 11 paths**, not the loss terms, and there is no `conditional_paths` key at all. A naive
+repoint would grade the paths against the loss-term clause and read the other as "key absent" —
+a worse reading than the stale one. I checked every candidate: `of3t-pathcov`'s `COVERAGE.json` is
+a different object (tape-site coverage, keys `sites_union`/`uncovered`), and no artifact on any row
+branch carries both halves in the census's schema.
+
+**The remedy, which is small and CPU-only:** one artifact in the census's schema carrying both
+halves — the loss-term half taken from the census unchanged and cited, the path half from
+`COVERAGE_UNION.json` with its confirms/extends/contradicts preserved — and the charter repointed
+at it. No measurement is needed; both halves already exist.
+
+**It does not hand a GO**, which is the test D177 and D178 were held to: the clause requires ALL
+paths covered and two remain, so COVERAGE stays NOT MET. What changes is that the campaign's
+recorded coverage position stops being 4 of 11 when it is 9 of 11.
+
+**Held rather than dispatched, deliberately.** Four of3t rows are live or queued against a cap of
+five (`of3t-hostleg`, `of3t-padshape`, `of3t-trajretake`, this row), and Moritz's instruction of
+2026-09-21 is fewer agents in parallel. This is a small job with no card and no deadline; it goes
+out when a slot frees rather than filling the cap now. Recorded here so the next pass dispatches it
+instead of rediscovering it.
+
+**Third instance of one class, and the reader for it now exists.** D177 (GRADIENTS on the pre-D56
+arm), D178 (TRAJECTORY twenty minutes before its own fix), D179 (COVERAGE 56 hours and five paths
+behind). All three were found by hand; `code_staleness` is what finds the fourth.
+
+### D175 UPDATE, pass 327. **REFUTED as filed** by `of3t-padshape` (NO-GO, no lever to ship): it is not a width law, it is a non-monotone shape-keyed step, its premise was a pre-D56 arm, and it is backward-only
+
+The width sweep, same 56 real tokens, same block-47 cotangent, same card, at
+`TT_BIO_SOFTMAX_BW_RENORM=0` — the configuration the 3.487164x endpoints were measured on:
+
+    width  pad rows     ||g||     rel L2 vs float64
+      64        8   12.39125436   16.02517120666543
+     128       72   38.14019449   49.26662790602640
+     192      136   59.07301110   76.30925397212778
+     256      200   59.07299533   76.30925558647350
+     384      328   43.21033984   55.81371497300142
+
+**Non-monotone: it peaks at 192/256 and comes back DOWN at 384**, so the two banked endpoints were
+the two ends of a curve with a maximum between them. Every pre-registered candidate law — pad-row,
+pad-pair, power — is low by 1.7x to 2.5x and none is non-monotone. **192 and 256 agree to seven
+digits** (59.07301110 against 59.07299533), which is a quantisation signature and the sharpest
+mechanism lead in the table.
+
+**And the float64 reference's own trunk gradient norm over the same 2,736 tensors is
+0.7740253256713384**, so every row is 16x to 76x the true gradient: the quantity being swept is
+almost entirely error, not signal.
+
+**The premise was stale, which is the fourth instance of that class.** Those endpoints are D56-OFF.
+The shipped repair removes 26.6x of it — modelboundary's own renorm arm reads 2.1595 at width 384
+against this table's 55.8137, and 55.81371497300142 matches its `shipped` arm to sixteen digits.
+`of3t-padshape`'s own COST arithmetic on the D56-ON arm: trunk 1.7043040667627918 at width 64,
+2.159527121735274 at 384, 3.143738985797269 at 256.
+
+**The forward does not follow it: 1.0345x against 3.487x.** So it is backward-only — which is
+exactly the discriminator the pass-326 brief amendment asked for, and it answered cleanly.
+`OP`: the attention-pair-bias and the single transition carry it; the triangle ops do not.
+
+**What it is worth, and why that closes it as an object.** D175 is **21.1 %** of the trunk's error
+and **20.5 %** of the model-scope figure, and removing the width dependence entirely takes the
+trunk from 6.8600x to **5.4139x** upstream's own bf16. Real, and not the trunk's problem.
+
+### D180. The campaign's model-scope headline is a function of the crop width, and it has been quoted for three passes without one. FOUND by `of3t-padshape`'s COST field, absorbed by `of3t-orchestrator` at pass 327. **UNFIXED** — a reporting rule, not a measurement.
+
+`of3t-padshape`, in its own words: *"quoting a model-scope number without its crop width is quoting
+one point of a curve that runs from 0.423374 to 0.770922 across crops users actually get, and 384
+happens to sit in the middle of it."*
+
+    trunk at width  64  ->  model scope 0.423374   3.9972x upstream's own bf16
+    trunk at width 384  ->  model scope 0.532795   5.0301x       (the figure I have been quoting)
+    trunk at width 256  ->  model scope 0.770922   7.2785x
+
+**I have been quoting 0.532795 / 5.0301x as "the model-scope gradient error" since pass 324**,
+in this document, in two row briefs and in three reports, with no crop attached. It is a crop-384
+reading and 384 is not a worst case — width 256 is 1.45x worse, and 256 is a crop upstream's own
+stage configs use (384/640/768/768, and the campaign runs 256 arms routinely).
+
+**The fix is a reporting rule and it costs nothing:** a model-scope gradient figure is quoted with
+its crop, or it is not quoted. Where a single number is needed, it is the worst crop measured, not
+the one that happens to be instrumented. `of3t-trajretake` and `of3t-hostleg` both carry model-
+scope figures and both should state their crop.
+
+**The residual object this leaves, which is now the trunk's real one.** With D175 closed entirely
+the trunk still reads **5.4139x** upstream's own bf16 (0.3148), backward-only, carried by the
+attention-pair-bias and the single transition rather than the triangle ops. That is what remains of
+the 6.86x and it has no owner yet.
