@@ -1,0 +1,47 @@
+{
+  "legs": [
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.832 R=1.640 D=1.440 within=True",
+      "wall": 1055.6725975229638,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 1055.6730102950241,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "tt-quietbox:2"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p150a",
+        "fw_bundle_ver": "19.15.0.0",
+        "serial": "00000403319140AA"
+      },
+      "1": {
+        "card_type": "p150a",
+        "fw_bundle_ver": "19.15.0.0",
+        "serial": "00000403319140FD"
+      },
+      "2": {
+        "card_type": "p150a",
+        "fw_bundle_ver": "19.15.0.0",
+        "serial": "0000040331914107"
+      },
+      "3": {
+        "card_type": "p150a",
+        "fw_bundle_ver": "19.15.0.0",
+        "serial": "0000040331914106"
+      }
+    }
+  }
+}

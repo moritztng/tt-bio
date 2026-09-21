@@ -45,7 +45,8 @@ import os
 
 import ttnn
 
-from .tenstorrent import Module, Pairformer, accurate_softmax_site
+from .tenstorrent import (Module, Pairformer, accurate_softmax_site,
+                          triatt_sdpa_hifi_site)
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -172,9 +173,24 @@ class OF3Trunk(Module):
         # 78.0 % wrong against upstream's 0.9 % bf16 floor. Measured in perf/of3t_trunkcliff.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, tri_att_scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=True, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
-            accurate_softmax=accurate_softmax_site("openfold3.trunk"))
+            accurate_softmax=accurate_softmax_site("openfold3.trunk"),
+            # Default ON. 34.138 -> 22.574 s at 512 aa, 1.5123x, 11.564 s, on A/A floors of
+            # 0.888 and 0.950 s, with firing counted 384 served / 0 declined / 0 too_short
+            # on every leg. The route also carries the faithful reduction order (see
+            # PairformerLayer), which is what makes it clear the accuracy standard: at
+            # 298 aa over three matched seeds it moves the structure 2.5805 / 7.7510 /
+            # 8.0075 A CA against a six-pair main-vs-main seed floor of 5.2283 / 7.7276 /
+            # 9.7768 -- median exactly 1.00x the floor median and worst case 0.82x its
+            # maximum, i.e. inside the variation re-seeding already produces. pLDDT moves
+            # the same way, 0.50319 -> 0.56667. Without the reduction order the same route
+            # fails at 1.61x the floor median, which is why the two are coupled.
+            #
+            # The other three sites stay OFF: each helps on its own but the three together
+            # land further from the experimental structure than the trunk alone, so this is
+            # approved as one site and not as a set.
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk", True))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config,
             transpose_bias=tri_att_end_bias_follows_pair)

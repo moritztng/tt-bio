@@ -1,0 +1,155 @@
+{
+ "arm": "theirs_aa2",
+ "side": "theirs",
+ "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "steps": [
+  {
+   "lr": 0.0,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.056923747062683,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 1,
+   "wall_s": 197.00603032112122
+  },
+  {
+   "lr": 1.8e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.7255219221115112,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 2,
+   "wall_s": 380.91395235061646
+  },
+  {
+   "lr": 3.6e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.7255539894104004,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 3,
+   "wall_s": 562.6213474273682
+  },
+  {
+   "lr": 5.4e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.7963191270828247,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 4,
+   "wall_s": 745.0766673088074
+  },
+  {
+   "lr": 7.2e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.9119591116905212,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 5,
+   "wall_s": 928.2943212985992
+  },
+  {
+   "lr": 9e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.090368628501892,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 6,
+   "wall_s": 1113.6993851661682
+  },
+  {
+   "lr": 1.08e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.0890758037567139,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 7,
+   "wall_s": 1322.171056509018
+  },
+  {
+   "lr": 1.26e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 1.1299456357955933,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 8,
+   "wall_s": 1528.6147861480713
+  },
+  {
+   "lr": 1.44e-05,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.656370997428894,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 9,
+   "wall_s": 1724.4709706306458
+  }
+ ],
+ "evidence": null,
+ "n_steps": 9,
+ "complete": false,
+ "wall_s": 1742.9620077610016
+}

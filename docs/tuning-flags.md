@@ -950,6 +950,129 @@ default. That is Boltz-2, Protenix, OpenFold3's MSA embedder, and the pairformer
 OpenFold3's diffusion stack has its own SwiGLU transition and AF2 its own ReLU transition, and
 neither reads this flag.
 
+## `BOLTZ2_TOKEN_DIT_SDPA` — on, Boltz-2 only
+
+The token-level DiT attention ran as an explicit score matrix: materialise 16x512x512 scores, read them back, softmax, read them again. The fused SDPA never writes them out.
+
+**Accuracy: not bit-exact.** The kernel holds its exponentiated scores in bf16 where the explicit path held fp32. A 298-residue control moves 0.1775 Å CA and 0.3837 Å all-atom, inside its 0.35 Å CA bar, and pLDDT goes up rather than down, 0.909487 to 0.913597.
+
+**Speed: 1.105x on the fold** with `TT_BIO_ATOM_AXIS_BUCKET` (22.195 s to 20.079 s at 512 residues on Blackhole) and 1.400x on the diffusion sampler. On its own it is worth 1.100 s.
+
+## `TT_BIO_ATOM_AXIS_BUCKET` — on
+
+The atom axis used to be bounded by the worst case, every token a tryptophan. Sizing it on the real atom count gives 4480 atoms at 512 residues where the old bound gave 7168, which takes the atom transformer from 224 attention windows to 140. Ninety-five of the windows it deletes never held an atom.
+
+The bucket is a multiple of 32 for any composition. That is what lets `TT_BIO_TOKEN_BUCKET=0` and an off-lattice token count be used together.
+
+**Accuracy: byte-identical at 298 residues.** At 512 it reassociates one matmul's contraction, so the structure is not guaranteed bit-for-bit there.
+
+**Speed: 0.997 s of a 512-residue Boltz-2 fold** on its own.
+
+## `TT_BIO_FUSE_MASK_ADD` — on
+
+The gated-residual write-back was a multiply followed by an add. `ttnn.addcmul` is the same arithmetic in one dispatch.
+
+**Accuracy: bit for bit** at fold level.
+
+**Speed: 1504 dispatches deleted** per 298-residue OpenFold3 fold. The saving is dispatch count, not arithmetic.
+
+## `TT_BIO_FUSE_NORM_RESIDUAL` — on
+
+When an add feeds nothing but a layer norm, the norm can take it as its residual input and the separate add disappears.
+
+**Accuracy: bit for bit.**
+
+**Speed: 1.880x on a [1,512,512,128] norm.** Its one call site is Protenix-v2's pde confidence branch, which the 298-residue protocol never reaches, so the fold-level saving is unpriced rather than measured. The op-level ratio is the only number claimed for it.
+
+## `TT_BIO_FUSE_SCALE_ADD` — on, fp32 operands only
+
+Attention scales its scores and then adds a bias. `ttnn.addalpha` does both in one call.
+
+**Accuracy: bit-identical at every call shape**, measured. At fp32 the fused and unfused arms round the same way, which is why the flag is restricted to fp32 operands: 1500 of the 1503 calls a 298-residue fold makes are fp32, and the three bf16 calls keep the multiply-then-add chain. Fusing those three alone moved an OpenFold3 structure 1.475 Å, so they stay out.
+
+**Speed: not claimed as a wall-clock ratio.** Summing measured per-call times predicts 67.0 ms of a 6.92 s Protenix-v2 fold and 73.9 ms of a 9.93 s OpenFold3 fold. Both are below what a fold A/B on this box can resolve.
+
+## `TT_BIO_HOST_LEVERS` — on, Boltz-2 only
+
+Not an optimization of its own. It gates `TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE` together, so `0` takes the pre-lever host path for both in one variable. Each flag still answers to its own name; this one is the AND in front of them.
+
+Bisecting a host-side result is what it is for: turn the group off, confirm the result moves, then put the members back one at a time.
+
+## `TT_BIO_REBLOCK_PERMUTE_GATED` — on
+
+A triangle multiplication moves its pair tensor into a channel-blocked layout, then runs three eltwise passes over the result: the chunk and two sigmoid gates. The fused reader does all three inside the move.
+
+**Accuracy: bit for bit.**
+
+Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
+
+## `TT_BIO_TOKEN_BUCKET` — on
+
+Every model's token bucket answers to this, and the legacy per-model flags are ANDed with it, so `0` turns all of them off at once and the fold runs at the exact token count.
+
+Off-lattice counts are slower. They are also what `docs/size-generality.md` asks for when checking that a size claim is a property of the model and not an artifact of the bucket lattice: a ceiling measured only at multiples of 32 cannot tell the two apart.
+
+## `TT_BIO_TRIATT_SDPA_HIFI_AB` — on for `openfold3.trunk`, off at every other site
+
+Triangle attention has two routes on Blackhole: a materialised chain that takes its softmax in
+fp32, and the fused SDPA kernel. This one picks the fused kernel at HiFi4 with `math_approx` off
+and `fp32_dest_acc` on, spanning the whole key length in a single k chunk so each row reduces in
+the order the torch reference uses.
+
+Per site rather than global, because the four OpenFold3 sites do not agree. The trunk alone scores
+0.396 A closer to the deposited structure than the incumbent route; all four together land 0.676 A
+further out. So the trunk ships on and msa, template and confidence ship off. Boltz-2
+(`boltz2.trunk`) and RoseTTAFold3 (`rf3.tri_att`) build the same block and are untouched.
+
+**Speed.** OpenFold3 at 512 residues: 34.138 s to 22.574 s, 1.5123x, on a p300c with the AICLK
+sampled during every leg at a median of 1350 MHz, six legs interleaved in one process on one device
+open, against A/A floors of 0.888 and 0.950 s. The win grows with length, 57.946 s to 33.501 s at
+640 residues. Firing was counted rather than assumed on every leg: 384 calls served, 0 declined, 0
+below the length floor.
+
+**Accuracy.** Not bit-exact, and scored as a distribution against a distribution, because a single
+pair of folds cannot separate a route change from a seed. At 298 residues over three matched seeds
+the structure moves 2.5805 / 7.7510 / 8.0075 A CA against a six-pair main-against-main seed floor
+of 5.2283 / 7.7276 / 9.7768 A: the median is exactly 1.00x the floor median and the worst case is
+0.82x its maximum, so the route stays inside the variation re-seeding already produces. pLDDT moves
+the same way, 0.50319 to 0.56667. The reduction order is what clears that bar. The same route
+without it sits at 1.61x the floor median, which is why the two ship together.
+
+**Where it does nothing.** The kernel declines what it cannot fit. At 1088 residues on a p300c it
+declines all seven attempts, five on fill preconditions and two on the L1 budget, and the fold is
+byte-identical to the incumbent route down to the CIF sha256. At 1024 it serves 384 and declines 5.
+Both sizes fold with the backbone intact, 0 breaks and a CA-CA median of 3.77-3.81 A. Below 256
+residues the kernel declines every call, so short targets are unaffected, including the release
+gate 117-residue fixture: that arm is a no-regression result and not evidence for this route.
+
+## `TT_BIO_TRIMUL_MASK_AFTER_MOVE` — on
+
+Masking before the channel move puts a masked tensor in front of the fused reader, which cannot address it. Masking after the move is the same arithmetic and leaves the reader a shape it can take, so this is what lets `TT_BIO_REBLOCK_PERMUTE_GATED` reach a masked trimul at all.
+
+**Accuracy: bit for bit.**
+
+## `TT_BIO_TRIMUL_TAIL_F1` — on
+
+The tail of a triangle multiplication is three ops over the same tensor: an output projection, a gate projection and the gate multiply. One kernel does all three.
+
+**Accuracy: bit for bit**, `torch.equal` at 14 shapes from 32 to 1024 residues.
+
+**Speed: 512 residues in 31.994 s against 32.329 s.** ESMFold2 and Protenix-v2 fire it. Boltz-2, OpenDDE and OpenFold3 never reach it, because their triangle multiplications are not 8 tiles deep and the kernel declines rather than running a shape it was not built for.
+
+## `TT_BIO_TRIMUL_TAIL_F1_L1_OUT` — on
+
+`TT_BIO_TRIMUL_TAIL_F1` above writes a product the gate multiply reads straight back. With that product in DRAM the fused tail adds a round trip at a 128-channel pair track instead of deleting one, so the fusion only pays once its output stays on chip.
+
+**Accuracy: bit for bit.**
+
+## `TT_PROTENIX_CONF_DEVICE` — off, Protenix-v2 and OpenDDE
+
+The sample-invariant pair base is built once on device and only the pae/pde/pLDDT logits come back, so per sample the host uploads coordinates rather than a pair tensor. On a many-sample run that is most of the confidence head's host time.
+
+**Off by default because pLDDT is the precision-sensitive output here.** The host path already sits at PCC ~0.93 against the reference and the device einsum runs bf16, so this is a lever that spends accuracy on the one number least able to give it. The coordinates do not change either way — turn it on when confidence time matters and the confidence scores do not.
+
+It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
+
 ## Idle host threads when a box is full
 
 Not a flag of ours. `OMP_WAIT_POLICY`, `GOMP_SPINCOUNT` and `KMP_BLOCKTIME` are OpenMP's own, and

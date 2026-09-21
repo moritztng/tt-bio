@@ -38,7 +38,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul,
-                          device_generation, accurate_softmax_site, softmax_ckc)
+                          device_generation, accurate_softmax_site, host_f64_softmax_site,
+                          site_softmax, softmax_ckc)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
 
@@ -484,6 +485,7 @@ class AtomTransformer(_KeyedWeights, Module):
         self.n_blocks = n_blocks
         self._w = {k: v for k, v in self.weights.data.items()}
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
+        self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
 
     def _adaln(self, a, s, pre):
@@ -565,7 +567,8 @@ class AtomTransformer(_KeyedWeights, Module):
         sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+        o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                        host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
@@ -661,7 +664,8 @@ class AtomTransformer(_KeyedWeights, Module):
         else:
             sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+        o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                        host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
@@ -1693,11 +1697,31 @@ class ConfidenceHead:
         return out
 
     @staticmethod
-    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0):
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None):
         """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
         the standard AlphaFold formula. pTM = max over alignment frame i of the mean
         predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
-        Returns (ptm, iptm); iptm is 0.0 for single-chain inputs."""
+        Returns (ptm, iptm); iptm is 0.0 for single-chain inputs.
+
+        ``has_frame`` is the per-token mask of tokens that actually HAVE an alignment
+        frame, and both reductions are a max over i, so a token without one can win the
+        max and set the score. AlphaFold's Eq. 17 takes the max over frames, not over
+        tokens; upstream OpenFold3 spells that out by zeroing a frameless row before the
+        max (``core/metrics/confidence.py:154``) and builds the mask from the predicted
+        coordinates with ``get_token_frame_atoms``. It rejects three kinds of token: an
+        ATOMIZED one -- a ligand or a modified residue -- whose three frame atoms subtend
+        an angle outside [25, 155] degrees, one with a frame atom missing, and one whose
+        three frame atoms are not all in the same chain.
+
+        Default ``None`` means "every token has a frame", which is what this function
+        assumed before the argument existed. That is exactly right for a structure of
+        standard residues, where upstream's mask is all-ones by construction, and it is
+        why the four models that do not pass one are unchanged: measured 0.0 difference on
+        a monomer and on an all-standard two-chain complex, against upstream's own
+        ``compute_ptm`` in float64 (``perf/of3t_d10_d107/d10_rule_vs_upstream.py``). With
+        eight frameless tokens in that same complex the mask is worth 3.853e-03 on pTM and
+        reorders the samples.
+        """
         import torch
 
         N, _, nb = pae_logits.shape
@@ -1707,7 +1731,21 @@ class ConfidenceHead:
         d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
         tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
         e_tm = (probs * tm_per_bin).sum(-1)                                 # (N,N) E[TM] per pair
-        ptm = float(e_tm.mean(dim=-1).max())
+        frame = (None if has_frame is None else
+                 has_frame.reshape(-1).bool().to(e_tm.device))
+        if frame is not None and frame.numel() != N:
+            raise ValueError(
+                f"has_frame has {frame.numel()} entries for {N} tokens. A frame mask that "
+                f"does not line up with the PAE axis would silently mask the wrong tokens")
+
+        def _max_over_frames(row, mask):
+            # Upstream zeroes the row rather than dropping it, and E[TM] is non-negative,
+            # so the two forms agree -- including when every token is masked, where both
+            # give 0.0.
+            return float(row.masked_fill(~mask, 0.0).max() if mask is not None
+                         else row.max())
+
+        ptm = _max_over_frames(e_tm.mean(dim=-1), frame)
         iptm = 0.0
         if asym_id is not None:
             a = asym_id.long().reshape(-1)
@@ -1715,8 +1753,13 @@ class ConfidenceHead:
                 cross = a[:, None] != a[None, :]                           # (N,N) different-chain
                 denom = cross.sum(dim=-1).clamp(min=1)
                 row = (e_tm * cross.float()).sum(dim=-1) / denom
+                # A token with no cross-chain partner contributes 0 to upstream's max (its
+                # numerator is empty), so restricting to `valid` here is the same reduction
+                # written the other way round. The frame mask has to be subset with it.
                 valid = cross.any(dim=-1)
-                iptm = float(row[valid].max()) if bool(valid.any()) else 0.0
+                iptm = (_max_over_frames(row[valid],
+                                         None if frame is None else frame[valid])
+                        if bool(valid.any()) else 0.0)
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod

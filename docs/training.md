@@ -455,6 +455,63 @@ you; at Tier 2 you own the loop, so you own them:
 Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
 `perf/of3t_leaves/clip_equiv.py`.
 
+## The host float64 softmax: for when fp32 is not fp32
+
+`TT_BIO_HOST_F64_SOFTMAX_AB` moves a softmax off the card and computes it on the host in
+float64. It is off everywhere and it is a training lever: what it buys is gradient fidelity.
+
+The reason it exists is that a Tenstorrent fp32 is a few mantissa bits short of an IEEE one, and
+a softmax is where that shows. On `[1,16,384,384]` fp32, scored against a float64 softmax of the
+same values on one Blackhole processor of a p300c at 1350 MHz:
+
+| softmax | error vs float64 | ms/call |
+| --- | --- | --- |
+| the op's own default | 2.029e-02 | 0.0545 |
+| `TT_BIO_SOFTMAX_PRECISE_AB` | 1.646e-03 | 0.0790 |
+| `TT_BIO_ACCURATE_SOFTMAX_AB` | 5.156e-04 | 0.2576 |
+| `TT_BIO_HOST_F64_SOFTMAX_AB` | 2.082e-08 | 9.0966 |
+
+A real fp32 softmax lands around 1e-7, so the first three are all four or more orders of
+magnitude away from it and no configuration closes that: it is the silicon. OpenFold3 trains in
+IEEE fp32 on GPU, so the round trip is not overshooting them, it is the route to what they
+already do.
+
+What it is worth. On the OpenFold3 diffusion module's gradient over 547 parameters, 51.1358 % of
+the model's squared gradient norm, against upstream's own bf16 training step, it takes the
+mass-weighted relative error from 7.426217e+00 to 7.777580e-02 — 95.5x of the gap. Against an
+exact float64 reference it reads 5.930664e-02, which is 1.013x what upstream's own bf16 step
+reaches against the same reference. It is not free: 167x on the softmax alone, and 1.47x on the
+whole gradient arm, because the softmax is a small share of what the step runs.
+
+Syntax is the one the other per-site softmax flags use. A bare token turns one construction site
+on, a `-` prefix turns it off, and `all` / `-all` move every site without a token of its own:
+
+    TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
+    TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+
+The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` and
+`protenix.atom_transformer`.
+
+Predictions are untouched. With the flag unset, OpenFold3, Protenix-v2 and OpenDDE each write a
+structure byte-identical to the one they wrote before this path existed, same card and same seed.
+
+**You already have the cheap fix.** `TT_BIO_SOFTMAX_BW_RENORM` is on by default. It divides the
+softmax backward's inner sum by the row sum, two extra ops and no change to any forward. It
+exists because `d_logits = y(g - Σ g·y)` is only row-sum-free when the row sums to one, and
+`ttnn.softmax` returns rows that miss it by up to 3.9e-02. On the same OpenFold3 gradient it reads 1.057023e-01 against upstream's bf16 step
+for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
+cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
+softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
+pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+bit-identical gradient.
+
+Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
+branch on the flag is inside a backward closure, checked by AST rather than by reading, and a
+fold on OpenFold3, Protenix-v2 and OpenDDE writes the same structure with it on and off, same
+card and same seed. A prediction never imports the module the branch lives in at all. It
+costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
+interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
+
 ## Opt-in, and inert when off
 
 Importing `tt_bio` does not reach the tape, the optimizer or the loss set, and

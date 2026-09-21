@@ -1,7 +1,0 @@
-# Fold outputs, inputs copied per run, raw clock traces and logs are bulk artifacts.
-# summary.json per run is the evidence and is committed.
-runs/*/out/
-runs/*/in/
-runs/*/*.jsonl
-runs/*/*.log
-runs/*/.census-*/

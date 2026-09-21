@@ -7,6 +7,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **OpenFold3 trunk triangle attention runs on the fused SDPA at HiFi4, and a 512-residue fold is
+  1.5123x faster.** 34.138 s to 22.574 s on a Blackhole p300c with the AICLK at 1350 MHz, and
+  57.946 s to 33.501 s at 640 residues, arms interleaved in one process on A/A floors of 0.888 and
+  0.950 s, with the firing counted on every leg: 384 calls served, none declined, none below the
+  length floor. Only the OpenFold3 trunk takes the route. Boltz-2 and RoseTTAFold3 build the same
+  block and keep the materialised one, and the OpenFold3 msa, template and confidence sites stay off
+  because all four together land 0.676 A further from the experimental structure than the trunk
+  alone.
+
+  **This is not bit-exact.** The fused route spans the whole key length in one chunk, which reduces
+  each row in the order the torch reference uses rather than through a running-max rescale, so a
+  fold will not match a 0.9.0 run of the same input. At 298 residues over three matched seeds it
+  moves the structure 2.5805 / 7.7510 / 8.0075 A CA against a 5.2283 / 7.7276 / 9.7768 A spread
+  between seeds of that same input, a median of exactly 1.00x the seed floor median and a worst case
+  of 0.82x its maximum, and pLDDT moves 0.50319 to 0.56667. Scored against the deposited structure
+  the trunk route is 0.396 A closer to native than the route it replaces. At 1088 residues the
+  kernel declines every call on L1 grounds and the fold is byte-identical to the old route.
+  `TT_BIO_TRIATT_SDPA_HIFI_AB=-openfold3.trunk` restores it. See
+  [docs/tuning-flags.md](docs/tuning-flags.md).
+
 - **Triangle attention now picks a wider SDPA key chunk, and at twenty padded lengths that changes
   the bytes you get back.** `TT_BIO_SDPA_WIDE_K` is on by default. The fused kernel refuses any key
   chunk that does not divide the padded sequence, so at those lengths it used to decline every call

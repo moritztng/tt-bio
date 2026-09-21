@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 import sys
 import types
@@ -187,6 +188,25 @@ def _v_matmul(shipped, args, kwargs):
     return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
 
 
+# `d_logits = y * (g - sum_j g_j y_j)` has EXACTLY zero row sums when `sum_j y_j = 1`, and the
+# attention backward downstream of it depends on that: `dq_i = sum_j d_logits_ij k_j` is
+# `sum_j d_logits_ij (k_j - kbar)` precisely because the row sums vanish, so it never sees the
+# mean of k. `ttnn.softmax` on a bf16 tensor does not give rows that sum to one -- measured
+# 2.4e-02 rms on the OpenFold3 trunk's token attention at crop 64 -- and the residual row sum
+# then multiplies kbar, which is large, and lands in dq as a term the gradient does not contain.
+# Dividing `inner` by the row sum is the same expression whenever the row sums to one, and makes
+# the row sums of d_logits vanish identically when it does not. Measured against an upstream
+# 0.4.3 float64 reference, block 15 of the trunk: the module's own output cotangent goes from
+# 33.29x the reference in norm to 0.64x. It touches NO forward, so no shipped inference result
+# can move. ON by default since 2026-09-21 (ask 9629); `perf/of3t_d56renorm/` has the proof
+# that it cannot reach a fold.
+#
+# An ALIAS, not a parse. This used to be its own `os.environ.get` and `autograd` has another,
+# which meant one environment variable with two defaults -- flip one and the host float64
+# backward keeps the other. The name stays because harnesses read it.
+_SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM
+
+
 @_verb("softmax", "softmax_in_place")
 def _v_softmax(shipped, args, kwargs):
     """`softmax_in_place` is taped out of place. The backward reads y, which the in-place
@@ -201,7 +221,9 @@ def _v_softmax(shipped, args, kwargs):
     def make():
         def bw(g):
             y = box[0]                      # through the box, so `free` may evict y to DRAM
-            inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+            # `of3t-d116` unified this expression with `triangle_attention`'s copy; the helper
+            # carries the same TT_BIO_SOFTMAX_BW_RENORM branch this site used to inline.
+            inner = ag.softmax_bw_inner(y, g, dim=dim)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 

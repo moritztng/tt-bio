@@ -1,0 +1,59 @@
+{
+ "builds": true,
+ "arms": [
+  {
+   "arm": "random ligand geometry",
+   "tokens": 16,
+   "standard_residues": 12,
+   "atomized_tokens": 4,
+   "frames_valid": 16,
+   "frames_rejected": 0,
+   "rejected_are_all_atomized": true,
+   "mask": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "arm": "collinear ligand (negative control)",
+   "tokens": 16,
+   "standard_residues": 12,
+   "atomized_tokens": 4,
+   "frames_valid": 12,
+   "frames_rejected": 4,
+   "rejected_are_all_atomized": true,
+   "mask": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ ]
+}

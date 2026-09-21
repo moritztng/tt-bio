@@ -1,0 +1,20 @@
+{
+ "after": {
+  "applied": 1,
+  "declined": 0
+ },
+ "alias_agrees": true,
+ "before": {
+  "applied": 0,
+  "declined": 0
+ },
+ "counter_fired": true,
+ "env_flag": "1",
+ "grad_absmax": 0.373046875,
+ "grad_is_present": true,
+ "module_read": true,
+ "row_sum_absmax": 0.0032744407653808594,
+ "row_sum_rel": 0.008777558491492147,
+ "softmax_row_sum_dev_from_one": 0.03514862060546875,
+ "verdict": "PASS"
+}

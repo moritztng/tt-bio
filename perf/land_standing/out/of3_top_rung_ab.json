@@ -1,0 +1,112 @@
+{
+  "host": "tt-quietbox2",
+  "card": "0",
+  "loadavg": [
+    "17.78",
+    "19.58",
+    "18.19"
+  ],
+  "commit": "9bcd6f90e",
+  "rows": [
+    {
+      "rung": 1088,
+      "arm": "off",
+      "ab": "-openfold3.trunk",
+      "rc": 0,
+      "wall_s": 333.926,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 120
+      },
+      "steps": 25,
+      "cif": "cdk2x2_1088.cif",
+      "cif_sha256": "8b46984ee5a743a9",
+      "geom": {
+        "n_ca": 1088,
+        "clash_frac": 0.0119,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.8057,
+        "radius_of_gyration_A": 30.782,
+        "plddt_mean": 0.372245
+      },
+      "triatt_sdpa_stats": null
+    },
+    {
+      "rung": 1088,
+      "arm": "on",
+      "ab": "openfold3.trunk",
+      "rc": 0,
+      "wall_s": 260.534,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 96
+      },
+      "steps": 25,
+      "cif": "cdk2x2_1088.cif",
+      "cif_sha256": "8b46984ee5a743a9",
+      "geom": {
+        "n_ca": 1088,
+        "clash_frac": 0.0119,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.8057,
+        "radius_of_gyration_A": 30.782,
+        "plddt_mean": 0.372245
+      },
+      "triatt_sdpa_stats": null
+    },
+    {
+      "rung": 1024,
+      "arm": "off",
+      "ab": "-openfold3.trunk",
+      "rc": 0,
+      "wall_s": 227.828,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 83
+      },
+      "steps": 25,
+      "cif": "cdk2x2_1024.cif",
+      "cif_sha256": "ff09052a6417518e",
+      "geom": {
+        "n_ca": 1024,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.7793,
+        "radius_of_gyration_A": 30.534,
+        "plddt_mean": 0.386558
+      },
+      "triatt_sdpa_stats": null
+    },
+    {
+      "rung": 1024,
+      "arm": "on",
+      "ab": "openfold3.trunk",
+      "rc": 0,
+      "wall_s": 129.827,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 47
+      },
+      "steps": 25,
+      "cif": "cdk2x2_1024.cif",
+      "cif_sha256": "e676756af6071736",
+      "geom": {
+        "n_ca": 1024,
+        "clash_frac": 0.0732,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.7748,
+        "radius_of_gyration_A": 30.511,
+        "plddt_mean": 0.394977
+      },
+      "triatt_sdpa_stats": null
+    }
+  ]
+}
