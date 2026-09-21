@@ -1,0 +1,1724 @@
+{
+ "instrument": "PROTOCOL SS6 coverage census, runtime, on the frozen batch",
+ "bundle": "/home/ttuser/of3t/bundle_min",
+ "bundle_artifacts": {
+  "batch_step003.pt": {
+   "declared_sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "declared_on_qb2": true,
+   "present": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true
+  },
+  "draws.pt": {
+   "declared_sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+   "declared_on_qb2": true,
+   "present": true,
+   "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+   "match": true
+  },
+  "grad_presence.json": {
+   "declared_sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "declared_on_qb2": true,
+   "present": true,
+   "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "match": true
+  },
+  "run_record.json": {
+   "declared_sha256": "recomputed-on-rename",
+   "declared_on_qb2": true,
+   "present": true,
+   "sha256": "e48cb96d3ff3ea11f7bde2ac4cbbc4fff83cd9bccf857da1237d70baa2981ec4",
+   "match": false
+  },
+  "grads_f64.pt": {
+   "declared_sha256": "pending-transfer",
+   "declared_on_qb2": false,
+   "present": false,
+   "sha256": null,
+   "match": false
+  },
+  "w0.pt": {
+   "declared_sha256": "pending-transfer",
+   "declared_on_qb2": false,
+   "present": false,
+   "sha256": null,
+   "match": false
+  }
+ },
+ "weights_table_check": {
+  "batch_carries": {
+   "bond": 0.0,
+   "smooth_lddt": 4.0,
+   "mse": 4.0,
+   "distogram": 0.029999999329447746,
+   "experimentally_resolved": 9.999999747378752e-05,
+   "plddt": 9.999999747378752e-05,
+   "pae": 9.999999747378752e-05,
+   "pde": 9.999999747378752e-05
+  },
+  "our_table_initial_training_weighted_pdb": {
+   "bond": 0.0,
+   "smooth_lddt": 4.0,
+   "mse": 4.0,
+   "distogram": 0.03,
+   "resolved": 0.0001,
+   "plddt": 0.0001,
+   "pae": 0.0001,
+   "pde": 0.0001
+  },
+  "agree": true,
+  "max_abs_diff": 6.705522526129215e-10,
+  "their_LossWeights_field_count": 8,
+  "note": "their `LossWeights` (dataset_config_components.py:164-172) declares EIGHT fields and this batch carries eight, so a claim of eleven loss terms does not match the artifact; `bond` is 0.0 on it, leaving seven non-zero"
+ },
+ "batch": {
+  "pdb_id": [
+   "5nw3"
+  ],
+  "n_tokens": 56,
+  "n_atoms": 422,
+  "n_resolved_atoms": 422,
+  "n_resolved_tokens": 56,
+  "n_token_bonds": 0,
+  "n_nucleotide_tokens": 0,
+  "n_ligand_tokens": 2,
+  "scope": "token, one representative atom per token",
+  "representative_atom": "ground_truth.start_atom_index, each token's first atom",
+  "frames": "the token triple (i-1, i, i+1), clamped at the ends",
+  "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+ },
+ "per_stage_dataset": {
+  "initial_training/RNA-monomer-distillation": {
+   "crop_tokens": 384,
+   "loss": 6.01812488934303,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 4.0,
+     "value": 0.39330048659953687,
+     "contribution": 1.5732019463981475,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.015226004021220181,
+     "fired": true
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "initial_training/disordered-pdb": {
+   "crop_tokens": 384,
+   "loss": 6.01812488934303,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 4.0,
+     "value": 0.39330048659953687,
+     "contribution": 1.5732019463981475,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.015226004021220181,
+     "fired": true
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "initial_training/long-monomer-distillation": {
+   "crop_tokens": 384,
+   "loss": 6.01812488934303,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 4.0,
+     "value": 0.39330048659953687,
+     "contribution": 1.5732019463981475,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.015226004021220181,
+     "fired": true
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "initial_training/short-monomer-distillation": {
+   "crop_tokens": 384,
+   "loss": 6.01812488934303,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 4.0,
+     "value": 0.39330048659953687,
+     "contribution": 1.5732019463981475,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.015226004021220181,
+     "fired": true
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "initial_training/weighted-pdb": {
+   "crop_tokens": 384,
+   "loss": 6.01945479631019,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 4.0,
+     "value": 0.39330048659953687,
+     "contribution": 1.5732019463981475,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.015226004021220181,
+     "fired": true
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0001,
+     "value": 0.7190701909213546,
+     "contribution": 7.190701909213547e-05,
+     "skipped": null,
+     "seeds": "resolved_logits",
+     "seed_norm": 9.640772669207014e-06,
+     "fired": true
+    },
+    "plddt": {
+     "weight": 0.0001,
+     "value": 4.026955970962178,
+     "contribution": 0.00040269559709621785,
+     "skipped": null,
+     "seeds": "plddt_logits",
+     "seed_norm": 1.3268274652696933e-05,
+     "fired": true
+    },
+    "pae": {
+     "weight": 0.0001,
+     "value": 4.275963320622558,
+     "contribution": 0.0004275963320622558,
+     "skipped": null,
+     "seeds": "pae_logits",
+     "seed_norm": 1.7753389718472197e-06,
+     "fired": true
+    },
+    "pde": {
+     "weight": 0.0001,
+     "value": 4.277080189093306,
+     "contribution": 0.00042770801890933065,
+     "skipped": null,
+     "seeds": "pde_logits",
+     "seed_norm": 1.7754674278970154e-06,
+     "fired": true
+    }
+   }
+  },
+  "finetune_1/RNA-monomer-distillation": {
+   "crop_tokens": 640,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_1/disordered-pdb": {
+   "crop_tokens": 640,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_1/long-monomer-distillation": {
+   "crop_tokens": 640,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_1/short-monomer-distillation": {
+   "crop_tokens": 640,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_1/weighted-pdb": {
+   "crop_tokens": 640,
+   "loss": 4.446252849912042,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0001,
+     "value": 0.7190701909213546,
+     "contribution": 7.190701909213547e-05,
+     "skipped": null,
+     "seeds": "resolved_logits",
+     "seed_norm": 9.640772669207014e-06,
+     "fired": true
+    },
+    "plddt": {
+     "weight": 0.0001,
+     "value": 4.026955970962178,
+     "contribution": 0.00040269559709621785,
+     "skipped": null,
+     "seeds": "plddt_logits",
+     "seed_norm": 1.3268274652696933e-05,
+     "fired": true
+    },
+    "pae": {
+     "weight": 0.0001,
+     "value": 4.275963320622558,
+     "contribution": 0.0004275963320622558,
+     "skipped": null,
+     "seeds": "pae_logits",
+     "seed_norm": 1.7753389718472197e-06,
+     "fired": true
+    },
+    "pde": {
+     "weight": 0.0001,
+     "value": 4.277080189093306,
+     "contribution": 0.00042770801890933065,
+     "skipped": null,
+     "seeds": "pde_logits",
+     "seed_norm": 1.7754674278970154e-06,
+     "fired": true
+    }
+   }
+  },
+  "finetune_2/RNA-monomer-distillation": {
+   "crop_tokens": 768,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_2/disordered-pdb": {
+   "crop_tokens": 768,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_2/long-monomer-distillation": {
+   "crop_tokens": 768,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_2/short-monomer-distillation": {
+   "crop_tokens": 768,
+   "loss": 4.444922942944882,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "resolved_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "plddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "plddt_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pae": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pae_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "pde": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pde_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    }
+   }
+  },
+  "finetune_2/weighted-pdb": {
+   "crop_tokens": 768,
+   "loss": 4.446252849912042,
+   "terms": {
+    "bond": {
+     "weight": 4.0,
+     "value": 0.0,
+     "contribution": 0.0,
+     "skipped": null,
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 4.0,
+     "value": 1.0790672458688757,
+     "contribution": 4.316268983475503,
+     "skipped": null,
+     "seeds": "pred_xyz",
+     "seed_norm": 0.641149927225203,
+     "fired": true
+    },
+    "distogram": {
+     "weight": 0.03,
+     "value": 4.288465315645982,
+     "contribution": 0.12865395946937944,
+     "skipped": null,
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0005327387051577457,
+     "fired": true
+    },
+    "resolved": {
+     "weight": 0.0001,
+     "value": 0.7190701909213546,
+     "contribution": 7.190701909213547e-05,
+     "skipped": null,
+     "seeds": "resolved_logits",
+     "seed_norm": 9.640772669207014e-06,
+     "fired": true
+    },
+    "plddt": {
+     "weight": 0.0001,
+     "value": 4.026955970962178,
+     "contribution": 0.00040269559709621785,
+     "skipped": null,
+     "seeds": "plddt_logits",
+     "seed_norm": 1.3268274652696933e-05,
+     "fired": true
+    },
+    "pae": {
+     "weight": 0.0001,
+     "value": 4.275963320622558,
+     "contribution": 0.0004275963320622558,
+     "skipped": null,
+     "seeds": "pae_logits",
+     "seed_norm": 1.7753389718472197e-06,
+     "fired": true
+    },
+    "pde": {
+     "weight": 0.0001,
+     "value": 4.277080189093306,
+     "contribution": 0.00042770801890933065,
+     "skipped": null,
+     "seeds": "pde_logits",
+     "seed_norm": 1.7754674278970154e-06,
+     "fired": true
+    }
+   }
+  },
+  "finetune_3/weighted-pdb": {
+   "crop_tokens": 768,
+   "loss": 0.0013299069671599399,
+   "terms": {
+    "bond": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "smooth_lddt": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_dist",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "mse": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "pred_xyz",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "distogram": {
+     "weight": 0.0,
+     "value": null,
+     "contribution": 0.0,
+     "skipped": "weight is zero in this stage",
+     "seeds": "distogram_logits",
+     "seed_norm": 0.0,
+     "fired": false
+    },
+    "resolved": {
+     "weight": 0.0001,
+     "value": 0.7190701909213546,
+     "contribution": 7.190701909213547e-05,
+     "skipped": null,
+     "seeds": "resolved_logits",
+     "seed_norm": 9.640772669207014e-06,
+     "fired": true
+    },
+    "plddt": {
+     "weight": 0.0001,
+     "value": 4.026955970962178,
+     "contribution": 0.00040269559709621785,
+     "skipped": null,
+     "seeds": "plddt_logits",
+     "seed_norm": 1.3268274652696933e-05,
+     "fired": true
+    },
+    "pae": {
+     "weight": 0.0001,
+     "value": 4.275963320622558,
+     "contribution": 0.0004275963320622558,
+     "skipped": null,
+     "seeds": "pae_logits",
+     "seed_norm": 1.7753389718472197e-06,
+     "fired": true
+    },
+    "pde": {
+     "weight": 0.0001,
+     "value": 4.277080189093306,
+     "contribution": 0.00042770801890933065,
+     "skipped": null,
+     "seeds": "pde_logits",
+     "seed_norm": 1.7754674278970154e-06,
+     "fired": true
+    }
+   }
+  }
+ },
+ "union": {
+  "bond": {
+   "covered": false,
+   "carried_by": [],
+   "n_pairs_firing": 0
+  },
+  "distogram": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/RNA-monomer-distillation",
+    "initial_training/disordered-pdb",
+    "initial_training/long-monomer-distillation"
+   ],
+   "n_pairs_firing": 15
+  },
+  "mse": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/RNA-monomer-distillation",
+    "initial_training/disordered-pdb",
+    "initial_training/long-monomer-distillation"
+   ],
+   "n_pairs_firing": 15
+  },
+  "pae": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/weighted-pdb",
+    "finetune_1/weighted-pdb",
+    "finetune_2/weighted-pdb"
+   ],
+   "n_pairs_firing": 4
+  },
+  "pde": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/weighted-pdb",
+    "finetune_1/weighted-pdb",
+    "finetune_2/weighted-pdb"
+   ],
+   "n_pairs_firing": 4
+  },
+  "plddt": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/weighted-pdb",
+    "finetune_1/weighted-pdb",
+    "finetune_2/weighted-pdb"
+   ],
+   "n_pairs_firing": 4
+  },
+  "resolved": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/weighted-pdb",
+    "finetune_1/weighted-pdb",
+    "finetune_2/weighted-pdb"
+   ],
+   "n_pairs_firing": 4
+  },
+  "smooth_lddt": {
+   "covered": true,
+   "carried_by": [
+    "initial_training/RNA-monomer-distillation",
+    "initial_training/disordered-pdb",
+    "initial_training/long-monomer-distillation"
+   ],
+   "n_pairs_firing": 5
+  }
+ },
+ "union_summary": {
+  "terms": 8,
+  "covered": 7,
+  "pairs": 16
+ },
+ "mse_entity_weighting": {
+  "adapter_passes_entity_flags": false,
+  "site": "tt_bio/train/objectives.py:_TERMS['mse']",
+  "value_as_shipped": 1.0790672458688757,
+  "value_with_upstream_weighting": 1.4076849037169121,
+  "rel_value": 0.23344546565807459,
+  "rel_seed": 0.7636994469305259,
+  "ligand_tokens_on_this_batch": 2,
+  "upstream": "loss.py:1063-1207, w_dna 5.0 / w_rna 5.0 / w_ligand 10.0"
+ },
+ "negative_control": {
+  "what": "prediction set EQUAL to the ground truth, which is what the check reads",
+  "per_term": {
+   "bond": {
+    "baseline_seed": 0.0,
+    "control_seed": 0.0,
+    "baseline_value": null,
+    "control_value": null,
+    "still_reported_fired": false
+   },
+   "distogram": {
+    "baseline_seed": 0.0005327387051577457,
+    "control_seed": 0.0005327387051577457,
+    "baseline_value": 4.288465315645982,
+    "control_value": 4.288465315645982,
+    "still_reported_fired": true
+   },
+   "mse": {
+    "baseline_seed": 0.641149927225203,
+    "control_seed": 1.5205709538934613e-15,
+    "baseline_value": 1.0790672458688757,
+    "control_value": 6.0693571761706106e-30,
+    "still_reported_fired": false
+   },
+   "pae": {
+    "baseline_seed": 1.7753389718472197e-06,
+    "control_seed": 1.7756682487124909e-06,
+    "baseline_value": 4.275963320622558,
+    "control_value": 4.27912183815598,
+    "still_reported_fired": true
+   },
+   "pde": {
+    "baseline_seed": 1.7754674278970154e-06,
+    "control_seed": 1.7755558237687296e-06,
+    "baseline_value": 4.277080189093306,
+    "control_value": 4.278030765785759,
+    "still_reported_fired": true
+   },
+   "plddt": {
+    "baseline_seed": 1.3268274652696933e-05,
+    "control_seed": 1.3268274652696933e-05,
+    "baseline_value": 4.026955970962178,
+    "control_value": 4.026955970962178,
+    "still_reported_fired": true
+   },
+   "resolved": {
+    "baseline_seed": 9.640772669207014e-06,
+    "control_seed": 9.640772669207014e-06,
+    "baseline_value": 0.7190701909213546,
+    "control_value": 0.7190701909213546,
+    "still_reported_fired": true
+   },
+   "smooth_lddt": {
+    "baseline_seed": 0.015226004021220181,
+    "control_seed": 0.0,
+    "baseline_value": 0.39330048659953687,
+    "control_value": 0.19591780553812854,
+    "still_reported_fired": false
+   }
+  },
+  "rejected": [
+   "mse",
+   "smooth_lddt"
+  ],
+  "answers": "which check fails if our model is replaced by zeros? the seed norm does: a term whose gradient contribution is zero is reported NOT fired even though its weight is unchanged, which is the whole point of requiring both"
+ },
+ "in_function_ttnn_imports": {
+  "hits": [
+   {
+    "file": "tt_bio/esmfold2_runtime.py",
+    "line": 264,
+    "function": "_trunk_on_device",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/esmfold2_runtime.py",
+    "line": 358,
+    "function": "_install_resident_trunk_loop",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/main.py",
+    "line": 1065,
+    "function": "_require_ttnn",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/mm_generic.py",
+    "line": 129,
+    "function": "ttnn_cpp_root",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/opendde.py",
+    "line": 425,
+    "function": "load_from_checkpoint",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/opendde.py",
+    "line": 441,
+    "function": "expand_and_refine",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1522,
+    "function": "device_confidence_enabled",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1532,
+    "function": "_wtt",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1540,
+    "function": "_dev_lin",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1555,
+    "function": "_device_resident",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1588,
+    "function": "z_base_device",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1601,
+    "function": "confidence_device",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 1932,
+    "function": "load_from_checkpoint",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 2328,
+    "function": "fold",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 2355,
+    "function": "fold",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 2360,
+    "function": "fold",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 2366,
+    "function": "fold",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/protenix.py",
+    "line": 2371,
+    "function": "fold",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/token_axis.py",
+    "line": 435,
+    "function": "token_pad_masks_tt",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/token_axis.py",
+    "line": 452,
+    "function": "bucketed_pairformer",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/worker.py",
+    "line": 599,
+    "function": "load_model",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/worker.py",
+    "line": 612,
+    "function": "load_model",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/kernels/trimul_tail/patch_trimul_tail.py",
+    "line": 53,
+    "function": "wheel_kernel_dir",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/train/mesh.py",
+    "line": 80,
+    "function": "reduce",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/train/mesh.py",
+    "line": 159,
+    "function": "auto",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/train/tensors.py",
+    "line": 31,
+    "function": "to_host",
+    "form": "import ttnn"
+   },
+   {
+    "file": "tt_bio/train/tensors.py",
+    "line": 43,
+    "function": "to_device",
+    "form": "import ttnn"
+   }
+  ],
+  "why": "tape() rebinds the module-global name `ttnn`, so a function that imports it at call time runs untaped and nothing raises",
+  "count": 27,
+  "files": [
+   "tt_bio/esmfold2_runtime.py",
+   "tt_bio/kernels/trimul_tail/patch_trimul_tail.py",
+   "tt_bio/main.py",
+   "tt_bio/mm_generic.py",
+   "tt_bio/opendde.py",
+   "tt_bio/protenix.py",
+   "tt_bio/token_axis.py",
+   "tt_bio/train/mesh.py",
+   "tt_bio/train/tensors.py",
+   "tt_bio/worker.py"
+  ],
+  "on_the_of3_path": []
+ },
+ "conditional_paths": {
+  "msa": {
+   "covered": true,
+   "evidence": "msa (1, 2, 384, 32), mask sum 112.0",
+   "note": "2 MSA rows on this batch, so the path carries a tensor but not depth"
+  },
+  "templates": {
+   "covered": false,
+   "evidence": "template_pseudo_beta_mask sum 0.0 over (1, 4, 384, 32)",
+   "reason_if_not": "the four template slots are all mask-zero on 5nw3, so the template path cannot fire on this batch whatever the stage"
+  },
+  "bond": {
+   "covered": false,
+   "evidence": "token_bonds sum 0",
+   "reason_if_not": "no inter-token bond on 5nw3, so `bond` has an empty mask even in finetune_1/2 where its weight is 4.0"
+  },
+  "nucleotide": {
+   "covered": false,
+   "evidence": "0 nucleotide tokens",
+   "reason_if_not": "5nw3 is one protein chain plus Fe and Na, so the DNA and RNA weightings in `mse` and the nucleotide lddt radius are never selected"
+  },
+  "ligand": {
+   "covered": true,
+   "evidence": "2 ligand tokens"
+  },
+  "confidence_heads": {
+   "covered": true,
+   "evidence": "plddt, pde, pae and resolved all fire on initial_training/weighted-pdb"
+  },
+  "disabled_parameters": {
+   "covered": false,
+   "reason": "R6: their runner disables the confidence-head parameters when a sample's summed confidence weight is zero, which initial_training does on its four distillation datasets. The frozen batch is weighted-pdb, the one dataset that does NOT zero them, so the disabled path has no batch here. of3t-reference reports the same gap from its own side."
+  },
+  "diffusion_rollout": {
+   "covered": false,
+   "reason": "the rollout is a differentiated path through the diffusion module and needs a model forward, which this census does not have"
+  },
+  "multichain_permutation": {
+   "covered": false,
+   "reason": "upstream raises KeyError 'ref_space_uid_to_perm' and falls back to naive alignment"
+  },
+  "model_forward": {
+   "covered": false,
+   "reason": "tt-bio wires no OF3 training forward: nothing in tt_bio/train/ produces the eight outputs from an OF3 batch, so no term's gradient was carried into a parameter here. The routed-call census of a real taped forward is of3t-tape's, cited rather than rebuilt."
+  },
+  "routed_call_census": {
+   "covered": true,
+   "source": "perf/of3t_tape/coverage_trunk_c1_b48_strict_bw.json",
+   "evidence": "trunk, 1 cycle, 48 blocks: 30107 calls taped, 221 untaped, 14 nested"
+  }
+ },
+ "verdict": "PARTIAL"
+}
