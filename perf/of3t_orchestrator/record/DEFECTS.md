@@ -9418,3 +9418,30 @@ What stopped it was running `date` on both hosts instead of reasoning from the s
 discipline as naming a ratio's denominator, one layer down. **Any comparison of a fleet timestamp
 with a row's timestamp must convert first**, and a defer is exactly where that bites, because the
 decision turns on a margin of minutes.
+
+### D137 UPDATE (pass 251). Still **UNFIXED**, and my stated reason for not fixing it was the secondary one: the function does not exist on this branch at all, and the repair has NO OWNER.
+
+Pass 246 said the repair was not done here because *"editing `tt_bio/tenstorrent.py` from the
+orchestrator would make a third row an editor of a file whose co-edit declaration names two."* True,
+and not the binding reason. Checked by branch:
+
+    origin/main                    def site_softmax  -- absent
+    origin/wk/of3t-orchestrator    def site_softmax  -- absent
+    origin/wk/of3t-f64softmax      def site_softmax  -- present
+    origin/wk/of3t   (composition) def site_softmax  -- present, via that merge
+
+**`site_softmax` and `host_f64_softmax` exist only on `wk/of3t-f64softmax`.** They reach the
+orchestrator through the composition and nowhere else, so there is no function on this branch to add
+a condition to. Patching it here would mean first pulling another row's feature onto this branch,
+which changes what the composition is composed FROM — a worse defect than the one being fixed.
+
+**The consequence is the part that matters, and pass 246 did not state it: the repair is
+orphaned.** `of3t-f64softmax` CONCLUDED and its branch is frozen. No live row touches that file.
+`of3t-ditcot` is briefed, deliberately, to drive its host-float64 arms from its own harness and
+**not** to widen a construction-site selector. So nothing in flight will fix this, and a defect that
+blocks `land-standing` with no owner is a defect that waits forever.
+
+**Dispatched as `of3t-f64gate`** (pass 251), `DEPENDS_ON: of3t-ditcot` so it queues behind the
+current chain rather than competing for the card. One condition, one probe, and the inference fold
+A/B the 2026-09-21 constraint requires of any change to a shared softmax site — honoured literally
+rather than argued away, even though a tape gate can only ever REMOVE a path from inference.
