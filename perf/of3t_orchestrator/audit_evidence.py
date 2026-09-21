@@ -1136,6 +1136,57 @@ if ORCH.is_file():
                            f"(excluding this row's own) -- i.e. '{_wd}' and '{_wc}'")
             else:
                 ok.append(f"ROWS matches the briefs on disk ({_wd} dispatched, {_wc} concluded)")
+
+        # --- a CONCLUDED row must have pushed a branch -----------------------------------------
+        # `compose_verify.sh` merges `origin/wk/of3t-$r` only `if` the ref exists and otherwise
+        # prints "dispatched but has not pushed a branch yet, skipped". That note is right for a
+        # LIVE row and silently wrong for a concluded one: the marker lands, the state doc claims
+        # artifacts under `perf/<namespace>/`, the DONE_CHECK passes on the doc alone, and none of
+        # the evidence is ever in the composition. Nothing checked the difference.
+        #
+        # Added pass 224 after watching `of3t-permalign` sit on 128K of untracked artifacts with a
+        # finished GO verdict in its state doc. It is prophylactic -- no concluded row is in that
+        # state today -- which is the only time a guard is cheap to add.
+        #
+        # Deliberately NOT a check that the branch is in the composition: a row can legitimately be
+        # excluded from `wk/of3t` (superseded, or held for a conflict). What cannot be legitimate is
+        # a concluded row whose work exists nowhere but one host's disk.
+        import subprocess as _sp
+        # ONE ls-remote for every row, not one per row: authoritative (a local ref can be stale
+        # or absent) and a single round trip.
+        _ls = _sp.run(["git", "ls-remote", "--heads", "origin"], capture_output=True, text=True)
+        if _ls.returncode != 0:
+            warn.append("concluded-rows-have-a-branch not checked: `git ls-remote origin` failed, "
+                        "so there is no authoritative list to check against here")
+        else:
+            _heads = {ln.split("refs/heads/", 1)[1]
+                      for ln in _ls.stdout.splitlines() if "refs/heads/" in ln}
+
+            def _orphaned(concluded_names, heads):
+                """Concluded row slugs with no wk/<slug> branch on origin."""
+                out = []
+                for n in sorted(concluded_names):
+                    if "of3t" not in n or "of3t-orchestrator" in n:
+                        continue
+                    slug = n.split(".")[0]          # strip .falseconclude-<date>, .reopened-<date>
+                    if f"wk/{slug}" not in heads:
+                        out.append(slug)
+                return sorted(set(out))
+
+            # Break control, every run: a guard that cannot fire has tested nothing, and this file
+            # has shipped three inert ones.
+            _probe = _orphaned(["of3t-ghost"], {"wk/of3t-real"})
+            if _probe != ["of3t-ghost"]:
+                bad.append("the concluded-branch probe did not fire -- this check is inert")
+            else:
+                _orphans = _orphaned([d.name for d in _CON.iterdir()], _heads)
+                if _orphans:
+                    bad.append("these rows are CONCLUDED and have no branch on origin, so their "
+                               "evidence exists only on one host's disk and the compose skipped "
+                               "them with a note meant for a LIVE row: " + ", ".join(_orphans))
+                else:
+                    ok.append(f"all {_n_conc} concluded rows have a branch on origin "
+                              f"(probe fires)")
     if DEF.is_file():
         _dt = DEF.read_text()
         # Every DEFECTS-reading guard -- this count, the UNFIXED count, GAP's coverage check --
