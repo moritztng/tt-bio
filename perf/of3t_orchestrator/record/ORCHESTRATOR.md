@@ -1094,6 +1094,30 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty-four dispatched, seventy-nine concluded, five live (this row; **`of3t-trajbar` CONCLUDED GO this pass**, supplying the bar that completes D136's fifth field; `of3t-stepfloor` on card 3 with only D56's step-scope pair owed; `of3t-ditref` on card 1 repairing the 6.62x denominator; `of3t-fwdkcfg` on card 0 with D55's forward half); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
+PASSLOG: **Pass 317 — I ran the composition for the first time in ten passes and it is BLOCKED, by this campaign's own guard, on twelve artifacts that are the entire evidence for a closure I absorbed six passes ago without opening them.**
+
+**Why I ran it.** Three rows were live with nothing new written, so I checked the deliverable the charter calls the merge story: `wk/of3t`, the single reviewable branch. **`origin/wk/of3t` is still `a84d919ee` from 18:55** — the pass-307 composition — while `of3t-trajwide`, `of3t-crop768`, `of3t-ditcot` and `of3t-trajbar` have all concluded since. Four rows' concluded work, including GO condition 3 and its bar, is not on the branch the merge gate sees.
+
+**It fails at D155, and the true exit code is 1.** Everything before the last check passes: every row branch merges clean and is an ancestor afterwards, the collection error sets diff clean against a detached `origin/main` on the same interpreter, the CPU-only instruments recompute, the charter evaluation publishes, the site-flag defaults hold, and **15 probe-instrumented artifacts are confirmed with none of their seconds quoted in live prose outside a paragraph naming D164**. Then:
+
+    DRIFT perf/of3t_ditcot/CMP_AA.json claims bit_identical and does not say which HOST it ran on
+    ... eleven more, all CMP_*.json
+    FAIL 12 NEW digest claim(s) that cannot be attributed to healthy hardware
+
+Their keys are `a`, `b`, `compared`, `bit_identical`, `moved`, `bit_identical_frac`, `max_rel`, `top_moved`. **No `host`, no `card`, no AICLK.**
+
+**And those twelve are the whole evidence for D55's backward-half closure** — the A/A-identical, PULL-identical, LoFi-moved table I recorded at pass 311 and called *"the campaign's standard"*. **I checked its measurement DESIGN and never opened the artifact's metadata**, while my own charter says every result names its board class. That is `verify-the-rows-noun` one level over: not the noun this time, the provenance.
+
+**The closure itself survives, and the argument is worth having on the record because it is not obvious.** These artifacts' own A/A **is** the hardware-health control: 547 of 547 bit-identical means the card behaved deterministically through the run, and a degraded card **breaks** bit-identity rather than manufacturing it — pc card 0's known fault presents as non-determinism, the opposite of what these read. So D55's backward half is not re-opened. What is missing is provenance, and `fleet.log` has it — `of3t-ditcot` launched on **qb2-card0** at 19:20:29 CEST. **But recovering a card number from another machine's launcher log is exactly what an artifact's provenance field exists to prevent**, which is why the guard is right to refuse and I am not overruling it.
+
+**Handed to `of3t-ditref`** as AMENDMENT 1, its first task ahead of the denominator work, because nothing this campaign produces reaches the merge gate while the compose is blocked. Metadata re-emit, not a re-measurement: do not re-run the arms, and **if any number moves, stop and report**, because that would mean the re-emit is not a re-emit. `of3t-ditcot` has concluded, so the evidence is orphaned and `of3t-ditref` is based on its branch, which makes it the only row that can.
+
+**Two things confirmed in passing that were previously only asserted.** My pass-308 `assert_defect_ids_unique.py` ran inside the real compose and passed — *"166 defect entries, every D-number opened exactly once"* — so the wiring works where it matters and not only in my worktree. And `assert_summary_stamped` passed there too, having failed at pass 313 and been cleared by a real re-audit.
+
+**One self-inflicted false reading worth naming.** My first invocation piped the script through `tail -45` and printed `rc=$?`, which reports **`tail`'s** exit status: it said **rc=0** on a run that had just printed FAIL. Re-run without the pipe, the true code is **1**. A compose that fails loudly and reports success through a pipe is how a blocked branch gets called clean — and it was my command, not the script.
+
+**`origin/main` still reads `56ad6c0e0` and `origin/wk/of3t` still reads `a84d919ee`.** Three rows live.
+
 PASSLOG: **Pass 316 — nine passes have ended on PARTIAL and this document never said what would end it. It does now, and the exit criterion turned out to be derivable from PROTOCOL rather than a question for Moritz — which I was one step from asking.**
 
 **What I found when I checked what the gate actually tests.** `_of3t_donecheck.py:_nogo_gate` does not enforce five named conditions at all. It tests the **charter**: GO means met, NO-GO/STOP requires showing it **unreachable**, and it explicitly rejects "a located, unfixed bug" as PARTIAL. **The five conditions are my own operationalisation**, written into this document and nowhere else. So the real question was never "can I satisfy condition 4" but "is condition 4 load-bearing for Moritz's charter".
