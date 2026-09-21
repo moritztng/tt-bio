@@ -1,0 +1,119 @@
+=== 02:03:57Z arm=ship tag=fabg_ship_r1
+nodes [1] forced to 1350 MHz
+  fabg_ship_r1 fold 0 COLD 20.943 s  clk {'n': 266, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r1 fold 1 warm 17.789 s  clk {'n': 235, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r1 fold 2 warm 19.715 s  clk {'n': 266, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_ship_r1 warm median 18.752 s  routed 0
+--- 02:05:10Z arm=ship rc=0
+=== 02:05:10Z arm=split tag=fabg_split_r1
+nodes [1] forced to 1350 MHz
+  fabg_split_r1 fold 0 COLD 24.967 s  clk {'n': 340, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r1 fold 1 warm 19.646 s  clk {'n': 257, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r1 fold 2 warm 24.653 s  clk {'n': 369, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_split_r1 warm median 22.149 s  routed 23517
+   skip:not_tall                      90792
+   skip:bias_or_activation            36198
+   routed                             23517
+   skip:per_core_M_below_gate         22836
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   self_check:accepted_signature      18
+   skip:dtype                         3
+--- 02:06:33Z arm=split rc=0
+=== 02:06:33Z arm=ship tag=fabg_ship_r2
+nodes [1] forced to 1350 MHz
+  fabg_ship_r2 fold 0 COLD 20.743 s  clk {'n': 262, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r2 fold 1 warm 18.092 s  clk {'n': 235, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r2 fold 2 warm 17.812 s  clk {'n': 231, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_ship_r2 warm median 17.952 s  routed 0
+--- 02:07:44Z arm=ship rc=0
+=== 02:07:44Z arm=split tag=fabg_split_r2
+nodes [1] forced to 1350 MHz
+  fabg_split_r2 fold 0 COLD 23.902 s  clk {'n': 282, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r2 fold 1 warm 19.328 s  clk {'n': 248, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r2 fold 2 warm 19.889 s  clk {'n': 261, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_split_r2 warm median 19.608 s  routed 23517
+   skip:not_tall                      90792
+   skip:bias_or_activation            36198
+   routed                             23517
+   skip:per_core_M_below_gate         22836
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   self_check:accepted_signature      18
+   skip:dtype                         3
+--- 02:09:01Z arm=split rc=0
+=== 02:09:01Z arm=ship tag=fabg_ship_r3
+nodes [1] forced to 1350 MHz
+  fabg_ship_r3 fold 0 COLD 20.921 s  clk {'n': 267, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r3 fold 1 warm 17.863 s  clk {'n': 222, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_ship_r3 fold 2 warm 18.032 s  clk {'n': 236, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_ship_r3 warm median 17.947 s  routed 0
+--- 02:10:12Z arm=ship rc=0
+=== 02:10:12Z arm=split tag=fabg_split_r3
+nodes [1] forced to 1350 MHz
+  fabg_split_r3 fold 0 COLD 24.085 s  clk {'n': 294, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r3 fold 1 warm 19.640 s  clk {'n': 239, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_split_r3 fold 2 warm 19.816 s  clk {'n': 256, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_split_r3 warm median 19.728 s  routed 23517
+   skip:not_tall                      90792
+   skip:bias_or_activation            36198
+   routed                             23517
+   skip:per_core_M_below_gate         22836
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   self_check:accepted_signature      18
+   skip:dtype                         3
+--- 02:11:30Z arm=split rc=0
+FOLD_AB_DONE
+=== 02:11:47Z arm=tr r1
+nodes [1] forced to 1350 MHz
+  fabg_tr_r1 fold 0 COLD 41.041 s  clk {'n': 318, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r1 fold 1 warm 21.003 s  clk {'n': 273, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r1 fold 2 warm 20.262 s  clk {'n': 270, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_tr_r1 warm median 20.633 s  routed 46317
+   skip:not_tall                      90792
+   routed                             46317
+   skip:bias_or_activation            36198
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   skip:self_check_declined           35
+   self_check:accepted_signature      23
+   skip:dtype                         3
+   self_check:declined_signature      1
+=== 02:13:23Z arm=tr r2
+nodes [1] forced to 1350 MHz
+  fabg_tr_r2 fold 0 COLD 25.489 s  clk {'n': 304, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r2 fold 1 warm 20.449 s  clk {'n': 262, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r2 fold 2 warm 20.526 s  clk {'n': 258, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_tr_r2 warm median 20.488 s  routed 46317
+   skip:not_tall                      90792
+   routed                             46317
+   skip:bias_or_activation            36198
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   skip:self_check_declined           35
+   self_check:accepted_signature      23
+   skip:dtype                         3
+   self_check:declined_signature      1
+=== 02:14:43Z arm=tr r3
+nodes [1] forced to 1350 MHz
+  fabg_tr_r3 fold 0 COLD 25.684 s  clk {'n': 320, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r3 fold 1 warm 20.270 s  clk {'n': 265, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+  fabg_tr_r3 fold 2 warm 20.616 s  clk {'n': 264, 'min': 1350, 'max': 1350, 'mean': 1350}  md5 42ec0245f547a17023a275943ed84e75
+fabg_tr_r3 warm median 20.443 s  routed 46317
+   skip:not_tall                      90792
+   routed                             46317
+   skip:bias_or_activation            36198
+   skip:explicit_program_config       5784
+   skip:mcast_2d                      3018
+   skip:transpose                     1632
+   skip:self_check_declined           35
+   self_check:accepted_signature      23
+   skip:dtype                         3
+   self_check:declined_signature      1
+TR_DONE
