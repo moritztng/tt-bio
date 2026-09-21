@@ -1,0 +1,244 @@
+{
+ "instrument": "block 47's factor, resolved by sub-module and by track",
+ "question": "amendment 16(a): all sub-modules at 1.18 means it enters at the block boundary; only some means it enters inside",
+ "a14_floor": 1e-12,
+ "arms": {
+  "LADDER_block32": {
+   "by_submodule": {
+    "attn_pair_bias": {
+     "track": "single",
+     "n": 6,
+     "norm_ratio_median": 1.0138533765659696,
+     "norm_ratio_min": 0.6880351879625375,
+     "norm_ratio_max": 9.743906426600034,
+     "cos_median": 0.7637083014996693,
+     "mass_share_of_arm": 0.0006358099974152691
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "norm_ratio_median": 0.9992941044185997,
+     "norm_ratio_min": 0.9927811899134633,
+     "norm_ratio_max": 1.0002241540628571,
+     "cos_median": 0.9999417205747623,
+     "mass_share_of_arm": 0.5983637784186085
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 0.9950322904025231,
+     "norm_ratio_min": 0.8943734234127869,
+     "norm_ratio_max": 1.0080258845037613,
+     "cos_median": 0.9984665939764266,
+     "mass_share_of_arm": 0.13398969883977369
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 1.1065868456605081,
+     "norm_ratio_min": 0.9844557878883832,
+     "norm_ratio_max": 1.9460571426551436,
+     "cos_median": 0.9154781075847117,
+     "mass_share_of_arm": 0.17164867289328697
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 1.0196048538182185,
+     "norm_ratio_min": 0.9121381374112734,
+     "norm_ratio_max": 1.065067910125682,
+     "cos_median": 0.9947199918853089,
+     "mass_share_of_arm": 0.05027031102632286
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 0.9862025414908684,
+     "norm_ratio_min": 0.9287978049580763,
+     "norm_ratio_max": 1.0044292293668413,
+     "cos_median": 0.9947663388699444,
+     "mass_share_of_arm": 0.045091726485437626
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "norm_ratio_median": 1.0025546935403988,
+     "norm_ratio_min": 0.9827879395102526,
+     "norm_ratio_max": 1.0098329396357266,
+     "cos_median": 0.9992525714252334,
+     "mass_share_of_arm": 2.3391549413844884e-09
+    }
+   },
+   "by_track": {
+    "pair": {
+     "n": 41,
+     "norm_ratio_median": 0.9997905132016408,
+     "cos_median": 0.9955445374949834
+    },
+    "single": {
+     "n": 11,
+     "norm_ratio_median": 1.0025546935403988,
+     "cos_median": 0.9983320839170081
+    }
+   }
+  },
+  "LADDER_block40": {
+   "by_submodule": {
+    "attn_pair_bias": {
+     "track": "single",
+     "n": 6,
+     "norm_ratio_median": 0.9938009443093145,
+     "norm_ratio_min": 0.2436300499701703,
+     "norm_ratio_max": 13.122895527682394,
+     "cos_median": 0.43338896029768137,
+     "mass_share_of_arm": 0.00037246465182665074
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "norm_ratio_median": 0.9992547347898124,
+     "norm_ratio_min": 0.9986613415811934,
+     "norm_ratio_max": 1.0002270417062435,
+     "cos_median": 0.9999534876180258,
+     "mass_share_of_arm": 0.666538597758174
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 0.9931040800238795,
+     "norm_ratio_min": 0.956618352664529,
+     "norm_ratio_max": 0.9955689263347886,
+     "cos_median": 0.9996481719475533,
+     "mass_share_of_arm": 0.0167087370420547
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 0.9942293011160696,
+     "norm_ratio_min": 0.8727984491786623,
+     "norm_ratio_max": 1.007328643928805,
+     "cos_median": 0.9994124296207227,
+     "mass_share_of_arm": 0.26637489723150626
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 0.999021773242849,
+     "norm_ratio_min": 0.9945137086452538,
+     "norm_ratio_max": 1.0008870160558088,
+     "cos_median": 0.9998162771611308,
+     "mass_share_of_arm": 0.020247850189827384
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 0.9996598945102004,
+     "norm_ratio_min": 0.9985844854118928,
+     "norm_ratio_max": 1.0006636345764408,
+     "cos_median": 0.9998649131887782,
+     "mass_share_of_arm": 0.029757453094428146
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "norm_ratio_median": 1.010550955340175,
+     "norm_ratio_min": 1.00509211737729,
+     "norm_ratio_max": 1.0310619508161736,
+     "cos_median": 0.9986525114594276,
+     "mass_share_of_arm": 3.218294423728695e-11
+    }
+   },
+   "by_track": {
+    "pair": {
+     "n": 41,
+     "norm_ratio_median": 0.9987955227363327,
+     "cos_median": 0.9998245553151529
+    },
+    "single": {
+     "n": 11,
+     "norm_ratio_median": 1.0070745115012576,
+     "cos_median": 0.9881322114492599
+    }
+   }
+  },
+  "LADDER_block47": {
+   "by_submodule": {
+    "attn_pair_bias": {
+     "track": "single",
+     "n": 6,
+     "norm_ratio_median": 0.8704928474661565,
+     "norm_ratio_min": 0.20173347363337377,
+     "norm_ratio_max": 32.55604595709427,
+     "cos_median": 0.7073917615235574,
+     "mass_share_of_arm": 0.3886866839753229
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "norm_ratio_median": 1.1914506655791297,
+     "norm_ratio_min": 1.1831743502903287,
+     "norm_ratio_max": 1.2696387153846056,
+     "cos_median": 0.9981840862533902,
+     "mass_share_of_arm": 0.5432382423439319
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 1.180547424721866,
+     "norm_ratio_min": 1.1647067441103058,
+     "norm_ratio_max": 1.2928585835162083,
+     "cos_median": 0.9980302110680934,
+     "mass_share_of_arm": 0.0082503699600085
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "norm_ratio_median": 1.1959426729728917,
+     "norm_ratio_min": 1.156197368850978,
+     "norm_ratio_max": 1.2586886088057951,
+     "cos_median": 0.9976132792672319,
+     "mass_share_of_arm": 0.020668700884265954
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 1.188337437816695,
+     "norm_ratio_min": 1.0928722122819667,
+     "norm_ratio_max": 1.2015965484831268,
+     "cos_median": 0.997855264495666,
+     "mass_share_of_arm": 0.007205982573399113
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "norm_ratio_median": 1.1707479688041291,
+     "norm_ratio_min": 1.1186198338907727,
+     "norm_ratio_max": 1.1942751028426344,
+     "cos_median": 0.9977466466786604,
+     "mass_share_of_arm": 0.02962952887118809
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "norm_ratio_median": 0.8867066855032778,
+     "norm_ratio_min": 0.8402030703357672,
+     "norm_ratio_max": 0.9150088119268085,
+     "cos_median": 0.9247253331144828,
+     "mass_share_of_arm": 0.002320491391883278
+    }
+   },
+   "by_track": {
+    "pair": {
+     "n": 41,
+     "norm_ratio_median": 1.1831743502903287,
+     "cos_median": 0.997891406913716
+    },
+    "single": {
+     "n": 11,
+     "norm_ratio_median": 0.8867066855032778,
+     "cos_median": 0.8380181216671947
+    }
+   }
+  }
+ }
+}
