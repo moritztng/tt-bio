@@ -76,6 +76,36 @@
     0
    ],
    "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg1_cand"
+  },
+  {
+   "i": 2,
+   "arm": "main",
+   "fold_s": 87.978,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 41
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 41 samples, polled DURING the work",
+   "digest": "e6530b2efdffa4b114cf2b4a7eca05eb30b72018d409b3b102aed1df28dee053",
+   "fused_stats": [
+    0,
+    2112
+   ],
+   "fused_derived": {},
+   "qkvg": [
+    160,
+    1056
+   ],
+   "qkvgb": [
+    160,
+    1056
+   ],
+   "cif_dir": "perf/allm_safety/out/cif_opendde_512_leg2_main"
   }
  ],
  "ttnn": "0.68.0",
