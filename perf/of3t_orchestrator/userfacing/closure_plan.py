@@ -66,6 +66,17 @@ PLAN = {
                         "that the SHIPPED configuration is still the unrepaired one"),
         "evidence_held": ("matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 "
                           "norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms"),
+        "what_it_costs": ("read from taped_ttnn.py at pass 259, because the ask should not have gone "
+                          "out without it. The lever adds EXACTLY TWO OPS inside the softmax "
+                          "backward rule -- one `ttnn.sum(y, dim, keepdim=True, "
+                          "compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the "
+                          "shapes the existing `inner` reduction already uses. It lives in `bw`, so "
+                          "it runs ONLY under the tape: an inference fold cannot execute it and the "
+                          "inference cost is zero STRUCTURALLY, not by measurement. The training "
+                          "cost is unmeasured, and there is no baseline to measure it against -- "
+                          "that is D32, `no training throughput can be projected`. So the decision "
+                          "does not wait on a number: nothing it could cost is currently knowable, "
+                          "and nothing it could cost reaches a user's fold."),
         "would_a_row_help": False,
         "asked": "pin 9629, with a stated default: stays gated",
     },
@@ -163,6 +174,8 @@ def main() -> int:
                 print(f"      row:         {e['row']}")
             if e.get("shares_object_with"):
                 print(f"      same object: {', '.join(e['shares_object_with'])}")
+            if e.get("what_it_costs"):
+                print(f"      costs:       {e['what_it_costs']}")
             if e.get("asked"):
                 print(f"      asked:       {e['asked']}")
         print()

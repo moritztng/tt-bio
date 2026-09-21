@@ -829,7 +829,17 @@ an **identity** at relative difference **0.0**.
 
 Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-two defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 258 — PROTOCOL, the document every row reads top to bottom, was teaching two verdicts the campaign no longer stands behind (D142).** A25's own ADDENDUM states the rule I applied: *"an amendment that supersedes another's conclusion has to say so **inside it**. A row reads PROTOCOL top to bottom and stops when it has what it needs."*
+PASSLOG: **Pass 259 — I asked Moritz to decide whether to ship a flag and never told him what it costs.** Pin 9629's D56 question is *"`TT_BIO_SOFTMAX_BW_RENORM` collapses the diffusion-scope error 333x and is default-off. Ship it on, or keep it gated?"* — a ship/hold call with the benefit quantified to four significant figures and the cost not mentioned at all. That is half a decision, and the missing half is the one a reviewer would ask for first.
+
+**Read from `taped_ttnn.py` rather than estimated.** The lever adds **exactly two ops** inside the softmax backward rule — one `ttnn.sum(y, dim, keepdim=True, compute_kernel_config=precise_config())` and one `ttnn.divide` — on the shapes the existing `inner` reduction already uses. Nothing else changes.
+
+**Two things follow, and they make the decision easier rather than harder.** The code sits inside `bw`, a `taped_ttnn` verb's backward, so it executes **only under the tape**: an inference fold cannot reach it, and the inference cost is **zero structurally**, not zero by measurement — which is a stronger statement and the one the 2026-09-21 constraint cares about. And the **training** cost is unmeasured, with **no baseline to measure it against**: that is exactly **D32**, *"no training throughput can be projected from inference"*. So the decision does not wait on a number. Nothing the flag could cost is currently knowable, and nothing it could cost reaches a user's fold.
+
+**Recorded in the artifact rather than sent as a third message.** `userfacing/closure_plan.py`'s D56 entry now carries a `costs` field, so the plan that prices GO condition 5 answers the obvious follow-up in the place a reader meets the question. Two messages went out today already; a third to volunteer a clarification nobody asked for is the noise that makes the important ones ignorable.
+
+**The general shape is worth naming**: every ask this campaign sends should carry the cost of the thing it proposes, not only its benefit. The benefit is what the row measured and is therefore to hand; the cost is what nobody measured, which is precisely why it goes missing.
+
+**Pass 258 — PROTOCOL, the document every row reads top to bottom, was teaching two verdicts the campaign no longer stands behind (D142).** A25's own ADDENDUM states the rule I applied: *"an amendment that supersedes another's conclusion has to say so **inside it**. A row reads PROTOCOL top to bottom and stops when it has what it needs."*
 
 **A clause resting on a closed defect.** §4's coverage paragraph ended *"converts **89.2106 %** of the squared gradient norm from unmeasurable to measurable **while D19 stays open**."* D19 CLOSED at pass 196 — **62 passes earlier**. The sentence had already been maintained once, its parenthetical correcting a stale 91.21 %, and the condition was missed on that pass.
 
