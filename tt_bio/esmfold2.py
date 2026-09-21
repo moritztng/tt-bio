@@ -1260,8 +1260,13 @@ class MSAEncoderBlock(Module):
         if not is_final:
             self.mpwa = MSAPairWeightedAveraging(n_heads_msa, msa_head_width, self.scope("msa_pair_weighted_averaging"), compute_kernel_config)
             self.msa_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "msa_transition"), compute_kernel_config)
-        self.tri_out = TriangleMultiplication(False, _remap_trimul(self.weights.as_dict(), "tri_mul_out._engine"), compute_kernel_config)
-        self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
+        # gated_move=True to match PairUpdateBlock above. It changes nothing while
+        # TRIMUL_MASK_AFTER_MOVE is on, which is the shipped default, because the site reads
+        # `self.gated_move or _TRIMUL_MASK_AFTER_MOVE`. It matters when an A/B arm sets
+        # TT_BIO_TRIMUL_MASK_AFTER_MOVE=0: without it two of esmfold2's four trimul sites keep
+        # the moved mask and two do not, so that arm is not a control on this model.
+        self.tri_out = TriangleMultiplication(False, _remap_trimul(self.weights.as_dict(), "tri_mul_out._engine"), compute_kernel_config, gated_move=True)
+        self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config, gated_move=True)
         self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
 
     def __call__(self, m, pair, recip_nvalid):
