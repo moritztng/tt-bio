@@ -1,0 +1,67 @@
+{
+ "tag": "c_break4_repr",
+ "tree": "/home/moritz/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3",
+ "dtype": "f64",
+ "knobs": {
+  "single_mask": "repr",
+  "break_mask": 4,
+  "policy": "native",
+  "transpose_bias": "native"
+ },
+ "masks": {
+  "repr_mask_sum": 52.0,
+  "token_mask_sum": 56.0,
+  "n_differing_tokens": 4,
+  "single_mask_sum_used": 52.0
+ },
+ "key_gate": {
+  "loaded": 244,
+  "missing": 0,
+  "unexpected": 0,
+  "missing_sample": [],
+  "unexpected_sample": []
+ },
+ "norms": {
+  "distogram_logits": 7928700.559880996,
+  "plddt_logits": 590.4582801087817,
+  "experimentally_resolved_logits": 101.4530457778486,
+  "pae_logits": 4801.859055459928,
+  "pde_logits": 14311.013980342595
+ },
+ "shapes": {
+  "distogram_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "plddt_logits": [
+   1,
+   1,
+   422,
+   50
+  ],
+  "experimentally_resolved_logits": [
+   1,
+   1,
+   422,
+   2
+  ],
+  "pae_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "pde_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ]
+ },
+ "out": "/tmp/of3t/auxheads043/out/c_break4_repr.pt"
+}
