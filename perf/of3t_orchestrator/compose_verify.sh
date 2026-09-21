@@ -241,7 +241,35 @@ _ASSERT
         echo "  NOTE of3t-$r: confidence conflict resolved by UNION of names with HEAD winning"\
              " scale_pair_bias (D1 is HELD), asserted from the AST by VALUE"
       else
-        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+        # GENERIC LAST RESORT, and it exists because the per-row cases above do not scale. When
+        # main touches a shared signature -- 2026-09-21, M18's `tri_att_sdpa_hifi` at OF3's four
+        # Pairformer-family sites -- EVERY concluded row that had appended a kwarg at one of
+        # those sites conflicts on the same shape at once. resolve_kwarg_tail_conflict.py takes
+        # only conflicts where BOTH sides are pure keyword-argument tails, unions the names,
+        # lets HEAD win any collision (main is what ships; at confidence the contested name is
+        # `scale_pair_bias`, which is D1 and HELD), and refuses with exit 2 on anything else.
+        # A `.gitignore` in the same merge is unioned first, since that rule is already settled.
+        _left=""
+        for _f in $_u; do
+          if [ "$_f" = ".gitignore" ]; then
+            git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+            git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+            cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+            rm -f /tmp/.gi_ours /tmp/.gi_theirs
+            git add .gitignore
+          elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            git add "$_f"
+          else
+            _left="$_left $_f"
+          fi
+        done
+        if [ -n "$_left" ]; then
+          echo "CONFLICT merging of3t-$r, and these are not keyword-argument tails:"
+          printf '  %s\n' $_left; exit 1
+        fi
+        git commit --no-edit -q
+        echo "  NOTE of3t-$r: conflict(s) resolved by kwarg-tail UNION with HEAD winning"\
+             " collisions; anything that was not a kwarg tail would have stopped the compose"
       fi
     fi
     PRESENT="$PRESENT $r"
