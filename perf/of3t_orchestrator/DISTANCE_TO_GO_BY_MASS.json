@@ -1,9 +1,10 @@
 {
  "SUPERSEDED": "pass 175, by perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json. Every share below is a distance from the FLOAT64 ideal, and every 'inside the bars' among them is a shared-subtrahend reading -- two distances from one reference do not order each other (D72). Three of the scopes counted inside those bars have since been tested DIRECTLY against upstream's own training step and all three failed (D82). Scored that way the split is 0.2666 % surviving / 89.0554 % failing / 2.8431 % void under A18 / 7.8349 % unread.",
+ "WHY_THE_DATA_FIELDS_ARE_SUFFIXED": "Nulled at pass 180. This artifact was RETIRED and said so, but its data fields still read as live -- a stamp in one field does not stop the numbers being consumed out of another, by a reader or by a script. Every structured field is renamed with a _SUPERSEDED suffix so it cannot be picked up by name; the content is kept verbatim for audit. Renamed: measured_and_inside_bar, measured_and_outside_bar, not_measured_at_its_own_scope. Current answer: THE_ANSWER.json.",
  "as_of": "2026-09-20, orchestrator pass 157, after of3t-adaln's softmax finding and of3t-auxheads' conclusion added msa_module's reading.",
  "headline": "RETIRED -- see SUPERSEDED. The float64-scored split this field carried is kept as headline_RETIRED for the record, not as a live reading.",
  "headline_RETIRED": "39.7893 % of OpenFold3's gradient mass is measured by a section-scope arm and inside the bars, 54.0115 % is measured and outside, 6.1992 % has no reading. Of the failing share, 27.2441 % is downstream of a no-config attention softmax and is now mechanistically explained; 23.8917 % is not, sits at mass-weighted 0.1855, and no softmax lever touches it.",
- "measured_and_inside_bar": {
+ "measured_and_inside_bar_SUPERSEDED": {
   "note_on_not_promoting_tensors": "diffusion_module.layer_norm_a (0.2666 %) is a one-tensor section that reads rel 0.0095, and pass 152 counted it here. It is measured INSIDE the diffusion arm, which fails, and 2.7940 % of the model passes the per-tensor bar inside that same arm. Promoting individually-passing tensors out of a failing arm is cherry-picking, so none are promoted: the arm is reported whole, below.",
   "sections": [
    {
@@ -25,7 +26,7 @@
   ],
   "total_pct": 39.7893
  },
- "measured_and_outside_bar": {
+ "measured_and_outside_bar_SUPERSEDED": {
   "items": [
    {
     "arm": "the diffusion device arm (diffusion_module minus diffusion_conditioning)",
@@ -61,7 +62,7 @@
   ],
   "total_pct": 54.0115
  },
- "not_measured_at_its_own_scope": {
+ "not_measured_at_its_own_scope_SUPERSEDED": {
   "items": [
    {
     "pct": 4.18419,

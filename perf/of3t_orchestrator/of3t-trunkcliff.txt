@@ -1,0 +1,88 @@
+# Workstream: of3t-trunkcliff
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-trunkcliff
+
+OF3T row `of3t-trunkcliff` — **the trunk's last defect is a cliff in three blocks, and it is
+ours.** Everything else about the trunk is now settled; this is what keeps 5.8282 % of the model
+A18-void.
+
+## Base your worktree on `wk/of3t`, not `main`
+
+    git fetch origin && git checkout -B wk/of3t-trunkcliff origin/wk/of3t
+
+`main` has none of `perf/of3t_trunk043ref/`, whose ladders this brief quotes.
+
+## What is settled, so you do not re-derive any of it
+
+`of3t-trunk043ref` rebuilt the reference at upstream **0.4.3**, the revision `of3-p2-155k` is
+bound to, on the same captured boundary and the same weights:
+
+- **The pair track PASSES.** 4.947045e-02 masked at crop 64 (0.9894x the 5.0e-02 bar, 0.70x the
+  A26 reachable bar) and 4.853716e-02 at N=384. **92.08 %** of the old 2.793661e-01 was the
+  reference revision, measured not bounded.
+- **The orientation question is closed.** `transpose_bias` is the only live float64 difference on
+  this path; 0.5.0 forced to the 0.4.3 orientation reads **exactly 0.0** on both tracks at both
+  crops. The shipped setting is correct for our checkpoint. Do not re-open it.
+- **The single track is ours and it got slightly WORSE against the correct reference**:
+  1.065338e-01 vs 1.012900e-01 against 0.5.0, a factor 1.0518, where the pair track fell 5.647x.
+
+## The defect, as precisely as it is currently known
+
+Norm ratio **0.907813**, cosine **0.998430** — so the squared error is **74.88 % magnitude and
+25.12 % direction**. **Our single track is 9.22 % too small in norm and points almost exactly the
+right way.** That is a magnitude deficit, not a wrong transform.
+
+It does **not accumulate — it cliffs**. Depth ladder, our port and upstream 0.4.3 float64 from
+the same captured block-0 input, 19 rungs:
+
+    k        1      8      16     24     32     42     44     45     46     47     48
+    s     8.2e-3 5.3e-3 7.1e-3 7.5e-3 1.1e-2 1.5e-2 1.4e-2 1.7e-2 5.4e-2 9.9e-2 1.07e-1
+    r     0.9923 0.9982 0.9978 0.9960 0.9906 0.9867 0.9873 0.9920 0.9576 0.9113 0.9078
+
+**Forty-five blocks produce 1.7e-02 and the last three produce the rest — 6.22x in 3 of 48.**
+Do not fit a growth exponent to this; the row that found it explicitly declined to, because a
+cliff is not a power law and the fitted values (0.398 coarse, 5.435 fine) describe neither half.
+
+**The control that says whose cliff it is.** Upstream's own bf16-autocast arm over the same rungs
+also finds the last blocks harder — 3.6x over that stretch — but **ours grows 7.4x**, and the
+ratio to upstream's own bf16 goes 6.16x, 7.82x, **10.09x at k=45, then 24.15x at k=46**. One more
+block multiplies our excess by 2.39x.
+
+**The one mechanical clue.** The reference's own scale turns over exactly there: `||s||` grows
+1.55e6 -> 2.18e6 across the last four blocks while `||z||` falls 1.95e5 -> 8.80e4. And **nothing
+in the port is block-index-dependent** — `T.Pairformer` builds all 48 `PairformerLayer`s with
+identical arguments — so this is a **data-dependent precision loss in the regime where the two
+tracks trade magnitude**, not a per-block bug.
+
+## What to do
+
+1. **CLIFF** — reproduce it and find where inside a block the norm is lost, **at the op**, not by
+   inferring from the ladder. Block 46 is the sharpest single step (10.09x -> 24.15x); instrument
+   that one first and compare **medians per leaf op**, not the worst tensor.
+2. **MECHANISM** — name the operation that loses the 9.22 %, with the dynamic range beside it.
+   The obvious hypothesis, which you must test rather than assume: a fixed-scale bf16 step whose
+   headroom runs out as `||s||` rises and `||z||` falls. If it is a near-cancellation inside a
+   reduction, PROTOCOL's precision-config rule applies.
+3. **CONTROL** — upstream's own bf16 arm over the same rungs is the floor and it is already
+   measured; re-run it in your process rather than carrying it in. Plus a control that breaks the
+   comparison.
+4. **FIX_OR_NOT** — is there a shippable change that recovers the magnitude? **"This is what bf16
+   costs in this regime" is a legitimate, pre-registerable answer** and upstream's own arm moving
+   3.6x over the same stretch is real evidence for it. If that is the answer, the campaign needs
+   it stated plainly, not a lever forced to fit.
+5. **A18** — after any change: does the single track clear 5.0e-02, and does the pair track
+   **stay** under it? Both tracks, masked, padding fraction beside each.
+
+## Rules
+
+- **Pre-register the branches before you run.** Three magnitude claims in this campaign were
+  withdrawn for being published without one.
+- Norm ratio and error cosine beside every relative L2 — this defect was identified BY its norm
+  ratio, and a bare relative would have hidden it. Per **A27** name the dtype policy of any arm
+  used as a denominator; per **A26** the reachable bar is `sqrt(2) x threshold`.
+- `PARITY MEANS ACCURACY, NOT BIT-EXACTNESS`. A precision change that could move accuracy, OOM or
+  perf for another model is **release-gated**: keep it on your branch and flag it.
+- **CLOCK DISCIPLINE**: any perf number records a DURING-sampled AICLK.
+- Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-trunkcliff`; do NOT merge to
+  main. Your push from qb2 may silently not reach origin — commit early in small steps and check
+  with `git ls-remote origin wk/of3t-trunkcliff`; the orchestrator salvages what it can see.
