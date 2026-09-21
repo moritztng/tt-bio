@@ -186,9 +186,32 @@ all four have been checked:
     *"0.2666 + 2.8431 + 94.8836 + 2.0067 = 100.0000 %"* with `derived_totals` holding the sums
     **because** a pass-175 traceability check had found a figure living only in prose;
   * the **trajectory headline** — checked and **corrected** rather than confirmed (**D136**,
-    pass 245): it was the `repin` arm, not the shipped default.
+    pass 245): it was the `repin` arm, not the shipped default. **And then RE-MEASURED and it
+    passes (pass 307)** — see the next paragraph; the correction is what made the real reading
+    possible, which is the argument for doing this at all.
 
 Three confirmed, one corrected. That ratio is the reason the exercise was worth a pass.
+
+**The 20-step trajectory, on the SHIPPED default, at 88.0819 % of the model (pass 307,
+`of3t-trajwide`, GO condition 3 — MET).** `rel_d` **2.564253e-01** at k = 20 with a log-log growth
+exponent of **-0.27724** (intercept -0.46711, r2 0.9050) over the full **k = 2..20**, zero rungs
+dropped, falling monotonically at every rung. **SUB-LINEAR, and §7b's bar is the shape**:
+super-linear fails at any magnitude, and this is the opposite sign. **980 of 980** tape resolutions
+at every step of every arm, so D126 does not recur at this scope; `d_1` exactly **0** on both
+sides, which `lr(1) = 0` requires; **1752.90x** the fp32 differencing floor at k = 20 and never
+under 19.20x from k = 2. The controls separate rather than agreeing quietly: the A16 `zero` model
+reads exactly **1.000000e+00** at every rung, the break control `permute` reads **+0.23471** against
+the treatment's -0.27724, and `shipped_aa2` is bit-identical to `shipped`. **I refit it myself from
+the row's own published table** — exponent, intercept and r2 reproduce to all five digits, the floor
+ratios to 0.01 % (display rounding on a 4-figure floor). This **supersedes the 36.9462 % /
+4.763338e-02 / -0.2482 reading** and retires D136.
+
+**Four of D136's five pre-registered fields are met and the fifth has no reading** — reference
+resolved in-process (not from the constant) at 0.4.3 with 0 missing / 0 unexpected, arm `shipped`,
+scope-with-mass 88.0819 %, denominator construction published with the uncovered 11.9181 % split
+tensor-by-tensor and summing to 100 %. The fifth, **agreement-and-accuracy against the reachable
+bar**, is the one field this campaign never built the instrument for, and it is in DOESNOT rather
+than here.
 
 **The closing measurement, RE-DERIVED by the orchestrator from the committed artifact rather than
 from the row's prose (pass 248).** After three attribution errors in a week — D127's bound, D129's
@@ -345,10 +368,22 @@ Recomputed from the artifacts on every compose (173 checks, 0 drifted); that tot
 **And the method's own argument has a receipt (pass 287).** The protocol's reason for N = 20 rather than 2000 is that an injected drive isolates each state-free factor and *"reaches the corner cases a real batch never happens to hit — the clip threshold, the warmup knee, a zero gradient, **a disabled parameter**"*. **D107 is that last item**: on a step where a parameter is disabled on every sample our optimizer left it where it was and upstream's did not, **1.1025e-03 → 2.0086e-08** after a one-file repair. p(a sample disables the confidence head) = 0.5327103 from upstream's own files, but p(a whole STEP does) is **9.59e-71** at their shipped global batch 256 — so a real 2000-step trajectory would never have reached it, while the injected drive hits it by construction. The design predicted the class of defect it then found, in writing, before it was found.
 DOESNOT: **Nothing a user gets today has changed, and every headline repair in PROVES is a
 CONFIGURATION rather than the shipped port.** This is the first line of this field because it is the
-sentence most likely to be lost in a summary. The trunk's 1.0251x is measured with
-`TT_BIO_SOFTMAX_BW_RENORM` **on**, and that lever is **default off, on `wk/of3t-apbgrad`, unmerged**.
-The 51.1358 % scope's bound needs a **host float64 softmax** that is **off at every site, on
-`wk/of3t-f64softmax`, unmerged**. The five SS7 recipe fixes, the `scale_pair_bias` flip, the softmax
+sentence most likely to be lost in a summary.
+
+**CORRECTED pass 309, and the correction makes the claim stronger while removing the reason it
+used to give.** This paragraph said the trunk's 1.0251x is measured with `TT_BIO_SOFTMAX_BW_RENORM`
+**on** and that the lever is *"default off, on `wk/of3t-apbgrad`, unmerged"*, and that the host
+float64 softmax is *"off at every site, on `wk/of3t-f64softmax`, unmerged"*. **Both defaults are
+wrong and neither matters, because neither symbol exists on `origin/main` at all** — verified by
+`git grep` on the tree, not inferred: `SOFTMAX_BW_RENORM` **ABSENT**, `host_f64_softmax` **ABSENT**.
+And RENORM has been **default-ON in the composition since pass 274**, on Moritz's ask-9629 decision
+to ship it on, so this field asserted the opposite of the live default for **thirty-five passes**.
+The user-facing conclusion survives intact and rests on a better fact: **a default cannot protect a
+user from a lever that is not in their tree**. Resting it on the default would have failed the
+moment the default flipped, which is exactly what happened. What IS true of the defaults, for the
+composition: RENORM default **True** (`autograd.py:91`), and `host_f64_softmax_site(token,
+default=False)` per site, so the host round trip is off at every site AND, since D137 landed,
+reachable only under an open tape. The five SS7 recipe fixes, the `scale_pair_bias` flip, the softmax
 floor and the confidence-mask fix are all release-gated the same way, and `compose_verify.sh` asserts
 on every compose that each stays off. **So the defensible claim is "a configuration we have built and
 measured reproduces X", never "tt-bio reproduces X"** — and the two differ by a merge gate that is
@@ -356,6 +391,25 @@ Moritz's, not this campaign's.
 
 **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
+
+- **The 20-step trajectory passes on SHAPE and has no bar for its MAGNITUDE, and the magnitude
+  is large.** GO condition 3 is MET (PROVES), and what it proves is that our divergence from
+  upstream does not ACCELERATE: exponent **-0.27724** over k = 2..20. It does not prove the
+  divergence is small. `rel_d` at k = 20 is **2.564253e-01** — a **25.6 %** relative displacement,
+  five times the per-tensor gradient bar of 5.0e-02 — and **none of it is instrument floor**: the
+  reference side's in-process A/A reads exactly **0.000e+00**, 761 of 761 bit-identical at every
+  rung. The two sides move by almost the same AMOUNT in materially different DIRECTIONS: at k = 20,
+  ||d_ours|| **3.2167e+00** against ||d_theirs|| **3.2163e+00**, a **0.012 %** difference in
+  magnitude carrying a 25.6 % difference in the vector. **Whether 25.6 % is acceptable is a
+  question this campaign cannot currently answer**, because A26's 1.0495450e-01 is a single-STEP
+  GRADIENT bar and does not transfer through Adam's sqrt(v) normalisation — there is no reachable
+  bar for a 20-step TRAJECTORY anywhere on this record. `of3t-trajbar` (dispatched pass 307,
+  launched 19:38 CEST pass 308, CPU-only) is building it: upstream's own bf16-mixed loop against
+  upstream's own float64 loop, same init, same order, same 573-tensor denominator. **Until it
+  lands, the honest form of condition 3 is "our update rule does not diverge from theirs at an
+  accelerating rate over twenty steps, at 88.0819 % of the model", and not "our weights track
+  theirs".** And twenty rungs is twenty: a sub-linear law here is consistent with a run that
+  converges together AND with one that separates at step 5,000.
 
 - **Measured directly against upstream's own training step, we do not reproduce it.** The
   current, widest reading of that is the SHIPPED arm at model scope: **5.5518403e+00**, which is
@@ -831,9 +885,21 @@ before writing a brief. With **sixty-one** rows on the record — it said forty-
 it — **this document is no longer a reliable index of its own campaign**, and the orchestrator's read-before-dispatch step is what
 stands between that and burning a row per pass.
 
-VERDICT: PARTIAL — **OpenFold3's training step now reproduces per-parameter at model scope, at
-parity with upstream's own bf16 recipe, and the campaign still does not meet its own GO bar.** I
-wrote GO at pass 218; the gate refused it and was right.
+VERDICT: PARTIAL — **OpenFold3's training step reproduces per-parameter at model scope at parity
+with upstream's own bf16 recipe, and as of pass 307 a 20-step weight trajectory on the SHIPPED
+default diverges SUB-LINEARLY over 88.0819 % of the model; three of the gate's five conditions are
+met and the campaign still does not meet its own GO bar.** I wrote GO at pass 218; the gate refused
+it and was right.
+
+**The two remaining conditions are different in kind, and only one of them is work.** Condition 4
+is **unreachable**, with the arithmetic: Lightning dispatches by torch device and `tt_bio/` is not
+one, 0.4.3 ships no `test_training_full.py` at all, and 0.5.0's needs a PrivateUse1 backend over
+ttnn — a new subsystem, not a fix. Condition 5 is **reachable and every piece of it is moving**:
+the decision half closed on pin 9629, the merge half (D10, D24, D56) was handed to `land-standing`
+at pass 308 after thirty passes in which nobody had handed it to anyone, and the five card-bound
+defects have `of3t-ditcot`, `of3t-stepfloor` and `of3t-fwdkcfg` on them. **So this is PARTIAL
+because work is in flight, not because the charter has stalled** — which is the distinction the
+gate exists to force, and the reason a NO-GO here would be false.
 
 **The split with both levers off** (renorm is ON in the composition since pass 274): against the 2.0e-02 bar that tree splits **0.2666 %** surviving, **2.8431 %** (`aux_heads`) passing, **94.8836 %** failing, **2.0067 %** unread — the SHIPPED configuration, two default-off levers from the readings below.
 
@@ -844,7 +910,7 @@ bar of **1.049545e-01**: **0.9592x**. Trunk composed: **97.98502 %**, **1.528664
 **1.627551e-01**, **0.9392x**. Pre-registered **B2**, an identity at relative difference **0.0**.
 The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52.898x** the bar.
 
-**What GO requires** — of the gate's five conditions, two met and three not:
+**What GO requires** — of the gate's five conditions, **three met and two not** (condition 3 flipped at pass 307). The two that remain are **not the same kind of open**: condition 4 is **unreachable** and its arithmetic is below, while condition 5 is **reachable and in flight** — its decision half is closed, its merge half was handed to `land-standing` at pass 308, and its five card-bound defects have three live rows on them. So the campaign's remaining distance to a final verdict is one structural NO-GO plus work that is already dispatched:
 - **per-parameter gradients at MODEL scope — MET.**
 - **§6 coverage, 8 of 8 loss terms fired — MET** on OF3's own cache.
 - **an N-step weight trajectory on the MODEL — MET at 88.0819 %, on the arm named `shipped`,

@@ -1055,15 +1055,51 @@ if DEF.is_file() and ORCH.is_file():
         "of3t-trajwide": ("on a CONFIGURATION (D136)",
                           "it measures the REAL shipped arm at ~89.2 % scope, which either "
                           "replaces the repin-arm figure GO condition 3 quotes or blocks it; "
-                          "either way the bullet cannot still read as it does now"),
+                          "either way the bullet cannot still read as it does now"
+                          " -- DISCHARGED pass 307: the arm landed at 88.0819 % and the token "
+                          "is gone from VERDICT; the entry stays because a table that only "
+                          "grows when something breaks is a table nobody trusts to be complete"),
+        "of3t-trajbar": ("no reachable bar for a 20-step TRAJECTORY",
+                         "pass 309 wrote that sentence into DOESNOT KNOWING this row was "
+                         "dispatched to falsify it. The moment it concludes, the campaign holds "
+                         "upstream's own bf16-against-float64 trajectory and condition 3's "
+                         "magnitude question has an answer -- so a field still saying no bar "
+                         "exists is the D136 shape again, declared in advance this time"),
     }
     _conc = Path("/home/moritz/.coworker/state/concluded")
-    _vtxt = _re.search(r"^VERDICT:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
-    _vtxt = _vtxt.group(1) if _vtxt else ""
+    # VERDICT **and** DOESNOT. Pass 309 widened this deliberately, and the honest history is
+    # worth the four lines because the reasoning that got here was wrong first: I added the
+    # of3t-trajbar entry, put its token in DOESNOT, concluded the entry must be inert because
+    # this read VERDICT alone -- and the negative control said CAUGHT. The token was already
+    # inside VERDICT's span, written into the condition-3 bullet a pass earlier. So the entry
+    # was never inert and the widening does not rescue it.
+    #
+    # It is still right, for a reason that does not depend on that: DOESNOT is where a
+    # superseded caveat rots BY CONSTRUCTION. It is the field that says what the campaign
+    # cannot claim, so every sentence in it is a standing invitation for some row to falsify
+    # it, and a claim-limiting sentence that outlives its limit is the most expensive kind of
+    # stale -- it makes the campaign understate what it has proven. VERDICT alone would have
+    # covered today's two tokens by luck.
+    # Whitespace-normalised, and that is not tidiness. These fields are hard-wrapped prose, so
+    # whether a declared token matches depends on where the line happened to break: at pass 309
+    # "no reachable bar for a 20-step TRAJECTORY" sat in BOTH VERDICT and DOESNOT and matched
+    # only VERDICT, because DOESNOT's copy wrapped between "reachable" and "bar". A guard that
+    # silently covers one of two copies is worse than one that covers neither -- it reports
+    # clean. Collapse every whitespace run on both sides and the token matches the sentence
+    # rather than the line layout.
+    _flat = lambda t: " ".join(t.split())
+    _blocks = {}
+    for _fld in ("VERDICT", "DOESNOT"):
+        _m = _re.search(rf"^{_fld}:(.*?)(?=^[A-Z][A-Z-]+:)", o, _re.M | _re.S)
+        _blocks[_fld] = _flat(_m.group(1)) if _m else ""
     _late = []
     for _row, (_tok, _why) in _SUPERSEDES.items():
-        if _conc.is_dir() and list(_conc.glob(_row)) and _tok in _vtxt:
-            _late.append(f"{_row} has concluded and VERDICT still says \"{_tok}\" -- {_why}")
+        if not (_conc.is_dir() and list(_conc.glob(_row))):
+            continue
+        _in = [f for f, _b in _blocks.items() if _flat(_tok) in _b]
+        if _in:
+            _late.append(f"{_row} has concluded and {'/'.join(_in)} still says "
+                         f"\"{_tok}\" -- {_why}")
     if _late:
         bad.append("a row's conclusion supersedes a figure the answer field still carries: "
                    + "; ".join(_late))
