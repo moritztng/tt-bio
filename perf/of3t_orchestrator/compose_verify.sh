@@ -257,6 +257,12 @@ _ASSERT
             cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
             rm -f /tmp/.gi_ours /tmp/.gi_theirs
             git add .gitignore
+          elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
+            # d116 unified the softmax-backward inner term across its two identical call sites
+            # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
+            # HEAD's box read and `__all__`, take d116's helper call and its new name. The
+            # resolver refuses the moment the hunk stops having that exact shape.
+            git add "$_f"
           elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             git add "$_f"
           else
