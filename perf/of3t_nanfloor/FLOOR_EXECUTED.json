@@ -1,0 +1,73 @@
+{
+ "d0": {
+  "accurate_softmax_bf16_in": {
+   "dtype": "DataType.BFLOAT16",
+   "error": null,
+   "ok": true
+  },
+  "accurate_softmax_positional_ckc": {
+   "dtype": "DataType.FLOAT32",
+   "error": null,
+   "ok": true
+  },
+  "accurate_softmax_positional_none": {
+   "dtype": "DataType.FLOAT32",
+   "error": null,
+   "ok": true
+  },
+  "clamp_lower_only": {
+   "dtype": "DataType.FLOAT32",
+   "error": null,
+   "ok": true
+  }
+ },
+ "d1_backward": {
+  "analytic_arm_rule": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.0007352070507654581
+  },
+  "chain_differentiated_divide_twice": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.27999877657802613
+  },
+  "chain_differentiated_rs_squared": {
+   "finite": false,
+   "n_nonfinite": 114688,
+   "reciprocal_s_max": 8.925306519692827e+23,
+   "reciprocal_s_squared_finite": false,
+   "rel_l2": null
+  }
+ },
+ "d1_forward": {
+  "measured_form_clamp60": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.01157492424155284
+  },
+  "shipped_accurate_ckc": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.0006493966929079073
+  },
+  "shipped_accurate_nockc": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.0006493966929079073
+  },
+  "sum_floor_1e-18": {
+   "finite": true,
+   "n_nonfinite": 0,
+   "rel_l2": 0.1669997528869334
+  }
+ },
+ "input": "rank5b.py verbatim: seed 0, [1,14,4,32,128] fp32, blocks 7..13 at -1e9",
+ "row_sum_after_floor": {
+  "live_rows_max": 13.303210258483887,
+  "live_rows_min": 1.007083535194397,
+  "masked_rows_max": 1.1204096773545404e-24,
+  "masked_rows_min": 1.1204096773545404e-24
+ },
+ "what": "D0 the landed form executes; D1 the floor forward and backward on the fully-masked input, float64 reference"
+}
