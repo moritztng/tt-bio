@@ -159,7 +159,10 @@ if runs and len(runs) == a.samples:
                           ("ranking_score", got["score"])):
             if key not in row or row[key] is None:
                 continue
-            if abs(float(row[key]) - float(mine)) > 1e-3:
+            # 6e-5, not 1e-3: the published values are rounded to 4 decimals at
+            # worst, so anything above 5e-5 is a real disagreement. At 1e-3 this
+            # check passed four rf3 cells whose per-sample record was doubled.
+            if abs(float(row[key]) - float(mine)) > 6e-5:
                 check = False
                 mismatch.append((r, key, row[key], mine))
 
