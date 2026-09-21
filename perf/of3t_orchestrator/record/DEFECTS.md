@@ -11233,3 +11233,40 @@ then this entry is wrong.
 **A33 is the lesson and this is its cleanest instance**: the measurements were right, D56 was
 repaired and landed default-ON in the composition at pass 274, and the artifact the GO condition
 reads simply never re-ran. Forty-eight passes of a campaign headline that was a stale arm.
+
+### D173. A tree claim that was TRUE when written, falsified by a row landing four hours later, and repeated by me twice. FOUND by `of3t-orchestrator`, pass 323. **FIXED** in the document; the class is A33's mirror image.
+
+This document carried, since pass 274: *"`TT_BIO_SOFTMAX_BW_RENORM` is default-ON in the
+composition and **main does not have it**, asserted in that state on every compose."* Both halves
+were true when written. **D56 landed on `origin/main` at `1aa7070f5` today** and brought the flag
+with it: `origin/main:tt_bio/autograd.py:86` reads
+
+    SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)
+
+so main has the repair and has it ON by default. **I then repeated the stale half at pass 322**,
+closing with "the repair is on the composition and not on main, so a user training on main today
+gets the 8.1943 arm." That sentence is wrong and users are not affected in the way it claims.
+
+**Why the guard did not catch it.** `compose_verify.sh` prints `shipped defaults:
+TT_BIO_SOFTMAX_BW_RENORM ON` on every run, and that is a true statement about the COMPOSITION. A
+claim about `origin/main` is a different sentence, and nothing asserts it. The half that could go
+stale is the half nothing checked.
+
+**A33 said a row's repair is not the campaign's repair until the artifact the criterion names
+carries it. This is the mirror: a row's repair is not still-missing just because the document
+says so.** Both directions have the same cause — a tree claim written once and never re-read —
+and the same cheap remedy: **a sentence about a branch names the branch and the commit, and is
+re-read against `git` whenever it is quoted**, which is what
+`orchestrator-must-verify-merge-claims-against-git` already says and what I did not do.
+
+**The corrected user-facing picture, both halves verified against `origin/main` `fd70adde2` this
+pass:**
+
+    D56  row-sum-corrected softmax backward   ON MAIN, default True    users have it
+    D126 the `_PARAMS` re-key                 ABSENT FROM MAIN         users do not
+
+`origin/wk/of3t:tt_bio/autograd.py:244-245` carries `del _PARAMS[id(old)]; _PARAMS[id(new)] =
+self` and no such re-key exists anywhere in main's copy of the file. **So the sharpest
+user-facing defect is D126 and only D126**: on main a training run produces one gradient and then
+exactly zero forever, and a run resumed from a checkpoint produces none at all — while the
+gradient it computes for that one step now has D56's repair in it.

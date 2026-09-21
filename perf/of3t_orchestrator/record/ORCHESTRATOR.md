@@ -799,7 +799,7 @@ already inside the bar, another softmax configuration, or any statement that the
 a silicon floor. An 8.56x norm with a 0.42 cosine is a scale or a function, not rounding.
 
 VERDICT: PARTIAL, stamped pass 319, 2026-09-21 — **still working, which is what PARTIAL means.**
-Eighty-six of3t rows concluded, one hundred seventy-two defects filed, **fifty-five UNFIXED**.
+Eighty-six of3t rows concluded, one hundred seventy-three defects filed, **fifty-five UNFIXED**.
 The campaign's exit criterion is machine-readable and reads **0 of 4** conditions met
 (`state/of3t/CHARTER_EVIDENCE.json`, regenerated from the composition on every compose, spec
 lifted from the live gate so the two cannot drift).
@@ -947,7 +947,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
   **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged: **4 scope-excluded, 8 USER-FACING, 43 campaign-internal**.
 
-**And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
+**CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
 Eighty-four dispatched, seventy-nine concluded, five live (this row; **`of3t-trajbar` CONCLUDED GO this pass**, supplying the bar that completes D136's fifth field; `of3t-stepfloor` on card 3 with only D56's step-scope pair owed; `of3t-ditref` on card 1 repairing the 6.62x denominator; `of3t-fwdkcfg` on card 0 with D55's forward half); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
@@ -1630,8 +1630,41 @@ Arm A predates the instrumentation and ran without D56's row-sum-corrected softm
 AdaLN LayerNorm leaves. `MODEL_shipped.json` named that tensor in its own `worst_tensor` field
 all along. Nobody had weighted it.
 
-`of3t-ditmodel` was live when this landed, so its brief carries AMENDMENT 1 on all four host
-trees: deliverable 2 is moot, deliverable 1 becomes a confirmation against a pre-registered
+`of3t-ditmodel` is HELD behind the concurrency cap, not live — pass 322 said "live" off a `pgrep -f "worker.sh of3t-ditmodel"` that matched its own shell command, which is the `wait-loop-pgrep-pattern-self-matches-its-own-wrapper` trap I already hold a memory for. The amendment is correct and is in place on all four host trees, and it will be read when the row launches. Its brief carries AMENDMENT 1: deliverable 2 is moot, deliverable 1 becomes a confirmation against a pre-registered
 0.1167, the artifact must record `softmax_bw_renorm_asked`/`live` explicitly because arm A's null
 is what cost these passes, and a **D56-OFF break control** — if 8.1943 does not come back with
 the flag off, this entry is wrong.
+
+### Pass 323 — two corrections against `git`, and the user-facing picture is the opposite of what I said
+
+**No rows dispatched.** Moritz, 20:29Z today, answering pin 9681: *"we're still burning money too
+fast. do exactly the same with fewer agents in parallel."* Five of3t rows are already out.
+
+**D173. My pass-322 closing sentence was wrong.** I wrote that D56's repair is on the composition
+and not on main, so a user training on main gets the 8.1943 arm. `origin/main:tt_bio/
+autograd.py:86` reads `SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True)` — **main
+has the repair and has it ON**, landed with D56 at `1aa7070f5` today. I took it from this
+document's own line, written at pass 274, which said "main does not have it" and was true then.
+The row landing four hours ago falsified it and nothing re-read it; the compose asserts the
+COMPOSITION's defaults every run, which is a different sentence. Corrected in place.
+
+**The corrected picture, both halves read off `origin/main` `fd70adde2` this pass:**
+
+    D56   row-sum-corrected softmax backward   ON MAIN, default True   users have it
+    D126  the `_PARAMS` re-key                 ABSENT FROM MAIN        users do not
+
+So the sharpest user-facing defect is **D126 and only D126**: on main a training run computes one
+gradient and then exactly zero forever, and a resumed run computes none at all — while the one
+gradient it does compute now carries D56's repair. **Ask 9760** puts the two-line cherry-pick to
+Moritz; `rebind` is called only from the training loop, so no inference path moves.
+
+**And a correction against myself on the same page.** Pass 322 said `of3t-ditmodel` was live. It
+is HELD behind the concurrency cap. The reading came from `pgrep -f "worker.sh of3t-ditmodel"`
+matching its own shell command — the self-match trap I already hold a memory for. The amendment
+I wrote for that row is correct and is in place on all four host trees; it will be read when the
+row launches, which changes nothing except that the 0.1167 confirmation has not started.
+
+**Two passes, two wrong tree claims, both cheap to have checked.** A33 said a row's repair is not
+the campaign's repair until the artifact carries it; D173 is its mirror, a repair recorded as
+missing after it landed. One remedy covers both: a sentence about a branch names the branch and
+the commit and is re-read against `git` every time it is quoted.
