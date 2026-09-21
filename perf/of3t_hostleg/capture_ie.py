@@ -102,8 +102,6 @@ def main():
         # with_kwargs, because their encoder calls this module by KEYWORD
         # (batch=..., n_query=..., n_key=...) and a positional-only hook sees an empty tuple.
         cl, plm = out
-        cl.retain_grad()
-        plm.retain_grad()
         grab["cl"], grab["plm"] = cl, plm
         pos = list(inp)
         b = kwargs.get("batch", pos[0] if pos else None)
@@ -118,7 +116,6 @@ def main():
 
     def on_enc(mod, inp, out):
         ai, ql = out[0], out[1]
-        ai.retain_grad()
         grab["ai"], grab["ql"] = ai, ql
         grab["enc_calls"] = grab.get("enc_calls", 0) + 1
 
@@ -140,13 +137,38 @@ def main():
         raise SystemExit(f"STOP: the leg ran {grab.get('rafe_calls')} / {grab.get('enc_calls')} "
                          f"times, not once. A cotangent captured from the last of several calls "
                          f"is not the cotangent of the leg.")
-    loss.backward()
+    # `torch.autograd.grad`, not `retain_grad` inside the forward hook. The first attempt used
+    # retain_grad and read `cl.grad is None` after `loss.backward()` -- and a None there says
+    # nothing about WHY: it looks identical whether the tensor is off the path to the loss,
+    # whether it was recomputed under gradient checkpointing, or whether the hook grabbed a
+    # different object. `autograd.grad` with allow_unused answers the question instead of
+    # reporting its symptom, and it returns the cotangents in the SAME backward that produces
+    # the parameter gradients, so this costs one pass rather than two.
+    enc_names = [n for n, _ in model.named_parameters()
+                 if n.startswith("input_embedder.atom_attn_enc.")]
+    enc_params = [dict(model.named_parameters())[n] for n in enc_names]
+    for k in ("cl", "plm", "ai", "ql"):
+        t = grab[k]
+        print(f"    {k}: shape {tuple(t.shape)} requires_grad={t.requires_grad} "
+              f"is_leaf={t.is_leaf} grad_fn={type(t.grad_fn).__name__ if t.grad_fn else None}",
+              flush=True)
+    wrt = [grab["cl"], grab["plm"], grab["ai"]] + enc_params
+    gs = torch.autograd.grad(loss, wrt, allow_unused=True, retain_graph=False)
     h1.remove(); h2.remove()
-    print(f"[{time.time()-t0:.0f}s] backward done", flush=True)
-
-    for k in ("cl", "plm", "ai"):
-        if grab[k].grad is None:
-            raise SystemExit(f"STOP: no cotangent reached {k}")
+    cot = {"cl": gs[0], "plm": gs[1], "ai": gs[2]}
+    pgrad = {n: g for n, g in zip(enc_names, gs[3:])}
+    print(f"[{time.time()-t0:.0f}s] backward done; cotangents "
+          + ", ".join(f"{k}={'None' if v is None else f'{float(v.norm()):.6e}'}"
+                      for k, v in cot.items())
+          + f"; {sum(1 for g in pgrad.values() if g is not None)}/{len(pgrad)} encoder "
+            f"parameters have a gradient", flush=True)
+    unused = [k for k, v in cot.items() if v is None]
+    if unused:
+        raise SystemExit(
+            f"STOP: {unused} are not used in the graph that produces the loss. That is a fact "
+            f"about the model, not about this script: allow_unused returned None for them while "
+            f"{sum(1 for g in pgrad.values() if g is not None)} encoder parameters DID get a "
+            f"gradient in the same call.")
 
     # the nine, straight from the checkpoint names, for the arm to score
     pay = {
@@ -160,12 +182,11 @@ def main():
         "plm": grab["plm"].detach().to(torch.float64).clone(),
         "ai": grab["ai"].detach().to(torch.float64).clone(),
         "ql": grab["ql"].detach().to(torch.float64).clone(),
-        "cot_cl": grab["cl"].grad.detach().to(torch.float64).clone(),
-        "cot_plm": grab["plm"].grad.detach().to(torch.float64).clone(),
-        "cot_ai": grab["ai"].grad.detach().to(torch.float64).clone(),
-        "grad_f64": {n: p.grad.detach().to(torch.float64).cpu().clone()
-                     for n, p in model.named_parameters()
-                     if p.grad is not None and n.startswith("input_embedder.atom_attn_enc.")},
+        "cot_cl": cot["cl"].detach().to(torch.float64).clone(),
+        "cot_plm": cot["plm"].detach().to(torch.float64).clone(),
+        "cot_ai": cot["ai"].detach().to(torch.float64).clone(),
+        "grad_f64": {n: g.detach().to(torch.float64).cpu().clone()
+                     for n, g in pgrad.items() if g is not None},
         "provenance": {
             "batch": str(a.bundle / "batch_step003.pt"), "batch_sha256": got,
             "draws": str(a.bundle / "draws_recycles0.pt"),
