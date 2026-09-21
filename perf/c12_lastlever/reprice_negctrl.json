@@ -1,0 +1,63 @@
+{
+ "source": "perf/c12_diffusion_head/ab_qkv_qb2c3_apb_trunk.json",
+ "negctrl": true,
+ "clock_MHz": 1350,
+ "clock_in_session_artifact": "unavailable: [Errno 2] No such file or directory: 'tt-smi'",
+ "in_situ": {
+  "deleted_s": 0.34131,
+  "moved_s": 0.31172,
+  "booked_s": 0.234,
+  "kill_s": 0.1
+ },
+ "break_even": {
+  "ratio_that_reaches_the_kill_line": 1.7741242140382394,
+  "ratio_that_reaches_zero": 2.094924932631849
+ },
+ "signatures": [
+  {
+   "sig": "apb_trunk",
+   "reps": 7,
+   "ms_per_call": {
+    "A0_linear_split": 0.09332999979960732,
+    "A1_mm_split": 0.07620700125698932,
+    "B_head_major": 0.06349199975375086,
+    "AA_control": 0.06643700180575252
+   },
+   "aa_floor_pct": 28.81495558941162,
+   "over_A0": {
+    "A1_mm_split": 0.8165327485333387,
+    "B_head_major": 0.6802957236695291,
+    "AA_control": 0.7118504441058838
+   },
+   "calls_per_fold": 264,
+   "delivers_ms_per_call": 0.02983800004585646,
+   "delivers_s_per_fold": 0.007877232012106106,
+   "op_class_cost_ms_per_call": -0.017122998542618006,
+   "op_class_cost_s_per_fold": -0.004520471615251154,
+   "torch_equal_A1_vs_B": false,
+   "max_abs_A1_vs_B": 0.0703125,
+   "effect_pct_vs_A0": 31.970427633047095,
+   "effect_over_aa_floor": 1.1095081348934992,
+   "above_aa_floor": true
+  }
+ ],
+ "measured_class_share": {
+  "signature": "apb_trunk",
+  "in_situ_s": 0.00581,
+  "class_in_situ_s": 0.31376,
+  "share_pct": 1.8517338092809792,
+  "unmeasured_s": 0.30795
+ },
+ "verdict": {
+  "measured_delivery_s": 0.007877232012106106,
+  "unmeasured_signatures": [
+   "dit_token",
+   "apb_trunk(atom)",
+   "atom_kv"
+  ],
+  "book_entry_s": 0.007877232012106106,
+  "booked_was_s": 0.234,
+  "correction_s": -0.2261227679878939,
+  "transcription_correct_where_it_runs": false
+ }
+}

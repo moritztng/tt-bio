@@ -60,6 +60,12 @@ class _Stub(types.ModuleType):
     def deallocate(self, t):
         pass
 
+    def Shape(self, dims):
+        return tuple(int(d) for d in dims)
+
+    def allocate_tensor_on_device(self, shape, dtype, layout, device, memory_config):
+        return torch.zeros(*shape, dtype=dtype)
+
     def synchronize_device(self, d):
         pass
 
@@ -150,8 +156,19 @@ def harness(monkeypatch):
                 .reshape(2, B, K * n_heads, A, head_dim).contiguous()
         return qh, kvh[0], kvh[1]
 
+    def fake_generic_mm(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, **kw):
+        """Fill the caller's destination in place, the way the real generic_op does."""
+        out = in0.float() @ in1.float()
+        bias = kw.get("bias")
+        if bias is not None:
+            out = out + bias.float()
+        outs[0].copy_(out.to(in0.dtype))
+        return outs[0]
+
+    import tt_bio.mm_generic as MG
     monkeypatch.setattr(TQ, "qkv_heads", fake_qkv_heads)
     monkeypatch.setattr(TQ, "atom_qkv_heads", fake_atom)
+    monkeypatch.setattr(MG, "generic_minimal_matmul", fake_generic_mm)
     # widths whose (kt, nt) keys really are in _MM_BLOCK, so `_qkv_mm_config` returns a config:
     # fused qkv [128, 3*4*32] -> (4, 12); atom q [128, 4*32] -> (4, 4); atom kv [128, 2*4*32] -> (4, 8).
     # seq 128 so mt = 4 clears the (4, 12) entry`s M_block of 4; at 64 the config gate declines.
@@ -181,12 +198,19 @@ def test_fused_arms_run_interleaved_and_report_the_ratios(harness):
     r = mod._arms(DEV, mod.SIGS[0], reps)
     assert r["torch_equal_A1_vs_B"] is True, r
     assert r["shape_mismatch"] is None
-    assert set(r["ms_per_call"]) == {"A0_linear_split", "A1_mm_split", "B_head_major",
-                                     "AA_control"}
+    assert set(r["ms_per_call"]) == {"A0_linear_split", "A1_mm_split", "A2_generic_split",
+                                     "B_head_major", "AA_control"}
     for arm, v in r["raw_ms"].items():
         assert len(v) == reps, f"{arm}: cold rep not discarded per arm ({len(v)} kept)"
     assert r["B_over_A1"] > 0 and r["A1_over_A0"] > 0 and r["aa_floor_pct"] >= 0
     assert "minimal_matmul" in stub.calls and "linear" in stub.calls
+    # every ratio is against A0 and reads the way it is named: > 1 is SLOWER
+    med, over = r["ms_per_call"], r["over_A0"]
+    assert set(over) == set(med) - {"A0_linear_split"}
+    for arm, ratio in over.items():
+        assert ratio == pytest.approx(med[arm] / med["A0_linear_split"]), arm
+    assert r["A1_over_A0"] == pytest.approx(med["A1_mm_split"] / med["A0_linear_split"])
+    assert r["B_over_A1"] == pytest.approx(med["B_head_major"] / med["A1_mm_split"])
 
 
 def test_atom_arms_run_and_the_split_is_the_shipped_chain(harness):

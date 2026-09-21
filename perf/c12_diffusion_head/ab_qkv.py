@@ -111,11 +111,17 @@ def _timed(device, arms, reps):
             if rep:
                 times[key].append(dt)
     med = {k: sorted(v)[len(v) // 2] for k, v in times.items()}
-    a0, a1, b, aa = (med["A0_linear_split"], med["A1_mm_split"], med["B_head_major"],
-                     med["AA_control"])
-    return {"ms_per_call": med, "reps": reps, "raw_ms": times,
-            "aa_floor_pct": abs(aa - a0) / a0 * 100.0,
-            "B_over_A1": a1 / b, "A1_over_A0": a0 / a1}
+    a0, aa = med["A0_linear_split"], med["AA_control"]
+    # Every ratio is against A0, the chain that ships, and is written so that > 1 means SLOWER.
+    # The two fields this used to emit were the reciprocals of their own names -- `B_over_A1` held
+    # a1 / b -- so an arm 22 % slower printed 0.82 and read as a win. Named the way they are read.
+    out = {"ms_per_call": med, "reps": reps, "raw_ms": times,
+           "aa_floor_pct": abs(aa - a0) / a0 * 100.0,
+           "over_A0": {k: v / a0 for k, v in med.items() if k != "A0_linear_split"}}
+    if "A1_mm_split" in med:
+        out["B_over_A1"] = med["B_head_major"] / med["A1_mm_split"]
+        out["A1_over_A0"] = med["A1_mm_split"] / a0
+    return out
 
 
 def plan(grid=(11, 10)):
@@ -264,7 +270,9 @@ def _arms(device, sig, reps, arm_only=None):
     import ttnn
     sys.path.insert(0, str(OUT.parents[1]))
     from tt_bio import triatt_qkv as TQ
-    from tt_bio.tenstorrent import CORE_GRID_MAIN, _qkv_mm_config
+    from tt_bio import mm_generic as MG
+    from tt_bio.tenstorrent import (CORE_GRID_MAIN, COMPUTE_GRID_MAIN, _qkv_mm_config,
+                                    _mm_block_at_site)
 
     name, b, s, c_in, heads, hd, phd, _calls, _in_situ = sig
     torch.manual_seed(0)
@@ -286,6 +294,7 @@ def _arms(device, sig, reps, arm_only=None):
               fp32_dest_acc_en=True, packer_l1_acc=True)
     cfg = _qkv_mm_config(x, w, "apb")
     assert cfg is not None, f"{name}: no block config"
+    blk = _mm_block_at_site((c_in + 31) // 32, (3 * heads * phd + 31) // 32, "apb")
 
     def a0():
         qkv = ttnn.linear(x, w, bias=bias, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
@@ -309,8 +318,26 @@ def _arms(device, sig, reps, arm_only=None):
         assert out is not None, f"{name}: head-major declined -- {TQ.APB_REJECTS}"
         return out
 
-    arms = {"A0_linear_split": a0, "A1_mm_split": a1, "B_head_major": arm_b,
-            "AA_control": a0}
+    def a2():
+        """The tt-bio transcription with the PLAIN writer, then the stock split.
+
+        A1 -> A2 is the transcription (wheel `minimal_matmul` vs `generic_op` on our kernels) and
+        A2 -> B is the destination change alone. Without this arm the two are one reading, which is
+        how pass 10 came to attribute a 9-ULP value difference to a tile map its own host check had
+        proved is a permutation.
+        """
+        full = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([b, s, 3 * heads * phd]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+            device, ttnn.DRAM_MEMORY_CONFIG)
+        MG.generic_minimal_matmul(device, x, w, [full], (blk, tuple(COMPUTE_GRID_MAIN)),
+                                  MG.ckc_args(ckc), {}, TQ.KERNEL_DIR, bias=bias)
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+            ttnn.unsqueeze(full, 1), num_heads=heads, num_kv_heads=heads, transpose_k_heads=False)
+        ttnn.deallocate(full)
+        return q, k, v
+
+    arms = {"A0_linear_split": a0, "A1_mm_split": a1, "A2_generic_split": a2,
+            "B_head_major": arm_b, "AA_control": a0}
     # torch.equal(A1, B) BEFORE any timing, so a wrong transcription never reaches a number.
     if arm_only:
         return _one_arm(device, name, arms, arm_only)
