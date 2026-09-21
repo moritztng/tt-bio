@@ -1,12 +1,12 @@
 {
- "arm": "zero",
+ "arm": "shipped_aa2",
  "side": "ours",
  "ref_tree": null,
  "steps": [
   {
    "k": 1,
    "lr": 0.0,
-   "grad_norm": 0.0,
+   "grad_norm": 3.906957735051199,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -21,12 +21,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 183.44844961166382
+   "wall_s": 180.6327772140503
   },
   {
    "k": 2,
    "lr": 1.8e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 3.9069577314251815,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -41,12 +41,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 352.0324807167053
+   "wall_s": 339.7755208015442
   },
   {
    "k": 3,
    "lr": 3.6e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 4.156886039339877,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -61,12 +61,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 510.2862048149109
+   "wall_s": 496.74786901474
   },
   {
    "k": 4,
    "lr": 5.4e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 3.5729808085181674,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -81,12 +81,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 623.5301399230957
+   "wall_s": 646.7284767627716
   },
   {
    "k": 5,
    "lr": 7.2e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 3.9136805027515953,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -101,12 +101,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 777.4168701171875
+   "wall_s": 824.0703504085541
   },
   {
    "k": 6,
    "lr": 9e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 4.305905446782944,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -121,12 +121,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 950.6115322113037
+   "wall_s": 972.1266567707062
   },
   {
    "k": 7,
    "lr": 1.08e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 4.204150359273348,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -141,12 +141,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1101.4521617889404
+   "wall_s": 1130.8522911071777
   },
   {
    "k": 8,
    "lr": 1.26e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 4.239198570007141,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -161,12 +161,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1255.904634475708
+   "wall_s": 1345.916259765625
   },
   {
    "k": 9,
    "lr": 1.44e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.7842655040345816,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -181,12 +181,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1406.9616084098816
+   "wall_s": 1523.113368988037
   },
   {
    "k": 10,
    "lr": 1.6199999999999997e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.496225304767872,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -201,12 +201,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1575.9264607429504
+   "wall_s": 1706.0508930683136
   },
   {
    "k": 11,
    "lr": 1.8e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.890892856989087,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -221,12 +221,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1743.8775067329407
+   "wall_s": 1892.1001629829407
   },
   {
    "k": 12,
    "lr": 1.9799999999999997e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.641223535691941,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -241,12 +241,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1910.03467130661
+   "wall_s": 2075.3158361911774
   },
   {
    "k": 13,
    "lr": 2.16e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.6940293047623034,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -261,12 +261,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2082.5207023620605
+   "wall_s": 2259.769506216049
   },
   {
    "k": 14,
    "lr": 2.34e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.109021677657183,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -281,12 +281,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2255.3592307567596
+   "wall_s": 2447.6565148830414
   },
   {
    "k": 15,
    "lr": 2.52e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 3.234651492099566,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -301,12 +301,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2426.4610266685486
+   "wall_s": 2626.452644586563
   },
   {
    "k": 16,
    "lr": 2.7e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 2.73535364216794,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -321,12 +321,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2608.695207834244
+   "wall_s": 2810.1424157619476
   },
   {
    "k": 17,
    "lr": 2.88e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 2.30200339021209,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -341,12 +341,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2791.628685235977
+   "wall_s": 2991.3456337451935
   },
   {
    "k": 18,
    "lr": 3.06e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 2.5907000235329147,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -361,12 +361,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2965.4938282966614
+   "wall_s": 3153.2021408081055
   },
   {
    "k": 19,
    "lr": 3.2399999999999995e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 2.246305443531625,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -381,12 +381,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 3145.1973965168
+   "wall_s": 3304.5702843666077
   },
   {
    "k": 20,
    "lr": 3.42e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 2.6316018329985553,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -401,7 +401,7 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 3313.6386282444
+   "wall_s": 3451.940195083618
   }
  ],
  "evidence": {
@@ -462,5 +462,5 @@
  },
  "n_steps": 20,
  "complete": true,
- "wall_s": 3352.9328758716583
+ "wall_s": 3472.9550762176514
 }

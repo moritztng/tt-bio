@@ -1,12 +1,12 @@
 {
- "arm": "zero",
+ "arm": "permute",
  "side": "ours",
  "ref_tree": null,
  "steps": [
   {
    "k": 1,
    "lr": 0.0,
-   "grad_norm": 0.0,
+   "grad_norm": 3.906957735051199,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -21,12 +21,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 183.44844961166382
+   "wall_s": 191.3194420337677
   },
   {
    "k": 2,
    "lr": 1.8e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02417626781401132,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -41,12 +41,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 352.0324807167053
+   "wall_s": 331.5672698020935
   },
   {
    "k": 3,
    "lr": 3.6e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024258795117999037,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -61,12 +61,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 510.2862048149109
+   "wall_s": 478.894464969635
   },
   {
    "k": 4,
    "lr": 5.4e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024400886490128736,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -81,12 +81,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 623.5301399230957
+   "wall_s": 619.3864367008209
   },
   {
    "k": 5,
    "lr": 7.2e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02391394381020437,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -101,12 +101,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 777.4168701171875
+   "wall_s": 743.0143036842346
   },
   {
    "k": 6,
    "lr": 9e-06,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02412340253988683,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -121,12 +121,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 950.6115322113037
+   "wall_s": 889.7142815589905
   },
   {
    "k": 7,
    "lr": 1.08e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02373463652363718,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -141,12 +141,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1101.4521617889404
+   "wall_s": 1034.842931509018
   },
   {
    "k": 8,
    "lr": 1.26e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.023822360638879662,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -161,12 +161,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1255.904634475708
+   "wall_s": 1176.5778107643127
   },
   {
    "k": 9,
    "lr": 1.44e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.0240158347532696,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -181,12 +181,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1406.9616084098816
+   "wall_s": 1322.622350692749
   },
   {
    "k": 10,
    "lr": 1.6199999999999997e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024035716815313447,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -201,12 +201,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1575.9264607429504
+   "wall_s": 1462.5254652500153
   },
   {
    "k": 11,
    "lr": 1.8e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024104748404616395,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -221,12 +221,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1743.8775067329407
+   "wall_s": 1610.1972398757935
   },
   {
    "k": 12,
    "lr": 1.9799999999999997e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02418077851346533,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -241,12 +241,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 1910.03467130661
+   "wall_s": 1757.454205274582
   },
   {
    "k": 13,
    "lr": 2.16e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.023934575018773316,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -261,12 +261,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2082.5207023620605
+   "wall_s": 1895.0430653095245
   },
   {
    "k": 14,
    "lr": 2.34e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024095638962965203,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -281,12 +281,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2255.3592307567596
+   "wall_s": 2040.659921169281
   },
   {
    "k": 15,
    "lr": 2.52e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024391258428621703,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -301,12 +301,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2426.4610266685486
+   "wall_s": 2184.517101764679
   },
   {
    "k": 16,
    "lr": 2.7e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.02490985927510156,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -321,12 +321,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2608.695207834244
+   "wall_s": 2322.120008945465
   },
   {
    "k": 17,
    "lr": 2.88e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024828817934808248,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -341,12 +341,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2791.628685235977
+   "wall_s": 2466.1301946640015
   },
   {
    "k": 18,
    "lr": 3.06e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024706917503429505,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -361,12 +361,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 2965.4938282966614
+   "wall_s": 2611.719669342041
   },
   {
    "k": 19,
    "lr": 3.2399999999999995e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024756302133223645,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -381,12 +381,12 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 3145.1973965168
+   "wall_s": 2726.051031112671
   },
   {
    "k": 20,
    "lr": 3.42e-05,
-   "grad_norm": 0.0,
+   "grad_norm": 0.024501887832532213,
    "clip": 1.0,
    "per_sample": true,
    "per_sample_clip_coefs": [
@@ -401,7 +401,7 @@
    "participation_spread": [
     4
    ],
-   "wall_s": 3313.6386282444
+   "wall_s": 2866.314876317978
   }
  ],
  "evidence": {
@@ -458,9 +458,15 @@
    "T": 351,
    "?": 0
   },
-  "permute_control": null
+  "permute_control": {
+   "tensors_total": 980,
+   "tensors_permuted": 970,
+   "tensors_left_in_place_unique_shape": 10,
+   "shape_classes": 28,
+   "shape_classes_rotatable": 18
+  }
  },
  "n_steps": 20,
  "complete": true,
- "wall_s": 3352.9328758716583
+ "wall_s": 2885.584003686905
 }
