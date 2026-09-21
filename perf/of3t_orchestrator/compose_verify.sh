@@ -486,6 +486,35 @@ echo "--- dispatch card tokens"
 # genuinely stale count. CPU-only, no artifacts read.
 # (3e) GO condition 5, priced. The plan for each USER-FACING defect is asserted against the live
 # triage the gate reads, so it refuses rather than reporting a stale plan as a current one.
+# (3f) INFERENCE MUST NOT REGRESS (Moritz, 2026-09-21, verbatim: "make sure regular inference is
+# not changed to softmax fp64, not made slower. cause it was already in a good state. we did this
+# only for training. i dont want to see regression in inference.")
+#
+# The fp32 softmax sites are on the SHARED triangle path -- af2.py, openfold3_trunk.py,
+# openfold3_template.py, openfold3_msa_embedder.py and openfold3_confidence.py all set
+# fp32_softmax=True -- and the composition already wires host_f64_softmax_site into Protenix as
+# well as OpenFold3. So a default that reaches inference reaches EVERY model in tt-bio.
+#
+# The shipping line is main. This asserts it on every compose rather than once: no float64
+# softmax symbol may exist on origin/main at all. Defaults-off in the composition is checked
+# separately by assert_new_levers_default_off.py; this is the stronger, simpler property.
+echo "--- inference: no float64 softmax on main"
+git fetch -q origin main 2>/dev/null || true
+_f64_on_main=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/main -- tt_bio/ 2>/dev/null || true)
+# Probe: the same grep must FIND the path on the composition, or this check is reading nothing
+# and its silence on main means nothing (A17).
+_f64_on_compose=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/wk/of3t -- tt_bio/ 2>/dev/null || true)
+if [ -z "$_f64_on_compose" ]; then
+  echo "COMPOSE: the float64-softmax grep finds nothing on wk/of3t either, so its silence on main"
+  echo "         is uninformative -- the probe did not fire (A17)"; exit 1
+fi
+if [ -n "$_f64_on_main" ]; then
+  echo "COMPOSE: a float64 softmax path is ON MAIN, which is the shipping line for every model in"
+  echo "         tt-bio, not just OpenFold3 --"; printf '           %s\n' $_f64_on_main
+  echo "         Moritz: \"i dont want to see regression in inference\". Revert it."; exit 1
+fi
+echo "  ok    no float64 softmax symbol on origin/main; the probe finds $(printf '%s\n' $_f64_on_compose | wc -l) file(s) on wk/of3t, so the grep reads something"
+
 echo "--- user-facing closure plan"
 "$PY" "$HERE/userfacing/closure_plan.py" | tail -4 || \
   { echo "COMPOSE: the USER-FACING closure plan is stale against UNFIXED_TRIAGE.json"; exit 1; }

@@ -9326,3 +9326,57 @@ VERDICT already applies to every other number it carries, and it should not have
 sentence exempt from it. One smaller trap recorded with it: `traj_renorm.json`'s `arm` field reads
 **`repin`**, so a reader picking artifacts by filename gets the repin arm believing it is the renorm
 one.
+
+### D137. The host float64 softmax is gated on a GLOBAL ENV FLAG and its entry point accepts a raw inference tensor by design, which is the one gating shape the 2026-09-21 constraint names as forbidden. FOUND by the orchestrator (pass 246). **UNFIXED**; nothing ships, and the repair is one condition.
+
+Moritz, verbatim (2026-09-21): *"make sure regular inference is not changed to softmax fp64, not
+made slower. cause it was already in a good state. we did this only for training. i dont want to see
+regression in inference."* The brief adds: *"Gate it on the tape being installed, not on a global
+flag — a global flag is exactly how `tt-bio-shared-diffusion-global-env-default-regression`
+happened."*
+
+**What the composition actually does.** `host_f64_softmax_site(token, default=False)` returns
+`_site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)` — **a global env flag with a per-site
+grammar, and no reference to the tape**. The call-time entry is:
+
+```python
+def site_softmax(x, dim=-1, *, host_f64=False, **kw):
+    if not host_f64:
+        HOST_F64_SOFTMAX_STATS["declined"] += 1
+        return ttnn.softmax(x, dim=dim, **kw)
+    return host_f64_softmax(x, dim)
+```
+
+and `host_f64_softmax`'s own docstring says *"`x` may be a raw ttnn tensor (**inference**) or a taped
+`autograd.Tensor` (training)"*. So an inference fold reaches the float64 round trip if and only if
+someone sets one environment variable. That is precisely the shape the constraint forbids, and the
+memory entry it cites is a shared global default that regressed a model nobody was working on.
+
+**The blast radius is not OpenFold3.** The composition wires `host_f64_softmax_site` into
+`openfold3_atom_transformer.py`, `openfold3_diffusion_transformer.py` **and `protenix.py`**, and the
+fp32 softmax sites it sits beside are the shared triangle path (`af2.py`, `openfold3_trunk.py`,
+`openfold3_template.py`, `openfold3_msa_embedder.py`, `openfold3_confidence.py`). One flag reaches
+every model in tt-bio.
+
+**Nothing ships today, and that is measured rather than assumed.** No float64-softmax symbol exists
+on `origin/main` — asserted on every compose from pass 246, with a probe that finds the path on
+`wk/of3t` so the silence on main is informative. Every site defaults False, checked by
+`assert_new_levers_default_off.py`, and a fold with the path present and off is byte-identical by
+digest on OpenFold3, Protenix-v2 and OpenDDE.
+
+**The repair is one condition, in `site_softmax`**: take the host path only when the tape is
+installed, the `ops.taping()` idiom `_triangle_mul_memory_config` already uses, with a
+`refused_no_tape` counter beside `served`/`declined` so a refusal is readable rather than silent.
+Then the env flag can only choose **which taped sites** use it, never whether inference does.
+
+**Why it is not done in this pass.** The code is on `wk/of3t-f64softmax`, a CONCLUDED row's branch,
+and reaches the orchestrator only through the composition; editing `tt_bio/tenstorrent.py` from here
+would make a third row an editor of a file whose co-edit declaration names two. It is filed with the
+exact change and the exact file so the next row that touches that path does it, and **it blocks
+`land-standing` for this path** regardless of who does it.
+
+**And a clarification the record needs, because I asked Moritz a question that this changes.**
+`TT_BIO_SOFTMAX_BW_RENORM` — the lever in D56, which pin 9629 asks him to ship — lives in
+`taped_ttnn.py` and is **backward-only**, so it runs only under a tape and **cannot reach an
+inference fold at all**. The float64 softmax is the one that would. The two must not be answered as
+one question.
