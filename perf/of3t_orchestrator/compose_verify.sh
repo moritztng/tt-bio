@@ -77,7 +77,10 @@ done
 #                 it created `perf/of3t_pairbias/attn_f64.py` -- the concluded row of3t-pairbias's
 #                 namespace -- add/add. Its brief now carries the STANDING base-on-wk/of3t and
 #                 own-namespace rules that the whole 9629 dispatch wave was sent out without.
-HELD_OUT="d10d24-unify d56-renorm d1-pairbias"
+# RELEASED pass 273: d10d24-unify rebased onto wk/of3t and now merges clean (`git merge-tree`
+# against the published composition), so the hold is lifted. A hold that outlives the thing it was
+# for is the same rust the D149 ratchet refuses.
+HELD_OUT="d56-renorm d1-pairbias"
 for _h in $HELD_OUT; do
   _keep=""
   for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
@@ -681,6 +684,13 @@ echo "--- capture provenance records unexpected_keys"
 # prose said 0.4.3, because three `sys.path.insert(1, p)` calls reverse the order they were written
 # to set. Narrow on purpose: the reversing LOOP, not the absence of a resolution read -- the broad
 # version flagged 18 further files whose second insert is `os.getcwd()`.
+# (3k) D151. One env var, two module-level reads, two backends -- and a comment asserting there
+# is only one flag. Both default off today, so this is green when it lands; it goes red the moment
+# a row flips one of the two, which is what of3t-d56-renorm's branch does.
+echo "--- one flag, one default (D151)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
+  { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }
+
 echo "--- sys.path order: no new tree-resolution trust (D149)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_path_order_ratchet.py . ) || \
   { echo "COMPOSE: a new of3t script trusts a package-path constant instead of the resolution"; exit 1; }
