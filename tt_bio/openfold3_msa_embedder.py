@@ -21,7 +21,7 @@ import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site, pwa_single_shot_bytes,
+    accurate_softmax_site, pwa_single_shot_bytes, triatt_sdpa_hifi_site,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -85,7 +85,8 @@ class MSAModuleBlock:
         self.pair_stack = PairformerLayer(
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
-            accurate_softmax=accurate_softmax_site("openfold3.msa"))
+            accurate_softmax=accurate_softmax_site("openfold3.msa"),
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"))
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None, own_m: bool = False):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded

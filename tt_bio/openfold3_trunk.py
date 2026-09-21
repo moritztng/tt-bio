@@ -43,7 +43,8 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, Pairformer, accurate_softmax_site
+from .tenstorrent import (Module, Pairformer, accurate_softmax_site,
+                          triatt_sdpa_hifi_site)
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -138,7 +139,8 @@ class OF3Trunk(Module):
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
-            accurate_softmax=accurate_softmax_site("openfold3.trunk"))
+            accurate_softmax=accurate_softmax_site("openfold3.trunk"),
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk"))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config,
             transpose_bias=tri_att_end_bias_follows_pair)
