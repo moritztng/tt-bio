@@ -1,0 +1,208 @@
+{
+ "arms": {
+  "opendde": {
+   "default": {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 62.3
+   },
+   "f64": {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": null,
+    "f64_flag": "all",
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 66.1
+   },
+   "off": {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 81.5
+   },
+   "on": {
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 61.7
+   }
+  },
+  "openfold3": {
+   "default": {
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 40.5
+   },
+   "f64": {
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": null,
+    "f64_flag": "all",
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 39.9
+   },
+   "off": {
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 40.0
+   },
+   "on": {
+    "cifs": {
+     "cdk2x2_128.cif": "35d36fb149583ae5627085ce60db8e7127726a793e9dbf5be7b779f5c25af1b1"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 39.5
+   }
+  },
+  "protenix-v2": {
+   "default": {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.3
+   },
+   "f64": {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": null,
+    "f64_flag": "all",
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.3
+   },
+   "off": {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.4
+   },
+   "on": {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": "1",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.3
+   }
+  }
+ },
+ "card": "3",
+ "failures": [
+  "openfold3: the f64 control did not move the digest, so the byte-identity above is uninformative",
+  "openfold3: no process in the on arm read the flag as true -- the arm ran the shipped configuration under another name",
+  "openfold3: the default arm did not read the flag as true -- the shipped default is not the one this run is scoring",
+  "openfold3: no process reported a counter at all, so the zeros above are the dump not firing rather than the branch not running",
+  "protenix-v2: the f64 control did not move the digest, so the byte-identity above is uninformative",
+  "protenix-v2: no process in the on arm read the flag as true -- the arm ran the shipped configuration under another name",
+  "protenix-v2: the default arm did not read the flag as true -- the shipped default is not the one this run is scoring",
+  "protenix-v2: no process reported a counter at all, so the zeros above are the dump not firing rather than the branch not running",
+  "opendde: the f64 control did not move the digest, so the byte-identity above is uninformative",
+  "opendde: no process in the on arm read the flag as true -- the arm ran the shipped configuration under another name",
+  "opendde: the default arm did not read the flag as true -- the shipped default is not the one this run is scoring",
+  "opendde: no process reported a counter at all, so the zeros above are the dump not firing rather than the branch not running"
+ ],
+ "fixture": "/home/ttuser/.coworker/wt/of3t-d56-renorm/perf/size512/fixtures/cdk2x2_128.yaml",
+ "tree": "/home/ttuser/.coworker/wt/of3t-d56-renorm",
+ "verdict": "FAIL"
+}

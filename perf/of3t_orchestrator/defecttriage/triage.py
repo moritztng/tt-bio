@@ -164,18 +164,10 @@ TABLE = {
                   "247x inside the bar, so the share our device failed is a port gap and not a bar "
                   "problem. A statement about this campaign's bar, never disposed of; it changes "
                   "nothing a user of the shipped tree gets."),
-    "D1": (USER, "The trunk pair bias ships at 1/sqrt(24) = 0.204 of its intended value in every "
-                 "OF3 fold served. The repair is written and HELD because applying it measured "
-                 "0.149 A WORSE at rank 0, so what ships is a deviation with a repair in hand. "
-                 "Whether to take the regression is Moritz's call, like D10 and D24."),
     "D136": (CAMP, "GO condition 3's headline was attributed to the shipped default and measured "
                    "on the repin arm, which the row recorded as default-off and unmerged. A "
                    "correction to this campaign's own record; of3t-trajwide is measuring the "
                    "post-fix shipped default now."),
-    "D137": (CAMP, "The host float64 softmax is gated on a global env flag rather than on the tape "
-                   "and its entry point accepts a raw inference tensor. Nothing ships -- no float64 "
-                   "softmax symbol exists on main, asserted every compose -- so it changes nothing a "
-                   "user gets today; it blocks land-standing for that path."),
     "D140": (CAMP, "Two of of3t-trajwide's arms -- norebind and zero, both CONTROLS -- died with "
                    "no error and no done marker while the row was between passes. A fleet/row "
                    "observability defect in this campaign's own execution, not something a user "
@@ -184,10 +176,10 @@ TABLE = {
                    "a load that drops 24 trained tensors reads clean in every artifact derived "
                    "from it. An instrument-provenance defect in this campaign's own reference "
                    "chain; it changes nothing a user of the shipped tree gets."),
-    "D149": (CAMP, "of3t-trajwide's reference side imports openfold3 0.5.0 while its constant and "
-                   "its prose say 0.4.3, because three sys.path.insert(1, p) calls reverse the "
-                   "order. A defect in this campaign's own measurement harness; the shipped tree "
-                   "does not import either tree, and no user-visible behaviour depends on it."),
+    "D152": (CAMP, "A qb2 reboot destroyed an in-flight float64 reference run whose only record "
+                   "was /tmp, and the row was parked on a clock rather than on liveness. A defect "
+                   "in how this campaign stores and waits on its own long runs; no shipped "
+                   "behaviour depends on it."),
     "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
                    "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
                    "discharged inside pass 199 itself. A defect in this campaign's own record of "

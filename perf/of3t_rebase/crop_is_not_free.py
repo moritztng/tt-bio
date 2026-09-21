@@ -24,9 +24,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import sys
 from pathlib import Path
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 
 import torch
 
@@ -37,7 +43,7 @@ BAR = 5.0e-02
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--cap", default="/home/ttuser/of3t_rebase/cap043")
+    ap.add_argument("--cap", default=refpath.CAP)
     ap.add_argument("--block", type=int, default=0)
     ap.add_argument("--crop", type=int, default=64)
     ap.add_argument("--out", type=Path,

@@ -1,0 +1,11 @@
+{
+ "AA_floor_s": 0.2949,
+ "AB_median_s": -0.071,
+ "base_median_s": 1.2104,
+ "bound": "weak by construction: subprocess start dominates, so this rules out a regression larger than the 0.2949 s floor and nothing finer",
+ "gated_median_s": 1.141,
+ "readable_above_the_floor": false,
+ "rounds": 9,
+ "slower": false,
+ "verdict": "not slower: A/B -0.0710 s is inside the 0.2949 s A/A floor"
+}

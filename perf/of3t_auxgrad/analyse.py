@@ -15,15 +15,21 @@ Three questions the per-arm JSONs cannot answer on their own:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
+
 import torch
 
-D = Path("/home/ttuser/.coworker/wt/of3t-auxgrad/perf/of3t_auxgrad")
+D = Path(__file__).resolve().parent
 L = Path("/home/ttuser/of3t_auxgrad_logs")
 BAR = 5.0e-2
-REF = Path("/home/ttuser/of3t_rebase/bundle_min_043/grads_f64_043.pt")
+REF = Path(refpath.BUNDLE) / "grads_f64_043.pt"
 
 
 def main():

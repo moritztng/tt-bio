@@ -48,14 +48,14 @@ import ast
 import pathlib
 import sys
 
-#: path -> why it is frozen. Shrink-only.
-FROZEN = {
-    "perf/of3t_trajwide/trajwide.py": "D149, owner of3t-trajwide, AMENDMENT 3 dispatched pass 271",
-    "perf/of3t_trajwide/price_ref.py": "D149, same row, same pattern",
-    "perf/of3t_trajwide/ceiling.py": "D149, same row, same pattern",
-    "perf/of3t_trajwide/ceiling_closures.py": "D149, same row, same pattern",
-    "perf/of3t_trajwide/val_ref.py": "D149, found by this sweep rather than by reading",
-}
+#: path -> why it is frozen. Shrink-only, and as of pass 272 it is EMPTY: `of3t-trajwide` repaired
+#: all five of its files one pass after AMENDMENT 3, so the ratchet now says no of3t script does
+#: this at all, which is the strongest state it can be in and the only one worth defending. The
+#: row's repair is better than the amendment asked for: `perf/of3t_trajwide/refpath.py` holds one
+#: `install()` that appends the dep trees and prepends only the tree under test, and one
+#: `assert_resolved()` that imports the package, reads `openfold3.__file__` and refuses with the
+#: resolved path -- shared by all five scripts instead of five copies of a fix.
+FROZEN = {}
 
 RESOLUTION_READ = ("openfold3.__file__", "openfold3.__path__", "of3.__file__")
 
@@ -125,9 +125,14 @@ def main(argv):
             print("  DRIFT %s is repaired but still frozen -- remove it from FROZEN (D149)" % f)
         print("FAIL the ratchet has %d stale entr(y/ies); it may only shrink" % len(healed))
         return 1
-    print("ok    %d of3t file(s) insert paths at a fixed index in a loop without reading the "
-          "resolution back, all %d frozen at pass 271 (probe fires, a lone insert does not); a new "
-          "one fails" % (len(found), len(FROZEN)))
+    if not FROZEN:
+        print("ok    NO of3t file inserts paths at a fixed index in a loop without reading the "
+              "resolution back -- the D149 ratchet is empty (probe fires, a lone insert does not); "
+              "a new one fails")
+    else:
+        print("ok    %d of3t file(s) insert paths at a fixed index in a loop without reading the "
+              "resolution back, all %d frozen (probe fires, a lone insert does not); a new one "
+              "fails" % (len(found), len(FROZEN)))
     return 0
 
 
