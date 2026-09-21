@@ -176,6 +176,10 @@ TABLE = {
                    "and its entry point accepts a raw inference tensor. Nothing ships -- no float64 "
                    "softmax symbol exists on main, asserted every compose -- so it changes nothing a "
                    "user gets today; it blocks land-standing for that path."),
+    "D140": (CAMP, "Two of of3t-trajwide's arms -- norebind and zero, both CONTROLS -- died with "
+                   "no error and no done marker while the row was between passes. A fleet/row "
+                   "observability defect in this campaign's own execution, not something a user "
+                   "of the shipped tree can reach."),
     "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
                   "and the shipped default is the other way; by mass it is 2.5 %. A training-"
                   "gradient decision, not an inference output a user sees."),

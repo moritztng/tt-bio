@@ -9508,3 +9508,41 @@ campaign's own view is corrected here instead.
 duplicate asks and found none. What I did not check was whether the campaign had already **decided**
 the thing — a different question, answered by PROTOCOL rather than by the ask log. Before an ask
 goes out, grep the protocol for the rule it proposes, not just the queue for the question.
+
+### D140. Two of `of3t-trajwide`'s six arms died silently — no error, no traceback, no `done rc=` marker, no process — and nothing in the fleet can see it, because the row's own worker is between passes. FOUND by the orchestrator (pass 254). **UNFIXED**; the row is told in place.
+
+Observed on qb2 at 09:24:02 UTC, with the row's state doc still reading **IN FLIGHT**:
+
+    steplogs written   theirs, shipped, shipped_aa2, permute, stale        (5 of 7 arms)
+    ours_stale.log     === stale done rc=0  2026-09-21T09:16:05Z
+    ours_norebind.log  === norebind start   2026-09-21T09:16:05Z
+                       ... discovery: 980 device weights walked, 848 carry a checkpoint name
+                       ... forward rel at level 10: 2.002969e-02        <- last line, 6 total
+    last written       09:16:28, i.e. ~8 minutes before this reading
+    processes          NO `--side ours` and no `run_ours.sh` anywhere
+    ours_chain.log     EMPTY.  chain.log EMPTY.
+
+So `norebind` started, walked its 980 weights, took one forward — and vanished between the first
+forward and the first step. `zero`, the A16 baseline, never started. **Neither has a steplog.**
+
+**Not an OOM, checked rather than assumed.** `/var/log/kern.log`'s most recent kill is
+**02:16:33**, the pairformer rung already recorded in `SCOPE_LADDER.json`; there is nothing at
+09:16, and the host currently reports **193 GB available** of 249. The log carries no error,
+traceback, "killed" or "memory" line in any of its six lines.
+
+**What is still alive is the reference side**: `--side theirs --arm theirs_aa2` at **987 % CPU**,
+2888 s in, which is the legitimate A/A repeat of the float64 arm. So the row is not dead — half of
+it is running and the other half stopped without saying so.
+
+**Why this is the orchestrator's to catch.** The row's worker is between passes, so nothing of its
+own is watching; the fleet sees a launched task, not a missing arm; and `ours_chain.log` is EMPTY,
+so whatever sequenced those arms left no record of its own exit. This is the
+`detached-ssh-fold-process-invisible-to-fleet` shape with the detail that makes it worse — **the
+arms that died are both CONTROLS**. `norebind` is the break control that must still saturate at 1.0
+and `zero` is the A16 baseline; a run that quietly loses its controls and keeps its treatment arms
+is a run that will look finished and prove nothing.
+
+**Told in place rather than restarted.** The arms are the row's, the card lease is the row's, and
+this orchestrator holds neither. `workstreams/of3t-trajwide.txt` is amended so the row's next pass
+checks every arm for a `done rc=` marker and a steplog before it scores anything, and re-runs what
+is missing — and refuses to publish a verdict whose controls did not run.
