@@ -862,12 +862,18 @@ if DEF.is_file() and ORCH.is_file():
     # The conservative clause matters: if a later heading carries NO status word at all, the
     # defect keeps the last status that had one. Otherwise "### D8 UPDATE (pass N). More data."
     # would silently drop a live defect out of the set this check protects.
-    _STATUS_RE = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
-    _last = {}
-    for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
-        _t = _STATUS_RE.findall(_m.group(2).upper())
-        if _t:
-            _last[_m.group(1)] = _t[-1]
+    # The vocabulary is defined ONCE, in perf/of3t_orchestrator/status_vocab.py. It used to
+    # be written out five times across four files, which is the shape of half the defects
+    # this campaign has filed against its own instruments (pass 241).
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from status_vocab import STATUS_RE as _STATUS_RE, PATTERN as _STATUS_PATTERN, \
+        recorded_escape_hatches as _recorded_escape_hatches
+    # One implementation, in status_vocab: upper-case in the source and unnegated, because a
+    # guard that merely REPORTS a prose status while the parser commits it is two answers to one
+    # question (pass 241; the D134 guard and this loop disagreed for a pass).
+    from status_vocab import statuses_by_defect as _statuses_by_defect, declarations as _decls
+    _last = _statuses_by_defect(_dt_u)
     unfixed = sorted((n for n, st in _last.items() if st == "UNFIXED"),
                      key=lambda d: int(d[1:]))
 
@@ -924,6 +930,40 @@ if DEF.is_file() and ORCH.is_file():
                    f"-- the summary has drifted from DEFECTS.md")
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
+
+    # --- RECORDED may not be used to retire a defect, and the gate must share the vocabulary ---
+    # Pass 241. RECORDED was added so that a FINDING -- "block 47 is worth one per cent of the
+    # model's gradient mass" -- can declare a status at all; twenty entries had none and were
+    # invisible to every clause built on `unfixed` (D133). A new status word is an escape hatch
+    # unless it is fenced, so: a defect that EVER declared UNFIXED may not later be restated
+    # RECORDED. That is retirement by relabelling and it is refused, not judged.
+    _hatch = _recorded_escape_hatches(_dt_u)
+    if _hatch:
+        bad.append("defect(s) restated RECORDED after having declared UNFIXED: "
+                   + ", ".join(_hatch) + " -- RECORDED asserts the entry was never a defect, so "
+                   "it cannot retire one that was. Use FIXED, REFUTED, WITHDRAWN or say UNFIXED")
+    else:
+        ok.append("no defect is retired into RECORDED after having declared UNFIXED "
+                  "(the fence status_vocab.py exists for)")
+
+    # And the fifth copy of the vocabulary, which cannot import: `_of3t_donecheck.py` runs from
+    # ~/.coworker, not from this tree. It carries the pattern as a literal, so it is checked
+    # against the shared one rather than trusted -- the two-readers pattern the release gate uses.
+    _gate_p = Path("/home/moritz/.coworker/workstreams/_of3t_donecheck.py")
+    if not _gate_p.is_file():
+        warn.append("the gate script is not on this host, so its copy of the status vocabulary "
+                    "could not be checked against status_vocab.PATTERN")
+    else:
+        _gm = _re.search(r're\.compile\(r"(\\b\(\?:UN\)\?[^"]+)"\)', _gate_p.read_text())
+        if _gm is None:
+            bad.append("could not find a status-vocabulary regex in _of3t_donecheck.py -- it had "
+                       "one, and a check that stops finding what it reads is not a passing check")
+        elif _gm.group(1) != _STATUS_PATTERN:
+            bad.append("the gate's status vocabulary has drifted from status_vocab.PATTERN:\n"
+                       f"      gate: {_gm.group(1)}\n      here: {_STATUS_PATTERN}")
+        else:
+            ok.append("the gate's own copy of the status vocabulary is identical to "
+                      "status_vocab.PATTERN (it cannot import it; it is compared instead)")
 
     # --- a status read out of ORDINARY PROSE, or out of a NEGATION ----------------------------
     # Pass 240, and it is D87's mirror image. `_last` uppercases the whole heading before matching,
@@ -1003,8 +1043,8 @@ if DEF.is_file() and ORCH.is_file():
     _seen_d, _has_d = set(), set()
     for _m in _re.finditer(r"^### (D\d+)\b(.*)$", _dt_u, _re.M):
         _seen_d.add(_m.group(1))
-        if _STATUS_RE.findall(_m.group(2).upper()):     # .upper() exactly as `_last` does it,
-            _has_d.add(_m.group(1))                     # or this check answers a different question
+        if _decls(_m.group(2)):                 # the same rule `_last` uses, from status_vocab,
+            _has_d.add(_m.group(1))             # or this check answers a different question
     _statusless = sorted(_seen_d - _has_d, key=lambda d: int(d[1:]))
     if not _sl_p.is_file():
         bad.append(f"state/of3t/STATUSLESS_BACKLOG.json is absent and {len(_statusless)} "
@@ -1080,7 +1120,7 @@ if DEF.is_file() and ORCH.is_file():
     # WITHDRAWN" are honest and carry more information than either word alone. So a mismatch
     # fires only when GAP's own parenthetical says UNFIXED and does NOT also name the status
     # DEFECTS.md gives it. Nuance passes; an unreconciled contradiction does not.
-    _DEAD = ("FIXED", "WITHDRAWN", "REFUTED", "CLOSED", "RESOLVED", "ROOT-CAUSED")
+    from status_vocab import DEAD as _DEAD
     _st = _last          # one definition of "a defect's status", shared with the check above
 
     def _gap_contradictions(gap_text, statuses):
@@ -1399,7 +1439,7 @@ if ORCH.is_file():
             # green, which is how this one's absence went unnoticed for 175 passes.
             ok.append(f"all {len(_valid)} defect headings parse over {n_def} distinct defects, "
                       f"so none is invisible to its audit")
-        _STAT_H = _re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+        _STAT_H = _STATUS_RE
         _cur = {}
         for _d, _rest in _valid:                       # file order, so a later UPDATE wins
             _t = _STAT_H.findall(_rest.upper())

@@ -62,7 +62,9 @@ OUT = D / "state" / "of3t" / "UNFIXED_TRIAGE.json"
 
 # The SAME parse audit_evidence.py uses: a defect's status is the last status word on its LATEST
 # heading, and a heading with no status word conservatively keeps the previous one.
-STATUS_RE = re.compile(r"\b(?:UN)?(?:FIXED|WITHDRAWN|REFUTED|CLOSED|RESOLVED|ROOT-CAUSED)\b")
+import sys as _sys_vocab
+_sys_vocab.path.insert(0, __file__.rsplit("/", 2)[0])
+from status_vocab import statuses_by_defect   # the ONE definition; see that file (pass 241)
 
 SCOPE, USER, CAMP = "SCOPE-EXCLUDED", "USER-FACING", "CAMPAIGN-INTERNAL"
 
@@ -164,6 +166,15 @@ TABLE = {
                   "247x inside the bar, so the share our device failed is a port gap and not a bar "
                   "problem. A statement about this campaign's bar, never disposed of; it changes "
                   "nothing a user of the shipped tree gets."),
+    "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
+                  "and the shipped default is the other way; by mass it is 2.5 %. A training-"
+                  "gradient decision, not an inference output a user sees."),
+    "D110": (CAMP, "The precise_config() softmax lever installs via setdefault and every diffusion "
+                   "call site already passes a config, so it fires 1,440 times and cannot take "
+                   "effect. A lever in this campaign's own instruments."),
+    "D121": (CAMP, "A lever can be UNREACHED while the numbers MOVE, so the win gets credited to "
+                   "the wrong lever; it asks for two counters where the instruments have one. A "
+                   "measurement discipline for this campaign."),
     "D120": (CAMP, "0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, not two "
                    "roundings of one, so a cross-version difference there measures a model change "
                    "and a precision change at once. A reading discipline for this campaign's own "
@@ -221,11 +232,9 @@ BOUNDARY = {
 
 
 def live_unfixed(text: str) -> list:
-    last = {}
-    for m in re.finditer(r"^### (D\d+)\b(.*)$", text.upper(), re.M):
-        t = STATUS_RE.findall(m.group(2))
-        if t:
-            last[m.group(1)] = t[-1]
+    # Was a local copy of the parse, uppercased, which read D3's "UNFIXED, out of scope, recorded
+    # so it is not lost" as RECORDED the moment that word joined the vocabulary (pass 241).
+    last = statuses_by_defect(text)
     return sorted((n for n, s in last.items() if s == "UNFIXED"), key=lambda d: int(d[1:]))
 
 
