@@ -1,0 +1,14 @@
+{
+ "mask_trans_asked": "0",
+ "mask_trans_ones_asked": "",
+ "mask_trans_live": false,
+ "mask_trans_ones_live": false,
+ "MASK_TRANS_STATS": {
+  "stacks": 0,
+  "blocks": 0,
+  "ones": 0,
+  "declined_rank": 0,
+  "declined_off": 2
+ },
+ "softmax_bw_renorm_live": true
+}

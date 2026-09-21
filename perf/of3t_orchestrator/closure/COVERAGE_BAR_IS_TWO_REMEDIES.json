@@ -1,0 +1,69 @@
+{
+  "question": "GO condition GRADIENTS requires coverage_total.pct_of_model_compared >= 99.2594. Which remedies, in which order, reach it -- and is any of the model unreadable?",
+  "answer": "TWO. `one arm on the model's batch` takes 92.15682 -> 97.98499 and `wire two host legs onto the card` takes it to 99.50523, clearing the bar with 0.24583 points of margin. Nothing in the model is unreadable: all seven classes have a named remedy and they sum to 100.00000 %.",
+  "bar": 99.2594,
+  "bar_source": "COVERAGE_CEILING_IS_NOT_100.json, pass 175; kept as the bar, its '0.74055 % never can' REASON withdrawn at pass 319 (A32)",
+  "derived_from": {
+    "path": "perf/of3t_readable_mass/READABLE_MASS.json",
+    "sha256": "19ced3e90c757a9012c18454162e36866da5bf145a5ded9c6803933a40d8b103",
+    "denominator": 10.279642678524981,
+    "n_reference_tensors_with_a_gradient": 4170
+  },
+  "coverage_today": 92.15682156952727,
+  "remedies_needed_for_the_bar": [
+    "READ_ON_ANOTHER_BOUNDARY",
+    "HOST_APPLIED"
+  ],
+  "coverage_if_all_land": 100.00000000000007,
+  "ladder": [
+    {
+      "remedy": "READ_ON_ANOTHER_BOUNDARY",
+      "what_has_to_change": "one arm on the model's batch",
+      "n_tensors": 2736,
+      "adds_pct": 5.828171499134286,
+      "coverage_after": 97.98499306866155,
+      "clears_bar_here": false
+    },
+    {
+      "remedy": "HOST_APPLIED",
+      "what_has_to_change": "wire two host legs onto the card",
+      "n_tensors": 17,
+      "adds_pct": 1.5202384841128946,
+      "coverage_after": 99.50523155277445,
+      "clears_bar_here": true
+    },
+    {
+      "remedy": "FUSED_NOT_SPLIT",
+      "what_has_to_change": "one inverse selection",
+      "n_tensors": 96,
+      "adds_pct": 0.2715264688736101,
+      "coverage_after": 99.77675802164806,
+      "clears_bar_here": false
+    },
+    {
+      "remedy": "NO_ARM",
+      "what_has_to_change": "nobody has looked",
+      "n_tensors": 151,
+      "adds_pct": 0.1105148517671164,
+      "coverage_after": 99.88727287341518,
+      "clears_bar_here": false
+    },
+    {
+      "remedy": "NOT_A_LEAF_LAZY",
+      "what_has_to_change": "register 84 weights as leaves",
+      "n_tensors": 126,
+      "adds_pct": 0.10450387719530572,
+      "coverage_after": 99.99177675061048,
+      "clears_bar_here": false
+    },
+    {
+      "remedy": "ARM_RAN_DID_NOT_CARRY",
+      "what_has_to_change": "somebody looked, it did not come back",
+      "n_tensors": 137,
+      "adds_pct": 0.008223249389590901,
+      "coverage_after": 100.00000000000007,
+      "clears_bar_here": false
+    }
+  ],
+  "note": "This is arithmetic over an existing census, not a new measurement. It does not say the remedies are cheap to EXECUTE -- it says which two are on the critical path and that none of the seven is a ceiling. The other GRADIENTS clause, n_over_per_tensor_bar == 0 against 678 today, is untouched by any of this."
+}

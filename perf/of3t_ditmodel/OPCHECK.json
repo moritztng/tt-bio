@@ -1,0 +1,9 @@
+{
+ "what": "D174's break control at the op, on CPU: the mask must do exactly three things and no fourth.",
+ "ones_mask_reproduces_unmasked_bit_identically": true,
+ "ones_mask_absdiff": 0.0,
+ "pair_mask_real_cells_bit_identical": true,
+ "pair_mask_real_cells_absdiff": 0.0,
+ "pad_cells_norm_unmasked": 0.022687183693051338,
+ "pad_cells_norm_masked": 0.0
+}
