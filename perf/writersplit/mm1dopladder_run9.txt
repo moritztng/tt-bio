@@ -1,0 +1,93 @@
+nodes [1] forced to 1350 MHz (host_quiet=False)
+  [1, 140, 32, 128] x [128, 256]  n=3600   cfg=(1, 2, 2, 2, 8, 2, 8)  bit-exact generic True split True
+  [1, 47, 512, 128] x [128, 512]  n=2800   cfg=(1, 1, 4, 7, 16, 7, 16)  bit-exact generic True split True
+  [1, 47, 512, 512] x [512, 128]  n=2800   cfg=(1, 1, 4, 7, 4, 7, 4)  bit-exact generic True split True
+  [1, 140, 32, 128] x [128, 128]  n=2400   cfg=(1, 2, 2, 2, 4, 2, 4)  bit-exact generic True split True
+  [1, 140, 128, 128] x [128, 256]  n=1200   cfg=(1, 2, 2, 6, 8, 6, 8)  bit-exact generic True split True
+  [1, 140, 32, 256] x [256, 128]  n=1200   cfg=(1, 2, 2, 2, 4, 2, 4)  bit-exact generic True split True
+  native         [1, 140, 32, 128]        c = 0.02486 ms  L = 0.03681  resid 0.00144
+  native         [1, 47, 512, 128]        c = 0.17653 ms  L = 0.03669  resid 0.00160
+  native         [1, 47, 512, 512]        c = 0.23154 ms  L = 0.03288  resid 0.00624
+  native         [1, 140, 32, 128]        c = 0.02750 ms  L = 0.03757  resid 0.00054
+  native         [1, 140, 128, 128]       c = 0.08196 ms  L = 0.04665  resid 0.00410
+  native         [1, 140, 32, 256]        c = 0.03180 ms  L = 0.04878  resid 0.00160
+  generic        [1, 140, 32, 128]        c = 0.03060 ms  L = 0.12251  resid 0.08968
+  generic        [1, 47, 512, 128]        c = 0.17973 ms  L = 0.06104  resid 0.01015
+  generic        [1, 47, 512, 512]        c = 0.23100 ms  L = 0.09776  resid 0.00431
+  generic        [1, 140, 32, 128]        c = 0.05229 ms  L = 0.07687  resid 0.06624
+  generic        [1, 140, 128, 128]       c = 0.08141 ms  L = 0.07524  resid 0.00228
+  generic        [1, 140, 32, 256]        c = 0.02976 ms  L = 0.09279  resid 0.04238
+  split          [1, 140, 32, 128]        c = 0.03248 ms  L = 0.03273  resid 0.00041
+  split          [1, 47, 512, 128]        c = 0.11853 ms  L = 0.04935  resid 0.01194
+  split          [1, 47, 512, 512]        c = 0.21825 ms  L = 0.09078  resid 0.00494
+  split          [1, 140, 32, 128]        c = 0.03243 ms  L = 0.02892  resid 0.00024
+  split          [1, 140, 128, 128]       c = 0.05787 ms  L = 0.05106  resid 0.00066
+  split          [1, 140, 32, 256]        c = 0.03261 ms  L = 0.04293  resid 0.00033
+  native_aa      [1, 140, 32, 128]        c = 0.02495 ms  L = 0.03086  resid 0.00051
+  native_aa      [1, 47, 512, 128]        c = 0.17925 ms  L = 0.03124  resid 0.00893
+  native_aa      [1, 47, 512, 512]        c = 0.23075 ms  L = 0.05279  resid 0.00667
+  native_aa      [1, 140, 32, 128]        c = 0.02862 ms  L = 0.03440  resid 0.00047
+  native_aa      [1, 140, 128, 128]       c = 0.08161 ms  L = 0.04798  resid 0.00067
+  native_aa      [1, 140, 32, 256]        c = 0.03198 ms  L = 0.04817  resid 0.00167
+  native         [1, 140, 32, 128]        c = 0.02529 ms  L = 0.05143  resid 0.00641
+  native         [1, 47, 512, 128]        c = 0.17710 ms  L = 0.05103  resid 0.00485
+  native         [1, 47, 512, 512]        c = 0.23120 ms  L = 0.04435  resid 0.00295
+  native         [1, 140, 32, 128]        c = 0.02746 ms  L = 0.03836  resid 0.00322
+  native         [1, 140, 128, 128]       c = 0.08156 ms  L = 0.04867  resid 0.00092
+  native         [1, 140, 32, 256]        c = 0.03169 ms  L = 0.04740  resid 0.00186
+  generic        [1, 140, 32, 128]        c = 0.03045 ms  L = 0.13938  resid 0.11370
+  generic        [1, 47, 512, 128]        c = 0.17971 ms  L = 0.06143  resid 0.01424
+  generic        [1, 47, 512, 512]        c = 0.23061 ms  L = 0.09681  resid 0.00171
+  generic        [1, 140, 32, 128]        c = 0.05715 ms  L = 0.05657  resid 0.03733
+  generic        [1, 140, 128, 128]       c = 0.08128 ms  L = 0.07872  resid 0.00075
+  generic        [1, 140, 32, 256]        c = 0.02959 ms  L = 0.10278  resid 0.05315
+  split          [1, 140, 32, 128]        c = 0.03338 ms  L = 0.03180  resid 0.00049
+  split          [1, 47, 512, 128]        c = 0.11863 ms  L = 0.04916  resid 0.01149
+  split          [1, 47, 512, 512]        c = 0.21811 ms  L = 0.09208  resid 0.00384
+  split          [1, 140, 32, 128]        c = 0.05800 ms  L = 0.05599  resid 0.04034
+  split          [1, 140, 128, 128]       c = 0.05621 ms  L = 0.09854  resid 0.03995
+  split          [1, 140, 32, 256]        c = 0.03306 ms  L = 0.04279  resid 0.00070
+  native_aa      [1, 140, 32, 128]        c = 0.02501 ms  L = 0.02999  resid 0.00040
+  native_aa      [1, 47, 512, 128]        c = 0.17850 ms  L = 0.03182  resid 0.00157
+  native_aa      [1, 47, 512, 512]        c = 0.23019 ms  L = 0.05433  resid 0.00215
+  native_aa      [1, 140, 32, 128]        c = 0.02866 ms  L = 0.03419  resid 0.00037
+  native_aa      [1, 140, 128, 128]       c = 0.08142 ms  L = 0.05412  resid 0.00307
+  native_aa      [1, 140, 32, 256]        c = 0.03183 ms  L = 0.05045  resid 0.00273
+  native         [1, 140, 32, 128]        c = 0.02436 ms  L = 0.05466  resid 0.00903
+  native         [1, 47, 512, 128]        c = 0.17698 ms  L = 0.05054  resid 0.00709
+  native         [1, 47, 512, 512]        c = 0.23156 ms  L = 0.04372  resid 0.00182
+  native         [1, 140, 32, 128]        c = 0.02840 ms  L = 0.03463  resid 0.00062
+  native         [1, 140, 128, 128]       c = 0.08141 ms  L = 0.05169  resid 0.00358
+  native         [1, 140, 32, 256]        c = 0.03161 ms  L = 0.04678  resid 0.00100
+  generic        [1, 140, 32, 128]        c = 0.03035 ms  L = 0.13878  resid 0.11082
+  generic        [1, 47, 512, 128]        c = 0.17965 ms  L = 0.06327  resid 0.02199
+  generic        [1, 47, 512, 512]        c = 0.23013 ms  L = 0.08906  resid 0.00318
+  generic        [1, 140, 32, 128]        c = 0.05892 ms  L = 0.01078  resid 0.03059
+  generic        [1, 140, 128, 128]       c = 0.08128 ms  L = 0.07846  resid 0.00184
+  generic        [1, 140, 32, 256]        c = 0.03013 ms  L = 0.09292  resid 0.04190
+  split          [1, 140, 32, 128]        c = 0.03325 ms  L = 0.03327  resid 0.00096
+  split          [1, 47, 512, 128]        c = 0.11841 ms  L = 0.05086  resid 0.01072
+  split          [1, 47, 512, 512]        c = 0.21523 ms  L = 0.10001  resid 0.01799
+  split          [1, 140, 32, 128]        c = 0.03334 ms  L = 0.02702  resid 0.00056
+  split          [1, 140, 128, 128]       c = 0.05797 ms  L = 0.05295  resid 0.00099
+  split          [1, 140, 32, 256]        c = 0.03273 ms  L = 0.04437  resid 0.00064
+  native_aa      [1, 140, 32, 128]        c = 0.02502 ms  L = 0.03044  resid 0.00037
+  native_aa      [1, 47, 512, 128]        c = 0.17876 ms  L = 0.03216  resid 0.01063
+  native_aa      [1, 47, 512, 512]        c = 0.23094 ms  L = 0.05073  resid 0.00250
+  native_aa      [1, 140, 32, 128]        c = 0.02936 ms  L = 0.03241  resid 0.00375
+  native_aa      [1, 140, 128, 128]       c = 0.08189 ms  L = 0.04799  resid 0.00190
+  native_aa      [1, 140, 32, 256]        c = 0.03198 ms  L = 0.04848  resid 0.00181
+AICLK during: {'n': 9961, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+[1, 140, 32, 128]        n=3600   native 0.02436 generic 0.03035 split 0.03248 ms | gen/nat 1.2458x  nat/split 0.7500x  gen/split 0.9343x  A/A 2.380 %
+[1, 47, 512, 128]        n=2800   native 0.17653 generic 0.17965 split 0.11841 ms | gen/nat 1.0177x  nat/split 1.4908x  gen/split 1.5172x  A/A 1.104 %
+[1, 47, 512, 512]        n=2800   native 0.23120 generic 0.23013 split 0.21523 ms | gen/nat 0.9954x  nat/split 1.0742x  gen/split 1.0693x  A/A 0.443 %
+[1, 140, 32, 128]        n=2400   native 0.02746 generic 0.05229 split 0.03243 ms | gen/nat 1.9040x  nat/split 0.8470x  gen/split 1.6127x  A/A 4.025 %
+[1, 140, 128, 128]       n=1200   native 0.08141 generic 0.08128 split 0.05621 ms | gen/nat 0.9984x  nat/split 1.4482x  gen/split 1.4458x  A/A 0.017 %
+[1, 140, 32, 256]        n=1200   native 0.03161 generic 0.02959 split 0.03261 ms | gen/nat 0.9362x  nat/split 0.9691x  gen/split 0.9073x  A/A 0.701 %
+
+weighted by real call counts, these 6 signatures cost per fold:
+  native 1430.87 ms   generic 1515.18 ms   split 1235.51 ms
+  split saves 195.36 ms against native and 279.67 ms against the transcription
+
+A/A floor worst 4.025 % against a 0.500 % bar; host_quiet=False; stat=min -> usable=False
+This session cannot price the lever: its own A/A twin moves more than the bar.  No ratio from it may be quoted.
