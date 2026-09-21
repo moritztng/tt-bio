@@ -32,6 +32,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -128,6 +129,42 @@ def test_one(doc, key, op, bar):
     return ((v >= bar) if op == ">=" else (v <= bar)), f"{v:.6g}"
 
 
+def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
+    """Is this artifact OLDER than the engine code its clause is about?
+
+    D178: `traj_shipped.json` was written 2026-09-21 02:35:02 and the `_PARAMS` re-key that fixes
+    the very defect it reports landed at 02:55:54, twenty minutes later (965c24f52). The charter
+    then read TRAJECTORY as NOT MET for ~22 hours on an artifact that predated its own repair, and
+    nobody noticed because an artifact carries no notion of the tree it ran against. D177 was the
+    same class one condition over: GRADIENTS graded the pre-D56 arm after D56 became the shipped
+    default. Twice is a pattern, so it gets a reader rather than another hand-check.
+
+    Reported, never failed. Re-taking an artifact needs a card, so a hard failure here would block
+    every compose on work that cannot be done in a compose.
+    """
+    def ts(*args) -> int | None:
+        try:
+            r = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%ct", *args],
+                               capture_output=True, text=True, timeout=30)
+            out = r.stdout.strip()
+            return int(out) if out.isdigit() else None
+        except Exception:
+            return None
+    a = ts("--", artifact)
+    c = ts("--", *code_paths)
+    if a is None or c is None:
+        return {"comparable": False,
+                "why": "the artifact or the code path has no commit in this tree"}
+    return {"comparable": True, "artifact_commit_unixtime": a, "code_commit_unixtime": c,
+            "artifact_is_older_than_code": a < c,
+            "seconds_behind": max(0, c - a),
+            "note": ("this artifact predates the newest commit under "
+                     + "/".join(code_paths)
+                     + ", so its numbers describe an earlier tree. A clause reading it is "
+                       "reporting history, and a re-take may change the verdict"
+                     if a < c else "the artifact is at or after the newest code commit")}
+
+
 def evaluate(spec, root: Path) -> list:
     out = []
     for cond in spec:
@@ -154,6 +191,7 @@ def evaluate(spec, root: Path) -> list:
                                 if art.is_file() else None),
             "met": bool(checks) and all(c["passed"] for c in checks),
             "misses": misses, "checks": checks,
+            "code_staleness": code_staleness(root, cond["artifact"]),
         })
     return out
 
