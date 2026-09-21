@@ -1,0 +1,350 @@
+{
+ "what": "Does the trunk forward disagreement reach SHIPPED INFERENCE?",
+ "crop": 0,
+ "n_blocks": 48,
+ "reference": "upstream float64 forward, captured at the pairformer block boundary of BUNDLE-MIN own step (perf/of3t_gradients/capture_trunk_boundary.py, --no-dropout). A float64 reference, not another approximation.",
+ "shipped_config": {
+  "source": "tt_bio/openfold3_trunk.py, OF3Trunk.__init__, read by spying on the Pairformer constructor",
+  "n_blocks": 48,
+  "dims": [
+   32,
+   4,
+   24,
+   16
+  ],
+  "transform_s": true,
+  "kwargs": {
+   "scale_pair_bias": false,
+   "tri_att_scale_pair_bias": false,
+   "fp32_softmax": true,
+   "transpose_bias": true,
+   "accurate_softmax": false
+  }
+ },
+ "instrument_a_bundle_disagreement": {
+  "instrument_a_bundle.py": {
+   "SHIPPED_SPB": true,
+   "SHIPPED_TRI_SPB": false
+  },
+  "shipped_now": {
+   "scale_pair_bias": false,
+   "tri_att_scale_pair_bias": false
+  },
+  "agree": false
+ },
+ "probe": {
+  "tokens": 384,
+  "real_tokens": 56,
+  "s_in_norm": 11757.133052375091,
+  "z_in_norm": 16158081.287375676,
+  "s_ref_norm": 2517512.2277431837,
+  "z_ref_norm": 15593547.68292328
+ },
+ "masks": {
+  "pair_mask_sum": 3136.0,
+  "single_mask_sum": 56.0,
+  "s_input_dtype": "DataType.BFLOAT16"
+ },
+ "SHIPPED": {
+  "s": {
+   "rel_l2": 1.3862989586637264,
+   "norm_ratio": 2.0322178501338195,
+   "cos": 0.7893062713229818,
+   "ours_norm": 5116133.287149856,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.39231471476319396,
+   "norm_ratio": 0.8051226003206103,
+   "cos": 0.9280024964761467,
+   "ours_norm": 12554717.658698618,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.10086280912622171,
+   "norm_ratio": 0.9154820203054843,
+   "cos": 0.9983451245868388,
+   "ours_norm": 1978012.0784481212,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.27843319611464723,
+   "norm_ratio": 1.1833075416175096,
+   "cos": 0.9814404166541855,
+   "ours_norm": 90835.02119240364,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "TAPED": {
+  "s": {
+   "rel_l2": 1.3863114016162648,
+   "norm_ratio": 2.0320763983853305,
+   "cos": 0.7892112691166737,
+   "ours_norm": 5115777.180643399,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.3924545919690219,
+   "norm_ratio": 0.8050251014239164,
+   "cos": 0.9279492058877928,
+   "ours_norm": 12553197.30500399,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.10127720051588461,
+   "norm_ratio": 0.9151252039032232,
+   "cos": 0.9983317362920187,
+   "ours_norm": 1977241.1325007332,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.2791900660723179,
+   "norm_ratio": 1.1839983126381375,
+   "cos": 0.9813801618342092,
+   "ours_norm": 90888.04730614924,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "TAPED_vs_SHIPPED": {
+  "s": {
+   "rel_l2": 0.0020724481702245204,
+   "norm_ratio": 0.9999303953813418,
+   "cos": 0.9999978547523732,
+   "ours_norm": 5115777.180643399,
+   "ref_norm": 5116133.287149856
+  },
+  "z": {
+   "rel_l2": 0.0076809285798623275,
+   "norm_ratio": 0.9998789018012225,
+   "cos": 0.999970505428725,
+   "ours_norm": 12553197.30500399,
+   "ref_norm": 12554717.658698618
+  },
+  "s_masked": {
+   "rel_l2": 0.003992139626961967,
+   "norm_ratio": 0.9996102420426104,
+   "cos": 0.9999921042888159,
+   "ours_norm": 1977241.1325007332,
+   "ref_norm": 1978012.0784481212
+  },
+  "z_masked": {
+   "rel_l2": 0.012912015143306406,
+   "norm_ratio": 1.0005837628818655,
+   "cos": 0.9999168588567341,
+   "ours_norm": 90888.04730614924,
+   "ref_norm": 90835.02119240364
+  },
+  "bit_identical": {
+   "s": false,
+   "z": false
+  }
+ },
+ "PAIRFORMER_ARM_CONFIG": {
+  "kwargs": {
+   "scale_pair_bias": true,
+   "tri_att_scale_pair_bias": false,
+   "fp32_softmax": true,
+   "transpose_bias": true,
+   "accurate_softmax": false
+  },
+  "why": "what instrument_a_bundle.py calls shipped. Untaped, so it isolates the flag from the tape.",
+  "s": {
+   "rel_l2": 1.4121646596243866,
+   "norm_ratio": 2.087645113751304,
+   "cos": 0.8057052113212619,
+   "ours_norm": 5255672.101057217,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.39231471476319396,
+   "norm_ratio": 0.8051226003206103,
+   "cos": 0.9280024964761467,
+   "ours_norm": 12554717.658698618,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.03204661964361202,
+   "norm_ratio": 0.9980821355618851,
+   "cos": 0.9994873630184747,
+   "ours_norm": 2156479.838638374,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.27843319611464723,
+   "norm_ratio": 1.1833075416175096,
+   "cos": 0.9814404166541855,
+   "ours_norm": 90835.02119240364,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "PAIRFORMER_ARM_CONFIG_TAPED": {
+  "s": {
+   "rel_l2": 1.408020686616322,
+   "norm_ratio": 2.083509204143322,
+   "cos": 0.8059691656585216,
+   "ours_norm": 5245259.898046283,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.3924545919690219,
+   "norm_ratio": 0.8050251014239164,
+   "cos": 0.9279492058877928,
+   "ours_norm": 12553197.30500399,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.03242377379228363,
+   "norm_ratio": 0.9971178599469868,
+   "cos": 0.9994769954397861,
+   "ours_norm": 2154396.401966854,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.2791900660723179,
+   "norm_ratio": 1.1839983126381375,
+   "cos": 0.9813801618342092,
+   "ours_norm": 90888.04730614924,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "LEVER_transpose_bias_flipped": {
+  "kwargs": {
+   "scale_pair_bias": false,
+   "tri_att_scale_pair_bias": false,
+   "fp32_softmax": true,
+   "transpose_bias": false,
+   "accurate_softmax": false
+  },
+  "why": "the shipped configuration with ONE flag moved, untaped. Everything else, including the checkpoint, the boundary and the masks, is the SHIPPED arm.",
+  "s": {
+   "rel_l2": 1.378116574517,
+   "norm_ratio": 2.024043625664165,
+   "cos": 0.7898909057812268,
+   "ours_norm": 5095554.577095183,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.3927554275870513,
+   "norm_ratio": 0.8046083557182054,
+   "cos": 0.9278661907916241,
+   "ours_norm": 12546698.760970332,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.10172510511283964,
+   "norm_ratio": 0.9142023929810462,
+   "cos": 0.9983664625782165,
+   "ours_norm": 1975247.2854237794,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.04967212076775645,
+   "norm_ratio": 1.0335749100522333,
+   "cos": 0.9993517426828361,
+   "ours_norm": 79340.9959427762,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "CONTROL_zero_model": {
+  "why": "A16. What a model emitting nothing scores at this boundary, measured.",
+  "s": {
+   "rel_l2": 1.0,
+   "norm_ratio": 0.0,
+   "cos": 0.0,
+   "ours_norm": 0.0,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 1.0,
+   "norm_ratio": 0.0,
+   "cos": 0.0,
+   "ours_norm": 0.0,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 1.0,
+   "norm_ratio": 0.0,
+   "cos": 0.0,
+   "ours_norm": 0.0,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 1.0,
+   "norm_ratio": 0.0,
+   "cos": 0.0,
+   "ours_norm": 0.0,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "CONTROL_break_permuted_input": {
+  "why": "the same inputs paired with the wrong token positions; weights, masks, flags and kernels untouched. If this does not move the headline the comparison is saturated and reads nothing.",
+  "seed": 20260920,
+  "real_positions_permuted": 56,
+  "fixed_points": 2,
+  "s": {
+   "rel_l2": 1.3870538066670746,
+   "norm_ratio": 2.032278139540518,
+   "cos": 0.7888280918549689,
+   "ours_norm": 5116285.066468422,
+   "ref_norm": 2517512.2277431837
+  },
+  "z": {
+   "rel_l2": 0.3912702160058283,
+   "norm_ratio": 0.8059240402210279,
+   "cos": 0.9283884721122854,
+   "ours_norm": 12567214.950000778,
+   "ref_norm": 15593547.68292328
+  },
+  "s_masked": {
+   "rel_l2": 0.1128528555797372,
+   "norm_ratio": 0.9155921055479332,
+   "cos": 0.9969358220037781,
+   "ours_norm": 1978249.931223373,
+   "ref_norm": 2160623.6218468654
+  },
+  "z_masked": {
+   "rel_l2": 0.6030407440294699,
+   "norm_ratio": 1.1839787983229544,
+   "cos": 0.860719659340852,
+   "ours_norm": 90886.54931583744,
+   "ref_norm": 76763.66286674526
+  }
+ },
+ "D86_transpose_fingerprint": {
+  "sqrt2": 1.4142135623730951,
+  "shipped_z_vs_ref": {
+   "rel_l2": 0.27843319611464723,
+   "norm_ratio": 1.1833075416175096,
+   "cos": 0.9814404166541855,
+   "ours_norm": 90835.02119240364,
+   "ref_norm": 76763.66286674526
+  },
+  "shipped_z_vs_ref_TRANSPOSED": {
+   "rel_l2": 0.35564760470500445,
+   "norm_ratio": 1.1833075416175167,
+   "cos": 0.9607525682665836,
+   "ours_norm": 90835.02119240364,
+   "ref_norm": 76763.6628667448
+  },
+  "tb_flipped_z_vs_ref_TRANSPOSED": {
+   "rel_l2": 0.23748219363726703,
+   "norm_ratio": 1.0335749100522396,
+   "cos": 0.9732624519170336,
+   "ours_norm": 79340.9959427762,
+   "ref_norm": 76763.6628667448
+  },
+  "ref_is_symmetric": {
+   "rel_l2": 0.2284744234840028,
+   "norm_ratio": 0.9999999999999939,
+   "cos": 0.973899718906831,
+   "ours_norm": 76763.6628667448,
+   "ref_norm": 76763.66286674526
+  },
+  "why": "if our pair output were their pair output transposed, rel against the reference would read near sqrt(2) with cos near 0 and rel against the TRANSPOSED reference would read near 0. ref_is_symmetric says how much of that test the reference itself could pass, since a symmetric z makes the check vacuous."
+ },
+ "COMPOSITION": {
+  "ran": false,
+  "why": "/home/ttuser/of3t_trunkfwd/capall/blocks_all_crop64.pt absent"
+ },
+ "seconds": 23.232818927001063
+}
