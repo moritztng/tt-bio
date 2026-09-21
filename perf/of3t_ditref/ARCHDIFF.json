@@ -1,0 +1,168 @@
+{
+ "REF_TREE_043": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "REF_TREE_050": "/home/ttuser/of3t-campaign-refs/of3pkg050",
+ "modules": [
+  {
+   "identical": true,
+   "module": "aux_heads",
+   "n_043": 244,
+   "n_050": 244,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": false,
+   "module": "diffusion_module",
+   "n_043": 761,
+   "n_050": 738,
+   "only_043": 24,
+   "only_043_sample": [
+    "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight"
+   ],
+   "only_050": 1,
+   "only_050_sample": [
+    "diffusion_module.diffusion_transformer.layer_norm_z.weight"
+   ]
+  },
+  {
+   "identical": true,
+   "module": "input_embedder",
+   "n_043": 98,
+   "n_050": 98,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "layer_norm_s",
+   "n_043": 2,
+   "n_050": 2,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "layer_norm_z",
+   "n_043": 2,
+   "n_050": 2,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "linear_s",
+   "n_043": 1,
+   "n_050": 1,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "linear_z",
+   "n_043": 1,
+   "n_050": 1,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "msa_module",
+   "n_043": 227,
+   "n_050": 227,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "msa_module_embedder",
+   "n_043": 2,
+   "n_050": 2,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "pairformer_stack",
+   "n_043": 2736,
+   "n_050": 2736,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  },
+  {
+   "identical": true,
+   "module": "template_embedder",
+   "n_043": 96,
+   "n_050": 96,
+   "only_043": 0,
+   "only_043_sample": [],
+   "only_050": 0,
+   "only_050_sample": []
+  }
+ ],
+ "modules_identical": [
+  "aux_heads",
+  "input_embedder",
+  "layer_norm_s",
+  "layer_norm_z",
+  "linear_s",
+  "linear_z",
+  "msa_module",
+  "msa_module_embedder",
+  "pairformer_stack",
+  "template_embedder"
+ ],
+ "modules_that_differ": [
+  "diffusion_module"
+ ],
+ "n_parameters_043": 4170,
+ "n_parameters_050": 4147,
+ "only_043_all": [
+  "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_z.weight"
+ ],
+ "only_050_all": [
+  "diffusion_module.diffusion_transformer.layer_norm_z.weight"
+ ],
+ "what": "the FULL model parameter set built under each tree and diffed by name. The repaired denominator is a diffusion-scope repair only if diffusion_module is the only module whose parameter NAMES move, which is the claim D58 rests on."
+}
