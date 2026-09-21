@@ -2024,14 +2024,21 @@
       },
       "with_other_boundary_terms": {
         "pct_of_model_mass": 97.98502156952716,
-        "mass_weighted_rel_l2": 5.5319370703859585,
+        "mass_weighted_rel_l2": 5.795296447611971,
+        "composed_floor_vs_float64": 0.11680275972249367,
+        "composed_norm_ratio": 1.0149242398091471,
+        "composed_perfect_port_threshold": 0.11508520059039876,
+        "composed_A26_reachable_bar": 0.16275505150337005,
+        "x_reachable_bar": 35.607475123387935,
         "terms": [
           {
             "arm": "shipped",
             "scope": "pairformer_stack",
             "pct_of_model_mass": 5.8282,
-            "mass_weighted_rel_l2": 5.207121,
-            "boundary": "captured 64-token block boundary boundary_c64.pt, not batch_step003",
+            "mass_weighted_rel_l2": 8.713525811931007,
+            "own_bf16_floor_vs_float64": 0.37393553950708647,
+            "norm_ratio_bf16_over_float64": 1.029909337085664,
+            "boundary": "captured 64-token boundary boundary_c64.pt (56 real tokens of 64), not batch_step003",
             "why_not_in_the_union": "measured on a different boundary than batch_step003; concatenating it would mix gradients of two different inputs"
           }
         ],
@@ -2145,6 +2152,28 @@
           "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.linear_z.weight",
           "worst_rel_l2": 1.4863073715984596
         }
+      },
+      "with_other_boundary_terms": {
+        "pct_of_model_mass": 97.98502156952716,
+        "mass_weighted_rel_l2": 0.15286635854743916,
+        "composed_floor_vs_float64": 0.11680275972249367,
+        "composed_norm_ratio": 1.0149242398091471,
+        "composed_perfect_port_threshold": 0.11508520059039876,
+        "composed_A26_reachable_bar": 0.16275505150337005,
+        "x_reachable_bar": 0.93924186767422,
+        "terms": [
+          {
+            "arm": "renorm",
+            "scope": "pairformer_stack",
+            "pct_of_model_mass": 5.8282,
+            "mass_weighted_rel_l2": 0.47560108602437734,
+            "own_bf16_floor_vs_float64": 0.37393553950708647,
+            "norm_ratio_bf16_over_float64": 1.029909337085664,
+            "boundary": "captured 64-token boundary boundary_c64.pt (56 real tokens of 64), not batch_step003",
+            "why_not_in_the_union": "measured on a different boundary than batch_step003; concatenating it would mix gradients of two different inputs"
+          }
+        ],
+        "caveat": "NOT one gradient vector: the added terms were taken on another input. Reported as a composition and never as the assembled headline."
       }
     },
     "renormf64": {
@@ -2254,6 +2283,28 @@
           "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.linear_z.weight",
           "worst_rel_l2": 1.4863073715984596
         }
+      },
+      "with_other_boundary_terms": {
+        "pct_of_model_mass": 97.98502156952716,
+        "mass_weighted_rel_l2": 0.1438058001681178,
+        "composed_floor_vs_float64": 0.11680275972249367,
+        "composed_norm_ratio": 1.0149242398091471,
+        "composed_perfect_port_threshold": 0.11508520059039876,
+        "composed_A26_reachable_bar": 0.16275505150337005,
+        "x_reachable_bar": 0.8835719619132075,
+        "terms": [
+          {
+            "arm": "renormf64",
+            "scope": "pairformer_stack",
+            "pct_of_model_mass": 5.8282,
+            "mass_weighted_rel_l2": 0.47560108602437734,
+            "own_bf16_floor_vs_float64": 0.37393553950708647,
+            "norm_ratio_bf16_over_float64": 1.029909337085664,
+            "boundary": "captured 64-token boundary boundary_c64.pt (56 real tokens of 64), not batch_step003 (host f64 softmax bit-identical to renorm here, 0 calls served)",
+            "why_not_in_the_union": "measured on a different boundary than batch_step003; concatenating it would mix gradients of two different inputs"
+          }
+        ],
+        "caveat": "NOT one gradient vector: the added terms were taken on another input. Reported as a composition and never as the assembled headline."
       }
     },
     "break": {
@@ -2363,6 +2414,28 @@
           "worst_tensor": "msa_module.blocks.0.msa_att_row.linear_z.weight",
           "worst_rel_l2": 428.3860266058943
         }
+      },
+      "with_other_boundary_terms": {
+        "pct_of_model_mass": 97.98502156952716,
+        "mass_weighted_rel_l2": 19.568450293129544,
+        "composed_floor_vs_float64": 0.11680275972249367,
+        "composed_norm_ratio": 1.0149242398091471,
+        "composed_perfect_port_threshold": 0.11508520059039876,
+        "composed_A26_reachable_bar": 0.16275505150337005,
+        "x_reachable_bar": 120.2325218933334,
+        "terms": [
+          {
+            "arm": "break",
+            "scope": "pairformer_stack",
+            "pct_of_model_mass": 5.8282,
+            "mass_weighted_rel_l2": 8.080414910687447,
+            "own_bf16_floor_vs_float64": 0.37393553950708647,
+            "norm_ratio_bf16_over_float64": 1.029909337085664,
+            "boundary": "captured 64-token boundary boundary_c64.pt (56 real tokens of 64), not batch_step003",
+            "why_not_in_the_union": "measured on a different boundary than batch_step003; concatenating it would mix gradients of two different inputs"
+          }
+        ],
+        "caveat": "NOT one gradient vector: the added terms were taken on another input. Reported as a composition and never as the assembled headline."
       }
     }
   }
