@@ -54,6 +54,36 @@ _MAX_ATOMS_PER_TOKEN = 23
 _C_S, _C_Z, _C_S_INPUT = 384, 128, 449
 _APB_HEADS, _APB_HEAD_DIM = 16, 24
 _BLK = "pairformer_embedding.pairformer_stack.blocks.%d."
+# The device weights `forward_device` applies, as `_wd` will ask for them: (key, transpose,
+# fp32). They are uploaded in `__init__` rather than on first use, because the optimizer's
+# parameter set comes from `walk_device_weights`, the walk runs after a forward, and the forward
+# it runs is INFERENCE -- which takes the host s-path and never calls `_wd`. So the cache these
+# five heads live in was empty at every walk, and `aux_heads.distogram.linear.weight`, 2.8431 %
+# of OpenFold3's squared gradient norm on its own, was absent from every optimizer this port has
+# ever built. The weight was always on the card; nothing ever handed it to the tape.
+#
+# transpose=True is a Linear's weight, False a LayerNorm's gain or bias. The fp32 column is
+# `_ln(..., fp32=True)` for the two atom heads and the bf16 pair track for the rest, which is
+# the split the LayerNorm docstring below argues for on magnitude.
+_DEVICE_HEAD_WEIGHTS = (
+    ("pairformer_embedding.linear_i.weight", True, False),
+    ("pairformer_embedding.linear_j.weight", True, False),
+    ("pairformer_embedding.linear_distance.weight", True, False),
+    ("distogram.linear.weight", True, False),
+    ("pae.layer_norm.weight", False, False),
+    ("pae.layer_norm.bias", False, False),
+    ("pae.linear.weight", True, False),
+    ("pde.layer_norm.weight", False, False),
+    ("pde.layer_norm.bias", False, False),
+    ("pde.linear.weight", True, False),
+    ("plddt.layer_norm.weight", False, True),
+    ("plddt.layer_norm.bias", False, True),
+    ("plddt.linear.weight", True, True),
+    ("experimentally_resolved.layer_norm.weight", False, True),
+    ("experimentally_resolved.layer_norm.bias", False, True),
+    ("experimentally_resolved.linear.weight", True, True),
+)
+
 # Which s-track the host-tensor entry point runs. "host" is torch fp32 and is
 # what inference gates against; "device" is the differentiable one. Training
 # does not read this -- it calls forward_device directly.
@@ -104,6 +134,7 @@ class OF3ConfidenceHead:
         bins = torch.linspace(_MIN_BIN, _MAX_BIN, _NO_BIN, dtype=torch.float32)
         self._squared_bins = bins ** 2
         self._upper = torch.cat([self._squared_bins[1:], self._squared_bins.new_tensor([_INF])])
+        self.materialize_device_weights()
 
     # The host path reads every weight through these three, so setting `_dtype` to
     # torch.float64 runs it in float64 WITHOUT a second implementation. PROTOCOL SS3c
@@ -186,7 +217,37 @@ class OF3ConfidenceHead:
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=dtype)
             cache[(key, transpose, dtype)] = v
+            # A weight minted after `materialize_device_weights` ran is one the walk that
+            # built the optimizer could not have seen, so it will train no matter what the
+            # tape does. That is exactly the failure this table exists to close, and it comes
+            # back the moment a caller hands `forward_device` an activation dtype the table
+            # did not predict. Recorded rather than raised: raising would break the fp32
+            # survey arms that legitimately pass float32 z. `late_device_weights()` is the
+            # check, and the gradient measurement asserts it is empty.
+            if self.__dict__.get("_wd_materialized"):
+                self.__dict__.setdefault("_wd_late", []).append((key, transpose, str(dtype)))
         return v
+
+    def materialize_device_weights(self):
+        """Upload the heads' device weights now, so a walk can find them.
+
+        Returns the number uploaded. `walk_device_weights` is what the optimizer's parameter
+        set is built from and it only sees tensors a module is already holding, so a weight
+        this head uploads lazily inside `forward_device` does not exist when the walk runs.
+        Inference takes the host s-path and never calls `_wd` at all, which is why the cache
+        was empty every time.
+        """
+        n = 0
+        for key, transpose, fp32 in _DEVICE_HEAD_WEIGHTS:
+            if self._wd(key, transpose, ttnn.float32 if fp32 else None) is not None:
+                n += 1
+        self._wd_materialized = True
+        return n
+
+    def late_device_weights(self):
+        """Device weights minted after :meth:`materialize_device_weights`, as (key, transpose,
+        dtype). Non-empty means the optimizer's parameter set is missing one."""
+        return list(self.__dict__.get("_wd_late", ()))
 
     def _lin(self, x, key):
         w = self._wd(key, dtype=x.dtype if x.dtype == ttnn.float32 else None)

@@ -1,0 +1,28 @@
+2026-09-21 03:13:17.112 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  [fold] sample 0: xl_final std=11.6254 range=[-33.62,29.33]
+[19s] fold 0 19.5s n_tokens=256 plddt=0.431406
+  digest {"cdk2x2_256.cif": "eee6e35d964bf0b814f976aff5679384dc340375424d3be80dd1cbb7d56f8556"}
+  [fold] sample 0: xl_final std=11.6254 range=[-33.62,29.33]
+[34s] fold 1 14.6s n_tokens=256 plddt=0.431406
+  digest {"cdk2x2_256.cif": "eee6e35d964bf0b814f976aff5679384dc340375424d3be80dd1cbb7d56f8556"}
+  A/A same process: bit-identical=True
+[34s] walked 3932 device tensors from OpenFold3
+  resolves before any step: 3932 of 3932
+[38s] optimizer built over 3932 tensors
+[49s] after one step: rebound 3932, resolves 0 of 3932
+[reach] {
+ "reference_tensors": 4170,
+ "reference_sq_norm": 10.279642678524985,
+ "walked_device_tensors": 3932,
+ "matched_to_reference": 2163,
+ "ambiguous_walked_paths": 829,
+ "unmatched_walked_paths": 691,
+ "sq_norm_matched": 9.62830893987007,
+ "pct_of_model_sq_grad_norm": 93.66384845247974,
+ "reference_names_not_matched_count": 2007,
+ "sq_norm_not_matched": 0.6513337386549147,
+ "pct_not_matched": 6.336151547520268
+}
+wrote /tmp/of3t/rebind/REACH_baseline.json
+BASELINE exit=0

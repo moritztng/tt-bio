@@ -7,6 +7,7 @@ import torch
 import ttnn
 
 from . import align
+from . import ranking as rank
 from .tenstorrent import Module, device_dtype_override
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
@@ -87,37 +88,6 @@ def _disorder_score(atom_array, coordinates) -> float:
         values.extend(smoothed)
     return float(np.mean(np.asarray(values) > 0.581)) if values else 0.0
 
-
-
-def sample_ranking_score(*, iptm: float, ptm: float, plddt: float,
-                         disorder: float, has_clash: float) -> float:
-    """Which of the diffusion samples to serve. AF3 SI 5.9.3, with the interface terms
-    replaced when there is no interface to compute them from.
-
-    AF3's full-complex metric is ``0.8*ipTM + 0.2*pTM + 0.5*disorder - 100*has_clash``, and
-    upstream openfold3 implements exactly that (`core/metrics/sample_ranking.py`). On a
-    SINGLE-CHAIN target two of its four terms are identically zero by construction: ipTM
-    averages over cross-chain pairs that do not exist and ``has_clash`` is an inter-chain
-    indicator. Measured on 1UBQ, the RASA ``disorder`` term is zero as well -- a compact
-    76-residue fold never pushes a 25-residue smoothed window past the 0.581 threshold -- so
-    the rule collapses to ``0.2*pTM``, one global scalar whose spread across five samples of
-    one target is 0.011 while their Ca-RMSD spreads 0.58 A.
-
-    That is not a hypothetical. Over nine seeds x five samples the collapsed rule selects a
-    structure WORSE than picking at random, on both trunk arms, and every candidate that reads
-    a different head output beats it. The numbers, the eight rivals it was chosen against and
-    the seed floor beside them are in ``perf/of3t_confhead/`` and the of3t-confhead state doc.
-
-    So when there is no interface, ipTM's weight goes to **pLDDT**, which is per-residue, is
-    already computed here for the B-factor column, and is the quantity Boltz-2 weights 4/5 in
-    its own ranking (``boltz2.py``) and the shared Protenix/OpenDDE ranker falls back to
-    (``worker.py``). The family convention was already "an interface term you cannot compute
-    must not silently keep its weight"; OpenFold3 was the only member without it. When there
-    IS an interface this is AF3's formula unchanged, to the bit.
-    """
-    if iptm > 0.0:
-        return 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
-    return 0.8 * plddt + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
 
 
 def _has_clash(coordinates, atom_to_token_index, asym_id, atom_mask, polymer_mask) -> float:
@@ -306,7 +276,7 @@ class OpenFold3(Module):
             has_clash = _has_clash(
                 sample, aux["atom_to_token_index"], aux["asym_id"],
                 aux["atom_mask"], aux["polymer_mask"])
-        ranking_score = sample_ranking_score(
+        ranking_score = rank.ranking_score(
             iptm=iptm, ptm=ptm, plddt=float(plddt_atom.mean()),
             disorder=disorder, has_clash=has_clash)
         return {

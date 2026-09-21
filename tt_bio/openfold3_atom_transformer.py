@@ -28,7 +28,8 @@ import ttnn
 
 from . import tenstorrent as _T
 from . import ops
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul, softmax_ckc
+from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul,
+                          host_f64_softmax_site, site_softmax, softmax_ckc)
 from .eltwise_fusion import scale_add, mask_add
 
 
@@ -65,6 +66,7 @@ class OF3AtomTransformer(Module):
         self._w = {k: v for k, v in self.weights.data.items()}
         self._wc: dict = {}
         self._softmax_ckc = softmax_ckc("openfold3.atom_transformer")
+        self._softmax_f64 = host_f64_softmax_site("openfold3.atom_transformer")
         self.ln_z_w = self._w_tt("layer_norm_z.weight", False)
         self.adaln_q = [
             AdaLN(False, remap_of3_adaln(_sub(self._w, f"blocks.{b}.attention_pair_bias.layer_norm_a_q.")),
@@ -181,7 +183,8 @@ class OF3AtomTransformer(Module):
                                 compute_kernel_config=self.compute_kernel_config)
             sc = scale_add(sc, scale, mask_bias)
             sc = ttnn.add(sc, z_bias[b])
-            attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc)
+            attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                host_f64=self._softmax_f64)
             o = batched_matmul(attn, V, compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(sc); ttnn.deallocate(attn)
             # o: [1,nb,H,Q,dh] -> [1,nb,Q,H,dh]; gate with sigmoid(linear_g(a_qn)).
