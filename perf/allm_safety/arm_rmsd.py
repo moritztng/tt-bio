@@ -26,8 +26,10 @@ import cif_rmsd as CR  # noqa: E402
 
 def coords(p: Path, ca_only: bool):
     cols, rows = CR.atom_site_table(p)
-    xi, yi, zi = cols["Cartn_x"], cols["Cartn_y"], cols["Cartn_z"]
-    ai = cols.get("label_atom_id", cols.get("auth_atom_id"))
+    # `atom_site_table` keys columns by their FULL mmCIF name, `_atom_site.Cartn_x`.
+    xi, yi, zi = (cols["_atom_site.Cartn_x"], cols["_atom_site.Cartn_y"],
+                  cols["_atom_site.Cartn_z"])
+    ai = cols.get("_atom_site.label_atom_id", cols.get("_atom_site.auth_atom_id"))
     out = []
     for r in rows:
         if ca_only and ai is not None and r[ai].strip().strip('"') != "CA":
@@ -50,10 +52,13 @@ def main():
     ap.add_argument("root", type=Path)
     ap.add_argument("--model", required=True)
     ap.add_argument("--size", type=int, default=512)
+    ap.add_argument("--lever", default=None,
+                    help="lever token in the dir name, for triatt_lever_ab.py output")
     a = ap.parse_args()
 
     legs = {}
-    pat = re.compile(rf"^cif_{re.escape(a.model)}_{a.size}_leg(\d+)_(\w+)$")
+    mid = f"{re.escape(a.lever)}_" if a.lever else ""
+    pat = re.compile(rf"^cif_{re.escape(a.model)}_{a.size}_{mid}leg(\d+)_(\w+)$")
     for d in sorted(a.root.iterdir()):
         m = pat.match(d.name)
         if not m:
@@ -71,7 +76,7 @@ def main():
     print(f"  {len(legs)} legs: " + ", ".join(f"leg{i}={arm}" for (i, arm) in sorted(legs)))
     print()
     print(f"  {'pair':28s} {'all-atom':>10s} {'CA-only':>10s}  {'n_atoms':>8s}")
-    aa_floor = {"main": [], "cand": []}
+    aa_floor = {arm: [] for (_i, arm) in legs}
     cross = []
     for (i1, a1), (i2, a2) in itertools.combinations(sorted(legs), 2):
         P, Q = legs[(i1, a1)], legs[(i2, a2)]
