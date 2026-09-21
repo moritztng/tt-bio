@@ -41,6 +41,7 @@ import math
 
 import torch
 import torch.nn.functional as F
+import ttnn
 
 from .tenstorrent import Pairformer, accurate_softmax_site
 from .openfold3_weights import remap_pairformer_stack
@@ -160,8 +161,6 @@ class OF3ConfidenceHead:
             si_conf:         [N_tok, 384]   (confidence Pairformer single, host-fp32)
             zij_conf:        [N_tok, N_tok, 128] (device z-path output)
         """
-        import ttnn
-
         N = si_trunk.shape[0]
 
         # --- z-embedding (host fp32, AF3 Algorithm 31 lines 1-3) ---
