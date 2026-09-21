@@ -7418,3 +7418,37 @@ worst tensor by **error mass** against upstream's bf16 is
 `pairformer_stack.blocks.44.attn_pair_bias.layer_norm...` at rel 1.846 with **cos −0.957**:
 anti-aligned, which is a direction failure rather than a magnitude one and is not what the
 mass-weighted headline describes.
+
+### D121. A lever can be UNREACHED while the numbers MOVE, and the win then gets credited to the wrong lever. FOUND by `of3t-wholemodel` mid-flight, and it needs two counters, not one.
+
+`of3t-wholemodel`'s `armrun.py` runs another row's instrument under this row's arm flags and reports
+**whether the flag was REACHED**; `armdiff.py` separately reports **whether the numbers MOVED**. The
+row says why both are needed, and the example is on our own record:
+
+**`HOST_F64_SOFTMAX_STATS` served 0 on the trunk, `aux_heads`, `msa_module` and
+`diffusion_conditioning` — and on the first two the gradient still moved, because the renorm repair
+is a different lever.**
+
+So an arm labelled "host float64 softmax" can produce a changed gradient on a scope the host path
+never touches. Score that arm without a reach counter and the improvement is credited to the round
+trip when a two-op backward change did it.
+
+**This is the inverse of a hazard the campaign already tracks.** `a-lever-can-fire-and-be-inert` and
+D110 (`precise_config()` firing 1,440 times and changing nothing) are *fired but no effect*. This is
+*effect but never fired*, and it is the more dangerous direction, because the first shows up as a
+disappointing result you go and investigate, while the second shows up as a **success you bank**.
+
+**Where the host path actually reaches**: three tokens —
+`openfold3.diffusion_transformer`, `openfold3.atom_transformer`, `protenix.atom_transformer` —
+which is the set `softmax_ckc` reaches, and `tests/test_host_f64_softmax_defaults.py` fails if the
+two diverge. It is **inert on the trunk**, which is consistent with D120: at 0.4.3 the
+`autocast(fp32)` attention region is enabled for the input embedder and the diffusion module
+(`model.py:209`, `model.py:500`) and only 0.5.0 adds the trunk (`pairformer.py:199`).
+
+**What this does NOT undermine**: `of3t-f64softmax`'s 51.1358 % reading. That row scored the host arm
+and the renorm arm **separately** (7.777580e-02 against 1.057023e-01) rather than conflating them,
+and the diffusion scope is where the host path does have tokens. The hazard is real and that row
+avoided it; the rule is for everyone else.
+
+**The rule, for every arm this campaign runs from here**: report the flag's REACH counter beside its
+reading. An arm with a zero reach counter and a moved number is not a measurement of that arm.
