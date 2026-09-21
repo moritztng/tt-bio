@@ -10235,7 +10235,9 @@ Independently: the model's own per-residue confidence rises in **24 of 24 paired
 
 **Standing measurement limit, worth more than this row**: fold times on pc ran **21 to 56 s at a pinned 1350 MHz**, with 50-plus-second outliers on BOTH trees. Fold-scope A/B on this host cannot resolve anything below roughly 13 s. Any future claim of the form "this change costs nothing at fold scope" on pc is a bound of that size unless the floor is reported with it.
 
-### D155. `protenix-v2` inference is NON-DETERMINISTIC at a fixed seed — the same fixture, the same card, the same command, different output digests — and it is pre-existing, not caused by anything this campaign built. FOUND by `of3t-d137ab` (pass 281). **UNFIXED, USER-FACING.**
+### D155. WITHDRAWN as filed, same pass, before it reached a summary field: the non-determinism is **pc card 0**, a faulty card root-caused on 2026-08-17, not a property of `protenix-v2`. FOUND by `of3t-d137ab`, MIS-ATTRIBUTED by me, corrected at pass 282. **WITHDRAWN.** Original filing below, kept because the reasoning is the record.
+
+**AS ORIGINALLY FILED, kept verbatim below because the reasoning is the record.** `protenix-v2` inference is NON-DETERMINISTIC at a fixed seed — the same fixture, the same card, the same command, different output digests — and it is pre-existing, not caused by anything this campaign built. FOUND by `of3t-d137ab` (pass 281). **UNFIXED, USER-FACING.**
 
 Five interleaved folds per tree, no flag set on either, `cdk2x2_128`, `--single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0`, pc card 0:
 
@@ -10253,3 +10255,22 @@ Five interleaved folds per tree, no flag set on either, `cdk2x2_128`, `--single_
 **What it invalidates immediately**: any digest-equality claim on protenix-v2. `inference_ab_with_aa_floor.py` refused the model on `digest_stable_within_arm`, which is the refusal working — it declined to report FREE from an arm whose own repeats disagree. **Checked rather than asserted**: no live compose check makes a protenix digest claim, so nothing in the gate chain is resting on this. Where it IS claimed is in prose — `state/ask-9629-decision.md` records *"byte-identical digests verified on OpenFold3, Protenix-v2 and OpenDDE"*, and on this evidence the protenix-v2 third of that sentence held on the reps that were run rather than as a property. It is a weaker sentence than it reads, and Moritz's D137 ruling does not depend on it — the ruling turned on a flag being settable, not on the digests.
 
 **Not diagnosed here, deliberately.** The row's subject was D137's cost and it stopped at the boundary of its question after proving the refusal was about the model rather than about the gate. Candidate causes worth separating before anything else: a device non-determinism (reduction order, an uninitialised buffer), a host-side RNG not seeded by `--seed`, or a data-path dependence on something not in the fixture.
+
+### D155 UPDATE (pass 282, heading restated). **WITHDRAWN** — and the fleet had root-caused this exact symptom a month ago, under a name that says so.
+
+**`of3t-d137ab` ran every fold on pc card 0** (p150a, board `000004033191410f`; its own state doc line 3 says so, and `fleet.log` confirms the launch). pc card 0 is a **known faulty card**: `protenix-v2-nondeterminism-rootcause` root-caused it on **2026-08-17** as a hardware fault, not a code bug —
+
+  * matmul-only: `concat` and `layer_norm` are bit-stable at every size and precision, while `linear_z` (512->256) differs on **15/15** repeats at 256 aa fp32 and **2/31** at bf16;
+  * **location-keyed, not data-keyed**: a synthetic-weight probe reproduces the same victim pair-row clusters the real fold dump recorded, and 64 of 130 cores are never hit;
+  * **no size threshold** — the original "512 aa only" framing was a single-sample-per-size artifact of a probabilistic fault; 160 aa is clean over 31 repeats while 128 aa trips 1/7;
+  * a matched qb1 card 1 control was **15/15 clean** on all nine stages, same commit and config.
+
+The standing instruction is explicit: **pc card 0 must not host hash-equality or bit-exact gating at any size, for any model**, and *"a clean run on pc proves nothing about the next one"*.
+
+**So the user-facing claim is withdrawn.** Nothing here shows a user folding the same input twice gets a different structure on healthy hardware. D155 is removed from USER-FACING and from the closure plan.
+
+**What survives, and it is not nothing.** The harness's refusal was right for a better reason than it knew: it declined to report FREE from an arm whose repeats disagree, and on this card that is exactly the correct behaviour. And the pattern is consistent with the known fault rather than with a protenix property — the fault is probabilistic and matmul-keyed, so a model whose kernel mix hits more victim locations trips more often, which is why protenix-v2 moved and `openfold3`/`opendde` did not.
+
+**What it costs D137's evidence, stated rather than glossed.** `of3t-d137ab`'s *"byte-identical across base, off and on, twelve folds each"* for `openfold3` and `opendde` was taken on a card excluded from exactly that kind of gating. Twelve stable folds each is real evidence the fault did not fire, but it is not the bit-exactness proof it reads as. **The timing half is unaffected** — the fault is matmul correctness, not speed — so *"not made slower"* stands as written. The digest half wants one re-run on a clean card, and it is the only thing D137 still owes.
+
+**My own failure, which is the reusable part.** I filed a USER-FACING defect against a shipped model without checking which card produced it, on a fleet that maintains an explicit exclusion list for that card — and the root-cause row is called `protenix-v2-nondeterminism-rootcause`. The check that would have caught it is one line: **before attributing a digest instability to a model, name the card and look it up.** A row reporting from pc card 0 has not measured determinism, whatever it saw.
