@@ -8786,3 +8786,171 @@ EVALUABLE**, where the pre-pass-236 rule printed the false `165 ... checks were 
 verbatim. Reverting the repair in place makes the probe fail both assertions and restores the false
 message; the compose aborts on it. Wired into `compose_verify.sh` ahead of the audit. CPU-only, no
 device, nothing under `tt_bio/`.
+
+### D131. The triage split quoted in the field Moritz reads as the answer had drifted three defects from the file the GATE obeys, and did not sum to the UNFIXED total two sentences above it. FOUND and FIXED by the orchestrator (pass 237), bookkeeping-only. **FIXED.**
+
+`VERDICT` stated *"Triaged against the ledger: **4 scope-excluded, 10 USER-FACING, 33
+campaign-internal**"*. The live `state/of3t/UNFIXED_TRIAGE.json` held **4 / 8 / 32**. The stated
+split summed to **47** against the **forty-four UNFIXED defects** the same paragraph quotes.
+
+**Why this one matters more than a stale number usually does.** That file is not decoration. The
+additive GO clause added at pass 233 makes `_of3t_donecheck.py` **refuse GO while its USER-FACING
+class is non-empty**, so the number in the prose and the number the gate obeys were two different
+numbers, and the prose overstated the campaign's remaining user-facing exposure by two defects
+while understating nothing. D63's re-classification (12 → 11) and D129's arrival were both recorded
+in `triage.py` and in GAP; neither reached this sentence, because nothing required them to.
+
+**Same shape as D130 and as pass 133**: a figure recomputed somewhere else, quoted by hand into the
+answer field, and never reconciled. The campaign already audits the defect TOTAL and the UNFIXED
+TOTAL in that field; it had never audited the SPLIT.
+
+**Fixed by a guard, not by an edit.** `audit_evidence.py` now reads the split out of the summary and
+fails when it disagrees with `UNFIXED_TRIAGE.json`, when it disagrees with the UNFIXED count derived
+from this ledger, or when the summary states no split at all — the last case because a field that
+simply drops the sentence would otherwise satisfy a guard that only compares. Demonstrated on the
+live drift before the edit: the audit printed
+
+```
+DRIFT the summary states a triage split of 4/10/33 (scope-excluded/USER-FACING/campaign-internal)
+but UNFIXED_TRIAGE.json, which the GATE reads, holds 4/8/32
+```
+
+and after the correction, `ok the triage split the summary states (4/8/32) matches
+UNFIXED_TRIAGE.json and sums to the 44 UNFIXED defects in DEFECTS.md`.
+
+**And D130's repair proved itself on it, one pass later and unplanned.** On the drifted run the
+check-count guard did **not** fire its old false *"the count drifted when checks were added"*; it
+announced **NOT EVALUABLE** and named the other failing check, which is exactly the behaviour
+D130 was filed and repaired for. A guard that only ever passes on its author's own test case is
+not yet evidence; this is the first independent one.
+
+### D55 UPDATE 4 (pass 237). UNFIXED, and the entry's own inventory was INCOMPLETE: the tape has TEN unconfigured reductions, not four, and the two nobody listed sit on the exact cancellation the rule's own comment is written about.
+
+Re-derived from the AST of the composed tree, CPU only, no device:
+`perf/of3t_orchestrator/kcfgcensus/census_reduction_config.py`, with
+`KCFG_CENSUS_autograd.json` and `KCFG_CENSUS_taped_ttnn.json`. It keys every site by its
+**enclosing symbol and expression**, never by line — this entry has now been re-located twice
+because every line number in it went stale, and a census that re-derives cannot go stale a third
+time.
+
+    tt_bio/autograd.py      13 ttnn.sum/mean calls,  9 with NO compute_kernel_config
+    tt_bio/taped_ttnn.py     2 ttnn.sum/mean calls,  1 with NO compute_kernel_config
+
+| kind | n | status |
+|---|---|---|
+| `layer_norm:dn_mean` | 4 | **MEASURED INERT** (pass 232, 2736/2736 bit-identical, LoFi break control moved 2733/2736) |
+| `softmax:inner` | 2 | **MEASURED INERT** (pass 222) — the rule exists in two copies, one per file |
+| `layer_norm:mean` | 2 | **UNMEASURED, and never listed by D55** |
+| `attention:inner` | 1 | **UNMEASURED** — `inner = rowsum(dP·P)`, the three matmuls around it all pass `cfg` |
+| `attention:dbias` | 1 | **UNMEASURED** — the bias-gradient accumulation over the query chunk |
+
+**The two new sites are the interesting ones, because the code argues against itself.** In the
+LayerNorm backward:
+
+```
+mean     = ttnn.mean(xv, dim=-1, keepdim=True)                       # no config
+centered = ttnn.subtract(xv, mean)
+var      = ttnn.mean(centered*centered, ..., compute_kernel_config=bwcfg)   # config
+```
+
+and the comment three lines above it says the two-pass form is used instead of `E[x²] − E[x]²`
+because that *"cancels catastrophically once the mean dominates the spread"*. So the author is
+reasoning about precisely this cancellation — and then computes `mean`, the **operand** of the
+subtraction, without the precise config while giving it to `var`, the **consumer** of the already
+centred value. Whichever way the measurement goes, the configuration is the wrong way round
+relative to the stated argument. Two occurrences, the rule being duplicated.
+
+**What this does to D55's status.** Six of the ten instances are measured and inert, which is the
+"thinning" pass 232 recorded. But the remaining four are not one site, as the previous update said
+— they are four, in three distinct rules, and two of them are sites the entry never knew about, so
+"one site left" was wrong in the direction that lets the defect look closed. It stays **UNFIXED**.
+
+**Not landed, deliberately.** Adding the argument is one keyword per site and cannot touch a
+shipped inference digest, because none of this runs in the forward. It is not landed because an
+inert precision fix is indistinguishable from one that never reached the kernel, which is the
+control discipline the two measured sites were settled under; the next card-holding row should pull
+all four with a LoFi break control, not one. Handing it forward rather than spending a card on it
+now: both of qb2's cards are held.
+
+### D129 UPDATE (pass 237). STILL UNFIXED, and now LOCATED: the leaf's own arithmetic and its own input are both innocent — 100 % of the 4.388x is a flat 2.35x excess on the cotangent ARRIVING at it, uniform across all 24 DiT blocks.
+
+`of3t-condtrans` concluded at **`b6cc90acc`**, 5 commits, `git diff --name-only <merge-base> HEAD --
+tt_bio/` empty, so inference is byte-identical by construction and `TT_BIO_SOFTMAX_BW_RENORM` stays
+default-off.
+
+**Three measurements that separate the blame exactly.**
+
+| | reading | against |
+|---|---|---|
+| conditioning (KAPPA median **16.795**) | bounds a bf16-class evaluation at **0.0328** | the reading is **20.2x** that bound; the sibling AdaLN gain sits at 1.54x its own |
+| isolation (our contraction vs float64 of our own operands) | **1.5217e-03** | **456x under** the reading |
+| substitution of upstream's cotangent | reproduces the reference gradient at **8.877e-09** | control 4.906e-16; substituting the *input* changes nothing, ours is exact to 1.98e-08 |
+
+So what is ours is the **cotangent arriving at the LayerNorm**, a flat **2.35x** further from float64
+than upstream's own bf16 cotangent, **uniform across all 24 DiT blocks (1.95x–2.59x, no outlier)**.
+This is the **opposite** of the trunk leaf D8 closed on, where teacher-forcing the reference
+cotangent made the reading **5.3x worse** because an error was compensating; here there is nothing
+to compensate.
+
+**Two corrections to the orchestrator's own framing, both material.**
+
+1. **The repair did not move this leaf.** Its absolute error mass went **1.328372 → 1.256298**, a
+   factor of **0.946**. The `0.150 % → 28.313 %` the brief was built on is a **share**, and its
+   denominator collapsed 881.1072 → 4.4288 with 878.85 of that on one other leaf. A share is a
+   ratio; a collapsing denominator moves it without the numerator moving. A23 says bind a set
+   statistic to its mass and the brief did not.
+2. **It is not `of3t-apbgrad`'s AttentionPairBias finding.** The AdaLN sits **after** the APB
+   residual add, so its cotangent is produced before that backward runs, and the two leaves'
+   per-block errors are uncorrelated (Spearman **+0.229**, p = **0.282**).
+
+Also: the 30 instances are **24 DiT + 3 `atom_attn_enc` + 3 `atom_attn_dec`**, not 30
+diffusion-transformer sites as the brief asserted, and the three atom-transformer sites read
+**worse** than the DiT's (6.55x and 6.17x).
+
+**A near-miss the row caught and the orchestrator would not have.** The cotangent's direction rots
+monotonically with depth — cos **+0.920** at block 23 down to **+0.46** by block 12, Spearman
+**+0.834**. Floor-differenced, upstream's own bf16 cotangent rots *more* cleanly (Spearman
+**+0.950**), so the depth trend is intrinsic to a bf16 DiT backward and belongs to nobody. Floor-
+difference a new statistic before reading it as a signature, not only the headline one.
+
+**What is left.** The object is now **one thing and not twenty-four**: a per-block constant-factor
+excess of 2.35x in the DiT block's backward, with no depth structure and no outlier block — the
+first time this campaign has reduced a diffusion-scope finding to a single uniform factor. And the
+boundary caveat is untouched: all of this is measured at **0.5.0**, and `of3t-cond043` holds the
+0.4.3 question.
+
+### D132. Two rows edit the campaign's only diffusion-scope floor instrument in OVERLAPPING hunks, and the merge that would silently keep one side had not happened yet. FOUND by the orchestrator (pass 238), caught before the collision. **FIXED** as a declared co-edit with a both-sides assert; the resolution itself is the live row's.
+
+`perf/of3t_condtrans/floor_bf16.py` is the only artifact in this campaign that produces an
+upstream-bf16 floor at diffusion scope. Two rows change it:
+
+| row | change | state |
+|---|---|---|
+| `of3t-condtrans` | the **`f64`** policy and **`--capture-ln`**, which re-derive the REFERENCE operands at named LayerNorm sites (`618b27903`) | CONCLUDED at `b6cc90acc`, frozen |
+| `of3t-cond043` | **`--expect-version`**, reading the version off the imported module's own directory and hard-failing a mismatch (+92/−14) | LIVE, **not pushed** |
+
+`of3t-cond043` branched from `a2d76a243`, which carries the file at `ee601c106` — *before*
+condtrans's addition. Both edits land in the same argparse block and the same docstring, so the
+hunks **overlap**; disjointness is not available as an argument. Nothing has collided yet only
+because the live row has not pushed.
+
+**The orchestrator's first instruction was the wrong fix and is withdrawn.** AMENDMENT 1 told
+`of3t-cond043` to copy the file into its own namespace. That forks the campaign's only floor
+instrument into two drifting versions — the standing UNIFIED rule is against exactly that — and
+`--expect-version` is a provenance guard every arm should carry, not a 0.4.3 special case.
+AMENDMENT 2 replaces it: **merge** `origin/wk/of3t` (not rebase, the row has jobs executing out of
+that worktree), keep both sides, and prove the resolution **executes** — `--help` listing all four
+policies, one completed arm reproducing its published JSON, and `--expect-version 0.5.0` against the
+0.4.3 tree failing. A hand-resolved merge needs execution, not a syntax check.
+
+**And the compose asserts it rather than trusting the declaration.** The file joins
+`ALLOWED_COEDIT` with the treatment `tt_bio/openfold3_trunk.py` already gets — declared as
+OVERLAPPING, then checked — and aborts with `CO-EDIT LOST A SIDE` naming whichever of `f64`,
+`--capture-ln` or `--expect-version` the merged file lost. **Conditional on both rows being in the
+composition**, because until the live row pushes only one side exists and an unconditional assert
+would abort every compose on a collision that has not happened.
+
+**Negative control, all three arms exercised**: the composed file as it stands reports *lost
+cond043's --expect-version* (its side is genuinely absent today, which is why the flag is
+conditional); with that flag added, both sides present; deleting `--capture-ln` reports it lost;
+renaming `"f64"` reports the f64 policy lost. No arm of the check is vacuous.

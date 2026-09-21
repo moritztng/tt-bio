@@ -27,6 +27,11 @@ Policies, exactly as `perf/of3t_trunkg043/ref_grad.py` defines them:
   f32       float32 parameters, no outer autocast. The instrument floor: whatever this reads is
             what the harness cannot tell apart, and it also proves the module is deterministic
             given these kwargs, without which nothing below is a measurement.
+  f64       float64 parameters under `bundle_min.no_autocast`, which is `sub_boundary.py`'s own
+            reference recipe. Only useful with --capture-ln: it re-derives the REFERENCE operands
+            at the named LayerNorm sites, and it is checked against the `grad_f64` already on
+            disk rather than trusted -- if the re-run does not reproduce that, the operands it
+            captured belong to some other function.
 
 The bf16 arm publishes DTYPE_PROBE, the dtype a Linear inside the first DiT block actually emits.
 A probe that does not read bfloat16 in the bf16 arm is a hard failure: it would mean the recipe
@@ -99,7 +104,12 @@ def cast(x, dt):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--policy", required=True, choices=("bf16auto", "f32"))
+    ap.add_argument("--policy", required=True, choices=("bf16auto", "f32", "f64"))
+    ap.add_argument("--capture-ln", default="", dest="capture_ln",
+                    help="comma-separated parameter-name suffixes whose LayerNorm module should "
+                         "have its input and its incoming cotangent captured, so the device "
+                         "probe's operands have something to be compared against")
+    ap.add_argument("--ln-out", default="", dest="ln_out")
     ap.add_argument("--cap", type=Path, default=CAP)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
@@ -127,7 +137,7 @@ def main() -> int:
           f"{len(ref_grad)} reference tensors", flush=True)
     del B, S
 
-    dt = torch.float32
+    dt = torch.float64 if a.policy == "f64" else torch.float32
     built = BM.build(dt, 20260919, "cpu", num_recycles=0)
     model = built[1]
     ck = torch.load(a.ckpt, map_location="cpu", weights_only=False)
@@ -153,9 +163,38 @@ def main() -> int:
             hs.append(mod.register_forward_hook(dtype_hook))
             break
 
+    # ---- reference operands at the named LayerNorm sites ------------------------------------
+    want = [v for v in a.capture_ln.split(",") if v]
+    LN = {}
+    if want:
+        def make(nm):
+            def fwd(mod, inp, out):
+                x = inp[0]
+                c = x.shape[-1]
+                xf = x.detach().reshape(-1, c).double()
+                mu = xf.mean(dim=-1, keepdim=True)
+                var = (xf - mu).pow(2).mean(dim=-1, keepdim=True)
+                LN[nm] = {"xhat": (xf - mu) * torch.rsqrt(var + float(getattr(mod, "eps", 1e-5))),
+                          "rows": xf.shape[0], "C": c}
+
+                def grab(g, _nm=nm, _c=c):
+                    LN[_nm]["G"] = g.detach().reshape(-1, _c).double()
+                if out.requires_grad:
+                    out.register_hook(grab)
+            return fwd
+
+        for nm, mod in dm.named_modules():
+            if any(f"{nm}.weight".endswith(w) for w in want):
+                hs.append(mod.register_forward_hook(make(f"{nm}.weight")))
+        if not hs:
+            raise SystemExit("--capture-ln matched no module")
+        print(f"[{time.time()-t0:.0f}s] capture-ln armed on {len(hs)} modules", flush=True)
+
     kw = cast(kwargs, dt)
     ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
            else torch.autocast("cpu", enabled=False))
+    if a.policy == "f64":
+        ctx = BM.no_autocast()
     t1 = time.time()
     with ctx:
         xl = dm(**kw)
@@ -172,8 +211,16 @@ def main() -> int:
     t_bwd = time.time() - t1
     print(f"[{time.time()-t0:.0f}s] backward {t_bwd:.0f}s", flush=True)
 
-    grads = {n: (x.detach().to(torch.float32) if x is not None else None)
+    grads = {n: (x.detach().to(torch.float64 if a.policy == "f64" else torch.float32)
+                 if x is not None else None)
              for n, x in zip(names, g)}
+    if want:
+        miss = [k for k, v in LN.items() if "G" not in v]
+        if miss or not LN:
+            raise SystemExit(f"capture-ln got no cotangent at {len(miss)} of {len(LN)} sites")
+        torch.save({"sites": LN, "want": want, "policy": a.policy},
+                   a.ln_out or f"/tmp/of3t/condtrans/ln_ref_{a.policy}.pt")
+        print(f"[{time.time()-t0:.0f}s] capture-ln wrote {len(LN)} sites", flush=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"policy": a.policy, "grads": grads, "cap": str(a.cap)}, a.out)
 

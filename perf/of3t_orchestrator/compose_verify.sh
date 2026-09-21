@@ -234,7 +234,18 @@ done
 #   do not interact -- of3t-trunkcliff measured the pair track BIT-IDENTICAL under its
 #   convention change, and of3t-trunk043ref measured the single track unmoved across foldab's
 #   orientation (0.101290 vs 0.101335). Both must stay; neither may flip a default.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py"
+#   perf/of3t_condtrans/floor_bf16.py: of3t-condtrans (CONCLUDED at b6cc90acc) owns the `f64`
+#   policy and `--capture-ln`, which re-derive the REFERENCE operands at named LayerNorm sites;
+#   of3t-cond043 owns `--expect-version`, which reads the package version off the imported
+#   module's own directory and hard-fails a mismatch -- it exists because of3t_gradients/pylibs
+#   carries an openfold3-0.5.0 dist-info that would make importlib.metadata report 0.5.0 behind a
+#   0.4.3 source tree. The hunks OVERLAP: both edit the same argparse block and the same
+#   docstring, so disjointness is NOT the argument. The argument is that both are wanted in ONE
+#   instrument -- a private copy would fork the campaign's only diffusion-scope floor -- and that
+#   the merged result is ASSERTED to carry both rather than assumed. Added pass 238, when
+#   of3t-cond043 was still unpushed and the collision was still avoidable.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py"
+_coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
@@ -245,6 +256,13 @@ for a in $ALLOWED_COEDIT; do
       tt_bio/openfold3_trunk.py)
         # Do NOT claim disjointness here: these hunks OVERLAP (both start at line 132). What is
         # verified for this file is that the merged result carries both sides, asserted below.
+        echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
+      perf/of3t_condtrans/floor_bf16.py)
+        # Same shape: overlapping hunks in one argparse block, both sides asserted below. The
+        # flag is set here rather than asserting unconditionally, because until of3t-cond043
+        # pushes its branch only one side EXISTS and an unconditional assert would abort every
+        # compose on a collision that has not happened yet.
+        _coedit_floor=1
         echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
       *)
         echo " -- DECLARED, regions verified disjoint" ;;
@@ -264,6 +282,18 @@ if [ -z "$dup" ]; then
     echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
   fi
   echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
+  # The second overlapping co-edit, asserted only when both rows are actually in this composition.
+  if [ "$_coedit_floor" = "1" ]; then
+    _ff="$CO/perf/of3t_condtrans/floor_bf16.py"
+    _fmiss=""
+    grep -q -- "--capture-ln" "$_ff" || _fmiss="$_fmiss of3t-condtrans's --capture-ln"
+    grep -q '"f64"' "$_ff" || _fmiss="$_fmiss of3t-condtrans's f64 policy"
+    grep -q -- "--expect-version" "$_ff" || _fmiss="$_fmiss of3t-cond043's --expect-version"
+    if [ -n "$_fmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in perf/of3t_condtrans/floor_bf16.py --$_fmiss"; exit 1
+    fi
+    echo "co-edit: floor_bf16.py carries BOTH condtrans's f64/--capture-ln and cond043's --expect-version"
+  fi
 else
   echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
   while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
