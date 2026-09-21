@@ -35,6 +35,7 @@ import ast
 import os
 import pathlib
 import sys
+import types
 import time
 
 TOOL_ID = 3
@@ -114,6 +115,7 @@ def inventory(root: pathlib.Path, verbs=None):
             sites.append({
                 "file": str(path.relative_to(root.parent)),
                 "line": node.lineno,
+                "col": node.col_offset,
                 "end_line": getattr(node, "end_lineno", node.lineno),
                 "qual": qual,
                 "func": fn,
@@ -134,13 +136,22 @@ class Census:
         self.root = pathlib.Path(repo_root)
         self.sites = []
         self.by_pos = {}              # (abs file, line) -> [site index]
+        self.by_exact = {}            # (abs file, line, col) -> site index
         self.taped_calls = {}         # site index -> count
         self.untracked_calls = {}     # (file, line, qual) -> count, no static match
+        self.raw_calls = {}           # site index -> count of RAW ttnn calls inside a tape
+        self.raw_unattributed = {}    # (file, line, col) -> count, raw call with no site
+        self.wrapper_ids = set()      # id() of every recording verb wrapper
+        self.callee_kind = {}         # id(callable) -> "raw" | "wrapper" | "other"
+        self.raw_ids = set()          # id() of every callable reachable as ttnn.<verb>
+        self.raw_names = {}           # (file, line, col) -> callee name, for the unattributed
+        self.call_events = 0
         self.touched = {}             # (abs file, line) -> 1, inside a tape only
         self.reach = {}               # site index -> param bitmask
         self.leaf_bit = {}            # id(leaf) -> bit index
         self.leaves = []              # bit index -> leaf Tensor
-        self.name_map = None          # the instrument's own id(handle) -> checkpoint name
+        self.name_map = None          # candidate id(handle) -> checkpoint name maps
+        self.name_map_hits = 0
         self.in_tape = 0
         self.n_tape_opens = 0
         self.hook_calls = 0
@@ -156,6 +167,7 @@ class Census:
         for i, s in enumerate(self.sites):
             f = str((self.root / s["file"]).resolve())
             s["_abs"] = f
+            self.by_exact[(f, s["line"], s.get("col"))] = i
             for ln in range(s["line"], s["end_line"] + 1):
                 self.by_pos.setdefault((f, ln), []).append(i)
         return len(self.sites)
@@ -209,6 +221,7 @@ def install(repo_root, want_lines=True):
 
     c = _C = Census(repo_root)
     n = c.load_inventory(tp.VERBS)
+    c.raw_ids = _raw_verb_ids()
 
     # 1. every tape node carries the parameter set of its own subgraph.
     base_node = ag._Node
@@ -247,6 +260,7 @@ def install(repo_root, want_lines=True):
                     _C.reach[i] = _C.reach.get(i, 0) | getattr(node, "pmask", 0)
             return out
 
+        _C.wrapper_ids.add(id(call))
         return call
 
     tp._taped_verb = _taped_verb
@@ -310,21 +324,51 @@ def _purge(shim):
 
 
 def _sniff_names(frame):
-    """The largest int->str dict in the caller's locals, which is the instrument's name map.
+    """Every int->str dict in the caller's locals, as CANDIDATE name maps.
 
     `perf/of3t_diffusion/device_gradient.py` builds `reg` (id(device handle) -> checkpoint name)
-    at load time and registers its parameters from the same frame. Read rather than required:
-    an instrument without one still gets a full census, with the reach reported by leaf index.
+    at load time and registers its parameters from the same frame. It also holds `fp_name`, a
+    fingerprint -> name map with eight times as many entries, so "the biggest one" picks the
+    wrong dict and every leaf comes back unnamed. The choice is made at report time instead, by
+    which candidate actually resolves the leaves: a map that names nothing is not the map.
     """
-    best = None
+    out = []
+    # Three frames out, not one. `aux_instrument.py` registers its parameters inside
+    # `grad_device.tape_parameters()`, so the map lives in the instrument's frame and not in
+    # the one that calls `ag.parameter`; one frame reads nothing there and the arm's whole
+    # mass goes unattributed while its site census looks fine.
+    for up in range(3):
+        if frame is None:
+            break
+        out.extend(_cands(frame))
+        frame = frame.f_back
+    return out or None
+
+
+def _cands(frame):
+    out = []
     for v in frame.f_locals.values():
-        if not isinstance(v, dict) or not v:
+        if not isinstance(v, dict) or len(v) < 8:
             continue
         k0 = next(iter(v))
-        if isinstance(k0, int) and isinstance(v[k0], str):
-            if best is None or len(v) > len(best):
-                best = v
-    return best
+        if isinstance(k0, int) and _names_of(v[k0]):
+            out.append(v)
+    return out
+
+
+def _names_of(rec):
+    """The checkpoint name(s) an instrument's registry entry carries.
+
+    Two shapes in use: `device_gradient.py` stores the name, `msa_instrument.py` stores
+    `(name_a, name_b)` because one device weight can be a FUSED pair, and both halves own the
+    gradient that flows through it. Both are read; a fused leaf reports both names, so its
+    mass is not silently halved.
+    """
+    if isinstance(rec, str):
+        return [rec]
+    if isinstance(rec, (tuple, list)) and rec and isinstance(rec[0], str):
+        return [x for x in rec if isinstance(x, str)]
+    return []
 
 
 _LINE_ARMED = False
@@ -343,15 +387,108 @@ def _line_cb(code, lineno):
     return sys.monitoring.DISABLE        # every other line costs exactly one callback
 
 
+def _positions(code):
+    ps = _POS.get(code)
+    if ps is None:
+        ps = _POS[code] = list(code.co_positions())
+    return ps
+
+
+def _raw_verb_ids():
+    """Every callable reachable as `ttnn.<name>` or `ttnn.<ns>.<name>`, by identity.
+
+    The membership test has to be identity against the real module, not `__module__`. A pybind
+    METHOD on a tensor (`mc.is_sharded()`, `t.memory_config()`) also answers "ttnn" there, and
+    counting those as raw verb calls turns 5,760 memory-config reads into an A2 hole. Classes
+    are excluded for the reason the proxy itself excludes them: `_Ttnn.__getattr__` hands a
+    type straight back, so `ttnn.MatmulMultiCoreReuseProgramConfig(...)` is raw by design and
+    carries no gradient.
+    """
+    import ttnn as real
+    out, seen = set(), set()
+
+    def walk(ns, depth):
+        if id(ns) in seen or depth > 2:
+            return
+        seen.add(id(ns))
+        for name in dir(ns):
+            if name.startswith("__"):
+                continue
+            try:
+                attr = getattr(ns, name)
+            except Exception:
+                continue
+            if isinstance(attr, types.ModuleType):
+                walk(attr, depth + 1)
+            elif callable(attr) and not isinstance(attr, type):
+                # Identity alone is not enough either: `ttnn` re-exports a few stdlib
+                # callables into its namespace, and `math.sqrt` reached by that route turned
+                # `c_out = sigma_data * t / math.sqrt(...)` into 48 raw ttnn calls a tape had
+                # missed. Both tests, and only their intersection counts.
+                mod = getattr(attr, "__module__", None) or getattr(type(attr), "__module__", "")
+                if isinstance(mod, str) and mod.startswith("ttnn"):
+                    out.add(id(attr))
+    walk(real, 0)
+    return out
+
+
+def _classify(callee):
+    """raw ttnn verb, this module's recording wrapper, or neither."""
+    if id(callee) in _C.wrapper_ids:
+        return "wrapper"
+    return "raw" if id(callee) in _C.raw_ids else "other"
+
+
+def _call_cb(code, offset, callee, arg0=None):
+    """A ttnn verb called from a tt-bio frame, by exact bytecode position.
+
+    The LINE map cannot separate `ttnn.deallocate(x)` from `if cond: ttnn.deallocate(x)` --
+    the line fires either way -- so an A2 hole counted as "line ran and the proxy was never
+    entered" reads 19 false positives on the diffusion arm alone. This counts the raw call
+    itself: the callee is either the proxy's wrapper or `ttnn`'s own function, and only the
+    second one is a call the tape could not have followed.
+    """
+    c = _C
+    if c is None or not c.in_tape:
+        return sys.monitoring.DISABLE
+    if "/tt_bio/" not in code.co_filename:
+        return sys.monitoring.DISABLE        # one callback per foreign location, then gone
+    c.call_events += 1
+    kind = c.callee_kind.get(id(callee))
+    if kind is None:
+        kind = c.callee_kind[id(callee)] = _classify(callee)
+    if kind != "raw":
+        return None
+    try:
+        ln, _end, col, _ec = _positions(code)[offset // 2]
+    except Exception:
+        ln = col = None
+    i = c.by_exact.get((code.co_filename, ln, col))
+    if i is None:
+        cands = c.by_pos.get((code.co_filename, ln))
+        i = cands[0] if cands and len(cands) == 1 else None
+    if i is None:
+        k = (code.co_filename, ln, col)
+        c.raw_unattributed[k] = c.raw_unattributed.get(k, 0) + 1
+        c.raw_names.setdefault(k, getattr(callee, "__name__", type(callee).__name__))
+    else:
+        c.raw_calls[i] = c.raw_calls.get(i, 0) + 1
+    return None
+
+
+_POS: dict = {}
+
+
 def _arm_lines():
     global _LINE_ARMED
     mon = sys.monitoring
     if not _LINE_ARMED:
         mon.use_tool_id(TOOL_ID, TOOL_NAME)
         mon.register_callback(TOOL_ID, mon.events.LINE, _line_cb)
+        mon.register_callback(TOOL_ID, mon.events.CALL, _call_cb)
         _LINE_ARMED = True
         _C.armed_at = time.time()
-    mon.set_events(TOOL_ID, mon.events.LINE)
+    mon.set_events(TOOL_ID, mon.events.LINE | mon.events.CALL)
     mon.restart_events()
 
 
@@ -374,28 +511,46 @@ def release():
 
 
 def _leaf_names(c):
-    out = []
+    """Resolve the leaves against whichever candidate map names the most of them."""
+    ids = []
     for leaf in c.leaves:
-        nm = None
-        if c.name_map is not None:
-            try:
-                nm = c.name_map.get(id(leaf._value))
-            except Exception:
-                nm = None
-        out.append(nm)
-    return out
+        try:
+            ids.append(id(leaf._value))
+        except Exception:
+            ids.append(None)
+    # Hits alone is not enough to pick. `device_gradient.py` holds `reg` (id -> checkpoint
+    # name) and `orient` (id -> "T"/"N", the load orientation) over the SAME 547 keys, so both
+    # resolve every leaf and the loser is chosen half the time. The name map is the one whose
+    # values distinguish the leaves.
+    best, best_score = None, (0, 0)
+    for cand in (c.name_map or []):
+        got = [nm for i in ids if i is not None and i in cand
+               for nm in _names_of(cand[i])]
+        score = (len(got), len(set(got)))
+        if score > best_score:
+            best, best_score = cand, score
+    c.name_map_hits = best_score[0]
+    if best is None:
+        return [[] for _ in ids], [None] * len(ids)
+    allnames = [_names_of(best[i]) if i is not None and i in best else [] for i in ids]
+    return allnames, [a[0] if a else None for a in allnames]
 
 
 def report(c=None):
     """The census, as plain data. Mass is scored separately, on host, by `census.py`."""
     c = c or _C
-    names = _leaf_names(c)
+    allnames, names = _leaf_names(c)
     rows = []
     for i, s in enumerate(c.sites):
-        ran = any((s["_abs"], ln) in c.touched
-                  for ln in range(s["line"], s["end_line"] + 1))
-        hits = sum(c.touched.get((s["_abs"], ln), 0)
-                   for ln in range(s["line"], s["end_line"] + 1))
+        # The CALL instruction carries the line the call EXPRESSION starts on, so the start
+        # line is the site's own execution. The span is kept beside it because an argument on
+        # a later line of a multi-line call fires its own LINE event, and a site scored on the
+        # span alone reads as executed whenever any of its arguments were evaluated, which is
+        # not the same claim.
+        hits = c.touched.get((s["_abs"], s["line"]), 0)
+        ran = hits > 0
+        span_hits = sum(c.touched.get((s["_abs"], ln), 0)
+                        for ln in range(s["line"], s["end_line"] + 1))
         taped = c.taped_calls.get(i, 0)
         mask = c.reach.get(i, 0)
         idx = [b for b in range(len(c.leaves)) if mask >> b & 1] if mask else []
@@ -403,7 +558,10 @@ def report(c=None):
             "file": s["file"], "line": s["line"], "end_line": s["end_line"],
             "qual": s["qual"], "func": s["func"], "root": s["root"],
             "taped_verb": s["taped_verb"],
-            "executed_in_tape": bool(ran), "line_hits": hits, "taped_calls": taped,
+            "executed_in_tape": bool(ran), "line_hits": hits,
+            "executed_in_span": span_hits > 0, "span_line_hits": span_hits,
+            "taped_calls": taped,
+            "raw_calls_in_tape": c.raw_calls.get(i, 0),
             "n_params_reached": len(idx),
             "params_reached": [names[b] or f"<leaf {b}>" for b in idx] if len(idx) <= 8 else None,
             "params_idx": idx,
@@ -423,6 +581,11 @@ def report(c=None):
     return {
         "n_sites": len(c.sites),
         "n_tape_opens": c.n_tape_opens,
+        "call_events": c.call_events,
+        "raw_unattributed": [{"file": k[0], "line": k[1], "col": k[2], "count": v,
+                              "callee": c.raw_names.get(k)}
+                             for k, v in sorted(c.raw_unattributed.items(),
+                                                key=lambda kv: -kv[1])[:50]],
         "hook_calls": c.hook_calls,
         "line_events": c.line_events,
         "files_touched_in_tape": sorted(
@@ -431,6 +594,11 @@ def report(c=None):
         "skipped_modules": c.skipped,
         "n_leaves": len(c.leaves),
         "leaf_names": names,
+        "leaf_names_all": allnames,
+        "n_leaves_named": sum(1 for n in names if n),
+        "name_map_hits": c.name_map_hits,
+        "touched_tt_bio": {f: sorted(l for (g, l) in c.touched if g == f)
+                           for f in sorted({g for (g, _) in c.touched if "/tt_bio/" in g})},
         "untracked_taped_calls": [
             {"file": k[0], "line": k[1], "qual": k[2], "count": v}
             for k, v in sorted(c.untracked_calls.items(), key=lambda kv: -kv[1])],
