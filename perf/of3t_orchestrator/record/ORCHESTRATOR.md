@@ -955,6 +955,60 @@ before writing a brief. With **sixty-one** rows on the record — it said forty-
 it — **this document is no longer a reliable index of its own campaign**, and the orchestrator's read-before-dispatch step is what
 stands between that and burning a row per pass.
 
+ENDGAME, written at pass 316 because nine consecutive passes have ended on PARTIAL and this
+document never said what would end it. **The exit criterion is derivable from PROTOCOL and needs
+no ruling from Moritz** — I checked, having nearly asked for one.
+
+**What the gate actually tests.** `_of3t_donecheck.py:_nogo_gate` does not enforce five named
+conditions; it tests the **charter**. GO means the charter is met; NO-GO/STOP requires showing it
+is **unreachable** — a hardware limit, a missing upstream artifact, or arithmetic that closes it —
+and it explicitly rejects "a located, unfixed bug", which is PARTIAL. **The five conditions are my
+own operationalisation**, written into this document, not into the gate.
+
+**So the question is whether condition 4 is load-bearing for the charter, and PROTOCOL answered it
+at pass 1, before any number existed.** §2's instrument-D clause: *"It is complementary to
+instruments A-C, not a substitute: it proves the assembly runs under their own harness, while A-C
+prove the arithmetic."* That classification was registered when the campaign had nothing to gain
+from it, which is the only circumstance in which such a classification is worth anything. **I am
+reading a goalpost placed at pass 1, not moving one at pass 316** — and the distinction matters
+precisely because I would benefit from moving it, with three of five met.
+
+**Therefore the terminal verdict this campaign can legitimately reach is GO, and the single
+remaining gate on it is condition 5.**
+
+    condition 1  per-parameter gradients at MODEL scope        MET      (instrument A)
+    condition 2  coverage, 8 of 8 loss terms                   MET      (instrument B / section 6)
+    condition 3  N-step weight trajectory, all five D136 fields MET     (instrument C)
+    condition 4  their test_training_full.py on our backend    NOT MET  (instrument D, complementary
+                                                                         by PROTOCOL section 2)
+    condition 5  no unfixed user-facing defect in GAP          IN FLIGHT
+
+**What an honest GO must say about condition 4, so this is not a quiet retirement.** Instrument D
+is complementary, which means not having it costs the campaign something real and specific: **no
+evidence that the assembly runs end to end under upstream's own harness.** That gap must be stated
+in the GO, not omitted, together with its arithmetic — 0.4.3, the version the served checkpoint is
+bound to, **ships no `test_training_full.py` at all**; 0.5.0 ships one, and running it on our
+backend needs a PrivateUse1 backend over ttnn (`rename_privateuse1_backend`, `torch.library`
+registrations, an `Accelerator`), a new subsystem costed by `of3t-theirtest`. **A GO that hides
+that is worse than a PARTIAL that is honest.**
+
+**What has to happen, concretely, for condition 5 to close** — and every item has a live owner,
+which has not been true before this week:
+
+    D56           merge onto origin/main      land-standing   fold evidence GREEN, one release gate away
+    D10 + D24     merge onto origin/main      land-standing   next in its own queue after D56
+    D30/D58/D129  re-price on the repaired    of3t-ditref     6.62x denominator repair is deliverable 0
+                  denominator, then attribute
+    D55 forward   fold A/B against A/A floor  of3t-fwdkcfg    backward half already closed
+    D32           D56's step-scope ON/OFF     of3t-stepfloor  both s/step figures already published
+
+**And the honest NO-GO test, applied rather than assumed.** Could this campaign legitimately end
+on NO-GO instead? No. Every open item above is a located, owned, in-flight piece of work with a
+named closure condition — which is the exact shape `_nogo_gate` rejects. The only genuinely
+unreachable-shaped item is condition 4's 0.4.3 artifact, and PROTOCOL already ruled it
+complementary. **So NO-GO is unavailable to this campaign on the evidence, and PARTIAL is correct
+until condition 5 closes.** That is why the gate keeps refusing, and it has been right every time.
+
 VERDICT: PARTIAL — **OpenFold3's training step reproduces per-parameter at model scope at parity
 with upstream's own bf16 recipe, and over twenty steps on the SHIPPED default our weight
 trajectory tracks theirs to within 1.4553x of what upstream's OWN bf16-mixed training already
@@ -1039,6 +1093,24 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
 Eighty-four dispatched, seventy-nine concluded, five live (this row; **`of3t-trajbar` CONCLUDED GO this pass**, supplying the bar that completes D136's fifth field; `of3t-stepfloor` on card 3 with only D56's step-scope pair owed; `of3t-ditref` on card 1 repairing the 6.62x denominator; `of3t-fwdkcfg` on card 0 with D55's forward half); one hundred sixty-five defects, fifty-six UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+
+PASSLOG: **Pass 316 — nine passes have ended on PARTIAL and this document never said what would end it. It does now, and the exit criterion turned out to be derivable from PROTOCOL rather than a question for Moritz — which I was one step from asking.**
+
+**What I found when I checked what the gate actually tests.** `_of3t_donecheck.py:_nogo_gate` does not enforce five named conditions at all. It tests the **charter**: GO means met, NO-GO/STOP requires showing it **unreachable**, and it explicitly rejects "a located, unfixed bug" as PARTIAL. **The five conditions are my own operationalisation**, written into this document and nowhere else. So the real question was never "can I satisfy condition 4" but "is condition 4 load-bearing for Moritz's charter".
+
+**PROTOCOL answered that at pass 1, before any number existed.** §2's instrument-D clause: *"It is complementary to instruments A-C, not a substitute: it proves the assembly runs under their own harness, while A-C prove the arithmetic."* Registered when the campaign had nothing to gain from it, which is the only circumstance in which such a classification is worth anything.
+
+**I had drafted the ask before I found it.** The question — *"your gate names a test that does not exist in the version we ship against, and at the version where it does exist it needs a new torch backend and proves less than the three conditions that passed; do you want it built?"* — is well formed, and it had already been ruled on 315 passes earlier. That is the shape of `check-the-protocol-not-the-ask-log-before-asking` exactly: **a decision already taken leaves no entry in the ask log**, so the ask log looked clear. Pin 9597 cost this campaign the same way. The check is one grep and it went first this time only because the memory named the failure.
+
+**The distinction that makes this legitimate rather than goalpost-moving.** I am reading a marker placed at pass 1, not placing one at pass 316 — and it matters *because I would benefit*: three of five conditions are met and retiring the fourth is exactly what a motivated orchestrator would do. The defence is not my restraint, it is the timestamp. **A classification registered before the result is evidence; the same classification written now would be an excuse.**
+
+**So the terminal verdict this campaign can reach is GO, gated on condition 5 alone** — and the ENDGAME field now carries the table: which condition maps to which instrument, what each of the five open items needs, and who owns it. Every one has a live owner, which has not been true before this week.
+
+**What an honest GO must say about condition 4, written into ENDGAME so it cannot be quietly dropped.** Complementary means not having it costs something real and specific: **no evidence that the assembly runs end to end under upstream's own harness.** The GO must state that, with its arithmetic — 0.4.3 ships no `test_training_full.py` at all, and 0.5.0's needs a PrivateUse1 backend over ttnn, a new subsystem. **A GO that hides that is worse than a PARTIAL that is honest**, and writing the requirement down now, while the verdict is still PARTIAL, is the only time it can be written without self-interest.
+
+**And I applied the NO-GO test rather than assuming it.** Could this end on NO-GO? No: every open item is located, owned and in flight with a named closure condition, which is the exact shape `_nogo_gate` rejects. The one unreachable-shaped item is condition 4's missing 0.4.3 artifact, and PROTOCOL already ruled it complementary. **NO-GO is unavailable to this campaign on the evidence.** The gate has refused PARTIAL nine times and has been right every time; what was missing was not a different verdict but a written statement of what would change it.
+
+**Nothing landed on `origin/main`; it still reads `56ad6c0e0`.** Three rows live: `of3t-stepfloor`, `of3t-ditref`, `of3t-fwdkcfg`.
 
 PASSLOG: **Pass 315 — the comparator exists, and it turns the campaign's trajectory result from a shape into a reproduction claim: our twenty-step weights track upstream's to within 1.4553x of what upstream's OWN bf16-mixed training already costs them.**
 
