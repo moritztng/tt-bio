@@ -106,14 +106,24 @@ def have_steps(d):
 
 # ------------------------------------------------------------------------------ scoring (S7a)
 
-def score_step(names, k, wo, wt, W0, nw0):
-    """`modeltraj.score_step` verbatim. The bar is not this rows to move."""
+def score_step(names, k, wo, wt, W0, nw0, W0o=None):
+    """`modeltraj.score_step` verbatim, with one addition the wider scope forced.
+
+    `W0o` is OUR side's own starting weights. It defaults to None, which reproduces the
+    inherited single-baseline form exactly: both sides differenced against the float64
+    checkpoint. That is only correct while our w_0 IS the checkpoint. At conditioning
+    scope it was, since all 26 tensors there are fp32-resident. At `diffusion_module`
+    scope 264 of 549 are bf16-resident, so our w_0 is bf16(checkpoint) and differencing
+    us against the float64 checkpoint injects a CONSTANT 4.082229 load-quantisation
+    offset into every d_k. `d_k = w_k - w_0` means each side's own w_0; pass `W0o`.
+    """
     u32 = 2.0 ** -24
     num = den = onorm = 0.0
     per = []
+    Bo = W0 if W0o is None else W0o
     for n in names:
         b = W0[n].astype(np.float64)
-        do = wo[n].astype(np.float64) - b
+        do = wo[n].astype(np.float64) - Bo[n].astype(np.float64)
         dt = wt[n].astype(np.float64) - b
         d = do - dt
         dd = float(d.ravel() @ d.ravel())
@@ -693,10 +703,15 @@ def do_score(a, out_dir):
     W0 = {n: sd[PREFIX + n].to(torch.float64).numpy().astype(np.float32) for n in names}
     nw0 = math.sqrt(sum(float(W0[n].astype(np.float64).ravel()
                               @ W0[n].astype(np.float64).ravel()) for n in names))
+    # lr(1) is exactly 0, so each side's k=1 dump IS its own w_0. Verified, not assumed:
+    # over the 549 scored tensors our k=1 is bit-exactly the checkpoint on 285 and
+    # bit-exactly bf16(checkpoint) on 264, with none left over, so our side moved nothing
+    # at k=1 and this baseline is our starting point rather than a step of it.
+    W0o = load_w(do, ks[0]) if a.w0 == "own" else None
     scored = []
     for k in ks:
         wt, wo = load_w(dt, k), load_w(do, k)
-        r = score_step(names, k, wo, wt, W0, nw0)
+        r = score_step(names, k, wo, wt, W0, nw0, W0o)
         scored.append(r)
         print(f"k={r['k']:2d} rel_d={r['rel_d']:.6e} floor={r['fp32_differencing_floor']:.3e} "
               f"worst={r['worst_per_tensor']:.3e} ({r['worst_tensor']})", flush=True)
@@ -735,6 +750,11 @@ def main() -> int:
     ap.add_argument("--threads", type=int, default=12)
     ap.add_argument("--out-dir", default=SCRATCH, dest="out_dir")
     ap.add_argument("--score", action="store_true")
+    ap.add_argument("--w0", default="ckpt", choices=["ckpt", "own"],
+                    help="baseline for d_k = w_k - w_0. `ckpt` is the inherited form, both "
+                         "sides against the float64 checkpoint. `own` gives each side its "
+                         "own w_0, which is what d_k means once our weights are not stored "
+                         "in the checkpoint's dtype.")
     ap.add_argument("--aa-in-process", action="store_true", dest="aa_in_process",
                     help="reference side twice in ONE process, compared bit-exactly at every "
                          "rung. The A/A that says whether any magnitude below is readable")
@@ -805,6 +825,7 @@ def main() -> int:
 
     res = {
         "arm": a.arm,
+        "w0_baseline": a.w0,
         "scope": scope_share(names),
         "steps_scored": ks, "steps_asked": a.steps,
         "accumulate_grad_batches": a.per_step, "warmup_no_steps": a.warmup,
@@ -832,7 +853,8 @@ def main() -> int:
                    "lr_schedulers.py":
                        sha256("/home/ttuser/of3t_traj20/upstream/lr_schedulers.py")},
     }
-    out = a.out or f"perf/of3t_trajwide/traj_{a.arm}.json"
+    out = a.out or (f"perf/of3t_trajwide/traj_{a.arm}.json" if a.w0 == "ckpt"
+                    else f"perf/of3t_trajwide/traj_{a.arm}_w0own.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     json.dump(res, open(out, "w"), indent=1, default=str)
     print(json.dumps({k: v for k, v in res.items()
