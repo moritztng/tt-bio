@@ -1,0 +1,272 @@
+{
+ "doc": "Does the taped OF3 trunk fit the card at a crop their recipe trains at?",
+ "argv": [
+  "--tokens",
+  "384",
+  "--backward",
+  "--probe-every",
+  "0",
+  "--out",
+  "perf/of3t_stepfloor/out/d164_probeoff_renormoff_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "commit": "bb312ade90ada41fe937cd99799e192654173367",
+  "branch": "wk/of3t-stepfloor",
+  "started_utc": "2026-09-21T17:26:58Z",
+  "loadavg": [
+   11.2333984375,
+   13.7041015625,
+   17.23876953125
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 69
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 69 samples, polled DURING the work"
+ },
+ "build_fold_s": 5.74,
+ "prep_to_sampler_s": 9.73,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.384,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "resting": {
+  "dram_b": 1544975360,
+  "census": {
+   "DRAM": {
+    "count": 3628,
+    "sum_b": 1544975360,
+    "largest_b": 47185920,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     47185920,
+     37748736,
+     37748736,
+     25427968,
+     25427968,
+     25427968,
+     18874368,
+     12713984,
+     9437184,
+     9437184
+    ],
+    "by_size": {
+     "distinct_sizes": 30,
+     "top_by_bytes": [
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 9437184,
+       "n": 33,
+       "total_b": 311427072
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 25427968,
+       "n": 3,
+       "total_b": 76283904
+      },
+      {
+       "each_b": 37748736,
+       "n": 2,
+       "total_b": 75497472
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 47185920,
+       "n": 1,
+       "total_b": 47185920
+      },
+      {
+       "each_b": 294912,
+       "n": 99,
+       "total_b": 29196288
+      },
+      {
+       "each_b": 32768,
+       "n": 838,
+       "total_b": 27459584
+      },
+      {
+       "each_b": 16384,
+       "n": 1295,
+       "total_b": 21217280
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 18874368,
+       "n": 1,
+       "total_b": 18874368
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1295,
+       "total_b": 21217280
+      },
+      {
+       "each_b": 32768,
+       "n": 838,
+       "total_b": 27459584
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 294912,
+       "n": 99,
+       "total_b": 29196288
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 49152,
+       "n": 58,
+       "total_b": 2850816
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 9437184,
+       "n": 33,
+       "total_b": 311427072
+      },
+      {
+       "each_b": 393216,
+       "n": 27,
+       "total_b": 10616832
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 3628
+  }
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 1670099968,
+  "ok": true,
+  "s": 4.04,
+  "dram_peak_b": 0,
+  "l1_peak_b": 0,
+  "at_verb": null,
+  "at_stage": null,
+  "verb_calls": 84996,
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "ok": true,
+  "s": 356.0,
+  "dram_peak_b": 0,
+  "l1_peak_b": 0,
+  "at_verb": null,
+  "at_stage": null,
+  "verb_calls": 168922,
+  "params_with_grad": 1639,
+  "params_declared": 2531
+ }
+}
