@@ -201,6 +201,120 @@ class no_autocast:
         return False
 
 
+
+class cast_policy:
+    """What upstream's own casts are allowed to do during one forward, and a count of what
+    they did.
+
+    `no_autocast` above answers one question -- how to get a genuine float64 reference out of a
+    tree that is not float64-clean. This answers the other one: what does the training recipe's
+    own precision cost, measured against that reference. Three modes.
+
+      ``upstream`` nothing is patched. Their nine `torch.amp.autocast(...)` blocks and their
+        `run_trunk` `.float()` run exactly as they do in their own training loop.
+      ``removed``  `no_autocast`, applied at any dtype rather than only at float64.
+      ``bf16``     an ambient bfloat16 autocast over float32 parameters, which is what an
+        AF3-style training step actually runs.
+
+    **Every autocast site in the 0.4.3 tree names `device_type="cuda"`**, so on a CPU box torch
+    disables all nine of them itself. That makes ``upstream`` and ``removed`` the same
+    computation here, and it is the reason the counters below exist: "their casts did nothing"
+    has to be a measurement, not an assumption. `n_autocast_entered` counts the contexts their
+    code opened and `n_autocast_effective` counts the ones torch actually turned on.
+
+    For ``bf16`` the contexts have to be redirected to the CPU backend or the arm would be plain
+    bf16 with none of their protection:
+      * `autocast("cuda", enabled=False)` becomes `autocast("cpu", enabled=False)` -- their
+        intent exactly, the protected linear/softmax/LayerNorm run in their inputs' dtype.
+      * `autocast("cuda", dtype=torch.float32)` becomes `autocast("cpu", enabled=False)`,
+        because CPU autocast has no float32 target. Under CUDA amp those regions UP-CAST a
+        bfloat16 input to float32; here the input stays bfloat16. **So this arm is at least as
+        harsh as upstream's own bf16 path and its result is an upper bound on the bf16 floor,
+        not the bf16 floor.**
+    """
+
+    MODES = ("upstream", "removed", "bf16")
+
+    def __init__(self, mode, device="cpu"):
+        if mode not in self.MODES:
+            raise ValueError(f"cast_policy mode {mode!r} not in {self.MODES}")
+        self.mode = mode
+        self.device = device
+        self.n_autocast_entered = 0
+        self.n_autocast_effective = 0
+        self.n_float_calls = 0
+        self.n_float_changed_dtype = 0
+        self.float_source_dtypes = {}
+        self._saved = None
+        self._ambient = None
+
+    def report(self):
+        return {
+            "mode": self.mode,
+            "device": self.device,
+            "n_autocast_contexts_entered": self.n_autocast_entered,
+            "n_autocast_contexts_torch_actually_enabled": self.n_autocast_effective,
+            "n_tensor_float_calls": self.n_float_calls,
+            "n_tensor_float_calls_that_changed_dtype": self.n_float_changed_dtype,
+            "tensor_float_source_dtypes": dict(sorted(self.float_source_dtypes.items())),
+        }
+
+    def __enter__(self):
+        orig_autocast = torch.amp.autocast
+        orig_float = torch.Tensor.float
+        self._saved = (orig_autocast, orig_float)
+        me = self
+
+        class _counted:
+            def __init__(self, inner):
+                self.inner = inner
+
+            def __enter__(self):
+                me.n_autocast_entered += 1
+                self.inner.__enter__()
+                if torch.is_autocast_enabled(me.device):
+                    me.n_autocast_effective += 1
+                return self
+
+            def __exit__(self, *a):
+                return self.inner.__exit__(*a)
+
+        def autocast(device_type=None, dtype=None, enabled=True, cache_enabled=None):
+            if me.mode == "removed":
+                return _counted(_null())
+            if me.mode == "bf16":
+                # Their float32-forcing regions have no CPU equivalent; disable instead.
+                on = bool(enabled) and dtype in (None, torch.bfloat16)
+                return _counted(orig_autocast(me.device, dtype=torch.bfloat16, enabled=on,
+                                              cache_enabled=cache_enabled))
+            return _counted(orig_autocast(device_type, dtype=dtype, enabled=enabled,
+                                          cache_enabled=cache_enabled))
+
+        def counted_float(self_t, *a, **k):
+            me.n_float_calls += 1
+            src = str(self_t.dtype).replace("torch.", "")
+            me.float_source_dtypes[src] = me.float_source_dtypes.get(src, 0) + 1
+            if self_t.dtype is not torch.float32:
+                me.n_float_changed_dtype += 1
+            if me.mode == "removed" and self_t.dtype is torch.float64:
+                return self_t
+            return orig_float(self_t, *a, **k)
+
+        torch.amp.autocast = autocast
+        torch.Tensor.float = counted_float
+        if self.mode == "bf16":
+            self._ambient = orig_autocast(self.device, dtype=torch.bfloat16)
+            self._ambient.__enter__()
+        return self
+
+    def __exit__(self, *exc):
+        if self._ambient is not None:
+            self._ambient.__exit__(*exc)
+            self._ambient = None
+        torch.amp.autocast, torch.Tensor.float = self._saved
+        return False
+
+
 def pin_deterministic_kernels(enable: bool) -> dict:
     """Make the gradient a function of its inputs rather than of the reduction order.
 
@@ -323,7 +437,8 @@ def move(batch, device, dtype):
     return walk(batch)
 
 
-def forward_loss(model, loss_fn, batch, recorder=None, disable_autocast=False):
+def forward_loss(model, loss_fn, batch, recorder=None, disable_autocast=False,
+                 cast_ctx=None):
     """One forward + loss on a PRIVATE copy of the batch.
 
     Their `forward` mutates the batch it is handed: it pops `ref_space_uid_to_perm`, unsqueezes a
@@ -336,7 +451,8 @@ def forward_loss(model, loss_fn, batch, recorder=None, disable_autocast=False):
     gradients of order 1e0.
     """
     ctx = recorder if recorder is not None else _null()
-    ac = no_autocast() if disable_autocast else _null()
+    ac = cast_ctx if cast_ctx is not None else (
+        no_autocast() if disable_autocast else _null())
     private = copy.deepcopy(batch)
     with ac, ctx:
         b, out = model(private)
@@ -368,7 +484,18 @@ def _openfold3_version() -> str:
         confusion this row exists to undo;
       * when it cannot be determined, return "unknown". NEVER a guess. A default that names a
         version is indistinguishable from a measurement of that version.
+
+    D43. The import belongs HERE, not in `main`. As shipped, D42 read `openfold3` as a global
+    while the only `import openfold3` in the file was local to `main`, so this function raised
+    NameError the first time anything called it: after the forward and the backward, while
+    composing the manifest. Three float32 arms each lost a finished backward to a provenance
+    field. A fix to a field that is only read on the way out is not exercised by the run that
+    introduces it, and the reference this function certifies was built before D42 existed.
     """
+    try:
+        import openfold3
+    except Exception:
+        return "unknown"
     tree = Path(openfold3.__file__).resolve().parent
     for meta in (sorted(tree.glob("*.dist-info/METADATA"))
                  + sorted(tree.parent.glob("*.dist-info/METADATA"))
@@ -391,6 +518,15 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--seed", type=int, default=20260919)
     ap.add_argument("--dtype", default="float64", choices=["float64", "float32"])
+    ap.add_argument("--autocast", default="auto",
+                    choices=("auto", "upstream", "removed", "bf16"),
+                    help="what upstream's own casts do during the forward. `auto` is the "
+                         "historical behaviour and reproduces every earlier run: their casts "
+                         "are removed at float64 and left alone at float32. `upstream` and "
+                         "`removed` force one of those at any dtype, and their difference is "
+                         "the share of a precision floor that is upstream's casting rather "
+                         "than the dtype. `bf16` runs an ambient bfloat16 autocast over "
+                         "float32 parameters, the AF3-style training recipe. See cast_policy.")
     ap.add_argument("--fd-samples", type=int, default=16,
                     help="parameter entries validated by central finite differences")
     ap.add_argument("--fd-h", type=float, default=1e-5)
@@ -506,8 +642,12 @@ def main() -> int:
     t0 = time.time()
     set_rng_state(pinned, model)
     rec = DrawRecorder(replay)
-    no_ac = dtype is torch.float64
-    loss, breakdown, out = forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)
+    mode = args.autocast
+    if mode == "auto":
+        mode = "removed" if dtype is torch.float64 else "upstream"
+    policy = cast_policy(mode, device)
+    no_ac = mode == "removed"
+    loss, breakdown, out = forward_loss(model, loss_fn, batch, rec, cast_ctx=policy)
     t_fwd = time.time() - t0
 
     t0 = time.time()
@@ -633,11 +773,11 @@ def main() -> int:
         with torch.no_grad():
             p.data[idx] = original + args.fd_h
         set_rng_state(pinned, model)
-        lp = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
+        lp = float(forward_loss(model, loss_fn, batch, rec, cast_ctx=policy)[0])
         with torch.no_grad():
             p.data[idx] = original - args.fd_h
         set_rng_state(pinned, model)
-        lm = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
+        lm = float(forward_loss(model, loss_fn, batch, rec, cast_ctx=policy)[0])
         with torch.no_grad():
             p.data[idx] = original
         fd = (lp - lm) / (2 * args.fd_h)
@@ -653,9 +793,7 @@ def main() -> int:
     # A determinism control for the check itself: the same pinned state must reproduce the loss
     # bit for bit, or every finite difference above is noise rather than a derivative.
     set_rng_state(pinned, model)
-    loss_again = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
-
-    import openfold3
+    loss_again = float(forward_loss(model, loss_fn, batch, rec, cast_ctx=policy)[0])
 
     manifest = {
         "bundle": "BUNDLE-MIN",
@@ -669,7 +807,8 @@ def main() -> int:
         "num_recycles_pinned": args.num_recycles,
         "checkpoint": ckpt_info,
         "dtype": args.dtype,
-        "their_fp32_autocast_blocks_disabled": bool(dtype is torch.float64),
+        "their_fp32_autocast_blocks_disabled": no_ac,
+        "cast_policy": policy.report(),
         "dropout": dropout,
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
         "versions": {
