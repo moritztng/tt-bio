@@ -1,0 +1,7 @@
+{
+ "mass_weighted_rel_l2": 9.13806068751445e-14,
+ "median": 8.230613390466923e-14,
+ "norm_ratio": 1.0000000000000002,
+ "cos": 1.0,
+ "what": "the float64 reference rebuilt in a second process, scored against the cached one: the scoring instruments own A/A floor"
+}

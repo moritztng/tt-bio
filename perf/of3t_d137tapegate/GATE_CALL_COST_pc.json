@@ -1,0 +1,85 @@
+{
+ "opcodes": {
+  "branch_polarity_only": true,
+  "differences": [
+   {
+    "gated": "POP_JUMP_IF_FALSE",
+    "i": 1,
+    "pre_gate": "POP_JUMP_IF_TRUE"
+   }
+  ],
+  "gated": [
+   "LOAD_FAST",
+   "POP_JUMP_IF_FALSE",
+   "LOAD_GLOBAL",
+   "LOAD_CONST",
+   "DUP_TOP_TWO",
+   "BINARY_SUBSCR",
+   "LOAD_CONST",
+   "INPLACE_ADD",
+   "ROT_THREE",
+   "STORE_SUBSCR",
+   "LOAD_GLOBAL",
+   "LOAD_ATTR",
+   "LOAD_FAST",
+   "BUILD_TUPLE",
+   "LOAD_CONST",
+   "LOAD_FAST",
+   "BUILD_MAP",
+   "LOAD_FAST",
+   "DICT_MERGE",
+   "CALL_FUNCTION_EX",
+   "RETURN_VALUE"
+  ],
+  "instructions_added": 0,
+  "n_gated": 21,
+  "n_pre": 21,
+  "no_extra_work": true,
+  "pre_gate": [
+   "LOAD_FAST",
+   "POP_JUMP_IF_TRUE",
+   "LOAD_GLOBAL",
+   "LOAD_CONST",
+   "DUP_TOP_TWO",
+   "BINARY_SUBSCR",
+   "LOAD_CONST",
+   "INPLACE_ADD",
+   "ROT_THREE",
+   "STORE_SUBSCR",
+   "LOAD_GLOBAL",
+   "LOAD_ATTR",
+   "LOAD_FAST",
+   "BUILD_TUPLE",
+   "LOAD_CONST",
+   "LOAD_FAST",
+   "BUILD_MAP",
+   "LOAD_FAST",
+   "DICT_MERGE",
+   "CALL_FUNCTION_EX",
+   "RETURN_VALUE"
+  ],
+  "reading": "the shipped inference call executes 21 instructions before the gate and 21 after; the only difference is the sense of one conditional jump, so the gate added no work"
+ },
+ "time_ns_per_call": {
+  "AA_floor_ns": 10.16,
+  "AA_gated_median_diff": 0.1,
+  "AA_pre_median_diff": 0.35,
+  "AB_max": 3.87,
+  "AB_median_diff": -3.31,
+  "AB_min": -7.95,
+  "gated_median": 300.04,
+  "note": "A/A floor is the 95th percentile of |same-arm per-round difference|, read before the A/B. A NEGATIVE AB_median_diff means the gated wrapper was the faster one.",
+  "pre_gate_median": 303.03,
+  "readable_above_the_floor": false,
+  "reps_per_leg": 300000,
+  "round_stdev_ns": {
+   "AA_gated_1": 3.73,
+   "AA_gated_2": 4.98,
+   "AA_pre_1": 4.23,
+   "AA_pre_2": 3.08
+  },
+  "rounds": 21,
+  "slower": false
+ },
+ "verdict": "FREE: the gate adds no instruction to the shipped inference call (21 before, 21 after, one conditional jump inverted), and the A/B is -3.31 ns against a 10.16 ns A/A floor, so it is not slower"
+}

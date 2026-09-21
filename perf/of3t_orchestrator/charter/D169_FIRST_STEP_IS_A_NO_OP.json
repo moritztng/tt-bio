@@ -1,0 +1,53 @@
+{
+  "what": "upstream openfold3 0.4.3 AlphaFoldLRScheduler, constructed with the literals both of3t trajectory harnesses use, driving a real torch.optim.Adam with a NON-ZERO gradient at every step",
+  "source": "/tmp/of3up/openfold3-0.4.3/openfold3/core/utils/lr_schedulers.py",
+  "source_sha256": "2ddcefaa8abf3ca185cccd52924e53f817e8e0f30c816aea2765661fe57f9bf1",
+  "sched_literals": {
+    "base_lr": 0.0,
+    "warmup_no_steps": 1000,
+    "start_decay_after_n_steps": 50000,
+    "decay_every_n_steps": 50000,
+    "decay_factor": 0.95
+  },
+  "max_lr": 0.001,
+  "lr_at_step_no_0_closed_form": 0.0,
+  "steps": [
+    {
+      "k": 1,
+      "lr_used": 0.0,
+      "grad_norm": 6.790652275085449,
+      "d_w_norm": 0.0,
+      "bit_identical_to_previous": true
+    },
+    {
+      "k": 2,
+      "lr_used": 1e-06,
+      "grad_norm": 6.790652275085449,
+      "d_w_norm": 2.78296897704422e-06,
+      "bit_identical_to_previous": false
+    },
+    {
+      "k": 3,
+      "lr_used": 2e-06,
+      "grad_norm": 6.790648460388184,
+      "d_w_norm": 5.669808615493821e-06,
+      "bit_identical_to_previous": false
+    },
+    {
+      "k": 4,
+      "lr_used": 3e-06,
+      "grad_norm": 6.790638446807861,
+      "d_w_norm": 8.493296263623051e-06,
+      "bit_identical_to_previous": false
+    },
+    {
+      "k": 5,
+      "lr_used": 4e-06,
+      "grad_norm": 6.790623664855957,
+      "d_w_norm": 1.1379961506463587e-05,
+      "bit_identical_to_previous": false
+    }
+  ],
+  "finding": "step 1 uses lr == 0.0 by upstream's own linear warmup from base_lr=0.0, so the weights are BIT-IDENTICAL after it even though the gradient is non-zero. d1.zero_both_sides == True is what a faithful reproduction MUST produce.",
+  "torch": "2.13.0+cpu"
+}

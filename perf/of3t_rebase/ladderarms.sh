@@ -5,15 +5,18 @@
 # refuses to let a row be read whose cotangent ratio is away from 1 by more than 1e-3, because
 # that is the D37 check and a boundary failing it is not trustworthy.
 set -uo pipefail
-W=/home/ttuser/of3t_rebase/wt
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/ref:/home/ttuser/of3t_gradients/deps:$W/perf/of3t_rebase:$W/perf/of3t_gradients:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_CODE" "$W/perf/of3t_rebase" "$W/perf/of3t_gradients" "$W")"
 export OMP_NUM_THREADS=4
 CARD=${CARD:-0}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-rebase
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-B=/home/ttuser/of3t_rebase/bundle_min_043
-C=/home/ttuser/of3t_rebase/cap043_ladder
+ref_assert "$PY"
+B=$REF_BUNDLE
+C="$REF_CAP_LADDER"
+ref_require "$C"
 
 # Preflight. The first run of this lost its report because ladder_report.py had never been
 # shipped to this checkout -- the arms all ran, then the last line failed with "No such file"

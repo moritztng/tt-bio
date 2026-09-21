@@ -17,9 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 
 import torch
 
@@ -50,15 +56,16 @@ def stats(ours, ref):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tree", default="/home/ttuser/of3t_rebase/of3pkg043")
+    ap.add_argument("--tree", default=refpath.OF3PKG)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--threads", type=int, default=12)
     a = ap.parse_args()
     t0 = time.perf_counter()
     torch.set_num_threads(a.threads)
 
-    sys.path.insert(0, a.tree)
+    refpath.install(a.tree)
     import openfold3
+    print(f"REF_TREE resolved: {refpath.assert_resolved(a.tree)}", flush=True)
     assert openfold3.__file__.startswith(a.tree), openfold3.__file__
     from openfold3.core.model.heads.head_modules import AuxiliaryHeadsAllAtom
     import openfold3.core.model.heads.prediction_heads as PH

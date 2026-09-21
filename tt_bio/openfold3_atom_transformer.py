@@ -65,6 +65,9 @@ class OF3AtomTransformer(Module):
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = {k: v for k, v in self.weights.data.items()}
         self._wc: dict = {}
+        # OFF, measured rather than untried: the scores reach this site in bf16, where the
+        # config buys 1.03x accuracy for 1.36x cost at its own [1,33,4,32,128]. bf16 storage is
+        # the floor and the config has nowhere to accumulate under it.
         self._softmax_ckc = softmax_ckc("openfold3.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("openfold3.atom_transformer")
         self.ln_z_w = self._w_tt("layer_norm_z.weight", False)

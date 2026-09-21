@@ -1,0 +1,92 @@
+{
+ "REF_TREE_resolved": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+ "capture_fingerprint": {
+  "architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+  "n_parameters": 761,
+  "n_perblock_layer_norm_z": 24,
+  "n_shared_layer_norm_z": 0,
+  "perblock_blocks": [
+   "0",
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "15",
+   "16",
+   "17",
+   "18",
+   "19",
+   "20",
+   "21",
+   "22",
+   "23"
+  ],
+  "sample_perblock": [
+   "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight"
+  ],
+  "shared_layer_norm_z": []
+ },
+ "capture_keys_equal_tree_parameters": true,
+ "checkpoint": {
+  "file": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "missing": [],
+  "missing_keys": 0,
+  "n_in_scope": 763,
+  "unexpected": [],
+  "unexpected_keys": 0
+ },
+ "refusals": [],
+ "stamped_at": "2026-09-21T18:23:26Z",
+ "stamped_by": "perf/of3t_ditref/capstamp.py",
+ "tree_fingerprint": {
+  "architecture": "0.4.3-family: per-block AttentionPairBias.layer_norm_z",
+  "n_parameters": 761,
+  "n_perblock_layer_norm_z": 24,
+  "n_shared_layer_norm_z": 0,
+  "perblock_blocks": [
+   "0",
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "15",
+   "16",
+   "17",
+   "18",
+   "19",
+   "20",
+   "21",
+   "22",
+   "23"
+  ],
+  "sample_perblock": [
+   "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+   "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight"
+  ],
+  "shared_layer_norm_z": []
+ },
+ "verdict": "OK",
+ "what": "the tree read back in-process by refpath.assert_resolved(), plus the architecture fingerprint of the capture's own grad_f64 key set checked against that tree's DiffusionModule parameter names"
+}

@@ -1,0 +1,98 @@
+{
+ "arm": "pull",
+ "fired": {
+  "T1": 0,
+  "T2": 163,
+  "T3": 0,
+  "T4": 30
+ },
+ "targets": [
+  {
+   "target": "T1",
+   "qual": "layer_norm.make.bw",
+   "verb": "mean",
+   "line_now": 836,
+   "end_lineno": 836,
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T2",
+   "qual": "_taped_layer_norm.make.bw",
+   "verb": "mean",
+   "line_now": 1847,
+   "end_lineno": 1847,
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T3",
+   "qual": "triangle_attention.make.bw",
+   "verb": "sum",
+   "line_now": 1199,
+   "end_lineno": 1199,
+   "src": "dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T4",
+   "qual": "softmax_bw_inner",
+   "verb": "sum",
+   "line_now": 124,
+   "end_lineno": 124,
+   "src": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+   "configured_before": false
+  }
+ ],
+ "census_today": {
+  "n_ttnn_reductions": 14,
+  "n_unconfigured": 9,
+  "unconfigured": [
+   {
+    "line": 124,
+    "qual": "softmax_bw_inner",
+    "src": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)"
+   },
+   {
+    "line": 836,
+    "qual": "layer_norm.make.bw",
+    "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)"
+   },
+   {
+    "line": 868,
+    "qual": "softmax.make.bw",
+    "src": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)"
+   },
+   {
+    "line": 1847,
+    "qual": "_taped_layer_norm.make.bw",
+    "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)"
+   },
+   {
+    "line": 849,
+    "qual": "layer_norm.make.bw",
+    "src": "dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)"
+   },
+   {
+    "line": 850,
+    "qual": "layer_norm.make.bw",
+    "src": "dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)"
+   },
+   {
+    "line": 1860,
+    "qual": "_taped_layer_norm.make.bw",
+    "src": "dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)"
+   },
+   {
+    "line": 1861,
+    "qual": "_taped_layer_norm.make.bw",
+    "src": "dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)"
+   },
+   {
+    "line": 1199,
+    "qual": "triangle_attention.make.bw",
+    "src": "dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)"
+   }
+  ]
+ }
+}
