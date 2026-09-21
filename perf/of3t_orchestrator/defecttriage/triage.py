@@ -184,6 +184,10 @@ TABLE = {
                    "a load that drops 24 trained tensors reads clean in every artifact derived "
                    "from it. An instrument-provenance defect in this campaign's own reference "
                    "chain; it changes nothing a user of the shipped tree gets."),
+    "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
+                   "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
+                   "discharged inside pass 199 itself. A defect in this campaign's own record of "
+                   "what it owes Moritz; no shipped behaviour depends on it."),
     "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
                   "and the shipped default is the other way; by mass it is 2.5 %. A training-"
                   "gradient decision, not an inference output a user sees."),
