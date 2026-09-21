@@ -1,0 +1,119 @@
+{
+ "instrument": "A18 discriminator: our xl_out vs their captured xl_out",
+ "branch_rule": "~1e-2 or better -> wiring sound, the 0.7672 ceiling is about the incomplete bijection; ~1e-1 or worse -> a mis-wired operand, bisect and do not touch the gradient again until found",
+ "runs": {
+  "device_gradient_fwd.json": {
+   "forward_rel": [
+    0.14765413329604749,
+    0.08827632918052117,
+    0.11140324528076734
+   ],
+   "forward_rel_median": 0.11140324528076734,
+   "gradient_median_rel": 0.9480824396224975,
+   "compared": 523,
+   "device_weights_reachable": 870
+  },
+  "device_gradient_bisect.json": {
+   "forward_rel": [
+    0.14765413329604749
+   ],
+   "forward_rel_median": 0.14765413329604749,
+   "gradient_median_rel": 0.9845228801011638,
+   "compared": 523,
+   "device_weights_reachable": 870,
+   "stage_ladder": {
+    "0": {
+     "ai_into_dit": 0.0026259512880580068,
+     "ai_out_of_dit": 0.07349989198116111,
+     "cl_encoder": "n/a",
+     "plm_encoder": 0.0032457287274902723,
+     "ql_encoder": 0.0024598618827963454,
+     "rl_update_decoder": 0.1003215887823538
+    }
+   }
+  },
+  "device_gradient_maskbisect.json": {
+   "forward_rel": [
+    0.14765413329604749
+   ],
+   "forward_rel_median": 0.14765413329604749,
+   "gradient_median_rel": 0.9845228801011638,
+   "compared": 523,
+   "device_weights_reachable": 870,
+   "stage_ladder": {
+    "0": {
+     "ai_into_dit": 0.0026259512880580068,
+     "ai_out_of_dit": 0.07349989198116111,
+     "ai_out_of_dit_pad": 0.04117744277770751,
+     "ai_out_of_dit_pad_ournorm": 87360.17070595268,
+     "ai_out_of_dit_pad_rows": 328,
+     "ai_out_of_dit_pad_theirnorm": 88775.45287774835,
+     "ai_out_of_dit_real": 0.15859073376536942,
+     "ai_out_of_dit_real_ournorm": 37925.948853783164,
+     "ai_out_of_dit_real_rows": 56,
+     "ai_out_of_dit_real_theirnorm": 38460.38372693971,
+     "cl_encoder": "n/a",
+     "plm_encoder": 0.0032457287274902723,
+     "ql_encoder": 0.0024598618827963454,
+     "rl_update_decoder": 0.1003215887823538
+    }
+   }
+  },
+  "device_gradient_maskones.json": {
+   "forward_rel": [
+    0.594503758361401
+   ],
+   "forward_rel_median": 0.594503758361401,
+   "gradient_median_rel": 0.999813256934902,
+   "compared": 523,
+   "device_weights_reachable": 870,
+   "stage_ladder": {
+    "0": {
+     "ai_into_dit": 0.0026259512880580068,
+     "ai_out_of_dit": 0.2531278632523251,
+     "ai_out_of_dit_real": 0.2531278632523251,
+     "ai_out_of_dit_real_ournorm": 90285.25884586104,
+     "ai_out_of_dit_real_rows": 384,
+     "ai_out_of_dit_real_theirnorm": 93579.59867792146,
+     "cl_encoder": "n/a",
+     "plm_encoder": 0.0032457287274902723,
+     "ql_encoder": 0.0024598618827963454,
+     "rl_update_decoder": 0.40392749308751363
+    }
+   }
+  },
+  "device_gradient_c0_all.json": {
+   "forward_rel": null,
+   "forward_rel_median": null,
+   "gradient_median_rel": 0.7672314968938353,
+   "compared": 283,
+   "device_weights_reachable": 870
+  }
+ },
+ "ladder": {
+  "ai_into_dit": 0.0026259512880580068,
+  "ai_out_of_dit": 0.07349989198116111,
+  "ai_out_of_dit_pad": 0.04117744277770751,
+  "ai_out_of_dit_pad_ournorm": 87360.17070595268,
+  "ai_out_of_dit_pad_rows": 328,
+  "ai_out_of_dit_pad_theirnorm": 88775.45287774835,
+  "ai_out_of_dit_real": 0.15859073376536942,
+  "ai_out_of_dit_real_ournorm": 37925.948853783164,
+  "ai_out_of_dit_real_rows": 56,
+  "ai_out_of_dit_real_theirnorm": 38460.38372693971,
+  "cl_encoder": "n/a",
+  "plm_encoder": 0.0032457287274902723,
+  "ql_encoder": 0.0024598618827963454,
+  "rl_update_decoder": 0.1003215887823538
+ },
+ "headline": {
+  "forward_rel_per_structure": [
+   0.14765413329604749,
+   0.08827632918052117,
+   0.11140324528076734
+  ],
+  "forward_rel_median": 0.11140324528076734,
+  "branch": "1e-1 -- a mis-wired operand",
+  "consequence": "the 0.7672 device-arm gradient ceiling (D21) is taken at a forward that disagrees by 1.1e-01, so completing the 283-of-870 bijection is not the next move; the forward is"
+ }
+}
