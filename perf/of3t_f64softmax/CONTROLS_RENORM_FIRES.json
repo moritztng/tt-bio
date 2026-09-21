@@ -1,0 +1,11 @@
+{
+ "a": "/home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt",
+ "a16_zero_model_vs_float64": 1.0,
+ "a16_zero_model_vs_their_step": 1.0,
+ "b": "/home/ttuser/of3t_f64softmax/device_grads_043all_renorm.pt",
+ "bit_identical_tensors": 6,
+ "largest_absolute_difference": 13.00330924987793,
+ "of": 547,
+ "scope_tensors": 547,
+ "worst_tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+}
