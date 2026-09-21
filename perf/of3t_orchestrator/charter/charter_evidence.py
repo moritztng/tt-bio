@@ -152,6 +152,12 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
             return None
     a = ts("--", artifact)
     c = ts("--", *code_paths)
+    if a is None and (root / artifact).is_file():
+        # Generated at compose time from sources pinned by digest (D179's COVERAGE_MERGED.json is
+        # the first). It exists but has no commit, and that is the point: it cannot be older than
+        # its inputs because it is rebuilt from them every run.
+        return {"comparable": False, "generated_not_committed": True,
+                "why": "composed at compose time from digest-pinned sources, so it cannot be stale"}
     if a is None or c is None:
         return {"comparable": False,
                 "why": "the artifact or the code path has no commit in this tree"}

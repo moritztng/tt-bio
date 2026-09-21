@@ -2147,3 +2147,36 @@ scope figures and both should state their crop.
 the trunk still reads **5.4139x** upstream's own bf16 (0.3148), backward-only, carried by the
 attention-pair-bias and the single transition rather than the triangle ops. That is what remains of
 the 6.86x and it has no owner yet.
+
+### D179 UPDATE, pass 328. **FIXED.** COVERAGE now reads 8 of 8 loss terms and 9 of 11 paths, and the merged artifact is composed rather than committed
+
+`perf/of3t_orchestrator/coverage/merge_coverage.py` composes the two halves into the census's
+schema on every compose: the eight loss terms from `coverage_census.json`, the eleven paths from
+`of3t-covpaths`' `COVERAGE_UNION.json`. Both pinned by sha256, and it **refuses** if
+`COVERAGE_UNION.json`'s cited census digest does not match the census in the tree — the case where
+merging would silently join two different measurements. It runs in the compose rather than being
+committed, so it cannot be older than its sources; `code_staleness` now reports that explicitly
+instead of a bare "not comparable".
+
+    before   union 7 of 8      conditional_paths 4 of 11
+    after    union 8 of 8      conditional_paths 9 of 11   uncovered: diffusion_rollout, model_forward
+
+**The one entry upgraded rather than copied, called out because it is the only judgement in the
+file.** The census reads `union.bond.covered = false` with `n_pairs_firing: 0` for the stated
+reason "no inter-token bond on 5nw3" — true of 5nw3, the only target it looked at.
+`of3t-covpaths` carries a bond reading on a different target: `finetune_1/weighted-pdb`, 4g5j,
+`bond_mask_nnz` 1, `loss_weight_bond` 4.0, `bond_loss` 1.2424831511452794e-03, **3,924 of 4,170
+parameters moving** and 14.69 % of the squared gradient norm behind it. That is one firing
+(stage, dataset) pair in exactly the shape the census's own schema records, so the term is marked
+covered with `carried_by: ["finetune_1/weighted-pdb"]`, `n_pairs_firing: 1`, and an `upgraded_by`
+field naming this pass. Dispute it by disputing that evidence.
+
+**It does not hand a GO**, the test every clause change this campaign has been held to: the paths
+clause requires all eleven and two remain — `diffusion_rollout` and `model_forward`, both needing
+the OF3 training forward wired in `tt_bio/train/`, which `of3t-covpaths`' brief excluded as a
+subsystem. COVERAGE is NOT MET and the charter still reads **0 of 3**.
+
+**Done by the orchestrator rather than dispatched**, against the pass-327 plan to hold it for a
+slot. Two slots were free, but the job measures nothing and is a composition of two existing
+artifacts; spending an opus5 row on it would have cost more than the work. The judgement call is
+recorded because "hold it for a row" was the previous pass's stated plan and this reverses it.

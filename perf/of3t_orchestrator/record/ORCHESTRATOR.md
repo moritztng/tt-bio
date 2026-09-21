@@ -572,7 +572,7 @@ module's gr...
 
 **D158 (UNFIXED as a convention; in PASSLOG)**: ledger citations do not name their TREE, and `attention.py`, `pairformer.py` and `normalization.py` exist in both tt-bio and upstream. All **140** distinct `file.py:NNN` citations audited: none demonstrably stale, and the one out-of-range hit was my checker conflating upstream's `attention.py` with ours. Not made a guard; recorded as the convention new entries follow.
 
-**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D179 (UNFIXED, held for a slot)**: COVERAGE reads a census 56 h older than the code — 4 of 11 paths where `of3t-covpaths` measured **9 of 11**. One CPU-only merge; full entry in DEFECTS. **D178 (UNFIXED, owner `of3t-trajretake`)**: TRAJECTORY grades an artifact written 20 min before the `_PARAMS` re-key that fixes the defect it reports; the arm trains zero steps, `tape_resolves_after_step: 0` at all 20. A re-take. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D179 (FIXED pass 328)**: COVERAGE's two halves are now composed on every compose — 8 of 8 loss terms, 9 of 11 paths. **D178 (UNFIXED, owner `of3t-trajretake`)**: TRAJECTORY grades an artifact written 20 min before the `_PARAMS` re-key that fixes the defect it reports; the arm trains zero steps, `tape_resolves_after_step: 0` at all 20. A re-take. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
 
 **D119 (UNFIXED, mine)**: my crop-ladder observational floor is near-vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so it tests only that a projection exceeds the card, not which. Plus a unit error: the card is 34,225,520,128 B (**34.2255 GB = 31.875 GiB**) and `project.py` compares 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; 640's GO stands, and it is why 768 is closed on a measured lower bound.
 
@@ -809,8 +809,12 @@ campaign — which is the D122 failure this campaign already filed against its o
                                                         5.03x. Coverage and accuracy moved
                                                         together, in opposite directions, on one
                                                         set of tensors
-    path coverage                                OPEN   4 of 11 conditional paths demonstrated
-                                                        to fire; `of3t-pathcov` live
+    path coverage                                OPEN   **9 of 11** conditional paths fire and
+                                                        **8 of 8** loss terms, as of pass 328's
+                                                        merged artifact. The two left are
+                                                        `diffusion_rollout` and `model_forward`,
+                                                        both needing the OF3 training forward
+                                                        wired in `tt_bio/train/`
     the uncompared 2.015 %                       OPEN   was 7.84 %. `of3t-modelboundary` landed
                                                         +5.8282 to 97.98499 %; `of3t-hostleg`'s
                                                         +1.52024 clears the 99.2594 % bar with
@@ -866,7 +870,7 @@ missing term, not rounding.
 
 VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
 **Ninety-one** of3t rows concluded, **one hundred eighty defects** filed,
-**fifty-nine UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
+**fifty-eight UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
 archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
 reading the tail as the ledger cost.
 The campaign's exit criterion is machine-readable and reads **0 of 3** conditions met
@@ -1011,7 +1015,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 327 over the union's fifty-nine UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 8 USER-FACING, 47 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 328 over the union's fifty-eight UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 8 USER-FACING, 46 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
 
 **CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -2037,3 +2041,40 @@ built this pass does not cover it: `code_staleness` compares an artifact against
 catches D177/D178/D179, but D175's premise was stale in its **flag configuration** rather than its
 date. An arm needs its flags in the artifact — which `of3t-ditmodel` was already made to do — and
 a figure inherited from another row's arm needs that row's flags carried with it.
+
+### Pass 328 — COVERAGE's two halves composed, and the campaign's coverage position was five paths better than the charter could see
+
+No card held. `of3t-hostleg` and `of3t-trajretake` hold the live objects; nothing concluded this
+pass. Two fleet slots were free, and pass 327 had planned to hold D179 for one — **I did it myself
+instead and that reverses the stated plan, so it is recorded rather than done quietly.** The job
+measures nothing: it composes two artifacts that both already exist. Spending an opus5 row on it
+would have cost more than the work.
+
+**D179 FIXED.** `perf/of3t_orchestrator/coverage/merge_coverage.py` composes the eight loss terms
+from `coverage_census.json` with the eleven paths from `of3t-covpaths`' `COVERAGE_UNION.json`, in
+the census's schema, on **every compose** rather than as a committed artifact — so it cannot be
+older than its sources. Both pinned by sha256, and it refuses outright if `COVERAGE_UNION.json`'s
+cited census digest does not match the census in the tree, which is the case where merging would
+silently join two different measurements.
+
+    before   union 7 of 8      conditional_paths 4 of 11
+    after    union 8 of 8      conditional_paths 9 of 11   left: diffusion_rollout, model_forward
+
+**One entry is upgraded rather than copied and it is the only judgement in the file**, so it is
+flagged in the artifact with an `upgraded_by` field. The census reads `union.bond` false because
+5nw3 has no inter-token bond — true of 5nw3, the only target it looked at. `of3t-covpaths` carries
+a firing pair on 4g5j at `finetune_1/weighted-pdb`: `bond_mask_nnz` 1, `loss_weight_bond` 4.0,
+`bond_loss` 1.2424831511452794e-03, **3,924 of 4,170 parameters moving**, 14.69 % of the squared
+gradient norm. That is exactly the shape the census's own schema records a covered term in.
+
+**Still NOT MET, and the charter still reads 0 of 3.** The paths clause needs all eleven and two
+remain, both requiring the OF3 training forward wired in `tt_bio/train/` — a subsystem
+`of3t-covpaths`' brief deliberately excluded. Same test every clause change this campaign has been
+held to, and it passes: nothing here declares victory.
+
+**Two smaller honesty fixes.** The clause's own prose still read "4 do; templates, bond,
+nucleotide... do not" after the artifact moved to 9, so a reader of the gate would have got the old
+census reading from the explanation even while the number was current. And `code_staleness`
+returned a bare "not comparable" for the merged artifact because a compose-generated file has no
+commit; it now says it is composed from digest-pinned sources and therefore cannot be stale, which
+is the actual reason rather than an absence.
