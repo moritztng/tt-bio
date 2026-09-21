@@ -1,0 +1,134 @@
+{
+  "host": "qb2",
+  "card": 0,
+  "board": "p300c",
+  "samples": 1,
+  "models": {
+    "boltz2": {
+      "off": {
+        "rc": 0,
+        "wall_s": 40.489986384003714,
+        "sha256_structures": "a0db89ee4d8574140662f2d28096c612f0f1de265fb29e6cb6801a9273c1e0e8",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-off/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 30.97383380899555,
+        "sha256_structures": "a0db89ee4d8574140662f2d28096c612f0f1de265fb29e6cb6801a9273c1e0e8",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-on/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "ctl": {
+        "rc": 0,
+        "wall_s": 31.97165367600246,
+        "sha256_structures": "5abca709caf1602a52dda894349f042a14880df2bca805e1ff49b4ef9bdd838c",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/boltz2/boltz2-ctl/boltz2_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 7
+      },
+      "off_vs_on_rank0_ca_rmsd_A": 5.637283968152627e-15,
+      "off_vs_on_digest_moved": false,
+      "off_vs_ctl_rank0_ca_rmsd_A": 1.3207127486479315,
+      "off_vs_ctl_digest_moved": true
+    },
+    "protenix-v2": {
+      "off": {
+        "rc": 0,
+        "wall_s": 44.90410742500001,
+        "sha256_structures": "b918958ee56f7c3a8df8965e2f6bb2bc75773550346715a4798f391deed5a09b",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/protenix-v2/protenix-v2-off/protenix_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 15.290750219000003,
+        "sha256_structures": "f30ffacc4d74919072bf6281fe5b8520a6e85fac2471deced5fc3211ac7f0258",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/protenix-v2/protenix-v2-on/protenix_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "ctl": {
+        "rc": 0,
+        "wall_s": 15.310456479999985,
+        "sha256_structures": "9711bef44083f89c31b9bb043898488c2cf993fa71dce16f0b36f61ef05234ed",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/protenix-v2/protenix-v2-ctl/protenix_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 7
+      },
+      "off_vs_on_rank0_ca_rmsd_A": 2.2151353219541923,
+      "off_vs_on_digest_moved": true,
+      "off_vs_ctl_rank0_ca_rmsd_A": 4.134647468178124,
+      "off_vs_ctl_digest_moved": true
+    },
+    "rf3": {
+      "off": {
+        "rc": 0,
+        "wall_s": 54.196011878993886,
+        "sha256_structures": "f9f2a94e116c33e0a6ef7da7385d3688718903e647bace0eadeeff42ce8d7e90",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/rf3/rf3-off/rf3_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 21.037009114,
+        "sha256_structures": "f9f2a94e116c33e0a6ef7da7385d3688718903e647bace0eadeeff42ce8d7e90",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/rf3/rf3-on/rf3_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 0
+      },
+      "ctl": {
+        "rc": 0,
+        "wall_s": 21.313363762999984,
+        "sha256_structures": "4946df76786aa816ea12a65285d07a188ee88f25ec4717ab58941d419ef38289",
+        "cifs": [
+          "/home/ttuser/of3t_softmax_work/models/rf3/rf3-ctl/rf3_results_ubq/structures/ubq.cif"
+        ],
+        "seed": 7
+      },
+      "off_vs_on_rank0_ca_rmsd_A": 2.437430644459895e-15,
+      "off_vs_on_digest_moved": false,
+      "off_vs_ctl_rank0_ca_rmsd_A": 0.20050374525596107,
+      "off_vs_ctl_digest_moved": true
+    }
+  },
+  "clock_aiclk_during": {
+    "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 23
+    },
+    "1": {
+      "min": 800,
+      "max": 800,
+      "median": 800,
+      "n": 23
+    },
+    "2": {
+      "min": 800,
+      "max": 800,
+      "median": 800,
+      "n": 23
+    },
+    "3": {
+      "min": 800,
+      "max": 800,
+      "median": 800,
+      "n": 23
+    }
+  },
+  "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 23 samples, polled DURING the work"
+}
