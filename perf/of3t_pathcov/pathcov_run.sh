@@ -5,6 +5,9 @@
 #                                        diffusion arm behind MODEL_shipped.json
 #   pathcov_run.sh cond                  perf/of3t_conditioning/device_gradient.py
 #   pathcov_run.sh msa | aux             perf/of3t_auxheads/{msa,aux}_instrument.py
+#   pathcov_run.sh trunk [blocks]        perf/of3t_trunkg043/dev_grad.py, the 48-block trunk.
+#                                        Site census only: it is taped at a different boundary
+#                                        than the union, so its mass does not compose.
 #
 # The instrument is run unmodified under perf/of3t_pathcov/census.py. Card 2 is this row's
 # grant; TT_BIO_LEASE_CARDS pins the open so a four-chip bring-up cannot happen by accident.
@@ -41,6 +44,20 @@ case "$ARM" in
       BND=/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt
     fi
     ARGS=(--boundary "$BND" --reference-grads "$REF" --out "$D/instrument_${ARM}_pathcov.json") ;;
+  trunk)
+    # NOT one of the four the model union is built from -- `model_scope.py` refuses it entry
+    # because it is taped at crop64/block47 and the union is fixed at batch_step003. It is
+    # censused anyway because the SITE table needs no reference names: it answers whether the
+    # 48-block trunk instance executes the same call sites the aux arm's embedded 4-block
+    # stack does, which is what separates "this branch never runs" from "no arm in the union
+    # taped this instance of it".
+    export PYTHONPATH="$W/perf/of3t_gradients:$W/perf/of3t_tape:$W"
+    SCRIPT=perf/of3t_trunkg043/dev_grad.py
+    ARGS=(--boundary /home/ttuser/of3t_trunk043ref/boundary_c64.pt
+          --cap-last /home/ttuser/of3t_gradients/cap/block47_boundary.pt --arm flipped
+          --blocks "${1:-48}"
+          --out "$D/dev_trunk_pathcov.pt"
+          --report "$D/DEV_trunk_pathcov.json") ;;
   *) echo "unknown arm $ARM"; exit 2 ;;
 esac
 S=$(date +%s)

@@ -346,14 +346,21 @@ def _sniff_names(frame):
 
 
 def _cands(frame):
-    out = []
-    for v in frame.f_locals.values():
-        if not isinstance(v, dict) or len(v) < 8:
-            continue
-        k0 = next(iter(v))
-        if isinstance(k0, int) and _names_of(v[k0]):
-            out.append(v)
-    return out
+    """Every dict local, by reference, with no shape test at all.
+
+    The shape test used to live here and it cost the aux arm its whole mass.
+    `aux_instrument.py` reaches the tape through `grad_device.tape_parameters`, whose
+    bijection is `params`: checkpoint name -> (leaf, ...), str-keyed, and EMPTY at the moment
+    the first `ag.parameter()` call triggers the sniff. A filter that demands eight int keys
+    rejects it twice over, and the arm reports its leaves with no names and 0.0000 % mass
+    while its site census looks perfectly healthy.
+
+    Holding the dict OBJECT fixes both halves: `params` is filled in place by the rest of
+    `tape_parameters`, so by report time the reference is the finished map. Which candidate is
+    a name map, and in which direction it points, is decided by `_leaf_names` -- where the
+    docstring always said the choice belonged.
+    """
+    return [v for v in frame.f_locals.values() if isinstance(v, dict)]
 
 
 def _names_of(rec):
@@ -511,35 +518,82 @@ def release():
 
 
 def _leaf_names(c):
-    """Resolve the leaves against whichever candidate map names the most of them."""
+    """EVERY candidate resolution, best-by-count first. The choice is not made here.
+
+    Counting hits cannot pick the right map and it is worth being precise about why, because
+    both wrong answers were measured on this instrument. `device_gradient.py` holds `reg`
+    (id -> checkpoint name) and `orient` (id -> "T"/"N", the load orientation) over the SAME
+    547 keys, so hits alone is a coin flip and distinctness breaks that tie. But it also holds
+    the port's OWN device-side names, 870 of them against `reg`'s 547, and those win on both
+    counts while resolving to `npe.ln_s_w` where the reference says
+    `diffusion_module.diffusion_conditioning.layer_norm_s.weight`. The arm then reports every
+    leaf named and 0.0000 % of the model's mass, which is a worse failure than naming nothing.
+
+    A map that names nothing IN THE REFERENCE is not the map, and this process does not hold
+    the reference -- `score.py` does. So all candidates are reported and the scorer picks the
+    one whose names actually land in the float64 denominator.
+    """
     ids = []
     for leaf in c.leaves:
         try:
             ids.append(id(leaf._value))
         except Exception:
             ids.append(None)
-    # Hits alone is not enough to pick. `device_gradient.py` holds `reg` (id -> checkpoint
-    # name) and `orient` (id -> "T"/"N", the load orientation) over the SAME 547 keys, so both
-    # resolve every leaf and the loser is chosen half the time. The name map is the one whose
-    # values distinguish the leaves.
-    best, best_score = None, (0, 0)
+    leaf_ids = [id(leaf) for leaf in c.leaves]
+    out, seen = [], set()
     for cand in (c.name_map or []):
-        got = [nm for i in ids if i is not None and i in cand
-               for nm in _names_of(cand[i])]
-        score = (len(got), len(set(got)))
-        if score > best_score:
-            best, best_score = cand, score
-    c.name_map_hits = best_score[0]
-    if best is None:
-        return [[] for _ in ids], [None] * len(ids)
-    allnames = [_names_of(best[i]) if i is not None and i in best else [] for i in ids]
-    return allnames, [a[0] if a else None for a in allnames]
+        got = _resolve(cand, ids, leaf_ids)
+        if not got:
+            continue
+        key = tuple(sorted((j, tuple(v)) for j, v in got.items()))
+        if key in seen:
+            continue
+        seen.add(key)
+        flat = [nm for row in got.values() for nm in row]
+        out.append({"n_hits": len(flat), "n_distinct": len(set(flat)),
+                    "names": [got.get(j, []) for j in range(len(ids))]})
+    out.sort(key=lambda d: (-d["n_hits"], -d["n_distinct"]))
+    c.name_map_hits = out[0]["n_hits"] if out else 0
+    return out
+
+
+def _resolve(cand, ids, leaf_ids):
+    """One candidate map, resolved to leaf index -> checkpoint names, in either direction.
+
+    FORWARD (`device_gradient.py`, `msa_instrument.py`): id(device handle) -> name, so a leaf
+    is found by the handle it wraps.
+
+    REVERSE (`grad_device.tape_parameters`): name -> (leaf, inverse, where, block, lookup), so
+    a leaf is found by identity against the record. Both directions score the same way and the
+    one naming more distinct leaves wins, which is what stops a dict that merely happens to be
+    str-keyed from being mistaken for a bijection.
+    """
+    k0 = next(iter(cand), None)
+    out = {}
+    if isinstance(k0, int):
+        pos = {i: j for j, i in enumerate(ids) if i is not None}
+        for i, rec in cand.items():
+            j = pos.get(i)
+            if j is not None and (nms := _names_of(rec)):
+                out.setdefault(j, []).extend(nms)
+    elif isinstance(k0, str):
+        pos = {i: j for j, i in enumerate(leaf_ids)}
+        pos.update({i: j for j, i in enumerate(ids) if i is not None and i not in pos})
+        for nm, rec in cand.items():
+            for o in (rec if isinstance(rec, (tuple, list)) else (rec,)):
+                j = pos.get(id(o))
+                if j is not None:
+                    out.setdefault(j, []).append(nm)
+                    break
+    return {j: sorted(set(v)) for j, v in out.items()}
 
 
 def report(c=None):
     """The census, as plain data. Mass is scored separately, on host, by `census.py`."""
     c = c or _C
-    allnames, names = _leaf_names(c)
+    cands = _leaf_names(c)
+    allnames = cands[0]["names"] if cands else [[] for _ in c.leaves]
+    names = [a[0] if a else None for a in allnames]
     rows = []
     for i, s in enumerate(c.sites):
         # The CALL instruction carries the line the call EXPRESSION starts on, so the start
@@ -595,6 +649,7 @@ def report(c=None):
         "n_leaves": len(c.leaves),
         "leaf_names": names,
         "leaf_names_all": allnames,
+        "leaf_name_candidates": cands,
         "n_leaves_named": sum(1 for n in names if n),
         "name_map_hits": c.name_map_hits,
         "touched_tt_bio": {f: sorted(l for (g, l) in c.touched if g == f)

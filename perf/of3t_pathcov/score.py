@@ -62,9 +62,42 @@ def ref_name(leaf, scope_prefix):
     return None
 
 
+def _pick_names(c, prefix):
+    """The candidate name map whose names land in the REFERENCE, not the one with the most.
+
+    The census cannot make this call: it runs on the card and the float64 denominator is a
+    host artifact. It therefore reports every resolution it found and this picks between them
+    by the only criterion that matters -- how many leaves come back with a name the reference
+    knows. Ties go to the earlier candidate, which is the census's own count order.
+    """
+    cands = c.get("leaf_name_candidates")
+    if not cands:
+        return c.get("leaf_names_all") or [[x] if x else [] for x in c["leaf_names"]]
+    best, best_n = None, -1
+    for cd in cands:
+        n = sum(1 for row in cd["names"] if any(ref_name(nm, prefix) for nm in row))
+        if n > best_n:
+            best, best_n = cd, n
+    return best["names"]
+
+
 SCOPE = {"CENSUS_diffusion.json": "diffusion_module",
          "CENSUS_cond.json": "diffusion_module.diffusion_conditioning",
          "CENSUS_msa.json": "msa_module", "CENSUS_aux.json": "aux_heads"}
+
+# best class wins the union: a site executed on ANY arm is executed, and a site whose
+# function ran on any arm is reachable even if every other arm never loaded its module.
+_RANK = {"executed": 0, "reachable_never_executed": 1, "function_never_entered": 2,
+         "module_not_on_arm": 3}
+UNION = {}
+SIGS = {}
+
+
+def _inventory_sig(c):
+    import hashlib
+    return hashlib.sha256(json.dumps(
+        [(s["file"], s["line"], s["end_line"], s["qual"], s["func"], s["taped_verb"])
+         for s in c["sites"]]).encode()).hexdigest()
 
 out = {"denominator": {"file": a.ref_mass, "total_sq_norm": TOTAL,
                        "n_reference_tensors": ref["n_tensors"]},
@@ -73,6 +106,7 @@ out = {"denominator": {"file": a.ref_mass, "total_sq_norm": TOTAL,
 reached_names, arm_rows = set(), []
 for path in a.census:
     c = _load(path)
+    SIGS[path] = _inventory_sig(c)
     prefix = SCOPE.get(os.path.basename(path).removesuffix(".gz"), "")
     sites = c["sites"]
     shim_files = {m.split(".")[-1] + ".py" for m in c["shimmed_modules"]}
@@ -89,11 +123,20 @@ for path in a.census:
 
     by = collections.Counter(cls(s) for s in sites if s["taped_verb"])
     by_all = collections.Counter(cls(s) for s in sites)
+    # The union is taken by site INDEX, and the index is only meaningful because every arm
+    # inventoried the same tree: `_inventory_sig` is asserted equal across censuses below.
+    # Keying on (file, line) instead silently merges 307 of the 3227 sites, because a line
+    # like `ttnn.add(ttnn.mul(a, b), c)` holds two calls and the report carries no column.
+    for i, s in enumerate(sites):
+        prev = UNION.get(i)
+        c_ = cls(s)
+        if prev is None or _RANK[c_] < _RANK[prev["cls"]]:
+            UNION[i] = {"cls": c_, "taped_verb": s["taped_verb"], "file": s["file"],
+                        "line": s["line"], "func": s["func"], "qual": s["qual"]}
 
     # parameters reached by an executed site. A leaf can carry TWO checkpoint names when the
     # device weight is a fused pair, and both halves own the gradient that flows through it.
-    raw_names = c.get("leaf_names_all") or [[x] if x else [] for x in c["leaf_names"]]
-    names = c["leaf_names"]
+    raw_names = _pick_names(c, prefix)
     leaf_ref = [sorted({r for nm in row if (r := ref_name(nm, prefix))}) for row in raw_names]
     unmatched = [nm for row in raw_names for nm in row if ref_name(nm, prefix) is None]
     reached_ref = set()
@@ -163,6 +206,52 @@ for s, (n, m, nc, mc) in per_sec.items():
 rows.sort(key=lambda r: -r["pct_of_model_uncovered"])
 
 cov = sum(MASS[n] for n in reached_names)
+
+# --- the union site census, in the three classes deliverable 1 asks for ---------------------
+# UNREACHABLE and REACHABLE-NEVER-EXECUTED are kept apart because they are different facts.
+# A site whose enclosing function ran is a branch the training step declined; a site in a
+# function no arm entered may still be on the path (another arm would enter it); a site in a
+# module no arm loads cannot be on the OF3 training path at all -- it is another model's file.
+if len(set(SIGS.values())) != 1:
+    raise SystemExit(f"the arms did not inventory the same tree, so a union by site index is "
+                     f"not defined: {json.dumps(SIGS, indent=1)}")
+uni = collections.Counter(v["cls"] for v in UNION.values())
+uni_tv = collections.Counter(v["cls"] for v in UNION.values() if v["taped_verb"])
+prefixes = [r["scope_prefix"] for r in arm_rows]
+out["sites_union"] = {
+    "n_sites": len(UNION),
+    "inventory_sha256": next(iter(SIGS.values())),
+    "taped_verb": {k: uni_tv[k] for k in _RANK},
+    "all_verbs": {k: uni[k] for k in _RANK},
+    "n_taped_verb_sites": sum(uni_tv.values()),
+    "mass": {
+        "note": "a site that never executed produces no tape node and therefore no gradient, "
+                "so its share of the squared gradient norm is identically zero by arithmetic "
+                "and says nothing (PREDICTION.md's A31 check). The measurable form is the "
+                "complement, below: the mass held by parameters NO executed site reaches.",
+        "pct_reached_by_an_executed_site": 100.0 * cov / TOTAL,
+        "pct_no_executed_site_reaches": 100.0 * (TOTAL - cov) / TOTAL},
+}
+
+# --- uncovered mass, split by whether any arm even had the section in scope -----------------
+unc = []
+for r in rows:
+    if r["pct_of_model_uncovered"] <= 0:
+        continue
+    s = r["section"]
+    in_scope = [p for p in prefixes if p and (s == p or s.startswith(p + ".")
+                                              or p.startswith(s + "."))]
+    unc.append(dict(r, arms_in_scope=in_scope,
+                    why=("an arm covered this section and still did not reach these tensors"
+                         if in_scope else
+                         "no arm supplied to this census is scoped here")))
+out["uncovered"] = {
+    "arm_scope_prefixes": prefixes,
+    "total_pct_uncovered": 100.0 * (TOTAL - cov) / TOTAL,
+    "worst": unc[0] if unc else None,
+    "by_section": unc,
+}
+
 out["arms"] = arm_rows
 out["model"] = {
     "n_reference_tensors": ref["n_tensors"],
@@ -186,6 +275,12 @@ for r in arm_rows:
     print(f"  arm mass {r['arm_mass_pct_of_model']:.4f} % of model; reached by an executed "
           f"site {r['reached_mass_pct_of_model']:.4f} % "
           f"({r['reached_pct_of_arm_mass']:.4f} % of the arm)")
+u = out["sites_union"]
+print(f"\nUNION over {len(arm_rows)} arms: {u['n_taped_verb_sites']} taped-verb call sites -- "
+      f"{u['taped_verb']['executed']} executed, "
+      f"{u['taped_verb']['reachable_never_executed']} reachable and never executed, "
+      f"{u['taped_verb']['function_never_entered']} in a function no arm entered, "
+      f"{u['taped_verb']['module_not_on_arm']} in a module no arm loads")
 print(f"\nMODEL: {out['model']['pct_of_model_sq_grad_norm_reached']:.4f} % of the squared "
       f"gradient norm is reached by an executed site; "
       f"{out['model']['pct_of_model_sq_grad_norm_not_reached']:.4f} % is not")

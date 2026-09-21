@@ -20,7 +20,8 @@
   "perf/of3t_pathcov/CENSUS_diffusion.json.gz",
   "perf/of3t_pathcov/CENSUS_cond.json.gz",
   "perf/of3t_pathcov/CENSUS_msa.json.gz",
-  "perf/of3t_pathcov/CENSUS_aux.json.gz"
+  "perf/of3t_pathcov/CENSUS_aux.json.gz",
+  "perf/of3t_pathcov/CENSUS_trunk.json.gz"
  ],
  "modules": [
   "autograd",
