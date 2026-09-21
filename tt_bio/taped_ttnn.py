@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 import sys
 import types
@@ -181,6 +182,21 @@ def _v_matmul(shipped, args, kwargs):
         return bw
 
     return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
+
+
+# `d_logits = y * (g - sum_j g_j y_j)` has EXACTLY zero row sums when `sum_j y_j = 1`, and the
+# attention backward downstream of it depends on that: `dq_i = sum_j d_logits_ij k_j` is
+# `sum_j d_logits_ij (k_j - kbar)` precisely because the row sums vanish, so it never sees the
+# mean of k. `ttnn.softmax` on a bf16 tensor does not give rows that sum to one -- measured
+# 2.4e-02 rms on the OpenFold3 trunk's token attention at crop 64 -- and the residual row sum
+# then multiplies kbar, which is large, and lands in dq as a term the gradient does not contain.
+# Dividing `inner` by the row sum is the same expression whenever the row sums to one, and makes
+# the row sums of d_logits vanish identically when it does not. Measured against an upstream
+# 0.4.3 float64 reference, block 15 of the trunk: the module's own output cotangent goes from
+# 33.29x the reference in norm to 0.64x. It touches NO forward, so no shipped inference result
+# can move. Default off: release-gated, `perf/of3t_apbgrad/`.
+_SOFTMAX_BW_RENORM = os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0").lower() \
+    not in ("", "0", "false", "no", "off")
 
 
 @_verb("softmax", "softmax_in_place")
