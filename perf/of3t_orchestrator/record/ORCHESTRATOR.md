@@ -858,7 +858,20 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty-three defects, fifty-five UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 302 — an artifact in the campaign's own evidence says the tape gate changed a fold output. It did not, the row that wrote it knows, and the sentence is still in the file.**
+PASSLOG: **Pass 303 — the corrected trajectory has its first partial reading, and the row is refusing to score it until its break control lands, which is the right call and not one it was asked to make.**
+
+    norebind 20/20   shipped 20/20   zero 20/20   stale 20/20   shipped_aa2 20/20
+    theirs 16/20     permute 7/20    theirs_aa2 not started
+
+**Eight arms, not the three I called "the device side" at 292 or the seven the directory showed at 301.** The row's own table says *"three of eight arms have completed"* — `theirs_aa2` has not created its directory, so a listing undercounts. Third time I have miscounted this row's arms; the count comes from its table now, not from `ls`.
+
+**`permute` is the break control, and it is why nothing is scored.** It must MOVE the reading: at conditioning scope it took **4.763338e-02 → 1.405424e+03**, four orders. The row's rule, in its own words: *"a trajectory verdict whose controls did not run is the one outcome this campaign will not take, so nothing is scored to a GO until `permute` and both A/A arms carry their markers."* That is A17 applied by a row to itself, unprompted.
+
+**The partial reading, recorded as partial**: `shipped` at **0.4538 (k=2) falling to 0.3817 (k=8)**, growth exponent **−0.13415 over k = 2..9**, at **88.0819 %** of the model squared gradient norm. It carries its scope and mass. **It may not enter VERDICT**: the pass-291 pre-registration asks for reference, arm, scope-with-mass, denominator construction and agreement-and-accuracy against the reachable bar, and a k=2..9 exponent with two controls outstanding has three of five.
+
+**And it settles a card question I was tempted by.** `shipped_aa2` finished and freed a chip; `lsof` shows one held, one free. The row's table says of `permute`: *"first card to free takes it"* — so the free chip is that arm's, not idle capacity, and releasing `of3t-ditcot` early would contend rather than fill a gap. At pass 295 I nearly did that on an inference about which arms existed; this time the answer is the row's own scheduling note plus `lsof`, which is the pairing I should have used then.
+
+**Pass 302 —  an artifact in the campaign's own evidence says the tape gate changed a fold output. It did not, the row that wrote it knows, and the sentence is still in the file.**
 
 `perf/of3t_d137digest/INFERENCE_AB_openfold3.json`:
 

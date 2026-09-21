@@ -10618,3 +10618,16 @@ Each resolves per site with its default passed **at the call**, so there is no s
 **Not repaired here.** The artifact is `of3t-d137digest`'s and that row has concluded; rewriting another row's evidence to make the record read better is worse than the defect. The repair belongs in the harness — `inference_ab_with_aa_floor.py` should not attribute a `base != off` difference to the gate, because the base tree differs from the test tree by every commit between them, and the gate is the `off -> on` axis alone. Two fields would do it: one verdict for the gate axis, one for the tree axis.
 
 **Handed forward to the row that will run the same harness.** `of3t-fwdkcfg` is dispatched to do an inference A/B of exactly this shape for the forward kernel config, where `base != off` will again be true and again not be the lever under test. Its brief is amended to fix the verdict fields before it runs, so the next artifact says what it means.
+
+### D136 UPDATE 2 (pass 303, heading restated). **UNFIXED** — and the corrected trajectory now has a partial reading, a named break control, and an arm count I have had wrong twice.
+
+**Eight arms, not the three I called "the device side" at pass 292 or the seven the directory showed at 301.** `of3t-trajwide`'s own table says *"three of eight arms have completed"*; `theirs_aa2` has not created its directory yet, which is why a listing undercounts. Current state, read from the host:
+
+    norebind 20/20   shipped 20/20   zero 20/20   stale 20/20   shipped_aa2 20/20
+    theirs 16/20     permute 7/20    theirs_aa2 not started
+
+**`permute` is the break control and it is the reason nothing is scored yet.** It must MOVE the reading: at conditioning scope it took **4.763338e-02 → 1.405424e+03**, four orders. The row's rule is explicit — *"a trajectory verdict whose controls did not run is the one outcome this campaign will not take, so nothing is scored to a GO until `permute` and both A/A arms carry their markers."* That is A17's discipline applied by the row to itself, without being asked.
+
+**The first partial reading of the corrected measurement**, recorded here as partial and not as a result: `shipped` reads **0.4538 at k=2 falling to 0.3817 at k=8**, a growth exponent of **−0.13415 over k = 2..9** at **88.0819 %** of the model squared gradient norm. It carries its scope and its mass (A23) and it is explicitly not a k=2..20 fit. **It may not be quoted into VERDICT** — the pass-291 pre-registration requires reference, arm, scope-with-mass, denominator construction (A27) and agreement-and-accuracy against the reachable bar (A25/A26), and a k=2..9 exponent with two controls outstanding has three of the five.
+
+**And it settles the card question I was tempted by.** One chip freed when `shipped_aa2` finished, and the row's own table says of `permute`: *"first card to free takes it"* — so the free chip is that arm's, not idle capacity, and releasing `of3t-ditcot` early would contend rather than fill a gap. At pass 295 I nearly did exactly that on an inference; this time the answer comes from the row's scheduling note plus `lsof`, which is the pairing that should have been used then.
