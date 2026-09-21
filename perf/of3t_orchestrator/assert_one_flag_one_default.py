@@ -99,30 +99,29 @@ def main(argv):
     root = pathlib.Path(argv[1] if len(argv) > 1 else ".").resolve()
     bad = offenders(root)
 
-    # Probe: the guard must fire on the exact change that is coming. Take the real tree and flip
-    # ONE of the two renorm defaults, the way of3t-d56-renorm's branch does.
+    # Probe: a SYNTHETIC two-module tree, because a probe that greps a specific line out of the
+    # real tree stops being a probe the moment that line is repaired -- which happened at pass 274,
+    # when `of3t-d56-renorm` turned taped_ttnn's `os.environ.get` into an alias and this guard
+    # refused rather than checked. The fixture is the shape D151 is about: one variable, two
+    # modules, two defaults.
     import tempfile
-    import shutil
-    probe_src = root / "tt_bio" / "taped_ttnn.py"
-    if probe_src.is_file():
-        with tempfile.TemporaryDirectory() as td:
-            t = pathlib.Path(td)
-            (t / "tt_bio").mkdir()
-            for f in (root / "tt_bio").glob("*.py"):
-                shutil.copy2(f, t / "tt_bio" / f.name)
-            p = t / "tt_bio" / "taped_ttnn.py"
-            txt = p.read_text(errors="replace")
-            flipped = txt.replace('os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "0")',
-                                  'os.environ.get("TT_BIO_SOFTMAX_BW_RENORM", "1")')
-            if flipped == txt:
-                print("BROKEN the probe could not find the read it flips -- the tree moved and "
-                      "this guard is no longer testing what it claims", file=sys.stderr)
-                return 2
-            p.write_text(flipped)
-            if not any(n == "TT_BIO_SOFTMAX_BW_RENORM" for n, _s in offenders(t)):
-                print("BROKEN flipping one of two defaults does not fire -- this guard proves "
-                      "nothing", file=sys.stderr)
-                return 2
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        (t / "tt_bio").mkdir()
+        (t / "tt_bio" / "a.py").write_text(
+            'import os\nA = os.environ.get("TT_BIO_PROBE_FLAG", "0")\n')
+        (t / "tt_bio" / "b.py").write_text(
+            'from tt_bio.envflags import env_flag\nB = env_flag("TT_BIO_PROBE_FLAG", True)\n')
+        if not any(n == "TT_BIO_PROBE_FLAG" for n, _s in offenders(t)):
+            print("BROKEN two modules reading one var with opposite defaults does not fire -- "
+                  "this guard proves nothing", file=sys.stderr)
+            return 2
+        # ... and agreeing defaults must NOT fire, or it is a ban on reading a var twice.
+        (t / "tt_bio" / "b.py").write_text(
+            'from tt_bio.envflags import env_flag\nB = env_flag("TT_BIO_PROBE_FLAG", False)\n')
+        if any(n == "TT_BIO_PROBE_FLAG" for n, _s in offenders(t)):
+            print("BROKEN two modules AGREEING on a default still fires", file=sys.stderr)
+            return 2
 
     if bad:
         for name, sites in bad:
@@ -135,7 +134,8 @@ def main(argv):
 
     n = sum(1 for _n, s in reads(root).items() if len(s) > 1)
     print("ok    %d TT_BIO_* var(s) are read in more than one place and every one agrees on its "
-          "default (probe fires on flipping one of TT_BIO_SOFTMAX_BW_RENORM's two)" % n)
+          "default (synthetic probe: two modules, one var, opposite defaults fires; agreeing "
+          "defaults do not)" % n)
     return 0
 
 
