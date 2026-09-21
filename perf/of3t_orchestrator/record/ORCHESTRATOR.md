@@ -859,9 +859,23 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and still **unmerged to main**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Seventy-seven dispatched, seventy-one concluded, six live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-three defects, fifty-five UNFIXED; seventy-three of3t markers in `state/concluded`, two this row's own stale ones.
+Seventy-seven dispatched, seventy-one concluded, six live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred fifty-four defects, fifty-five UNFIXED; seventy-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 278 — audited the claim Moritz's decision actually bought: every serving path that picks a user's structure now goes through one ranking rule, and I checked it in the tree, including the model the row's own counter-finding said moves the wrong way.**
+PASSLOG: **Pass 279 — audited the gate that decides my own completion, found my first reading of it was wrong, and then found the real gap: the file the gate reads is not the file the audit checks.**
+
+`of3t-d122-d115` concluded GO claiming it made the charter *"impossible to reach by rephrasing."* That is the clause that governs when I may write DONE, so I read it rather than took it.
+
+**The instrument is right, verified three ways.** `charter_evidence.py` LIFTS the gate's condition literal out of `_of3t_donecheck.py` between `# CHARTER_EVIDENCE_BEGIN/END` with `ast.literal_eval` — one definition, a second reader that cannot drift, because drifting means failing to parse. Markers confirmed at lines 754 and 813. The gate recomputes the spec sha from its own copy and refuses a publication evaluated against a different one (`:913`). `audit_evidence.py:1923` re-evaluates against the composed tree field by field.
+
+**My first reading was wrong, and it was wrong in the alarming direction.** `spec_lifted_from` names the gate file and `spec_sha256` sits next to it, so I read the sha as the FILE's digest, computed `dc92efc5` against the live `70646096`, and had a stale-gate-baseline defect half-written. It is the sha of the lifted spec DICT. No mismatch. Checking before publishing cost two minutes; publishing it would have cost a pass and a retraction.
+
+**The real gap is which copy the gate reads, and it is the kind that only bites at the end.** The instrument writes two files — `HERE` in the tt-bio tree and `STATE` in `~/.coworker/state/of3t/`. The audit compares its recompute against **HERE**. The gate reads **STATE**. Nothing re-derived STATE. They are byte-identical today (`md5 aa45eb0b…`) only because one row wrote both in one run, and both record `tree: wt/of3t-d122-d115` — a concluded row's worktree, deletable, rather than `wk/of3t`.
+
+All four conditions are unmet, so nothing is load-bearing yet. **The pass one becomes MET is the pass this decides something** — and "met" would have meant met in a tree nobody maintains, while the audit went on checking a different copy that agreed by coincidence of authorship. Filed **D154** and fixed in the compose: `charter_evidence.py` runs from the composition every pass, before the audit, writing both copies. `tree` now reads the composition, the gate's file is never older than the compose that blessed it, and the instrument's refusal — *"publishing an evaluation whose own controls failed would let the gate read UNMET off a broken instrument"* — now stops the compose instead of being nobody's job.
+
+**Worth carrying forward**: the four charter clauses have never executed. No orchestrator document has ever carried a THEIR-TEST, GRADIENTS, TRAJECTORY or COVERAGE field, so as the instrument's own docstring says, those regexes *"first run on the one pass that ends the campaign."* This instrument is the only thing that has ever exercised them, which is why it is worth this much care.
+
+**Pass 278 —  audited the claim Moritz's decision actually bought: every serving path that picks a user's structure now goes through one ranking rule, and I checked it in the tree, including the model the row's own counter-finding said moves the wrong way.**
 
 `of3t-d10d24-unify` concluded GO with *"the family now computes one ranking rule."* Verified against the composition rather than the summary:
 

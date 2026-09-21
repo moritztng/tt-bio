@@ -10182,3 +10182,21 @@ and `_protenix_emit` is reached by **three** callers, not one: `_predict_proteni
 **Both defects stay UNFIXED because nothing is merged**, which is the standing distinction: the unified rule is in the composition and on `wk/of3t-d10d24-unify`, and `main` still carries the three. The decision to unify is made; the landing is not done.
 
 ### D24 UPDATE (pass 278, heading restated). **UNFIXED where it ships.** Same verification as D10 UPDATE (pass 278), which carries the evidence: all three serving paths route through `tt_bio/ranking.py`, OpenDDE included via `_predict_opendde_one` -> `_protenix_emit`, and BoltzGen's `get_best_folding_sample` is out of scope because it is vendored, design-specific and not on a serving path. Unmerged, so `main` still carries the old rules.
+
+### D154. The gate that ends this campaign reads `state/of3t/CHARTER_EVIDENCE.json`, and nothing re-derived that file — the audit checks a DIFFERENT copy. Byte-identical today only because one row wrote both, and both record a row worktree rather than `wk/of3t`. FOUND and FIXED by the orchestrator (pass 279). **FIXED.**
+
+`of3t-d122-d115` built the right instrument, and I audited it before trusting it rather than after:
+
+  * `charter_evidence.py` **LIFTS** the gate's condition literal out of `_of3t_donecheck.py` between `# CHARTER_EVIDENCE_BEGIN/END` with `ast.literal_eval`, so there is one definition and a second reader that cannot drift — drifting would mean failing to parse. **Verified**: the markers are at lines 754 and 813 of the live gate.
+  * The gate recomputes the spec's sha256 from its own copy and **refuses a publication evaluated against a different one** (`_of3t_donecheck.py:913`), so a condition edited after publication invalidates the publication instead of silently outliving it. **Verified** by lifting the literal myself: live `dc92efc5023c3980`, published `dc92efc5023c3980`, match.
+  * `audit_evidence.py:1923` re-evaluates the spec against the artifacts in the composed tree and compares field by field. **Verified** running.
+
+**My first reading of this was wrong and I checked before publishing it.** `spec_lifted_from` names the gate file and `spec_sha256` sits beside it, so I took the sha to be the FILE's digest and computed a mismatch against the live gate — `dc92efc5` against `70646096`. It is the sha of the lifted spec dict (`charter_evidence.py:155`), not of the file. There was no mismatch and no defect there.
+
+**The real gap is which copy the gate reads.** The instrument writes two — `HERE` in the tt-bio tree and `STATE` in `~/.coworker/state/of3t/` — the audit compares recompute against **HERE**, and the gate reads **STATE**. Nothing re-derived STATE. Today `md5 aa45eb0be3b18eee899bf6225bd6e53b` on both, so the gap is latent, and both record `tree: /home/moritz/.coworker/wt/of3t-d122-d115` — a concluded row's worktree, which can be deleted, rather than the composition.
+
+**Why it matters only later, which is exactly when nobody would be looking.** All four conditions are unmet, so the file's contents are not load-bearing now. The pass one becomes MET is the pass this decides something — and "met" would mean met in whatever tree last wrote the file, which is no longer maintained, while the audit went on checking a different copy that agreed by coincidence of authorship.
+
+**Fixed in `compose_verify.sh`**: `charter_evidence.py` now runs from the composition on every compose, before the audit, writing both copies. The evaluation the gate reads is therefore of `wk/of3t` and is never older than the compose that blessed it; `tree` now reads the composition path. The instrument refuses to publish if its own break control fails — *"publishing an evaluation whose own controls failed would let the gate read UNMET off a broken instrument"* — and that refusal now stops the compose rather than being nobody's job.
+
+**Standing note for whoever reaches GO**: the four charter clauses have never executed in anger. `charter_evidence.py`'s own docstring makes the point — no orchestrator document has ever carried a THEIR-TEST, GRADIENTS, TRAJECTORY or COVERAGE field, so those regexes *"first run on the one pass that ends the campaign."* This instrument is the only thing that has ever exercised them.
