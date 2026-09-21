@@ -61,8 +61,6 @@ def main():
     from tt_bio.tenstorrent import device_dtype_override, get_device
 
     B = torch.load(a.boundary, map_location="cpu", weights_only=False)
-    feats = {k: (v[0] if v.dim() > 1 and v.shape[0] == 1 and k != "ref_pos" else v)
-             for k, v in B["features"].items()}
     # Their forward unsqueezes a sampling dim into every feature; drop leading singletons so the
     # shapes are the ones the shipped host prep and the device module take.
     def sq(t):
@@ -119,7 +117,18 @@ def main():
         with device_dtype_override(act), ag.tape():
             res = out_d()
             outs = res if isinstance(res, (tuple, list)) else [res]
-            ag.backward(list(outs), [ft(c) for c in cots])
+            # Their tensors carry no batch axis once the sampling dim is squeezed and ours carry
+            # one, so each cotangent is reshaped to the output it seeds. A rank mismatch here
+            # does not raise, it broadcasts, which is a wrong gradient that looks like a reading.
+            seeds = []
+            for o, c in zip(outs, cots):
+                shp = tuple((o.value if hasattr(o, "value") else o).shape)
+                if c.numel() != int(torch.tensor(shp).prod()):
+                    raise SystemExit(f"STOP: cotangent {tuple(c.shape)} has {c.numel()} "
+                                     f"elements, the output {shp} wants "
+                                     f"{int(torch.tensor(shp).prod())}")
+                seeds.append(ft(c.reshape(shp)))
+            ag.backward(list(outs), seeds)
         got = 0
         for t in walked.values():
             nm = reg.get(id(t))

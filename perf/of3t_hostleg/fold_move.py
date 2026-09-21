@@ -56,9 +56,10 @@ def main():
 
     runs = {}
     for d in sorted(a.root.glob("*")):
-        cif = d / "openfold3_results_ubq/structures/ubq.cif"
-        if cif.is_file():
-            runs[d.name] = cif
+        # openfold3 writes openfold3_results_ubq/, openbind writes openbind_results_ubq/
+        hits = sorted(d.glob("*_results_ubq/structures/ubq.cif"))
+        if hits:
+            runs[d.name] = hits[0]
     if not runs:
         raise SystemExit(f"no folds under {a.root}")
 
@@ -87,6 +88,8 @@ def main():
     pair("AA_off_a_vs_off_b", "off_s0_a", "off_s0_b", what="A/A floor, flag OFF")
     pair("AA_off_a_vs_off_c", "off_s0_a", "off_s0_c", what="A/A floor, flag OFF")
     pair("AA_off_a_vs_off_r1", "off_s0_a", "off_s0_r1", what="A/A floor, flag OFF")
+    pair("AA_off_a_vs_BASE", "off_s0_a", "BASE_s0_a",
+         what="A/A against origin/wk/of3t's OWN tt_bio, checked out into this worktree")
     pair("AA_on_a_vs_on_b", "on_s0_a", "on_s0_b", what="A/A floor, flag ON")
     pair("AA_on_a_vs_on_c", "on_s0_a", "on_s0_c", what="A/A floor, flag ON")
     # the lever, matched seed and card
@@ -96,6 +99,18 @@ def main():
     # the seed floor on the shipped arm
     pair("SEEDFLOOR_off_s0_vs_s1", "off_s0_a", "off_s1_a",
          what="same arm, seed 0 vs seed 1")
+    # OpenBind: the other model of OF3_FAMILY, same two arms
+    pair("OB_AA_off_a_vs_off_b", "ob_off_s0_a", "ob_off_s0_b",
+         what="openbind A/A floor, flag OFF")
+    pair("OB_AA_on_a_vs_on_b", "ob_on_s0_a", "ob_on_s0_b",
+         what="openbind A/A floor, flag ON")
+    for r in ("a", "b"):
+        pair(f"OB_LEVER_off_vs_on_s0_{r}", f"ob_off_s0_{r}", f"ob_on_s0_{r}",
+             what="openbind, the flag, matched seed 0 and card 1")
+    # openbind gets its OWN seed floor: a floor is a property of the model and the target,
+    # and borrowing OpenFold3's would be the mistake the 512 aa cell's 1.84 A already is here.
+    pair("OB_SEEDFLOOR_off_s0_vs_s1", "ob_off_s0_a", "ob_off_s1_a",
+         what="openbind, same arm, seed 0 vs seed 1")
     # zero and break controls
     if "off_s0_a" in coords:
         r0, n0 = rmsd(coords["off_s0_a"], coords["off_s0_a"])

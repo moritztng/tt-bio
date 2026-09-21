@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # of3t-hostleg: one OpenFold3 fold, one arm, with the card's AICLK sampled DURING the fold.
-#   foldab.sh <off|on> <seed> <card> <tag>
+#   foldab.sh <off|on> <seed> <card> <tag> [model]
+# The model argument is openfold3 or openbind. OF3_FAMILY is exactly those two, and they
+# are the only models that reach the changed legs (openfold3_host_prep is imported at
+# worker.py:1461 alone).
 # `off` is the shipped host legs; `on` sets TT_BIO_OF3_DEVICE_REFATOM=1. Nothing else differs.
 # Single-sequence so the run needs no MSA cache and no network, and is the same input every arm.
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-ARM=$1; SEED=$2; CARD=$3; TAG=$4
+ARM=$1; SEED=$2; CARD=$3; TAG=$4; MODEL=${5:-openfold3}
 OUT=/tmp/of3t/of3t-hostleg/fold/${TAG}
 mkdir -p "$OUT"
 case "$ARM" in
@@ -34,9 +37,9 @@ AICLK_NODE="/sys/class/tenstorrent/tenstorrent!${CARD}/tt_aiclk"
 SAMPLER=$!
 
 S=$(date +%s)
-echo "=== fold arm=$ARM seed=$SEED card=$CARD tag=$TAG start $(date -u +%FT%TZ) ==="
+echo "=== fold model=$MODEL arm=$ARM seed=$SEED card=$CARD tag=$TAG start $(date -u +%FT%TZ) ==="
 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict examples/ubq.yaml \
-  --model openfold3 --out_dir "$OUT" --single_sequence \
+  --model "$MODEL" --out_dir "$OUT" --single_sequence \
   --diffusion_samples 1 --sampling_steps 20 --seed "$SEED" \
   --output_format cif --override > "$OUT/fold.log" 2>&1
 rc=$?

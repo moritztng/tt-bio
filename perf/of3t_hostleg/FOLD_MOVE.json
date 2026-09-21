@@ -3,6 +3,36 @@
  "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
  "target": "examples/ubq.yaml, 76 aa, 602 atoms, --single_sequence, 1 sample, 20 steps",
  "runs": {
+  "BASE_s0_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/BASE_s0_a/openfold3_results_ubq/structures/ubq.cif",
+   "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
+   "n_ca": 76
+  },
+  "ob_off_s0_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/ob_off_s0_a/openbind_results_ubq/structures/ubq.cif",
+   "sha256": "0698197d1988b5e1251e6efbec7f33ebf53c18a57acfc82921907140f357054b",
+   "n_ca": 76
+  },
+  "ob_off_s0_b": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/ob_off_s0_b/openbind_results_ubq/structures/ubq.cif",
+   "sha256": "0698197d1988b5e1251e6efbec7f33ebf53c18a57acfc82921907140f357054b",
+   "n_ca": 76
+  },
+  "ob_off_s1_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/ob_off_s1_a/openbind_results_ubq/structures/ubq.cif",
+   "sha256": "d6edd4cc86e943cf4c0bf169776814ab00c09cf4955f192cc56642063ada7a0a",
+   "n_ca": 76
+  },
+  "ob_on_s0_a": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/ob_on_s0_a/openbind_results_ubq/structures/ubq.cif",
+   "sha256": "ea63f1e35abc2c05df15e95d31432f26b55b25e6b59cece6ce5203b877525ff7",
+   "n_ca": 76
+  },
+  "ob_on_s0_b": {
+   "path": "/tmp/of3t/of3t-hostleg/fold/ob_on_s0_b/openbind_results_ubq/structures/ubq.cif",
+   "sha256": "ea63f1e35abc2c05df15e95d31432f26b55b25e6b59cece6ce5203b877525ff7",
+   "n_ca": 76
+  },
   "off_s0_a": {
    "path": "/tmp/of3t/of3t-hostleg/fold/off_s0_a/openfold3_results_ubq/structures/ubq.cif",
    "sha256": "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
@@ -55,9 +85,12 @@
   }
  },
  "distinct_digests": [
+  "0698197d1988b5e1251e6efbec7f33ebf53c18a57acfc82921907140f357054b",
   "47bb63a9e49029f45549431b1ca7e0e0170873dade8b28bb420c146dd1215663",
   "a5d8e354e00e2218c23c75a9f7f9d7e682855855909955d1c593d0b585ab37c4",
-  "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d"
+  "d6edd4cc86e943cf4c0bf169776814ab00c09cf4955f192cc56642063ada7a0a",
+  "dcd9093ca10b8e11f76fdc4ee3e2893cf0675222adf8f777e2fd8db6f1fcd73d",
+  "ea63f1e35abc2c05df15e95d31432f26b55b25e6b59cece6ce5203b877525ff7"
  ],
  "pairs": {
   "AA_off_a_vs_off_b": {
@@ -83,6 +116,14 @@
    "n_ca": 76,
    "bit_identical": true,
    "what": "A/A floor, flag OFF"
+  },
+  "AA_off_a_vs_BASE": {
+   "a": "off_s0_a",
+   "b": "BASE_s0_a",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "A/A against origin/wk/of3t's OWN tt_bio, checked out into this worktree"
   },
   "AA_on_a_vs_on_b": {
    "a": "on_s0_a",
@@ -139,6 +180,46 @@
    "n_ca": 76,
    "bit_identical": false,
    "what": "same arm, seed 0 vs seed 1"
+  },
+  "OB_AA_off_a_vs_off_b": {
+   "a": "ob_off_s0_a",
+   "b": "ob_off_s0_b",
+   "ca_rmsd_A": 2.1878789317184617e-07,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "openbind A/A floor, flag OFF"
+  },
+  "OB_AA_on_a_vs_on_b": {
+   "a": "ob_on_s0_a",
+   "b": "ob_on_s0_b",
+   "ca_rmsd_A": 0.0,
+   "n_ca": 76,
+   "bit_identical": true,
+   "what": "openbind A/A floor, flag ON"
+  },
+  "OB_LEVER_off_vs_on_s0_a": {
+   "a": "ob_off_s0_a",
+   "b": "ob_on_s0_a",
+   "ca_rmsd_A": 0.048634675812837626,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "openbind, the flag, matched seed 0 and card 1"
+  },
+  "OB_LEVER_off_vs_on_s0_b": {
+   "a": "ob_off_s0_b",
+   "b": "ob_on_s0_b",
+   "ca_rmsd_A": 0.048634675812837626,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "openbind, the flag, matched seed 0 and card 1"
+  },
+  "OB_SEEDFLOOR_off_s0_vs_s1": {
+   "a": "ob_off_s0_a",
+   "b": "ob_off_s1_a",
+   "ca_rmsd_A": 0.5814571864355772,
+   "n_ca": 76,
+   "bit_identical": false,
+   "what": "openbind, same arm, seed 0 vs seed 1"
   }
  },
  "controls": {
@@ -147,6 +228,30 @@
   "n_ca": 76
  },
  "vs_experimental": {
+  "BASE_s0_a": {
+   "ca_rmsd_A": 0.6739312072326544,
+   "n_ca": 76
+  },
+  "ob_off_s0_a": {
+   "ca_rmsd_A": 2.4249431902484995,
+   "n_ca": 76
+  },
+  "ob_off_s0_b": {
+   "ca_rmsd_A": 2.4249431902484995,
+   "n_ca": 76
+  },
+  "ob_off_s1_a": {
+   "ca_rmsd_A": 2.3499895383756058,
+   "n_ca": 76
+  },
+  "ob_on_s0_a": {
+   "ca_rmsd_A": 2.4231085744888836,
+   "n_ca": 76
+  },
+  "ob_on_s0_b": {
+   "ca_rmsd_A": 2.4231085744888836,
+   "n_ca": 76
+  },
   "off_s0_a": {
    "ca_rmsd_A": 0.6739312072326544,
    "n_ca": 76
