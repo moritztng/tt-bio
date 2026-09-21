@@ -7664,3 +7664,58 @@ argument wide, on the construct D55 argues is the campaign's amplifier.
 shipped and renorm arms on a scope already instrumented. Added to `of3t-tapediverge`'s brief as
 AMENDMENT 1 rather than filed as a wish. Whether it moves anything is unmeasured, and a lever that
 fires and is inert is a result.
+
+### D8 UPDATE (pass 222). UNFIXED, RE-STATED against upstream's own bf16 as the record said was owed — and the re-statement kills the headline while sharpening what survives into something much more useful.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/d8restate/restate_d8.py` reads
+`perf/of3t_apbgrad/SCOPE_c64.json`, which has carried every number below since pass 216 and has
+never been read this way. **Scope honesty first**: this re-states D8 on the **pairformer stack** —
+2,736 tensors, 48 blocks, BOTH tracks — because that is the scope on which a bf16 floor exists.
+D8's own words are narrower, *one assembled block's pair track*. So this is a re-statement on a
+SUPERSET, reported per block so the block-level claim stays visible, and the pair track alone is
+not separately re-scored. Denominator per A27: `floor_their_bf16_vs_float64`, upstream 0.4.3's own
+bf16-autocast training step against `grads_f64_043.pt`, same 2,736 tensors, same scorer, same run.
+
+**The headline claim does not survive.** D8 says the gradients are *"an order of magnitude outside
+the bar"*, the bar being 5.0e-02 per tensor against float64:
+
+    arm                                      rel vs f64   x upstream   over bar   mass over bar
+    shipped (CTRL)                         9.025172e+00     24.1356      2733          0.9875
+    renorm                                 3.833066e-01      1.0251      2734          0.9954
+    upstream 0.4.3's OWN bf16 step         3.739355e-01      1.0000      2713          0.6013
+
+**Upstream's own recipe puts 2,713 of its own 2,736 tensors over that bar** — 99.16 %, against our
+99.93 %. Being an order of magnitude outside it does not distinguish us from the thing we are
+reproducing. This is D9's shape exactly, and the record predicted it.
+
+**What survives is better stated and worse news, by mass and per block.** Two things the
+mass-weighted headline hides:
+
+  * **By mass over the bar we are 1.65x upstream**: 0.9954 of the stack's gradient mass sits
+    outside the per-tensor bar for us against **0.6013** for their own bf16.
+  * **Per block against upstream's own bf16 for the SAME block**: only **6 of 48** blocks are at or
+    better than it, **26 of 48** are inside A26's sqrt(2), and the **22 outside A26 hold 66.67 % of
+    the stack's gradient mass**. Median **1.3769x**, spread **5.0x** end to end.
+
+        block 46   2.8742x   41.333 % of the stack's mass   <- worst AND heaviest
+        block  1   2.4265x    1.176 %
+        block 30   1.7862x    0.884 %
+        block 47   1.7628x    5.595 %
+        block 37   0.5756x    1.375 %   <- best
+
+**The single heaviest block in the stack is also its worst**, at 41.3 % of the mass and 2.87x. That
+is a locus, not a tail: `worst-tensor-names-the-tail-not-the-locus` cuts the other way here.
+
+**And the reconciliation is verified rather than argued.** The 1.0251x headline and block 46's
+2.8742x are both true because block 46's own bf16 floor is large and dominates both sides of the
+ratio. The script **refuses to report** unless the per-block table recomposes to the published
+headline under `mass_weighted_rel = sqrt(Σ_b mass_b · rel_b²)`: it recomposes at relative
+difference **0.0** (ours) and **2.969e-16** (upstream's bf16), and the block mass shares sum to 1.0.
+Without that check the per-block table would be a different measurement wearing the headline's
+name, which is exactly what D84 was.
+
+**So D8 is UNFIXED and its statement changes**, from *"an order of magnitude outside a bar"* — true
+of upstream's own recipe too, and therefore empty — to **"22 of 48 blocks are outside the reachable
+bar against upstream's own bf16, holding two thirds of the stack's mass, and the heaviest block in
+the model is the worst one at 2.87x"**. The next row on D8 should start at block 46 and should not
+spend a pass on the per-tensor float64 bar, which nothing bf16 reaches.
