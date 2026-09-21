@@ -141,6 +141,14 @@ def main() -> int:
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
+    p.add_argument("--device-refatom", action="store_true", dest="device_refatom",
+                   help="of3t-hostleg. Run `atom_attn_enc.ref_atom_feature_embedder` INSIDE each "
+                        "structure's tape instead of reading cl0/plm0 off the host, so its eight "
+                        "bias-free linears receive a gradient. They hold 0.75304 %% of the "
+                        "model's squared gradient norm and READABLE_MASS.json files them as "
+                        "HOST_APPLIED: the shipped forward severed the graph at a ttnn.to_torch, "
+                        "so no cotangent could reach them. Default off, so every arm this "
+                        "instrument has already published is unchanged.")
     a = p.parse_args()
     t0 = time.perf_counter()
 
@@ -574,7 +582,26 @@ def main() -> int:
             mod = OF3DiffusionModule(dmsd, cfg)
     finally:
         ttnn.from_torch = orig_from_torch
+    rafe_mod, rafe_ins = None, None
+    if a.device_refatom:
+        from tt_bio.openfold3 import RefAtomFeatureEmbedder
+        ttnn.from_torch = recording_from_torch
+        try:
+            with device_dtype_override(act):
+                rafe_mod = RefAtomFeatureEmbedder(rafe, cfg)
+        finally:
+            ttnn.from_torch = orig_from_torch
+        # The transfers are hoisted out of the structure loop: they are constant across the 48
+        # structures, and the eight weights have to accumulate the same 48 contributions the
+        # module's other leaves do, so only the MODULE is re-run inside each tape.
+        with device_dtype_override(act):
+            rafe_ins = HP.ref_atom_device_inputs(dev, feats, atom_mask, NP)
+        print(f"[{time.perf_counter()-t0:.0f}s] ref_atom_feature_embedder on the card: "
+              f"{len(rafe)} weights, {len(rafe_ins)} hoisted inputs", flush=True)
     walked = _device_weights(mod)
+    if rafe_mod is not None:
+        walked.update({f"ref_atom_feature_embedder.{k}": v
+                       for k, v in _device_weights(rafe_mod).items()})
     for t in walked.values():
         ag.parameter(t)
     named = {id(t): reg.get(id(t)) for t in walked.values()}
@@ -706,6 +733,10 @@ def main() -> int:
         tk0 = time.perf_counter()
         try:
             with device_dtype_override(act), ag.tape():
+                if rafe_mod is not None:
+                    # cl0/plm0 come from the card now, so the cotangent the module sends back
+                    # reaches the eight linears instead of stopping at a host value.
+                    call["cl0"], call["plm0"] = rafe_mod(*rafe_ins)
                 res = mod(call["si_trunk"], call["si"], call["zij"], call["cl0"], call["plm0"],
                           call["rl_noisy"], call["xl_noisy"],
                           aux["amc_d"], aux["amc_na_d"], aux["idx_tt"], aux["flat_tt"],
