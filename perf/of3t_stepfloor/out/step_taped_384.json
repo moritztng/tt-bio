@@ -1,0 +1,397 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "1",
+  "--samples",
+  "4",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_stepfloor/out/step_taped_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "renorm": null,
+  "commit": "13b0559a8e73fdba313929ce570b9c997a263b88",
+  "branch": "wk/of3t-stepfloor",
+  "started_utc": "2026-09-21T17:03:52Z",
+  "loadavg_start": [
+   24.6298828125,
+   22.41357421875,
+   17.279296875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 193
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 193 samples, polled DURING the work",
+  "loadavg_end": [
+   22.552734375,
+   23.67431640625,
+   20.587890625
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 1,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "build_fold_s": 6.41,
+ "prep_to_sampler_s": 10.29,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.283,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 896,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 275,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "stats_after": {
+   "applied": 4251,
+   "declined": 0
+  },
+  "applied_during_reps": 4251,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 3.968,
+   "trunk_s": 3.968,
+   "dram_after_trunk": 4400854016,
+   "diffusion_s": 1.376,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     1.096,
+     0.056,
+     0.046,
+     0.053
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 23818613760,
+   "losses_s": 2.698,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 2.693,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.001,
+   "tape_nodes": 9888,
+   "backward_s": 567.119,
+   "params_with_grad": "2935 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4731841536,
+   "optimizer_s": 9.9,
+   "optimizer_updated": 3152,
+   "step_s": 585.062
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 3.437,
+   "trunk_s": 3.437,
+   "dram_after_trunk": 6463106048,
+   "diffusion_s": 4.052,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     3.87,
+     0.045,
+     0.06,
+     0.045
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 6134418432,
+   "losses_s": 2.588,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.005,
+    "host_loss_s": 2.581,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.004,
+   "tape_nodes": 4,
+   "backward_s": 0.001,
+   "params_with_grad": "0 of 3152",
+   "backward_valid": false,
+   "dram_after_backward": 5411113984,
+   "optimizer_s": 0.0,
+   "optimizer_note": "no gradient reached a declared weight, so the optimizer had nothing to step",
+   "step_s": 10.082
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 3.413,
+   "trunk_s": 3.413,
+   "dram_after_trunk": 5451549696,
+   "diffusion_s": 0.279,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0153,
+     0.0987,
+     86.3515
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.13,
+     0.049,
+     0.051,
+     0.045
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 5453745152,
+   "losses_s": 2.748,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 2.742,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.002,
+   "tape_nodes": 4,
+   "backward_s": 0.0,
+   "params_with_grad": "0 of 3152",
+   "backward_valid": false,
+   "dram_after_backward": 5411113984,
+   "optimizer_s": 0.0,
+   "optimizer_note": "no gradient reached a declared weight, so the optimizer had nothing to step",
+   "step_s": 6.442
+  }
+ ],
+ "cold_s": 585.062,
+ "steady": {
+  "n": 2,
+  "values_s": [
+   10.082,
+   6.442
+  ],
+  "median_s": 8.262,
+  "min_s": 6.442,
+  "max_s": 10.082,
+  "spread_s": 3.64
+ }
+}

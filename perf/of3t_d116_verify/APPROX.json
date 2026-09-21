@@ -1,0 +1,115 @@
+{
+ "generated": "2026-09-21T15:09:31Z",
+ "host": "tt-quietbox2",
+ "what": "Why TT_BIO_SOFTMAX_CKC is bit-exactly inert on the trunks 288 fp32 softmax calls.",
+ "cases": [
+  {
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "seed": 20260921,
+   "arms": {
+    "none (op default)": {
+     "rel_l2_vs_float64": 0.01822978104308575,
+     "bit_identical_to_no_config": true
+    },
+    "trunk caller: HiFi4, approx=True, fp32acc, packer": {
+     "rel_l2_vs_float64": 0.01822978104308575,
+     "bit_identical_to_no_config": true
+    },
+    "same but math_approx_mode=False": {
+     "rel_l2_vs_float64": 0.0005850190648619852,
+     "bit_identical_to_no_config": false
+    },
+    "precise_config()": {
+     "rel_l2_vs_float64": 0.0005850190648619852,
+     "bit_identical_to_no_config": false
+    }
+   }
+  },
+  {
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "seed": 7,
+   "arms": {
+    "none (op default)": {
+     "rel_l2_vs_float64": 0.018129945521343685,
+     "bit_identical_to_no_config": true
+    },
+    "trunk caller: HiFi4, approx=True, fp32acc, packer": {
+     "rel_l2_vs_float64": 0.018129945521343685,
+     "bit_identical_to_no_config": true
+    },
+    "same but math_approx_mode=False": {
+     "rel_l2_vs_float64": 0.000580631613045368,
+     "bit_identical_to_no_config": false
+    },
+    "precise_config()": {
+     "rel_l2_vs_float64": 0.000580631613045368,
+     "bit_identical_to_no_config": false
+    }
+   }
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "seed": 20260921,
+   "arms": {
+    "none (op default)": {
+     "rel_l2_vs_float64": 0.020419338666782676,
+     "bit_identical_to_no_config": true
+    },
+    "trunk caller: HiFi4, approx=True, fp32acc, packer": {
+     "rel_l2_vs_float64": 0.020419338666782676,
+     "bit_identical_to_no_config": true
+    },
+    "same but math_approx_mode=False": {
+     "rel_l2_vs_float64": 0.0005211253956512488,
+     "bit_identical_to_no_config": false
+    },
+    "precise_config()": {
+     "rel_l2_vs_float64": 0.0005211253956512488,
+     "bit_identical_to_no_config": false
+    }
+   }
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "seed": 7,
+   "arms": {
+    "none (op default)": {
+     "rel_l2_vs_float64": 0.020423090537958846,
+     "bit_identical_to_no_config": true
+    },
+    "trunk caller: HiFi4, approx=True, fp32acc, packer": {
+     "rel_l2_vs_float64": 0.020423090537958846,
+     "bit_identical_to_no_config": true
+    },
+    "same but math_approx_mode=False": {
+     "rel_l2_vs_float64": 0.0005170909357234079,
+     "bit_identical_to_no_config": false
+    },
+    "precise_config()": {
+     "rel_l2_vs_float64": 0.0005170909357234079,
+     "bit_identical_to_no_config": false
+    }
+   }
+  }
+ ]
+}

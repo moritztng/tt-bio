@@ -111,6 +111,12 @@ class _DiTBlock(Module):
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = sd_block
         self._wc: dict = {}
+        # OFF. `__call__` typecasts the scores to fp32 on the line above the call, so this is
+        # the site where the config pays: 12.50x accuracy against float64 for 1.55x cost at
+        # [1,16,128,128], 144 calls a fold, +0.72 s against a 2.28 s A/A fold floor on qb2 card 0
+        # and 144 x 6.3 us bounding the real cost at 0.91 ms. It stays off because `of3t-softmax`
+        # measured the gain invisible in the structure (0.3237 A against a 0.6250 A seed floor),
+        # not because it is expensive. perf/of3t_fwdkcfg/.
         self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
         self._softmax_f64 = host_f64_softmax_site("openfold3.diffusion_transformer")
 

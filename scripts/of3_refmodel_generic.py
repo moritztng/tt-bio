@@ -92,15 +92,12 @@ def main():
                  **pre},
                 args.dump_trunk)
             print(f"dumped reference trunk/conditioning tensors -> {args.dump_trunk}")
-        from openfold3.core.utils.tensor_utils import tensor_tree_map
+        from tt_bio.openfold3_batch import map_batch_tensors
 
         s_input = s_input.unsqueeze(1)
         s_trunk = s_trunk.unsqueeze(1)
         z_trunk = z_trunk.unsqueeze(1)
-        perm = batch.pop("ref_space_uid_to_perm", None)
-        batch = tensor_tree_map(lambda t: t.unsqueeze(1), batch)
-        if perm is not None:
-            batch["ref_space_uid_to_perm"] = perm
+        batch = map_batch_tensors(batch, lambda t: t.unsqueeze(1))
         out = model._rollout(batch, s_input, s_trunk, z_trunk)
 
     xl = out["atom_positions_predicted"].float()

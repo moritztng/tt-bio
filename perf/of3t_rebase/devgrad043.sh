@@ -6,15 +6,17 @@
 # gradient on that basis. This re-reads it against the 0.4.3 boundary, which reproduces its own
 # bundle at worst 0.000e+00 over 761 tensors covering 89.21 % of the squared gradient norm.
 set -uo pipefail
-W=/home/ttuser/of3t_rebase/wt
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/ref:/home/ttuser/of3t_gradients/deps:$W/perf/of3t_tape:$W/perf/of3t_gradients:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_CODE" "$W/perf/of3t_tape" "$W/perf/of3t_gradients" "$W")"
 export OMP_NUM_THREADS=4
 CARD=${CARD:-0}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-rebase
 PY=/home/ttuser/tt-bio-dev/env/bin/python
+ref_assert "$PY"
 echo "=== device gradient at 0.4.3, structs 0  $(date -u +%FT%TZ) ==="
 "$PY" perf/of3t_diffusion/device_gradient.py --structs 0 --tag _043 \
-    --cap /home/ttuser/of3t_rebase/diffcap043 --out-dir perf/of3t_rebase
+    --cap "$REF_DIFFCAP" --out-dir perf/of3t_rebase
 echo "=== device gradient exit $? $(date -u +%FT%TZ) ==="
 echo "DEVGRAD_ALLDONE $(date -u +%FT%TZ)"

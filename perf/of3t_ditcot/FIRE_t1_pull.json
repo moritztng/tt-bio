@@ -1,0 +1,48 @@
+{
+ "arm": "pull",
+ "case": "t1",
+ "fired": {
+  "T1": 1,
+  "T2": 0,
+  "T3": 0,
+  "T4": 0
+ },
+ "targets": [
+  {
+   "target": "T1",
+   "qual": "layer_norm.make.bw",
+   "verb": "mean",
+   "line_now": 836,
+   "end_lineno": 836,
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T2",
+   "qual": "_taped_layer_norm.make.bw",
+   "verb": "mean",
+   "line_now": 1847,
+   "end_lineno": 1847,
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T3",
+   "qual": "triangle_attention.make.bw",
+   "verb": "sum",
+   "line_now": 1199,
+   "end_lineno": 1199,
+   "src": "dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)",
+   "configured_before": false
+  },
+  {
+   "target": "T4",
+   "qual": "softmax_bw_inner",
+   "verb": "sum",
+   "line_now": 124,
+   "end_lineno": 124,
+   "src": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+   "configured_before": false
+  }
+ ]
+}
