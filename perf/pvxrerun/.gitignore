@@ -1,2 +1,7 @@
-run1/out/
-run1/in/
+run1/
+msa/
+msa_d*/
+out_d*/
+in_d*/
+depth_aiclk.jsonl
+depth_clk.pid
