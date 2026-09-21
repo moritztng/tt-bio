@@ -300,7 +300,45 @@ def driver_rfd3(a):
                  "timed_region": "run_design (featurise + sample + CIF write)"}
 
 
-DRIVERS = {"predict": driver_predict, "rfd3": driver_rfd3}
+def driver_boltzgen(a):
+    """BoltzGen, through the same `tt_bio design --model boltzgen` CLI a user runs.
+
+    BoltzGen has no importable one-shot entry point: `main.py:1746 _run_boltzgen_cli` rewrites
+    sys.argv and hands off to `tt_bio.boltzgen.cli.boltzgen.main`, so the census drives the CLI
+    the same way `perf/dsfix/bg_census.py` does. Consequence, stated because it bounds what this
+    driver can measure: the model is loaded inside the call, so EVERY design here is a cold one
+    and there is no warm A/A floor. That is fine for a `K` membership count, which is a count and
+    not a time, and it is why this driver is used for counting rather than for shares.
+    """
+    import shutil
+    spec = Path(a.target) if a.target else ROOT / "perf" / "dsfix" / "fixtures" / "bg_R0.yaml"
+    steps = a.steps or 40
+    n = {"i": 0}
+
+    def one():
+        n["i"] += 1
+        out = Path(f"/tmp/allm_bg_{os.getpid()}_{n['i']}")
+        shutil.rmtree(out, ignore_errors=True)
+        argv = sys.argv[:]
+        sys.argv = ["tt-bio", "design", str(spec), "--model", "boltzgen",
+                    "--steps", "design", "--num_designs", "1", "--out_dir", str(out),
+                    "--config", "design", f"sampling_steps={steps}"]
+        from tt_bio.main import cli
+        t0 = time.perf_counter()
+        try:
+            cli(standalone_mode=False)
+        except SystemExit:
+            pass
+        finally:
+            sys.argv = argv
+        return time.perf_counter() - t0, {"plddt": None}
+
+    return one, {"spec": str(spec), "protocol": {"sampling_steps": steps, "num_designs": 1},
+                 "timed_region": "tt-bio design --model boltzgen (model load INCLUDED, "
+                                 "so every design is cold and there is no warm A/A floor)"}
+
+
+DRIVERS = {"predict": driver_predict, "rfd3": driver_rfd3, "boltzgen": driver_boltzgen}
 
 
 # --------------------------------------------------------------------------- main

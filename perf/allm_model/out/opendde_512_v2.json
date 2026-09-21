@@ -1,0 +1,710 @@
+{
+ "host": "tt-quietbox2",
+ "model": "opendde",
+ "size": 512,
+ "card": 1,
+ "depth": 1,
+ "driver": "predict",
+ "git_head": "7fdcf74add5e936cbbb12f338f647cd55dd41460",
+ "aiclk_requested": "1350",
+ "aiclk_held_mhz": 1350,
+ "taped_classes": 82,
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:allm-model"
+ },
+ "meta": {
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "recycling_steps": 10,
+  "load_s": 5.42,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.coworker/wt/allm-model/.msa_allm_opendde_512",
+  "diffusion_samples": 1,
+  "struct_dir": "/tmp/ttbase-opendde-omuu26p3/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null,
+  "card_type": "p300c",
+  "sysfs_subsystem": "0x0046",
+  "aiclk_mhz": "1350",
+  "protocol": {
+   "recycling_steps": 10,
+   "sampling_steps": 200
+  }
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "fold_s": 88.0049,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 314,
+    "power_w_mean": 88.3
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     122,
+     528
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('ratio-shrunk', '512x512x384')": 524,
+     "('ratio-shrunk', '1024x1024x384')": 4
+    },
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     8,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     160,
+     1056
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5288
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 160, 'refused': 0, 'blocked': 0, 'declined': 1064, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 160, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 8182, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1232
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1208,
+     8
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "multi_chunk_channel_loop": 8
+    }
+   }
+  },
+  {
+   "tag": "A",
+   "fold_s": 83.9975,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 309,
+    "power_w_mean": 92.7
+   },
+   "depth": null,
+   "count_only": false,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     122,
+     528
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('ratio-shrunk', '512x512x384')": 524,
+     "('ratio-shrunk', '1024x1024x384')": 4
+    },
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     8,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     160,
+     1056
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5288
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 320, 'refused': 0, 'blocked': 0, 'declined': 2128, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 320, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 16364, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1232
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1208,
+     8
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "multi_chunk_channel_loop": 8
+    }
+   }
+  },
+  {
+   "tag": "K",
+   "fold_s": 82.959,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 295,
+    "power_w_mean": 93.7
+   },
+   "depth": null,
+   "count_only": true,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     122,
+     528
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('ratio-shrunk', '512x512x384')": 524,
+     "('ratio-shrunk', '1024x1024x384')": 4
+    },
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     8,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     160,
+     1056
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5288
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 480, 'refused': 0, 'blocked': 0, 'declined': 3192, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 480, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 24546, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1232
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1208,
+     8
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "multi_chunk_channel_loop": 8
+    }
+   },
+   "blocks": {
+    "protenix.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "protenix.AtomTransformer": {
+     "n": 401,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AdaLN": {
+     "n": 13209,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "protenix.Trunk": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "protenix.TrunkInput": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 608,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 1216,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 1216,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Transition": {
+     "n": 1538,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.Pairformer": {
+     "n": 12,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 5288,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    },
+    "opendde.StructuralTokenExpander": {
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0,
+     "depths": {}
+    }
+   }
+  },
+  {
+   "tag": "B:2",
+   "fold_s": 87.3631,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 294,
+    "power_w_mean": 94.2
+   },
+   "depth": 2,
+   "count_only": false,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     122,
+     528
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('ratio-shrunk', '512x512x384')": 524,
+     "('ratio-shrunk', '1024x1024x384')": 4
+    },
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     8,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     160,
+     1056
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5288
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 640, 'refused': 0, 'blocked': 0, 'declined': 4256, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 640, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 32728, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1232
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1208,
+     8
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "multi_chunk_channel_loop": 8
+    }
+   },
+   "blocks": {
+    "protenix.AtomTransformer": {
+     "n": 401,
+     "incl_s": 3.845974,
+     "self_s": 3.133362,
+     "depths": {
+      "0": 400,
+      "1": 1
+     }
+    },
+    "protenix.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.08856,
+     "self_s": 0.077683,
+     "depths": {
+      "0": 1
+     }
+    },
+    "protenix.TrunkInput": {
+     "n": 1,
+     "incl_s": 0.007221,
+     "self_s": 0.007221,
+     "depths": {
+      "1": 1
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 128,
+     "incl_s": 7.916419,
+     "self_s": 7.916419,
+     "depths": {
+      "1": 128
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.2233,
+     "self_s": 0.2233,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 442,
+     "incl_s": 0.245374,
+     "self_s": 0.245374,
+     "depths": {
+      "0": 402,
+      "1": 40
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.73576,
+     "self_s": 0.73576,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 12,
+     "incl_s": 55.550689,
+     "self_s": 53.266141,
+     "depths": {
+      "0": 2,
+      "1": 10
+     }
+    },
+    "protenix.Trunk": {
+     "n": 1,
+     "incl_s": 61.226289,
+     "self_s": 1.339595,
+     "depths": {
+      "0": 1
+     }
+    },
+    "opendde.StructuralTokenExpander": {
+     "n": 1,
+     "incl_s": 1.018725,
+     "self_s": 1.018725,
+     "depths": {
+      "0": 1
+     }
+    },
+    "tenstorrent.AdaLN": {
+     "n": 13200,
+     "incl_s": 2.382799,
+     "self_s": 2.382799,
+     "depths": {
+      "0": 9600,
+      "1": 3600
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 4800,
+     "incl_s": 6.415498,
+     "self_s": 6.415498,
+     "depths": {
+      "0": 4800
+     }
+    }
+   }
+  },
+  {
+   "tag": "B:4",
+   "fold_s": 82.2836,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 244,
+    "power_w_mean": 94.1
+   },
+   "depth": 4,
+   "count_only": false,
+   "plddt": 0.717514,
+   "n_tokens": 512,
+   "lever_counts": {
+    "tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_ROW_STATS": {
+     "whole": 40
+    },
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     40
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     122,
+     528
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_REJECTS": {
+     "('ratio-shrunk', '512x512x384')": 524,
+     "('ratio-shrunk', '1024x1024x384')": 4
+    },
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     8,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     160,
+     1056
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     40,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5288
+    ],
+    "tenstorrent.LATCH_STATS": {
+     "l1_out": "{'served': 800, 'refused': 0, 'blocked': 0, 'declined': 5320, 'why': []}",
+     "narrow_l1_out": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_l1": "{'served': 800, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "transpose_stage": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "pair_bias_ln_l1": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "bmm_cfg": "{'served': 40910, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}",
+     "sdpa_q_chunk": "{'served': 0, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}"
+    },
+    "tenstorrent.TRIMUL_MM_TRANSPOSE_STATS": {
+     "('gated-move', 'defer')": 1232
+    },
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     1208,
+     8
+    ],
+    "tenstorrent.TRIMUL_GOUT_REJECTS": {
+     "multi_chunk_channel_loop": 8
+    }
+   },
+   "blocks": {
+    "tenstorrent.AdaLN": {
+     "n": 13209,
+     "incl_s": 1.437219,
+     "self_s": 1.437219,
+     "depths": {
+      "0": 9600,
+      "1": 3600,
+      "2": 9
+     }
+    },
+    "protenix.AtomTransformer": {
+     "n": 401,
+     "incl_s": 2.77942,
+     "self_s": 2.421351,
+     "depths": {
+      "0": 400,
+      "1": 1
+     }
+    },
+    "protenix.AtomAttentionEncoder": {
+     "n": 1,
+     "incl_s": 0.133095,
+     "self_s": 0.114557,
+     "depths": {
+      "0": 1
+     }
+    },
+    "protenix.TrunkInput": {
+     "n": 1,
+     "incl_s": 0.007828,
+     "self_s": 0.007828,
+     "depths": {
+      "1": 1
+     }
+    },
+    "tenstorrent.TriangleMultiplication": {
+     "n": 1216,
+     "incl_s": 22.806584,
+     "self_s": 22.806584,
+     "depths": {
+      "2": 256,
+      "3": 960
+     }
+    },
+    "tenstorrent.TriangleAttention": {
+     "n": 1216,
+     "incl_s": 18.328389,
+     "self_s": 18.328389,
+     "depths": {
+      "2": 256,
+      "3": 960
+     }
+    },
+    "tenstorrent.Transition": {
+     "n": 1538,
+     "incl_s": 15.65095,
+     "self_s": 15.65095,
+     "depths": {
+      "0": 402,
+      "1": 40,
+      "2": 136,
+      "3": 960
+     }
+    },
+    "tenstorrent.PairformerLayer": {
+     "n": 608,
+     "incl_s": 62.590219,
+     "self_s": 4.188052,
+     "depths": {
+      "1": 128,
+      "2": 480
+     }
+    },
+    "tenstorrent.PairWeightedAveraging": {
+     "n": 40,
+     "incl_s": 0.199152,
+     "self_s": 0.199152,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.OuterProductMean": {
+     "n": 40,
+     "incl_s": 0.733643,
+     "self_s": 0.733643,
+     "depths": {
+      "1": 40
+     }
+    },
+    "tenstorrent.AttentionPairBias": {
+     "n": 5288,
+     "incl_s": 7.759521,
+     "self_s": 7.759521,
+     "depths": {
+      "0": 4800,
+      "2": 8,
+      "3": 480
+     }
+    },
+    "tenstorrent.Pairformer": {
+     "n": 12,
+     "incl_s": 56.851822,
+     "self_s": 0.014362,
+     "depths": {
+      "0": 2,
+      "1": 10
+     }
+    },
+    "protenix.Trunk": {
+     "n": 1,
+     "incl_s": 62.82912,
+     "self_s": 1.549653,
+     "depths": {
+      "0": 1
+     }
+    },
+    "opendde.StructuralTokenExpander": {
+     "n": 1,
+     "incl_s": 0.92693,
+     "self_s": 0.92693,
+     "depths": {
+      "0": 1
+     }
+    }
+   }
+  }
+ ]
+}
