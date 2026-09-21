@@ -854,9 +854,29 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, and **not** the split's 2.0067 %, which is a different decomposition against the float64 bar (D145). Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty-one defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
+Eighty-one dispatched, seventy-six concluded, five live (this row, `of3t-trajwide`, `of3t-ditcot` HELD, and six of the ten rows Moritz's 9629 decision put out; `of3t-f64gate` is RETIRED into `of3t-d137-tapegate`); one hundred sixty-two defects, fifty-four UNFIXED; seventy-eight of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 300 — I priced a lever from one rung of a four-rung ladder two passes ago; the full table says the trade drifts with size and INVERTS on bf16.**
+PASSLOG: **Pass 301 — five shipped levers resolve at the construction site, so their defaults are arguments rather than constants and a lever census has no row for the family at all; my own gate covered one of the five.**
+
+`tt_bio.tenstorrent` builds `accurate_softmax_site`, `triatt_sdpa_hifi_site`, `softmax_precise_site`, `host_f64_softmax_site` and `sdpa_ragged_pad_site` on `_site_flag`. Each resolves per construction site with its default passed **at the call**, so nothing holds the shipped value in one place. A census that walks flags to a resolved value does not report "off" for these — it reports **nothing**. The fleet has paid for this once already: `openfold3.trunk` flipped to the fused HiFi SDPA path by default in `3a31dcdd1` (+11.564 s at 512 aa, **1.5123x**) and the census was silent.
+
+**`assert_new_levers_default_off.py` covers `host_f64_softmax_site` and covers it well** — signature default AND no call site overriding it to True. That is the right shape applied to one member of a family of five, and I wrote it without noticing the other four.
+
+**Censused by AST, three construction sites ship a lever ON by call-site default:**
+
+    tt_bio/opendde.py:419        accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:1467      accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:2511      accurate_softmax_site(..., default=True)
+
+`opendde.refiner` is the worked example my own gate's docstring already cites. **The two protenix sites appear nowhere in the campaign's record that I can find.** Protenix is not an OF3 model so whether ON is right there is not mine to judge — but protenix-v2 carries digest claims from D137 and D155, and a lever ON at two of its construction sites should not be invisible while those stand.
+
+**`assert_site_flag_defaults.py`** pins the three as a shrink-only ratchet: a new default-ON site fails the compose, a pinned one that disappears must be removed. Probe is synthetic — `default=True` seen, `default=False` and a bare call not. It deliberately does not judge whether ON is correct, only refuses one arriving unseen.
+
+**It lands in time for a live dispatch**: `of3t-fwdkcfg` is briefed to flip `softmax_precise_site` per site, which is in this family, so its flips will be visible to the compose instead of resolving silently at five call sites.
+
+**`of3t-trajwide` has a SEVENTH arm**: `permute` appeared at 0/20 this pass, alongside `norebind` 20, `shipped` 20, `zero` 20, `stale` 20, `shipped_aa2` 18, `theirs` 13. Noted rather than inferred from — at pass 295 I called three arms "the device side" and was wrong; the arm list is whatever the directory says today.
+
+**Pass 300 —  I priced a lever from one rung of a four-rung ladder two passes ago; the full table says the trade drifts with size and INVERTS on bf16.**
 
 At pass 298 I quoted *"12.3x better, 1.46x the cost"* out of `softmax_precise_site`'s docstring. The artifact behind it, `perf/of3t_softmax/softmax_cost_qb2c0.json`, has five rows — qb2 card 0, 30 iters, 6 rounds, AICLK pinned 1350 MHz:
 

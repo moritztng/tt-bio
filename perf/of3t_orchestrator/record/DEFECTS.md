@@ -10575,3 +10575,29 @@ At pass 298 I quoted *"12.3x better, 1.46x the cost"* from `softmax_precise_site
 **This is directly actionable for `of3t-fwdkcfg` and I have amended its brief.** The DiT site typecasts to fp32 immediately before the call — `sc = ttnn.typecast(sc, ttnn.float32)` at `openfold3_diffusion_transformer.py:210` — so the fp32 rows are the right ones there. **Any other site must have its dtype checked before its lever is flipped**, because at bf16 the same flip is a 2.32x cost for almost nothing. A per-site lever with a dtype-dependent payoff cannot be swept.
 
 **And the method note, because this is the second time in three passes**: price a lever from the measuring row's full table, never from the line that quotes it. The docstring was not wrong — it says what it measured — but a single row read as "the cost of the lever" is how a range becomes a headline and a headline becomes a plan.
+
+### D162. Five per-site levers resolve at the CONSTRUCTION SITE, so their shipped default is an argument and not a module constant — and a census that walks flags to a resolved value has no row for the family at all. FOUND and MITIGATED by the orchestrator (pass 301). **FIXED** for the four that were uncovered.
+
+`tt_bio.tenstorrent` builds five levers on `_site_flag`:
+
+    accurate_softmax_site   TT_BIO_ACCURATE_SOFTMAX_AB
+    triatt_sdpa_hifi_site   TT_BIO_TRIATT_SDPA_HIFI_AB
+    softmax_precise_site    TT_BIO_SOFTMAX_PRECISE_AB
+    host_f64_softmax_site   TT_BIO_HOST_F64_SOFTMAX_AB
+    sdpa_ragged_pad_site    TT_BIO_SDPA_RAGGED_PAD_AB
+
+Each resolves per site with its default passed **at the call**, so there is no single place holding the shipped value. A census built to catch a default flip does not report "off" for these — it reports **nothing**, because it has no row for the family. The fleet has already paid for this once: `openfold3.trunk` flipped to the fused HiFi SDPA path by default in `3a31dcdd1` (+11.564 s at 512 aa, **1.5123x**) and the lever census was silent.
+
+**My own gate covered one of the five.** `assert_new_levers_default_off.py` checks `host_f64_softmax_site`'s signature default AND that no call site overrides it to True — the right shape, applied to one member of a family of five. The other four had nothing.
+
+**Censused by AST across the composition, three sites ship a lever ON by call-site default:**
+
+    tt_bio/opendde.py:419        accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:1467      accurate_softmax_site(..., default=True)
+    tt_bio/protenix.py:2511      accurate_softmax_site(..., default=True)
+
+`opendde.refiner` is known — `assert_new_levers_default_off.py`'s own docstring cites it as the worked example of a selector defaulting off while a construction site passes True. **The two protenix sites are not in the campaign's record anywhere I can find.** They are not an OF3 model, so whether ON is right there is outside this campaign's scope to judge; what is in scope is that protenix-v2 carries digest claims from D137 and D155, and a lever shipping ON at two of its construction sites should not be invisible while those claims stand.
+
+**`assert_site_flag_defaults.py`** pins the three as a shrink-only ratchet: a NEW default-ON site fails the compose, a pinned one that disappears must be removed. Its probe is synthetic — `default=True` must be seen, `default=False` and a bare call must not. It deliberately does **not** judge whether ON is correct; it refuses a default-ON site arriving unseen, which is the whole failure mode.
+
+**Relevant to a live dispatch.** `of3t-fwdkcfg` is briefed to flip `softmax_precise_site` per site. That lever is in this family, so its flips will now be visible to the compose rather than resolving silently at five call sites.
