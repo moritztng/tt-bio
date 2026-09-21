@@ -52,7 +52,9 @@ from __future__ import annotations
 import numpy as np
 
 __all__ = [
-    "LOSS_WEIGHTS", "SIGMA_DATA", "edm_scale", "sample_noise_level",
+    "LOSS_WEIGHTS", "OF3_LOSS_BASE", "OF3_LOSS_OVERRIDES", "OF3_CROP_TOKENS",
+    "OF3_TERM_ALIASES", "of3_loss_weights",
+    "SIGMA_DATA", "edm_scale", "sample_noise_level",
     "distogram", "smooth_lddt", "bond", "mse", "plddt", "pde", "pae", "resolved",
     "atom_bespoke_lddt", "lddt_mask", "weighted_rigid_align", "dist_grad_to_coords",
     "cross_entropy_bins", "bin_index",
@@ -66,6 +68,84 @@ LOSS_WEIGHTS = {
     "finetune": {"mse": 4.0, "smooth_lddt": 0.0, "bond": 4.0, "distogram": 3e-2,
                  "plddt": 1e-4, "pde": 1e-4, "resolved": 1e-4, "pae": 1e-4},
 }
+
+# --------------------------------------------------------------- OpenFold3's weights
+#
+# OpenFold3's weights do not fit `LOSS_WEIGHTS[stage][term]`, and the reason is structural
+# rather than cosmetic: theirs are a pydantic default overridden PER DATASET inside each
+# stage config, and they arrive per example as `batch["loss_weights"]` (`runner.py:448`).
+# So the same step can carry two datasets training different subsets of the objective, and
+# a two-level table cannot say that at all. The dataset axis is added here rather than by
+# branching the table, and the Protenix entries above are untouched.
+#
+# Every number below is REBUILT and checked entry by entry against upstream by
+# `perf/of3t_equivalence/of3_loss_weights.py`, which parses `class LossWeights`
+# (`projects/of3_all_atom/config/dataset_config_components.py:164-172`) and their four
+# shipped yamls in `examples/training_yamls/`. Provenance per entry, not a comment over a
+# table: if upstream moves, that check fails rather than this comment going quietly stale.
+#
+# Term names are tt-bio's, so `af3_loss` consumes these directly. Theirs calls `resolved`
+# `experimentally_resolved`; OF3_TERM_ALIASES is the whole of the difference.
+OF3_TERM_ALIASES = {"experimentally_resolved": "resolved"}
+
+OF3_LOSS_BASE = {"bond": 0.0, "smooth_lddt": 4.0, "mse": 4.0, "distogram": 3e-2,
+                 "resolved": 1e-4, "plddt": 1e-4, "pae": 1e-4, "pde": 1e-4}
+
+# The four confidence terms that the distillation and disordered sets zero. Named once
+# because all four stages zero exactly this set, and a literal repeated eleven times is a
+# literal that will eventually disagree with itself.
+_OF3_NO_CONFIDENCE = {"resolved": 0.0, "plddt": 0.0, "pae": 0.0, "pde": 0.0}
+_OF3_FINETUNE_12 = {"bond": 4.0, "smooth_lddt": 0.0}
+_OF3_DISTILL = ("long-monomer-distillation", "short-monomer-distillation",
+                "disordered-pdb", "RNA-monomer-distillation")
+
+OF3_LOSS_OVERRIDES = {
+    "initial_training": {"weighted-pdb": {},
+                         **{d: dict(_OF3_NO_CONFIDENCE) for d in _OF3_DISTILL}},
+    "finetune_1": {"weighted-pdb": dict(_OF3_FINETUNE_12),
+                   **{d: {**_OF3_FINETUNE_12, **_OF3_NO_CONFIDENCE}
+                      for d in _OF3_DISTILL}},
+    "finetune_2": {"weighted-pdb": dict(_OF3_FINETUNE_12),
+                   **{d: {**_OF3_FINETUNE_12, **_OF3_NO_CONFIDENCE}
+                      for d in _OF3_DISTILL}},
+    "finetune_3": {"weighted-pdb": {"mse": 0.0, "smooth_lddt": 0.0, "distogram": 0.0,
+                                    "pae": 1e-4}},
+}
+
+# Their token crop per stage, from the same yamls. Kept beside the weights because a stage
+# is the pair: OF3 training never exceeds 768 tokens (R4), which is a training limit worth
+# having in one place rather than rediscovered per row.
+OF3_CROP_TOKENS = {"initial_training": 384, "finetune_1": 640,
+                   "finetune_2": 768, "finetune_3": 768}
+
+
+def of3_loss_weights(stage: str, dataset: str | None = None, *, overrides=None) -> dict:
+    """OpenFold3's loss weights for one (stage, dataset), with an optional per-example layer.
+
+    Composition order is upstream's: the `LossWeights` default, then the dataset's override
+    from the stage config, then anything the example itself carries. `dataset=None` gives
+    the stage's base, which is what a caller wants when it is not routing per dataset.
+
+    A zero weight here is a term upstream deliberately switches OFF for that dataset, and it
+    must stay distinguishable from a term that is merely absent -- `af3_loss` records the
+    first as skipped with `value: None`, never as 0.0 entering the sum. Training the
+    confidence heads on the distillation sets, which is what silently happens if this table
+    is ignored, is exactly the error the per-dataset axis exists to prevent.
+    """
+    if stage not in OF3_LOSS_OVERRIDES:
+        raise KeyError(f"{stage!r} is not an OpenFold3 training stage. Upstream ships "
+                       f"{sorted(OF3_LOSS_OVERRIDES)} in examples/training_yamls/")
+    w = dict(OF3_LOSS_BASE)
+    if dataset is not None:
+        stage_table = OF3_LOSS_OVERRIDES[stage]
+        if dataset not in stage_table:
+            raise KeyError(f"{dataset!r} is not a train dataset of {stage!r}. That stage "
+                           f"runs {sorted(stage_table)}")
+        w.update(stage_table[dataset])
+    for k, v in (overrides or {}).items():
+        w[OF3_TERM_ALIASES.get(k, k)] = float(v)
+    return w
+
 SIGMA_DATA = 16.0                      # generator.py:40
 DISTOGRAM_GRID = (2.3125, 21.6875, 64)  # loss.py:534-536
 PDE_GRID = (0.0, 32.0, 64)              # loss.py:652-655
