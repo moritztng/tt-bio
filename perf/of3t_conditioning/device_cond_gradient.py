@@ -66,6 +66,13 @@ def main() -> int:
                         "run that still passes is measuring something other than the gradient. "
                         "A zero-model baseline cannot catch that: it breaks OUR side, and the "
                         "question is whether the check reads THEIR seed at all.")
+    p.add_argument("--dump-grads", default="", dest="dump_grads",
+                   help="write the compared device gradient TENSORS to this .pt, keyed by full "
+                        "checkpoint name. Without it this arm publishes only rel_l2/r/cos "
+                        "against the one float64 reference it was run against, so its gradient "
+                        "cannot afterwards be compared to upstream's own bf16 training "
+                        "gradient -- and two distances from a shared reference do not order "
+                        "each other (D72).")
     p.add_argument("--act", default="fp32", choices=["fp32", "bf16"],
                    help="device activation dtype for the taped arm")
     a = p.parse_args()
@@ -256,6 +263,15 @@ def main() -> int:
             gt = gt.t().contiguous()
         ours[nm] = gt
 
+    if a.dump_grads:
+        d = os.path.dirname(a.dump_grads)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        torch.save({f"diffusion_module.diffusion_conditioning.{nm}": g.cpu()
+                    for nm, g in ours.items()}, a.dump_grads)
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(ours)} gradient tensors to "
+              f"{a.dump_grads}", flush=True)
+
     # A20: the denominator is the FULL reference mass in scope, not the compared subset.
     scope_sq = sum(float(v.double().pow(2).sum()) for v in ref_grad.values())
     rows, unreached, excluded = [], [], []
@@ -333,6 +349,7 @@ def main() -> int:
         "reference_tensors": len(ref_grad), "device_weights": len(walked),
         "device_weights_named": n_named,
         "negative_control": a.negctl,
+        "grads_dumped_to": a.dump_grads or None,
         "tokens": n_token, "real_tokens": int(tok.sum()), "samples": which,
         "use_conditioning": use_cond, "act": a.act,
         "model_sq_norm": MODEL_SQ_NORM, "section_sq_norm": scope_sq,

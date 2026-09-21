@@ -1,0 +1,66 @@
+{
+  "what": "Elementwise max-abs between the three attention-precision arms, as an artifact.",
+  "why": "arm_sha256 is a digest of the torch FILE, not of the tensors; it cannot decide bit-identity, and a rel_l2 printed to 9 digits cannot either",
+  "real_over_total_single": "56 of 64",
+  "arms": {
+    "keep": {
+      "path": "/home/ttuser/of3t_trunk043ref/ref_043_bf16_attnkeep_c64.pt",
+      "sha256": "43d6cb4e28446bdc5be842db4c6657a18ccadb7072f4c156ab70d975e28b83a2"
+    },
+    "native32": {
+      "path": "/home/ttuser/of3t_trunk043ref/ref_043_bf16_attnnative32_c64.pt",
+      "sha256": "b63fec0db8b368aa91a5b9395be5b5045aa4f7ba739f149e0818167a437ef001"
+    },
+    "hp32": {
+      "path": "/home/ttuser/of3t_trunk043ref/ref_043_bf16_attnhp32_c64.pt",
+      "sha256": "22c33faca0b4045ea13d6784150d37cbe19ebcc45483b89e873c7070df6d972e"
+    }
+  },
+  "pairs": {
+    "native32__minus__keep": {
+      "why": "control: must be exactly 0.0",
+      "s": {
+        "max_abs_padded": 0.0,
+        "max_abs_masked": 0.0,
+        "bit_identical_padded": true,
+        "n_differing_elements_padded": 0
+      },
+      "z": {
+        "max_abs_padded": 0.0,
+        "max_abs_masked": 0.0,
+        "bit_identical_padded": true,
+        "n_differing_elements_padded": 0
+      }
+    },
+    "hp32__minus__keep": {
+      "why": "live: the policy switched",
+      "s": {
+        "max_abs_padded": 1262.90625,
+        "max_abs_masked": 1262.90625,
+        "bit_identical_padded": false,
+        "n_differing_elements_padded": 24576
+      },
+      "z": {
+        "max_abs_padded": 26.182861328125,
+        "max_abs_masked": 26.182861328125,
+        "bit_identical_padded": false,
+        "n_differing_elements_padded": 524263
+      }
+    },
+    "hp32__minus__native32": {
+      "why": "live: the policy switched, against the control arm",
+      "s": {
+        "max_abs_padded": 1262.90625,
+        "max_abs_masked": 1262.90625,
+        "bit_identical_padded": false,
+        "n_differing_elements_padded": 24576
+      },
+      "z": {
+        "max_abs_padded": 26.182861328125,
+        "max_abs_masked": 26.182861328125,
+        "bit_identical_padded": false,
+        "n_differing_elements_padded": 524263
+      }
+    }
+  }
+}
