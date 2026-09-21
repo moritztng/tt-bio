@@ -792,9 +792,20 @@ an **identity** at relative difference **0.0**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is default-off, unmerged, asserted so on every compose. One step's gradient on one batch; nothing here speaks to stability over 100k steps. **2.0150 %** of the mass has no reading. Crop 640 fits at +5.82 GB, **768 does not** by 9.72 GB.
 
-Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-seven defects, fifty-two UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
+Sixty-four dispatched, sixty-one concluded, three live (this row, `of3t-trajwide`, `of3t-ditcot` HELD); one hundred thirty-eight defects, fifty-two UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **A fuller GAP paragraph, moved here at pass 246**; nothing in it is changed.
+PASSLOG: **Pass 247 — I was one step from hand-clearing a correct defer and filing a defect against a row that had done nothing wrong, because the fleet stamps CEST and the rows stamp UTC (D138).** The two lines, read together, say a row parked itself for two hours and nine minutes fifteen seconds after its job finished:
+
+    fleet.log   2026-09-21 08:36:09  DEFER of3t-trajwide until 2026-09-21 10:45:00
+    theirs.log  2026-09-21T08:35:54Z  === theirs done rc=0
+
+`fleet.log` is **CEST** (pc is UTC+2); the worker log, the `notbefore` reason and the row's own instrumentation are **UTC** (qb2 runs UTC). The gate's epoch is **1789980300 = 08:45:00 UTC**, its stated reason predicted the twentieth step at *"~08:39Z"*, and the job landed at **08:35:54Z**. A gate nine minutes after a prediction accurate to three. The row was right, the fleet was right, and the only thing wrong was my reading. What stopped it was running `date` on both hosts instead of reasoning from the strings — the same discipline as naming a ratio's denominator, one layer down. Filed RECORDED, because no code is wrong and the trap is live.
+
+**And the measurement D136 is waiting on has RUN.** `of3t-trajwide`'s reference side completed — *"theirs done rc=0"*, 20 steps in **8446 s**, A/A **738 of 738** bit-identical at max|d| = 0.000e+00 on every step — and its `shipped` arm logs **resolves=980/980, rebound=980 at every step**, with no repin flag, because the re-keying now lives in `autograd.Tensor.value`. That is exactly the thing D136 says has never been measured: the trajectory on the **real** shipped default rather than the `repin` harness, at **980** parameters instead of 26.
+
+**The trajectory numbers are not recorded here and will not be until the row reports.** `--score` has not run. An orchestrator quoting an unconcluded row's headline is a failure this campaign has on file by name, so what is recorded is the **control** — the tape resolutions, which is the claim D136 actually makes — and not the result. D136 closes on the row's conclusion, and `of3t-ditcot` unblocks with it.
+
+**A fuller GAP paragraph, moved here at pass 246**; nothing in it is changed.
 
 **Both pass-207 repairs are guarded off (pass 209).** `TT_BIO_SOFTMAX_BW_RENORM` and the host float64 softmax are real fixes that would change numbers a user gets, and both now ride in the composition. `assert_new_levers_default_off.py` reads the composed tree on every compose and checks **both halves per lever** — the default exists as off, AND no construction site overrides it to `True` — because a selector defaulting `False` says nothing when a site passes `default=True`, which is exactly how `opendde.refiner` ships the accurate-softmax chain ON. Break control fires on a known-on tree and an end-to-end positive control catches both flips. The two branches also **coexist cleanly**: both levers are present in the published composition and the trunk's
 `scale_pair_bias=False, tri_att_scale_pair_bias=False` assertion still holds, so the D77-class hazard of two rows editing `taped_ttnn.py` did not materialise.

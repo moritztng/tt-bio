@@ -9380,3 +9380,41 @@ exact change and the exact file so the next row that touches that path does it, 
 `taped_ttnn.py` and is **backward-only**, so it runs only under a tape and **cannot reach an
 inference fold at all**. The float64 softmax is the one that would. The two must not be answered as
 one question.
+
+### D136 UPDATE (pass 247). Still **UNFIXED**, and the measurement that closes it has now RUN: `of3t-trajwide`'s reference side completed and its shipped arm resolves 980 of 980 parameters at every step. Not a result yet — the row has not scored or concluded.
+
+In-flight evidence from the row's own logs on qb2, recorded because D136 is precisely a claim about
+whether the **post-fix shipped default** resolves the tape, and that is a control rather than the
+row's headline:
+
+    theirs.log   "=== theirs done rc=0 2026-09-21T08:35:54Z", 20 steps in 8446 s,
+                 A/A 738 of 738 bit-identical at max|d| = 0.000e+00 on every step
+    ours_*.log   resolves=980/980  rebound=980  at every step, on the `shipped` arm --
+                 no repin flag, because the re-keying now lives in `autograd.Tensor.value`
+
+So the thing D136 says has never been measured — the trajectory on the **real** shipped default,
+rather than on the `repin` harness arm — has been executed, at **980** parameters instead of
+`of3t-modeltraj`'s 26. **The trajectory numbers are the row's to report and are not quoted here**:
+`--score` has not run, nothing is published, and an orchestrator quoting an unconcluded row's
+headline is a recorded failure of this campaign (`ttx-orchestrator-summary-overstates-refuted-
+subreport`). D136 closes when the row reports, not before.
+
+### D138. The fleet stamps CEST and the rows stamp UTC, so a defer reads two hours wrong and a correct one looks like a row parked over finished work. FOUND by the orchestrator (pass 247). **RECORDED** — no code is wrong; it is a reading trap with a live cost.
+
+`fleet.log` timestamps in **CEST** (pc is UTC+2). Worker logs, `notbefore` reasons and the rows'
+own instrumentation stamp in **UTC** (qb2 runs UTC). Read together:
+
+    fleet.log   2026-09-21 08:36:09  DEFER of3t-trajwide until 2026-09-21 10:45:00
+    theirs.log  2026-09-21T08:35:54Z  === theirs done rc=0
+
+which reads as a row deferring itself for **two hours and nine minutes** fifteen seconds after its
+job finished. It is not. The defer's epoch is **1789980300 = 08:45:00 UTC**, its stated reason
+predicted the 20th step at *"~08:39Z"*, and the job landed at 08:35:54Z — a gate set **nine minutes**
+after a prediction that was accurate to three. The row was right and the fleet was right.
+
+**The cost is not hypothetical.** Reading it the wrong way, the orchestrator was one step from
+hand-clearing a correct `notbefore` and filing a defect against a row that had done nothing wrong.
+What stopped it was running `date` on both hosts instead of reasoning from the strings — the same
+discipline as naming a ratio's denominator, one layer down. **Any comparison of a fleet timestamp
+with a row's timestamp must convert first**, and a defer is exactly where that bites, because the
+decision turns on a margin of minutes.
