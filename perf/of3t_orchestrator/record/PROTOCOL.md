@@ -1538,3 +1538,31 @@ limit. Five remedies, the three largest instrument or wiring work on code that a
 Where upstream offers no per-parameter counterpart, verify against **our own forward** — finite
 differences, or a directional derivative along the full gradient. **Correctness of our gradient
 does not require upstream to be readable.**
+
+**A33 — 2026-09-21, forced by D172 (pass 321), mine. A ROW'S REPAIR IS NOT THE CAMPAIGN'S REPAIR
+UNTIL THE ARTIFACT THE CRITERION NAMES CARRIES IT. Numbers existed; no bar moves.**
+
+Three passes, three instances, and the measurements were right every time. **D170**: the exit
+criterion's TRAJECTORY condition read an arm that never trained, while a later row's arm did.
+**D171**: the evaluator that decides whether the campaign may end was on every tree except its
+owner's branch. **D172**: the model-scope gradient artifact reads 8.1943 on a diffusion capture
+that the row which repaired that module never wrote back to.
+
+The common shape is not error, it is **propagation**. A row concludes GO on a better number, its
+branch is pushed, its state doc records it — and the artifact a GO condition names still holds
+the old capture, because no row owns re-taking a neighbour's artifact and the concluding row's
+namespace is not the one the criterion reads.
+
+**Two obligations, both cheap:**
+1. A row whose result supersedes a number in an artifact OUTSIDE its namespace says so in its
+   conclusion, naming the artifact by path. It may not edit it — that is the namespace rule —
+   but an unnamed supersession is invisible the moment the row concludes.
+2. The orchestrator reads the CRITERION's artifacts, not the rows' claims, before quoting a
+   campaign-level number. `compose_verify.sh` already nulls declared-superseded artifacts; what
+   it cannot do is notice a supersession nobody declared.
+
+**And the diagnostic that made D172 findable in one pass, which generalises past this campaign:
+decompose a bad aggregate before explaining it.** 5.6379 had been carried as a distributed
+precision problem for many passes. One decomposition by section over squared mass shares showed
+it was a single block at 43.6221 % of the mass, with everything else at or inside upstream's own
+bf16 accuracy. The aggregate was never evidence for the story attached to it.
