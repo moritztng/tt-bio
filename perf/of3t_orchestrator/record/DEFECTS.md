@@ -8364,3 +8364,298 @@ weights lazily inside a forward the walk does not take has the same hole, **and 
 indistinguishable from the weight being host-side** — which is exactly the mistake I made.
 
 Release-gated; nothing merged.
+
+### D8 UPDATE 2 (pass 229). My own "the next row starts at block 46" is WRONG, caught before a card was spent on it: block 46 dominates the MASS and carries only 4.2786 % of the ERROR.
+
+Pass 222's re-statement ended *"the next row starts at block 46"*, because block 46 reads **2.8742x**
+upstream's own bf16 while holding **41.333 %** of the stack's reference mass. Reading
+`SCOPE_c64.json`'s `block_share_of_the_error_mass` before dispatching, that is the wrong target.
+
+    block_share_of_the_error_mass, RENORM arm, top of the list
+      block  0   15.6468 %
+      block 44   15.3753 %
+      block  4   13.2235 %
+      block 46    4.2786 %
+      block 47    3.7442 %
+
+**Blocks 0, 44 and 4 carry 44.2 % of the error mass between them; block 46 carries 4.3 %.**
+
+**Why block 46's ratio is bad anyway, which is the interesting part.** Its own upstream bf16 floor
+is **4.290723e-02**, against 1.778804e-01 at block 47, 3.177203e-01 at block 45 and 7.977211e-01 at
+block 44. **Upstream is roughly 7x more accurate at block 46 than at its neighbours**, and our
+1.233246e-01 there is in absolute terms *better* than our 3.135741e-01 at 47 or 7.480381e-01 at 44.
+So block 46 is not where our gradient is worst — it is where **upstream's is unusually good** and
+ours is ordinary. A ratio whose denominator moves 7x between adjacent blocks is a ratio whose
+denominator is the finding.
+
+**This is A23 and `worst-tensor-names-the-tail-not-the-locus` turned on my own re-statement.** I
+ranked by ratio-times-mass and called the heaviest block the locus; error mass is the statistic that
+answers "where is the error", and it says something different. The re-statement's substance stands —
+22 of 48 blocks outside A26 holding 66.67 % of the reference mass — but its closing instruction did
+not.
+
+**Where the error actually is, by leaf**, from the same artifact, over all 48 blocks:
+
+    leaf                                        share of error mass   mass    rel
+    attn_pair_bias.layer_norm_a.weight                  20.21 %      0.32 %   3.04
+    pair_stack.pair_transition.layer_norm.bias          14.13 %     18.78 %   0.332
+    attn_pair_bias.layer_norm_a.bias                    12.64 %      0.54 %   1.86
+    pair_stack.pair_transition.layer_norm.weight        12.64 %     51.89 %   0.189
+    single_transition.layer_norm.bias                    8.09 %      0.64 %   1.36
+
+**The top four leaves are 59.6 % of the error mass and all four are LayerNorm affine terms**, which
+is D120's *"its residual is a LayerNorm-gradient class"* measured rather than asserted. And
+`attn_pair_bias.layer_norm_a.weight` alone is **20.21 % of the error on 0.32 % of the mass** at rel
+**3.04** — the sharpest single target the trunk has.
+
+The next row on D8 starts at `attn_pair_bias.layer_norm_a.{weight,bias}` and at blocks 0, 44 and 4,
+not at block 46. Corrected before dispatch rather than after.
+
+### D56 UPDATE 2 (pass 230). The explanandum is ONE leaf family carrying 99.925 % of the diffusion scope's error mass, it is NOT an A14 artefact, its signature is a SCALE error rather than the conditioning one — and it is the SAME leaf as D8's residual in the trunk.
+
+CPU only, no card, no new run: read out of `perf/of3t_adaln/device_gradient_real043_pertensor.json`,
+547 tensors, which has carried all of this since pass 155.
+
+**It is not a near-zero artefact.** I went looking for one — the campaign has a 1.66e+14 on the
+record from exactly that shape — and the answer is the opposite. The 18.504 tensor is
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` with
+`ref_norm` **9.0991e-01**, which is **79.98x the median reference norm** of 1.137623e-02 over the
+same 547. It is one of the *heaviest* references in the set. D56's explanandum is real.
+
+**And it is one leaf family, not a scope.** Grouping the diffusion scope's error mass by leaf:
+
+    99.925 %  attention_pair_bias.layer_norm_a.layer_norm_s.weight
+     0.030 %  attention_pair_bias.layer_norm_a.linear_g.bias
+     0.018 %  conditioned_transition.layer_norm.layer_norm_s.weight
+     0.007 %  attention_pair_bias.mha.linear_o.weight
+
+The single worst tensor is **2.83e+02** of error mass against **8.28e+00** for the next — a factor of
+**34**. "The diffusion module is 16.6 % out" has always been one leaf wearing a module's name.
+
+**The signature is a SCALE error, and it does not match D56's own ladder.** The worst tensor reads
+`norm_ratio` **19.2415** at `cos` **+0.7494**, device norm 17.508 against a reference norm of 0.9099.
+Our gradient points substantially the right way and is **19x too big**. D56's synthetic K-ladder says
+the high-K signature is *r rising while cos collapses* — at K = 2.1e+06 it measured r 26.5 at cos
+**0.162**. Here r is high and **cos has not collapsed**. That is a second refutation of the
+conditioning mechanism, independent of D62's direct measurement of K at 172.60, and it points
+somewhere specific: a missing or doubled normalisation factor is a scale error with preserved
+direction; ill-conditioned cancellation is not.
+
+**And the unification, which the campaign has never stated.** The trunk's worst leaf by error mass is
+`attn_pair_bias.layer_norm_a.weight` — **20.21 %** of the trunk's error on 0.32 % of its mass at rel
+3.04 (D8 UPDATE 2, pass 229). The diffusion transformer's is
+`attention_pair_bias.layer_norm_a.layer_norm_s.weight` at **99.925 %**. **They are the same leaf in
+two stacks.** D8's residual and D56's explanandum are one construct, and the campaign has been
+chasing them as two defects in two scopes for seventy passes.
+
+`of3t-lnaffine` was dispatched one pass ago for the trunk half. Its brief is amended to cover both
+stacks and to take D56 with it: the same leaf, the same question, and one row rather than two
+editing one backward.
+
+### D56 UPDATE 3 (pass 231). Two corrections to my own pass-230 reading: the error is BLOCK-SELECTIVE rather than a uniform scale factor, and the entire picture is PRE-REPAIR and unmeasured since.
+
+**Correction 1: not a factor.** At pass 230 I read `norm_ratio` 19.2415 at `cos` +0.7494 on the one
+worst tensor, called it a scale error and told `of3t-lnaffine` to look for a missing or doubled
+normalisation factor first. Reading all **24** diffusion-transformer instances of the leaf instead of
+the worst one refutes that:
+
+    block    0      1      2      3      4      5      6      7      8      9     10     11
+    r     1.869  1.823  0.710  0.726  0.851  5.521  1.974  5.198 19.242  1.109  0.907  1.092
+    cos  -0.796 +0.996 +0.998 -0.169 +0.977 +0.982 -0.805 -0.014 +0.749 +0.998 +0.616 +0.996
+    block   12     13     14     15     16     17     18     19     20     21     22     23
+    r     6.076  1.124  1.435  1.286  1.401  1.032  1.042  0.843  1.509  0.757  0.874  1.705
+    cos  +0.497 +0.992 +0.994 +0.735 +0.782 +0.997 +0.941 +0.989 +0.664 +0.929 +0.992 +0.830
+
+**Ten of twenty-four blocks are healthy** — cos ≥ 0.95 and r in [0.5, 2.0] — and carry **0.0316 %**
+of the leaf's error mass. **Blocks 5, 7, 8 and 12 carry 99.5003 %**, all at r > 5. A uniform factor
+would be constant across all 24 instances; it is not. Separately, blocks **0, 3 and 6** are
+anti-correlated (cos −0.796, −0.169, −0.805) at r near 1, which is a **second, different** failure
+mode in the same leaf. The right question is what distinguishes those blocks, and it is not a factor.
+
+**Correction 2, and it is the bigger one: the whole picture is PRE-REPAIR.**
+`perf/of3t_adaln/device_gradient_real043_pertensor.json` records **no arm and no flag** — it predates
+`TT_BIO_SOFTMAX_BW_RENORM` entirely. I checked every post-repair artifact in the composition
+(`of3t-wholemodel`'s `device_cond_gradient_wm_{shipped,renorm,renormf64}`, `of3t-apbgrad`'s
+`DEV_SCOPE_*`) and **none carries this leaf**. So **whether the repair moved the 99.5 % concentration
+has never been measured**, and I quoted it twice as current.
+
+**And there is strong reason to expect it did.** D57 records that **`of3t-adaln`'s float64-softmax
+arm puts blocks 8, 0 and 12 all inside the bar** — two of the four worst blocks plus one of the
+anti-correlated ones — and `of3t-apbgrad`'s renorm repair takes **99.6 %** of the float64 arm's
+ground at a tenth of the cost. **So the campaign's "the diffusion module is 16.6 % out", and D30's
+and D58's amplification figures at that scope, may all be pre-repair numbers on a leaf a shipped
+lever already moves.**
+
+`of3t-lnaffine`'s AMENDMENT 1 is withdrawn and its deliverable zero is now re-measuring this leaf's
+24 blocks on the **renorm** arm. Its trunk half is from `SCOPE_c64.json`'s RENORM arm and is already
+post-repair, so the two halves are not currently comparable — making them comparable is part of the
+job.
+
+**The recurring shape, fourth instance and the first two caught in consecutive passes**: an aggregate
+read as a mechanism. The worst tensor named a scale error; the 24 rows behind it name a
+block-selective one. `worst-tensor-names-the-tail-not-the-locus` applies to *signatures* as well as
+to magnitudes.
+
+### D8 UPDATE 3 (pass 232). REFUTED — closed as a NON-DEFECT. The four leaves read 0.849x, 0.837x, 0.849x and 0.747x of upstream 0.4.3's own bf16 floor, all inside A26, and the error they do carry is inherited from the AttentionPairBias backward rather than produced in the leaf.
+
+`of3t-lnaffine` returned GO. Read off its pushed commit **`dfc5bb7cc`** while the row was still live;
+verified from git that the commit touches **nothing under `tt_bio/`**, and the KAPPA table below
+re-read from `perf/of3t_lnaffine/KAPPA_c64.json` rather than from the row's prose.
+
+**Three measurements, all in float64 on the operands the device itself held** (captured in situ at
+blocks 0, 12, 24, 36, 47):
+
+**(1) Conditioning is the LOWEST of all ten LayerNorm sites**, not the highest:
+
+    leaf                                     K_med   K_min    K_max   bf16 floor   ISOLATION
+    attn_pair_bias.layer_norm_a               9.41    5.95    77.64      0.0184      0.0606
+    pair_stack.tri_mul_out.layer_norm_in     19.84   13.95    64.11      0.0387      0.0042
+    pair_stack.pair_transition.layer_norm    23.16   10.61    55.80      0.0452      0.0076
+    single_transition.layer_norm             31.70    3.11   151.79      0.0619      0.0820
+    pair_stack.tri_att_end.layer_norm        43.16   22.28   104.07      0.0843      0.0069
+    pair_stack.tri_att_start.layer_norm      55.28   22.94    72.38      0.1080      0.0094
+
+`2^-9 · KAPPA` bounds what any bf16-class evaluation can reach at **0.0184** — **165x short of the
+3.040 it has to explain**. **D56's cancellation story does not explain this leaf**, measured rather
+than argued, and D56's interpolated `K ≈ 1.3e+06` is **four orders above every site measured here**
+while D62's directly measured 172.60 is in range for an individual site (the max anywhere is 151.79).
+
+**(2) The op's own arithmetic is innocent.** The device's dW against the float64 contraction of its
+own operands is within **6.06e-02** at worst over the five captured blocks, consistent with
+`of3t-bwdaccum`'s prior 1.370e-02.
+
+**(3) Teacher-forcing is decisive and it inverts.** Injecting the float64 reference cotangent at
+every block boundary improves every other leaf — `single_transition.layer_norm.weight` **1.0710 →
+0.0692**, 15.5x better; `.bias` 1.3615 → 0.2720; `pair_transition.layer_norm.bias` 0.3325 → 0.0943 —
+and makes this one **5.3x worse**: `attn_pair_bias.layer_norm_a.weight` **3.0400 → 16.0853**, `.bias`
+1.8601 → 7.1025, at an isolation reading unchanged at 6.06e-02. **Feed this leaf the correct
+boundary cotangent and its own arithmetic stays fine while its answer gets five times worse**, which
+locates the error between the block boundary and the LayerNorm's input: the AttentionPairBias
+backward, which `of3t-apbgrad` already measured at 0.98x-33.30x the reference in norm at cos
+0.019-0.920.
+
+**And that closes D56's ~3,000x ladder shortfall**: the ladder prices **local** conditioning and the
+error is **inherited**, so the ladder was pricing the wrong thing.
+
+**The per-block detail says the same, and it is the sentence that closes D8.** At blocks 4, 22 and
+44, **upstream's OWN bf16 gradient for this leaf is 3.26x, 12.57x and 9.65x larger in norm than
+float64 says it should be**, at cos 0.021, 0.550 and 0.051. At blocks 46 and 47 both implementations
+read cleanly (ours 0.177 and 0.373 at cos 0.986 and 0.964). **Where upstream's own recipe fails,
+ours fails the same way and slightly less.**
+
+**The lesson, and it is aimed squarely at the brief I wrote at pass 229**: *a leaf's share of the
+error mass ranks where the error IS, not whether it is ours.* **Upstream's own bf16 puts 69.4 % of
+its error mass on the same four leaves that carried 59.6 % of ours.** The concentration I dispatched
+on was never evidence of a defect, because I never differenced it against the floor. **Score the
+floor per leaf before reading a concentration as a signature.**
+
+**What the row hands on rather than closing.** The leaves that genuinely fail A26 are on the **pair
+track**, not here: `tri_mul_out.layer_norm_in.weight` **1.93x**, `attn_pair_bias.linear_z.weight`
+**1.85x**, `tri_att_end.layer_norm.bias` **1.71x**, `tri_att_start.layer_norm.*` 1.43-1.48x,
+`pair_transition.layer_norm.bias` 1.42x; and blocks **46 (2.87x)**, **1 (2.43x)**, **47 (1.76x)**.
+That set is where the port is genuinely behind upstream and it is a better target than the one D8
+named. Note this does **not** contradict pass 229: that correction was about **error mass against
+float64**, this is about **ratio against upstream's own bf16**, and they are different statistics —
+block 46 is clean on this leaf and among the worst on the pair track.
+
+### D55 UPDATE 3 (pass 232). UNFIXED and narrowed again: the LayerNorm sites fire 1,632 times and are bit-inert at 2,736 of 2,736, with a break control proving the argument reached the kernel.
+
+`of3t-lnaffine` pulled the lever D55 names at `autograd.py:595-598` and `:1514-1517` — the two
+`dn_mean` / `dn_norm_mean` reductions with no `compute_kernel_config`. It **fires 1,632 times** and
+leaves **2,736 of 2,736** tensors bit-identical. A **LoFi break control moves 2,733 of 2,736**,
+proving the keyword argument reaches the kernel and that the inertness is a result rather than a
+plumbing failure — the control discipline `of3t-tapediverge` used for the softmax numerator, which
+also came back inert.
+
+**So two of D55's four sites are now measured and both are inert**, with reach proven in both cases.
+What remains unmeasured is `autograd.py:847`, the site with three configured matmuls around one
+unconfigured reduction. The precision story D55 tells is looking thinner with each site that gets
+measured, and that is worth saying before a third pass is spent on it.
+
+### D56 UPDATE 4 (pass 233). The diffusion-scope concentration COLLAPSES 333x under the repair that already shipped behind a flag, measured as a matched same-branch A/B — and the row refused the comparison I told it to make, correctly.
+
+`of3t-lnaffine` concluded. Read from its pushed artifact `perf/of3t_lnaffine/DIT24_AB_c64.json` at
+**`21ce9073f`** and **`f202f4175`**; its three commits touch **nothing under `tt_bio/`**.
+
+    leaf_error_mass_total          pre 878.8518760076167  ->  renorm 2.635596280124493   (333x)
+    the four 5,7,8,12 as a share   pre 0.9892529          ->  renorm 0.2977056
+    block 8, norm ratio                87.643            ->  1.732     cos -0.169 -> +0.694
+    block 8, share of the leaf         95.9032 %         ->  6.6208 %
+    tensors compared                   523                   523
+
+**AMENDMENT 2's selectivity puzzle closes on a repair that already exists.** Blocks 5, 7, 8 and 12
+carried 98.93 % of the leaf and now carry 29.77 %; block 8's ratio falls from 87.6 to 1.7 and its
+cosine inverts from −0.169 to +0.694.
+
+**And the row refused my instruction, for a reason I should have seen.** AMENDMENT 2 told it to set
+its renorm table beside the pass-155 pre-repair one. It did not, because the two are not
+differenceable: `device_gradient_real043_pertensor.json` compares **547** tensors at
+`share_of_diffusion_sq_norm` **0.5732029** with `forward_rel_median` **8.474801e-03**, while this
+branch compares **523** at **0.6547415** with **8.361083e-02** — **a forward 9.87x worse**.
+Differencing them would attribute a branch-wide *forward* change to a *backward-only* flag, **and it
+inflates in the flag's favour**: against the pass-155 artifact the collapse reads 300.94 → 2.636
+(114x), against the matched control 878.85 → 2.636 (333x). The row ran both arms on its own branch
+instead, with **byte-equal `forward_rel_median` on both**, which is also the check that
+`TT_BIO_SOFTMAX_BW_RENORM` touches only the backward.
+
+**So my pass-231 flag was right and my pass-232 instruction was wrong in the same breath**: the
+pre-repair table *was* stale, and the fix for a stale baseline is a fresh matched control, not a
+cross-run difference. A cross-run difference that moves a headline 114x versus 333x depending on
+which baseline you pick is not a measurement of the lever.
+
+**Consequence for D56.** Its remaining explanandum — the 18.504, and the 99.925 % concentration I
+reported at pass 230 — is a **pre-repair** figure on a leaf the repair collapses 333x. Together with
+pass 232's direct KAPPA measurement (the leaf's conditioning is the *lowest* of ten sites, bounding
+any bf16-class evaluation 165x short of 3.040) and the teacher-forcing result (the error is
+inherited, not local), D56 has no surviving mechanism and no surviving magnitude at diffusion scope
+on the repaired arm. It stays UNFIXED only because the **shipped** configuration is still the
+default-off one, which is the same position as every other repair this campaign holds.
+
+**And a figure of mine to retire**: the per-block table I published at pass 231 quoted block 8's
+norm ratio as **19.2415** from the pass-155 artifact. This row's control reads **87.643** for the
+same block on its own branch. Both are correct for their own run and **neither is comparable to the
+other** — exactly the trap the row avoided. My table should be read as pass-155's, not as current.
+
+### D30 UPDATE 2 / D58 UPDATE 2 (pass 234). The repair collapses the WHOLE diffusion scope's error mass 198.95x and its mass-weighted reading 14.10x — and leaves the median and the per-tensor bar almost untouched. It fixes the concentration, not the floor.
+
+CPU only, no card, no new run: `perf/of3t_orchestrator/difscope/scope_ab.py` reads the two
+per-tensor dumps `of3t-lnaffine` pushed for its matched A/B. The row reported **333x** on one leaf,
+which is the right headline for the question it was asked; these are the two scope-level questions
+D30, D58 and D56 all turn on, and both were three lines away on the same branch.
+
+    arm       error mass     mass-weighted rel   median rel   over 5.0e-02
+    CTRL     8.811072e+02      1.030631e+01       0.731637      523 / 523
+    RENORM   4.428806e+00      7.306882e-01       0.705544      523 / 523
+
+    error mass        198.95x          mass-weighted rel   14.10x better
+    reference mass identical across arms, relative difference exactly 0.0
+
+**The caveat is as important as the headline.** The median moves **0.7316 → 0.7055** and **523 of
+523 tensors are over the 5.0e-02 per-tensor bar on BOTH arms**. The repair removes a concentration;
+it does not move the broad floor. Quoting 198.95x without that is A23's error run backwards — a
+mass-weighted statistic hiding a per-tensor one — and this campaign has made the mistake in the
+other direction often enough to owe the symmetry.
+
+**And the concentration does not just shrink, it redistributes**:
+
+    share of each arm's OWN error mass        CTRL      RENORM
+    attention_pair_bias.layer_norm_a...       99.744 %   59.510 %
+    conditioned_transition.layer_norm...       0.150 %   28.313 %
+    atom_attn_enc.noisy_position_embedder      0.021 %    3.426 %
+
+**Post-repair the diffusion error is two leaves, not one** — 59.5 % + 28.3 % = 87.8 %, both
+LayerNorm affine terms. The new second place, `conditioned_transition.layer_norm.layer_norm_s.weight`,
+was **0.150 %** pre-repair and is **28.313 %** now: invisible before, and the obvious next target.
+
+**It is also a leaf the campaign already named and never owned.** D57's displaced item reads: *"the
+23.8917 % of the model no softmax lever touches, at mass-weighted 0.1855, whose largest member is
+`conditioned_transition.layer_norm.layer_norm_s.weight` at 15.5125 % — unowned."* Seventy passes
+later it is the second-largest error in the scope that holds 89.2 % of the model's gradient, and it
+is still unowned.
+
+**What this does to D30 and D58.** D30's *"the diffusion module's forward agrees to 0.85 % and its
+gradient is 16.6 % out"* and D58's amplification are both pre-repair framings of a scope whose
+mass-weighted error is 14.10x smaller on the repaired arm. `of3t-tapediverge` already re-measured
+the amplification post-repair at **11.03x** and **10.90x** from one harness, so that half is current;
+what was not current is the magnitude, and now it is. Neither defect closes: the floor is untouched,
+523 of 523 are still over the per-tensor bar, and the shipped default remains off.

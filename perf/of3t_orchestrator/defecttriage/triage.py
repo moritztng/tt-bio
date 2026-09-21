@@ -85,8 +85,6 @@ TABLE = {
                   "identically zero -- the shipped default, machine-checked in rank_rule.py."),
 
     # --- ships to users: training on the shipped default -------------------------------------
-    "D8":  (USER, "The assembled pairformer block's pair-track gradients are an order of "
-                  "magnitude outside the bar; re-attributed but not closed."),
     "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
                   "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
                   "the repair, re-measured from ONE harness at pass 222."),
