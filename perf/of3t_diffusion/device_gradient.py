@@ -50,11 +50,10 @@ def main() -> int:
                    help="captured diffusion boundary to score against")
     p.add_argument("--out-dir", default=OUT)
     p.add_argument("--dump-per-tensor", action="store_true", dest="dump_per_tensor",
-                   help="write every compared tensor with rel_l2, ref_norm, device_norm, "
-                        "norm_ratio and cos. Without this the report carries only summaries and "
-                        "a best/worst 10, which cannot be grouped by DiT block or by track -- "
-                        "the breakdown the trunk ladder relies on was simply not available at "
-                        "diffusion scope.")
+                   help="also inline the per-tensor array in the main report. The array is "
+                        "written to a sidecar unconditionally either way; this only controls "
+                        "the duplicate copy, kept so the reports that already carry it stay "
+                        "comparable.")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -418,15 +417,36 @@ def main() -> int:
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
            "per_tensor_dumped": bool(a.dump_per_tensor),
+           # PROVENANCE. This instrument scores against a captured boundary and against a
+           # checkpoint, and until now recorded neither in its output. `device_gradient_043pt`
+           # had to be tied back to `device_gradient_043all` by showing 48 forward_rel doubles
+           # were bit-identical, because no artifact said which `--cap` either one read. An
+           # artifact's identity is its digest plus its recorded inputs.
+           "provenance": {"cap": a.cap, "ckpt": CKPT, "out_dir": a.out_dir, "tag": a.tag,
+                          "structs": a.structs, "mask_ones": bool(a.mask_ones),
+                          "argv": sys.argv},
            "best10": [(n, d) for d, n, _ in cmp_rows[:10]],
            "worst10": [(n, d) for d, n, _ in cmp_rows[-10:]],
            "error": None if err is None else f"{type(err).__name__}: {err}"}
     os.makedirs(a.out_dir, exist_ok=True)
     path = os.path.join(a.out_dir, f"device_gradient{a.tag}.json")
+    # The sidecar is UNCONDITIONAL, and that is the whole point of it. A result file that keeps
+    # only aggregates and a worst/best 10 cannot be re-analysed under a denominator discovered
+    # later, and this campaign has changed its denominator twice: A15 moved reach from a count
+    # of tensors to a share of the squared norm, and A23 moved the headline from a median over
+    # tensors to a mass-weighted figure. Both re-scorings need the array, neither was
+    # foreseeable when the run was taken, and the array costs a few hundred kB.
+    side = os.path.join(a.out_dir, f"device_gradient{a.tag}_per_tensor.json")
+    json.dump({"per_tensor": per_tensor, "compared": len(cmp_rows),
+               "provenance": rep["provenance"],
+               "model_sq_norm_043": 10.279642678524985,
+               "what": "every compared tensor with rel_l2, ref_norm, device_norm, norm_ratio "
+                       "and cos, so any later denominator can be applied without a card run"},
+              open(side, "w"), indent=1, sort_keys=True, default=str)
     json.dump(rep, open(path, "w"), indent=1, sort_keys=True, default=str)
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10", "per_tensor")},
                      indent=1, default=str), flush=True)
-    print("wrote", path, flush=True)
+    print("wrote", path, "and", side, flush=True)
     return 1 if err is not None else 0
 
 
