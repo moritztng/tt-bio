@@ -117,6 +117,15 @@ def main() -> int:
                         "before the first tt_bio import. Combines with --softmax-site-f64, "
                         "where it is expected to be a no-op because a float64 softmax already "
                         "sums to one; that combination is the control, not a lever.")
+    p.add_argument("--ln-capture", default="", dest="ln_capture",
+                   help="comma-separated checkpoint-name SUFFIXES whose LayerNorm sites should "
+                        "have their own operands and incoming cotangent captured in float64, "
+                        "for of3t-lnaffine's conditioning and isolation measurements at this "
+                        "scope. Changes no arithmetic: the shipped rule runs first and this "
+                        "wraps the tape node's backward closure afterwards. Written to "
+                        "--ln-out. A site asked for and never seen is a hard failure.")
+    p.add_argument("--ln-out", default="", dest="ln_out",
+                   help="where --ln-capture writes its accumulators")
     p.add_argument("--verb-census", action="store_true", dest="verb_census",
                    help="count every tape verb without changing any arithmetic, so the cost "
                         "of a bound is known before it is paid")
@@ -525,6 +534,21 @@ def main() -> int:
           f"reachable, {n_named} carry a checkpoint name, {len(reg)} recorded at load",
           flush=True)
 
+    # of3t-condtrans' operand probe, in that row's own namespace so the shared instrument keeps
+    # one hook rather than a capture rule. Installed HERE because it needs `named`, which only
+    # exists once the module is built.
+    ln_want = [v for v in a.ln_capture.split(",") if v]
+    LNC = None
+    if ln_want:
+        sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_condtrans"))
+        import ln_capture as LNC
+        n_sites = LNC.install(named, ln_want)
+        print(f"[{time.perf_counter()-t0:.0f}s] ln-capture armed on {n_sites} sites "
+              f"matching {ln_want}", flush=True)
+        if not n_sites:
+            raise SystemExit("--ln-capture matched no named weight; a probe that captures "
+                             "nothing reads exactly like a site with no error")
+
     si_trunk_d = ft(sq(kw["si_trunk"]).float().unsqueeze(0))
     zij_d = ft(zij_ref.reshape(1, n_token, n_token, -1).float())
     tok_pad = torch.zeros(n_tok_pad); tok_pad[:n_token] = token_mask
@@ -710,6 +734,15 @@ def main() -> int:
         torch.save({f"diffusion_module.{nm}": g.cpu() for nm, g in rows.items()}, a.dump_grads)
         print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(rows)} device gradient tensors to "
               f"{a.dump_grads}", flush=True)
+
+    if LNC is not None:
+        rep_ln = LNC.report()
+        if not rep_ln:
+            raise SystemExit("--ln-capture saw no backward call at any matched site")
+        out_ln = a.ln_out or os.path.join(a.out_dir, f"LN_CAPTURE{a.tag}.pt")
+        torch.save({"sites": rep_ln, "want": ln_want, "structs": which}, out_ln)
+        print(f"[{time.perf_counter()-t0:.0f}s] ln-capture wrote {len(rep_ln)} sites to "
+              f"{out_ln}", flush=True)
 
     tot_ref_sq = sum(float(v.double().pow(2).sum()) for v in ref_grad.values() if v is not None)
     cmp_rows, worst, worst_n = [], -1.0, None
