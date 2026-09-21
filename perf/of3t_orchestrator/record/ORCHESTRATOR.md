@@ -824,7 +824,22 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
 
 Sixty-five dispatched, sixty-one concluded, four live (this row, `of3t-trajwide`, and `of3t-ditcot` / `of3t-f64gate` both HELD); one hundred forty-seven defects, fifty-three UNFIXED; sixty-three of3t markers in `state/concluded`, two this row's own stale ones.
 
-PASSLOG: **Pass 265 — the composition stopped composing, because main landed M18's `tri_att_sdpa_hifi` at OpenFold3's four Pairformer-family sites and every concluded row that had appended a kwarg at one of those sites conflicted at once (D147).** `origin/main` moved at **10:37:48 UTC** today. The compose aborted on `of3t-confidence`; clearing that revealed `of3t-gradients` behind it, on three files. Neither row has changed since 09-19 — **main moved under them**, which `compose_verify.sh`'s own comment anticipates for `.gitignore` and had no answer for in code.
+PASSLOG: **Pass 266 — the two control arms that died silently are back, verified on the host rather than taken from the row, and the mechanism that hid them is repaired with one gap left that I am naming rather than glossing.**
+
+Both conditions the pass-254 amendment asked `of3t-trajwide` to publish, checked directly:
+
+    shipped  shipped_aa2  permute  stale  norebind  zero      done rc=0 AND a steplog: 6 of 6
+    theirs   theirs_aa2                                        re-running after its layer_norm_z fix
+
+`zero done rc=0 2026-09-21T10:36:48Z` closes the pair D140 was filed on. **Six of six on the `ours` side.**
+
+**The row repaired the mechanism differently from how I asked, and better.** I asked for stderr redirected per arm; `run_ours_controls.sh` instead runs each arm with `2>&1` into its own log, captures `RC=$?`, and writes `=== $ARM done rc=$RC` **unconditionally** afterwards. A crashing arm now leaves a marker carrying a non-zero status rather than silence, with no extra file to forget.
+
+**The residual is exactly what happened at pass 254, so it gets said plainly.** That pattern records the **arm's** exit; it cannot record the **wrapper's**. If the shell running the loop is itself killed — which is what the empty `ours_chain.log` indicated — nobody writes a line, and the only evidence is a log that stops mid-arm with no marker. Catching that needs something outside the wrapper and nothing in this campaign has it. **D140 stays open until the row reports**, and its report should say whether it covered that or not.
+
+**Why this is worth a pass rather than an assumption.** The amendment asked the row to publish a completion table; a row that publishes one has still only told me what it found. Reading the markers and the steplogs myself is the difference between "the controls ran" and "the controls ran, and here are the twelve facts that say so" — and after D136, where a headline belonged to an arm nobody checked, that difference is the campaign's whole method.
+
+**Pass 265 — the composition stopped composing, because main landed M18's `tri_att_sdpa_hifi` at OpenFold3's four Pairformer-family sites and every concluded row that had appended a kwarg at one of those sites conflicted at once (D147).** `origin/main` moved at **10:37:48 UTC** today. The compose aborted on `of3t-confidence`; clearing that revealed `of3t-gradients` behind it, on three files. Neither row has changed since 09-19 — **main moved under them**, which `compose_verify.sh`'s own comment anticipates for `.gitignore` and had no answer for in code.
 
 **Per-row cases do not scale, so the fix is a generic resolver with three shapes and a refusal.** A kwarg **TAIL** that closes the call; a kwarg **FRAGMENT** that git cut mid-list, which is the case that made my first version refuse `of3t-gradients`; and an **IMPORT** block, where same-module `from` lines are **merged** rather than duplicated — keeping both parses and even runs, since the second rebinds the same names, but it is not what either side wrote, and *"compiles and is not what anyone meant"* is the failure the resolver exists to avoid. Anything else exits 2 and still stops the compose.
 

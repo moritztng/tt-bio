@@ -9876,3 +9876,33 @@ again.
 **Result**: `openfold3_confidence.py` carries all six kwargs with `scale_pair_bias=False`, and
 `openfold3_template.py` one merged `from .tenstorrent import ...` plus `from . import ops`. Compose
 is green at **171 confirmed, 0 drifted**.
+
+### D140 UPDATE (pass 266). The two dead controls are RECOVERED and verified, and the row's own script now records an exit status unconditionally — which covers the arm dying but still not the wrapper being killed. Still **UNFIXED** until the row reports; the residual is named.
+
+Checked directly on qb2 rather than taken from the row, both conditions the pass-254 amendment asked
+it to publish — a `done rc=0` marker in the log **and** a `steplog_<arm>.json` on disk:
+
+    arm            done-marker   steplog
+    shipped        yes           yes
+    shipped_aa2    yes           yes
+    permute        yes           yes
+    stale          yes           yes
+    norebind       yes           yes      <- died silently at pass 254, recovered
+    zero           yes           yes      <- never started at pass 254, recovered
+    theirs         no            no       <- re-running after the layer_norm_z fix, k=11 of 20
+    theirs_aa2     no            no       <- queued behind it
+
+**Six of six on the `ours` side.** `zero done rc=0 2026-09-21T10:36:48Z` closes the pair that D140
+was filed on.
+
+**And the mechanism is repaired in the row's own script**, differently from what the amendment asked
+and better: `run_ours_controls.sh` runs the arm with `2>&1` into its log, captures `RC=$?`, and
+writes `=== $ARM done rc=$RC` **unconditionally** afterwards. So a crashing arm now leaves a marker
+with a non-zero status instead of silence — no separate `.err` file needed.
+
+**The residual, stated because it is exactly what happened at pass 254.** That pattern records the
+**arm's** exit. It cannot record the **wrapper's**: if the shell that runs the loop is itself killed
+— which is what the empty `ours_chain.log` indicated — no line is written by anyone, and the only
+evidence is a log that stops mid-arm with no marker. Catching that needs something outside the
+wrapper, and nothing in the campaign has it. D140 stays open until the row reports, and this
+residual is what its report should say it did or did not cover.
