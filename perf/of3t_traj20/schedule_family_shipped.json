@@ -1,0 +1,31 @@
+{
+ "steps_compared": 200005,
+ "lr": 0.0018,
+ "config": {
+  "base_lr": 0.0,
+  "warmup_no_steps": 1000,
+  "start_decay_after_n_steps": 50000,
+  "decay_every_n_steps": 50000,
+  "decay_factor": 0.95
+ },
+ "train_loop_plateau_until_default": 50000,
+ "as_the_shipped_recipe_now_builds_it": {
+  "points": 200005,
+  "exact": 200005,
+  "mismatches": 0,
+  "first_mismatch": null,
+  "worst_rel": 0.0
+ },
+ "with_plateau_until_None_the_pre_fix_call": {
+  "points": 200005,
+  "exact": 200004,
+  "mismatches": 1,
+  "first_mismatch": {
+   "step": 50000,
+   "ours": 0.00171,
+   "theirs": 0.0018
+  },
+  "worst_rel": 0.05000000000000001
+ },
+ "sha256_lr_schedulers": "2ddcefaa8abf3ca185cccd52924e53f817e8e0f30c816aea2765661fe57f9bf1"
+}

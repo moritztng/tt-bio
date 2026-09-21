@@ -1,0 +1,39 @@
+{
+ "what": "Where does the captured cotangent's mass sit, real positions or padded ones?",
+ "crop": 64,
+ "blocks": {
+  "0": {
+   "real_tokens": 56,
+   "cot_s_norm": 2.493010920612613e-05,
+   "cot_z_norm": 0.0008085619677107755,
+   "cot_s_mass_on_real": 1.0,
+   "cot_z_mass_on_real": 1.0,
+   "s_in_mass_on_real": 0.9240267193923237,
+   "z_in_mass_on_real": 0.0023686378450982026,
+   "s_in_norm": 5850.166196032644,
+   "z_in_norm": 1320432.5314623325
+  },
+  "23": {
+   "real_tokens": 56,
+   "cot_s_norm": 1.7870811811797937e-05,
+   "cot_z_norm": 0.00040335053153060395,
+   "cot_s_mass_on_real": 1.0,
+   "cot_z_mass_on_real": 1.0,
+   "s_in_mass_on_real": 0.9888377556915845,
+   "z_in_mass_on_real": 0.013162469185308341,
+   "s_in_norm": 1519044.800594074,
+   "z_in_norm": 1319094.5867365832
+  },
+  "47": {
+   "real_tokens": 56,
+   "cot_s_norm": 3.378536937441942e-05,
+   "cot_z_norm": 0.000543022003375725,
+   "cot_s_mass_on_real": 1.0,
+   "cot_z_mass_on_real": 1.0,
+   "s_in_mass_on_real": 0.9918559158641301,
+   "z_in_mass_on_real": 0.011193544340374699,
+   "s_in_norm": 2126706.199355257,
+   "z_in_norm": 1293162.8734444263
+  }
+ }
+}
