@@ -1,0 +1,46 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 193 -- arithmetic and cross-reading over of3t-softgrad's committed arms. No new measurement.",
+ "headline": "The 51.1358 % scope IS reachable, and the cost is 1.441x, not the 5.2x the campaign has been quoting. No ON-DEVICE configuration reaches the bar -- that is settled by four arms. But the host float64 softmax reads 7.777580e-02, which is 0.956x the A26 reachable bar and therefore PASSES, and of3t-softgrad measured its cost ON THE REAL ARM at 1.441x with AICLK sampled during. The barrier on this scope is engineering, not accuracy and not throughput.",
+ "the_arms_against_the_bar_that_actually_applies": {
+  "which_bar": "against upstream's own bf16 step BOTH SIDES CARRY ERROR, so A26's sqrt(2) applies and the reachable bar is 8.133064e-02, not the 5.750945e-02 'equals float64' threshold. A26-SCOPE: the sqrt(2) is legitimate here precisely because the reference is imprecise.",
+  "rows": [
+   {
+    "arm": "shipped",
+    "v_their_step": 7.426217,
+    "x_A26": 91.31,
+    "verdict": "fails"
+   },
+   {
+    "arm": "ckc_on (TT_BIO_SOFTMAX_CKC=1)",
+    "v_their_step": 7.426217,
+    "x_A26": 91.31,
+    "verdict": "NO-OP -- identical to shipped, census median 1.250047459812202e-01 on both"
+   },
+   {
+    "arm": "softmax_precise",
+    "v_their_step": 0.2566369,
+    "x_A26": 3.155,
+    "verdict": "fails",
+    "cost": "1.002x -- free"
+   },
+   {
+    "arm": "softmax_accurate",
+    "v_their_step": 0.1076374,
+    "x_A26": 1.323,
+    "verdict": "fails",
+    "cost": "1.661x"
+   },
+   {
+    "arm": "softmax_host_f64",
+    "v_their_step": 0.0777758,
+    "x_A26": 0.956,
+    "verdict": "PASSES",
+    "cost": "1.441x"
+   }
+  ]
+ },
+ "the_cost_correction_and_it_is_the_decision_relevant_one": "the campaign has quoted '13 s per structure against 2.5 s' for the host bound since pass 175 -- a 5.2x that made it look obviously unshippable. Pass 183 established that figure is an INFERENCE fold cost scored on the Angstrom seed floor, i.e. the wrong execution for a training question. of3t-softgrad has now measured the right one: on the gradient arm at scope, 48 structures, AICLK sampled DURING each window, host_f64 costs 1.77 s/structure against shipped's 1.23 -- **1.441x**. The two numbers are not comparable as absolutes (different boundary, different execution) and I am not claiming one supersedes the other as a measurement. I am claiming 1.441x is the one a TRAINING decision turns on, and 5.2x should stop being quoted at it.",
+ "what_the_barrier_actually_is": "not accuracy -- it passes at 0.956x. Not throughput -- 1.441x. It is that `softmax_host_f64` is a host computation installed on a tape verb: a diagnostic construction, not a supported code path, and of3t-softgrad explicitly does not propose it as a product candidate. Turning it into one is engineering with a known cost and a known benefit, which is a different kind of problem from the one this scope has looked like for eighteen passes.",
+ "what_this_does_NOT_say": "that it should be built. A host round-trip per softmax inside a training step has consequences this arm did not measure -- host-device transfer under a real data loader, multi-card behaviour, and whether 1.441x holds at training crops rather than this boundary's. It also does not touch the trunk's 5.8282 %, which is settled NO-GO on its own evidence and is NOT softmax-related. And nothing here is merged: every arm lives on wk/of3t-softgrad, no default moved.",
+ "provenance": "of3t-orchestrator pass 193 on pc, CPU only. Every figure is of3t-softgrad's, read from state/of3t-softgrad.md and its committed arms; the A26 division is mine and is stated. The 8.133064e-02 reachable bar and 5.750945e-02 threshold are from AGREEMENT_IS_AT_THE_REACHABLE_BAR.json."
+}

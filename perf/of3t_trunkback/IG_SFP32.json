@@ -1,0 +1,57 @@
+{
+ "what": "The CHAIN error: dL/ds_in and dL/dz_in, ours against float64, at each scope.",
+ "scopes": {
+  "SFP32_0_47": {
+   "ours": "/home/ttuser/of3t_trunkback/DEV_SFP32_48_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF043_F64_48_ig.pt",
+   "first_block": 0,
+   "blocks": 48,
+   "ds_in": {
+    "rel_l2": 7.1418520850540546,
+    "norm_ratio": 6.854856374614534,
+    "cos": -0.22006261862541474,
+    "ref_norm": 0.037143394274914046,
+    "our_norm": 0.25461263302021553,
+    "magnitude_share": 0.6720642425294142,
+    "direction_share": 0.32793575747058573,
+    "best_rescaled_rel_l2": 0.975485747657917
+   },
+   "dz_in": {
+    "rel_l2": 0.734541378273921,
+    "norm_ratio": 0.7306522559367754,
+    "cos": 0.680420593127521,
+    "ref_norm": 0.001245290320482581,
+    "our_norm": 0.0009098741819568278,
+    "magnitude_share": 0.1344603241177443,
+    "direction_share": 0.8655396758822558,
+    "best_rescaled_rel_l2": 0.7328218176664724
+   }
+  },
+  "SFP32_W0_24": {
+   "ours": "/home/ttuser/of3t_trunkback/DEV_SFP32_w0_24_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w0_24_ig.pt",
+   "first_block": 0,
+   "blocks": 24,
+   "ds_in": {
+    "rel_l2": 4.008038055190708,
+    "norm_ratio": 3.952719367927437,
+    "cos": 0.07078941073739807,
+    "ref_norm": 0.005084581532809242,
+    "our_norm": 0.020097923902541268,
+    "magnitude_share": 0.5427260565036639,
+    "direction_share": 0.45727394349633604,
+    "best_rescaled_rel_l2": 0.9974912828328135
+   },
+   "dz_in": {
+    "rel_l2": 0.17865561665623322,
+    "norm_ratio": 1.025427532196443,
+    "cos": 0.9847520819427168,
+    "ref_norm": 0.0009086724213138301,
+    "our_norm": 0.0009317777185628074,
+    "magnitude_share": 0.020256997625099638,
+    "direction_share": 0.9797430023748995,
+    "best_rescaled_rel_l2": 0.173963608578015
+   }
+  }
+ }
+}
