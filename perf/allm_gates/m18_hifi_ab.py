@@ -76,6 +76,8 @@ def main() -> int:
     ap.add_argument("--sites", default="", help="substring of the walked path; empty = all sites")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--savecifs", type=Path, default=None,
+                    help="write <size>_<arm>_<leg>/ per leg for perf/other512/cif_rmsd.py")
     a = ap.parse_args()
 
     # Another worker deleted biotite's bundled `components.bcif` out of the SHARED venv at
@@ -145,6 +147,20 @@ def main() -> int:
     res["triatt_found"] = len(found)
     res["triatt_targeted"] = len(targets)
     res["paths"] = sorted({p for p, _ in targets})[:40]
+
+    # Group by the construction site each instance was reached through, so a per-site A/B names a
+    # --sites substring instead of guessing one, and so "four sites" is a count rather than an
+    # assumption carried over from the ledger.
+    def _grp(path):
+        for tok, pat in (("trunk", "trunk.pairformer"), ("msa", "msa_module"),
+                         ("template", "template"), ("confidence", "confidence")):
+            if pat in path:
+                return tok
+        return "other"
+    import collections
+    res["site_groups"] = dict(collections.Counter(_grp(q) for q, _ in found))
+    res["site_groups_targeted"] = dict(collections.Counter(_grp(q) for q, _ in targets))
+    res["other_paths"] = sorted({q for q, _ in found if _grp(q) == "other"})[:12]
     # Everything downstream is meaningless if the walk found nothing to flip, and a silent zero
     # would read as "the lever is worth nothing" instead of "the harness missed the modules".
     assert targets, (f"walked the model and found no TriangleAttention matching {a.sites!r} "
@@ -163,9 +179,13 @@ def main() -> int:
     # by default), a bool pins the instance and ignores it.
     ATTR = "fused_hifi"
 
+    # An arm is "off" (nothing on), "on" (every targeted instance on), or a SITE GROUP token, which
+    # turns on only the instances reached through that construction site. Per site is the whole
+    # point: the sites differ in sequence length and in how many blocks they run, so a lever that
+    # pays on the trunk can still be the one moving the structure somewhere small.
     def set_arm(name):
-        for _, o in targets:
-            setattr(o, ATTR, name == "on")
+        for q, o in targets:
+            setattr(o, ATTR, name == "on" or (name != "off" and _grp(q) == name))
         T.TRIATT_FUSED_HIFI_STATS.update(served=0, declined=0, too_short=0)
         T.TRIATT_FUSED_HIFI_PICKS.clear()
         T.SDPA_HIFI_CALLS[0] = 0
@@ -189,6 +209,12 @@ def main() -> int:
                "hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS),
                "hifi_calls": T.SDPA_HIFI_CALLS[0],
                "picks": {str(k): v for k, v in list(T.TRIATT_FUSED_HIFI_PICKS.items())[:12]}}
+        if a.savecifs:
+            import shutil
+            d = a.savecifs / f"{a.size}_{arm}_{i}"
+            d.mkdir(parents=True, exist_ok=True)
+            for f in sorted(struct_dir.glob("**/*.cif")):
+                shutil.copy2(f, d / f.name)
         res["legs"].append(leg)
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  leg {i} {arm:3s}: {fold_s:8.3f}s  hifi={leg['hifi_stats']} "

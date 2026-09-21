@@ -178,6 +178,11 @@ def main():
         if arm == a.ref:
             continue
         vals = [kabsch_rmsd(x, data[r][2]) for r in refs]
+        if not vals:
+            # No arm matched `--ref`, so there is nothing to compare against. A run whose arms are
+            # per-SITE tokens (trunk / msa / template) has no arm literally called `on`, and
+            # raising here threw away the complete pairwise table already printed above.
+            continue
         print(f"    {arm:16s} {min(vals):9.6f} .. {max(vals):9.6f} A")
 
 
