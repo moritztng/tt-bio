@@ -897,6 +897,45 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+    # --- the TRIAGE SPLIT the summary quotes, against the file the GATE reads -------------------
+    # Pass 237. The summary states "N scope-excluded, M USER-FACING, K campaign-internal" in the
+    # field Moritz reads as the answer, and nothing checked it. It had drifted to 4/10/33 while
+    # `state/of3t/UNFIXED_TRIAGE.json` held 4/8/32 -- three defects stale, and the stated split did
+    # not even sum to the UNFIXED total quoted two sentences above it (47 against 44). That file is
+    # not decoration: `_of3t_donecheck.py` refuses GO while its USER-FACING class is non-empty, so
+    # the number in the prose and the number the gate obeys were two different numbers.
+    #
+    # Same shape as the check-count guard (D130) and as pass 133: a figure recomputed somewhere
+    # else, quoted by hand, and never reconciled. Both directions fail here -- a split that
+    # disagrees with the file, and a split that disagrees with itself.
+    _tri_p = Path("/home/moritz/.coworker/state/of3t/UNFIXED_TRIAGE.json")
+    _tri_m = _re.search(r"(\d+)\s+scope-excluded,\s*(\d+)\s+USER-FACING,\s*(\d+)\s+campaign-internal", o)
+    if not _tri_p.is_file():
+        warn.append("UNFIXED_TRIAGE.json is absent, so the triage split the gate reads cannot be "
+                    "checked against the split the summary states")
+    elif _tri_m is None:
+        bad.append("the summary states no triage split as 'N scope-excluded, M USER-FACING, "
+                   "K campaign-internal' -- the gate refuses GO on that file's USER-FACING class "
+                   "and nothing in the answer field is pinned to it")
+    else:
+        _cl = json.loads(_tri_p.read_text()).get("classes", {})
+        _live = (len(_cl.get("SCOPE-EXCLUDED", [])), len(_cl.get("USER-FACING", [])),
+                 len(_cl.get("CAMPAIGN-INTERNAL", [])))
+        _said = tuple(int(x) for x in _tri_m.groups())
+        if _said != _live:
+            bad.append(f"the summary states a triage split of {_said[0]}/{_said[1]}/{_said[2]} "
+                       f"(scope-excluded/USER-FACING/campaign-internal) but "
+                       f"UNFIXED_TRIAGE.json, which the GATE reads, holds "
+                       f"{_live[0]}/{_live[1]}/{_live[2]}")
+        elif sum(_said) != len(unfixed):
+            bad.append(f"the triage split {_said[0]}/{_said[1]}/{_said[2]} sums to {sum(_said)} "
+                       f"but DEFECTS.md has {len(unfixed)} UNFIXED defects -- the split and the "
+                       f"total in the same field disagree")
+        else:
+            ok.append(f"the triage split the summary states ({_said[0]}/{_said[1]}/{_said[2]}) "
+                      f"matches UNFIXED_TRIAGE.json and sums to the {len(unfixed)} UNFIXED "
+                      f"defects in DEFECTS.md")
+
     # --- and the REVERSE direction, which the check above never had -------------------------
     # The coverage check is one-way: every UNFIXED defect must be NAMED in GAP. It says nothing
     # about the label GAP attaches, so a defect can be FIXED in DEFECTS.md while GAP keeps
