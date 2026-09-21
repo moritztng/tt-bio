@@ -736,7 +736,7 @@ unreachable-shaped item is condition 4's 0.4.3 artifact, and PROTOCOL already ru
 complementary. **So NO-GO is unavailable to this campaign on the evidence, and PARTIAL is correct
 until condition 5 closes.** That is why the gate keeps refusing, and it has been right every time.
 
-**D172 (UNFIXED)**: the whole model-scope gradient error is one section — `diffusion_transformer`, 43.6221 % of the mass at 8.1943 vs float64, norm 8.5625, cos 0.4187 — while the other 451 tensors read 0.0675, below upstream's own bf16 at 0.0753. The arm's capture predates `of3t-ditref`'s repair; `of3t-ditmodel` owns the re-take.
+**D172 (RESOLVED pass 322 as a stale arm, and the re-take is still owed)**: the 8.1943 that made `diffusion_transformer` look like the campaign's whole model-scope error is the PRE-D56 arm — same capture, same reference (`ref_norm` ratio exactly 1.0000), `softmax_bw_renorm_live` null against true, 0.1167 with the repair. What remains open is not the defect but the measurement: the projected 0.0845 at model scope is a substitution until `of3t-ditmodel` re-takes it.
 
 
 GRADIENT-CONFIDENCE: **not yet, and it is down to one section.** Moritz's bar, 2026-09-21:
@@ -763,31 +763,43 @@ campaign — which is the D122 failure this campaign already filed against its o
                                                         against its own float64, sub-linear,
                                                         under 1.5x at all nineteen rungs, on
                                                         88.08194359237523 % of the mass
-    diffusion_transformer                        FAIL   43.6221 % of the mass at 8.1943 vs
-                                                        float64, norm ratio 8.5625, cos 0.4187
+    diffusion_transformer                        WAS   43.6221 % of the mass at 8.1943 vs
+                                                        float64 -- resolved at pass 322 as the
+                                                        PRE-D56 arm, not a defect: same capture,
+                                                        same reference (ref_norm ratio exactly
+                                                        1.0000), D56 live on the other arm reads
+                                                        0.1167, a factor of 70.2
+    model scope with the D56 arm            PROJECTED   0.0845 over 92.1568 % of the mass vs
+                                                        upstream's own bf16 step at 0.0753 --
+                                                        1.1226x it, INSIDE the A26 reachable bar
+                                                        of 0.1049. Substitution, not a re-run;
+                                                        `of3t-ditmodel` owns the measurement
     path coverage                                OPEN   4 of 11 conditional paths demonstrated
                                                         to fire; `of3t-pathcov` live
     the uncompared 7.84 %                        OPEN   blocked, not unreadable; two remedies
                                                         reach the 99.2594 % bar
 
-**So the honest statement is narrow and it is not nothing.** On every part of this model that has
-been measured except one section, our gradient is at or inside the accuracy upstream's own
-training step achieves, and the four factors that turn a gradient into a weight update are exact
-or at their fp32 floor. **What is not established is the largest single block of the model, and
-whether the branch producing any given gradient ever ran.**
+**So the honest statement, as of pass 322.** Every part of this model that has been measured is
+at or inside the accuracy upstream's own bf16 training step achieves, the four factors that turn
+a gradient into a weight update are exact or at their fp32 floor, and the one section that was
+not is resolved as a superseded arm rather than a defect. **The model-scope number that says so
+is a projection by substitution and not yet a measurement**, and **coverage is still an argument
+rather than a census** — a parameter can be compared and correct while the branch that produced
+it never ran in any arm.
 
-**What would change this field to a yes**, and it is three things, all dispatched: `of3t-ditmodel`
-re-takes `diffusion_transformer` on a capture whose reference tree is read back — if it re-prices
-the way `of3t-ditref` re-priced the module around it, every section clears the bar and this field
-flips on that one result; `of3t-pathcov` turns coverage from an argument into a census;
-`of3t-modelboundary` and `of3t-hostleg` take comparable mass from 92.1568 % to 99.50523 %.
+**What would change this field to a yes**, and it is two things now rather than three, both
+dispatched and both live or queued: `of3t-ditmodel` turns the 0.0845 from a substitution into a
+measurement — its brief carries the predicted 0.1167 and a D56-OFF break control, so it can
+refute this as well as confirm it; and `of3t-pathcov` turns coverage from an argument into a
+census. `of3t-modelboundary` and `of3t-hostleg` then take comparable mass from 92.1568 % to
+99.50523 %, which is the charter's threshold rather than the confidence question.
 
 **What would NOT change it, and must not be offered as if it would:** more precision work on mass
 already inside the bar, another softmax configuration, or any statement that the remaining gap is
 a silicon floor. An 8.56x norm with a 0.42 cosine is a scale or a function, not rounding.
 
 VERDICT: PARTIAL, stamped pass 319, 2026-09-21 — **still working, which is what PARTIAL means.**
-Eighty-six of3t rows concluded, one hundred seventy-two defects filed, **fifty-six UNFIXED**.
+Eighty-six of3t rows concluded, one hundred seventy-two defects filed, **fifty-five UNFIXED**.
 The campaign's exit criterion is machine-readable and reads **0 of 4** conditions met
 (`state/of3t/CHARTER_EVIDENCE.json`, regenerated from the composition on every compose, spec
 lifted from the live gate so the two cannot drift).
@@ -801,25 +813,25 @@ sixteen passes: the host-applied share is **1.52024 %**, not 0.74055 %, and 0.74
 tensor of the seventeen inside it. Five remedies, the three largest instrument or wiring work on
 code that already exists.
 
-**The honest claim, unchanged in scope.** The update rule's four state-free factors — LR
-schedule, clipping, optimizer, EMA — are verified exactly or to 1e-06 under an injected drive,
-with no card. The gradient itself is verified
-per-parameter against a float64 reference at model scope over **92.1568 %** of the model's squared
-gradient norm, with **678** tensors over the campaign's own per-tensor bar. A twenty-step weight
-trajectory at **88.08194359237523 %** of that norm tracks upstream to **1.4553x upstream's own
-bf16-mixed loop scored against its own float64** (`of3t-trajbar`, 1.762065e-01 at k = 20 against
-our 2.564253e-01, under 1.5x at all nineteen rungs), and `of3t-barresolve` has since confirmed
-that bar is measured on the 0.4.3 tree the served checkpoint is bound to, read back in-process
-rather than recorded from a constant.
+**The honest claim.** The update rule's four state-free factors — LR schedule, clipping,
+optimizer, EMA — are verified exactly or to 1e-06 under an injected drive, with no card. The
+gradient is verified per-parameter against float64 at model scope over **92.1568 %** of the
+squared gradient norm. A twenty-step trajectory at **88.08194359237523 %** of that norm tracks
+upstream to **1.4553x upstream's own bf16 loop scored against its own float64**, sub-linear,
+under 1.5x at all nineteen rungs, on the 0.4.3 tree read back in-process.
 
-**D169, this pass.** The TRAJECTORY condition required the weights to have moved at step 1;
-upstream's `AlphaFoldLRScheduler` warms up from `base_lr = 0.0`, so `lr(0) == 0.0` and step 1 is
-bit-identical on both sides with a non-zero gradient. **Only an arm that does NOT reproduce their
-warmup could have satisfied it.** Replaced by a `moves` op over all twenty steps: strictly
-stronger, nothing got closer. On first execution it reported what the old clause was blind to
-(D170) — the arm the condition names is stationary at every k = 2..20 and identical to its own
-`norebind` control. That is D126, **live on `origin/main` `fd70adde2`**: the `_PARAMS` re-key is
-at `origin/wk/of3t:tt_bio/autograd.py:248-250` and nowhere in main's copy.
+**D169/D170, pass 319.** The TRAJECTORY condition required the weights to have moved at step 1,
+which upstream's own warmup from `base_lr = 0.0` makes impossible; replaced by a `moves` op over
+all twenty steps, which then caught the arm it reads being stationary at every k = 2..20. That
+is D126, **live on `origin/main` `fd70adde2`** — the `_PARAMS` re-key is at
+`origin/wk/of3t:tt_bio/autograd.py:248-250` and nowhere in main's copy.
+
+**The model-scope gradient is at upstream's own accuracy, projected.** Substituting the D56 arm
+into `MODEL_shipped.json`'s per-section table gives **0.0845** over 92.1568 % of the mass against
+upstream's own bf16 step at **0.0753** — **1.1226x** it, inside the A26 reachable bar of 0.1049.
+The headline **5.6379** this campaign carried for forty-eight passes was one section measured on
+an arm that predates D56 (D172, resolved pass 322). It is a projection by substitution until
+`of3t-ditmodel` re-takes it; that row is live with the predicted 0.1167 and a D56-OFF control.
 
 **GO is three conditions now, not four.** THEIR-TEST was removed on 2026-09-21: it needs a
 torch PrivateUse1 backend over ttnn plus a Lightning `Accelerator`, so requiring it made GO
@@ -933,7 +945,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged: **4 scope-excluded, 8 USER-FACING, 44 campaign-internal**.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged: **4 scope-excluded, 8 USER-FACING, 43 campaign-internal**.
 
 **And it is a configuration, not the shipped port** — `TT_BIO_SOFTMAX_BW_RENORM` is **default-ON in the composition since pass 274** (ask 9629) and **main does not have it**, asserted in that state on every compose. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -1593,3 +1605,33 @@ underestimate a training s/step by the trunk's 23.7x; on this configuration it u
 by about ninety. The steady figure is **466.70 s** on a quiet host, 507.02 s to 607.60 s on a
 contended one, eight steps across two processes, every one carrying 9,888 tape nodes and
 `leaves_live_after_rebind: 3152 of 3152`. D56's lever costs **0.07 s to 0.71 s** of that step.
+
+
+### Pass 322 — the headline was a stale arm, and it took no card to find out
+
+D172 asked whether `diffusion_transformer`'s 8.1943 is a defect or a capture artifact. Answered
+from artifacts already on disk. **My pass-321 hypothesis, that the reference tree was the
+variable, was wrong and I checked it before believing it.** The two arms share the capture
+`of3t_softgrad/diffcap043`, the 547 tensors, the denominator, and the reference — per-tensor
+`ref_norm` agrees at a ratio of exactly 1.0000. What differs is our own device gradient, median
+A/B 1.0019 and max 20.073, and the only difference either artifact records is
+
+    softmax_bw_renorm_asked   A: null   B: false
+    softmax_bw_renorm_live    A: null   B: true
+
+Arm A predates the instrumentation and ran without D56's row-sum-corrected softmax backward.
+
+    diffusion_transformer  456 tensors  43.6221 % of mass    A 8.1943   B 0.1167    70.2x
+    arm level              worst 18.5040 -> 0.5524, median 0.1250 -> 0.0934, over 5e-2 459 -> 407
+    model scope projected  5.6379 -> 0.0845, against upstream's own bf16 at 0.0753
+
+**And it is one tensor**: `blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` carries
+**94.149 %** of arm A's diffusion-transformer squared error; the top twelve carry 99.97 %, all
+AdaLN LayerNorm leaves. `MODEL_shipped.json` named that tensor in its own `worst_tensor` field
+all along. Nobody had weighted it.
+
+`of3t-ditmodel` was live when this landed, so its brief carries AMENDMENT 1 on all four host
+trees: deliverable 2 is moot, deliverable 1 becomes a confirmation against a pre-registered
+0.1167, the artifact must record `softmax_bw_renorm_asked`/`live` explicitly because arm A's null
+is what cost these passes, and a **D56-OFF break control** — if 8.1943 does not come back with
+the flag off, this entry is wrong.

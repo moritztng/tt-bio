@@ -11180,3 +11180,56 @@ that never trained) and D171 (the evaluator absent from its owner's branch). **T
 that the measurements are wrong; it is that the artifacts the GATE reads go stale behind rows
 that concluded.** A row's repair is not the campaign's repair until the artifact the criterion
 names carries it.
+
+### D172 UPDATE (pass 322, the pass after it was filed). **RESOLVED as an artifact, not a defect, and answered on CPU with no card: the 8.1943 is the pre-D56 arm.** The diffusion transformer is fine.
+
+`perf/of3t_orchestrator/closure/D172_IS_THE_PRE_D56_ARM.json`. **My pass-321 hypothesis was that
+the reference tree was the variable. It is not, and I checked before believing myself** — this is
+an exculpatory finding and the rule for those is to name the field that would have to read
+differently and go look at it.
+
+The two arms use the **same capture** `/home/ttuser/of3t_softgrad/diffcap043`, the **same 547
+tensors**, the **same denominator** 10.279642678524985, and the **same reference**: per-tensor
+`ref_norm` between them agrees at a ratio of exactly **1.0000**, min and max, on every
+`diffusion_transformer` tensor. So nothing about the comparison moved. What moved is our own
+device gradient — median A/B ratio 1.0019, but max **20.073**.
+
+**The only difference either artifact records:**
+
+    softmax_bw_renorm_asked    arm A: null     arm B: false
+    softmax_bw_renorm_live     arm A: null     arm B: true
+
+Arm A is `of3t-f64softmax`'s and predates the instrumentation, so it ran **without** D56's
+row-sum-corrected softmax backward. Arm B is `of3t-ditref`'s and ran with it live, which has been
+the composition's default since pass 274.
+
+    diffusion_transformer   456 tensors   43.6221 % of model mass
+        arm A (pre-D56)  8.1943        arm B (D56 live)  0.1167        70.2x
+    arm level: worst_rel 18.5040 -> 0.5524, median_rel 0.1250 -> 0.0934, over 5e-2  459 -> 407
+
+**And it is one tensor.** `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.
+layer_norm_s.weight` carries **94.149 %** of arm A's diffusion-transformer squared error, at
+rel_L2 18.5040 against 0.0637 on arm B, our own device gradient differing by 20.073x. The top
+twelve carry 99.97 %, all `attention_pair_bias` / AdaLN LayerNorm leaves. **`MODEL_shipped.json`
+named that tensor in its own `worst_tensor` field all along; what nobody had done is weight it.**
+
+**The consequence, and it is the campaign's headline.** Substituting arm B's six sections into
+`MODEL_shipped.json`'s per-section table, composing on squared mass shares:
+
+    model scope, 92.1568 % of the mass
+        as the charter reads it today (pre-D56 arm)     5.6379
+        with the D56 arm                                0.0845
+        upstream's OWN bf16 step vs the same float64    0.0753      -> we are 1.1226x it
+        A26 reachable bar vs their bf16                 0.1049      -> 0.0845 is INSIDE it
+
+**This is a projection by substitution, not a re-run**, and it is labelled that way in the
+artifact. It is legitimate because capture, reference, denominator and tensor set are identical,
+and `of3t-ditmodel` — live on qb2 when this was found — owns the real re-take. Its brief now
+carries AMENDMENT 1: the predicted value **0.1167**, the instruction to record
+`softmax_bw_renorm_asked`/`live` explicitly because arm A's null is what cost the campaign these
+passes, and a **D56-OFF break control**, because if 8.1943 does not come back with the flag off
+then this entry is wrong.
+
+**A33 is the lesson and this is its cleanest instance**: the measurements were right, D56 was
+repaired and landed default-ON in the composition at pass 274, and the artifact the GO condition
+reads simply never re-ran. Forty-eight passes of a campaign headline that was a stale arm.
