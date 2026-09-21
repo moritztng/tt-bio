@@ -1,0 +1,94 @@
+{
+ "doc": "Where an OpenFold3 training step spends its time, stage by stage, before any lever.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_tapediverge/STEP_384_taped.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "commit": "3e58972a9c6a27289b51ad5ac2d3b405edf1b712",
+  "started_utc": "2026-09-21T02:26:12Z",
+  "loadavg": [
+   2.32177734375,
+   3.53369140625,
+   4.94091796875
+  ],
+  "arch": "Arch.BLACKHOLE"
+ },
+ "their_step": {
+  "per_rank_batch": 1,
+  "crop": 384,
+  "trunk_cycles_pinned": 4,
+  "grad_on_final_cycle_only": true,
+  "mini_rollout_steps": 20,
+  "diffusion_half": "EXCLUDED: 5 ttnn.embedding gathers have no tape entry (perf/of3t_perf/verb_census.json)"
+ },
+ "tape_gap": "ttnn.add_ with a fused MUL_UNARY_SFPU params=[0.25] on input_tensor_a_activations has no backward in tt_bio.taped_ttnn (_activation, taped_ttnn.py:270). Raised at tenstorrent.py:3758 in _fp32_softmax_tail, reached from the OF3 trunk's pairformer at crop 384. SHARED path, not an OF3 file, and owned by of3t-tape.",
+ "build_fold_s": 2.99,
+ "prep_to_sampler_s": 12.05,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.714,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "dram": {
+  "after_prep": 1544926208
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "stages": [
+  {
+   "rep": 0,
+   "forward_nograd_prefix_s": 7.208857468998758,
+   "forward_taped_cycle_s": 3.5805488279947895,
+   "dram_after_taped_forward": 4399625216,
+   "download_s": 0.02386028900218662,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.056852462999813724,
+   "root_was_taped": true,
+   "tape_nodes_from_root": 2473,
+   "device_backward_s": 273.74059660900093,
+   "params_with_grad": "1639 of 2531",
+   "backward_valid": true,
+   "dram_after_backward": 2109731840,
+   "trunk_step_s": 284.6107156579965
+  },
+  {
+   "rep": 1,
+   "forward_nograd_prefix_s": 7.541207576003217,
+   "forward_taped_cycle_s": 3.414770415998646,
+   "dram_after_taped_forward": 4621054976,
+   "download_s": 0.024896502996853087,
+   "losses_s": null,
+   "losses_note": "SKIPPED: no OF3 row in train/losses.py (LEDGER R2)",
+   "host_backward_s": 0.05675771400274243,
+   "root_was_taped": true,
+   "tape_nodes_from_root": 2473,
+   "device_backward_s": 219.0694283729972,
+   "params_with_grad": "1639 of 2531",
+   "backward_valid": true,
+   "dram_after_backward": 2109862912,
+   "trunk_step_s": 230.10706058199867
+  }
+ ]
+}
