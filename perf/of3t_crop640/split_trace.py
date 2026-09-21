@@ -232,6 +232,10 @@ def main() -> int:
                     help="total wall clock the walks may spend. On overrun the step doubles, so "
                          "a slow walk costs resolution at the peak rather than the run")
     ap.add_argument("--probe-every", type=int, default=1)
+    ap.add_argument("--dead-values", choices=("on", "off"), default=None,
+                    help="tt_bio.autograd.DROP_DEAD_VALUES for this rung. Recorded in the "
+                         "artifact either way: which arm a byte figure came from is not "
+                         "something a later reader should have to infer from a commit hash")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -254,6 +258,9 @@ def main() -> int:
             import ttnn
             from ttnn._ttnn import reports
             from tt_bio import autograd as ag
+            if a.dead_values is not None:
+                ag.DROP_DEAD_VALUES = a.dead_values == "on"
+            out["env"]["drop_dead_values"] = bool(getattr(ag, "DROP_DEAD_VALUES", False))
             from tt_bio import taped_ttnn as TT
             from tt_bio.tenstorrent import get_device
 
