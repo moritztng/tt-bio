@@ -1,0 +1,226 @@
+{
+ "doc": "What OF3's training-size forward costs in BYTES and in ALLOCATION COUNT, on the card.\n\n`of3-1024aa-oom-allocation-count-not-size` is this campaign's standing warning: an OOM names\nthe allocation that failed to place, and that allocation is usually the last straw of several\nco-live tensors, not a single tensor that is too big. `ptx-crop` solved Protenix's 384-token\ncrop as a SIZE problem. Whether OF3's wall is the same problem is a measurement, so this\nscript measures both numbers at once and reports them side by side.\n\nThe instrument is `ttnn._ttnn.reports.get_buffers(device)`, which is the allocator's own live\nlist. It is read at the byte high-water mark rather than at the end, because the end of a\nforward is the one moment the answer is smallest.\n\nHow the peak is found. The proxy below rebinds the name `ttnn` inside every tt-bio module,\nexactly the mechanism `tt_bio.taped_ttnn` already uses, and reads DRAM and L1 allocated bytes\nafter every verb the shipped modules call. Bytes are one allocator field and cost nothing;\nthe full buffer census walks the live list, so it is taken only when bytes set a new high.\nThe peak census is therefore the census AT the byte peak, not near it.\n\nThe watcher composes with the tape: enter `tape()` first and the module's `ttnn` is already\nthe tape's proxy, so the watcher wraps that and sees the taped verbs. `tt_bio.autograd` is\nwatched too -- the tape excludes it so its backward closures reach the real verbs, but an\nobserver has no such reason to look away, and the backward is where a reverse-mode peak lives.\n\n    alloc_profile.py --sizes 256,384 --blocks 4 --arms off,tape --out out/x.json\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "commit": "12892b5bd7c632d0c4c95deede1e6db7a2555f68",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-memory/tt_bio/__init__.py",
+  "ttnn_file": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "started_utc": "2026-09-19T12:54:18Z",
+  "loadavg": [
+   2.9638671875,
+   2.6240234375,
+   2.78955078125
+  ],
+  "dram_total_b": 34225520128,
+  "dram_banks": 8,
+  "l1_total_b": 160793600,
+  "l1_banks": 110,
+  "probe_every": 1,
+  "ckpt": "/home/ttuser/.boltz/of3-p2-155k.pt",
+  "ckpt_pairformer_blocks": 48,
+  "blocks_built": 1,
+  "c_z": 128,
+  "c_s": 384,
+  "ckpt_load_s": 0.6,
+  "weights_dram_b": 7274496,
+  "weights_census": {
+   "DRAM": {
+    "count": 49,
+    "sum_b": 7290880,
+    "largest_b": 1179648,
+    "median_b": 32768,
+    "p90_b": 294912,
+    "smallest_b": 16384,
+    "top10_b": [
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     294912,
+     294912,
+     147456,
+     147456,
+     131072,
+     131072
+    ]
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": []
+   },
+   "total_buffers": 49
+  }
+ },
+ "runs": [
+  {
+   "tokens": 384,
+   "arm": "tape",
+   "blocks": 1,
+   "resting_dram_b": 7290880,
+   "z_bytes": 37748736,
+   "s_bytes": 294912,
+   "inputs_dram_b": 45334528,
+   "fwd_dram_b": 86319104,
+   "fwd_peak_dram_b": 638255104,
+   "fwd_peak_census": {
+    "DRAM": {
+     "count": 148,
+     "sum_b": 638255104,
+     "largest_b": 113246208,
+     "median_b": 16384,
+     "p90_b": 3440640,
+     "smallest_b": 16384,
+     "top10_b": [
+      113246208,
+      82575360,
+      82575360,
+      41287680,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736
+     ]
+    },
+    "L1": {
+     "count": 0,
+     "sum_b": 0,
+     "largest_b": 0,
+     "median_b": 0,
+     "p90_b": 0,
+     "smallest_b": 0,
+     "top10_b": []
+    },
+    "total_buffers": 148
+   },
+   "fwd_peak_at_verb": "softmax_in_place",
+   "fwd_verb_calls": 861,
+   "bwd_peak_dram_b": 24979726336,
+   "bwd_peak_census": {
+    "DRAM": {
+     "count": 1219,
+     "sum_b": 24979726336,
+     "largest_b": 1207959552,
+     "median_b": 3047424,
+     "p90_b": 73138176,
+     "smallest_b": 16384,
+     "top10_b": [
+      1207959552,
+      1207959552,
+      226492416,
+      226492416,
+      226492416,
+      226492416,
+      150994944,
+      150994944,
+      113246208,
+      113246208
+     ]
+    },
+    "L1": {
+     "count": 0,
+     "sum_b": 0,
+     "largest_b": 0,
+     "median_b": 0,
+     "p90_b": 0,
+     "smallest_b": 0,
+     "top10_b": []
+    },
+    "total_buffers": 1219
+   },
+   "bwd_peak_at_verb": "add",
+   "after_backward_dram_b": 339337216,
+   "grads_present": 2,
+   "verdict": "PASS",
+   "wall_s": 50.8,
+   "peak_dram_b": 24979726336,
+   "peak_l1_b": 129761280,
+   "peak_census": {
+    "DRAM": {
+     "count": 1219,
+     "sum_b": 24979726336,
+     "largest_b": 1207959552,
+     "median_b": 3047424,
+     "p90_b": 73138176,
+     "smallest_b": 16384,
+     "top10_b": [
+      1207959552,
+      1207959552,
+      226492416,
+      226492416,
+      226492416,
+      226492416,
+      150994944,
+      150994944,
+      113246208,
+      113246208
+     ]
+    },
+    "L1": {
+     "count": 0,
+     "sum_b": 0,
+     "largest_b": 0,
+     "median_b": 0,
+     "p90_b": 0,
+     "smallest_b": 0,
+     "top10_b": []
+    },
+    "total_buffers": 1219
+   },
+   "peak_at_verb": "add",
+   "verb_calls": 3295,
+   "dealloc_calls": 0,
+   "path_stats": {
+    "FP32_SOFTMAX_STATS": {
+     "calls": 6,
+     "blocked": 6,
+     "blocks": 71,
+     "fused": 77,
+     "unfused": 0,
+     "l1": 6,
+     "l1_blocks": 6,
+     "l1_refused": 6,
+     "l1_cores": 93,
+     "l1_free_retired": 0,
+     "l1_free_walked": 0,
+     "l1_padded_diverged": 0,
+     "dram_narrowed": 0
+    },
+    "OPM_ROW_STATS": {
+     "whole": 0,
+     "blocked": 0,
+     "dram_narrowed": 0,
+     "join_split": 0
+    },
+    "PWA_DEPTH_STATS": {
+     "whole": 0,
+     "blocked": 0,
+     "dram_narrowed": 0
+    }
+   },
+   "free_at_peak": {
+    "free_b": 9245793792,
+    "largest_contiguous_free_per_bank_b": 1099681728,
+    "largest_contiguous_free_across_banks_b": 8797453824
+   },
+   "free_at_end": {
+    "free_b": 33886182912,
+    "largest_contiguous_free_per_bank_b": 1414053888,
+    "largest_contiguous_free_across_banks_b": 11312431104
+   },
+   "dram_after_free_b": 263249920
+  }
+ ]
+}
