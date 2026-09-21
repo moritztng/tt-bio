@@ -165,6 +165,72 @@ _RESOLVE
         git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
         echo "  NOTE of3t-$r: openfold3_confidence.py signature conflict resolved by keeping BOTH"\
              " parameter sets, asserted from the AST with defaults intact"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "confidence" ]; then
+        # Fourth: same file, DIFFERENT rule, and the difference matters. main gained M18's
+        # `tri_att_sdpa_hifi=...` at OF3's Pairformer-family sites on 2026-09-21; of3t-confidence
+        # (concluded 09-19) carries `s_fp32_residual=True`. Those two are a union like auxfind's.
+        # But the same hunk ALSO disagrees on `scale_pair_bias`: main ships **False**, the row's
+        # branch carries **True**, and that is **D1** -- a repair that is HELD because applying it
+        # measured 0.149 A WORSE at rank 0, and which pin 9629 asks Moritz to decide. A blind union
+        # would take one of them arbitrarily; taking the row's would apply a held repair inside the
+        # composition. So the rule is: union the NAMES, and on a collision **HEAD wins**, because
+        # HEAD is main and main is what ships. Asserted below, by value, not just by presence.
+        python3 - <<'_RESOLVE'
+import re
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-confidence\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+indent = re.match(r"\s*", ours).group(0)
+
+def kwargs(text):
+    """name -> full `name=value` source, splitting only at top-level commas."""
+    out, depth, cur = {}, 0, ""
+    for ch in text.replace("\n", " ") + ",":
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            t = cur.strip().rstrip(")").strip()
+            if "=" in t:
+                out[t.split("=", 1)[0].strip()] = t
+            cur = ""
+        else:
+            cur += ch
+    return out
+
+a, b = kwargs(ours), kwargs(theirs)
+merged = dict(b); merged.update(a)          # HEAD (main) wins every collision
+order = list(a) + [n for n in b if n not in a]
+body = ",\n".join(indent + merged[n] for n in order) + ")"
+open(p, "w").write(s[:i] + body + "\n" + s[k + len(">>>>>>> origin/wk/of3t-confidence\n"):])
+_RESOLVE
+        python3 - <<'_ASSERT' || { echo "CONFLICT merging of3t-$r: confidence resolution FAILED its assert"; exit 1; }
+import ast, sys
+src = open("tt_bio/openfold3_confidence.py").read()
+tree = ast.parse(src)                                   # a lost bracket fails HERE, not on a device
+need = {"scale_pair_bias", "fp32_softmax", "accurate_softmax",
+        "tri_att_sdpa_hifi", "s_fp32_residual"}
+found = {}
+for n in ast.walk(tree):
+    if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "Pairformer":
+        for kw in n.keywords:
+            if kw.arg in need:
+                found[kw.arg] = ast.unparse(kw.value)
+miss = sorted(need - set(found))
+if miss:
+    print("Pairformer(...) lost keyword(s):", ", ".join(miss)); sys.exit(1)
+if found["scale_pair_bias"] != "False":
+    print("scale_pair_bias resolved to", found["scale_pair_bias"],
+          "-- main ships False and D1 is HELD (0.149 A worse at rank 0, pin 9629)"); sys.exit(1)
+print("  confidence Pairformer keeps all five kwargs; scale_pair_bias=False as main ships")
+_ASSERT
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: confidence conflict resolved by UNION of names with HEAD winning"\
+             " scale_pair_bias (D1 is HELD), asserted from the AST by VALUE"
       else
         echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
       fi
