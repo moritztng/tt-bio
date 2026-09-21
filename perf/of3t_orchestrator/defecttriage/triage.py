@@ -166,9 +166,6 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
-    "D127": (USER, "3.6438 % of the squared gradient norm is not device-resident at all -- "
-                   "aux_heads output projections (2.8431 %) and the input_embedder atom encoder "
-                   "(0.8007 %, host torch at openfold3_host_prep.py:222). No tape reaches it."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less

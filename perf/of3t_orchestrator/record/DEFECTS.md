@@ -8320,3 +8320,47 @@ directions**: our stack hits the skip on 100 % of steps and diverges by exactly 
 hits it on 9.59e-71 of steps and every hit is permanent.
 
 Release-gated; the merge gate is Moritz's. `TT_BIO_SOFTMAX_BW_RENORM` untouched.
+
+### D127 UPDATE 3 (pass 228). LARGELY FIXED: 2.8431 % now reaches the optimizer, the port goes 95.1286 % → 97.9717 %, and the bound I filed was wrong in BOTH directions.
+
+`of3t-hostops` returned GO. Verified from git: four commits, of which exactly one touches shipped
+code — `0802a53f0`, `tt_bio/openfold3_confidence.py`, *"hand the confidence heads to the tape"* — and
+it is already in the published composition, where `compose_verify.sh`'s
+`assert_confidence_forward_signature.py` still passes.
+
+**The measured reach, from `SHARE_fix.json` against `SHARE_base.json`:**
+
+    walked device tensors     3932  ->  3948
+    fully covered names       2678  ->  2693
+    sq_norm_fully_covered    9.7789 -> 10.0711   of 10.279642678524985
+    pct_fully_covered      95.1286 %-> 97.9717 %      uncovered 0.5008 -> 0.2085
+
+Inference byte-identical; the gradient is verified to **land on the leaf the shipped walk
+registers** (`land.py`, `LAND.json`) and to agree at **2.2678e-03** against upstream's float64.
+
+**The bound was wrong in both directions, which is worse than wrong in one.** I filed *"3.6438 %
+over two host scopes"*. It is **4.4524 % absent from the walk**, of which **2.8431 % was never a
+host op at all** — a weight the discovery walk could not see — and the genuine host share is
+**1.5202 %**, sitting entirely on matmuls. So the number was too small *and* its attribution was
+wrong, and pass 228's decomposition had already caught the second half.
+
+**My diffusion-transformer control is confirmed and given a mechanism.** **0.3100 %** is on the card
+inside a **fused** weight no single reference name can match: `fused.py` rebuilds 105 fusion groups
+additively — e.g. `diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha
+.linear_{q,k,v}.weight` → `sampler.dm.dit.blocks.8.qkv_w`, agreeing to **2.9e-06** on L1 — with two
+component tolerances (1e-4 on the sums, 4e-3 on the absmax, because the device fingerprints keep an
+fp32 absmax against a bf16-cast reference) whose operating point was picked by a **negative control,
+not by taste**: a SHUFFLE rebuilding the same families from members in different blocks matches
+**0 of 200**.
+
+**What is left, costed rather than asserted**: the atom-encoder legs at **1.5202 %**, needing no new
+backward and no gather, which would take reach to about **99.49 %**; then **0.3100 %** fused,
+**0.1091 %** the covering cannot resolve, and **0.0886 %** spread thinly across three stacks.
+
+**The transferable lesson, and it is the reason this defect took three filings to state correctly:**
+*a weight can be computed on the device and still be invisible to training, because the parameter
+set comes from a walk and the walk runs the **inference** forward.* Any module that materialises
+weights lazily inside a forward the walk does not take has the same hole, **and the symptom is
+indistinguishable from the weight being host-side** — which is exactly the mistake I made.
+
+Release-gated; nothing merged.
