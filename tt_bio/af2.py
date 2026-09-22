@@ -45,6 +45,7 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    host_f64_softmax_site,
     batched_matmul,
     get_device,
 )
@@ -330,11 +331,11 @@ class AF2PairBlock(Module):
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True)
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True)
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
@@ -450,6 +451,9 @@ class AF2Attention(Module):
         self.head_dim = head_dim
         self.pair_bias = pair_bias
         self.column = column
+        # Only the row variant reaches `_fp32_softmax_attention`; the column softmax has no
+        # pair bias and takes the plain `ttnn.softmax` below, which no site flag gates.
+        self._softmax_f64 = host_f64_softmax_site("af2.msa")
         self.scale_inv = head_dim**-0.5
         self.norm_weight = self.torch_to_tt("layer_norm.weight")
         self.norm_bias = self.torch_to_tt("layer_norm.bias")
@@ -487,6 +491,7 @@ class AF2Attention(Module):
                 q, k, v, bias, scale_inv=self.scale_inv,
                 compute_kernel_config=self.compute_kernel_config,
                 out_dtype=ttnn.bfloat16, bias_scale_inv=1.0,
+                host_f64=self._softmax_f64,
                 l1_padded_plan=self.l1_padded_plan)
         else:
             kt = ttnn.permute(k, (0, 1, 3, 2))

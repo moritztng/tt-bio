@@ -167,7 +167,12 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
             mod = ast.parse(textwrap.dedent(text))
         except SyntaxError:
             return None
-        if not mod.body or not all(isinstance(n, (ast.Import, ast.ImportFrom)) for n in mod.body):
+        # An EMPTY side is a valid "no imports here" side, not a rejection. of3t-apbback forked
+        # before `from .protenix import ConfidenceHead` was added to openfold3_fold.py, so its
+        # side of that hunk is empty and HEAD's is one import; requiring a non-empty body made
+        # this rule decline a one-line conflict and stop the whole compose. Unioning with an
+        # empty side just keeps the other side, which drops nothing.
+        if any(not isinstance(n, (ast.Import, ast.ImportFrom)) for n in mod.body):
             return None
         return [ln for ln in text.splitlines() if ln.strip()]
 
@@ -198,14 +203,27 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
             rendered = ", ".join(al.name + (f" as {al.asname}" if al.asname else "")
                                  for al in sorted(names, key=lambda x: x.name))
             lines.append(f"from {'.' * level}{module} import {rendered}")
-        new = s[:i] + "\n".join(lines) + "\n" + s[k + len(end):]
+        # Re-indent to the sides' own column. `only_imports` dedents before parsing, so a
+        # FUNCTION-LOCAL import -- `from .protenix import ConfidenceHead` inside a method in
+        # openfold3_fold.py -- was rendered back at column 0 and the file stopped parsing.
+        # Take the indent from whichever side actually had a line; both agree when both do.
+        indent = ""
+        for side in (ours, theirs):
+            for ln in side.splitlines():
+                if ln.strip():
+                    indent = ln[:len(ln) - len(ln.lstrip())]
+                    break
+            if indent:
+                break
+        new = s[:i] + "\n".join(indent + ln for ln in lines) + "\n" + s[k + len(end):]
         try:
             ast.parse(new)
         except SyntaxError as e:
             print(f"  {path}: the merged imports do not parse -- {e}", file=sys.stderr)
             return 1
         path.write_text(new)
-        print(f"  {path.name}: union of {len(lines)} import line(s)")
+        print(f"  {path.name}: union of {len(lines)} import line(s)"
+              + (f", indented {len(indent)} col(s)" if indent else ""))
         return 0
 
     # An `__all__` conflict is the third shape a shared module produces, and it arrived when
