@@ -2430,3 +2430,29 @@ any arm-to-arm time — then A384 401 s, B384 399 s, C384 432 s, D384 349 s. D a
 means pinning the shard plan off cost no throughput here, and the row states the limit itself: one
 pair of readings on a taped backward at 56 real tokens padded to 384, not a fold A/B, and neither
 pin is proposed as a fix. `tt_bio/` untouched, nothing merged.
+
+### D201. At exactly one hundred dispatched rows, the two halves of ONE guard became unsatisfiable. FOUND by `of3t-orchestrator`, pass 347. **FIXED** the same pass.
+
+`audit_evidence.py`'s ROWS census matched the field's opening with `([a-z-]+) dispatched,
+([a-z-]+) concluded` — letters and hyphens, **no space** — and then compared the captured words
+against its own number-to-word list, which renders 100 as **"one hundred"**. Every count from one
+to ninety-nine is a single hyphenated token and the two halves agreed. At one hundred they cannot
+both be satisfied:
+
+    ROWS: **one hundred dispatched, ...**   -> opening-form half FAILS  ("does not open with ...")
+    ROWS: **one-hundred dispatched, ...**   -> census half FAILS        ("disk has 100 ... i.e.
+                                                'one hundred'")
+
+I hit both in consecutive composes and the second message is the tell — the guard printed the
+exact string its sibling clause refuses.
+
+**Fixed** by widening the pattern to `([a-z][a-z -]*[a-z])`, which accepts the word list's own
+output and still refuses an empty or punctuation-only field. The census half is unchanged.
+
+**The class, which is why this is worth an entry rather than a commit line:** a guard built from
+two clauses can be individually correct and jointly impossible, and the failure appears only at a
+value nothing had reached before. It reports a defect that does not exist while hiding the count it
+was built to audit — for one compose the campaign's row census was unreadable and the reason looked
+like a formatting mistake in the document. **Where a guard compares a rendering against a pattern,
+the pattern must accept everything the renderer can emit**, and the cheap test is to run the
+renderer over the range and match each output.
