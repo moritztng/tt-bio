@@ -148,6 +148,26 @@ PLAN = {
         "row": "of3t-ditcot",
         "shares_object_with": ["D30", "D129"],
     },
+    "D205": {
+        "needs": CARD,
+        "one_line": "512 is the largest crop that RUNS; 544, 576, 640 and 768 all refuse",
+        "closes_when": ("the CONTIGUITY wall is addressed or documented as the shipped limit. 640 "
+                        "and 768 die with the card full, but 544 and 576 die on contiguity with "
+                        "6.30 GB and 6.67 GB still free -- 576 refused a 2,717,908,992 B buffer "
+                        "inside ttnn::concat -> tilize_with_val_padding, short by 77,930,560 B "
+                        "per bank at 88.45 %% occupancy. A capacity extrapolation cannot see that "
+                        "wall; the row's own 2.08 fit said 576 would clear with 14 %% of margin. "
+                        "Closing it is an allocator or a chunking question, not more memory"),
+        "evidence_held": ("544/576/640/768 all measured to refuse, the 544 fixture built for the "
+                          "purpose; the 576 refusal reproduces byte for byte across card 0 and "
+                          "card 1 (29,970,916,352 B high-water, 5,622 allocations, identical "
+                          "per-bank largest-free-block); every refused rung's high-water is a "
+                          "LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile "
+                          "counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every "
+                          "even count measured keeps it"),
+        "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
+                 "(D204: nothing checked that it ever was)",
+    },
     "D129": {
         "needs": CARD,
         "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",

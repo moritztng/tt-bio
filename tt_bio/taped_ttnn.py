@@ -1181,6 +1181,34 @@ def _v_pad(shipped, args, kwargs):
     return _tape(out_v, [x], make)
 
 
+@_verb("typecast")
+def _v_typecast(shipped, args, kwargs):
+    """Change dtype. The backward casts the gradient back to the INPUT's dtype.
+
+    Needed because a dtype boundary inside the model is a real edge of the graph, not
+    bookkeeping: OpenFold3 runs its diffusion half in fp32 against a bf16 trunk
+    (`OF3_DIFFUSION_FP32_DEVICE`, default on), so a training forward that crosses that
+    boundary crosses it through this verb. Without an entry here the tape raises, and the
+    alternative -- casting outside the tape -- silently hands fp32 weights bf16 activations.
+
+    `add_grad` already promotes and re-lays-out what it accumulates, so the cast here is the
+    dtype the PARENT's value carries, nothing more.
+    """
+    x = _wrap(args[0])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    src = x.value.dtype
+
+    def make():
+        def bw(g):
+            x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
+        return bw
+
+    # `reads=()`: neither the input nor the output is read by the backward, only its dtype,
+    # which is captured above.
+    return _tape(out_v, [x], make, reads=())
+
+
 @_verb("sum")
 def _v_sum(shipped, args, kwargs):
     """Sum over one axis. The backward broadcasts the gradient back along it, which is one
