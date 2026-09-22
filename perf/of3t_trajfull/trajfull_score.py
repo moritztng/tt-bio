@@ -306,8 +306,30 @@ def main():
     import tree_digest as TD
     from pathlib import Path
     digests = [TD.digest(Path(r) / "openfold3") for r in (TW.OF3PKG, their_tree)]
+    # D149, added by of3t-orchestrator pass 357 when the ratchet caught this file. The digests
+    # above answer "are the two trees the same content", which is a different question from
+    # "which tree did this process resolve". `refpath.install()` above puts two package trees on
+    # sys.path, and this script then calls `torch.load(..., weights_only=False)` on upstream's
+    # checkpoint -- an unpickle that will import whatever `openfold3.*` classes the pickle names,
+    # from whichever tree resolves first. A named constant is not a resolution, so read it back.
+    #
+    # Three outcomes and all three are recorded rather than assumed. Resolves to the tree under
+    # test: fine. Resolves elsewhere: STOP, because that is exactly the of3t-trajwide failure
+    # this ratchet exists for. Not importable at all: also fine, and recorded as such -- nothing
+    # can have come from the wrong tree if nothing came from any tree.
+    try:
+        import openfold3
+        resolved_of3 = os.path.abspath(openfold3.__file__)
+    except Exception as e:                                               # noqa: BLE001
+        resolved_of3 = "NOT IMPORTABLE: %s" % e
+    else:
+        if os.path.realpath(os.path.dirname(os.path.dirname(resolved_of3))) != \
+                os.path.realpath(TW.OF3PKG):
+            raise SystemExit("D149: openfold3 resolved to %s, not the tree under test %s"
+                             % (resolved_of3, TW.OF3PKG))
     tree_identity = {
         "reference_side_ran_on": their_tree, "refpath_OF3PKG": TW.OF3PKG,
+        "openfold3_resolved_to": resolved_of3,
         "digests": digests, "pinned_expected_of3pkg043": PIN,
         "same_tree": len({d["tree_sha256"] for d in digests}) == 1,
         "matches_pin": all(d["tree_sha256"] == PIN for d in digests),
