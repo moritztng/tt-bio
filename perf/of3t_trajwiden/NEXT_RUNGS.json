@@ -27,7 +27,42 @@
    "n_compared": 180,
    "source": "MODEL_d56_retake.json per_section d56on_vs_FLOAT64",
    "verdict": "DRIVE FIRST. The lowest mass-weighted gradient error of any section in the model against float64, 0.00231 with cos 1.00000, and 180 of 244 tensors compared. A small module with no 48-noise-level sample axis, so cheap.",
-   "caveat": "its MEDIAN over tensors is 1.01520 while its MASS-WEIGHTED reading is 0.00231, so the section's mass sits in a few tensors that agree almost exactly while the typical tensor is at saturation. A15/D17 in miniature. A trajectory scores rel_d over the CONCATENATION, which is the mass-weighted quantity, so this rung is the right one to drive -- but its per-tensor picture must be reported beside the headline, not instead of it."
+   "caveat": "its MEDIAN over tensors is 1.01520 while its MASS-WEIGHTED reading is 0.00231, so the section's mass sits in a few tensors that agree almost exactly while the typical tensor is at saturation. A15/D17 in miniature. A trajectory scores rel_d over the CONCATENATION, which is the mass-weighted quantity, so this rung is the right one to drive -- but its per-tensor picture must be reported beside the headline, not instead of it.",
+   "AMENDED_2026-09-22_pass2": {
+    "what_was_wrong": "this entry ranked aux_heads first on 0.0023114566 mass-weighted against float64 and explained its MEDIAN of 1.01520 as mass concentration, A15/D17 in miniature. The concentration is real but it is NOT what puts the median at 1.0. The mechanism is a MISSING MASK, and the arm that shows it existed before this row started.",
+    "the_arm_pair": {
+     "source": "perf/of3t_auxgrad/grad_M_masked.json and grad_N_unmasked.json, of3t-auxgrad's re-take of instrument A at aux scope, 176 tensors, same reference, same boundary",
+     "M_masked": {
+      "mass_weighted_rel_l2": 0.002271382484742019,
+      "median_rel_l2": 0.05365712665085962,
+      "n_over_per_tensor_bar": 89,
+      "forward_worst_head": "experimentally_resolved_logits",
+      "forward_worst_rel_l2": 0.005052371041859388,
+      "forward_heads_over_bar": 0
+     },
+     "N_unmasked": {
+      "mass_weighted_rel_l2": 0.0022995509589748215,
+      "median_rel_l2": 1.0481785319823138,
+      "n_over_per_tensor_bar": 171,
+      "forward_worst_head": "pae_logits",
+      "forward_worst_rel_l2": 0.5177081904801654,
+      "forward_heads_over_bar": 4
+     },
+     "n_tensors": 176,
+     "n_heads": 5
+    },
+    "what_the_pair_says": "the MASS-WEIGHTED reading is insensitive to the mask -- 0.002271 masked against 0.002300 unmasked, a 1.3 % difference -- while the MEDIAN over tensors moves 19.5x, 0.05366 to 1.04818, and the count over the per-tensor bar goes 89 to 171 of 176. The FORWARD decides it: masked, 0 of 5 heads are over bar with a worst of 0.00505; unmasked, 4 of 5 are over bar with pae_logits at 0.51771. PROTOCOL A18's first clause is that a disagreeing forward invalidates the gradient taken at it, so the unmasked gradient is taken at a forward that disagrees.",
+    "which_number_the_campaign_carries": "MODEL_d56_retake.json's aux_heads figure comes from perf/of3t_auxheads/aux_instrument.py via scoperun.sh, which passes no --mask and whose instrument has no such flag. So the 0.00231 the campaign carries -- and that this entry ranked on -- is arm N, the unmasked one. of3t-auxgrad's own docstring says of that arm's 2.2996e-03: 'the gradient of a different function'.",
+    "why_the_ranking_SURVIVES_anyway": "a trajectory scores rel_d over the CONCATENATION, which is the mass-weighted quantity, and that quantity is the same to 1.3 % under both masks. So aux_heads is still the right rung to drive first. What changes is HOW: it must be driven with the masks ON, and the unmasked arm must be run beside it as the control, because otherwise the trajectory is seeded by a forward that disagrees with upstream on 4 of 5 heads and the reading cannot be attributed.",
+    "live_tree_check": {
+     "file": "tt_bio/openfold3_confidence.py",
+     "forward_device_signature": "forward_device(self, si_input_d, si_trunk_d, zij_trunk_d, oh_d, use_zij_trunk_embedding=True, pair_mask_d=None, attn_mask_d=None)",
+     "status": "the mask repair from of3t-auxfind IS landed and IS plumbed, and both arguments DEFAULT TO NONE -- the source comment says so outright: 'Both default to None, so the shipped default is unchanged and every existing caller computes the same function.' A landed lever at default off is not a landed win.",
+     "who_calls_it": "the only tt_bio call site is openfold3_confidence.py:387, the inference s_path=='device' branch, and it passes no masks. _S_PATH_DEFAULT is 'host', so inference does not reach it by default either. The source states 'Training does not read this -- it calls forward_device directly', and there is NO shipped training caller of the confidence head in tt_bio.",
+     "consequence": "the mask setting for a training trajectory at aux scope is a HARNESS choice, not a shipped-code fact. Neither arm can be called 'the shipped trajectory'. So this row runs BOTH and says which is which, rather than picking one and naming it shipped."
+    },
+    "the_general_error_to_note": "the mechanism was retrodicted. A15/D17 concentration FITS a median near 1.0 and is a real property of this section, so it read as an explanation; the arm that actually moves the median by 19.5x was already on disk in a sibling namespace. Naming a plausible mechanism is not measuring one."
+   }
   },
   {
    "rung": "msa_module",
@@ -60,5 +95,8 @@
  "what_this_does_to_the_reachable_ceiling": {
   "with_aux_and_msa_only": 92.15674359237524,
   "note": "92.1567 %, which is the static instrument's ENTIRE coverage (92.1568 %, MODEL_d56_retake.json). So the two cheap low-error rungs take the trajectory to the static instrument's own reach, and the expensive high-mass rung is the one that would saturate. 97.9849 % still needs the trunk, and the trunk needs porting first."
- }
+ },
+ "AMENDMENT_LOG": [
+  "2026-09-22 pass 2: aux_heads' entry amended in place. The median-near-1.0 was attributed to mass concentration; it is a missing mask, and of3t-auxgrad's M/N arm pair measures it. The first-place ranking survives because a trajectory scores the mass-weighted quantity, which moves only 1.3 % between the arms. See candidate_rungs[0].AMENDED_2026-09-22_pass2."
+ ]
 }
