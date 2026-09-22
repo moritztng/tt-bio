@@ -176,6 +176,24 @@ def main() -> int:
                 "cheap tell.",
         },
         "banked_numbers_this_rests_on": BANKED,
+        "SUPERSEDED_IN_PART_AT_PASS_389": {
+            "what_closed": "the second falsifier branch named grads_f64_043.pt's provenance as "
+                           "the object under test if the injection overcounts on the original "
+                           "graph. of3t-frameself's --blockprobe closed that: a second "
+                           "instrument reads the reference at 3.0392623414001263e-15 (block 47) "
+                           "and 4.1031090433915236e-15 (block 46), the two blocks where the "
+                           "replay is worst. The reference is right.",
+            "so_that_branch_now_reads":
+                "a tensor hook and torch.autograd.grad read the SAME OBJECT, so three readings "
+                "confirm cot_z's VALUE and none of them says whether that object is the tensor "
+                "the loss consumes. The next arm is to enumerate z_out's consumers.",
+            "and_the_arm_itself_is_still_owed_and_is_now_cheaper":
+                "--blockprobe prunes the graph to one block (135.2 s measured against a 340.6 s "
+                "forward) and capture_model_frame.py:653-656 already holds s_out_t and z_out_t, "
+                "so the cotangent-driven call is one extra grad_outputs= argument. What "
+                "blockprobe ran is torch.autograd.grad(LOSS, params), which is loss-driven and "
+                "is not this. See PARTITION_ENTAILED.json.",
+        },
         "DOESNOT": "this names no mechanism and moves no number. It identifies the one premise "
                    "of D242's syllogism that was never written down, and specifies an arm that "
                    "costs one backward and splits the remaining hypothesis space in two.",
