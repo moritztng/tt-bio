@@ -37,7 +37,7 @@ __all__ = [
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "host_f64_softmax",
     "host_f64_softmax_values", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape",
+    "relu", "silu", "reshape", "pairwise_distance",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
 ]
@@ -1082,6 +1082,48 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
         return bw
 
     return _tape(out_v, [x], make)
+
+
+def pairwise_distance(x: Tensor) -> Tensor:
+    """Euclidean distance between every pair of rows of ``x`` ``[..., N, 3]``. Taped.
+
+    Every AF3-family objective seeds two terms off a distance rather than off a
+    coordinate -- ``smooth_lddt`` and ``bond`` both name ``pred_dist`` in
+    ``tt_bio.train.objectives._SEED`` -- so the distance is a node on the tape and not a
+    statistic the loss recomputes. One implementation here rather than one per adapter.
+
+    The value is computed on the host, which is a decision rather than a gap. The reduction
+    runs over a THREE-element axis, so a tiled device form pays a 32x32 tile to carry 3
+    floats and moves 10x the bytes it multiplies; at OpenFold3's 384 tokens the whole
+    round trip is 4.6 KB out and 590 KB back. The BACKWARD is where the arithmetic is, and
+    it is `tt_bio.train.losses.dist_grad_to_coords` -- imported lazily inside the closure
+    because that module is pure numpy and the engine must not depend on the training
+    package at import time. Sharing it is the point: the factor-of-two that the transpose
+    term carries is exactly the silent defect its docstring warns about, and a second copy
+    here would be a second place to get it wrong.
+    """
+    import torch
+
+    xv = ttnn.to_torch(x.value).to(torch.float32)
+    lead, n = tuple(xv.shape[:-2]), int(xv.shape[-2])
+    pts = xv.reshape(-1, n, 3)
+    d = torch.cdist(pts, pts).reshape(*lead, n, n)
+    out_v = ttnn.from_torch(d, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=x.value.device())
+
+    def make():
+        def bw(g):
+            from .train.losses import dist_grad_to_coords
+            gh = ttnn.to_torch(g).to(torch.float64).reshape(*lead, n, n).numpy()
+            coords = ttnn.to_torch(x.value).to(torch.float64).reshape(*lead, n, 3).numpy()
+            dx = dist_grad_to_coords(gh, coords)
+            x.add_grad(ttnn.from_torch(torch.from_numpy(dx).to(torch.float32),
+                                       dtype=x.value.dtype, layout=x.value.layout,
+                                       device=x.value.device()))
+        return bw
+
+    # `reads=(0,)`: the backward reads the COORDINATES, never its own output.
+    return _tape(out_v, [x], make, reads=(0,))
 
 
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,

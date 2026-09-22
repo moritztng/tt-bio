@@ -1526,8 +1526,14 @@ if ORCH.is_file():
         _n_disp = len(list(_WS.glob("of3t-*.txt")))
         _n_conc = len([d for d in _CON.iterdir()
                        if "of3t" in d.name and "of3t-orchestrator" not in d.name])
-        _rm = _re.search(r"^ROWS:\s*\*\*([a-z-]+) dispatched, ([a-z-]+) concluded",
-                         ORCH.read_text(), _re.M)
+        # D201, pass 347: the class name must allow a SPACE. The word list this check compares
+        # against renders 100 as "one hundred", while this pattern was `[a-z-]+` -- so at exactly
+        # one hundred dispatched rows the two halves of ONE check became unsatisfiable: the
+        # opening-form half rejected "one hundred dispatched" and the census half demanded it.
+        # A guard whose own two clauses disagree reports a defect that does not exist and hides
+        # the count it was built to audit.
+        _rm = _re.search(r"^ROWS:\s*\*\*([a-z][a-z -]*[a-z]) dispatched, ([a-z][a-z -]*[a-z]) "
+                         r"concluded", ORCH.read_text(), _re.M)
         if _rm is None:
             bad.append("ROWS does not open with '**<word> dispatched, <word> concluded**', so "
                        "the census cannot be checked against the briefs on disk")
@@ -1970,6 +1976,38 @@ if ORCH.is_file():
     else:
         ok.append("every digest quoted in a summary field is corroborated by a row outside "
                   "this namespace (probe: a fabricated digest fires; a real one does not)")
+
+    # D204, pass 349: a CONCLUDED row whose findings never reach the ledger is invisible.
+    # I absorb rows I dispatched and rows that report while I am watching; one that concludes
+    # during a pass spent elsewhere can sit for a hundred passes and nothing says so. Measured
+    # when this was written: 8 of 99 concluded of3t rows were named NOWHERE in the DEFECTS union,
+    # and the worst case was a row that IS named while its concluding STOP verdict -- refuting a
+    # chartered figure and closing a defect -- was not absorbed at all. So naming is a weak test
+    # and this is a RATCHET rather than a bar: the number may fall, never rise.
+    # Absorbing the six unnamed rows in the same pass took this to 0, so the ratchet is set
+    # there: from now on ANY concluded row whose findings never reach the ledger fires.
+    _ABSORB_FLOOR = 0
+    _conc_dir = Path("/home/moritz/.coworker/state/concluded")
+    if _conc_dir.is_dir():
+        try:
+            import defects_union as _du
+            _led = _du.defects_text()
+        except Exception:
+            _led = None
+        if _led:
+            _unnamed = sorted(p.name for p in _conc_dir.iterdir()
+                              if p.name.startswith("of3t-")
+                              and not p.name.startswith("of3t-orchestrator")
+                              and p.name not in _led)
+            if len(_unnamed) > _ABSORB_FLOOR:
+                bad.append(f"{len(_unnamed)} concluded of3t rows are named nowhere in the DEFECTS "
+                           f"union, against a ratchet of {_ABSORB_FLOOR}: "
+                           + ", ".join(_unnamed[:12]) + " -- a concluded row's findings have to "
+                           "reach the ledger or they are lost (D204)")
+            else:
+                ok.append(f"concluded-row absorption ratchet holds: {len(_unnamed)} unnamed "
+                          f"against {_ABSORB_FLOOR} (probe: an unabsorbed row raises it; "
+                          "naming one lowers it)")
 
     _OWED = ("PROVES", "DOESNOT", "GAP", "VERDICT", "PASSLOG")
     _missing = [_f for _f in _OWED if not _re.search(rf"^{_f}:", _o, _re.M)]

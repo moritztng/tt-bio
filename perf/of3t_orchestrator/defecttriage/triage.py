@@ -214,6 +214,49 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
+             "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
+             "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
+             "the ledger had never recorded it."),
+    "D204": (CAMP, "Nothing checks that a concluded row's findings reach the ledger: 8 of 99 "
+             "concluded of3t rows were named nowhere in the union, and one row that IS named had "
+             "its concluding STOP verdict unabsorbed for a hundred passes. A ratchet is built; "
+             "naming remains a weak test. Campaign-internal, about my own bookkeeping."),
+    "D202": (CAMP, "The 99.2594 % ceiling two charter clauses are measured against counts 0.74055 "
+             "of a HOST_APPLIED class the campaign's own READABLE_MASS.json measures at 1.52024; "
+             "applied consistently it is 98.47976 %. Safe to correct because it flips no verdict. "
+             "Campaign-internal: it is one of our own bars, and no shipped number moves."),
+    "D200": (CAMP, "Both shape-keyed sites are refuted: the single track never executes and the "
+             "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
+             "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "
+             "Campaign-internal: an unlocated gradient defect on an unmerged training path."),
+    "D199": (CAMP, "COVERAGE's diffusion_rollout gap rests on a census reason that is wrong about "
+             "upstream: the rollout runs under torch.no_grad() and is the mini rollout in "
+             "training, so it is not differentiated. The clause needs restating in the sense the "
+             "model has. Campaign-internal: it is about this campaign's own coverage definition."),
+    "D198": (CAMP, "run_arms.sh's clock_watch truncates the four-device tt-smi dump to device 0's "
+             "AICLK fields, so every aiclk log in of3t-trajwide's runs records card 0 whichever "
+             "card the arm held; the shipped arm ran on card 1. Recoverable here because 0 and 1 "
+             "are one board pair, wrong on a run whose cards are on different boards. An "
+             "instrument defect in this campaign's own harness."),
+    "D197": (CAMP, "TRAJECTORY's scope is 88.0819 % of the model, not 36.9462 %: of3t-trajwide ran "
+             "every arm to 20 of 20 and scored at 9 because the scoring pass was taken while the "
+             "runs were still going. The clause still misses the 99.2594 % bar by 11.918 %. "
+             "Campaign-internal: a measurement of our own coverage, no shipped number moves."),
+    "D196": (CAMP, "The shape-keyed site charged with 84.52 % of the trunk's width growth is never "
+             "executed: a route census counts 384 calls of one PAIR-track shape and zero from the "
+             "single track, so AttentionPairBias never reaches _fp32_softmax_attention. A "
+             "code-read route taken for a runtime fact, in a brief I wrote. Campaign-internal; "
+             "D191's mechanism is un-located again."),
+    "D195": (CAMP, "A difference-of-absolute-errors decomposition locates the CARRIER, not the "
+             "cause: it points at whatever holds the reference mass. In D187 the named leaf was "
+             "1.0741x its worst cotangent-sharing sibling. A method rule for this campaign's own "
+             "attribution, so campaign-internal; no shipped number moves."),
+    "D194": (CAMP, "TRAJECTORY's scope clause was treated as blocked by CEILING.json's 678.731 GB "
+             "projection for the 48-block float64 stack; of3t-frame384 ran that object at 24.881 "
+             "GB peak RSS, 27.3x less, with per-block activation checkpointing proved inert. The "
+             "wall is gone and nothing said so. Campaign-internal: it is about what this campaign "
+             "believed its own instrument cost, and no shipped number moves."),
     "D193": (CAMP, "A crop label in a brief and in the ledger said 'crop 64' for a capture "
              "whose masks are (1, 384): of3t-apbback's block-47 result is a crop-384 reading. "
              "D180 one turn worse -- the crop was quoted and was wrong. Entirely in the "

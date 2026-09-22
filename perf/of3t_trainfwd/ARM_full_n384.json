@@ -1,0 +1,27 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t/bundle_min/batch_step003.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 20260922,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "commit": "248c2605e29b6e0943c085f0b189464bae8206be",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "ok": false,
+ "error": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/perf/of3t_trainfwd/trainfwd_run.py\", line 136, in main\n    outputs = fwd(batch)\n              ^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/train/openfold3.py\", line 444, in __call__\n    xl_den = s.dm(\n             ^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_module.py\", line 300, in __call__\n    return self._post_encoder(\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_module.py\", line 386, in _post_encoder\n    ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_transformer.py\", line 302, in __call__\n    tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/taped_ttnn.py\", line 1049, in call\n    raise NotImplementedError(\nNotImplementedError: ttnn.to_torch has no tape entry, and it was handed a taped tensor. Add one to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of everything upstream of this call, silently.\n",
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 4
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 4 samples, polled DURING the work",
+ "total_s": 9.606062333999944
+}

@@ -97,6 +97,12 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     Two lines below know about it -- which shard is read, and that ``step()`` is given
     something to reduce -- and the loop is otherwise the loop it was on one chip.
     """
+    # An adapter that BUILDS the model owns it, so it should not also have to be handed
+    # back through every caller. `model=` still wins when it is passed; without it the
+    # forward is asked. This is what makes discovery a WALK by default rather than the
+    # call-site census, and the census is blind to every weight a module fuses in its own
+    # `__init__` -- 2119 of 2531 on OpenFold3's trunk, silently.
+    model = model if model is not None else getattr(forward, "model", None)
     dp = (mesh or Mesh({"dp": [0]})).axis("dp")
     if dp.width > 1 and launcher.driving():
         return launcher.drive(dp, out_dir=out_dir, steps=steps)
