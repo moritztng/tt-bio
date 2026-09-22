@@ -2842,3 +2842,46 @@ bounds what it can localise.
 
 **The next arm is named and cheap**: pin the single track's softmax backward to its float64 VJP and
 re-score; `tapecensus.py` already computes that VJP.
+
+### D58 UPDATE, pass 353 — the ~20x forward-to-gradient factor is the FUNCTION's, not the tape's, so D58 as filed is **REFUTED**. It and D30 stay **UNFIXED** pending the row's own closure statement.
+
+`of3t-tapeamp` built the control the object had never had: **upstream's own forward-to-gradient
+ratio**, at the same boundary, against the same float64 reference, on the same 547 tensors.
+
+    upstream 0.4.3 bf16 recipe      7.666x        ours  11.026x
+    upstream 0.4.3 fp32 recipe      9.326x        and four orders lower in ABSOLUTE error
+
+**Our arm beats upstream's own on BOTH halves** — the forward by **1.959x**, the gradient by
+**1.362x** — and the arithmetic closes exactly: **1.959 / 1.362 = 1.438**, which *is* the ratio
+excess. Our factor is the larger one precisely because the denominator is the half we beat it on
+hardest. A forward-to-gradient ratio is not a defect measure; it is a quotient of two accuracies,
+and improving the numerator less than the denominator raises it.
+
+**Three precisions span 7.7x to 11.0x, and that range is itself the discriminator.** A dtype
+boundary cannot survive a four-order change in absolute error. The conditioning of the
+Jacobian-transpose product can, and `of3t-bwdaccum` measured exactly that on the trunk. So D58's
+claim that *"the ~20x amplification belongs to the tape, not to any module"* is **refuted**: the
+two independent sightings at 19.6x and 19.8x agreed to two significant figures because they are the
+same property of the same function, not because a shared tape component injected it.
+
+**And the D206-class boundary I put FIRST in the brief is refuted by a call count, not a route
+read.** 1,879 node firings, **zero dtype reconciliations**. The tape has exactly one place a
+cotangent's dtype is reconciled to its forward value's — `autograd.py`'s backward loop — and on the
+diffusion scope it **never fires**: the whole backward runs fp32 against fp32. The only dtype
+crossings are 96 calls of the model's own explicit typecast verb, which is taped and
+differentiated. My lead was worth pricing and it is dead.
+
+**Controls, which are why this reads as a result rather than a story.** A/A bit-identical on all 48
+forward values, the gradient median, the mass-weighted gradient and the ratio — determinism floor
+exactly **0**. A break control that **rolls the cotangent moves the gradient 10.058x and leaves the
+forward bit-identical**, which is the control a ratio needs and the one nobody had run. The
+wall-clock floor is 54 % on that box at load 9-13 and **no claim rests on a timing**. D141's
+fingerprint guard is armed and passes — 761 parameters, 24 per-block `layer_norm_z`, 0 unexpected,
+0 missing — so this is not `of3t-ditcot`'s architecture case. The device arm reproduces bit-for-bit
+across hosts and cards, and upstream's bf16 and fp32 gradients reproduce the qb2 record to every
+digit at `OMP_NUM_THREADS=8`.
+
+**Not closed here.** The row is live and its gate owes a `DEFECTS:` field saying which of D30, D58,
+D129 and D55 it closes, narrows or leaves untouched. I am not closing a USER-FACING defect on my
+own reading of a live row's commit message — that is the closure-plan failure this campaign already
+had, in the other direction.

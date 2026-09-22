@@ -820,7 +820,7 @@ precision on mass already inside the bar, another softmax configuration, or call
 gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random cosine is a
 missing term, not rounding.
 
-VERDICT: PARTIAL, re-stamped pass 352, 2026-09-22 — **still working, which is what PARTIAL means.**
+VERDICT: PARTIAL, re-stamped pass 353, 2026-09-22 — **still working, which is what PARTIAL means.**
 **One hundred two** of3t rows concluded, **two hundred seven defects** filed, **76 UNFIXED**, counted
 over the UNION of `DEFECTS.md` and its archives because the live file holds only the tail. The exit
 criterion is machine-readable and reads **1 of 3** — COVERAGE MET at pass 351, the first — (`state/of3t/CHARTER_EVIDENCE.json`, regenerated
@@ -3412,3 +3412,47 @@ deliverable two — pin the single track's softmax backward to its float64 VJP a
 carries the saturation limit as a constraint rather than a footnote, and one instruction earned the
 hard way: **do not present a mechanism as a repair**, three have been named and refuted for this
 object already.
+
+## Pass 353 — the ~20x four user-facing defects were waiting on is the function's, not the tape's, and our arm beats upstream on both halves
+
+`of3t-tapeamp` built the control the object had never had in three rows of ownership: **upstream's
+own forward-to-gradient ratio**, same boundary, same float64 reference, same 547 tensors.
+
+    upstream 0.4.3 bf16      7.666x        ours   11.026x
+    upstream 0.4.3 fp32      9.326x        and four orders lower in ABSOLUTE error
+
+**Our arm beats upstream's own on both halves** — forward by **1.959x**, gradient by **1.362x** —
+and the arithmetic closes: **1.959 / 1.362 = 1.438**, which is exactly the ratio excess. Our factor
+is the larger one *because* the denominator is the half we beat it on hardest. A forward-to-gradient
+ratio is a quotient of two accuracies, and improving the numerator less than the denominator raises
+it. That is why two unrelated tracks agreed to two significant figures: same property of the same
+function, not a shared tape component injecting it. **D58 as filed is refuted.**
+
+**Three precisions span 7.7x to 11.0x, and the span is the discriminator.** A dtype boundary cannot
+survive a four-order change in absolute error; the conditioning of the Jacobian-transpose product
+can, and `of3t-bwdaccum` already measured that on the trunk.
+
+**My own lead, the one I told the row to price first, is dead — by call count.** 1,879 node firings
+and **zero dtype reconciliations**. The tape has exactly one place a cotangent's dtype is reconciled
+to its forward value's, and on the diffusion scope it never fires: the whole backward runs fp32
+against fp32. The only crossings are 96 calls of the model's own explicit typecast verb, which is
+taped and differentiated. **There is no D206-class boundary in the shipped diffusion backward**, and
+that is a census rather than a route read — which is the standard I put in the brief and it was
+turned on my own hypothesis.
+
+**The control that makes the ratio legible is one nobody had run:** rolling the cotangent moves the
+gradient **10.058x** and leaves the forward **bit-identical**. A ratio needs a control that moves
+one half and not the other, and until this pass the campaign had been reading a ratio without one.
+Determinism floor exactly 0 across forward values, gradient median, mass-weighted gradient and the
+ratio itself; wall-clock floor 54 % at load 9-13, with **no claim resting on a timing**; D141's
+fingerprint guard armed and passing at 761 parameters, 24 per-block `layer_norm_z`, 0 unexpected, 0
+missing — so this is not `of3t-ditcot`'s architecture case.
+
+**I am not closing D30 or D58 on this.** The row is live and its gate owes the `DEFECTS:` field
+saying which of the four it closes, narrows or leaves untouched. Closing a USER-FACING defect on my
+own reading of a live row's commit message is the closure-plan failure this campaign already had,
+pointing the other way.
+
+Also this pass: `MEMORY.md` had two index entries for one lesson — the pooled-ratio decomposition —
+because the row that found it wrote its own memory seven minutes before I wrote mine. Kept the
+row's, which is the fuller one, and deleted mine.
