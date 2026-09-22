@@ -1,0 +1,30 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 181",
+ "headline": "PROTOCOL §7's 20-step trajectory -- the instrument that had NEVER been run, dispatched two passes ago after I found §8's completion sentence required it -- returned NO-GO and found FOUR wiring divergences in the shipped training path. Every one is a component applied in the wrong order, called at the wrong time, or not called at all: the class no amount of per-parameter gradient agreement can reach. The campaign could have had perfect gradients on every scope and still not reproduced training.",
+
+ "the_four": [
+  {"n": 1, "what": "WEIGHT DECAY UPSTREAM DOES NOT HAVE",
+   "where": "recipes.py:118 builds AdamW(..., weight_decay=0.01 by default); upstream's configure_optimizers builds torch.optim.Adam with none (runner.py:852-860)",
+   "effect": "removing it alone takes the scaled arm's endpoint from 2.938e-01 to 1.105e-01 and flips the growth exponent from +0.406 to -0.152",
+   "the_categorical_tell": "74 tensors have an EXACTLY ZERO reference update -- upstream never moves them. With weight decay on, 0 of 4,147 tensors are bit-identical at k=2, because lr*wd*theta moves a parameter whose gradient is zero. With it off, 76 are."},
+  {"n": 2, "what": "PER-SAMPLE CLIPPING IMPLEMENTED, TESTED, AND NEVER CALLED",
+   "where": "per_sample_clipping: True at clip_val 10.0 is upstream's shipped OF3 default (model_config.py:156-159). AdamW.clip_and_accumulate implements it and has 0 callers in tt_bio/ against 3 in tests/test_clipping_matches_openfold3.py; train_loop clips the batch once instead.",
+   "effect": "at k=20 our batch norm is 1.5899e+01 and takes clip coefficient 0.6290, while each of upstream's four samples sits under the threshold and takes 1.0. We scale an update by 0.63 that upstream does not scale at all -- and per-sample clipping changes the DIRECTION of the sum, not only its length."},
+  {"n": 3, "what": "A PARTICIPATION COUNT WRITTEN AND NEVER READ",
+   "where": "AdamW records self.participation (optim.py:411) and reads it 0 times; upstream's _sync_and_average_grads divides each parameter's accumulated gradient by its own count (grad_manager.py:225-232)",
+   "effect": "the counts genuinely differ -- spread [1, 4] at k=20, because the confidence head is disabled on samples whose confidence weight is zero. Closing it on top of 1 and 2 takes k=2 from 1.084e-01 to 8.715e-03, a factor of 12.4, and the worst tensor from 1.507e+06 to 1.130e-02.",
+   "why_Adam_does_not_cancel_it": "§7a-bis measured 2.547e-07 for a 1.01x scaling, but a 4x one is a different regime: eps = 1e-8 stops cancelling for every element whose gradient is near it, while Adam still gives those elements an update of order lr."},
+  {"n": 4, "what": "THE WRONG SCHEDULE FAMILY, settled in closed form",
+   "where": "recipes.py:119 calls af3_lr(s, lr, warmup_steps=warmup_steps) and passes NO plateau_until, selecting Protenix's schedule where OpenFold3 ships the AF2 form",
+   "effect": "driven against upstream's real AlphaFoldLRScheduler over steps 0..200,004 in float64: 200,004 of 200,005 points exact, ONE mismatch, at step 50,000 -- ours 0.00171 against their 0.0018, 5.0e-02 relative. plateau_until=50000 makes it 200,005 of 200,005.",
+   "why_the_trajectory_could_not_find_it": "the 20-step window is blind to this BY CONSTRUCTION -- both families are the same linear warmup and agree on every point of 0..1000. §4's whole-domain method is what settles it, not §7. The two instruments are complementary and this is the case that shows it."}
+ ],
+
+ "the_four_are_not_the_whole_of_it": "closing 1, 2 and 3 together leaves 8.715e-03 at k = 2 -- still 17.3x the fp32 differencing floor -- and the SUPER-LINEAR shape survives at +1.267. §7's bar is the shape, not the magnitude, and super-linear fails at any magnitude. So the verdict is NO-GO with four defects named and a residual that is still unexplained.",
+
+ "what_the_row_did_right_and_it_matters": "all four were found by READING the two shipped call paths and named in PREREGISTRATION.md, pushed at acd00795f BEFORE any full-scope number existed. The run therefore tested a prediction rather than fitting an explanation to a result. And d_1 came back exactly 0.000000e+00 on both sides with 4,147 of 4,147 tensors bit-identical -- the D11 schedule off-by-one, recorded CLOSED by of3t-updaterule, confirmed end to end.",
+
+ "why_this_vindicates_running_§7_at_all": "§7 had never been run, and I found that only by checking the campaign's numbers against its own completion criterion rather than against my sense of where the work was. §4 and §5 proved the schedule, clipping, optimizer and seam IN ISOLATION; §3 was proving gradients scope by scope. None of that can see a component that is never called. Three of these four live in tt-bio's own training path and would have survived every other instrument the campaign has.",
+
+ "provenance": "of3t-traj20, VERDICT NO-GO, concluded. origin/wk/of3t-traj20; pre-registration at acd00795f. Three controls, one of which refutes a claim the row would otherwise have made. No number here is mine."
+}

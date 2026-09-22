@@ -1,0 +1,378 @@
+{
+ "card_b": 34225520128,
+ "card_GB_dec": 34.2255,
+ "note": "every peak, exponent and projection below that involves the 512 rung is a LOWER BOUND: the 512 backward was refused by the card and did not complete",
+ "rungs": [
+  {
+   "path": "perf/of3t_crop640/out/split_256.json",
+   "tokens": 256,
+   "peak_b": 7317427200,
+   "completed": true,
+   "censored": false,
+   "allocs": 6251,
+   "walk_gap_b": 0,
+   "walks": 91,
+   "forward_peak_b": 2930365440,
+   "parts": {
+    "boundaries": 81264640,
+    "weights": 359055360,
+    "weight_grads": 104202240,
+    "tape": 368525312,
+    "cotangents": 16777216,
+    "recompute": 5207572480,
+    "other_leaf": 14942208,
+    "unattributed": 1164628992
+   },
+   "pins": 106,
+   "boundaries_after_forward_b": 903348224,
+   "boundary_shapes": [
+    {
+     "shape": [
+      1,
+      256,
+      256,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      256,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      256,
+      256,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "error_head": null,
+   "free_at_failure": {
+    "free_b": 26908092928,
+    "largest_contiguous_free_per_bank_b": 3311069120,
+    "largest_contiguous_free_across_banks_b": 26488552960
+   },
+   "card": "0",
+   "host": "tt-quietbox2",
+   "branch": "wk/of3t-crop640",
+   "commit": "69e678e4074098db58838f402fee5efd4ef34cbf",
+   "aiclk": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 123 samples, polled DURING the work"
+  },
+  {
+   "path": "perf/of3t_crop640/out/split_384.json",
+   "tokens": 384,
+   "peak_b": 17924142080,
+   "completed": true,
+   "censored": false,
+   "allocs": 4870,
+   "walk_gap_b": 0,
+   "walks": 147,
+   "forward_peak_b": 4794512384,
+   "parts": {
+    "boundaries": 2021916672,
+    "weights": 359055360,
+    "weight_grads": 2850816,
+    "tape": 826474496,
+    "cotangents": 37748736,
+    "recompute": 13053984768,
+    "other_leaf": 524288,
+    "unattributed": 1621586944
+   },
+   "pins": 106,
+   "boundaries_after_forward_b": 2021916672,
+   "boundary_shapes": [
+    {
+     "shape": [
+      1,
+      384,
+      384,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      384,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      384,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      384,
+      384,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "error_head": null,
+   "free_at_failure": {
+    "free_b": 16301378048,
+    "largest_contiguous_free_per_bank_b": 2026704832,
+    "largest_contiguous_free_across_banks_b": 16213638656
+   },
+   "card": "2",
+   "host": "tt-quietbox2",
+   "branch": "wk/of3t-crop640",
+   "commit": "69e678e4074098db58838f402fee5efd4ef34cbf",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 302 samples, polled DURING the work"
+  },
+  {
+   "path": "perf/of3t_crop512/out/split_512.json",
+   "tokens": 512,
+   "peak_b": 34218562560,
+   "completed": false,
+   "censored": true,
+   "allocs": 6326,
+   "walk_gap_b": 0,
+   "walks": 326,
+   "forward_peak_b": 7487050752,
+   "parts": {
+    "boundaries": 3585081344,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1466859520,
+    "cotangents": 67108864,
+    "recompute": 27338342400,
+    "other_leaf": 262144,
+    "unattributed": 1401852928
+   },
+   "pins": 106,
+   "boundaries_after_forward_b": 3585081344,
+   "boundary_shapes": [
+    {
+     "shape": [
+      1,
+      512,
+      512,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      512,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      512,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      512,
+      512,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "error_head": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 6160384 B DRAM buffer across 8 banks, where each bank needs to store 770048 B, but bank size is 4278190016 B (allocated: 4277320320 B, free: 869696 B, largest free block: 716736 B)\n",
+   "free_at_failure": {
+    "free_b": 6957568,
+    "largest_contiguous_free_per_bank_b": 716736,
+    "largest_contiguous_free_across_banks_b": 5733888
+   },
+   "card": "2",
+   "host": "tt-quietbox2",
+   "branch": "wk/of3t-crop512",
+   "commit": "43781fe1e302b75fdd1b3958ec7cd7889f7d7e73",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 261 samples, polled DURING the work"
+  }
+ ],
+ "fitted_on": [
+  384,
+  512
+ ],
+ "owner_exponents_lower_bound": {
+  "recompute": 2.569,
+  "boundaries": 1.991,
+  "tape": 1.994,
+  "unattributed": -0.506,
+  "weights": 0.0,
+  "cotangents": 2.0,
+  "weight_grads": null,
+  "other_leaf": -2.409
+ },
+ "total_peak_exponents": {
+  "256->384": 2.2095,
+  "384->512": 2.2477
+ },
+ "boundary_closed_form": {
+  "form": "13568*N^2 + 55296*N",
+  "built_on_tokens": 256,
+  "predicts": {
+   "256": 903348224,
+   "384": 2021916672,
+   "512": 3585081344,
+   "640": 5592842240,
+   "768": 8045199360
+  },
+  "measured_after_forward": {
+   "256": 903348224,
+   "384": 2021916672,
+   "512": 3585081344
+  },
+  "exact_at_every_rung": true
+ },
+ "projections": {
+  "640": {
+   "projected_peak_b": 58246907713,
+   "projected_peak_GB": 58.247,
+   "by_owner_GB": {
+    "recompute": 48.499,
+    "boundaries": 5.593,
+    "tape": 2.289,
+    "unattributed": 1.402,
+    "weights": 0.359,
+    "cotangents": 0.105,
+    "other_leaf": 0.0,
+    "weight_grads": 0.0
+   },
+   "spill_only_GB": 52.654,
+   "halve_recompute_only_GB": 33.997,
+   "both_levers_GB": 28.404,
+   "margin_GB": 5.821,
+   "fits": true
+  },
+  "768": {
+   "projected_peak_b": 90722823659,
+   "projected_peak_GB": 90.723,
+   "by_owner_GB": {
+    "recompute": 77.473,
+    "boundaries": 8.045,
+    "tape": 3.292,
+    "unattributed": 1.402,
+    "weights": 0.359,
+    "cotangents": 0.151,
+    "other_leaf": 0.0,
+    "weight_grads": 0.0
+   },
+   "spill_only_GB": 82.678,
+   "halve_recompute_only_GB": 51.986,
+   "both_levers_GB": 43.941,
+   "margin_GB": -9.716,
+   "fits": false,
+   "third_lever": {
+    "must_save_GB": 9.716,
+    "where_the_bytes_are_GB": {
+     "recompute": 38.737,
+     "tape": 3.292,
+     "unattributed": 1.402,
+     "weights": 0.359,
+     "cotangents": 0.151
+    },
+    "as_pct_of_the_halved_recompute": 25.1,
+    "recompute_budget_b": 29020940338,
+    "recompute_must_fall_to_pct_of_projection": 37.5
+   }
+  }
+ },
+ "controls": {
+  "boundary_form_out_of_sample_at_512": {
+   "predicted_b": 3585081344,
+   "measured_b": 3585081344,
+   "exact": true
+  },
+  "the_256_384_fit_projected_onto_512": {
+   "predicted_b": 33844688114,
+   "measured_lower_bound_b": 34218562560,
+   "under_predicts_by_at_least_pct": 1.093
+  },
+  "structural_N2_projected_onto_512": {
+   "predicted_b": 31865141476,
+   "measured_lower_bound_b": 34218562560,
+   "under_predicts_by_at_least_pct": 6.878,
+   "verdict": "REFUTED at one rung: N^2 puts 512 below the card and 512 filled it"
+  },
+  "the_640_observational_floor_is_the_card": {
+   "640_died_at_b": 34215730688,
+   "512_died_at_b": 34218562560,
+   "card_b": 34225520128,
+   "reading": "both are the card, so the floor tests that a projection exceeds the card and cannot discriminate between projections that do"
+  },
+  "walk_gap_to_peak_b": {
+   "256": 0,
+   "384": 0,
+   "512": 0
+  },
+  "regime_discriminator_boundaries_intact_at_the_peak": {
+   "256": {
+    "at_peak_b": 81264640,
+    "after_forward_b": 903348224,
+    "intact_pct": 9.0
+   },
+   "384": {
+    "at_peak_b": 2021916672,
+    "after_forward_b": 2021916672,
+    "intact_pct": 100.0
+   },
+   "512": {
+    "at_peak_b": 3585081344,
+    "after_forward_b": 3585081344,
+    "intact_pct": 100.0
+   }
+  }
+ }
+}

@@ -301,5 +301,9 @@ def test_the_optimizer_still_refuses_an_unreduced_wide_step(as_rank):
     opt = AdamW.__new__(AdamW)
     opt.data_parallel = ax
     opt.params = {"a.A": T()}
+    # A constructed optimizer always has one, and `_reduce` branches on it: a non-empty
+    # accumulator means the step reduces the ACCUMULATOR instead of the tape, and this arm
+    # is the tape one.
+    opt.accum = {}
     with pytest.raises(UnreducedGradients, match="no per-chip gradients"):
         opt._reduce(None)

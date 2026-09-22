@@ -1,0 +1,61 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "first_look_at_prediction_heads_not_a_diagnosis": "the diff contains a docstring bins count going 15 -> 39 and a de-indentation moving a distance-bin computation (bins / squared_bins / dij / zij = zij + self.linear_distance(dij)) out of a conditional. That is control flow, not cosmetics. Whether it reaches plddt_logits is UNREAD, and after this pass's experience with magnitude estimates I am not guessing.",
+ "headline": "every upstream module backing a measured scope differs between the revisions, and three were never read: aux_heads (104 lines), msa_module (20) and the trunk (30+1, which became D90 and cost a withdrawn escalation). Line count locates but does not diagnose -- the trunk's decisive change was ONE line at a call site.",
+ "line_count_locates_it_does_not_diagnose": "this table's own best evidence: base_blocks.py is a ONE-line diff and it was the functionally decisive one, while diffusion_transformer.py's 22 lines were read by D22 and judged a refactor. Ranking by diff size would have put the decisive change last.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device. diff -u over ~/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3 and .../up0.5.0, counting changed non-context lines.",
+ "table": [
+  {
+   "diff_lines": 30,
+   "module": "core/model/layers/triangular_attention.py",
+   "outcome": "became D90",
+   "read_by_D22": false,
+   "scope": "pairformer trunk"
+  },
+  {
+   "diff_lines": 1,
+   "module": "core/model/latent/base_blocks.py",
+   "outcome": "WAS the D90 change -- transpose_bias=True at tri_att_end",
+   "read_by_D22": false,
+   "scope": "trunk call site"
+  },
+  {
+   "diff_lines": 98,
+   "module": "core/model/heads/prediction_heads.py",
+   "outcome": "UNREAD",
+   "read_by_D22": false,
+   "scope": "aux_heads"
+  },
+  {
+   "diff_lines": 6,
+   "module": "core/model/heads/head_modules.py",
+   "outcome": "UNREAD",
+   "read_by_D22": false,
+   "scope": "aux_heads"
+  },
+  {
+   "diff_lines": 20,
+   "module": "core/model/latent/msa_module.py",
+   "outcome": "UNREAD",
+   "read_by_D22": false,
+   "scope": "msa_module"
+  },
+  {
+   "diff_lines": 22,
+   "module": "core/model/layers/diffusion_transformer.py",
+   "outcome": "judged functionally inert",
+   "read_by_D22": true,
+   "scope": "diffusion transformer"
+  },
+  {
+   "diff_lines": 2,
+   "module": "core/model/layers/diffusion_conditioning.py",
+   "outcome": "judged functionally inert",
+   "read_by_D22": true,
+   "scope": "diffusion_conditioning"
+  }
+ ],
+ "the_exposure_cuts_both_ways": "aux_heads FAILS A18 at 3.6515e-01 and is carried as void -- if its heads differ functionally between the revisions, that failure may be an artefact and the scope is unmeasured rather than broken. msa_module PASSES at 0.9474x the reachable bar and is part of the campaign's POSITIVE result -- if its module differs functionally, that pass is equally suspect. A revision mismatch is not a bias toward bad news.",
+ "what": "which upstream modules differ between openfold3 0.4.3 (what our port targets) and 0.5.0 (what the campaign's references were built with), per measured scope, and which of those diffs anyone has actually read.",
+ "what_closes_it": "read the three unread diffs the way D22 read the DiT ones; or run each scope's upstream 0.4.3 module against its 0.5.0 module on the same captured boundary, which is the decisive arm and the same one of3t-foldab owes for the trunk."
+}

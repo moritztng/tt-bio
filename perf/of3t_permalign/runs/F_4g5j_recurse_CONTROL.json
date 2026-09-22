@@ -1,0 +1,87 @@
+{
+ "instrument": "D117: did upstream's multi-chain permutation alignment complete?",
+ "tag": "F_4g5j_recurse_CONTROL",
+ "provenance": {
+  "source": "WeightedPDBDataset",
+  "data_dir": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets",
+  "cache_file": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets/training_cache_with_templates_subset_2.json",
+  "stage": "finetune_1",
+  "crop": 256,
+  "index": 12,
+  "pdb_id": "4g5j",
+  "datapoint": "1",
+  "n_tokens_real": 256,
+  "collate": "recurse"
+ },
+ "ref_spaces": {
+  "present": true,
+  "type": "dict",
+  "n_entries": 197,
+  "key_kind": "int",
+  "example_perm_shape": [
+   1,
+   1,
+   8
+  ]
+ },
+ "call": {
+  "samples": 1,
+  "pred_shape": [
+   1,
+   1,
+   1631,
+   3
+  ],
+  "noise_sigma_A": 1.0,
+  "seed": 20260921,
+  "drop_key": false,
+  "collate": "recurse",
+  "flip_symmetric": false
+ },
+ "verdict": {
+  "n_alignment_calls": 1,
+  "n_completed": 0,
+  "naive_fallback_invoked": true,
+  "fell_back_by_wrapper": true,
+  "fell_back_by_log": true,
+  "detectors_agree": true,
+  "completed": false,
+  "errors": [
+   {
+    "error": "IndexError: index 1 is out of bounds for dimension 0 with size 1",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/of3t-permalign/perf/of3t_permalign/permalign_guard.py\", line 63, in wrapped\n    out = orig(*a, **kw)\n          ^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1547, in multi_chain_permutation_alignment\n    gt_atom_index = single_batch_multi_chain_permutation_alignment(\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1497, in single_batch_multi_chain_permutation_alignment\n    gt_atom_index = get_final_atom_permutation_index(\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1175, in get_final_atom_permutation_index\n    permutations = pred_ref_space_uid_to_perm[ref_space_uid.item()]\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^\nIndexError: index 1 is out of bounds for dimension 0 with size 1\n"
+   }
+  ],
+  "log_records": [
+   {
+    "level": "ERROR",
+    "logger": "openfold3.core.utils.permutation_alignment",
+    "message": "Caught error during multi-chain permutation alignment, falling back to naive alignment: index 1 is out of bounds for dimension 0 with size 1"
+   }
+  ]
+ },
+ "flip_symmetric": null,
+ "vs_naive": {
+  "atoms_differing_from_naive": 0,
+  "max_abs_coord_diff_A": 0.0
+ },
+ "effect": {
+  "gt_atoms_moved": 0,
+  "gt_shape_before": [
+   1,
+   1,
+   1631,
+   3
+  ],
+  "gt_shape_after": [
+   1,
+   1,
+   1631,
+   3
+  ],
+  "all_losses_zeroed": false
+ },
+ "openfold3": "/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/__init__.py",
+ "torch": "2.13.0+cpu",
+ "total_s": 4.209167957305908
+}

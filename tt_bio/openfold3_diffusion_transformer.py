@@ -63,7 +63,8 @@ import torch
 import ttnn
 
 from . import ops
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul, softmax_ckc
+from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul,
+                          host_f64_softmax_site, site_softmax, softmax_ckc)
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
 from .eltwise_fusion import scale_add, mask_add
@@ -110,7 +111,14 @@ class _DiTBlock(Module):
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = sd_block
         self._wc: dict = {}
+        # OFF. `__call__` typecasts the scores to fp32 on the line above the call, so this is
+        # the site where the config pays: 12.50x accuracy against float64 for 1.55x cost at
+        # [1,16,128,128], 144 calls a fold, +0.72 s against a 2.28 s A/A fold floor on qb2 card 0
+        # and 144 x 6.3 us bounding the real cost at 0.91 ms. It stays off because `of3t-softmax`
+        # measured the gain invisible in the structure (0.3237 A against a 0.6250 A seed floor),
+        # not because it is expensive. perf/of3t_fwdkcfg/.
         self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
+        self._softmax_f64 = host_f64_softmax_site("openfold3.diffusion_transformer")
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -206,8 +214,9 @@ class _DiTBlock(Module):
         if cache is None:
             ttnn.deallocate(zb)
         sc = ttnn.typecast(sc, ttnn.float32)
-        attn = ttnn.softmax(sc, dim=-1, numeric_stable=True,
-                            compute_kernel_config=self._softmax_ckc)
+        attn = site_softmax(sc, dim=-1, numeric_stable=True,
+                            compute_kernel_config=self._softmax_ckc,
+                            host_f64=self._softmax_f64)
         ttnn.deallocate(sc)
         attn = ttnn.typecast(attn, self._act_dtype)
         o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
