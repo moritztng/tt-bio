@@ -1,0 +1,72 @@
+{
+  "what": "GO condition 3's headline, re-derived from of3t-trajwide's surviving weight dumps and committed, because the row's own artifact was never on its branch.",
+  "why": "`of3t-trajwide` reports rel_d 2.564253e-01 at k=20, exponent -0.27724, over 573 tensors at 88.08194359237523 %, and the campaign quotes it as condition 3's headline. Searched every of3t branch: the value appears ONLY in of3t-trajbar's PREDICTION.md, in trajbar.py's docstring and in the orchestrator's own state doc. No scored artifact anywhere carries it. What IS committed on wk/of3t-trajwide is live/PARTIAL_*.json at 9 of 20 steps, and INVALID_050_ref/*.json at 549 tensors which the row itself quarantined. So the campaign's condition-3 evidence lived in prose.",
+  "recovered_how": "the raw dumps survive at /home/ttuser/of3t_runs/trajwide/w/ on qb2, 21 files per arm across all 8 arms, so the row's own scorer was re-run on them. CPU only, no device.",
+  "result": {
+    "k2_rel_d": 0.453841105900858,
+    "k20_rel_d": 0.2564252741863578,
+    "growth": {
+      "exponent": -0.2772440946061829,
+      "intercept": -0.46711014985242244,
+      "r2": 0.9049624179817609,
+      "fitted_over_k": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "shape": "sub-linear",
+      "rungs_dropped_bit_identical": 0
+    },
+    "tensors_scored": 573,
+    "pct_of_model_sq_grad_norm": 88.08194359237523,
+    "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+    "w0_baseline": "own",
+    "steps_scored": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "reproduces_the_row_exactly": "k=2 4.538411e-01, k=20 2.564253e-01, exponent -0.27724, intercept -0.46711, r2 0.9050 -- every published digit. The row was right; only its artifact was missing.",
+  "the_w0_trap": "scored with --w0 own, which is what `live/PARTIAL_shipped.json` records as its w0_baseline. The default --w0 ckpt reads k=20 1.294855e+00 instead, a 5.05x apparent discrepancy that is a baseline convention and not a disagreement. The control arm is committed beside this so nobody rediscovers it as a defect.",
+  "d149_note": "the guard refuses this pairing because the dumps record /home/ttuser/of3t_refprec/of3pkg043 while refpath now resolves /home/ttuser/of3t-campaign-refs/of3pkg043. The two trees are BIT-IDENTICAL -- 293 .py files, digest 24f0aee7525f1042 on both -- so the refusal is a path-string mismatch on identical content. Scored against the recorded path with a local refpath override; the shared tree was not touched.",
+  "sources": {
+    "row": "of3t-trajwide (concluded 2026-09-21 19:19), state/of3t-trajwide.md",
+    "dumps": "/home/ttuser/of3t_runs/trajwide/w/{shipped,theirs} on qb2",
+    "scorer": "perf/of3t_trajwide/trajwide.py --score --w0 own --steps 20",
+    "bar": "perf/of3t_trajbar/BAR.json scored.bar_bf16mixed_trajwide_scope, 573 tensors, same 88.08194359237523 %"
+  }
+}
