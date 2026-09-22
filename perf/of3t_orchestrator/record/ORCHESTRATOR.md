@@ -3456,3 +3456,36 @@ pointing the other way.
 Also this pass: `MEMORY.md` had two index entries for one lesson — the pooled-ratio decomposition —
 because the row that found it wrote its own memory seven minutes before I wrote mine. Kept the
 row's, which is the fuller one, and deleted mine.
+
+**`of3t-tapeamp` concluded and closed two USER-FACING defects — the first the campaign has
+recorded.** Its `DEFECTS:` field states all four in the words the brief asked for, with its own
+reason: *"the campaign's closure plan has already carried a concluded row as a live owner for days
+and a narrowing described as a closure is how that happens."*
+
+  * **D30 CLOSED as not a defect.** Filed at 19.6x, corrected to 14.75x by `of3t-tapediverge` and to
+    **11.026x** by `of3t-ditref`'s repaired denominator; this row prices **7.666x of that inside
+    upstream's own bf16 recipe** with the remaining 1.438x arithmetic. Our gradient is **0.734x**
+    upstream's own on 547 tensors and **0.5865x** mass-weighted on 761 — *below the reference's own
+    floor*. The tail is explicitly **not** closed: a worst tensor at 1.850397e+01 is a different
+    object and is unowned.
+  * **D129 CLOSED** — already dissolved by `of3t-ditref`, and the row notes my brief was wrong to
+    list it as waiting on this one.
+  * **D58 narrowed to one leg**: the "belongs to the tape" half is refuted on the diffusion track,
+    `msa_module` is unmeasured, and there is no upstream bf16 arm for that boundary anywhere in the
+    campaign.
+  * **D55's forward arm untouched**, said in those words.
+
+**And I checked the closure's arithmetic rather than accepting it, which caught one thing.** The
+0.536x quoted for D129's leaf **mixes statistics** — it divides the MEDIAN numerator 0.0854492105 by
+the MASS-WEIGHTED floor 1.5931532097e-01. The like-for-like readings in the same artifact are
+**0.6837x median** (which `VS_FLOOR.json` records as `ratio_median`, one field away) and **0.7652x
+mass-weighted**. The verdict is unchanged — both are under 1 — but the circulating figure
+understates by about 1.3x in the flattering direction, so the ledger carries the like-for-like
+pair.
+
+**Two self-inflicted mechanics this pass, both caught by guards I built.** A `### D30 and D58
+UPDATE` heading did not parse, because the parser takes one D-number per heading — split. And a
+`**NARROWED, not closed**` heading stored **CLOSED** off the lower-case prose, which is the
+status-parser trap for at least the third time in this campaign and the second time on a heading I
+wrote in the same pass I was warning about it. Reworded to carry `UNFIXED` in capitals and no
+status word in prose.
