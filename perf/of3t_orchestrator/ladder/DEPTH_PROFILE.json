@@ -1,0 +1,95 @@
+{
+ "headline": "SEVEN blocks measured at one config against one frozen reference. The per-track factor is UNIQUE TO BLOCK 47. Six control blocks -- 0, 8, 16, 23, 32, 40 -- all read norm ratio 0.9976-1.0002 on both tracks with cos >= 0.9956. Only block 47 reads 1.1832 on the pair track and 0.8867 on the single.",
+ "config": "scale_pair_bias=False, transpose_bias=True at every block; same reference, crop 64",
+ "blocks": {
+  "0": {
+   "median_rel": 0.012135513239367901,
+   "norm_ratio_median": 0.9985981284626873,
+   "cos_median": 0.9999344598934063,
+   "pair_track_r": 0.9997184631036075,
+   "single_track_r": 0.993238166022876,
+   "cot_s": 3.534929780069599e-05,
+   "cot_z": 0.000783014240630463,
+   "passes_median_bar": true,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "8": {
+   "median_rel": 0.03024706540550518,
+   "norm_ratio_median": 0.997649664485226,
+   "cos_median": 0.9995534275070752,
+   "pair_track_r": 0.9970575702388473,
+   "single_track_r": 1.0019219163568525,
+   "cot_s": 2.1639759618229084e-05,
+   "cot_z": 0.0005644599851992892,
+   "passes_median_bar": false,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "16": {
+   "median_rel": 0.021619448058325205,
+   "norm_ratio_median": 0.9989140427991738,
+   "cos_median": 0.9998082289934409,
+   "pair_track_r": 0.9990439768584872,
+   "single_track_r": 0.9991603815029204,
+   "cot_s": 2.1640007771002005e-05,
+   "cot_z": 0.0005592626361820211,
+   "passes_median_bar": false,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "23": {
+   "median_rel": 0.01919069614011403,
+   "norm_ratio_median": 0.9989311097437896,
+   "cos_median": 0.9998401675180661,
+   "pair_track_r": 0.9991072146730107,
+   "single_track_r": 0.9947826362762975,
+   "cot_s": 2.141670516458086e-05,
+   "cot_z": 0.0004856499179133589,
+   "passes_median_bar": true,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "32": {
+   "median_rel": 0.09678672241663,
+   "norm_ratio_median": 1.0002091492640095,
+   "cos_median": 0.9956309996697152,
+   "pair_track_r": 0.9997905132016408,
+   "single_track_r": 1.0025546935403988,
+   "cot_s": 2.1467169182691016e-05,
+   "cot_z": 0.0004294596926806223,
+   "passes_median_bar": false,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "40": {
+   "median_rel": 0.02117788457108635,
+   "norm_ratio_median": 0.9991399069675182,
+   "cos_median": 0.9997938928722132,
+   "pair_track_r": 0.9987955227363327,
+   "single_track_r": 1.010550955340175,
+   "cot_s": 1.9432948509814328e-05,
+   "cot_z": 0.0003046207125208093,
+   "passes_median_bar": false,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  },
+  "47": {
+   "median_rel": 0.20128904136799777,
+   "norm_ratio_median": 1.1809399768414628,
+   "cos_median": 0.9976786153714472,
+   "pair_track_r": 1.1831743502903287,
+   "single_track_r": 0.8867066855032778,
+   "cot_s": 5.599999708545345e-05,
+   "cot_z": 0.0007601379094210728,
+   "passes_median_bar": false,
+   "scale_pair_bias": false,
+   "transpose_bias": true
+  }
+ },
+ "reading_1_the_position_claim_is_CONFIRMED": "pass 135 inferred from n = 3 that block 47 is distinguished by POSITION rather than by a magnitude regime, and proposed block 46 as the test. Six controls now say the same thing more strongly: the factor is absent at 40, which is only SEVEN blocks below 47, and absent at every other depth sampled. It is a property of the LAST block.",
+ "reading_2_and_the_trunk_is_NOT_otherwise_fine": "by the campaign's 2.0e-02 median bar only TWO of the seven pass -- block 0 at 0.01214 and block 23 at 0.01919. Blocks 16 (0.02162), 40 (0.02118), 8 (0.03025), 32 (0.09679) and 47 (0.20129) all exceed it. Any reading of the form \"the trunk is fine except block 47\" is wrong. What IS true is that six of the seven are magnitude-correct and well-aligned, so their failures are small residuals while block 47's is structural.",
+ "reading_3_block_32_is_a_DIFFERENT_shape": "block 32 reads median 0.09679 -- the second worst -- with norm_ratio 1.0002 and cos 0.99563. Its magnitude is right and its cosine is the lowest of the seven. That is a DIRECTIONAL error, not a scale, and it is a different defect shape from block 47's. Nobody has looked at it.",
+ "no_depth_trend": "among the six clean blocks the median runs 0.0121, 0.0303, 0.0216, 0.0192, 0.0968, 0.0212 at depths 0, 8, 16, 23, 32, 40 -- not monotone. Depth does not order them; block 32 is an outlier within the clean set.",
+ "what_this_costs_the_row": "nothing further for the position question -- it is answered. The two open items it creates are block 47 itself (now known to be the ONLY block with this shape) and block 32 (a directional error nobody has characterised)."
+}

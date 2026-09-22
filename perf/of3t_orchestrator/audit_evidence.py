@@ -827,16 +827,32 @@ if ORCH.is_file():
     if _r:
         share = _r["reach"]["device_bijection_mat64"]["norm_share"]
         claims.append((f"{share*100:.2f} %", proves, "the bijection's reach"))
-        claims.append((f"{_r['reach']['pairformer_stack_all']['norm_share']*100:.2f} %",
-                       doesnot, "the trunk's share of the norm, which bounds every SS3d claim"))
+        # Pass 134: this used to pin the summary to reach_by_norm.json's trunk share, which is
+        # computed on the 4,147-parameter 0.5.0 model. Pass 91 established the right denominator
+        # is 4,170, and the check was then REQUIRING the summary to quote the wrong one -- so
+        # keeping the summary current made the audit fail, and keeping the audit green kept the
+        # summary stale. A guard that enforces staleness is worse than no guard. The share is
+        # now read from the campaign's own corrected table, and the old artifact is left alone
+        # as the historical record it is.
+        _t = _re.search(r"`pairformer_stack`[^|]*\|\s*\*\*(\d+\.\d+)\*\*", o)
+        if _t:
+            claims.append((f"{float(_t.group(1)):.2f} %", doesnot,
+                           "the trunk's share of the norm on the 4,170 basis"))
     _c = j("perf/of3t_equivalence/instrument_c_optim.json")
     if _c and "of3_schedule_upstream" in _c.get("arms", {}):
         claims.append((f"{_c['arms']['of3_schedule_upstream']['worst']['rel']:.3e}",
                        proves, "SS5 against upstream's alignment"))
-    _a = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+    # Pass 134: was pinned to instrument_a_bundle_block0.json, the PRE-0.4.3-rebuild arm whose
+    # median the campaign no longer quotes. Same failure as the trunk share above. Pin it to the
+    # arm that is current -- the A16 bundle, which carries norm_ratio and cos as well.
+    _a = j("perf/of3t_orchestrator/a16/instrument_a_bundle_A16_block0_tbshipped.json")
     if _a:
-        claims.append((f"{_a['summary']['median']:.3e}", doesnot,
-                       "instrument A's block-0 median, the one FAILING number"))
+        # `summary.median` is over every compared tensor; `identifiability.median_rel` is over
+        # the A14 set (zero-reference tensors excluded), which is the one PROTOCOL A14 requires
+        # and therefore the one the summary quotes. 0.0122 against 0.0121 is that difference.
+        _m = (_a.get("identifiability") or {}).get("median_rel", _a["summary"]["median"])
+        claims.append((f"{_m:.4f}", doesnot,
+                       "instrument A's block-0 median (A14 applied) against the 0.4.3 reference"))
     _d = j("perf/of3t_orchestrator/instrument_c2_clip_in_step.json")
     if _d:
         claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
@@ -887,7 +903,8 @@ if ORCH.is_file():
     _words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
               7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
               13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one"}
+              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
+              22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
     if DEF.is_file():
         _dt = DEF.read_text()
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
@@ -909,16 +926,43 @@ if ORCH.is_file():
         ok.append("VERDICT states the defect, UNFIXED and concluded-row counts as their "
                   "sources have them")
 
+    # --- the summary must not deny a measurement it also reports -------------------------------
+    # Pass 123. GAP read "No s/step exists on either side: ... nothing is measured" while the
+    # PROVES block four hundred lines above it reported "870.75 s on a p300c against 7-8 s on an
+    # H200, ~116x". Both are owed fields, both get quoted, and they cannot both be true. I had
+    # propagated the denial into a report the pass before I noticed the figures.
+    #
+    # The guard is deliberately narrow: it does not try to detect contradiction in general, only
+    # the specific shape that bit -- the summary asserting that a quantity has NOT been measured
+    # while the same summary carries a number for it. Extend the pairs list when a new headline
+    # quantity earns one.
+    _DENIALS = [
+        (r"\bno\s+s\s*/\s*step\s+exists\b", r"\d+(?:\.\d+)?\s*s\b[^.]{0,80}(?:p300c|H200|step)",
+         "s/step"),
+        (r"\bnothing\s+is\s+measured\b", r"sampled\s+DURING", "a DURING-sampled measurement"),
+    ]
+    _whole = proves + doesnot + (_re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S).group(1)
+                                 if _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
+                                 else "")
+    for _deny, _have, _what in _DENIALS:
+        if _re.search(_deny, _whole, _re.I) and _re.search(_have, _whole, _re.I):
+            bad.append(f"the summary denies {_what} has been measured AND carries a figure for "
+                       f"it -- one of the two is stale (pass-123 recurrence)")
+    if not any("the summary denies" in b for b in bad):
+        ok.append("the summary does not deny a measurement it also reports")
+
     # And the amendment count, which is a claim about the protocol's own history.
     _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
         n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
         words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
                  14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-                 18: "eighteen", 19: "nineteen", 20: "twenty"}
+                 18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
+                 22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
         w = words.get(n_am)
         if w and _re.search(r"\b(nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
-                            r"seventeen|eighteen|nineteen|twenty) amendments\b", both):
+                            r"seventeen|eighteen|nineteen|twenty|twenty-one|twenty-two|"
+                            r"twenty-three|twenty-four) amendments\b", both):
             if f"{w} amendments" in both:
                 ok.append(f"PROVES states the amendment count correctly ({w}, {n_am})")
             else:
@@ -929,9 +973,15 @@ if ORCH.is_file():
         # silent for three amendments. Third time a guard of mine has been scoped to the field I
         # happened to be reading rather than to the claim -- so it is now scoped to the claim,
         # wherever in the summary it is written.
-        _AMEND = _re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
-                             r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
-                             r"nineteen|twenty|twenty-one)\s+times\s+on\s+the\s+record\b", _re.I)
+        # Pass 142: the compound words MUST come first and the match must not start after a
+        # hyphen. "twenty-two times on the record" contains "two times on the record", and
+        # \b matches at the hyphen -- so the check read the document as saying "two" and
+        # reported drift against a document that was correct. Longest-first alternation plus
+        # a negative lookbehind for "-" fixes both halves.
+        _AMEND = _re.compile(r"(?<!-)\b(twenty-one|twenty-two|twenty-three|twenty-four|"
+                             r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+                             r"eighteen|nineteen|twenty|one|two|three|four|five|six|seven|"
+                             r"eight|nine|ten)\s+times\s+on\s+the\s+record\b", _re.I)
         # every space is \s+: the phrase is hard-wrapped prose and lands as
         # "times on the\nrecord". The first version used literal spaces, found nothing, and
         # reported a clean pass on a document that said "fifteen" -- a check that cannot match
@@ -962,6 +1012,24 @@ if _host_only is None:
     warn.append("the concluded-row count could not be checked: it reads "
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
+
+# --- and the check COUNT the summary quotes ---------------------------------------------------
+# Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
+# is a claim about how much evidence stands behind the field, it is quoted verbatim, and nothing
+# updated it when checks were added. Self-referential by construction: the number is whatever
+# this run ends with, so the doc has to match it. The first run after adding a check will fail,
+# which is exactly when the author is there to fix it.
+if ORCH.is_file():
+    _n_now = len(ok) + 1                       # +1 for the ok this check is about to append
+    _cm = _re.search(r"\((\d+)\s+checks,\s*0\s+drifted\)", o)
+    if _cm is None:
+        bad.append("PROVES does not state the check count as '(N checks, 0 drifted)' -- the "
+                   "audit reports a total that nothing in the summary is pinned to")
+    elif int(_cm.group(1)) != _n_now:
+        bad.append(f"PROVES states ({_cm.group(1)} checks, 0 drifted) but this audit confirms "
+                   f"{_n_now} -- the count drifted when checks were added (pass-133 recurrence)")
+    else:
+        ok.append(f"PROVES states the check count correctly ({_n_now})")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:

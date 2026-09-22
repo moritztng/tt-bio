@@ -4983,3 +4983,86 @@ open, but two passes of asymmetry hunting ended at a flag upstream added between
 we target and the one we measure against, and nobody had written that down.
 
 *The whole of this pass was diff and grep against files that were already on the disk.*
+
+### R125 -- All fourteen rows are concluded, and the last one left two corrections to me
+
+`of3t-diffusion` concluded at 23:00:42. **Fourteen of fourteen.**
+
+**It corrected my diagnosis of its own failed DONE.** I recorded a sync race on pc -- the gate
+at 22:57:51, the doc landing at 22:59:58. Wrong. The check runs on **qb2**, which carries a
+mirror of the pc state path, and **its doc alone was never mirrored there** while every other
+of3t row was. And **qb2's copy of the donecheck was stale**: 20,421 B from 18:38 against
+23,505 B from 22:12, still the one-tier placeholder guard -- so once the doc arrived the stale
+gate fired on exactly the two sentences the fixed guard's selftest names as must-stay-quiet
+controls, `production does not run` and `cannot run their trunk`. The row left the sentences
+alone, reported the gate, and synced the fixed copy, keeping the stale one beside it.
+*A gate that exists as a copy per host is not one gate, it is N gates* -- mine had drifted by
+four hours, and the standing instruction I wrote two passes earlier ("report the gate, never
+edit the statement") is what stopped it corrupting the record.
+
+**And it produced better evidence than mine on the common-cause question, by measuring the
+composition law instead of matching shapes.** At pass 83 I noted that D19 and the DiT gap are
+both per-block forward errors compounding with depth and flagged a common cause as a lead. The
+row measured the laws: **D19 grows near-linearly at 0.74x of block count; the DiT grows
+sub-linearly at 0.32x**, flat then jumping -- 2.07e-02, 2.28e-02, 2.23e-02 through four blocks,
+3.42e-02 at eight, 1.42e-01 at sixteen. *A shared mechanism should compose the same way.* So
+the resemblance is refuted, and it was refuted by a measurement that costs nothing beyond
+recording the curve rather than its endpoints. **Resemblance of shape is not resemblance of
+law.**
+
+**One thing it could not know.** It concluded minutes before the amendment refuting its own
+revision-skew explanation reached its brief, so its final DONE still names skew as the leading
+cause. It is not wrong to have said so -- it flagged the gap in that evidence itself, that *the
+DiT is hand-written and unvendored, so the skew evidence cannot exhibit the specific change*.
+The release trees that close the gap were on the disk the whole time. The campaign's position
+is D22's.
+
+## R126 (pass 89, `of3t-orchestrator`, CPU) — the reference is one revision family away from its own checkpoint, and that is the cause of D19 and of the DiT forward gap
+
+The campaign spent passes 83–88 hunting a mechanism for two forward gaps and closed at a ceiling
+attributing both to our hand-written modules. Both are the reference.
+
+`of3-p2-155k.pt` is declared by upstream 0.5.0's own `entry_points/parameters.py` as
+`version_compatibility=">=0.4,<0.4.4dev0"` and listed in `LEGACY_CHECKPOINTS` — *"not supported
+for download and use in the current version"*. In 0.4.3 the same entry reads `">=0.4"` and is
+`DEFAULT_CHECKPOINT_NAME`. The bundle is 0.5.0. v0.4.0 is the Preview2 release, v0.5.0 the
+OpenBind release.
+
+Two changes, one per track. `transpose_bias=True` on `tri_att_end` occurs 0/0/0/0/**1** times in
+`base_blocks.py` across 0.4.0/0.4.3/0.4.4/0.4.5/0.5.0. And 0.5.0's new
+`DiffusionAttentionPairBias` has **no `layer_norm_z`**, where 0.4.3's single `AttentionPairBias`
+constructs and applies one on both tracks — while the p2 checkpoint carries 24 per-block
+`layer_norm_z.weight` tensors of shape (128,).
+
+Measured in float64 on the same p2 block-0 weights, both of upstream's own constructions: 0.4.3
+loads them `missing=[] unexpected=[]`, 0.5.0 loads them `unexpected=['layer_norm_z.weight']` and
+drops the norm. Separation **3.995e-01 at N=64, 3.868e-01 at N=384**. Sufficiency control:
+pre-normalising `z` with the checkpoint's own weight makes 0.5.0 reproduce 0.4.3 at
+**0.000000e+00**.
+
+**Three lessons, and the first is the expensive one.**
+
+*A reference is an artifact with a version, and the version is part of the measurement.* This
+campaign fixed its tolerances before any number existed, validated its reference against float64
+central finite differences, and caught five defects in its own instruments — and still compared
+against a reference running a checkpoint its own code declares unsupported, for forty passes.
+The check that would have caught it is four lines: load the checkpoint into the reference and
+look at `unexpected_keys`. `strict=False` made it silent. That is the same class as
+`zero-filled-missing-gradient-hides-an-untrained-model`, arriving through the reference rather
+than through our side.
+
+*A file-level "functionally inert" verdict must read the methods `forward` calls.* D22 compared
+the two `forward` methods, found them line-for-line identical, and concluded inert. The change
+is in `_prep_bias`. The conclusion was reached on the right file and the wrong function.
+
+*Refuting a shared mechanism is not refuting a shared cause.* Pass 85/88 measured the composition
+laws — 0.74x against 0.32x of block count — and correctly concluded D19 and the DiT gap are not
+one mechanism. They are two code changes. Both are downstream of one cause, and the composition
+argument had no reach over that question.
+
+**What it clears.** `of3t-reopen`'s finding that our shipped trunk computes the ending-node
+function `PairFormerBlock` does not call is true of 0.5.0 and not of the revision these weights
+belong to. tt-bio binds each checkpoint to its release convention on both tracks
+(`openfold3_trunk.py:133`, `openfold3_diffusion_transformer.py:265`). Shipped OpenFold3 inference
+is correct here and no flag is flipped. Acting on the reopen reading would have shipped a
+regression.

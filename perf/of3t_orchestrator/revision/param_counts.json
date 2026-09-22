@@ -1,0 +1,16 @@
+{
+ "note": "OpenFold3(model_config).parameters() per revision; the campaign used 4147 (0.5.0) as the reference denominator throughout",
+ "0.4.3": {
+  "parameters": 4170,
+  "state_dict": 4936
+ },
+ "0.5.0": {
+  "parameters": 4147,
+  "state_dict": 4890
+ },
+ "difference": {
+  "parameters": 23,
+  "state_dict": 46,
+  "explanation": "24 per-block DiT layer_norm_z minus 1 hoisted shared norm; x2 in state_dict because sample_diffusion.diffusion_module shares parameter objects"
+ }
+}
