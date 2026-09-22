@@ -1,0 +1,109 @@
+{
+  "what": "The FLOOR's width curve at 64, 128, 256 and 384, and the reference's, with no device arm.",
+  "scored_on": "tt-quietbox",
+  "host_that_built_every_reference_and_floor_here": "qb1 (tt-quietbox), CPU only, no card, EPYC 8124P, torch 2.8.0+cpu / python 3.10.12",
+  "device_arm_at_128_or_256": "none -- this row holds no card and of3t-padshape's banked intermediate arms no longer exist on either box",
+  "base_width": 64,
+  "widths": [
+    64,
+    128,
+    256,
+    384
+  ],
+  "rows": {
+    "64": {
+      "reference_squared_gradient_norm": 1.871498180322508,
+      "reference_vs_base_width_mass_weighted_rel_l2": 0.0,
+      "floor_mass_weighted_rel_l2": 0.3739375768802169,
+      "floor_squared_gradient_norm": 1.9851095175279752,
+      "per_carrier_floor_rel_l2": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 3.426204599540844,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 3.1411504287525567,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 9.647436654941357,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 1.7279694060346025,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 1.754675887944308,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 1.7939150297132107
+      },
+      "per_carrier_reference_norm": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 0.06263449744725541,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 0.04235785009570457,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 0.01634062080414123,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 0.0972371916107448,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 0.08705334506550985,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 0.01948700733466101
+      }
+    },
+    "128": {
+      "reference_squared_gradient_norm": 1.8714981803225015,
+      "reference_vs_base_width_mass_weighted_rel_l2": 3.7024047402800185e-14,
+      "floor_mass_weighted_rel_l2": 0.37393553920599015,
+      "floor_squared_gradient_norm": 1.9851228767838764,
+      "per_carrier_floor_rel_l2": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 3.426205229336808,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 3.1411504980384146,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 9.64743783953188,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 1.727969404262593,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 1.7546759087205264,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 1.79391502101133
+      },
+      "per_carrier_reference_norm": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 0.06263449744725474,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 0.042357850095712024,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 0.016340620804141424,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 0.09723719161074088,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 0.08705334506550569,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 0.01948700733466372
+      }
+    },
+    "256": {
+      "reference_squared_gradient_norm": 1.8714981803225028,
+      "reference_vs_base_width_mass_weighted_rel_l2": 3.700157255417426e-14,
+      "floor_mass_weighted_rel_l2": 0.37393757704754355,
+      "floor_squared_gradient_norm": 1.9851095203931577,
+      "per_carrier_floor_rel_l2": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 3.4262045995410055,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 3.1411504287523018,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 9.647436654942279,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 1.7279694060346906,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 1.7546758879444426,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 1.793915029713114
+      },
+      "per_carrier_reference_norm": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 0.06263449744725477,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 0.04235785009571202,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 0.016340620804141424,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 0.09723719161074092,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 0.08705334506550569,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 0.019487007334663714
+      }
+    },
+    "384": {
+      "reference_squared_gradient_norm": 1.871498180322502,
+      "reference_vs_base_width_mass_weighted_rel_l2": 3.69900858608181e-14,
+      "floor_mass_weighted_rel_l2": 0.3739383921130378,
+      "floor_squared_gradient_norm": 1.9851011361181046,
+      "per_carrier_floor_rel_l2": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 3.426205020162773,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 3.141150455017751,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 9.647437117764875,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 1.7279694057961934,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 1.7546758702383436,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 1.7939150105002608
+      },
+      "per_carrier_reference_norm": {
+        "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight": 0.06263449744725477,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias": 0.042357850095712024,
+        "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight": 0.01634062080414143,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.bias": 0.09723719161074089,
+        "pairformer_stack.blocks.0.single_transition.layer_norm.weight": 0.08705334506550569,
+        "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_a.bias": 0.01948700733466372
+      }
+    }
+  },
+  "FLAT": {
+    "floor_min": 0.37393553920599015,
+    "floor_max": 0.3739383921130378,
+    "floor_spread_relative": 7.629408677534807e-06,
+    "reference_squared_norm_spread_relative": 3.440715898380554e-15
+  }
+}
