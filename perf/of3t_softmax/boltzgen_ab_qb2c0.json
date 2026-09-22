@@ -1,0 +1,24 @@
+{
+  "model": "boltzgen",
+  "host": "qb2",
+  "card": 0,
+  "board": "p300c",
+  "sampling_steps": 15,
+  "note": "BoltzGen designs a chain rather than folding a given one, so the arms do not share a residue count and CA-RMSD is undefined across them. The comparable quantity is the digest and the designed length.",
+  "arms": {
+    "off": {
+      "sha256": "c3268e4a3bdfa78ff65357710296ac9d76e26c38708613b4fdb9c1ec86843eaf",
+      "n_CA": 291
+    },
+    "on": {
+      "sha256": "c22f060075fb08aa785fdef315a70920a68900cb6cadbac74cdf74343989217d",
+      "n_CA": 285
+    },
+    "ctl": {
+      "sha256": "cc53cdc0dcd60895ec767f4bc6e70dddd211dcc01cbc03bfe5a451c0c2951047",
+      "n_CA": 299
+    }
+  },
+  "off_vs_on_digest_moved": true,
+  "off_vs_ctl_digest_moved": true
+}
