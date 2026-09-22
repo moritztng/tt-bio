@@ -105,11 +105,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default=str(ROOT / "perf/land_standing/narrowq_bank_sources.json"))
     ap.add_argument("--card", default="0")
+    # One rung per run. The lever is worth +10 % at 896 aa and is inert at 1088, so a
+    # pooled median would describe neither cell. See NARROWQ_1088.md.
+    ap.add_argument("--rung", type=int, default=896)
     a = ap.parse_args()
 
     man = json.load(open(a.manifest))
-    print("narrow-q rf3 896 aa, banked cell. contention bar %.0f %% foreign cpu, clock "
-          "contract at or above %.0f MHz.\n" % (FOREIGN_CEILING, MIN_MHZ))
+    print("narrow-q rf3 %d aa, banked cell. contention bar %.0f %% foreign cpu, clock "
+          "contract at or above %.0f MHz.\n" % (a.rung, FOREIGN_CEILING, MIN_MHZ))
 
     pairs = []
     for src in man["sources"]:
@@ -122,6 +125,8 @@ def main():
         raw = [json.loads(l) for l in open(tr_p) if l.strip()]
         raw = [r for r in raw if "t" in r]
         for cell in art["cells"]:
+            if int(cell.get("rung", 896)) != a.rung:
+                continue
             first = cell.get("first_arm", src.get("first_arm", "off"))
             by_rep = {}
             for f in cell.get("folds", []):

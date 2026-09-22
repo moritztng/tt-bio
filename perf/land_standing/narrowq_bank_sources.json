@@ -13,6 +13,18 @@
       "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T230350Z_on_c0_contention.jsonl",
       "first_arm": "on",
       "note": "2026-09-22 23:03:50Z single ON-FIRST pair, card 0, board-pair sibling card 1 verified holding no fd. Pre-flight loadavg 1.52. Taken to balance the bank: the retake pair is off-first and narrowq_bank.py refuses a single-order bank."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T231740Z_r1088_off_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T231740Z_r1088_off_c0_contention.jsonl",
+      "first_arm": "off",
+      "note": "2026-09-22 23:17Z single off-FIRST pair at 1088 aa, card 0, board-pair sibling card 1 verified holding no fd. 1088 is the falsifier rung: the policy fires there (it is not a multiple of 256) and L1 refuses more configs, so if a narrower q_chunk ever costs more than it saves this is where it shows."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T232625Z_r1088_on_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T232625Z_r1088_on_c0_contention.jsonl",
+      "first_arm": "on",
+      "note": "2026-09-22 23:26Z single on-FIRST pair at 1088 aa, card 0, board-pair sibling card 1 verified holding no fd. 1088 is the falsifier rung: the policy fires there (it is not a multiple of 256) and L1 refuses more configs, so if a narrower q_chunk ever costs more than it saves this is where it shows."
     }
   ]
 }

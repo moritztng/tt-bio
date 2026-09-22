@@ -21,7 +21,15 @@
 # that exact confound comes back. Pass alternating values; narrowq_bank.py REFUSES a bank that
 # carries only one order.
 #
-# Usage: narrowq_pair.sh off|on
+# Usage: NQ_RUNG=<aa> narrowq_pair.sh off|on   (NQ_RUNG defaults to 896)
+#
+# THE RUNG IS AN ARGUMENT BECAUSE 896 IS NOT THE WHOLE LEVER. The policy fires at 30 of the
+# 37 tile-aligned lengths from 256 to 1408 -- every one that is not a multiple of 256 -- and
+# a default flipped on one length is the standing one-size defect. 1088 aa is the rung that
+# can falsify it: it fires and L1 refuses MORE configs there, so it stresses the term the
+# lever leans on hardest, and a narrower q_chunk re-reads K and V once more per chunk.
+# 768 aa cannot inform the question either way -- the policy returns the identical tuple
+# with the flag set or clear at every multiple of 256, so it is a no-op by construction.
 set -u
 FIRST="${1:-}"
 case "$FIRST" in off|on) ;; *) echo "usage: $0 off|on"; exit 2;; esac
@@ -36,6 +44,7 @@ PY=/home/ttuser/tt-bio-dev/env/bin/python3
 # floor, the same way pooling across windows does.
 CARD=${NQ_CARD:-0}
 SIB=${NQ_SIB:-1}
+RUNG=${NQ_RUNG:-896}
 cd "$WT" || exit 1
 mkdir -p "$BANK"
 
@@ -44,11 +53,11 @@ mkdir -p "$BANK"
 "$PY" perf/c12_orchestrator/pair_guard/pair_idle.py --card $CARD || {
   echo "PRE-FLIGHT REFUSED: board-pair sibling $SIB busy."; exit 3; }
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-echo "PRE-FLIGHT OK $STAMP loadavg $(cut -d' ' -f1-3 /proc/loadavg) first-arm $FIRST"
+echo "PRE-FLIGHT OK $STAMP rung $RUNG loadavg $(cut -d' ' -f1-3 /proc/loadavg) first-arm $FIRST"
 
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:land-standing
-ART=$BANK/pair_${STAMP}_${FIRST}_c${CARD}.json
-JL=$BANK/pair_${STAMP}_${FIRST}_c${CARD}_contention.jsonl
+ART=$BANK/pair_${STAMP}_r${RUNG}_${FIRST}_c${CARD}.json
+JL=$BANK/pair_${STAMP}_r${RUNG}_${FIRST}_c${CARD}_contention.jsonl
 : > "$JL"
 "$PY" perf/pvx_gate_land/sample_contention.py --out "$JL" --interval 1.0 &
 SAMP=$!
@@ -57,10 +66,10 @@ trap 'kill $SAMP 2>/dev/null' EXIT
 exec 9>/home/ttuser/.coworker/state/benchlock.flock
 flock -n 9 || { echo "benchlock held by another row; refusing"; exit 3; }
 
-"$PY" perf/xmsoftmax/fold_ab_flip.py --models rf3 --rungs 896 --reps 1 \
-  --flag TT_BIO_TRIATT_NARROW_Q_FALLBACK --off-value 1 --fold-timeout-s 400 \
+"$PY" perf/xmsoftmax/fold_ab_flip.py --models rf3 --rungs "$RUNG" --reps 1 \
+  --flag TT_BIO_TRIATT_NARROW_Q_FALLBACK --off-value 1 --fold-timeout-s 600 \
   --first-arm "$FIRST" \
-  --workdir "$BANK/work_${STAMP}_${FIRST}_c${CARD}" --out "$ART"
+  --workdir "$BANK/work_${STAMP}_r${RUNG}_${FIRST}_c${CARD}" --out "$ART"
 rc=$?
 kill $SAMP 2>/dev/null
 echo "EXIT rc=$rc $(date -u +%FT%TZ)  banked $ART"
