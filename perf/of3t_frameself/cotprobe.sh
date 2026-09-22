@@ -3,11 +3,10 @@
 # torch.autograd.grad on the loss instead of a tensor hook. It stops at the stack outputs, so it
 # never traverses the 48-block trunk backward and costs a forward, not a whole capture.
 #
-# This is of3t-modelframe/capture.sh with --selftest added and a private --out-dir. Same batch,
-# same checkpoint, same draws, same expected loss and gradient norm, so the capture half of the
-# run is held to the published gates before the self-test is allowed to say anything. The pair
-# it writes is compared by sha256 against of3t-modelframe's published pair, which also makes
-# this a qb1-to-qb2 reproducibility control the campaign has never run.
+# Same batch, same checkpoint, same draws as the capture, and the loss is still held to the
+# published 1.267624369070698 bit for bit before the probe is allowed to say anything. There is
+# no full backward here, so there is no gradient-norm gate and no witness: the loss gate is what
+# certifies this is the reference's own step.
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-frameself
 cd "$W"
