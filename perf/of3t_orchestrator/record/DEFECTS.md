@@ -1233,6 +1233,45 @@ noise. `of3t-cotcoh` is dispatched on it.
 
 ---
 
+### D241. The trunk clause divides two different experiments: our arm is boundary-injected and the bf16 denominator it is divided by is a full-model run. **UNFIXED** — found by `of3t-orchestrator` at pass 380 from committed files, no card; `of3t-twoside` dispatched to close it.
+
+PROTOCOL A34 requires both sides of a per-parameter comparison to sit on the same boundary. The
+frame-matched artifact satisfies it on one side only.
+
+- `perf/of3t_modelframe/runarm.sh:24-25,67` drives OUR device trunk with
+  `--boundary boundary_model_n384.pt --cap-last cot_model_n384.pt`: the reference's own float64
+  boundary and its own float64 incoming cotangent.
+- `perf/of3t_modelframe/score.sh:49` takes the bf16 denominator from
+  `of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt`, a **full-model** bf16 autocast run
+  whose trunk was driven by whatever bf16 boundary and bf16 cotangent its own forward and
+  backward produced. Neither is the injected pair.
+
+This is the shape of D237, which was worth **1.9085x** the last time it was found, on the other
+side of the fix for it.
+
+**The bias runs towards us, so nothing retracts.** We are handed an exact cotangent and they
+compute their own, so their reading carries an error ours does not: the trunk's 2.9702x, block
+47's 4.1613x and the clause's 1.7814x are all **lower bounds** on our excess, and the clause
+still fails. What is unknown is the SIZE of the bound — and the campaign is decided inside it.
+Our trunk merely **at upstream's own bf16 floor** (0.3147698293887927) puts the clause at
+**0.8525x the bar, clearing** (`CLAUSE.json`, `preregistered.levels.upstreams_own_floor_here`);
+a perfect trunk reads 0.6752x. The entire remaining campaign is the distance between our trunk
+and upstream's own bf16 trunk, and that distance has never been measured like for like.
+
+It also explains why R137's cotangent-error-per-block (0.1100 after one block, `of3t-cotcoh`) has
+no upstream counterpart: upstream's bf16 trunk has never been run from the pinned entry at all.
+
+**The instrument already exists and needs no card.** `perf/of3t_trunkg043/ref_grad.py` takes
+`--boundary`, `--cap-last` and `--policy bf16auto`, which its own docstring defines as
+"float32 parameters under `torch.autocast('cpu', bfloat16)` -- upstream's OWN". Every committed
+`bf16auto` arm — `REF_BF16AUTO_c64.json` and the whole frame384 family — is on
+`block47_boundary.pt`, the capture-driven walk D237 refuted. It has never been pointed at the
+model frame.
+
+Evidence, machine-read from the files above rather than transcribed:
+`perf/of3t_orchestrator/twoside/ONE_SIDED_FRAME.json`, producer
+`perf/of3t_orchestrator/twoside/one_sided_frame.py`.
+
 ### D240. A taped tensor's cotangent precision depends on its graph FAN-OUT, not on intent: one consumer keeps bf16, two get fp32. **UNFIXED** — CANDIDATE for the trunk's coherent error, named by `of3t-orchestrator` at pass 379 from a source read, NOT yet measured firing.
 
 `tt_bio/autograd.py:348-353` is the only place `self.grad` is ever assigned:

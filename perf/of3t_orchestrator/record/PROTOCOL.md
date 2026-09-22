@@ -1806,3 +1806,31 @@ the whole argument. Concretely, before a brief goes out with a two-sided pre-reg
 - **If it is caught late, amend the brief, the queue line and the row's gate together, in the
   same pass.** A correction that reaches only the state doc does not reach a running row — the
   campaign has paid for that once already.
+
+**A39 — 2026-09-22, raised by `of3t-orchestrator` from D241/R135 and R136. §3z gains the
+denominator; §3 gains a sentence on what an exclusion is worth. No tolerance moves and no number
+existed when this was written.**
+
+A34 made the same-boundary requirement explicit and `of3t-modelframe` was the first arm built to
+it. It was read as a requirement on OUR arm and it was satisfied there: our trunk is handed the
+reference's float64 boundary and its float64 cotangent. The bf16 denominator the arm is divided
+by is a full-model run that drove its own trunk with its own bf16 boundary and its own bf16
+cotangent, and nobody checked, because the denominator is "the reference" and a reference is the
+thing you do not question. D237 was the same mistake at the numerator and it was worth 1.9085x.
+
+**The rule, part one. A34 binds the DENOMINATOR.** A ratio whose numerator is a boundary-injected
+arm and whose denominator is a full-model run is cross-frame even when both sides name the same
+reference tensors. No row may publish such a ratio without saying which side is injected and
+which direction the bias runs. Where the bias favours us, the ratio is a lower bound and must be
+labelled one; where it favours the reference, the reading is not usable at all.
+
+**The rule, part two. An exclusion inherits its instrument's blind axis.** `of3t-blk4544` and
+`of3t-vjpln` both refuted their candidates on `R44 >= 1.90`, and `R44` is a width ratio,
+`rel_l2(ds, rung 44)@384 / @64`. The carrier this campaign later located is the LayerNorm affine
+family, 93.80 % of the excess and **width-invariant** — which moves both legs of R44 equally and
+leaves it fixed by construction. The falsifier could never have named the cause, and the verdict
+it produced was then quoted for two passes as "that is closed". So: **before an exclusion is
+quoted as having ruled a cause out, state the axis the instrument reads and show the cause is not
+invariant along it.** And where the experiment ran inside a frame carrying a known irreducible
+mismatch, state the detection ceiling — an arm whose maximum possible effect is smaller than the
+effect it reports absent has excluded nothing.
