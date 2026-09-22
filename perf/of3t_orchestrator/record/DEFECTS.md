@@ -2327,3 +2327,37 @@ there is nothing to score against upstream until the lever lands. Stopped rather
 is reachable *with the lever on*; on the shipped default it is not, and "reachable" without that
 qualifier is the same omission D180 filed against me for quoting a model-scope figure without its
 crop. A coverage figure carries its flag state.
+
+### D185. This campaign asked Moritz the same question twice, six seconds apart, and then reported that it had not asked at all. FOUND and **FIXED** by `of3t-orchestrator`, pass 332.
+
+Two pending-input records, **9758** at 23:04:18 and **9760** at 23:04:24, both `status: open`, both
+asking whether D126's two-line `_PARAMS` re-key may be cherry-picked to main. Same campaign, same
+content, six seconds apart, both pinned into Moritz's chat.
+
+**Worse than noise: a mis-routing hazard.** `tg_agent.sh:138-147` routes a reply first by explicit
+reply id, then by the pinned ask, then by **the latest open pending record**. With two identical
+records open, a reply meant for something else could be written into one of them and recorded as
+the D126 merge decision — `tg-agent-pending-ask-auto-resolves-on-unrelated-reply` with a duplicate
+making it likelier. 9758 is now `status: superseded` with a body note saying it was not answered;
+every reader greps `^status: open`, so it leaves the fallback. 9760 stays as the live question.
+
+**And the reporting error, which is the part worth keeping.** Pass 331 told Moritz *"there's no ask
+or decision file for it"*. There were two. I looked in `state/ask-*.md` and `state/answered/` and
+not in **`state/pending-input/`**, which is where `tg.sh ask` actually writes (`tg.sh:127-137`).
+The memory `check-pending-asks-before-authoring-new-ask` exists precisely for this and I followed
+it against the wrong directory — searching two of the three places and reporting the absence as
+fact. **An absence is only evidence if the search covered where the thing is kept**; name the
+writer and read its path out of the writer, rather than guessing the convention.
+
+That error had a real cost pointed the other way too: having concluded nothing was pending, pass
+331 committed to authoring a fresh ask this pass, which would have made it three.
+
+**D184 is not asked separately.** It rides on 9760's decision: both are built, measured,
+release-gated and waiting only on a merge, and two pins for one decision is what this entry is
+about.
+
+**Fleet context, reported not owned:** eight pending asks are open after this fix, the oldest
+`6827` from 2026-09-01 and itself a third re-pin of a question whose first two *"both got
+silently"* dropped. With the router's last resort being "latest open", a backlog that size makes
+any swipe-less reply ambiguous. That is the fleet's hygiene rather than this campaign's, and it is
+recorded here because it bears on whether the D126 answer lands on the D126 question.

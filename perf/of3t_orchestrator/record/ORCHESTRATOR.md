@@ -869,7 +869,7 @@ gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random
 missing term, not rounding.
 
 VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-two** of3t rows concluded, **one hundred eighty-four defects** filed,
+**Ninety-two** of3t rows concluded, **one hundred eighty-five defects** filed,
 **sixty UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
 archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
 reading the tail as the ledger cost.
@@ -2233,3 +2233,31 @@ against upstream until the lever lands. Stopped.
 **And a correction to my own pass-330 wording.** I wrote the coverage bar is "reachable". It is
 reachable *with the lever on*. Unqualified, that is the same omission D180 filed against me for
 quoting a model-scope figure without its crop — **a coverage figure carries its flag state**.
+
+### Pass 332 — the ask I said did not exist had been sent twice, and I was about to send a third
+
+`of3t-apbback` and `of3t-trajretake` are live; neither concluded. Pass 331 committed to putting the
+D126 merge question to Moritz this pass. **Checking first is what the pass produced.**
+
+**D185.** Two pending records, **9758** (23:04:18) and **9760** (23:04:24), both `status: open`,
+both asking whether D126's two-line `_PARAMS` re-key may be cherry-picked to main. Same campaign,
+six seconds apart, both pinned in his chat. Not just noise: `tg_agent.sh:138-147` routes a reply by
+explicit reply id, then the pinned ask, then **the latest open record** — so with two identical
+records open, a reply meant for something else could be recorded as the D126 merge decision. 9758
+is now `status: superseded` with a note saying it was not answered; 9760 stays as the live
+question. Eight open asks remain, exactly one of them OF3T's.
+
+**And the error worth keeping.** Pass 331 told Moritz *"there's no ask or decision file for it"*.
+There were two. I searched `state/ask-*.md` and `state/answered/` and not **`state/pending-input/`**,
+which is where `tg.sh ask` writes (`tg.sh:127-137`). **An absence is only evidence if the search
+covered where the thing is kept** — read the path out of the writer instead of guessing the
+convention. Cost pointed both ways: believing nothing was pending, I had committed to authoring a
+fresh ask this pass, which would have made it three pins for one decision.
+
+**So no new ask was sent.** D184 rides on 9760 rather than getting its own pin: both are built,
+measured, release-gated and waiting only on a merge, which is one decision.
+
+**Fleet context, reported not owned.** The eight open asks run back to `6827` of 2026-09-01, itself
+a third re-pin of a question whose first two *"both got silently"* dropped. With the router's last
+resort being "latest open", a backlog that size makes any swipe-less reply ambiguous. It bears on
+whether the D126 answer lands on the D126 question, which is why it is recorded here.
