@@ -6,12 +6,14 @@ you can size a training or design loop before you build it.
 
 Everything below was measured on one Blackhole chip (`tt-quietbox2`, P300c board, PCI subsystem
 `0x0046`, `TT_VISIBLE_DEVICES=0`), bf16, at AlphaFold2's pair dimensions: `c_z = 128`, 4 heads,
-32 per head, SDPA chunk 128. 22 points, 30 gradient steps each, mean over steps 6 to 30. Eighteen
-completed; the four that did not are 256-token runs at 6 and 8 blocks that ran out of device
-memory. Four blocks at 256 tokens fits and six does not, and checkpointing does not move that
-line, so whatever binds there is not the live tape. The AI clock was sampled once a second
-during the runs: 223 timestamped samples, every one between 1337 and 1350 MHz and 91 % of them
-at 1350, so none of these numbers is a throttled-clock artifact. Raw data:
+32 per head, SDPA chunk 128. 22 points, 30 gradient steps each, mean over steps 6 to 30.
+Eighteen completed; the four that did not are 256-token runs at 6 and 8 blocks that ran out of
+device memory. With the pair transition on, four blocks at 256 tokens fits and six does not;
+with it off, six fits and eight does not. The checkpointed arm still runs out at eight blocks
+while holding a live tape of 21 nodes instead of 529, so what binds there is not the tape. The
+AI clock was sampled once a second during the runs: 223 timestamped samples, every one between
+1337 and 1350 MHz and 91 % of them at 1350, so none of these numbers is a throttled-clock
+artifact. Raw data:
 [`perf/hallgrad/p2_floor_screen.json`](../perf/hallgrad/p2_floor_screen.json).
 
 ## Depth is the whole cost
