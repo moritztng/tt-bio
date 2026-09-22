@@ -326,34 +326,30 @@ rotation took it and a number a reader treats as the claim must sit in the field
 
 GAP: **GRADIENTS, and after this pass it is two things rather than the one the doc was claiming.**
 
-    accuracy  0.520124 against its own A26 bar 0.147353, **3.5298x over as published and that
-              figure is CROSS-FRAME** (D214). In frame the trunk reads 1.0293953378 — **2.2341x**
-              upstream's own bf16 — and the clause reads **0.2785749654**, 1.8905x the bar, still
-              failing. **Aim in frame: the trunk must reach its own scope's A26 bar,
-              0.5268825372815341, from 1.0293953377723410 — the factor to find is 1.9537x**
-              (D218, pass 361; the earlier `<= 0.4361680548` / 2.360x mixed an in-frame
-              numerator with model-frame weights and is withdrawn). **An A26-perfect trunk
-              CLOSES this clause**: sqrt(2)*0.3147698294/1.0568409490651478 = 0.4212097971234601
-              with the nine others as measured pools to 0.1445280272311335, **0.9808x the bar**,
-              the margin coming from the nine already being better than A26-perfect (D215).
-              Two instruments now agree on all four rungs of that pooling (`of3t-trunkblocks`
-              reproduces 0.5201243840984896 / 0.2785749654400184 / 0.1473526832678669 /
-              0.0973798897933013).
-              **Where the mass is, and which verbs have never been searched.** Blocks
-              **44, 4 and 0** hold **76.4502 %** of the trunk's error mass (30.6209 / 29.1573 /
-              16.6720); **block 45 holds 0.5981 %**, and every arm so far ran in 45/44 — 31.2190 %
-              (D217). Four candidate classes are now measured-excluded there: matmul, softmax and
+    accuracy  the ONLY remaining charter miss. On the graded 3,660 artifact
+              **0.5171166332757559** against its own recomputed A26 bar
+              **0.15210099830945006**, **3.3998x**. All of it is `pairformer_stack`; the other
+              ten sections read 0.1026990533692057, **0.6752x the bar, passing alone** (D221).
+              **A trunk at A26-perfect CLOSES the clause at 0.9701x** — 0.4212097971234601 from
+              `sqrt(2) x 0.3147698294 / 1.0568409490651478`, frame-clean, the ten as measured
+              giving 0.14754591656055327 (D218). **Aim, frame-matched: the trunk's own in-frame
+              A26 bar 0.5268825372815341 from 1.0293953377723410 — 1.9537x.** The model-frame
+              threshold is 0.44608901561034203, 5.9 % of slack above A26-perfect, and it must
+              NOT be divided into the in-frame reading; that mix is what D214 and D218 were.
+              **Where the mass is and which verbs are unsearched.** Blocks **44, 4 and 0** hold
+              **76.4502 %** of the trunk's error mass; block 45 holds **0.5981 %** and every arm
+              so far ran in 45/44 (D217). Measured-excluded there: matmul, softmax and
               triangle-attention backwards (`of3t-blk4544`), layer-norm and linear backwards
-              (`of3t-vjpln`, R44 2.203113 -> **2.206861**, refuting its own falsifier at 2.85x the
-              reach), the forward activations (`of3t-trunkact` NO-GO), and the device accumulation
-              levers (`of3t-bwdaccum`). **And 47.97 % of the backward has never been substituted
-              at all** (D219): at padded 384 a taped backward fires **60,144** nodes, not the
-              11,856 every row planned against, and `_identity_grad` (26.50 %) plus `_sliced`
-              (21.47 %) were excluded on purpose as data movement — the criterion removed exactly
-              the class every later conclusion points at, since the excess is *what the backward
-              reads and how many contributions it accumulates*. Owner: **`of3t-readverbs`**,
-              dispatched pass 361 at blocks 44/4/0. `of3t-trunkopclass` and `of3t-trunkceiling`
-              are live on the model-op and silicon-ceiling axes.
+              (`of3t-vjpln`, R44 2.203113 -> **2.206861**, refuting its own falsifier at 2.85x
+              the reach), the forward activations (`of3t-trunkact` NO-GO), the device
+              accumulation levers (`of3t-bwdaccum`). **47.97 % of the backward has never been
+              substituted** (D219): 60,144 firings at padded 384, not 11,856, with
+              `_identity_grad` 26.50 % and `_sliced` 21.47 % excluded on purpose as data
+              movement — the criterion removed the class every later conclusion points at.
+              Owners: `of3t-readverbs` (blocks 44/4/0, the unsearched verbs),
+              `of3t-trunkopclass` (model op classes), `of3t-trunkceiling` (the silicon ceiling).
+              **The margin is thin and has a named consumer**: 0.9701x leaves 3 %, and
+              `diffusion_transformer` carries **43.62 %** of the mass at 1.823x with no owner.
     coverage  **MET, and now in the gate** (D220, pass 361). `of3t-covadopt` GO:
               `perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json`, written by
               of3t-modelboundary's own unmodified instrument over of3t-refcov's composed 3,660
@@ -431,7 +427,7 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred eleven** of3t files. **Two hundred twenty defects filed**, **83 UNFIXED** (5
+concluded, three live; `state/concluded` holds **one hundred eleven** of3t files. **Two hundred twenty-one defects filed**, **83 UNFIXED** (5
 scope-excluded, 9 USER-FACING, 69 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
@@ -440,31 +436,31 @@ disk at the end of this pass, not carried forward, and it moved DURING the pass:
 concluded while these fields were being written.
 
 **Distance to go**: **48.1831 %** of the mass is at or better than upstream's own bf16 step
-tensor by tensor, **49.8019 %** worse, **2.0150 %** unread; mass weighted it reads 0.520124
-against the bar 0.147353. Both true — our failures concentrate in high-mass tensors.
+tensor by tensor, **49.8019 %** worse, **2.0150 %** unread; mass weighted the graded 3,660
+artifact reads **0.5171166332757559** against its bar **0.15210099830945006**. Both true — our
+failures concentrate in high-mass tensors.
 
-**What is verified.** The update rule's four state-free factors — LR schedule, gradient clipping,
-optimizer, EMA — are exact or at 1e-06 under an injected drive, over their whole domain and at the
-corner cases a real batch never hits. Every loss term and conditional path FIRES on a real
+**What is verified.** The update rule's four state-free factors — LR schedule, clipping,
+optimizer, EMA — are exact or at 1e-06 under an injected drive, over their whole domain and at
+the corner cases a real batch never hits. Every loss term and conditional path FIRES on a real
 end-to-end step, 8 of 8 and 11 of 11, inference byte-identical twice. The
 twenty-step trajectory is coupled, covers the diffusion module completely, diverges
 sub-linearly, and sits **1.2707x** upstream's own bf16 loop at k = 20, never above **1.3677x**
 (pass 357, identical 761-tensor scope, reference bit-identical at all twenty rungs). Outside the
-pairformer trunk, same-reference against float64, **five of ten sections are strictly BETTER than
-upstream's own bf16 training step** — `aux_heads` **0.010x**, `diffusion_conditioning` 0.126x on
-36.95 % of the mass, `layer_norm_a` 0.255x, `atom_attn_dec` 0.395x, `msa_module` 0.499x — the
-spread outside the trunk is **0.010x to 2.019x**, and those nine read **0.1006694647** against the
-0.1473526833 bar, **0.683x and passing alone** (D215; the "0.945x to 2.176x" this field used to
-carry was cross-reference).
+pairformer trunk, same-reference against float64 on the graded 3,660 artifact, **seven of eleven
+sections are strictly BETTER than upstream's own bf16 training step** — `input_embedder`
+**0.005x**, `aux_heads` **0.010x**, `diffusion_conditioning` 0.126x on 36.95 % of the mass,
+`layer_norm_a` 0.277x, `atom_attn_dec` 0.391x, `msa_module` 0.499x, `atom_attn_enc` 0.886x — the
+spread outside the trunk is **0.005x to 1.823x**, and those ten read **0.1026990533692057**
+against the 0.15210099830945006 bar, **0.6752x and passing alone** (D221).
 
-**What fails, and it is one object.** The trunk at n384 reads **2.0151** against upstream's own
-**0.3148** — but not on the same reference and not in the same frame, so **6.402x is not the
-distance** (D214). In frame it is **2.2341x**, the clause reads 1.8905x the bar rather than
-3.5298x. In frame the trunk must reach its own A26 bar **0.5268825372815341** from
-1.0293953377723410 — **1.9537x** to find — and an A26-perfect trunk closes the clause at 0.9808x
-(D218). At 5.8282 % of the model's gradient mass that
-one section is the entire difference between GRADIENTS passing and failing. It is localised to a
-STEP created in the backward of blocks 45 and 44, it is 100 % ours (the float64 reference is
+**What fails, and it is one object.** The graded artifact's trunk row reads **2.0151** against
+upstream's own **0.3148**, but not on the same reference and not in the same frame, so **6.402x
+is not the distance** (D214). In frame it is **2.2341x**. The aim is the trunk's own in-frame A26
+bar **0.5268825372815341** from **1.0293953377723410** — **1.9537x** to find — and **an
+A26-perfect trunk CLOSES the clause at 0.9701x** on the graded artifact (D218, D221). At
+5.8282 % of the model's gradient mass that
+one section is the entire difference between GRADIENTS passing and failing. It is 100 % ours (the float64 reference is
 bit-identical across both widths at all 49 rungs), softmax is refuted as the carrier, and the
 LayerNorm affine leaves carry 93.80 % of it with an excess that is width-invariant.
 
