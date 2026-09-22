@@ -521,7 +521,8 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag,
     }
 
 
-def run_graphdrive(entries, cots, model, ref_grads, injected, zonly, out_dir, tag, blocks):
+def run_graphdrive(entries, cots, loss, model, ref_grads, injected, zonly, out_dir,
+                   tag, blocks, published_cot=None):
     """--graphdrive only: drive the ORIGINAL graph with the captured cotangent.
 
     Amendment 4/5. Every premise that would force the replay to reproduce `grads_f64_043.pt`
@@ -545,7 +546,30 @@ def run_graphdrive(entries, cots, model, ref_grads, injected, zonly, out_dir, ta
     c = [x for x in cots if x["grad_enabled"]][0]
     s_out, z_out = c["s_out_t"], c["z_out_t"]
     s_in, z_in = e["s_in_t"], e["z_in_t"]
+    # The value hooks only fire during a backward and --graphdrive runs none, so the cotangent
+    # is read here with autograd.grad from the loss. That traversal stops at the stack's
+    # outputs and never enters the trunk, and the object it returns has already been shown
+    # bit-identical to the published hook capture three times.
     cot_s, cot_z = c["cot_s"], c["cot_z"]
+    cot_provenance = "the taped tensor hook"
+    if cot_s is None or cot_z is None:
+        t0 = time.time()
+        cot_s, cot_z = torch.autograd.grad(loss, [s_out, z_out], retain_graph=True)
+        cot_s = cot_s.detach().to(torch.float64).clone()
+        cot_z = cot_z.detach().to(torch.float64).clone()
+        cot_provenance = ("torch.autograd.grad(loss, [s_out, z_out]) in this process, %.1f s; "
+                          "no backward has run, so the value hooks never fired" %
+                          (time.time() - t0))
+    cot_check = None
+    if published_cot is not None:
+        pub_s, pub_z = torch.load(published_cot, map_location="cpu",
+                                  weights_only=False)["cot"]
+        cot_check = {
+            "published": str(published_cot), "sha256": sha256_file(published_cot),
+            "s": tensor_pair("cot_s", cot_s, pub_s.to(torch.float64)),
+            "z": tensor_pair("cot_z", cot_z, pub_z.to(torch.float64))}
+        print("GRAPHDRIVE cotangent vs published: s bit-identical %s, z bit-identical %s"
+              % (cot_check["s"]["bit_identical"], cot_check["z"]["bit_identical"]), flush=True)
 
     names = [n for n, _ in model.named_parameters() if n.startswith("pairformer_stack.")]
     nameset = set(names)
@@ -590,6 +614,8 @@ def run_graphdrive(entries, cots, model, ref_grads, injected, zonly, out_dir, ta
         "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
         "drive": "grad_outputs=(cot_s, cot_z) on (s_out, z_out) of the taped call",
         "graph": "the original one built by the capture's own forward; nothing is re-run",
+        "cotangent_provenance": cot_provenance,
+        "cotangent_vs_the_published_capture": cot_check,
         "prereg_falsifier": {
             "quantity": "norm of dL/dz_in from this call",
             "exact_means": 0.000848887340907281,
@@ -774,6 +800,12 @@ def main() -> int:
             "single_mask": kwargs["single_mask"].detach().to(torch.float64).clone(),
             "pair_mask": kwargs["pair_mask"].detach().to(torch.float64).clone(),
         })
+        if a.graphdrive:
+            # --graphdrive only, and ABOVE the --selftest early return: the graph tensors
+            # themselves, not the detached clones saved above. The difference between those two
+            # is the whole object under test.
+            entries[-1]["s_in_t"] = kwargs["s"]
+            entries[-1]["z_in_t"] = kwargs["z"]
         if not a.selftest:
             return
         # --selftest only. None of this touches the graph: the extra tensor hooks return None,
@@ -796,10 +828,6 @@ def main() -> int:
             "block0_class": type(mod.blocks[0]).__name__,
             "block0_training": bool(mod.blocks[0].training),
         }
-        if a.graphdrive:
-            # --graphdrive only. The graph tensors themselves. The boundary saved above is a
-            # detached clone, which is the whole point of the distinction being tested here.
-            e["s_in_t"], e["z_in_t"] = kwargs["s"], kwargs["z"]
         e["in_fired"] = {"s": 0, "z": 0}
         if torch.is_grad_enabled():
             for key in ("s", "z"):
@@ -888,9 +916,10 @@ def main() -> int:
     if a.graphdrive:
         if a.graphdrive_injected is None or a.ref_grads is None:
             raise SystemExit("--graphdrive needs --ref-grads and --graphdrive-injected")
-        gd = run_graphdrive(entries, cots, model, a.ref_grads, a.graphdrive_injected,
+        gd = run_graphdrive(entries, cots, loss, model, a.ref_grads, a.graphdrive_injected,
                             a.graphdrive_zonly, a.out_dir, a.tag,
-                            [int(x) for x in a.graphdrive.split(",") if x.strip()])
+                            [int(x) for x in a.graphdrive.split(",") if x.strip()],
+                            a.cotprobe_compare)
         h1.remove(); h2.remove()
         for h in hb:
             h.remove()

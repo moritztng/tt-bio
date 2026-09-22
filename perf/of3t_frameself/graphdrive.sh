@@ -32,7 +32,7 @@ nice -n 5 "$PY" perf/of3t_modelframe/capture_model_frame.py \
   --replay-draws "$REF_BUNDLE/draws_recycles0.pt" \
   --ref-grads "$REF_BUNDLE/grads_f64_043.pt" \
   --expect-loss 1.267624369070698 \
-  --graphdrive "$BLOCKS" \
+  --graphdrive "$BLOCKS" --cotprobe-compare /home/ttuser/of3t_modelframe/cot_model_n384.pt \
   --graphdrive-injected /home/ttuser/of3t_twoside/ctrl_f64.pt \
   --graphdrive-zonly "$O/split_zonly.pt" \
   --out-dir "$O" --threads "$THREADS" --tag graphdrive_n384 2>&1 \
