@@ -1,0 +1,73 @@
+{
+ "arms": {
+  "A": {
+   "autocast_killed": true,
+   "float_kept_double": true,
+   "loss": 1.6422035029890711,
+   "n_draw_mismatch": 0,
+   "seconds": 7.696,
+   "terms": {
+    "confidence_loss": 0.0008279040516106114,
+    "diffusion_loss": 1.5556417550074775,
+    "distogram_loss": 2.857794861542796,
+    "experimentally_resolved_loss": 0.02130452127660997,
+    "loss": 1.6422035029890711,
+    "mse_loss": 2.05556742212335,
+    "pae_loss": 2.992244251647443,
+    "pde_loss": 2.056489596000787,
+    "plddt_loss": 3.2090023563274337,
+    "scaled_distogram_loss": 0.0857338439299831,
+    "smooth_lddt_loss": 0.328391541709461
+   },
+   "vs_ours": 0.011060263664922632,
+   "vs_reference": 0.0,
+   "what": "the published reference"
+  },
+  "B": {
+   "autocast_killed": true,
+   "error": "RuntimeError: expected scalar type Float but found Double",
+   "float_kept_double": false,
+   "seconds": 3.797,
+   "what": "what a CPU float64 replay computes"
+  },
+  "C": {
+   "autocast_killed": false,
+   "float_kept_double": true,
+   "loss": 1.6422035029890711,
+   "n_draw_mismatch": 0,
+   "seconds": 7.315,
+   "terms": {
+    "confidence_loss": 0.0008279040516106114,
+    "diffusion_loss": 1.5556417550074775,
+    "distogram_loss": 2.857794861542796,
+    "experimentally_resolved_loss": 0.02130452127660997,
+    "loss": 1.6422035029890711,
+    "mse_loss": 2.05556742212335,
+    "pae_loss": 2.992244251647443,
+    "pde_loss": 2.056489596000787,
+    "plddt_loss": 3.2090023563274337,
+    "scaled_distogram_loss": 0.0857338439299831,
+    "smooth_lddt_loss": 0.328391541709461
+   },
+   "vs_ours": 0.011060263664922632,
+   "vs_reference": 0.0,
+   "what": "autocast alone"
+  },
+  "D": {
+   "autocast_killed": false,
+   "error": "RuntimeError: expected scalar type Float but found Double",
+   "float_kept_double": false,
+   "seconds": 3.799,
+   "what": "their shipped path, in float64"
+  }
+ },
+ "batch_sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+ "device": "NVIDIA A100-SXM4-80GB",
+ "draws_sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+ "dtype": "float64",
+ "gap": 0.011060263664922632,
+ "num_recycles": 0,
+ "ours_loss_qb2_cpu_f64": 1.6311432393241485,
+ "question": "D19: which downcast accounts for the forward gap?",
+ "reference_loss": 1.6422035029890711
+}
