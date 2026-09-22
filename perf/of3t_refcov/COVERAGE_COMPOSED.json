@@ -1,30 +1,17 @@
 {
- "instrument": "of3t-refcov compose.py -- the 17 HOST_APPLIED tensors composed into the model-scope union from two arms of3t-hostleg already built and controlled on upstream 0.4.3's own captured cotangent",
- "host": "qb1 (tt-quietbox), CPU only, no device opened",
- "route": "the union, not the training adapter. See BOUNDARY_ADAPTER.json for why the adapter cannot contribute to this reading at any precision.",
- "inputs": {
-  "float64_reference": {
-   "path": "/home/ttuser/of3t_hostleg/grads_f64_043.pt",
-   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
-   "matches_pin": true
-  },
-  "input_embedder_leg": {
-   "path": "/home/ttuser/of3t_hostleg/ie_grads_f64.pt",
-   "sha256": "330eab1d643d90b16314a415c8a0dd7170bd2892e6ab345a3da410545da350a3",
-   "n_keys": 9,
-   "arm": "perf/of3t_hostleg/ie_arm.py, seeded with upstream's cotangent at cl/plm/ai (IE_BOUNDARY.json)"
-  },
-  "diffusion_refatom": {
-   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_refatom.pt",
-   "sha256": "852fafe855220686c3da33fa0c27fd8fcc7277c36910a8be719d27e97364af8f",
-   "n_keys": 555,
-   "n_over_its_shipped_twin": 8,
-   "arm": "perf/of3t_diffusion/device_gradient.py --device-refatom, no env flag, no shipped-code change"
-  },
-  "published_union": {
-   "path": "/home/ttuser/.coworker/wt/of3t-refcov/perf/of3t_modelboundary/sidecar_modelboundary/shipped_vs_FLOAT64.json",
-   "n_names": 3643
-  }
+ "instrument": "of3t-refcov compose.py -- the 17 HOST_APPLIED tensors composed into the model-scope union from two arms of3t-hostleg already built on upstream 0.4.3's own captured cotangent, re-run here in both tree states, with the diffusion scope REPLACED by its with-lever version",
+ "host": "qb1 (tt-quietbox); scoring CPU-only, the arms ran on card 1",
+ "route": "the union, not the training adapter. BOUNDARY_ADAPTER.json measures why the adapter cannot contribute to this reading at any precision.",
+ "renorm_is_the_default": {
+  "where": "tt_bio/autograd.py:87 env_flag('TT_BIO_SOFTMAX_BW_RENORM', True)",
+  "since": "2de9355d1 D56, 2026-09-21T12:26:54Z",
+  "consequence": "--softmax-bw-renorm is a no-op on this tree and both of3t-hostleg dumps are RENORM arms whatever their filenames say. The union's `shipped` arm needs TT_BIO_SOFTMAX_BW_RENORM=0."
+ },
+ "float64_reference": {
+  "path": "/home/ttuser/of3t_hostleg/grads_f64_043.pt",
+  "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "matches_pin": true,
+  "n_tensors_with_a_gradient": 4170
  },
  "denominator": {
   "recomputed": 10.279642678524986,
@@ -47,34 +34,69 @@
    "detail": "recomputed 97.98499306866091 vs published 97.98499306866148"
   },
   {
-   "gate": "union has no duplicate names",
+   "gate": "both arms' sidecars carry the same union",
    "pass": true,
-   "detail": 3643
+   "detail": "3643"
   },
   {
-   "gate": "the entering key set is exactly SEVENTEEN.json",
+   "gate": "shipped C1: the no-lever arm re-run at HEAD reproduces the published scope",
    "pass": true,
-   "detail": "17 entering, 0 symmetric difference"
+   "detail": "547 tensors, worst 0.000e+00 at None"
   },
   {
-   "gate": "nothing entering is already in the union",
+   "gate": "shipped C2: the lever is measured on the tensors it was not sold on",
    "pass": true,
-   "detail": "disjoint"
+   "detail": "worst 3.880e+00 at diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight, mass-weighted 2.041e-01"
   },
   {
-   "gate": "the diffusion arm adds exactly 8 keys over its own shipped twin",
+   "gate": "shipped: the entering key set is exactly SEVENTEEN.json",
    "pass": true,
-   "detail": "8 added, 0 removed"
+   "detail": "17 entering, 0 diff"
   },
   {
-   "gate": "every entering tensor has a gradient in the reference",
+   "gate": "shipped: nothing entering is already in the union",
    "pass": true,
-   "detail": []
+   "detail": "none"
   },
   {
-   "gate": "the arms' published per-tensor readings reproduce against the MODEL reference",
+   "gate": "shipped: the composed mass-weighted reading does not get worse",
    "pass": true,
-   "detail": "worst relative disagreement 8.675e-12"
+   "detail": "14.669240503646739 -> 14.483746996945387"
+  },
+  {
+   "gate": "renorm C1: the no-lever arm re-run at HEAD reproduces the published scope",
+   "pass": true,
+   "detail": "547 tensors, worst 0.000e+00 at None"
+  },
+  {
+   "gate": "renorm C2: the lever is measured on the tensors it was not sold on",
+   "pass": true,
+   "detail": "worst 7.404e-01 at diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight, mass-weighted 1.395e-01"
+  },
+  {
+   "gate": "renorm: the entering key set is exactly SEVENTEEN.json",
+   "pass": true,
+   "detail": "17 entering, 0 diff"
+  },
+  {
+   "gate": "renorm: nothing entering is already in the union",
+   "pass": true,
+   "detail": "none"
+  },
+  {
+   "gate": "renorm: the composed mass-weighted reading does not get worse",
+   "pass": true,
+   "detail": "0.5327948845677777 -> 0.5276985077644327"
+  },
+  {
+   "gate": "shipped: pairformer_stack and every section outside the two legs are held fixed",
+   "pass": true,
+   "detail": "moved ['diffusion_module.atom_attn_dec', 'diffusion_module.atom_attn_enc', 'diffusion_module.diffusion_transformer', 'diffusion_module.layer_norm_a', 'diffusion_module.layer_norm_s', 'diffusion_module.linear_s']; held fixed ['aux_heads', 'diffusion_module.diffusion_conditioning', 'msa_module', 'pairformer_stack']"
+  },
+  {
+   "gate": "renorm: pairformer_stack and every section outside the two legs are held fixed",
+   "pass": true,
+   "detail": "moved ['diffusion_module.atom_attn_dec', 'diffusion_module.atom_attn_enc', 'diffusion_module.diffusion_transformer', 'diffusion_module.layer_norm_a', 'diffusion_module.layer_norm_s', 'diffusion_module.linear_s']; held fixed ['aux_heads', 'diffusion_module.diffusion_conditioning', 'msa_module', 'pairformer_stack']"
   },
   {
    "gate": "coverage matches the pre-registered prediction within 1e-6",
@@ -82,17 +104,12 @@
    "detail": "measured 99.50523155277378 vs predicted 99.50523155277438"
   },
   {
-   "gate": "shipped: the mass-weighted reading does not get worse",
+   "gate": "the bar is reached",
    "pass": true,
-   "detail": "14.669240503646739 -> 14.556752368182508"
-  },
-  {
-   "gate": "renorm: the mass-weighted reading does not get worse",
-   "pass": false,
-   "detail": "0.5327948845677777 -> 0.542965376089601"
+   "detail": "99.50523155277378 vs 99.2594"
   }
  ],
- "all_gates_pass": false,
+ "all_gates_pass": true,
  "coverage": {
   "before": 97.98499306866148,
   "after": 99.50523155277378,
@@ -267,399 +284,787 @@
  },
  "accuracy": {
   "per_tensor_bar": 0.05,
-  "entering_over_the_per_tensor_bar": [
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
-   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
-  ],
-  "n_entering_over_the_bar": 6,
-  "worst_entering": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-  "worst_entering_rel_l2": 0.11750053740244587,
-  "per_tensor": [
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.01967534575304234,
-    "mass_sq": 0.0003871192305017613,
-    "pct_of_model_mass": 0.0037658821673878314,
-    "arm_norm": 0.02136340709009378,
-    "diff_norm": 0.002311863699561406,
-    "dot": 0.00041908483961674035,
-    "rel_l2": 0.11750053740244587,
-    "r": 1.0857957648236205,
-    "cos": 0.997031917402422
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.0732831626752875,
-    "mass_sq": 0.005370421931692652,
-    "pct_of_model_mass": 0.05224327439816465,
-    "arm_norm": 0.07479801654372857,
-    "diff_norm": 0.005875087592979919,
-    "dot": 0.005465324278171684,
-    "rel_l2": 0.08016967852509334,
-    "r": 1.020671240338702,
-    "cos": 0.9970608179497232
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.03353210672258909,
-    "mass_sq": 0.0011244021812551045,
-    "pct_of_model_mass": 0.010938144606952851,
-    "arm_norm": 0.034892160961009284,
-    "diff_norm": 0.0026395133172151686,
-    "dot": 0.0011674490236161642,
-    "rel_l2": 0.0787160001324058,
-    "r": 1.0405597611170665,
-    "cos": 0.9978131412413613
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.03609600844142511,
-    "mass_sq": 0.0013029218254034327,
-    "pct_of_model_mass": 0.01267477738428927,
-    "arm_norm": 0.03714382807226159,
-    "diff_norm": 0.002659413931378877,
-    "dot": 0.0013377566534033744,
-    "rel_l2": 0.0736761222697088,
-    "r": 1.0290286842252054,
-    "cos": 0.9977719248476017
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.26310352848501084,
-    "mass_sq": 0.0692234667012629,
-    "pct_of_model_mass": 0.6734034330383525,
-    "arm_norm": 0.2670178237272799,
-    "diff_norm": 0.0184036118387235,
-    "dot": 0.07009164598030262,
-    "rel_l2": 0.06994817570366399,
-    "r": 1.0148773954678911,
-    "cos": 0.9976985346164852
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 3.411767987421949e-05,
-    "mass_sq": 1.1640160799997216e-09,
-    "pct_of_model_mass": 1.1323507211310432e-08,
-    "arm_norm": 3.370223491253786e-05,
-    "diff_norm": 2.289679807995068e-06,
-    "dot": 1.1473070422382334e-09,
-    "rel_l2": 0.06711124016745436,
-    "r": 0.987823176628269,
-    "cos": 0.9977953323871916
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.0011863507669653565,
-    "mass_sq": 1.4074281422792897e-06,
-    "pct_of_model_mass": 1.3691411134547722e-05,
-    "arm_norm": 0.0011568927393309089,
-    "diff_norm": 4.505242341271399e-05,
-    "dot": 1.371899615870253e-06,
-    "rel_l2": 0.03797563475088949,
-    "r": 0.9751692092636309,
-    "cos": 0.9995766987624831
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
-    "section": "diffusion_module.atom_attn_enc",
-    "ref_norm": 0.00014858848353425626,
-    "mass_sq": 2.2078537439009944e-08,
-    "pct_of_model_mass": 2.1477923046035262e-07,
-    "arm_norm": 0.00014994798120367814,
-    "diff_norm": 2.0445830265952527e-06,
-    "dot": 2.227937709315796e-08,
-    "rel_l2": 0.013760036968974687,
-    "r": 1.0091494147937008,
-    "cos": 0.9999476654176418
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
-    "section": "input_embedder",
-    "ref_norm": 2.1215420404592234e-11,
-    "mass_sq": 4.500940629435885e-22,
-    "pct_of_model_mass": 4.378499107599058e-21,
-    "arm_norm": 2.1175974231759985e-11,
-    "diff_norm": 4.1032185464829675e-14,
-    "dot": 4.492571319837536e-22,
-    "rel_l2": 0.0019340736446565045,
-    "r": 0.9981406838950168,
-    "cos": 0.9999998579436299
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.2759008305852622,
-    "mass_sq": 0.07612126831763756,
-    "pct_of_model_mass": 0.7405050029283714,
-    "arm_norm": 0.2754316221940475,
-    "diff_norm": 0.0004781110816496077,
-    "dot": 0.07599180911593786,
-    "rel_l2": 0.0017329091784008095,
-    "r": 0.9982993585404604,
-    "cos": 0.999999944509207
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
-    "section": "input_embedder",
-    "ref_norm": 1.0616225524689646e-09,
-    "mass_sq": 1.1270424439107196e-18,
-    "pct_of_model_mass": 1.0963828988581514e-17,
-    "arm_norm": 1.0599642562896721e-09,
-    "diff_norm": 1.7498132013893955e-12,
-    "dot": 1.1252818033380988e-18,
-    "rel_l2": 0.0016482441874656288,
-    "r": 0.9984379606712047,
-    "cos": 0.9999998614125024
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.02254942985679324,
-    "mass_sq": 0.0005084767868664384,
-    "pct_of_model_mass": 0.0049464441787328665,
-    "arm_norm": 0.022517066980389112,
-    "diff_norm": 3.642964904246042e-05,
-    "dot": 0.0005077468825732194,
-    "rel_l2": 0.0016155463474605601,
-    "r": 0.9985648028970285,
-    "cos": 0.9999997245049721
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
-    "section": "input_embedder",
-    "ref_norm": 2.9532870807876146e-10,
-    "mass_sq": 8.72190458154703e-20,
-    "pct_of_model_mass": 8.484637894824692e-19,
-    "arm_norm": 2.9494847352775694e-10,
-    "diff_norm": 4.1637252178835577e-13,
-    "dot": 8.710673724287367e-20,
-    "rel_l2": 0.0014098613185864514,
-    "r": 0.9987125039300172,
-    "cos": 0.9999998347558451
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.03591993619860669,
-    "mass_sq": 0.0012902418165119754,
-    "pct_of_model_mass": 0.012551426706760887,
-    "arm_norm": 0.03588224427012696,
-    "diff_norm": 4.1075300776638176e-05,
-    "dot": 0.0012888877915963512,
-    "rel_l2": 0.0011435237676795055,
-    "r": 0.998950668278715,
-    "cos": 0.9999998966167443
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.019740996222117183,
-    "mass_sq": 0.0003897069318416449,
-    "pct_of_model_mass": 0.003791055234398123,
-    "arm_norm": 0.019720274474112485,
-    "diff_norm": 2.2043022187509224e-05,
-    "dot": 0.0003892978356405751,
-    "rel_l2": 0.0011166114384244157,
-    "r": 0.9989503190329634,
-    "cos": 0.9999999274283371
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.022723193999378822,
-    "mass_sq": 0.0005163435455334057,
-    "pct_of_model_mass": 0.00502297172850268,
-    "arm_norm": 0.022700298474658414,
-    "diff_norm": 2.5081979922263443e-05,
-    "dot": 0.000515823233633134,
-    "rel_l2": 0.0011038052099079515,
-    "r": 0.9989924160872352,
-    "cos": 0.9999998983172461
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-    "section": "input_embedder",
-    "ref_norm": 0.0062677020531979495,
-    "mass_sq": 3.9284089027661794e-05,
-    "pct_of_model_mass": 0.0003821542271087833,
-    "arm_norm": 0.0062631269363116505,
-    "diff_norm": 5.471553770003717e-06,
-    "dot": 3.925540905505685e-05,
-    "rel_l2": 0.000872976048249132,
-    "r": 0.9992700487599017,
-    "cos": 0.9999998852870813
-   }
-  ],
-  "reproduction_against_the_model_reference": [
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
-    "published": 0.013760036968974687,
-    "recomputed": 0.013760036968974687,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
-    "published": 0.08016967852509334,
-    "recomputed": 0.08016967852509334,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-    "published": 0.11750053740244587,
-    "recomputed": 0.11750053740244587,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
-    "published": 0.0787160001324058,
-    "recomputed": 0.0787160001324058,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
-    "published": 0.0736761222697088,
-    "recomputed": 0.0736761222697088,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
-    "published": 0.03797563475088949,
-    "recomputed": 0.03797563475088949,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
-    "published": 0.06994817570366399,
-    "recomputed": 0.06994817570366399,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
-    "published": 0.06711124016745436,
-    "recomputed": 0.06711124016745436,
-    "rel_diff": 0.0
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
-    "published": 0.0017329091783988711,
-    "recomputed": 0.0017329091784008095,
-    "rel_diff": 1.1185448540127874e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
-    "published": 0.0019340736446672524,
-    "recomputed": 0.0019340736446565045,
-    "rel_diff": 5.557137395423444e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
-    "published": 0.0011435237676788897,
-    "recomputed": 0.0011435237676795055,
-    "rel_diff": 5.385343544032882e-13
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
-    "published": 0.000872976048247258,
-    "recomputed": 0.000872976048249132,
-    "rel_diff": 2.1467295224237337e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
-    "published": 0.001116611438424032,
-    "recomputed": 0.0011166114384244157,
-    "rel_diff": 3.4353107573997755e-13
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
-    "published": 0.0011038052099056558,
-    "recomputed": 0.0011038052099079515,
-    "rel_diff": 2.0797960178291093e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
-    "published": 0.0016482441874762185,
-    "recomputed": 0.0016482441874656288,
-    "rel_diff": 6.424787989281601e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
-    "published": 0.0016155463474745756,
-    "recomputed": 0.0016155463474605601,
-    "rel_diff": 8.675381864240006e-12
-   },
-   {
-    "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
-    "published": 0.0014098613185965945,
-    "recomputed": 0.0014098613185864514,
-    "rel_diff": 7.194427473595479e-12
-   }
-  ],
-  "headline": {
+  "mass_weighted_bar": 0.02,
+  "by_arm": {
    "shipped": {
-    "before": {
-     "set": "shipped_vs_FLOAT64_before",
-     "n": 3643,
-     "pct_of_model_mass": 97.98499306866091,
-     "mass_weighted_rel_l2": 14.669240503646739,
-     "mass_weighted_norm_ratio": 14.781986930054222,
-     "mass_weighted_cos": 0.14614140395702216,
-     "median_rel_l2_over_tensors": 1.805798396151653,
-     "n_rel_measurable": 3588,
-     "n_over_per_tensor_bar": 3366,
-     "worst_rel_l2": 25108.65669669264,
-     "worst_tensor": "pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias"
+    "dumps": {
+     "with_lever_diffusion_scope": {
+      "path": "/tmp/of3t/of3t-refcov/device_grads_rc_refatom_off.pt",
+      "sha256": "0f6f3785d935b2daaf1e8f902dd441f4ee41ea7cf8cdc9a370231ac99369e79e",
+      "n_keys": 555
+     },
+     "input_embedder_leg": {
+      "path": "/tmp/of3t/of3t-refcov/ie_grads_f64_renorm_off.pt",
+      "sha256": "f628a96e8f913f2c52d744b0b7d7db768016d827fecb265e14bd1a0ab6180bcc",
+      "n_keys": 9
+     },
+     "no_lever_control": {
+      "path": "/tmp/of3t/of3t-refcov/device_grads_rc_plain_off.pt",
+      "sha256": "d004f677f6e98b8dae35b4f2585d1af463413efcb19d1b388198d00443f03633",
+      "n_keys": 547
+     }
     },
-    "after": {
-     "set": "shipped_vs_FLOAT64_after",
-     "n": 3660,
-     "pct_of_model_mass": 99.50523155277378,
-     "mass_weighted_rel_l2": 14.556752368182508,
-     "mass_weighted_norm_ratio": 14.669161229238943,
-     "mass_weighted_cos": 0.14606328180099207,
-     "median_rel_l2_over_tensors": 1.8010857974338816,
-     "n_rel_measurable": 3605,
-     "n_over_per_tensor_bar": 3372,
-     "worst_rel_l2": 25108.65669669264,
-     "worst_tensor": "pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias"
+    "C1_no_lever_reproduces_the_published_scope": {
+     "n_tensors": 547,
+     "worst_rel_diff": 0.0,
+     "worst_tensor": null,
+     "mass_weighted_rel_diff": 0.0
+    },
+    "C2_the_levers_reach_into_the_547_it_was_not_sold_on": {
+     "n_tensors": 547,
+     "worst_rel_diff": 3.879820673961742,
+     "worst_tensor": "diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "mass_weighted_rel_diff": 0.2040929221988273,
+     "note": "--device-refatom moves cl0/plm0 to the card, and they are an input to the whole DiffusionModule. Every gradient in the scope moves. C1 is what says this is the lever and not the tree."
+    },
+    "headline_vs_float64": {
+     "before": {
+      "set": "shipped_before",
+      "n": 3643,
+      "pct_of_model_mass": 97.98499306866091,
+      "mass_weighted_rel_l2": 14.669240503646739,
+      "mass_weighted_norm_ratio": 14.781986930054222,
+      "mass_weighted_cos": 0.14614140395702216,
+      "median_rel_l2_over_tensors": 1.805798396151653,
+      "n_rel_measurable": 3588,
+      "n_over_per_tensor_bar": 3366,
+      "worst_rel_l2": 25108.65669669264,
+      "worst_tensor": "pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias"
+     },
+     "after": {
+      "set": "shipped_after",
+      "n": 3660,
+      "pct_of_model_mass": 99.50523155277418,
+      "mass_weighted_rel_l2": 14.483746996945387,
+      "mass_weighted_norm_ratio": 14.594426724028317,
+      "mass_weighted_cos": 0.14451969958374683,
+      "median_rel_l2_over_tensors": 1.8015024473711763,
+      "n_rel_measurable": 3605,
+      "n_over_per_tensor_bar": 3375,
+      "worst_rel_l2": 25108.65669669264,
+      "worst_tensor": "pairformer_stack.blocks.3.attn_pair_bias.layer_norm_a.bias"
+     },
+     "mass_weighted_bar": 0.02
+    },
+    "entering": {
+     "n": 17,
+     "n_over_the_per_tensor_bar": 7,
+     "over_the_per_tensor_bar": [
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+     ],
+     "worst": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "worst_rel_l2": 0.2510660856997332,
+     "per_tensor": [
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.01967534575304234,
+       "mass_sq": 0.0003871192305017613,
+       "pct_of_model_mass": 0.0037658821673878314,
+       "arm_norm": 0.02333376349772693,
+       "diff_norm": 0.0049398120430052105,
+       "dot": 0.0004535910032246978,
+       "rel_l2": 0.2510660856997332,
+       "r": 1.1859391845309197,
+       "cos": 0.9880007341793754
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.03609600844142511,
+       "mass_sq": 0.0013029218254034327,
+       "pct_of_model_mass": 0.01267477738428927,
+       "arm_norm": 0.03857631869993122,
+       "diff_norm": 0.006328497109966831,
+       "dot": 0.0013755021570856188,
+       "rel_l2": 0.1753240145717612,
+       "r": 1.0687142530601699,
+       "cos": 0.9878279617599162
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.03353210672258909,
+       "mass_sq": 0.0011244021812551045,
+       "pct_of_model_mass": 0.010938144606952851,
+       "arm_norm": 0.03660261535377663,
+       "diff_norm": 0.005668122482947899,
+       "dot": 0.001216013009754965,
+       "rel_l2": 0.1690356806340932,
+       "r": 1.0915692132495534,
+       "cos": 0.990752697920002
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.0732831626752875,
+       "mass_sq": 0.005370421931692652,
+       "pct_of_model_mass": 0.05224327439816465,
+       "arm_norm": 0.07773489532053945,
+       "diff_norm": 0.011242860749816763,
+       "dot": 0.005643366982174058,
+       "rel_l2": 0.15341669681524364,
+       "r": 1.0607470049426941,
+       "cos": 0.9906450434647875
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 3.411767987421949e-05,
+       "mass_sq": 1.1640160799997216e-09,
+       "pct_of_model_mass": 1.1323507211310432e-08,
+       "arm_norm": 3.515214300870119e-05,
+       "diff_norm": 3.981978877979718e-06,
+       "dot": 1.1919165411596124e-09,
+       "rel_l2": 0.11671306175155949,
+       "r": 1.0303204420199563,
+       "cos": 0.9938356024683765
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.26310352848501084,
+       "mass_sq": 0.0692234667012629,
+       "pct_of_model_mass": 0.6734034330383525,
+       "arm_norm": 0.26772347093698456,
+       "diff_norm": 0.02530584853573136,
+       "dot": 0.07012946881084797,
+       "rel_l2": 0.09618209486374506,
+       "r": 1.0175594089466455,
+       "cos": 0.9956058278017004
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.0011863507669653565,
+       "mass_sq": 1.4074281422792897e-06,
+       "pct_of_model_mass": 1.3691411134547722e-05,
+       "arm_norm": 0.0011823058436670015,
+       "diff_norm": 9.637585283268434e-05,
+       "dot": 1.3979934726196015e-06,
+       "rel_l2": 0.08123723228940996,
+       "r": 0.9965904491226472,
+       "cos": 0.996694799313671
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.00014858848353425626,
+       "mass_sq": 2.2078537439009944e-08,
+       "pct_of_model_mass": 2.1477923046035262e-07,
+       "arm_norm": 0.00015069052539123657,
+       "diff_norm": 2.893707626202432e-06,
+       "dot": 2.238889916893546e-08,
+       "rel_l2": 0.019474642700255458,
+       "r": 1.0141467347063657,
+       "cos": 0.9999116835861518
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+       "section": "input_embedder",
+       "ref_norm": 2.1215420404592234e-11,
+       "mass_sq": 4.500940629435885e-22,
+       "pct_of_model_mass": 4.378499107599058e-21,
+       "arm_norm": 2.1175974231759985e-11,
+       "diff_norm": 4.1032185464829675e-14,
+       "dot": 4.492571319837536e-22,
+       "rel_l2": 0.0019340736446565045,
+       "r": 0.9981406838950168,
+       "cos": 0.9999998579436299
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.2759008305852622,
+       "mass_sq": 0.07612126831763756,
+       "pct_of_model_mass": 0.7405050029283714,
+       "arm_norm": 0.2754316221940475,
+       "diff_norm": 0.0004781110816496077,
+       "dot": 0.07599180911593786,
+       "rel_l2": 0.0017329091784008095,
+       "r": 0.9982993585404604,
+       "cos": 0.999999944509207
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+       "section": "input_embedder",
+       "ref_norm": 1.0616225524689646e-09,
+       "mass_sq": 1.1270424439107196e-18,
+       "pct_of_model_mass": 1.0963828988581514e-17,
+       "arm_norm": 1.0599642562896721e-09,
+       "diff_norm": 1.7498132013893955e-12,
+       "dot": 1.1252818033380988e-18,
+       "rel_l2": 0.0016482441874656288,
+       "r": 0.9984379606712047,
+       "cos": 0.9999998614125024
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.02254942985679324,
+       "mass_sq": 0.0005084767868664384,
+       "pct_of_model_mass": 0.0049464441787328665,
+       "arm_norm": 0.022517066980389112,
+       "diff_norm": 3.642964904246042e-05,
+       "dot": 0.0005077468825732194,
+       "rel_l2": 0.0016155463474605601,
+       "r": 0.9985648028970285,
+       "cos": 0.9999997245049721
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+       "section": "input_embedder",
+       "ref_norm": 2.9532870807876146e-10,
+       "mass_sq": 8.72190458154703e-20,
+       "pct_of_model_mass": 8.484637894824692e-19,
+       "arm_norm": 2.9494847352775694e-10,
+       "diff_norm": 4.1637252178835577e-13,
+       "dot": 8.710673724287367e-20,
+       "rel_l2": 0.0014098613185864514,
+       "r": 0.9987125039300172,
+       "cos": 0.9999998347558451
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.03591993619860669,
+       "mass_sq": 0.0012902418165119754,
+       "pct_of_model_mass": 0.012551426706760887,
+       "arm_norm": 0.03588224427012696,
+       "diff_norm": 4.1075300776638176e-05,
+       "dot": 0.0012888877915963512,
+       "rel_l2": 0.0011435237676795055,
+       "r": 0.998950668278715,
+       "cos": 0.9999998966167443
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.019740996222117183,
+       "mass_sq": 0.0003897069318416449,
+       "pct_of_model_mass": 0.003791055234398123,
+       "arm_norm": 0.019720274474112485,
+       "diff_norm": 2.2043022187509224e-05,
+       "dot": 0.0003892978356405751,
+       "rel_l2": 0.0011166114384244157,
+       "r": 0.9989503190329634,
+       "cos": 0.9999999274283371
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.022723193999378822,
+       "mass_sq": 0.0005163435455334057,
+       "pct_of_model_mass": 0.00502297172850268,
+       "arm_norm": 0.022700298474658414,
+       "diff_norm": 2.5081979922263443e-05,
+       "dot": 0.000515823233633134,
+       "rel_l2": 0.0011038052099079515,
+       "r": 0.9989924160872352,
+       "cos": 0.9999998983172461
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.0062677020531979495,
+       "mass_sq": 3.9284089027661794e-05,
+       "pct_of_model_mass": 0.0003821542271087833,
+       "arm_norm": 0.0062631269363116505,
+       "diff_norm": 5.471553770003717e-06,
+       "dot": 3.925540905505685e-05,
+       "rel_l2": 0.000872976048249132,
+       "r": 0.9992700487599017,
+       "cos": 0.9999998852870813
+      }
+     ]
+    },
+    "delta": {
+     "what": "the change THIS ROW causes, with every other section held fixed. The absolute level is not this row's object: the trunk reading is cross-frame and is being corrected by of3t-vjpln (D214).",
+     "mass_weighted_rel_l2_delta": -0.1370213465733352,
+     "direction": "improves",
+     "terms": {
+      "the_17_entering": {
+       "numerator_contribution": 0.008133022941256366,
+       "mass_sq": 0.15627508402823034
+      },
+      "the_lever_on_the_547_already_in_the_scope": {
+       "numerator_contribution": -1.063588116233408
+      }
+     },
+     "denominators": {
+      "before_mass_sq": 10.072507166035818,
+      "after_mass_sq": 10.228782250064086
+     },
+     "sections_that_moved": [
+      "diffusion_module.atom_attn_dec",
+      "diffusion_module.atom_attn_enc",
+      "diffusion_module.diffusion_transformer",
+      "diffusion_module.layer_norm_a",
+      "diffusion_module.layer_norm_s",
+      "diffusion_module.linear_s"
+     ],
+     "sections_held_fixed": [
+      "aux_heads",
+      "diffusion_module.diffusion_conditioning",
+      "msa_module",
+      "pairformer_stack"
+     ],
+     "frame_sensitivity": {
+      "trunk_section": "pairformer_stack",
+      "trunk_mass_weighted_now": 4.321784627332574,
+      "trunk_in_frame_D214": 1.0293953378,
+      "delta_if_the_trunk_is_corrected": -0.13402942817498809,
+      "how_much_the_delta_would_move": 0.0029919183983471154,
+      "why": "a correction shifts both numerators identically, so it reaches the delta only through the denominators differing by the entering mass"
+     }
+    },
+    "per_section_mass_weighted": {
+     "aux_heads": {
+      "before": 0.00226788325582325,
+      "after": 0.00226788325582325,
+      "mass_sq": 0.2922641814528717
+     },
+     "diffusion_module.atom_attn_dec": {
+      "before": 0.018296091421436757,
+      "after": 0.018204284523220114,
+      "mass_sq": 0.13201726196085364
+     },
+     "diffusion_module.atom_attn_enc": {
+      "before": 0.18558084673428843,
+      "after": 0.1785513746641211,
+      "mass_sq": 0.4867251871754349
+     },
+     "diffusion_module.diffusion_conditioning": {
+      "before": 0.007662186532381913,
+      "after": 0.007662186532381913,
+      "mass_sq": 3.797935232543283
+     },
+     "diffusion_module.diffusion_transformer": {
+      "before": 4.365665390958169,
+      "after": 4.128013373975275,
+      "mass_sq": 4.4841971891081345
+     },
+     "diffusion_module.layer_norm_a": {
+      "before": 0.009468322963646006,
+      "after": 0.010164579176791958,
+      "mass_sq": 0.027408626873862228
+     },
+     "diffusion_module.layer_norm_s": {
+      "before": 0.023808564221062988,
+      "after": 0.020508537671389788,
+      "mass_sq": 0.10109619228848257
+     },
+     "diffusion_module.linear_s": {
+      "before": 0.2272337753957805,
+      "after": 0.22781572809983958,
+      "mass_sq": 0.02512937564604752
+     },
+     "msa_module": {
+      "before": 0.08849810158673,
+      "after": 0.08849810158673,
+      "mass_sq": 0.12661871418426052
+     },
+     "pairformer_stack": {
+      "before": 4.321784627332574,
+      "after": 4.321784627332574,
+      "mass_sq": 0.5991152048026369
+     }
     }
    },
    "renorm": {
-    "before": {
-     "set": "renorm_vs_FLOAT64_before",
-     "n": 3643,
-     "pct_of_model_mass": 97.98499306866091,
-     "mass_weighted_rel_l2": 0.5327948845677777,
-     "mass_weighted_norm_ratio": 1.1075159062175013,
-     "mass_weighted_cos": 0.877062389170628,
-     "median_rel_l2_over_tensors": 1.2908266333929375,
-     "n_rel_measurable": 3588,
-     "n_over_per_tensor_bar": 3311,
-     "worst_rel_l2": 642.7051680533705,
-     "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+    "dumps": {
+     "with_lever_diffusion_scope": {
+      "path": "/tmp/of3t/of3t-refcov/device_grads_rc_refatom_on.pt",
+      "sha256": "67958b050f0f804ead24437b90dcd70c9cf6ea8297cdc8351119e145e9a9ab64",
+      "n_keys": 555
+     },
+     "input_embedder_leg": {
+      "path": "/tmp/of3t/of3t-refcov/ie_grads_f64_renorm_on.pt",
+      "sha256": "6c85fb896ba24c77b06f31f46315ee30d71fbc81d0af5a0731d8d4519e0ac23a",
+      "n_keys": 9
+     },
+     "no_lever_control": {
+      "path": "/home/ttuser/of3t_hostleg/device_grads_hl_shipped.pt",
+      "sha256": "b7e28a1a326c5bf8745f611c1be1503649e0aafbecf13df5b733b18d4813a2e0",
+      "n_keys": 547
+     }
     },
-    "after": {
-     "set": "renorm_vs_FLOAT64_after",
-     "n": 3660,
-     "pct_of_model_mass": 99.50523155277378,
-     "mass_weighted_rel_l2": 0.542965376089601,
-     "mass_weighted_norm_ratio": 1.0990230425137464,
-     "mass_weighted_cos": 0.8703367328716087,
-     "median_rel_l2_over_tensors": 1.2878580233162695,
-     "n_rel_measurable": 3605,
-     "n_over_per_tensor_bar": 3328,
-     "worst_rel_l2": 642.7051680533705,
-     "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+    "C1_no_lever_reproduces_the_published_scope": {
+     "n_tensors": 547,
+     "worst_rel_diff": 0.0,
+     "worst_tensor": null,
+     "mass_weighted_rel_diff": 0.0
+    },
+    "C2_the_levers_reach_into_the_547_it_was_not_sold_on": {
+     "n_tensors": 547,
+     "worst_rel_diff": 0.740350719969133,
+     "worst_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "mass_weighted_rel_diff": 0.13949978615214453,
+     "note": "--device-refatom moves cl0/plm0 to the card, and they are an input to the whole DiffusionModule. Every gradient in the scope moves. C1 is what says this is the lever and not the tree."
+    },
+    "headline_vs_float64": {
+     "before": {
+      "set": "renorm_before",
+      "n": 3643,
+      "pct_of_model_mass": 97.98499306866091,
+      "mass_weighted_rel_l2": 0.5327948845677777,
+      "mass_weighted_norm_ratio": 1.1075159062175013,
+      "mass_weighted_cos": 0.877062389170628,
+      "median_rel_l2_over_tensors": 1.2908266333929375,
+      "n_rel_measurable": 3588,
+      "n_over_per_tensor_bar": 3311,
+      "worst_rel_l2": 642.7051680533705,
+      "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+     },
+     "after": {
+      "set": "renorm_after",
+      "n": 3660,
+      "pct_of_model_mass": 99.50523155277418,
+      "mass_weighted_rel_l2": 0.5276985077644327,
+      "mass_weighted_norm_ratio": 1.1004334067676345,
+      "mass_weighted_cos": 0.8780576615307519,
+      "median_rel_l2_over_tensors": 1.2878580233162695,
+      "n_rel_measurable": 3605,
+      "n_over_per_tensor_bar": 3314,
+      "worst_rel_l2": 642.7051680533705,
+      "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+     },
+     "mass_weighted_bar": 0.02
+    },
+    "entering": {
+     "n": 17,
+     "n_over_the_per_tensor_bar": 6,
+     "over_the_per_tensor_bar": [
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+      "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+     ],
+     "worst": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     "worst_rel_l2": 0.11750053740244587,
+     "per_tensor": [
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.01967534575304234,
+       "mass_sq": 0.0003871192305017613,
+       "pct_of_model_mass": 0.0037658821673878314,
+       "arm_norm": 0.02136340709009378,
+       "diff_norm": 0.002311863699561406,
+       "dot": 0.00041908483961674035,
+       "rel_l2": 0.11750053740244587,
+       "r": 1.0857957648236205,
+       "cos": 0.997031917402422
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.0732831626752875,
+       "mass_sq": 0.005370421931692652,
+       "pct_of_model_mass": 0.05224327439816465,
+       "arm_norm": 0.07479801654372857,
+       "diff_norm": 0.005875087592979919,
+       "dot": 0.005465324278171684,
+       "rel_l2": 0.08016967852509334,
+       "r": 1.020671240338702,
+       "cos": 0.9970608179497232
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.03353210672258909,
+       "mass_sq": 0.0011244021812551045,
+       "pct_of_model_mass": 0.010938144606952851,
+       "arm_norm": 0.034892160961009284,
+       "diff_norm": 0.0026395133172151686,
+       "dot": 0.0011674490236161642,
+       "rel_l2": 0.0787160001324058,
+       "r": 1.0405597611170665,
+       "cos": 0.9978131412413613
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.03609600844142511,
+       "mass_sq": 0.0013029218254034327,
+       "pct_of_model_mass": 0.01267477738428927,
+       "arm_norm": 0.03714382807226159,
+       "diff_norm": 0.002659413931378877,
+       "dot": 0.0013377566534033744,
+       "rel_l2": 0.0736761222697088,
+       "r": 1.0290286842252054,
+       "cos": 0.9977719248476017
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.26310352848501084,
+       "mass_sq": 0.0692234667012629,
+       "pct_of_model_mass": 0.6734034330383525,
+       "arm_norm": 0.2670178237272799,
+       "diff_norm": 0.0184036118387235,
+       "dot": 0.07009164598030262,
+       "rel_l2": 0.06994817570366399,
+       "r": 1.0148773954678911,
+       "cos": 0.9976985346164852
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 3.411767987421949e-05,
+       "mass_sq": 1.1640160799997216e-09,
+       "pct_of_model_mass": 1.1323507211310432e-08,
+       "arm_norm": 3.370223491253786e-05,
+       "diff_norm": 2.289679807995068e-06,
+       "dot": 1.1473070422382334e-09,
+       "rel_l2": 0.06711124016745436,
+       "r": 0.987823176628269,
+       "cos": 0.9977953323871916
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.0011863507669653565,
+       "mass_sq": 1.4074281422792897e-06,
+       "pct_of_model_mass": 1.3691411134547722e-05,
+       "arm_norm": 0.0011568927393309089,
+       "diff_norm": 4.505242341271399e-05,
+       "dot": 1.371899615870253e-06,
+       "rel_l2": 0.03797563475088949,
+       "r": 0.9751692092636309,
+       "cos": 0.9995766987624831
+      },
+      {
+       "param": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+       "section": "diffusion_module.atom_attn_enc",
+       "ref_norm": 0.00014858848353425626,
+       "mass_sq": 2.2078537439009944e-08,
+       "pct_of_model_mass": 2.1477923046035262e-07,
+       "arm_norm": 0.00014994798120367814,
+       "diff_norm": 2.0445830265952527e-06,
+       "dot": 2.227937709315796e-08,
+       "rel_l2": 0.013760036968974687,
+       "r": 1.0091494147937008,
+       "cos": 0.9999476654176418
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+       "section": "input_embedder",
+       "ref_norm": 2.1215420404592234e-11,
+       "mass_sq": 4.500940629435885e-22,
+       "pct_of_model_mass": 4.378499107599058e-21,
+       "arm_norm": 2.1175974231759985e-11,
+       "diff_norm": 4.1032185464829675e-14,
+       "dot": 4.492571319837536e-22,
+       "rel_l2": 0.0019340736446565045,
+       "r": 0.9981406838950168,
+       "cos": 0.9999998579436299
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.2759008305852622,
+       "mass_sq": 0.07612126831763756,
+       "pct_of_model_mass": 0.7405050029283714,
+       "arm_norm": 0.2754316221940475,
+       "diff_norm": 0.0004781110816496077,
+       "dot": 0.07599180911593786,
+       "rel_l2": 0.0017329091784008095,
+       "r": 0.9982993585404604,
+       "cos": 0.999999944509207
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+       "section": "input_embedder",
+       "ref_norm": 1.0616225524689646e-09,
+       "mass_sq": 1.1270424439107196e-18,
+       "pct_of_model_mass": 1.0963828988581514e-17,
+       "arm_norm": 1.0599642562896721e-09,
+       "diff_norm": 1.7498132013893955e-12,
+       "dot": 1.1252818033380988e-18,
+       "rel_l2": 0.0016482441874656288,
+       "r": 0.9984379606712047,
+       "cos": 0.9999998614125024
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.02254942985679324,
+       "mass_sq": 0.0005084767868664384,
+       "pct_of_model_mass": 0.0049464441787328665,
+       "arm_norm": 0.022517066980389112,
+       "diff_norm": 3.642964904246042e-05,
+       "dot": 0.0005077468825732194,
+       "rel_l2": 0.0016155463474605601,
+       "r": 0.9985648028970285,
+       "cos": 0.9999997245049721
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+       "section": "input_embedder",
+       "ref_norm": 2.9532870807876146e-10,
+       "mass_sq": 8.72190458154703e-20,
+       "pct_of_model_mass": 8.484637894824692e-19,
+       "arm_norm": 2.9494847352775694e-10,
+       "diff_norm": 4.1637252178835577e-13,
+       "dot": 8.710673724287367e-20,
+       "rel_l2": 0.0014098613185864514,
+       "r": 0.9987125039300172,
+       "cos": 0.9999998347558451
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.03591993619860669,
+       "mass_sq": 0.0012902418165119754,
+       "pct_of_model_mass": 0.012551426706760887,
+       "arm_norm": 0.03588224427012696,
+       "diff_norm": 4.1075300776638176e-05,
+       "dot": 0.0012888877915963512,
+       "rel_l2": 0.0011435237676795055,
+       "r": 0.998950668278715,
+       "cos": 0.9999998966167443
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.019740996222117183,
+       "mass_sq": 0.0003897069318416449,
+       "pct_of_model_mass": 0.003791055234398123,
+       "arm_norm": 0.019720274474112485,
+       "diff_norm": 2.2043022187509224e-05,
+       "dot": 0.0003892978356405751,
+       "rel_l2": 0.0011166114384244157,
+       "r": 0.9989503190329634,
+       "cos": 0.9999999274283371
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.022723193999378822,
+       "mass_sq": 0.0005163435455334057,
+       "pct_of_model_mass": 0.00502297172850268,
+       "arm_norm": 0.022700298474658414,
+       "diff_norm": 2.5081979922263443e-05,
+       "dot": 0.000515823233633134,
+       "rel_l2": 0.0011038052099079515,
+       "r": 0.9989924160872352,
+       "cos": 0.9999998983172461
+      },
+      {
+       "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+       "section": "input_embedder",
+       "ref_norm": 0.0062677020531979495,
+       "mass_sq": 3.9284089027661794e-05,
+       "pct_of_model_mass": 0.0003821542271087833,
+       "arm_norm": 0.0062631269363116505,
+       "diff_norm": 5.471553770003717e-06,
+       "dot": 3.925540905505685e-05,
+       "rel_l2": 0.000872976048249132,
+       "r": 0.9992700487599017,
+       "cos": 0.9999998852870813
+      }
+     ]
+    },
+    "delta": {
+     "what": "the change THIS ROW causes, with every other section held fixed. The absolute level is not this row's object: the trunk reading is cross-frame and is being corrected by of3t-vjpln (D214).",
+     "mass_weighted_rel_l2_delta": -0.005670593543330826,
+     "direction": "improves",
+     "terms": {
+      "the_17_entering": {
+       "numerator_contribution": 0.005637890951449692,
+       "mass_sq": 0.15627508402823034
+      },
+      "the_lever_on_the_547_already_in_the_scope": {
+       "numerator_contribution": -0.040894070769016466
+      }
+     },
+     "denominators": {
+      "before_mass_sq": 10.072507166035818,
+      "after_mass_sq": 10.228782250064086
+     },
+     "sections_that_moved": [
+      "diffusion_module.atom_attn_dec",
+      "diffusion_module.atom_attn_enc",
+      "diffusion_module.diffusion_transformer",
+      "diffusion_module.layer_norm_a",
+      "diffusion_module.layer_norm_s",
+      "diffusion_module.linear_s"
+     ],
+     "sections_held_fixed": [
+      "aux_heads",
+      "diffusion_module.diffusion_conditioning",
+      "msa_module",
+      "pairformer_stack"
+     ],
+     "frame_sensitivity": {
+      "trunk_section": "pairformer_stack",
+      "trunk_mass_weighted_now": 1.5623389216487753,
+      "trunk_in_frame_D214": 1.0293953378,
+      "delta_if_the_trunk_is_corrected": -0.005186287596015374,
+      "how_much_the_delta_would_move": 0.0004843059473154526,
+      "why": "a correction shifts both numerators identically, so it reaches the delta only through the denominators differing by the entering mass"
+     }
+    },
+    "per_section_mass_weighted": {
+     "aux_heads": {
+      "before": 0.00226797825577741,
+      "after": 0.00226797825577741,
+      "mass_sq": 0.2922641814528717
+     },
+     "diffusion_module.atom_attn_dec": {
+      "before": 0.01814296602699404,
+      "after": 0.018131661321294356,
+      "mass_sq": 0.13201726196085364
+     },
+     "diffusion_module.atom_attn_enc": {
+      "before": 0.07236895740950741,
+      "after": 0.07234933546978756,
+      "mass_sq": 0.4867251871754349
+     },
+     "diffusion_module.diffusion_conditioning": {
+      "before": 0.007662186532381913,
+      "after": 0.007662186532381913,
+      "mass_sq": 3.797935232543283
+     },
+     "diffusion_module.diffusion_transformer": {
+      "before": 0.10113685618036915,
+      "after": 0.09211892206377374,
+      "mass_sq": 4.4841971891081345
+     },
+     "diffusion_module.layer_norm_a": {
+      "before": 0.009411755498138248,
+      "after": 0.01024831134989906,
+      "mass_sq": 0.027408626873862228
+     },
+     "diffusion_module.layer_norm_s": {
+      "before": 0.038629282080920736,
+      "after": 0.03375896853291751,
+      "mass_sq": 0.10109619228848257
+     },
+     "diffusion_module.linear_s": {
+      "before": 0.08605977261218017,
+      "after": 0.08314313885687599,
+      "mass_sq": 0.02512937564604752
+     },
+     "msa_module": {
+      "before": 0.02280140357511757,
+      "after": 0.02280140357511757,
+      "mass_sq": 0.12661871418426052
+     },
+     "pairformer_stack": {
+      "before": 1.5623389216487753,
+      "after": 1.5623389216487753,
+      "mass_sq": 0.5991152048026369
+     }
     }
    }
   }
