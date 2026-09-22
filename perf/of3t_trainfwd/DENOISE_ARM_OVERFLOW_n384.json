@@ -1,0 +1,115 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t/bundle_min/batch_step003.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 20260922,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "commit": "248c2605e29b6e0943c085f0b189464bae8206be",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "params_reachable": 3952,
+ "loss": 9.310687084427952,
+ "weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": 0.25282072459367777,
+   "weight": 4.0,
+   "contribution": 1.011282898374711
+  },
+  "mse": {
+   "value": 2.041101740680398,
+   "weight": 4.0,
+   "contribution": 8.164406962721593
+  },
+  "distogram": {
+   "value": 4.451829139528296,
+   "weight": 0.03,
+   "contribution": 0.13355487418584885
+  },
+  "resolved": {
+   "value": 7.253810513218386,
+   "weight": 0.0001,
+   "contribution": 0.0007253810513218386
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": 4.580056093439887,
+   "weight": 0.0001,
+   "contribution": 0.0004580056093439887
+  },
+  "pde": {
+   "value": 2.5896248513361995,
+   "weight": 0.0001,
+   "contribution": 0.00025896248513361997
+  }
+ },
+ "seeded_outputs": [
+  "distogram_logits",
+  "pae_logits",
+  "pde_logits",
+  "pred_dist",
+  "pred_xyz",
+  "resolved_logits"
+ ],
+ "forward_s": 9.522967656999754,
+ "backward_s": 499.44807305299946,
+ "step_s": 508.9710407099992,
+ "params_with_grad": 3400,
+ "params_nonzero_grad": 3391,
+ "squared_gradient_norm": Infinity,
+ "by_section": {
+  "input_glue": {
+   "n": 5,
+   "sq": 4040455631.4351654
+  },
+  "trunk": {
+   "n": 2314,
+   "sq": 431271975520.11896
+  },
+  "confidence_head": {
+   "n": 185,
+   "sq": 2.9509675895949923
+  },
+  "sampler": {
+   "n": 896,
+   "sq": Infinity
+  }
+ },
+ "grad_dump": "/home/ttuser/of3t_trainfwd/grad_full_n384.pt",
+ "ok": true,
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 140
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 140 samples, polled DURING the work",
+ "total_s": 515.9741451509999
+}

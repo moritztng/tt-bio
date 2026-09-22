@@ -1,0 +1,265 @@
+{
+  "what": "of3t-trunkopclass: the CEILING each op class can buy, by arithmetic on the census.",
+  "label": "ours_vs_bf16auto",
+  "trunk_base_in_frame": 1.0293953377723437,
+  "trunk_published_in_frame": 1.029395337772341,
+  "base_reproduces_published": 2.588446985651356e-15,
+  "clause_needs_trunk_at_or_below": 0.4361680548,
+  "factor_still_to_find": 2.360088792482433,
+  "model_scope_control": {
+    "recomputed": 0.5201243840984896,
+    "published": 0.5201243840984896,
+    "rel_difference": 0.0,
+    "trunk_section_value_used": 2.0151163033431088,
+    "n_sections": 10
+  },
+  "sections_held": {
+    "aux_heads": {
+      "ref_sq": 0.30028829514275773,
+      "rel_l2": 0.2360142678177248
+    },
+    "diffusion_module.atom_attn_dec": {
+      "ref_sq": 0.13993787022516135,
+      "rel_l2": 0.04815164078474899
+    },
+    "diffusion_module.atom_attn_enc": {
+      "ref_sq": 0.4796869405664687,
+      "rel_l2": 0.09882586798817147
+    },
+    "diffusion_module.diffusion_conditioning": {
+      "ref_sq": 3.854457638761576,
+      "rel_l2": 0.0646383941962739
+    },
+    "diffusion_module.diffusion_transformer": {
+      "ref_sq": 4.66106974037695,
+      "rel_l2": 0.1085812825721296
+    },
+    "diffusion_module.layer_norm_a": {
+      "ref_sq": 0.028982598876942125,
+      "rel_l2": 0.03493677318303822
+    },
+    "diffusion_module.layer_norm_s": {
+      "ref_sq": 0.10746076344532593,
+      "rel_l2": 0.06748967169134891
+    },
+    "diffusion_module.linear_s": {
+      "ref_sq": 0.02582831874873302,
+      "rel_l2": 0.11242250895224849
+    },
+    "msa_module": {
+      "ref_sq": 0.14219798245361168,
+      "rel_l2": 0.18867775522294758
+    },
+    "pairformer_stack": {
+      "ref_sq": 0.669159435898655,
+      "rel_l2": 2.0151163033431088
+    }
+  },
+  "ceilings": {
+    "APB": {
+      "classes_perfect": [
+        "APB"
+      ],
+      "trunk_in_frame": 0.6055815531266372,
+      "factor_bought": 1.6998459290206946,
+      "clause_passes": false,
+      "over_clause": 1.3884133568752985,
+      "model_scope": 0.18181984109469726,
+      "over_A26_bar": 1.2339092649466568,
+      "scope_passes": false
+    },
+    "TRANS": {
+      "classes_perfect": [
+        "TRANS"
+      ],
+      "trunk_in_frame": 0.8772666066183658,
+      "factor_bought": 1.1734121987617818,
+      "clause_passes": false,
+      "over_clause": 2.011304122262293,
+      "model_scope": 0.24281120929746675,
+      "over_A26_bar": 1.647823466246468,
+      "scope_passes": false
+    },
+    "TRI_ATT": {
+      "classes_perfect": [
+        "TRI_ATT"
+      ],
+      "trunk_in_frame": 1.0061879555599085,
+      "factor_bought": 1.0230646591267545,
+      "clause_passes": false,
+      "over_clause": 2.306881360262124,
+      "model_scope": 0.2730697634964233,
+      "over_A26_bar": 1.8531712992727722,
+      "scope_passes": false
+    },
+    "TRI_MUL": {
+      "classes_perfect": [
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 1.0149996875829628,
+      "factor_bought": 1.0141829109560236,
+      "clause_passes": false,
+      "over_clause": 2.3270839677802164,
+      "model_scope": 0.2751582150939454,
+      "over_A26_bar": 1.8673444486939785,
+      "scope_passes": false
+    },
+    "APB+TRANS": {
+      "classes_perfect": [
+        "APB",
+        "TRANS"
+      ],
+      "trunk_in_frame": 0.27689520607539403,
+      "factor_bought": 3.71763510232841,
+      "clause_passes": true,
+      "over_clause": 0.6348360523614258,
+      "model_scope": 0.12004885091616574,
+      "over_A26_bar": 0.8147042066465485,
+      "scope_passes": true
+    },
+    "APB+TRI_ATT": {
+      "classes_perfect": [
+        "APB",
+        "TRI_ATT"
+      ],
+      "trunk_in_frame": 0.5652331005644137,
+      "factor_bought": 1.821187288473447,
+      "clause_passes": false,
+      "over_clause": 1.295906690882245,
+      "model_scope": 0.173267247285187,
+      "over_A26_bar": 1.1758676085611814,
+      "scope_passes": false
+    },
+    "APB+TRI_MUL": {
+      "classes_perfect": [
+        "APB",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.580774157356665,
+      "factor_bought": 1.7724537580279616,
+      "clause_passes": false,
+      "over_clause": 1.331537582739691,
+      "model_scope": 0.17654032564680366,
+      "over_A26_bar": 1.198080155283141,
+      "scope_passes": false
+    },
+    "TRANS+TRI_ATT": {
+      "classes_perfect": [
+        "TRANS",
+        "TRI_ATT"
+      ],
+      "trunk_in_frame": 0.849915372007174,
+      "factor_bought": 1.211173925871357,
+      "clause_passes": false,
+      "over_clause": 1.9485961033916006,
+      "model_scope": 0.23647487758022706,
+      "over_A26_bar": 1.6048223374114399,
+      "scope_passes": false
+    },
+    "TRANS+TRI_MUL": {
+      "classes_perfect": [
+        "TRANS",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.8603291831931408,
+      "factor_bought": 1.1965133322011794,
+      "clause_passes": false,
+      "over_clause": 1.9724717886265999,
+      "model_scope": 0.23888347645719812,
+      "over_A26_bar": 1.6211681468233334,
+      "scope_passes": false
+    },
+    "TRI_ATT+TRI_MUL": {
+      "classes_perfect": [
+        "TRI_ATT",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.9914553980285258,
+      "factor_bought": 1.0382669153037647,
+      "clause_passes": false,
+      "over_clause": 2.273104110027376,
+      "model_scope": 0.2695832481809118,
+      "over_A26_bar": 1.829510275677732,
+      "scope_passes": false
+    },
+    "APB+TRANS+TRI_ATT": {
+      "classes_perfect": [
+        "APB",
+        "TRANS",
+        "TRI_ATT"
+      ],
+      "trunk_in_frame": 0.1715528945658615,
+      "factor_bought": 6.000454497590216,
+      "clause_passes": true,
+      "over_clause": 0.3933183383742424,
+      "model_scope": 0.10665275885966087,
+      "over_A26_bar": 0.7237924447448836,
+      "scope_passes": true
+    },
+    "APB+TRANS+TRI_MUL": {
+      "classes_perfect": [
+        "APB",
+        "TRANS",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.2173489349263284,
+      "factor_bought": 4.736141624624307,
+      "clause_passes": true,
+      "over_clause": 0.49831465769768796,
+      "model_scope": 0.11189172699565557,
+      "over_A26_bar": 0.7593463825486094,
+      "scope_passes": true
+    },
+    "APB+TRI_ATT+TRI_MUL": {
+      "classes_perfect": [
+        "APB",
+        "TRI_ATT",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.538570387544409,
+      "factor_bought": 1.9113478230131298,
+      "clause_passes": false,
+      "over_clause": 1.2347772415184428,
+      "model_scope": 0.16771872568549007,
+      "over_A26_bar": 1.1382129050513654,
+      "scope_passes": false
+    },
+    "TRANS+TRI_ATT+TRI_MUL": {
+      "classes_perfect": [
+        "TRANS",
+        "TRI_ATT",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.8324216142918007,
+      "factor_bought": 1.236627353373233,
+      "clause_passes": false,
+      "over_clause": 1.9084882653166757,
+      "model_scope": 0.23244009914462246,
+      "over_A26_bar": 1.5774405595827676,
+      "scope_passes": false
+    },
+    "APB+TRANS+TRI_ATT+TRI_MUL": {
+      "classes_perfect": [
+        "APB",
+        "TRANS",
+        "TRI_ATT",
+        "TRI_MUL"
+      ],
+      "trunk_in_frame": 0.0,
+      "factor_bought": null,
+      "clause_passes": true,
+      "over_clause": 0.0,
+      "model_scope": 0.09737988979330126,
+      "over_A26_bar": 0.6608626842482879,
+      "scope_passes": true
+    }
+  },
+  "clause_threshold_control": {
+    "trunk_substituted": 0.4361680548,
+    "model_scope": 0.14735268326786685,
+    "A26_bar": 0.14735268326440318,
+    "rel_difference": 2.3506010990044202e-11,
+    "what": "the published clause threshold put through this pooling must land on the A26 bar; if it does not, this row is using a different frame from the one the threshold was derived in and no ceiling below is comparable to it"
+  },
+  "frame_factor_graded_over_inframe": 1.0
+}

@@ -66,6 +66,18 @@ FROZEN = {
     # line in `aa.py`, not a re-run.
     "perf/of3t_modelboundary/AA_c64_CTRL.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
     "perf/of3t_modelboundary/AA_c64_CTRL_nocaptures.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
+    # `of3t-apbback`'s BLK47_VALIDATION.json, frozen pass 334 for a reason neither of the two
+    # classes above covers: its `bit_identical: 16` is NOT a device digest claim. It pairs with
+    # `upstream_f64_vs_capture_mw: 0.0` and says that upstream 0.4.3/0.5.0's FLOAT64 backward
+    # reproduces the capture's own float64 gradient bit-identically on 16 of 16 scope tensors --
+    # two CPU float64 references agreeing, with no card on either side. D155 exists because card 0
+    # is different hardware on each box and pc card 0 must not host bit-exact claims; a
+    # float64-vs-float64 identity has no hardware to attribute. The guard cannot tell the two
+    # apart, which is the same shape as D183 (it compares reference PATHS, not content).
+    # The general repair is to let the asserter recognise a host-independent claim; until then
+    # this is frozen with its reason rather than the row being asked to name a host that does not
+    # bear on the claim.
+    "perf/of3t_apbback/BLK47_VALIDATION.json": "of3t-apbback; bit_identical is float64-vs-float64, no device on either side",
 }
 
 
