@@ -1,0 +1,508 @@
+{
+ "arms": {
+  "mol_type_af3": {
+   "terms": {
+    "bond": {
+     "contribution": 0.0,
+     "fired": false,
+     "seed_norm": 0.0,
+     "seeds": "pred_dist",
+     "skipped": "weight is zero in this stage",
+     "value": null,
+     "weight": 0.0
+    },
+    "distogram": {
+     "contribution": 0.12865395946937944,
+     "fired": true,
+     "seed_norm": 0.0005327387051577458,
+     "seeds": "distogram_logits",
+     "skipped": null,
+     "value": 4.288465315645982,
+     "weight": 0.03
+    },
+    "mse": {
+     "contribution": 5.630739614867644,
+     "fired": true,
+     "seed_norm": 1.2593676967241507,
+     "seeds": "pred_xyz",
+     "skipped": null,
+     "value": 1.407684903716911,
+     "weight": 4.0
+    },
+    "pae": {
+     "contribution": 0.0004275963320622558,
+     "fired": true,
+     "seed_norm": 1.7753389718472197e-06,
+     "seeds": "pae_logits",
+     "skipped": null,
+     "value": 4.275963320622558,
+     "weight": 0.0001
+    },
+    "pde": {
+     "contribution": 0.00042770801890933065,
+     "fired": true,
+     "seed_norm": 1.7754674278970152e-06,
+     "seeds": "pde_logits",
+     "skipped": null,
+     "value": 4.277080189093306,
+     "weight": 0.0001
+    },
+    "plddt": {
+     "contribution": 0.00040269559709621785,
+     "fired": true,
+     "seed_norm": 1.3268274652696933e-05,
+     "seeds": "plddt_logits",
+     "skipped": null,
+     "value": 4.026955970962178,
+     "weight": 0.0001
+    },
+    "resolved": {
+     "contribution": 7.190701909213547e-05,
+     "fired": true,
+     "seed_norm": 9.640772669207014e-06,
+     "seeds": "resolved_logits",
+     "skipped": null,
+     "value": 0.7190701909213546,
+     "weight": 0.0001
+    },
+    "smooth_lddt": {
+     "contribution": 1.5732019463981475,
+     "fired": true,
+     "seed_norm": 0.015226004021220181,
+     "seeds": "pred_dist",
+     "skipped": null,
+     "value": 0.39330048659953687,
+     "weight": 4.0
+    }
+   },
+   "terms_that_did_not": [
+    "bond"
+   ],
+   "terms_that_fired": [
+    "distogram",
+    "mse",
+    "pae",
+    "pde",
+    "plddt",
+    "resolved",
+    "smooth_lddt"
+   ],
+   "total": 7.333925427702331
+  },
+  "mol_type_boltz": {
+   "terms": {
+    "bond": {
+     "contribution": 0.0,
+     "fired": false,
+     "seed_norm": 0.0,
+     "seeds": "pred_dist",
+     "skipped": "weight is zero in this stage",
+     "value": null,
+     "weight": 0.0
+    },
+    "distogram": {
+     "contribution": 0.12865395946937944,
+     "fired": true,
+     "seed_norm": 0.0005327387051577458,
+     "seeds": "distogram_logits",
+     "skipped": null,
+     "value": 4.288465315645982,
+     "weight": 0.03
+    },
+    "mse": {
+     "contribution": 5.630739614867644,
+     "fired": true,
+     "seed_norm": 1.2593676967241507,
+     "seeds": "pred_xyz",
+     "skipped": null,
+     "value": 1.407684903716911,
+     "weight": 4.0
+    },
+    "pae": {
+     "contribution": 0.0004275963320622558,
+     "fired": true,
+     "seed_norm": 1.7753389718472197e-06,
+     "seeds": "pae_logits",
+     "skipped": null,
+     "value": 4.275963320622558,
+     "weight": 0.0001
+    },
+    "pde": {
+     "contribution": 0.00042770801890933065,
+     "fired": true,
+     "seed_norm": 1.7754674278970152e-06,
+     "seeds": "pde_logits",
+     "skipped": null,
+     "value": 4.277080189093306,
+     "weight": 0.0001
+    },
+    "plddt": {
+     "contribution": 0.00040269559709621785,
+     "fired": true,
+     "seed_norm": 1.3268274652696933e-05,
+     "seeds": "plddt_logits",
+     "skipped": null,
+     "value": 4.026955970962178,
+     "weight": 0.0001
+    },
+    "resolved": {
+     "contribution": 7.190701909213547e-05,
+     "fired": true,
+     "seed_norm": 9.640772669207014e-06,
+     "seeds": "resolved_logits",
+     "skipped": null,
+     "value": 0.7190701909213546,
+     "weight": 0.0001
+    },
+    "smooth_lddt": {
+     "contribution": 1.5732019463981475,
+     "fired": true,
+     "seed_norm": 0.015226004021220181,
+     "seeds": "pred_dist",
+     "skipped": null,
+     "value": 0.39330048659953687,
+     "weight": 4.0
+    }
+   },
+   "terms_that_did_not": [
+    "bond"
+   ],
+   "terms_that_fired": [
+    "distogram",
+    "mse",
+    "pae",
+    "pde",
+    "plddt",
+    "resolved",
+    "smooth_lddt"
+   ],
+   "total": 7.333925427702331
+  },
+  "mol_type_unnamed": {
+   "terms": {
+    "bond": {
+     "contribution": 0.0,
+     "fired": false,
+     "seed_norm": 0.0,
+     "seeds": "pred_dist",
+     "skipped": "weight is zero in this stage",
+     "value": null,
+     "weight": 0.0
+    },
+    "distogram": {
+     "contribution": 0.12865395946937944,
+     "fired": true,
+     "seed_norm": 0.0005327387051577458,
+     "seeds": "distogram_logits",
+     "skipped": null,
+     "value": 4.288465315645982,
+     "weight": 0.03
+    },
+    "mse": {
+     "contribution": 5.630739614867644,
+     "fired": true,
+     "seed_norm": 1.2593676967241507,
+     "seeds": "pred_xyz",
+     "skipped": null,
+     "value": 1.407684903716911,
+     "weight": 4.0
+    },
+    "pae": {
+     "contribution": 0.0004275963320622558,
+     "fired": true,
+     "seed_norm": 1.7753389718472197e-06,
+     "seeds": "pae_logits",
+     "skipped": null,
+     "value": 4.275963320622558,
+     "weight": 0.0001
+    },
+    "pde": {
+     "contribution": 0.00042770801890933065,
+     "fired": true,
+     "seed_norm": 1.7754674278970152e-06,
+     "seeds": "pde_logits",
+     "skipped": null,
+     "value": 4.277080189093306,
+     "weight": 0.0001
+    },
+    "plddt": {
+     "contribution": 0.00040269559709621785,
+     "fired": true,
+     "seed_norm": 1.3268274652696933e-05,
+     "seeds": "plddt_logits",
+     "skipped": null,
+     "value": 4.026955970962178,
+     "weight": 0.0001
+    },
+    "resolved": {
+     "contribution": 7.190701909213547e-05,
+     "fired": true,
+     "seed_norm": 9.640772669207014e-06,
+     "seeds": "resolved_logits",
+     "skipped": null,
+     "value": 0.7190701909213546,
+     "weight": 0.0001
+    },
+    "smooth_lddt": {
+     "contribution": 1.5732019463981475,
+     "fired": true,
+     "seed_norm": 0.015226004021220181,
+     "seeds": "pred_dist",
+     "skipped": null,
+     "value": 0.39330048659953687,
+     "weight": 4.0
+    }
+   },
+   "terms_that_did_not": [
+    "bond"
+   ],
+   "terms_that_fired": [
+    "distogram",
+    "mse",
+    "pae",
+    "pde",
+    "plddt",
+    "resolved",
+    "smooth_lddt"
+   ],
+   "total": 7.333925427702331
+  },
+  "native_flags": {
+   "terms": {
+    "bond": {
+     "contribution": 0.0,
+     "fired": false,
+     "seed_norm": 0.0,
+     "seeds": "pred_dist",
+     "skipped": "weight is zero in this stage",
+     "value": null,
+     "weight": 0.0
+    },
+    "distogram": {
+     "contribution": 0.12865395946937944,
+     "fired": true,
+     "seed_norm": 0.0005327387051577458,
+     "seeds": "distogram_logits",
+     "skipped": null,
+     "value": 4.288465315645982,
+     "weight": 0.03
+    },
+    "mse": {
+     "contribution": 5.630739614867644,
+     "fired": true,
+     "seed_norm": 1.2593676967241507,
+     "seeds": "pred_xyz",
+     "skipped": null,
+     "value": 1.407684903716911,
+     "weight": 4.0
+    },
+    "pae": {
+     "contribution": 0.0004275963320622558,
+     "fired": true,
+     "seed_norm": 1.7753389718472197e-06,
+     "seeds": "pae_logits",
+     "skipped": null,
+     "value": 4.275963320622558,
+     "weight": 0.0001
+    },
+    "pde": {
+     "contribution": 0.00042770801890933065,
+     "fired": true,
+     "seed_norm": 1.7754674278970152e-06,
+     "seeds": "pde_logits",
+     "skipped": null,
+     "value": 4.277080189093306,
+     "weight": 0.0001
+    },
+    "plddt": {
+     "contribution": 0.00040269559709621785,
+     "fired": true,
+     "seed_norm": 1.3268274652696933e-05,
+     "seeds": "plddt_logits",
+     "skipped": null,
+     "value": 4.026955970962178,
+     "weight": 0.0001
+    },
+    "resolved": {
+     "contribution": 7.190701909213547e-05,
+     "fired": true,
+     "seed_norm": 9.640772669207014e-06,
+     "seeds": "resolved_logits",
+     "skipped": null,
+     "value": 0.7190701909213546,
+     "weight": 0.0001
+    },
+    "smooth_lddt": {
+     "contribution": 1.5732019463981475,
+     "fired": true,
+     "seed_norm": 0.015226004021220181,
+     "seeds": "pred_dist",
+     "skipped": null,
+     "value": 0.39330048659953687,
+     "weight": 4.0
+    }
+   },
+   "terms_that_did_not": [
+    "bond"
+   ],
+   "terms_that_fired": [
+    "distogram",
+    "mse",
+    "pae",
+    "pde",
+    "plddt",
+    "resolved",
+    "smooth_lddt"
+   ],
+   "total": 7.333925427702331
+  },
+  "no_entity_labels": {
+   "terms": {
+    "bond": {
+     "contribution": 0.0,
+     "fired": false,
+     "seed_norm": 0.0,
+     "seeds": "pred_dist",
+     "skipped": "weight is zero in this stage",
+     "value": null,
+     "weight": 0.0
+    },
+    "distogram": {
+     "contribution": 0.12865395946937944,
+     "fired": true,
+     "seed_norm": 0.0005327387051577458,
+     "seeds": "distogram_logits",
+     "skipped": null,
+     "value": 4.288465315645982,
+     "weight": 0.03
+    },
+    "mse": {
+     "contribution": 4.316268983475502,
+     "fired": true,
+     "seed_norm": 0.6411499272252029,
+     "seeds": "pred_xyz",
+     "skipped": null,
+     "value": 1.0790672458688755,
+     "weight": 4.0
+    },
+    "pae": {
+     "contribution": 0.0004275963320622558,
+     "fired": true,
+     "seed_norm": 1.7753389718472197e-06,
+     "seeds": "pae_logits",
+     "skipped": null,
+     "value": 4.275963320622558,
+     "weight": 0.0001
+    },
+    "pde": {
+     "contribution": 0.00042770801890933065,
+     "fired": true,
+     "seed_norm": 1.7754674278970152e-06,
+     "seeds": "pde_logits",
+     "skipped": null,
+     "value": 4.277080189093306,
+     "weight": 0.0001
+    },
+    "plddt": {
+     "contribution": 0.00040269559709621785,
+     "fired": true,
+     "seed_norm": 1.3268274652696933e-05,
+     "seeds": "plddt_logits",
+     "skipped": null,
+     "value": 4.026955970962178,
+     "weight": 0.0001
+    },
+    "resolved": {
+     "contribution": 7.190701909213547e-05,
+     "fired": true,
+     "seed_norm": 9.640772669207014e-06,
+     "seeds": "resolved_logits",
+     "skipped": null,
+     "value": 0.7190701909213546,
+     "weight": 0.0001
+    },
+    "smooth_lddt": {
+     "contribution": 1.5732019463981475,
+     "fired": true,
+     "seed_norm": 0.015226004021220181,
+     "seeds": "pred_dist",
+     "skipped": null,
+     "value": 0.39330048659953687,
+     "weight": 4.0
+    }
+   },
+   "terms_that_did_not": [
+    "bond"
+   ],
+   "terms_that_fired": [
+    "distogram",
+    "mse",
+    "pae",
+    "pde",
+    "plddt",
+    "resolved",
+    "smooth_lddt"
+   ],
+   "total": 6.019454796310189
+  }
+ },
+ "bare_differs_from_native": true,
+ "batch": {
+  "file": "/tmp/of3t/of3t-updaterule/batch_step003.pt",
+  "frames": "the token triple (i-1, i, i+1), clamped at the ends",
+  "n_atoms": 422,
+  "n_ligand_tokens": 2,
+  "n_nucleotide_tokens": 0,
+  "n_resolved_atoms": 422,
+  "n_resolved_tokens": 56,
+  "n_token_bonds": 0,
+  "n_tokens": 56,
+  "pdb_id": [
+   "5nw3"
+  ],
+  "representative_atom": "ground_truth.start_atom_index, each token's first atom",
+  "scope": "token, one representative atom per token",
+  "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+ },
+ "derived_matches_native": {
+  "mol_type_af3": true,
+  "mol_type_boltz": true,
+  "mol_type_unnamed": true
+ },
+ "floor": 1e-12,
+ "instrument": "PROTOCOL SS6 coverage census on the changed term",
+ "mse_across_arms": {
+  "mol_type_af3": {
+   "fired": true,
+   "seed_norm": 1.2593676967241507,
+   "value": 1.407684903716911,
+   "weight": 4.0
+  },
+  "mol_type_boltz": {
+   "fired": true,
+   "seed_norm": 1.2593676967241507,
+   "value": 1.407684903716911,
+   "weight": 4.0
+  },
+  "mol_type_unnamed": {
+   "fired": true,
+   "seed_norm": 1.2593676967241507,
+   "value": 1.407684903716911,
+   "weight": 4.0
+  },
+  "native_flags": {
+   "fired": true,
+   "seed_norm": 1.2593676967241507,
+   "value": 1.407684903716911,
+   "weight": 4.0
+  },
+  "no_entity_labels": {
+   "fired": true,
+   "seed_norm": 0.6411499272252029,
+   "value": 1.0790672458688755,
+   "weight": 4.0
+  }
+ },
+ "pass": true,
+ "stage_dataset": "initial_training/weighted-pdb"
+}
