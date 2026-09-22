@@ -1,0 +1,60 @@
+{
+ "gate": "reference build gate (D23/R126): key sets AND revision window",
+ "tag": "0.4.3",
+ "tree": "/home/ttuser/of3t_rebase/of3pkg043",
+ "tree_version": "0.4.3",
+ "tree_properties": {
+  "transpose_bias_true_in_base_blocks": 0,
+  "has_DiffusionAttentionPairBias_class": false,
+  "layer_norm_z_mentions_in_attention_pair_bias": 3,
+  "behaves_as": "0.4.3 on both D23 changes"
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "n_tensors": 4935
+ },
+ "build": {
+  "dtype": "float32",
+  "seed": 20260919,
+  "num_recycles": 0,
+  "n_model_params": 4170,
+  "n_model_state_dict": 4936
+ },
+ "gate1_keys": {
+  "missing": {
+   "n": 1,
+   "by_leaf": {
+    "version_tensor": 1
+   },
+   "all": [
+    "version_tensor"
+   ]
+  },
+  "unexpected": {
+   "n": 0,
+   "by_leaf": {},
+   "all": []
+  },
+  "upstream_rule": "InferenceRunner._load_state_dict_with_version_validation, 0.5.0 entry_points/experiment_runner.py:750",
+  "upstream_branch_taken": "warn_and_load_nonstrict",
+  "upstream_called": {
+   "available": true,
+   "method": "_warn_on_missing_version_tensor_in_load_statedict",
+   "raised": null
+  },
+  "pass": true
+ },
+ "gate2_version_window": {
+  "checked": true,
+  "registry_name": "openfold3-p2-155k",
+  "declared_version_compatibility": ">=0.4",
+  "installed_version": "0.4.3",
+  "inside_window": true,
+  "is_default_checkpoint": true,
+  "listed_legacy": false,
+  "source": "openfold3/entry_points/parameters.py in the tree being built"
+ },
+ "enforced": true,
+ "verdict": "PASS"
+}
