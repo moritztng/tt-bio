@@ -22,6 +22,13 @@ scope already had move with it. The scope is therefore REPLACED by its with-leve
 augmented with eight rows beside 547 stale ones. Control C1 is what makes that safe to say: the
 no-lever arm re-run at HEAD reproduces the published scope exactly.
 
+THE HEADLINE IS REPORTED AS A DELTA, NOT A LEVEL (orchestrator note, pass 359 / D214). The
+model-scope trunk reading is cross-frame and is being corrected under this row by `of3t-vjpln`,
+so a level quoted here would be restated and the change this row causes would not. Every
+section other than the two this row touches is held fixed -- their rows are the published ones,
+byte for byte -- and `delta.frame_sensitivity` shows by how little the delta moves if the trunk
+level is corrected, computed rather than asserted.
+
     python3 perf/of3t_refcov/compose.py
 """
 from __future__ import annotations
@@ -162,6 +169,8 @@ def main() -> int:
              f"{before['mass_weighted_rel_l2']!r} -> {after['mass_weighted_rel_l2']!r}")
         over = [r["param"] for r in new_rows if (r["rel_l2"] or 0.0) > PER_TENSOR_BAR]
         per_arm[arm] = {
+            "_rows_after": keep + lever_rows + new_rows,
+            "_scope": scope,
             "dumps": {k: {"path": str(p), "sha256": sha256(p), "n_keys": len(d)}
                       for k, p, d in (("with_lever_diffusion_scope", dm_p, dm),
                                       ("input_embedder_leg", ie_p, ie),
@@ -180,6 +189,89 @@ def main() -> int:
                          "worst_rel_l2": max((r["rel_l2"] or -1.0) for r in new_rows),
                          "per_tensor": sorted(new_rows, key=lambda r: -(r["rel_l2"] or -1.0))},
         }
+
+    def sect_mw(rows):
+        """Mass-weighted rel_l2 per section over the measurable rows."""
+        acc = {}
+        for r in rows:
+            if r["rel_l2"] is None:
+                continue
+            e = acc.setdefault(r["section"], [0.0, 0.0, 0])
+            e[0] += r["mass_sq"] * r["rel_l2"]
+            e[1] += r["mass_sq"]
+            e[2] += 1
+        return {k: {"n_measurable": c, "mass_sq": d, "mass_weighted_rel_l2": n / d}
+                for k, (n, d, c) in acc.items()}
+
+    def num_den(rows):
+        n = sum(r["mass_sq"] * r["rel_l2"] for r in rows if r["rel_l2"] is not None)
+        d = sum(r["mass_sq"] for r in rows if r["rel_l2"] is not None)
+        return n, d
+
+    TRUNK = "pairformer_stack"
+    TRUNK_IN_FRAME = 1.0293953378      # D214's in-frame trunk reading
+    for arm, v in per_arm.items():
+        rows_b = pub_rows[arm]
+        rows_a = v.pop("_rows_after")
+        scope_set = set(v.pop("_scope"))
+        n0, m0 = num_den(rows_b)
+        n1, m1 = num_den(rows_a)
+        # the two terms, each on its own
+        old_scope = [r for r in rows_b if r["param"] in scope_set]
+        new_scope = [r for r in rows_a if r["param"] in scope_set]
+        d_lever = num_den(new_scope)[0] - num_den(old_scope)[0]
+        enter = [r for r in rows_a if r["param"] in s17]
+        d_enter, m_enter = num_den(enter)
+        sb, sa = sect_mw(rows_b), sect_mw(rows_a)
+        held = {k: (sb[k]["mass_weighted_rel_l2"] == sa[k]["mass_weighted_rel_l2"])
+                for k in sb if k in sa}
+        moved = sorted(k for k, ok in held.items() if not ok)
+        # The lever reaches every DIFFUSION section, not just the encoder: cl0/plm0 are an
+        # input to the whole module, so the six sections the 547-tensor scope spans all move.
+        # What must NOT move is everything outside it -- and above all `pairformer_stack`,
+        # whose level is cross-frame and is being corrected by of3t-vjpln (D214). This row
+        # neither reads that level as its own nor changes it.
+        expected = {k for k in sb if k.startswith("diffusion_module.")
+                    and k != "diffusion_module.diffusion_conditioning"} | {"input_embedder"}
+        held_fixed = sorted(k for k in sb if k not in set(moved))
+        gate(f"{arm}: {TRUNK} and every section outside the two legs are held fixed",
+             set(moved) <= expected and TRUNK not in moved,
+             f"moved {moved}; held fixed {held_fixed}")
+        # FRAME SENSITIVITY. Correcting the trunk shifts BOTH numerators by the same d, so the
+        # delta moves only by d*(1/m1 - 1/m0) -- the denominators differ because 17 tensors
+        # entered. Quoted as a number rather than argued away.
+        t_now = sb.get(TRUNK, {}).get("mass_weighted_rel_l2")
+        t_mass = sb.get(TRUNK, {}).get("mass_sq", 0.0)
+        shift = (TRUNK_IN_FRAME - t_now) * t_mass if t_now is not None else 0.0
+        delta = n1 / m1 - n0 / m0
+        delta_corr = (n1 + shift) / m1 - (n0 + shift) / m0
+        v["delta"] = {
+            "what": "the change THIS ROW causes, with every other section held fixed. The "
+                    "absolute level is not this row's object: the trunk reading is cross-frame "
+                    "and is being corrected by of3t-vjpln (D214).",
+            "mass_weighted_rel_l2_delta": delta,
+            "direction": "improves" if delta < 0 else "worsens",
+            "terms": {
+                "the_17_entering": {"numerator_contribution": d_enter, "mass_sq": m_enter},
+                "the_lever_on_the_547_already_in_the_scope": {"numerator_contribution": d_lever},
+            },
+            "denominators": {"before_mass_sq": m0, "after_mass_sq": m1},
+            "sections_that_moved": moved,
+            "sections_held_fixed": held_fixed,
+            "frame_sensitivity": {
+                "trunk_section": TRUNK,
+                "trunk_mass_weighted_now": t_now,
+                "trunk_in_frame_D214": TRUNK_IN_FRAME,
+                "delta_if_the_trunk_is_corrected": delta_corr,
+                "how_much_the_delta_would_move": delta_corr - delta,
+                "why": "a correction shifts both numerators identically, so it reaches the "
+                       "delta only through the denominators differing by the entering mass",
+            },
+        }
+        v["per_section_mass_weighted"] = {
+            k: {"before": sb[k]["mass_weighted_rel_l2"],
+                "after": sa.get(k, {}).get("mass_weighted_rel_l2"),
+                "mass_sq": sb[k]["mass_sq"]} for k in sorted(sb)}
 
     names_new = sorted(s17)
     composed = union + names_new
@@ -249,9 +341,16 @@ def main() -> int:
              abs(cov_new - BAR), len(union), len(composed)), flush=True)
     for arm, v in per_arm.items():
         h, e = v["headline_vs_float64"], v["entering"]
-        print("  %-8s mass-weighted %.15g -> %.15g | entering %d over %.2g, worst %s %.9g"
-              % (arm, h["before"]["mass_weighted_rel_l2"], h["after"]["mass_weighted_rel_l2"],
+        d = v["delta"]
+        print("  %-8s DELTA %+.15g (%s) | entering %d over %.2g, worst %s %.9g"
+              % (arm, d["mass_weighted_rel_l2_delta"], d["direction"],
                  e["n_over_the_per_tensor_bar"], PER_TENSOR_BAR, e["worst"], e["worst_rel_l2"]),
+              flush=True)
+        print("           %d sections moved, %d held fixed incl %s; if the trunk is "
+              "corrected to %.10f the delta moves by %+.3e"
+              % (len(d["sections_that_moved"]), len(d["sections_held_fixed"]), TRUNK,
+                                  d["frame_sensitivity"]["trunk_in_frame_D214"],
+                                  d["frame_sensitivity"]["how_much_the_delta_would_move"]),
               flush=True)
     print("->", OUT, flush=True)
     return 0 if out["all_gates_pass"] else 1

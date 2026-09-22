@@ -89,6 +89,16 @@
    "detail": "0.5327948845677777 -> 0.5276985077644327"
   },
   {
+   "gate": "shipped: pairformer_stack and every section outside the two legs are held fixed",
+   "pass": true,
+   "detail": "moved ['diffusion_module.atom_attn_dec', 'diffusion_module.atom_attn_enc', 'diffusion_module.diffusion_transformer', 'diffusion_module.layer_norm_a', 'diffusion_module.layer_norm_s', 'diffusion_module.linear_s']; held fixed ['aux_heads', 'diffusion_module.diffusion_conditioning', 'msa_module', 'pairformer_stack']"
+  },
+  {
+   "gate": "renorm: pairformer_stack and every section outside the two legs are held fixed",
+   "pass": true,
+   "detail": "moved ['diffusion_module.atom_attn_dec', 'diffusion_module.atom_attn_enc', 'diffusion_module.diffusion_transformer', 'diffusion_module.layer_norm_a', 'diffusion_module.layer_norm_s', 'diffusion_module.linear_s']; held fixed ['aux_heads', 'diffusion_module.diffusion_conditioning', 'msa_module', 'pairformer_stack']"
+  },
+  {
    "gate": "coverage matches the pre-registered prediction within 1e-6",
    "pass": true,
    "detail": "measured 99.50523155277378 vs predicted 99.50523155277438"
@@ -573,6 +583,98 @@
        "cos": 0.9999998852870813
       }
      ]
+    },
+    "delta": {
+     "what": "the change THIS ROW causes, with every other section held fixed. The absolute level is not this row's object: the trunk reading is cross-frame and is being corrected by of3t-vjpln (D214).",
+     "mass_weighted_rel_l2_delta": -0.1370213465733352,
+     "direction": "improves",
+     "terms": {
+      "the_17_entering": {
+       "numerator_contribution": 0.008133022941256366,
+       "mass_sq": 0.15627508402823034
+      },
+      "the_lever_on_the_547_already_in_the_scope": {
+       "numerator_contribution": -1.063588116233408
+      }
+     },
+     "denominators": {
+      "before_mass_sq": 10.072507166035818,
+      "after_mass_sq": 10.228782250064086
+     },
+     "sections_that_moved": [
+      "diffusion_module.atom_attn_dec",
+      "diffusion_module.atom_attn_enc",
+      "diffusion_module.diffusion_transformer",
+      "diffusion_module.layer_norm_a",
+      "diffusion_module.layer_norm_s",
+      "diffusion_module.linear_s"
+     ],
+     "sections_held_fixed": [
+      "aux_heads",
+      "diffusion_module.diffusion_conditioning",
+      "msa_module",
+      "pairformer_stack"
+     ],
+     "frame_sensitivity": {
+      "trunk_section": "pairformer_stack",
+      "trunk_mass_weighted_now": 4.321784627332574,
+      "trunk_in_frame_D214": 1.0293953378,
+      "delta_if_the_trunk_is_corrected": -0.13402942817498809,
+      "how_much_the_delta_would_move": 0.0029919183983471154,
+      "why": "a correction shifts both numerators identically, so it reaches the delta only through the denominators differing by the entering mass"
+     }
+    },
+    "per_section_mass_weighted": {
+     "aux_heads": {
+      "before": 0.00226788325582325,
+      "after": 0.00226788325582325,
+      "mass_sq": 0.2922641814528717
+     },
+     "diffusion_module.atom_attn_dec": {
+      "before": 0.018296091421436757,
+      "after": 0.018204284523220114,
+      "mass_sq": 0.13201726196085364
+     },
+     "diffusion_module.atom_attn_enc": {
+      "before": 0.18558084673428843,
+      "after": 0.1785513746641211,
+      "mass_sq": 0.4867251871754349
+     },
+     "diffusion_module.diffusion_conditioning": {
+      "before": 0.007662186532381913,
+      "after": 0.007662186532381913,
+      "mass_sq": 3.797935232543283
+     },
+     "diffusion_module.diffusion_transformer": {
+      "before": 4.365665390958169,
+      "after": 4.128013373975275,
+      "mass_sq": 4.4841971891081345
+     },
+     "diffusion_module.layer_norm_a": {
+      "before": 0.009468322963646006,
+      "after": 0.010164579176791958,
+      "mass_sq": 0.027408626873862228
+     },
+     "diffusion_module.layer_norm_s": {
+      "before": 0.023808564221062988,
+      "after": 0.020508537671389788,
+      "mass_sq": 0.10109619228848257
+     },
+     "diffusion_module.linear_s": {
+      "before": 0.2272337753957805,
+      "after": 0.22781572809983958,
+      "mass_sq": 0.02512937564604752
+     },
+     "msa_module": {
+      "before": 0.08849810158673,
+      "after": 0.08849810158673,
+      "mass_sq": 0.12661871418426052
+     },
+     "pairformer_stack": {
+      "before": 4.321784627332574,
+      "after": 4.321784627332574,
+      "mass_sq": 0.5991152048026369
+     }
     }
    },
    "renorm": {
@@ -871,6 +973,98 @@
        "cos": 0.9999998852870813
       }
      ]
+    },
+    "delta": {
+     "what": "the change THIS ROW causes, with every other section held fixed. The absolute level is not this row's object: the trunk reading is cross-frame and is being corrected by of3t-vjpln (D214).",
+     "mass_weighted_rel_l2_delta": -0.005670593543330826,
+     "direction": "improves",
+     "terms": {
+      "the_17_entering": {
+       "numerator_contribution": 0.005637890951449692,
+       "mass_sq": 0.15627508402823034
+      },
+      "the_lever_on_the_547_already_in_the_scope": {
+       "numerator_contribution": -0.040894070769016466
+      }
+     },
+     "denominators": {
+      "before_mass_sq": 10.072507166035818,
+      "after_mass_sq": 10.228782250064086
+     },
+     "sections_that_moved": [
+      "diffusion_module.atom_attn_dec",
+      "diffusion_module.atom_attn_enc",
+      "diffusion_module.diffusion_transformer",
+      "diffusion_module.layer_norm_a",
+      "diffusion_module.layer_norm_s",
+      "diffusion_module.linear_s"
+     ],
+     "sections_held_fixed": [
+      "aux_heads",
+      "diffusion_module.diffusion_conditioning",
+      "msa_module",
+      "pairformer_stack"
+     ],
+     "frame_sensitivity": {
+      "trunk_section": "pairformer_stack",
+      "trunk_mass_weighted_now": 1.5623389216487753,
+      "trunk_in_frame_D214": 1.0293953378,
+      "delta_if_the_trunk_is_corrected": -0.005186287596015374,
+      "how_much_the_delta_would_move": 0.0004843059473154526,
+      "why": "a correction shifts both numerators identically, so it reaches the delta only through the denominators differing by the entering mass"
+     }
+    },
+    "per_section_mass_weighted": {
+     "aux_heads": {
+      "before": 0.00226797825577741,
+      "after": 0.00226797825577741,
+      "mass_sq": 0.2922641814528717
+     },
+     "diffusion_module.atom_attn_dec": {
+      "before": 0.01814296602699404,
+      "after": 0.018131661321294356,
+      "mass_sq": 0.13201726196085364
+     },
+     "diffusion_module.atom_attn_enc": {
+      "before": 0.07236895740950741,
+      "after": 0.07234933546978756,
+      "mass_sq": 0.4867251871754349
+     },
+     "diffusion_module.diffusion_conditioning": {
+      "before": 0.007662186532381913,
+      "after": 0.007662186532381913,
+      "mass_sq": 3.797935232543283
+     },
+     "diffusion_module.diffusion_transformer": {
+      "before": 0.10113685618036915,
+      "after": 0.09211892206377374,
+      "mass_sq": 4.4841971891081345
+     },
+     "diffusion_module.layer_norm_a": {
+      "before": 0.009411755498138248,
+      "after": 0.01024831134989906,
+      "mass_sq": 0.027408626873862228
+     },
+     "diffusion_module.layer_norm_s": {
+      "before": 0.038629282080920736,
+      "after": 0.03375896853291751,
+      "mass_sq": 0.10109619228848257
+     },
+     "diffusion_module.linear_s": {
+      "before": 0.08605977261218017,
+      "after": 0.08314313885687599,
+      "mass_sq": 0.02512937564604752
+     },
+     "msa_module": {
+      "before": 0.02280140357511757,
+      "after": 0.02280140357511757,
+      "mass_sq": 0.12661871418426052
+     },
+     "pairformer_stack": {
+      "before": 1.5623389216487753,
+      "after": 1.5623389216487753,
+      "mass_sq": 0.5991152048026369
+     }
     }
    }
   }
