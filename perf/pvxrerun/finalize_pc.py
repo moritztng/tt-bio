@@ -1,17 +1,26 @@
 """Turn the benchlocked pc run into the state doc's numeric sections.
 
-Everything here is computed from the run's own artifacts (run.err, aiclk.jsonl, loadavg.log)
-plus the previous pass's benchlocked qb1 672, which is the only outside number and is quoted
-with its provenance every time it is used.
+Everything is computed from the run's own artifacts (run.err, aiclk.jsonl, loadavg.log) plus the
+previous pass's benchlocked qb1 buckets, which are the only outside numbers and carry their
+provenance wherever they are used.
+
+The correction is deliberately over-determined. qb1 measured 672, 704 and 768 benchlocked but
+never 736, which is the whole reason this row exists. So the pc-to-qb1 factor is taken as the
+MEDIAN of the per-bucket ratios over whichever of those three landed, and every one of them is
+then re-predicted from that factor and its residual printed. A factor fitted to one bucket
+explains that bucket by construction; a factor that reproduces three independent buckets it was
+not individually fitted to has been tested. 736 is the only extrapolation and it is labelled as
+one.
 """
-import json, re, statistics, subprocess, sys
+import re, statistics, subprocess, sys
 from pathlib import Path
 
 RUN = Path("perf/pvxrerun/quietpc")
 WEIGHT = {672: 29, 704: 32, 736: 32, 768: 24}
-QB1_672 = [157.662, 157.862, 158.187]          # pvx-custchart, benchlocked, stock p150a, loadavg 1.06-2.23
-QB1_704, QB1_768 = 174.478, 183.542            # same arm
-RATIO3 = 1.195                                  # pvx-custchart-rerun's matched-load 736/672
+# pvx-custchart, benchlocked on a stock p150a (qb1), loadavg 1.06-2.23 sampled during the fold
+QB1 = {672: statistics.median([157.662, 157.862, 158.187]), 704: 174.478, 768: 183.542}
+RATIO3 = 1.195          # pvx-custchart-rerun's matched-load 736/672, its best prior estimate
+BRACKET = (185.0, 199.0)
 
 out = subprocess.run([sys.executable, "perf/pvxrerun/mean_pc.py", str(RUN / "run.err")],
                      capture_output=True, text=True).stdout
@@ -19,49 +28,67 @@ print(out)
 
 rows = []
 for l in out.splitlines():
-    m = re.match(r"\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(yes|no)\s+([\d.]+)\s+(\S+)\s+(\S+)", l)
+    m = re.match(r"\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(yes|no)\s+([\d.]+)", l)
     if m:
         rows.append(dict(job=int(m.group(1)), bucket=int(m.group(4)),
-                         cold=m.group(5) == "yes", s=float(m.group(6)),
-                         clk=m.group(7), load=m.group(8)))
+                         cold=m.group(5) == "yes", s=float(m.group(6))))
 warm = {}
 for r in rows:
     if not r["cold"]:
-        warm.setdefault(r["bucket"], []).append(r)
+        warm.setdefault(r["bucket"], []).append(r["s"])
+per = {b: statistics.median(v) for b, v in warm.items()}
 
-print("\n" + "=" * 78)
-if set(warm) != set(WEIGHT):
-    print(f"INCOMPLETE: warm buckets {sorted(warm)}; need {sorted(WEIGHT)}")
-    sys.exit(0)
+print("=" * 78)
+print(f"warm buckets measured: {sorted(per)}")
+if not per:
+    print("nothing warm yet"); sys.exit(0)
 
-per = {b: statistics.median(x["s"] for x in v) for b, v in warm.items()}
-mean = sum(WEIGHT[b] * per[b] for b in WEIGHT) / sum(WEIGHT)
+if 736 in per and 672 in per:
+    r = per[736] / per[672]
+    print(f"\nIN-RUN 736/672 RATIO (both buckets, one process, one card, load-invariant): "
+          f"{r:.4f}\n  against pvx-custchart-rerun's matched-load ratio3 {RATIO3}: "
+          f"{100 * (r - RATIO3) / RATIO3:+.1f} %")
 
-# the in-run 736/672 ratio: both buckets, one process, one card
-ratio = per[736] / per[672]
-# the cross-calibrator: this run's 672 against the previous pass's benchlocked qb1 672
-qb1 = statistics.median(QB1_672)
-factor = per[672] / qb1
+cross = {b: per[b] / QB1[b] for b in QB1 if b in per}
+if not cross:
+    print("\nno bucket measured on BOTH hosts yet -- no correction possible"); sys.exit(0)
+factor = statistics.median(cross.values())
+print(f"\npc-to-qb1 FACTOR = median of {len(cross)} per-bucket ratios "
+      + ", ".join(f"{b}:{v:.4f}" for b, v in sorted(cross.items())) + f"  ->  {factor:.4f}")
+print(f"  (a factor of {factor:.3f} says this pc run ran {100*(factor-1):+.1f} % against the "
+      f"previous pass's benchlocked qb1 folds)")
+
+print("\nRESIDUALS -- each cross-measured bucket re-predicted from the pooled factor:")
+worst = 0.0
+for b in sorted(cross):
+    pred, obs = per[b] / factor, QB1[b]
+    d = 100 * (pred - obs) / obs
+    worst = max(worst, abs(d))
+    print(f"  bucket {b}: corrected {pred:8.3f} s   qb1 benchlocked {obs:8.3f} s   {d:+6.2f} %")
+print(f"  worst residual {worst:.2f} %  -- the correction's own error bar")
+
 corrected = {b: per[b] / factor for b in per}
-cmean = sum(WEIGHT[b] * corrected[b] for b in WEIGHT) / sum(WEIGHT)
-
-print(f"in-run 736/672 ratio (load-invariant, one process): {ratio:.4f}")
-print(f"  against pvx-custchart-rerun's matched-load ratio3 {RATIO3}: "
-      f"{100 * (ratio - RATIO3) / RATIO3:+.1f} %")
-print(f"\npc/qb1 factor at 672: {per[672]:.1f} / {qb1:.3f} = {factor:.4f}")
-print("load-corrected to the benchlocked qb1 frame:")
+print("\nCORRECTED TO THE BENCHLOCKED qb1 FRAME:")
 for b in sorted(corrected):
-    extra = ""
-    if b == 704: extra = f"   (qb1 benchlocked measured {QB1_704})"
-    if b == 768: extra = f"   (qb1 benchlocked measured {QB1_768})"
-    print(f"  bucket {b}: {corrected[b]:8.3f} s{extra}")
-print(f"\nPLAIN MEAN, pc as measured:        {mean:.3f} s")
-print(f"PLAIN MEAN, corrected to qb1 frame: {cmean:.3f} s")
-print(f"736 quiet, cross-calibrated:        {corrected[736]:.3f} s   "
-      f"(brief's bracket 185-199 s: {'INSIDE' if 185 <= corrected[736] <= 199 else 'OUTSIDE'})")
-print(f"736 via ratio3 x qb1 672:           {RATIO3 * qb1:.3f} s")
+    tag = "  <- EXTRAPOLATION, qb1 never folded 736" if b == 736 else ""
+    print(f"  bucket {b}: {corrected[b]:8.3f} s{tag}")
 
-# does the correction reproduce the two buckets qb1 also measured? that is its own test
-for b, q in ((704, QB1_704), (768, QB1_768)):
-    print(f"CONTROL bucket {b}: corrected {corrected[b]:.3f} vs qb1 benchlocked {q}  "
-          f"-> {100 * (corrected[b] - q) / q:+.2f} %")
+if 736 in corrected:
+    c = corrected[736]
+    lo, hi = c * (1 - worst / 100), c * (1 + worst / 100)
+    print(f"\n736 QUIET, cross-calibrated: {c:.3f} s  (+-{worst:.2f} % -> {lo:.1f}-{hi:.1f} s)")
+    print(f"  brief's published bracket {BRACKET[0]}-{BRACKET[1]} s: "
+          f"{'INSIDE' if BRACKET[0] <= c <= BRACKET[1] else 'OUTSIDE'}")
+    print(f"  prior estimate, ratio3 x qb1 672 = {RATIO3 * QB1[672]:.3f} s")
+    print(f"  floor from the previous pass (736 > 768 at every load, both board classes): "
+          f">= {QB1[768]} s -> {'holds' if c >= QB1[768] else 'VIOLATED'}")
+
+if set(per) == set(WEIGHT):
+    m = sum(WEIGHT[b] * per[b] for b in WEIGHT) / sum(WEIGHT.values())
+    print(f"\nPLAIN MEAN over the 117 integer binder lengths (29/32/32/24)")
+    print(f"  pc as measured, on a loaded box: {m:.3f} s")
+if set(corrected) == set(WEIGHT):
+    cm = sum(WEIGHT[b] * corrected[b] for b in WEIGHT) / sum(WEIGHT.values())
+    lo, hi = cm * (1 - worst / 100), cm * (1 + worst / 100)
+    print(f"  corrected to the benchlocked frame: {cm:.3f} s  ({lo:.1f}-{hi:.1f} s)")
+    print(f"  against the customer's 208 s: {208 - cm:+.1f} s")
