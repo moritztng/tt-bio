@@ -1,0 +1,138 @@
+{
+  "what": "of3t-cotterm: did the PRE-FIX runs resolve to the trees they meant to? Measured, not argued.",
+  "host": "tt-quietbox",
+  "board_class": "host CPU only, no board",
+  "card": "n/a (CPU)",
+  "aiclk_during": "n/a (CPU)",
+  "root": "/home/ttuser/.coworker/wt/of3t-cotterm",
+  "armapb": {
+    "pre_fix_order": [
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_gradients",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf",
+      "/home/ttuser/.coworker/wt/of3t-cotterm"
+    ],
+    "post_fix_order": [
+      "/home/ttuser/.coworker/wt/of3t-cotterm",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_gradients",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm"
+    ],
+    "modules": {
+      "apbmath": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/apbmath.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/apbmath.py",
+        "same": true
+      },
+      "armln": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/armln.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/armln.py",
+        "same": true
+      },
+      "refln": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/refln.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/refln.py",
+        "same": true
+      },
+      "dev_grad": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/dev_grad.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/dev_grad.py",
+        "same": true
+      },
+      "ref_grad": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/ref_grad.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/ref_grad.py",
+        "same": true
+      },
+      "score": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/score.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_trunkg043/score.py",
+        "same": true
+      },
+      "trees": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/trees.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/trees.py",
+        "same": true
+      },
+      "tt_bio": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/tt_bio/__init__.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/tt_bio/__init__.py",
+        "same": true
+      },
+      "openfold3": {
+        "pre_fix": null,
+        "post_fix": null,
+        "same": true
+      }
+    },
+    "n_differ": 0,
+    "differ": []
+  },
+  "refapb": {
+    "pre_fix_order": [
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf",
+      "/home/ttuser/.coworker/wt/of3t-cotterm"
+    ],
+    "post_fix_order": [
+      "/home/ttuser/.coworker/wt/of3t-cotterm",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf",
+      "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm"
+    ],
+    "modules": {
+      "apbmath": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/apbmath.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/apbmath.py",
+        "same": true
+      },
+      "armln": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/armln.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/armln.py",
+        "same": true
+      },
+      "refln": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/refln.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_apbleaf/refln.py",
+        "same": true
+      },
+      "dev_grad": {
+        "pre_fix": null,
+        "post_fix": null,
+        "same": true
+      },
+      "ref_grad": {
+        "pre_fix": null,
+        "post_fix": null,
+        "same": true
+      },
+      "score": {
+        "pre_fix": null,
+        "post_fix": null,
+        "same": true
+      },
+      "trees": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/trees.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/trees.py",
+        "same": true
+      },
+      "tt_bio": {
+        "pre_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/tt_bio/__init__.py",
+        "post_fix": "/home/ttuser/.coworker/wt/of3t-cotterm/tt_bio/__init__.py",
+        "same": true
+      },
+      "openfold3": {
+        "pre_fix": null,
+        "post_fix": null,
+        "same": true
+      }
+    },
+    "n_differ": 0,
+    "differ": []
+  },
+  "tt_bio_file_under_pre_fix_order": "/home/ttuser/.coworker/wt/of3t-cotterm/tt_bio/__init__.py",
+  "tt_bio_under_worktree": true,
+  "openfold3_on_row_namespaces": null,
+  "verdict": "the reversal changed nothing: every module both scripts import answers from the same file under either order"
+}
