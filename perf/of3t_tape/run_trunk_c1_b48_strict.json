@@ -1,0 +1,18 @@
+{
+ "tokens": 76,
+ "msa_rows": 1,
+ "weights_loaded": 2119,
+ "totals": {
+  "none": 221,
+  "nested": 14,
+  "taped": 11003
+ },
+ "params": 2119,
+ "part": "trunk",
+ "cycles": 1,
+ "blocks": 48,
+ "survey": false,
+ "masked": false,
+ "backward": false,
+ "error": null
+}
