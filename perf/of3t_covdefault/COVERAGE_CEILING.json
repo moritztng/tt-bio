@@ -1,0 +1,111 @@
+{
+ "instrument": "of3t-covdefault covmass.py -- what TT_BIO_OF3_DEVICE_REFATOM can add to coverage_total.pct_of_model_compared, measured against the pinned float64 reference and against the two of3t-hostleg gradient arms",
+ "host": "qb1 (tt-quietbox), CPU only",
+ "float64_reference": {
+  "path": "/home/ttuser/of3t_hostleg/grads_f64_043.pt",
+  "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "matches_pin": true,
+  "n_tensors_with_a_gradient": 4170
+ },
+ "denominator": {
+  "model_squared_gradient_norm_recomputed": 10.279642678524986,
+  "published": 10.279642678524981,
+  "rel_diff": 5.184100931186663e-16
+ },
+ "seventeen": {
+  "all_17_pct_of_model": 1.520238484112894,
+  "published_pct": 1.5202384841128946,
+  "diffusion_module_ref_atom_feature_embedder_8": {
+   "names": [
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "pct_of_model": 0.7530394291090192
+  },
+  "input_embedder_ref_atom_feature_embedder_8": {
+   "names": [
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "pct_of_model": 0.02669405207550335
+  },
+  "input_embedder_linear_q_0_weight": {
+   "names": [
+    "input_embedder.atom_attn_enc.linear_q.0.weight"
+   ],
+   "pct_of_model": 0.7405050029283714
+  }
+ },
+ "arms": {
+  "shipped": {
+   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_shipped.pt",
+   "n_keys": 547
+  },
+  "flag_on": {
+   "path": "/home/ttuser/of3t_hostleg/device_grads_hl_refatom.pt",
+   "n_keys": 555
+  },
+  "keys_the_flag_adds": [
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+  ],
+  "n_keys_the_flag_adds": 8,
+  "keys_the_flag_removes": []
+ },
+ "coverage": {
+  "shipped_measured": 97.98499306866148,
+  "bar": 99.2594,
+  "flag_on_projected": 98.7380324977705,
+  "flag_on_projected_vs_bar": -0.521367502229495,
+  "row_brief_arithmetic": 99.50523155277438,
+  "why_the_brief_arithmetic_overcounts": "it credits all seventeen. The flag moves the diffusion module's eight linears to the card (worker.py:1559) and the input embedder's aggregation head (openfold3_host_prep.py:331). The input embedder's own eight ref-atom linears stay on the host at openfold3_host_prep.py:301 in BOTH arms -- the runtime census counts ref_atom_embed once with the flag on, not zero times. And no arm in the union scores the input embedder at all: its section reads n_compared 0 of 98, so linear_q.0.weight cannot enter the reading either."
+ },
+ "uncompared_mass_by_class": {
+  "HOST_APPLIED": {
+   "n_tensors": 17,
+   "pct_of_model_mass": 1.5202384841128946
+  },
+  "FUSED_NOT_SPLIT": {
+   "n_tensors": 96,
+   "pct_of_model_mass": 0.2715264688736101
+  },
+  "NO_ARM": {
+   "n_tensors": 151,
+   "pct_of_model_mass": 0.1105148517671164
+  },
+  "NOT_A_LEAF_LAZY": {
+   "n_tensors": 126,
+   "pct_of_model_mass": 0.10450387719530572
+  },
+  "ARM_RAN_DID_NOT_CARRY": {
+   "n_tensors": 137,
+   "pct_of_model_mass": 0.008223249389590901
+  }
+ },
+ "ceilings": {
+  "uncompared_total_pct": 2.015006931338504,
+  "host_applied_pct": 1.5202384841128946,
+  "not_host_applied_but_uncompared_pct": 0.49476844722562313,
+  "ceiling_if_only_the_17_blocked": 98.4797615158871,
+  "ceiling_reachable_with_the_arms_that_exist_flag_off": 97.98499306866148,
+  "ceiling_reachable_with_the_arms_that_exist_flag_on": 98.7380324977705
+ }
+}

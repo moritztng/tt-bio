@@ -1,0 +1,951 @@
+{
+ "what": "of3t-trajfull deliverable 0: the three-way census of the 180 reference tensors the coupled trajectory did not name, taken BEFORE the arm.",
+ "verdict": "PASS",
+ "reference_tensors": 761,
+ "dumped_before": 581,
+ "missing_before": 180,
+ "dumped_now_at_w0": 761,
+ "added_by_the_namemap": 180,
+ "added_are_exactly_the_missing": true,
+ "nothing_added_outside_the_reference": true,
+ "cases": {
+  "a_present_not_dumped": 84,
+  "b_fused": 96
+ },
+ "by_family": {
+  "diffusion_transformer.blocks.N.": {
+   "b_fused": 96,
+   "total": 96,
+   "pct_of_model_sq_grad_norm": 0.27152646887360954
+  },
+  "atom_attn_enc.atom_transformer.blocks.N.": {
+   "a_present_not_dumped": 42,
+   "total": 42,
+   "pct_of_model_sq_grad_norm": 0.07103250562507443
+  },
+  "atom_attn_dec.atom_transformer.blocks.N.": {
+   "a_present_not_dumped": 42,
+   "total": 42,
+   "pct_of_model_sq_grad_norm": 0.03303821241802195
+  }
+ },
+ "unresolved_slots": [],
+ "device": {
+  "walked": 988,
+  "slots": 988,
+  "named_by_fingerprint": 856,
+  "n_w0_dump_keys": 761
+ },
+ "namemap_summary": {
+  "slots_unnamed": 132,
+  "slots_resolved": 132,
+  "reference_names_added": 180
+ },
+ "emit_evidence": {
+  "fused_pad_max_abs": 0.0,
+  "fused_slots_roundtripped": 48
+ },
+ "model_sq_norm": 10.279642678524981,
+ "per_tensor": {
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.0.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.0.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.0.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.0.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.0.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.0.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.0.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.0.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.0.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.1.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.1.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.1.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.1.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.1.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.1.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.1.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.1.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.1.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.2.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.2.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.2.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.2.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.2.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.2.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.2.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.2.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.2.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.0.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.0.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.0.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.0.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.0.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.0.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.0.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.0.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.0.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.0.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.1.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.1.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.1.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.1.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.1.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.1.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.1.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.1.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.1.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.1.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False) holds it under key ('blocks.2.attention_pair_bias.linear_ada_out.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True) holds it under key ('blocks.2.attention_pair_bias.linear_ada_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True) holds it under key ('blocks.2.attention_pair_bias.linear_z.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_k.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_o.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False) holds it under key ('blocks.2.attention_pair_bias.mha.linear_q.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_q.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True) holds it under key ('blocks.2.attention_pair_bias.mha.linear_v.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False) holds it under key ('blocks.2.conditioned_transition.linear_g.bias', False), transpose=False, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True) holds it under key ('blocks.2.conditioned_transition.linear_g.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True) holds it under key ('blocks.2.conditioned_transition.linear_out.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True) holds it under key ('blocks.2.conditioned_transition.swiglu.linear_a.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight": {
+   "case": "a_present_not_dumped",
+   "why": "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True) holds it under key ('blocks.2.conditioned_transition.swiglu.linear_b.weight', True), transpose=True, match=N",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.0.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.0.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.0.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.0.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.1.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.1.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.1.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.1.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.10.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.10.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.10.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.10.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.11.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.11.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.11.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.11.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.12.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.12.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.12.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.12.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.13.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.13.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.13.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.13.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.14.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.14.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.14.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.14.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.15.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.15.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.15.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.15.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.16.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.16.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.16.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.16.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.17.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.17.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.17.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.17.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.18.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.18.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.18.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.18.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.19.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.19.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.19.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.19.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.2.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.2.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.2.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.2.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.20.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.20.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.20.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.20.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.21.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.21.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.21.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.21.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.22.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.22.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.22.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.22.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.23.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.23.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.23.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.23.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.3.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.3.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.3.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.3.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.4.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.4.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.4.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.4.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.5.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.5.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.5.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.5.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.6.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.6.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.6.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.6.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.7.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.7.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.7.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.7.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.8.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.8.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.8.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.8.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_k.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.9.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.bias": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.9.qkv_b carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.9.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  },
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_v.weight": {
+   "case": "b_fused",
+   "why": "dm.dit.blocks.9.qkv_w carries it; split round-trips bit-exactly, pad max |x| = 0.0",
+   "in_new_dump": true
+  }
+ }
+}
