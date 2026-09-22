@@ -2763,3 +2763,45 @@ quieter: **a check that skips what it cannot find cannot report a disappearance.
 mirror exists — then the VERDICT replacement was re-applied against a heading matched at line
 start. Diff against the mirror is now confined to the VERDICT block and the pass-340 PASSLOG
 entry; `PROVES` is back to 17,669 and `DOESNOT` to 56,734, both byte-for-byte.
+
+### D191. Frame-matched at the width the campaign actually reports, the trunk FAILS: 2.2341x against an in-frame A26 bar of 0.5268825373, and the width dependence is OURS — the floor is flat. FOUND by `of3t-frame384`, pass 340 (commit `fb217fb68`), absorbed by `of3t-orchestrator` the same pass. **UNFIXED**, and it is the campaign's largest object.
+
+**The crop-64 frame-matched result did not generalise, and the row said so against its own
+pre-registration.** `of3t-frame384` registered a BAND (ours 0.30–0.90, floor 0.30–0.90, ratio
+0.70–1.30) before its first run. At padded width 384, scored against the capture's own float64
+(`ref_f64_n384.pt`, built on qb1 from the boundary the device arm is driven from):
+
+    ours   0.8354121633
+    floor  0.3739383921    upstream 0.4.3's own bf16 autocast, SAME capture
+    ratio  2.2341x         A26-style bar 0.5268825373 -- 1.586x OUTSIDE it
+
+Through the same scorer at crop 64: ours 0.3833065668, floor 0.3739375769, ratio **1.0251x**,
+inside. **The floor is flat in width to six digits and our arm is 2.18x worse at 384 than at 64**,
+so the width dependence belongs to us. Two widths is two points, not a law — and D175's refutation
+(`of3t-padshape`, NO-GO) found the shape between them non-monotone and shape-keyed, so the curve
+must not be assumed.
+
+**What this does to D186.** Reframing was real and it does NOT exonerate the trunk. The frame is
+confirmed at this width — `ref_f64_n384` against `grads_f64_043` reads 1.8416532191 at cos 0.36514,
+which is why cross-frame ratios here are *unreadable* rather than merely pessimistic — but with the
+frame removed the trunk still fails by 1.586x. My pass-336 conclusion that the trunk reads "0.9565x
+its floor, inside the bar" was drawn from crop 64 and I flagged crop 384 as missing; it was the
+axis, exactly as D180 says, and the worst point is the one to quote.
+
+**And it confirms this pass's D189 bound by accident, which is the best kind of confirmation.** The
+c64 floor I published in `frames/FRAME_TABLE.json` is 0.4007237405; this row's, same scope, same
+capture, is 0.3739375769 — **7.2 % apart, and the numerators agree to 1e-16**
+(0.38330656678 reproduced from `of3t-apbback`). That difference alone moves the c64 ratio from
+0.9565x to 1.0251x, across the 1.0 line. D189 predicted the host term bites exactly where a ratio
+sits near 1.0, and here it did, in the same pass, on a floor built on a different box.
+
+**Controls the row ran, none of which I had to take on trust:** A/A exactly 0, A16
+1.0000000000000002, CROSSFRAME reproduces the published 2.159527121735274 to the last digit, the
+c64 numerator reproduces `of3t-apbback` to 1e-16, and the activation-checkpointing flag added to
+`ref_grad.py` is inert — 2736/2736 bit-identical on both policies, max absolute difference exactly
+0.0. Cross-host qb1 against qb2's banked c64 float64: max absdiff 3.22e-14, mass-weighted 9.14e-14,
+both CPU — i.e. **float64 is host-stable to 1e-14 while the bf16 floor moved 7.2 %**, the two halves
+of D189 measured side by side.
+
+**Cost, for the record:** float64 1629.18 s / 24.88 GB peak RSS, bf16 autocast 793.78 s / 11.15 GB,
+qb1, CPU only, no card.

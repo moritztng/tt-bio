@@ -214,6 +214,11 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D191": (CAMP, "Frame-matched at the width the campaign reports, the trunk reads 2.2341x "
+             "against an in-frame A26 bar of 0.5268825373 -- 1.586x outside -- and the width "
+             "dependence is ours, the floor being flat. Same reading as D187: a "
+             "gradient-accuracy gap on an unmerged training path reaches no user today, and it "
+             "is the campaign's largest open measurement."),
     "D189": (CAMP, "A26's floor -- upstream's own bf16 step -- is host-dependent while the "
              "float64 reference is not, so a published ratio needs its host. A property of "
              "this campaign's BAR."),
