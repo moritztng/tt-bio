@@ -29,8 +29,13 @@ case "$FIRST" in off|on) ;; *) echo "usage: $0 off|on"; exit 2;; esac
 WT=/home/ttuser/.coworker/wt/land-standing
 BANK=$WT/perf/land_standing/out/narrowq_bank
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
-CARD=0
-SIB=1
+# CARD/SIB are overridable because the board pair, not the card, is what has to be idle: on
+# 2026-09-22 22:34Z card 0 was free while its pair sibling card 1 ran of3t's dev_cot.py, and the
+# pair guard refuses that correctly. Cards 2 and 3 were both idle. Both are p300c on one host, so
+# a pair taken on either board is the same cell; pooling across boards can only widen the A/A
+# floor, the same way pooling across windows does.
+CARD=${NQ_CARD:-0}
+SIB=${NQ_SIB:-1}
 cd "$WT" || exit 1
 mkdir -p "$BANK"
 
@@ -42,8 +47,8 @@ STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 echo "PRE-FLIGHT OK $STAMP loadavg $(cut -d' ' -f1-3 /proc/loadavg) first-arm $FIRST"
 
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:land-standing
-ART=$BANK/pair_${STAMP}_${FIRST}.json
-JL=$BANK/pair_${STAMP}_${FIRST}_contention.jsonl
+ART=$BANK/pair_${STAMP}_${FIRST}_c${CARD}.json
+JL=$BANK/pair_${STAMP}_${FIRST}_c${CARD}_contention.jsonl
 : > "$JL"
 "$PY" perf/pvx_gate_land/sample_contention.py --out "$JL" --interval 1.0 &
 SAMP=$!
@@ -55,7 +60,7 @@ flock -n 9 || { echo "benchlock held by another row; refusing"; exit 3; }
 "$PY" perf/xmsoftmax/fold_ab_flip.py --models rf3 --rungs 896 --reps 1 \
   --flag TT_BIO_TRIATT_NARROW_Q_FALLBACK --off-value 1 --fold-timeout-s 400 \
   --first-arm "$FIRST" \
-  --workdir "$BANK/work_${STAMP}_${FIRST}" --out "$ART"
+  --workdir "$BANK/work_${STAMP}_${FIRST}_c${CARD}" --out "$ART"
 rc=$?
 kill $SAMP 2>/dev/null
 echo "EXIT rc=$rc $(date -u +%FT%TZ)  banked $ART"
