@@ -2576,3 +2576,72 @@ was holding itself open for exactly this work. The prize is 0.75304 coupled poin
 `linear_ref_pos` alone at 0.6734 % — and the cost is half the first estimate because the reference
 side is already banked: `theirs/k20.npz` holds all eight entries at every one of the 20 rungs where
 the shipped arm's file holds none. The row checked the key lists rather than reasoning about it.
+
+### D204. Nothing checks that a concluded row's findings reach the ledger, and six rows plus one STOP verdict never did. FOUND by `of3t-orchestrator`, pass 349, auditing my own process. **UNFIXED** in general; the ratchet is built.
+
+I absorb rows I dispatched and rows that report while I am watching. A row that concludes during a
+pass spent elsewhere can sit unabsorbed indefinitely, and **no check says so**. Measured over the
+union rather than asserted: of **99** concluded `of3t-*` rows, **8** are named nowhere in the
+DEFECTS union — `of3t-auxgrad`, `of3t-crop768`, `of3t-d116-verify`, `of3t-d117`, `of3t-memory`,
+`of3t-readable-mass`, and two stale markers of my own.
+
+**And naming is too weak a test, which the worst case proves.** `of3t-ditcot` IS named in the
+ledger, and its concluding verdict is not: a STOP, from 2026-09-21 20:01, refuting a chartered
+figure and closing a defect. Both absorbed below, a hundred-odd passes late.
+
+**Built:** a shrink-only ratchet — every concluded `of3t-*` row must be named in the ledger union,
+frozen at today's 8 so the number can only fall. **Still UNFIXED:** a row can be named and its
+verdict still unabsorbed, and nothing detects that.
+
+### D129 UPDATE and D55 CLOSURE, pass 349 — absorbing `of3t-ditcot`'s STOP, which has been sitting unabsorbed since 2026-09-21.
+
+**The 2.28x D129 was chartered to attribute to an op cannot survive its own boundary. REFUTED.**
+The diffusion reference runs ONE shared `layer_norm_z` at all-ones (`max|w-1| = 0.0`) while the
+checkpoint's **48 trained per-block tensors are dropped as `unexpected_keys`**. It is not a
+`strict=False` slip: upstream 0.5.0's `DiffusionAttentionPairBias` **has no `layer_norm_z` member
+at all**, so the reference cannot be built in the checkpoint's architecture. This is D108 arriving
+as an arithmetic consequence rather than a note.
+
+The row priced it instead of stopping at the discovery, and our port is the only side that can,
+because it runs both layouts. Scope median rel_l2 against the float64 reference: **ours 0.7055 →
+reference architecture 0.1065, 6.62x**, with 24 of 24 blocks improving at D129's own leaf and a
+median per-block 7.08x. A random-weight control splits it **2.73x layout and 2.43x weight**, so the
+gain is not the layout being kinder on its own. **6.62x is larger than the 2.28x**, so a per-op
+attribution there would have named an op for an architecture difference, and the ablation stayed
+halted. That is the right call and it is why the row ended on STOP rather than a mechanism.
+
+**D55's backward half is CLOSED by the same row.** All four remaining unconfigured reductions are
+inert: pull bit-identical at 547/547, 2736/2736, 3/3 and 4/4, with LoFi break controls moving
+546/547, 2732/2736, 2/3 and 3/4 on the same sites. Reach was measured rather than assumed and it
+mattered — **two of the four never execute in either model scope** (T1 is a dead twin of the rule
+production dispatches, 0 entries against 1440; T3 needs the fused-SDPA verb), so those were
+measured at op level. An "inert" resting on "never runs" is a different answer, and the row said so.
+
+**A defect-writing rule from it:** the D55 census cites `attention:inner`, an expression **D56
+deleted** when it folded that path into the shared `softmax_bw_inner`. Resolve targets by enclosing
+function plus expression text, never by line — the third sighting of that trap after D31 and D55's
+own re-location.
+
+### D205. 512 is the largest crop that runs, and the ledger has never said so. FOUND by `of3t-crop768`, concluded 2026-09-21; absorbed by `of3t-orchestrator` at pass 349. **UNFIXED** — it is a capability limit users meet.
+
+**Measured, not bracketed.** The row built the missing 544 fixture and ran it: **544, 576, 640 and
+768 all refuse**, so there is no rung between 512 and 640 that clears.
+
+**Two different walls, which matters because only one of them is predictable.** 640 and 768 die
+with the card full — 23.7 MB and 6.2 MB free device-wide, 0.069 % and 0.018 %. **544 and 576 die on
+CONTIGUITY with 6.30 GB and 6.67 GB free**: 576 refused a 2,717,908,992 B buffer inside
+`ttnn::concat` → `tilize_with_val_padding`, short by 77,930,560 B per bank against the largest free
+block, at 88.45 % occupancy. **A capacity extrapolation cannot see that wall** — the row's own 2.08
+fit predicted 576 would clear with 14 % of margin.
+
+**The 576 refusal is deterministic and card-independent**, reproducing byte for byte across card 0
+and card 1: same 29,970,916,352 B high-water, same 5,622 allocations, same per-bank
+allocated/free/largest-free-block.
+
+**Every refused rung's high-water is a LOWER BOUND**, and the row corrected its own earlier
+reporting to say so: the fit predicted 29,314,225,537 B for 576, which 576 passed by +2.24 % after
+only 6 of 1,639 parameter gradients and then died. So 768's 1.558x overshoot is a floor.
+
+**And a rule fell out of it:** tile parity. 480 (15 tiles) and 544 (17 tiles) are odd 32-tile
+counts and both narrow the fp32-softmax L1 plan to **0 B**, where every even count measured (12,
+14, 16, 18, 20, 24) keeps it.

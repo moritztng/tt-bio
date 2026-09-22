@@ -214,6 +214,14 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
+             "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
+             "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
+             "the ledger had never recorded it."),
+    "D204": (CAMP, "Nothing checks that a concluded row's findings reach the ledger: 8 of 99 "
+             "concluded of3t rows were named nowhere in the union, and one row that IS named had "
+             "its concluding STOP verdict unabsorbed for a hundred passes. A ratchet is built; "
+             "naming remains a weak test. Campaign-internal, about my own bookkeeping."),
     "D202": (CAMP, "The 99.2594 % ceiling two charter clauses are measured against counts 0.74055 "
              "of a HOST_APPLIED class the campaign's own READABLE_MASS.json measures at 1.52024; "
              "applied consistently it is 98.47976 %. Safe to correct because it flips no verdict. "
