@@ -18,9 +18,20 @@ DTYPE POLICY, written out because "float64" names a width and not a policy (PROT
 THE COTANGENT is the one the capture recorded at block 47's output, not a draw. The stack's
 parameters appear once in their graph and at num_recycles 0 the trunk runs once, so
 
-    dL/d(theta)  =  d/d(theta) [ <cot_s, s_out> + <cot_z, z_out> ]
+    dL/d(theta)  =  d/d(theta) [ <cot_s, s_out> + <cot_z_ext, z_out> ]
 
-is exact at this boundary rather than a surrogate for the real loss.
+is exact at this boundary rather than a surrogate for the real loss -- PROVIDED the two
+cotangents are the EXTERNAL partials. They are not as hooked. D242: the last block's
+`attn_pair_bias` reads the `z` its own `pair_stack` just produced, so `z_out` is an ancestor of
+`s_out`, `(s_out, z_out)` is not a graph cut, and the hooked `cot_z` is a TOTAL derivative that
+already contains the route through `s_out`. Injecting both replays that route twice. The default
+here subtracts it,
+
+    cot_z_ext  =  cot_z  -  d<cot_s, s_out>/d(z_out)
+
+which takes block 47 from 0.7849281738435908 against the reference's own full-model backward to
+3.0392623414001263e-15. `--legacy-total-cotangent` restores the old, double-counting injection
+for reproducing banked artifacts; every artifact stamps which of the two produced it.
 
 VALIDATION. The f64 arm is checked against central finite differences along one random unit
 direction through the whole 2,736-tensor parameter set (PROTOCOL SS3c). A reference that
@@ -56,6 +67,45 @@ def sha256_file(p, chunk=1 << 22):
         for b in iter(lambda: f.read(chunk), b""):
             h.update(b)
     return h.hexdigest()
+
+
+def ancestor_pairs(outs):
+    """Which of the injected outputs are reachable from which, by a walk of the grad_fn DAG.
+
+    One cotangent per output is only a valid injection when the outputs form a graph CUT. If
+    output B is reachable from output A then A's hooked cotangent is a total derivative that
+    already carries the A -> B route, and injecting both counts that route twice (D242,
+    `perf/of3t_orchestrator/doublecount/BLAST_RADIUS.json`). Returns the (ancestor, descendant)
+    pairs; empty means the outputs are a cut and the two conventions coincide.
+    """
+    named, alive = {}, [t.grad_fn for _, t in outs]
+    for name, t in outs:
+        if t.grad_fn is None:
+            continue
+        if id(t.grad_fn) in named:
+            raise SystemExit(
+                f"{name} and {named[id(t.grad_fn)]} are outputs of one autograd node, so this "
+                "walk cannot see whether one feeds the other. The block that produces the "
+                "injected outputs has to run eagerly.")
+        named[id(t.grad_fn)] = name
+    pairs = []
+    for name, t in outs:
+        if t.grad_fn is None:
+            continue
+        seen, stack = set(), [t.grad_fn]
+        while stack:
+            fn = stack.pop()
+            if id(fn) in seen:
+                continue
+            seen.add(id(fn))
+            alive.append(fn)
+            other = named.get(id(fn))
+            if other is not None and other != name:
+                pairs.append((other, name))
+            for nxt, _ in fn.next_functions:
+                if nxt is not None:
+                    stack.append(nxt)
+    return sorted(set(pairs))
 
 
 def build(sd, n, dtype):
@@ -113,6 +163,15 @@ def main() -> int:
                          "host we have. Recompute of an eval()-mode block with no dropout is "
                          "deterministic, so this must be BIT-IDENTICAL to the plain arm, and "
                          "that identity is checked at crop 64 rather than assumed.")
+    ap.add_argument("--legacy-total-cotangent", action="store_true",
+                    help="D242: inject the captured cot_z as hooked. It is a TOTAL derivative "
+                         "and z_out is an ancestor of s_out, so the s_out <- z_out route is "
+                         "counted twice. Kept only to reproduce banked artifacts.")
+    ap.add_argument("--cot-correction", default=None, metavar="PT",
+                    help="take the cot_z correction from a file (a .pt holding "
+                         "{'cot_z_correction': T} or a bare tensor) instead of this arm's own "
+                         "graph. The external cotangent is a property of the reference's "
+                         "downstream, so a narrower-precision arm is driven by the f64 arm's.")
     ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED",
                     help="BREAK control: permute the cotangent over the REAL token positions "
                          "only. Everything else -- weights, masks, boundary -- is untouched.")
@@ -172,15 +231,17 @@ def main() -> int:
         perm_rep = {"seed": a.permute_cot, "real_positions_permuted": int(real.numel()),
                     "fixed_points": int((order == real).sum()),
                     "what": "the same cotangent, paired with the wrong token positions"}
-    cs, cz = cot_s.to(dt), cot_z.to(dt)
-
     if a.checkpoint:
         from torch.utils.checkpoint import checkpoint
 
         def fwd(s, z):
-            for m in mods:
+            # The LAST block runs eagerly. The injected outputs are its outputs and the D242
+            # correction is a derivative of one against the other, so its graph has to be real.
+            # Recompute of an eval()-mode block is deterministic, so this is bit-neutral, and
+            # the c64 plain-vs-checkpointed control re-checks that rather than assuming it.
+            for m in mods[:-1]:
                 s, z = checkpoint(m, s, z, sm, pm, use_reentrant=False)
-            return s, z
+            return mods[-1](s, z, sm, pm)
     else:
         def fwd(s, z):
             for m in mods:
@@ -198,6 +259,33 @@ def main() -> int:
     z_in = z0.detach().requires_grad_(True)
     with ctx:
         s_out, z_out = fwd(s_in, z_in)
+
+    # A41. The graph walk runs on every arm, both conventions, and is recorded. It is what makes
+    # D242 unfileable a second time: a boundary that stops being a cut says so here.
+    pairs = ancestor_pairs([("s_out", s_out), ("z_out", z_out)])
+    if pairs and pairs != [("z_out", "s_out")]:
+        raise SystemExit(f"unexpected ancestry among the injected outputs: {pairs}")
+    cot_z_hooked, corr = cot_z, None
+    if a.legacy_total_cotangent:
+        convention = "legacy-total-cotangent"
+    else:
+        convention = "graph-cut-external"
+        if a.cot_correction:
+            corr = torch.load(a.cot_correction, map_location="cpu", weights_only=False)
+            corr = corr["cot_z_correction"] if isinstance(corr, dict) else corr
+            corr = corr.to(torch.float64)
+            if tuple(corr.shape) != tuple(cot_z.shape):
+                raise SystemExit(f"correction {tuple(corr.shape)} does not fit cot_z "
+                                 f"{tuple(cot_z.shape)}")
+        elif pairs:
+            with ctx:
+                corr = torch.autograd.grad(outputs=s_out.to(torch.float64), grad_outputs=cot_s,
+                                           inputs=z_out, retain_graph=True)[0]
+            corr = corr.detach().to(torch.float64)
+        if corr is not None:
+            cot_z = cot_z_hooked - corr
+
+    with ctx:
         loss = (s_out.to(torch.float64) * cot_s).sum() + (z_out.to(torch.float64) * cot_z).sum()
     loss.backward()
     fwd_back_s = time.perf_counter() - t1
@@ -219,7 +307,8 @@ def main() -> int:
                 "dz_in": (z_in.grad.detach().to(torch.float64)
                           if z_in.grad is not None else None),
                 "policy": a.policy, "tree": a.tree, "permute_cot": a.permute_cot,
-                "pad_scale": a.pad_scale,
+                "pad_scale": a.pad_scale, "injection_convention": convention,
+                "cot_z_correction": corr,
                 "loss": float(loss)}, a.out)
 
     sq = {k: float(torch.linalg.vector_norm(v)) ** 2 for k, v in grads.items() if v is not None}
@@ -236,6 +325,25 @@ def main() -> int:
            "boundary": a.boundary, "boundary_sha256": sha256_file(a.boundary),
            "cotangent_from": a.cap_last, "cotangent_sha256": sha256_file(a.cap_last),
            "permuted_cotangent": perm_rep, "pad_perturbation": pad_rep,
+           "injection": {
+               "convention": convention,
+               "what": ("<cot_s, s_out> + <cot_z - d<cot_s,s_out>/dz_out, z_out>, the graph-cut "
+                        "external cotangent (D242 repaired)") if convention ==
+                       "graph-cut-external" else
+                       ("<cot_s, s_out> + <cot_z, z_out> with cot_z as hooked. z_out is an "
+                        "ancestor of s_out, so this DOUBLE COUNTS that route (D242)"),
+               "graph_cut": {"is_cut": not pairs,
+                             "ancestor_descendant_pairs": [list(x) for x in pairs],
+                             "checked_by": "walk of the grad_fn DAG over the injected outputs"},
+               "correction_source": (None if corr is None else
+                                     (a.cot_correction or "this arm's own graph")),
+               "cot_z_norm_hooked": float(cot_z_hooked.norm()),
+               "cot_z_norm_injected": float(cot_z.norm()),
+               "correction_norm": (None if corr is None else float(corr.norm())),
+               "duplicate_share_of_the_hooked_cot_z": (
+                   None if corr is None else
+                   float(corr.norm()) / float(cot_z_hooked.norm())),
+           },
            "probe": {"s_in_norm": float(s0.norm()), "z_in_norm": float(z0.norm()),
                      "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
                      "real_tokens": int(sm.sum()), "tokens": int(sm.shape[-1])},
@@ -292,7 +400,7 @@ def main() -> int:
     with open(a.report, "w") as fh:
         json.dump(rep, fh, indent=2)
     rep["peak_rss_gb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 ** 2)
-    print(json.dumps({"policy": a.policy, "loss": rep["loss"], "s_norm": rep["s_norm"],
+    print(json.dumps({"policy": a.policy, "injection": convention, "loss": rep["loss"], "s_norm": rep["s_norm"],
                       "z_norm": rep["z_norm"],
                       "grad_sq_norm": rep["gradient"]["squared_norm_total"],
                       "with_gradient": rep["gradient"]["with_gradient"],
