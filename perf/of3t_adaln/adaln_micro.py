@@ -53,9 +53,12 @@ import os
 import sys
 import time
 
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
+
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
-REF_PKG = "/home/ttuser/of3t_rebase/of3pkg043"
-REF_DEPS = "/home/ttuser/of3t_gradients/pylibs"
 OUT = "perf/of3t_adaln"
 C_A, C_S = 768, 384
 # Measured on qb2 from bundle_min_043/grads_f64_043.pt, 4,170 tensors. It is the model's OWN
@@ -161,9 +164,9 @@ def main() -> int:
     pre, w, wh = PRE[a.block], W[a.block], WH[a.block]
 
     # ---- the reference class: upstream 0.4.3's own -------------------------------------------
-    sys.path.insert(0, REF_DEPS)
-    sys.path.insert(0, REF_PKG)
+    refpath.install()
     import openfold3
+    print(f"REF_TREE resolved: {refpath.assert_resolved()}", flush=True)
     from openfold3.core.model.primitives.normalization import AdaLN as RefAdaLN
     ref_src = os.path.dirname(openfold3.__file__)
 

@@ -1,0 +1,13 @@
+{
+ "what": "which upstream revision actually built the aux_heads reference, pinned by digest and not by a label (A24, A24-AMENDMENT: a digest pins the bytes, and the tree is the function)",
+ "method": "sha256 over the sorted sha256 of every .py file under openfold3/, 293 files in 0.4.3 and 321 in 0.5.0",
+ "tree_that_captured_boundary_aux_heads_pt": {
+  "path": "tt-quietbox2:/home/ttuser/of3t_rebase/of3pkg043",
+  "PKG-INFO_Version": "0.4.3",
+  "py_tree_digest": "8f035f4eb4470472ba7a7db97bd8dde16a6a7210f565bd63eef2ca6132beec50"
+ },
+ "sdist_0_4_3": {"path": "pc:/home/moritz/.coworker/scratch/of3t-data/sdist/openfold3-0.4.3", "py_tree_digest": "8f035f4eb4470472ba7a7db97bd8dde16a6a7210f565bd63eef2ca6132beec50"},
+ "sdist_0_5_0": {"path": "pc:/home/moritz/.coworker/scratch/of3t-data/sdist/openfold3-0.5.0", "py_tree_digest": "d9f4840ade3ba68be47dc273887eedd31bc6945a891b8db5cf7c9cf60ed0b6e9"},
+ "verdict": "the capture tree is byte-identical to the 0.4.3 sdist and differs from 0.5.0",
+ "boundary_file": {"path": "/tmp/of3t/auxheads043/boundary_aux_heads.pt (copied from tt-quietbox2:/home/ttuser/of3t_auxheads/cap043/)", "sha256_prefix": "09fe8da010fecd17f15f7cfdce1d8786"}
+}

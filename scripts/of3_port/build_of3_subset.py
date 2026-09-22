@@ -329,6 +329,10 @@ def main() -> int:
                     help="Structures to sample for --split train (upstream default 8).")
     ap.add_argument("--seed", type=int, default=42,
                     help="Sampling seed for --split train (upstream default 42).")
+    ap.add_argument("--ids", default=None,
+                    help="Comma-separated PDB ids to take instead of the seeded sample. "
+                         "The ids must already be in the split's cache, so this selects "
+                         "from upstream's own corpus rather than adding to it.")
     ap.add_argument("--drop-full-cache", action="store_true",
                     help="Delete the full cache once the subset is written.")
     args = ap.parse_args()
@@ -338,7 +342,10 @@ def main() -> int:
 
     full = fetch_full_cache(target, args.split)
     ids = None
-    if args.split == "train":
+    if args.ids:
+        ids = sorted({i.strip().lower() for i in args.ids.split(",") if i.strip()})
+        print(f"explicit ids: {' '.join(ids)}")
+    elif args.split == "train":
         # Exactly upstream's sample_subset_cache draw.
         all_ids = enumerate_structure_ids(full)
         print(f"{len(all_ids)} structures in {full.name}; "

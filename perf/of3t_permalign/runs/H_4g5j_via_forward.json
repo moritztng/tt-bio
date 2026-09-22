@@ -1,0 +1,96 @@
+{
+ "instrument": "D117: the alignment as the real forward reaches it",
+ "tag": "H_4g5j_via_forward",
+ "provenance": {
+  "source": "WeightedPDBDataset",
+  "data_dir": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets",
+  "cache_file": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets/training_cache_with_templates_subset_2.json",
+  "stage": "finetune_1",
+  "crop": 256,
+  "index": 12,
+  "pdb_id": "4g5j",
+  "datapoint": "1",
+  "n_tokens_real": 256,
+  "collate": "fixed"
+ },
+ "ref_spaces": {
+  "present": true,
+  "type": "list",
+  "batch_axis_len": 1,
+  "n_ref_spaces_sample0": 197,
+  "example_uid": 0,
+  "example_perm_shape": [
+   1,
+   8
+  ],
+  "max_uid": 196,
+  "n_ref_spaces_with_alternatives": 58,
+  "max_permutations_in_one_ref_space": 2
+ },
+ "call": {
+  "via_forward": true,
+  "checkpoint": "/home/moritz/.boltz/of3-p2-155k.pt",
+  "pred_shape": [
+   1,
+   1,
+   1631,
+   3
+  ],
+  "seed": 20260921,
+  "collate": "fixed",
+  "drop_key": false,
+  "forward_twice": false
+ },
+ "verdict": {
+  "n_alignment_calls": 1,
+  "n_completed": 1,
+  "naive_fallback_invoked": false,
+  "fell_back_by_wrapper": false,
+  "fell_back_by_log": false,
+  "detectors_agree": true,
+  "completed": true,
+  "errors": [],
+  "log_records": []
+ },
+ "verdict_per_pass": [
+  {
+   "n_alignment_calls": 1,
+   "n_completed": 1,
+   "naive_fallback_invoked": false,
+   "fell_back_by_wrapper": false,
+   "fell_back_by_log": false,
+   "detectors_agree": true,
+   "completed": true,
+   "errors": [],
+   "log_records": []
+  }
+ ],
+ "effect": {
+  "gt_atoms_moved": 74,
+  "gt_shape_before": [
+   1,
+   1631,
+   3
+  ],
+  "gt_shape_after": [
+   1,
+   1,
+   1631,
+   3
+  ],
+  "all_losses_zeroed": false
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "openfold3": "/home/moritz/.coworker/scratch/of3t-bondcov/of3pkg043/openfold3/__init__.py",
+ "torch": "2.13.0+cpu",
+ "total_s": 150.48246240615845
+}

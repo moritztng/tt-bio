@@ -1,0 +1,61 @@
+{
+ "what": "the cost of the rung above diffusion_module, measured on one PairFormer block and scaled, rather than by re-triggering a 215 GB oom-kill on a shared box",
+ "host_mem_gb": 249.0,
+ "measured_oom_high_water_gb": 215.53,
+ "threads": 2,
+ "pairformer_checkpoint": {
+  "tensors": 2736,
+  "elements": 147400704,
+  "float64_param_gb": 1.179205632
+ },
+ "rss_after_checkpoint_gb": 2.795628,
+ "pairformer_config": {
+  "blocks_per_ckpt": 1,
+  "c_hidden_mul": 128,
+  "c_hidden_pair_att": 32,
+  "c_hidden_pair_bias": 24,
+  "c_s": 384,
+  "c_z": 128,
+  "clear_cache_between_blocks": false,
+  "fuse_projection_weights": false,
+  "inf": 1000000000.0,
+  "linear_init_params": "att_pair_bias:\n  layer_norm_z:\n    create_offset: true\n  linear_z:\n    bias: false\n    init: default\n  mha:\n    linear_g:\n      bias: false\n      init: gating\n    linear_k:\n      bias: false\n      init: default\n    linear_o:\n      bias: false\n      init: final\n    linear_q:\n      bias: true\n      init: default\n    linear_v:\n      bias: false\n      init: default\npair_block:\n  fused_tri_mul:\n    linear_ab_g:\n      bias: false\n      init: gating\n    linear_ab_p:\n      bias: false\n      init: default\n    linear_g:\n      bias: false\n      init: gating\n    linear_z:\n      bias: false\n      init: final\n  pair_transition:\n    relu:\n      layers:\n        bias: true\n        init: relu\n      linear_out:\n        bias: true\n        init: final\n    swiglu: &id001\n      linear_out:\n        bias: false\n        init: final\n      swiglu:\n        linear_a:\n          bias: false\n          init: relu\n        linear_b:\n          bias: false\n          init: relu\n  tri_att:\n    linear_z:\n      bias: false\n      init: default\n    mha:\n      linear_g:\n        bias: false\n        init: gating\n      linear_k:\n        bias: false\n        init: default\n      linear_o:\n        bias: false\n        init: final\n      linear_q:\n        bias: false\n        init: default\n      linear_v:\n        bias: false\n        init: default\n  tri_mul:\n    linear_a_g:\n      bias: false\n      init: gating\n    linear_a_p:\n      bias: false\n      init: default\n    linear_b_g:\n      bias: false\n      init: gating\n    linear_b_p:\n      bias: false\n      init: default\n    linear_g:\n      bias: false\n      init: gating\n    linear_z:\n      bias: false\n      init: final\ntransition: *id001\n",
+  "no_blocks": 48,
+  "no_heads_pair": 4,
+  "no_heads_pair_bias": 16,
+  "pair_dropout": 0.25,
+  "transition_n": 4,
+  "transition_type": "swiglu",
+  "tune_chunk_size": true,
+  "use_reentrant": false
+ },
+ "n_blocks_full": 48,
+ "crop": {
+  "n_token": 384,
+  "c_s": 384,
+  "c_z": 128
+ },
+ "rss_after_one_block_build_gb": 3.24536,
+ "one_block_params": 3070848,
+ "one_block": {
+  "forward_s": 13.602203607559204,
+  "backward_s": 47.56953167915344,
+  "one_fwd_bwd_s": 61.17173528671265,
+  "peak_rss_gb": 17.278216,
+  "peak_after_forward_gb": 16.09532,
+  "rss_before_build_gb": 3.109956,
+  "activation_gb_above_build": 14.032856
+ },
+ "projection_to_full_stack": {
+  "n_blocks": 48,
+  "activation_gb_per_block_measured": 14.032856,
+  "activation_gb_for_stack": 673.577088,
+  "float64_param_and_grad_gb": 2.358411264,
+  "projected_high_water_gb": 678.731127264,
+  "measured_high_water_gb": 215.53,
+  "host_mem_gb": 249.0,
+  "one_fwd_bwd_s_projected": 2936.243293762207,
+  "est_20_step_s_projected": 234899.46350097656,
+  "est_20_step_h_projected": 65.24985097249349
+ }
+}

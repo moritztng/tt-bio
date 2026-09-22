@@ -1,0 +1,76 @@
+# Workstream: of3t-wirefix
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=300 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-wirefix
+
+OF3T row `of3t-wirefix` — **close the four wiring divergences §7 found, and re-run §7.** This is
+the campaign's shortest remaining path to its own completion criterion.
+
+## Base your worktree on `wk/of3t-traj20`
+
+    git fetch origin && git checkout -B wk/of3t-wirefix origin/wk/of3t-traj20
+
+That branch has the §7 harness, the three controls and the arm definitions. Do not rebuild them.
+
+## What `of3t-traj20` found (VERDICT NO-GO), and it pre-registered all four before measuring
+
+Every one is a component applied in the wrong order, called at the wrong time, or not called at
+all — the class no per-parameter gradient agreement can reach.
+
+1. **Weight decay upstream does not have.** `recipes.py:118` builds `AdamW(...)` and takes
+   `weight_decay=0.01` by default; upstream's `configure_optimizers` builds `torch.optim.Adam`
+   with none (`runner.py:852-860`). Removing it alone: endpoint **2.938e-01 → 1.105e-01**,
+   exponent **+0.406 → −0.152**. Categorical tell: **74 tensors have an exactly zero reference
+   update** and `lr*wd*theta` moves every one of them — with wd on, **0 of 4,147** are
+   bit-identical at k=2; with it off, **76** are.
+2. **Per-sample clipping implemented, tested, never called.** `per_sample_clipping: True` at
+   `clip_val 10.0` is upstream's shipped OF3 default (`model_config.py:156-159`).
+   `AdamW.clip_and_accumulate` implements it and has **0 callers in `tt_bio/`** against 3 in
+   `tests/test_clipping_matches_openfold3.py`; `train_loop` clips the batch once instead. At
+   k=20 our batch norm 1.5899e+01 takes coefficient **0.6290** where each of upstream's four
+   samples takes **1.0** — and per-sample clipping changes the **direction** of the sum.
+3. **A participation count written and never read.** `AdamW` writes `self.participation`
+   (`optim.py:411`) and reads it **0 times**; upstream's `_sync_and_average_grads` divides each
+   parameter's accumulated gradient by its own count (`grad_manager.py:225-232`). Counts spread
+   **[1,4]** at k=20 because the confidence head is disabled where the confidence weight is
+   zero. Closing it on top of 1 and 2: k=2 **1.084e-01 → 8.715e-03** (12.4x), worst tensor
+   1.507e+06 → 1.130e-02. Adam does **not** cancel it — §7a-bis measured 2.547e-07 for a 1.01x
+   scaling, but at 4x `eps = 1e-8` stops cancelling.
+4. **The wrong LR schedule family.** `recipes.py:119` calls `af3_lr(s, lr, warmup_steps=...)`
+   with no `plateau_until`, selecting Protenix's schedule where OpenFold3 ships AF2's. Over
+   0..200,004 in float64: **200,004 of 200,005 exact**, one mismatch at step 50,000 (ours
+   0.00171, theirs 0.0018, 5.0e-02 relative). `plateau_until=50000` makes it 200,005 of 200,005.
+   **The 20-step window cannot see this** — both families share the 0..1000 linear warmup — so
+   fix it, and verify it with §4's whole-domain method, not with the trajectory.
+
+## What to do
+
+1. **FIXED** — close them. Each fix is one argument or one call. Report before/after per fix,
+   and say plainly if you decline one and why.
+2. **RERUN** — §7 with the fixes on. **Report `d_k` for every k from 1 to 20**, not the
+   endpoint: the shape is the result and an endpoint hides it. `d_1` must stay exactly
+   **0.000000e+00** on both sides with 4,147 of 4,147 bit-identical — that is D11 staying closed
+   and it is your cheapest regression signal.
+3. **SHAPE** — the bar is the growth law, fixed at pass 1: **linear or sub-linear passes,
+   super-linear FAILS at any magnitude**. Do not convert it into a threshold on `d_20`.
+4. **RESIDUAL** — `of3t-traj20` said plainly the four are **not the whole of it**: closing 1-3
+   left **8.715e-03 at k=2, 17.3x the fp32 differencing floor**, with the shape still
+   super-linear at **+1.267**. Expect a residual. Locate it if you can; if you cannot, say so
+   and report its size and shape rather than implying the fixes finished the job.
+5. **GATED** — every one of these changes training behaviour. They stay on your branch, flagged,
+   for Moritz and the orchestrator. `compose_verify.sh` asserts the shipped defaults
+   (`scale_pair_bias=False`, the release-gated confidence masks off); if your work moves either,
+   stop.
+6. **CONTROL** — keep the mis-wired arm and show it **still fails**. An instrument that stops
+   being able to fail after you fix things has stopped measuring (§3e). Plus an A/A on a path
+   you did not touch.
+
+## Rules
+
+- **Pre-register before you run**, including what you would conclude if the residual grows.
+  `of3t-traj20` pre-registered all four of these from reading the call paths before any
+  full-scope number existed, and that is why its result tested a prediction.
+- `PARITY MEANS ACCURACY, NOT BIT-EXACTNESS`, except where a thing should be exactly zero —
+  `d_1` and the 74 zero-update tensors are categorical, not approximate.
+- **CLOCK DISCIPLINE** on any perf number. Explicit `git add <paths>` only, never `git add -A`.
+- Push `wk/of3t-wirefix`; do NOT merge to main. Your push from qb2 may silently not reach
+  origin — commit early in small steps and check `git ls-remote origin wk/of3t-wirefix`.

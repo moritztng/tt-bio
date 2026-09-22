@@ -1,0 +1,123 @@
+{
+ "loss": 1.2675981521606445,
+ "dtype": "float32",
+ "seed": 20260919,
+ "n_query": 32,
+ "n_key": 128,
+ "cl": [
+  1,
+  422,
+  128
+ ],
+ "plm": [
+  1,
+  14,
+  32,
+  128,
+  16
+ ],
+ "ai": [
+  1,
+  384,
+  384
+ ],
+ "ql": [
+  1,
+  422,
+  128
+ ],
+ "cot_cl": [
+  1,
+  422,
+  128
+ ],
+ "cot_plm": [
+  1,
+  14,
+  32,
+  128,
+  16
+ ],
+ "cot_ai": [
+  1,
+  384,
+  384
+ ],
+ "features": {
+  "ref_pos": [
+   1,
+   422,
+   3
+  ],
+  "ref_charge": [
+   1,
+   422
+  ],
+  "ref_mask": [
+   1,
+   422
+  ],
+  "ref_element": [
+   1,
+   422,
+   119
+  ],
+  "ref_atom_name_chars": [
+   1,
+   422,
+   4,
+   64
+  ],
+  "ref_space_uid": [
+   1,
+   422
+  ],
+  "atom_mask": [
+   1,
+   422
+  ],
+  "atom_to_token_index": [
+   1,
+   422
+  ],
+  "token_mask": [
+   1,
+   384
+  ]
+ },
+ "grad_f64_n": 93,
+ "cot_norms": {
+  "cot_cl": 0.01160385229822606,
+  "cot_plm": 4.2613225581556505e-10,
+  "cot_ai": 0.12269849964749585
+ },
+ "out": "/home/ttuser/of3t_hostleg/ie_boundary_f32.pt",
+ "sha256": "8fd5b2c8e3ac6e9d526843973503efafb0ff62badd8d0d0cfdf26daf15920682",
+ "provenance": {
+  "batch": "/home/ttuser/of3t_hostleg/bundle_ref/batch_step003.pt",
+  "batch_sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+  "draws": "/home/ttuser/of3t_hostleg/bundle_ref/draws_recycles0.pt",
+  "draws_sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "checkpoint_sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "upstream_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043/openfold3/__init__.py",
+  "determinism": {
+   "enabled": true,
+   "cublas_workspace_config": ":4096:8",
+   "warn_only": true,
+   "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
+  },
+  "dropout": {
+   "disabled": true,
+   "n_of3_dropout_modules": 61,
+   "n_nn_dropout_modules": 61,
+   "rates_before": [
+    0.15,
+    0.25
+   ],
+   "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+  },
+  "autocast": "upstream"
+ },
+ "elapsed_s": 1018.8
+}

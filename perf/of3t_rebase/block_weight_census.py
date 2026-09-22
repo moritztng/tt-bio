@@ -22,7 +22,12 @@ anyone spends a card on this.
 
 CPU only.  Reads the bundle's own w0/grads, never a device.
 """
-import argparse, json, math, re, sys
+import argparse, json, math, os, re, sys
+
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
 import torch
 
 TILE = 32
@@ -69,7 +74,7 @@ def track_of(name: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--bundle", default="/home/ttuser/of3t_rebase/bundle_min_043")
+    ap.add_argument("--bundle", default=refpath.BUNDLE)
     ap.add_argument("--weights", default="w0_043.pt")
     ap.add_argument("--grads", default="grads_f64_043.pt")
     ap.add_argument("--blocks", default="0,8,16,23,32,40,47")

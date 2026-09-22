@@ -1,0 +1,30 @@
+[
+  {
+    "root": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3",
+    "n_py_files": 293,
+    "tree_sha256": "1b27f5754b32b8e35e98f3f9246ebe09a9dcccc36b6f8e688d2b5e11b1aa57b5",
+    "rule": "sha256 of the sorted per-file sha256 hex strings, concatenated, of every .py under the package root",
+    "witness_files": {
+      "core/model/latent/base_blocks.py": "5f78e1426e4bdfbd6855b0983ff2624c4138da1581f2d2653beb5dd5bc09e90c",
+      "core/model/latent/pairformer.py": "bb94fa0cf53d096b7170e56062460e61f26c249d7c7e632f020ef8af1b99daa5",
+      "core/model/layers/triangular_attention.py": "2ca2f33f3c2e67e047f8bfbe22d8bef2c09dc1ed766da230965863d2595f85de",
+      "core/model/layers/attention_pair_bias.py": "6c215a9f4317a98f2f11867b9c8f32350ce35bcef0211615a760a06700c329b7",
+      "core/model/primitives/attention.py": "030a42816b8d0dfc2374b7361967af1cbe50e6515fb1375eacc9eca68a5e8703",
+      "entry_points/parameters.py": "3df880a408ea02a536a7a1b734c86413cc38a959174834f928bbd6791093a5ad"
+    }
+  },
+  {
+    "root": "/home/ttuser/of3t_gradients/of3pkg/openfold3",
+    "n_py_files": 321,
+    "tree_sha256": "092fb5753346c6beee96d50228e5a7787245c993bcfb3827dd4cc679423712a5",
+    "rule": "sha256 of the sorted per-file sha256 hex strings, concatenated, of every .py under the package root",
+    "witness_files": {
+      "core/model/latent/base_blocks.py": "f0efbb7bf88d9d0e9e5dee3c19f47b040f1bc6563280128f1d065908dc510a93",
+      "core/model/latent/pairformer.py": "cdb66c9553ef42b93835dec92f3e6dcf711dbf139a5a59aa1f2561216435af9f",
+      "core/model/layers/triangular_attention.py": "7827662d7039453abc4085bf17d93107416edfd1d8a6a458664d7ae1fa052d19",
+      "core/model/layers/attention_pair_bias.py": "a7622c8a315e917480586047af7fb35ed2283ade0a16bcf8b68f8f5f22f5cdee",
+      "core/model/primitives/attention.py": "30fe5433982ee73e3d7ce5341fa6b510b1ea332dbde072d56129632cc53f0746",
+      "entry_points/parameters.py": "eaa2a237eef04ec6032424b96e7f5dbc69da56ce9541dfa2fb38ecf662601da8"
+    }
+  }
+]

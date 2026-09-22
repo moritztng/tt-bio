@@ -1,0 +1,68 @@
+# Workstream: of3t-auxgrad
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-auxgrad
+
+OF3T row `of3t-auxgrad` — **the gradient we hold for `aux_heads` is the gradient of a function we
+now know is wrong.** Re-take it with the fix on. Two deliverables, and the second one may matter
+to users.
+
+## Base your worktree on `wk/of3t-auxfind`, not `main` and not `wk/of3t`
+
+    git fetch origin && git checkout -B wk/of3t-auxgrad origin/wk/of3t-auxfind
+
+That branch carries the fix this row measures, already merged with `wk/of3t` at `8dfb22045` and
+re-verified by running it. Starting anywhere else means measuring the defect again.
+
+## What is settled
+
+`of3t-auxfind` returned **GO**: `aux_heads`' A18 forward failure is caused by our confidence
+Pairformer running **unmasked**, and passing the reference's masks — `pair_mask` into both
+triangle multiplications and onto the pair transition's output, the additive `-1e9` companion
+into both triangle attentions, and `single_mask` into the host s-path's attention scores and its
+transition output — takes A18 from **4 of 5 heads over the bar, worst 5.174368e-01**, to **0 of
+5, worst 3.865648e-03**. That is 12.9x inside the 5.0e-02 bar and 18.3x inside A26's reachable
+bar, with every norm ratio within 0.25 % of 1 and every cosine at 0.99999 or better. The
+"maybe the heads are simply imprecise" alternative was **refuted by measurement**, not skipped.
+
+## Deliverable 1 — the gradient, because A18 does not bound it
+
+**A18 says a disagreeing forward INVALIDATES a gradient. An agreeing forward merely stops
+invalidating it** (A18 addendum, D9). The **2.2996e-03** headline over the **2.843136 %** of
+squared gradient norm this scope holds was carried in from `of3t-auxheads` and measured on the
+taped `forward_device` path **before** the fix existed. So the repaired forward and the gradient
+on record are **of different functions**, and the scope is currently neither void nor passing —
+it is **UNMEASURED**, which is how the scoreboard now carries it.
+
+Re-take it with the fix **on**, against the same 0.4.3 reference and the same boundary, and score
+it against **5.0e-02 per-tensor / 2.0e-02 mass-weighted**, and against A26's `sqrt(2) x`
+reachable bar. Report the mass-weighted headline and the worst tensor **located**, not just its
+value. **Confirm the forward reads 3.865648e-03 in the same process** — carrying numbers in
+across processes is exactly what made this re-take necessary, so do not do it again.
+
+## Deliverable 2 — does this reach users, MEASURED this time
+
+`of3t-auxfind` states that the shipped `_confidence` call site at `openfold3_fold.py:260` passes
+no `token_mask`, and that whether a user-facing fold's token axis carries a padded position is a
+property of the feature pipeline it **read from source rather than measured on a real target**.
+If it does carry padding, this change moves **pLDDT, PAE, PTM/IPTM and the ranking score** on
+ordinary folds.
+
+**Measure it.** Run a real target end to end both ways and report the deltas. If the token axis
+is never padded on a shipped path, **say so plainly — that is the reassuring branch and it is
+just as valuable**; report it as prominently as the alarming one. This campaign escalated a
+product claim from a source reading once and had to withdraw it (**D90**); do not repeat that.
+A confidence delta is scored against **seed scatter**, not against zero
+(`conf-scatter-bar`): quote the same-arm different-seed spread beside any number.
+
+## Rules
+
+- **Pre-register both deliverables' branches before you run**, including what reading would mean
+  "the fix does not help the gradient" — that is a real possible outcome, since the gradient error
+  may sit somewhere the mask never touches.
+- Norm ratio and error cosine beside every relative L2; padding fraction and scoring scope beside
+  every forward figure; per **A27** name the dtype policy of any arm used as a denominator.
+- The fix is **release-gated** and must stay unmerged. Its A/A control (default path bit-identical
+  on 7 of 7 tensors) is the thing to preserve — if your work moves a shipped default, stop.
+- Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-auxgrad`; do NOT merge to
+  main. Your push from qb2 may silently not reach origin — commit early in small steps and check
+  with `git ls-remote origin wk/of3t-auxgrad`.
