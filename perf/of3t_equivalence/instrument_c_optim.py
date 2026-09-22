@@ -161,28 +161,42 @@ def main() -> int:
           f"{a['worst']['rel']:.3e} at step {a['worst']['step']} on {a['worst']['tensor']!r}")
 
     # --- arm 2: the OF3 schedule on both sides -----------------------------------------
-    # Ours computes lr(self.steps) AFTER incrementing, so its step k uses lr(k). Lightning
-    # calls optimizer.step() and only then scheduler.step(), so their step k uses lr(k-1).
-    # The arm is run both ways and the difference between them is reported rather than
-    # assumed away: if the two alignments differ, the off-by-one is real and is a finding.
+    # UPSTREAM'S ALIGNMENT IS THE GATED ONE. Lightning calls optimizer.step() and only then
+    # scheduler.step(), and `AlphaFoldLRScheduler` is built with last_epoch=-1 so
+    # `_LRScheduler.__init__` steps it once to 0 before training -- their update k therefore
+    # multiplies by lr(k-1), and their first update multiplies by exactly 0. Verified on their
+    # own code, not inferred: driving a real `torch.optim.Adam` through a real
+    # `AlphaFoldLRScheduler` reads param_groups lr 0.000e+00, 1.800e-06, 3.600e-06, 5.400e-06,
+    # 7.200e-06 at updates 1..5 (pass 37).
+    #
+    # This arm previously GATED on our own convention (lr(k), read after the increment) and
+    # reported upstream's as "info". Both numbers were always printed, so nothing was hidden --
+    # but the pass criterion was our own behaviour, so a SS5 PASS could not have caught D11,
+    # and did not: D11 was found by reading upstream. Corrected pass 37, after
+    # `of3t-updaterule` fixed `AdamW.step` and the two arms swapped places. DEFECTS D15.
     sched = lambda s: af3_lr(s, OF3["learning_rate"], warmup_steps=SCHED["warmup_no_steps"],
                              decay_every_n_steps=SCHED["decay_every_n_steps"],
                              decay_factor=SCHED["decay_factor"], base_lr=SCHED["base_lr"],
                              plateau_until=SCHED["start_decay_after_n_steps"])
     ours_sched = run_ours(w0, grads, sched)
-    aligned = compare(ours_sched, run_theirs(w0, grads, [sched(k) for k in range(1, STEPS + 1)]))
-    lagged = compare(ours_sched, run_theirs(w0, grads, [sched(k) for k in range(0, STEPS)]))
-    aligned["pass"] = aligned["worst"]["rel"] <= BAR
-    result["arms"]["of3_schedule_aligned"] = aligned
-    result["arms"]["of3_schedule_lightning_lag"] = {
-        "worst": lagged["worst"], "final_step_rel": lagged["final_step_rel"],
-        "note": "lr(k-1) against our lr(k); reported to size the off-by-one, not as a pass"}
-    ok &= aligned["pass"]
-    print(f"[{'PASS' if aligned['pass'] else 'FAIL'}] OF3 schedule, aligned: worst relative "
-          f"{aligned['worst']['rel']:.3e} at step {aligned['worst']['step']} on "
-          f"{aligned['worst']['tensor']!r}")
-    print(f"[info] same arm with Lightning's lr(k-1) alignment: worst relative "
-          f"{lagged['worst']['rel']:.3e} -- the size of a one-step schedule offset")
+    upstream = compare(ours_sched, run_theirs(w0, grads, [sched(k) for k in range(0, STEPS)]))
+    offset = compare(ours_sched, run_theirs(w0, grads, [sched(k) for k in range(1, STEPS + 1)]))
+    upstream["pass"] = upstream["worst"]["rel"] <= BAR
+    upstream["note"] = ("their update k at lr(k-1), which is what Lightning plus last_epoch=-1 "
+                        "produces; THIS is the gated comparison")
+    result["arms"]["of3_schedule_upstream"] = upstream
+    result["arms"]["of3_schedule_offset_by_one"] = {
+        "worst": offset["worst"], "final_step_rel": offset["final_step_rel"],
+        "renamed_from": "of3_schedule_aligned (gated before pass 37, wrongly)",
+        "note": "their update k at lr(k), the pre-D11 convention; sizes the off-by-one, "
+                "never a pass"}
+    ok &= upstream["pass"]
+    print(f"[{'PASS' if upstream['pass'] else 'FAIL'}] OF3 schedule, upstream alignment "
+          f"(their step k at lr(k-1)): worst relative {upstream['worst']['rel']:.3e} at step "
+          f"{upstream['worst']['step']} on {upstream['worst']['tensor']!r}")
+    print(f"[info] same arm against the pre-D11 convention (lr(k)): worst relative "
+          f"{offset['worst']['rel']:.3e} -- the size of a one-step schedule offset, and the "
+          f"comparison this instrument gated on until pass 37")
 
     # --- negative control (PROTOCOL SS3e) ----------------------------------------------
     # The first control written here FAILED, and the failure is a result rather than a bug.

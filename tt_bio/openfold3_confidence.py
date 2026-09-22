@@ -86,11 +86,17 @@ class OF3ConfidenceHead:
         apb0 = _BLK % 0 + "attn_pair_bias."
         att_n_heads = self._w[apb0 + "linear_z.weight"].shape[0]
         att_head_dim = self._w[apb0 + "mha.linear_q.weight"].shape[0] // att_n_heads
-        # Pairformer holds the z-path sub-modules (and the s-path sub-modules, unused --
-        # the s-path runs host-fp32 via _host_s_block for precision).
+        # Pairformer holds the z-path sub-modules (and the s-path sub-modules, used by the
+        # device path; the host path runs the s-track in fp32 via _host_s_block).
+        # scale_pair_bias=True pre-bakes sqrt(d) into the TOKEN bias, which is what
+        # AttentionPairBias needs to add it unscaled; tri_att_scale_pair_bias=False keeps the
+        # TRIANGLE bias unbaked, which is what TriangleAttention needs for the same
+        # convention. Both triangle attentions here are on the z-path this head's pae/pde
+        # logits read, so the flag that fixes the s-track must not reach them.
         self.pf = Pairformer(n_blocks, tri_att_head_dim, tri_att_n_heads,
                              att_head_dim, att_n_heads, True, pf_sd, compute_kernel_config,
                              scale_pair_bias=False,
+                             tri_att_scale_pair_bias=False,
                              fp32_softmax=True,
                              accurate_softmax=accurate_softmax_site("openfold3.confidence"),
                              tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence"),

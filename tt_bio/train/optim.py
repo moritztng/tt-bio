@@ -190,12 +190,20 @@ class AdamW:
         self._reduce(replicas)
         disabled = set(disabled)
         per_sample = bool(self.accum)
+        # The schedule is read BEFORE the counter moves, and the order is the whole of it.
+        # Upstream steps the optimizer and THEN the scheduler (`runner.py:464-465`), and
+        # `AlphaFoldLRScheduler` is built with `last_epoch=-1`, so `_LRScheduler.__init__`
+        # steps it once to 0 before training starts. Their k-th update therefore runs at
+        # `lr(k-1)` and their first runs at `lr(0)`, which the AF3 warmup makes exactly 0.
+        # `self.steps` counts COMPLETED steps, so reading here is that same order. Reading
+        # after the increment put every step of ours one rung further along the warmup than
+        # theirs and made our first update non-zero where theirs is identically zero.
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         self.steps += 1
         self.beta1_pow *= self.beta1
         self.beta2_pow *= self.beta2
         bc1 = 1.0 - self.beta1_pow
         bc2 = 1.0 - self.beta2_pow
-        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         # Global-norm clipping, computed once over every gradient before any of them is
         # applied. Per-parameter clipping would be a different algorithm: it changes the
         # DIRECTION of the update, not just its length.
@@ -287,6 +295,7 @@ class AdamW:
         Call it after enough steps to have moved: on step 0 there is no displacement and the
         ratio is nan, which is reported rather than passed.
         """
+        import numpy as np  # noqa: F401  (displacement() needs it)
         d = self.displacement()
         lo, hi = band
         r = d["ratio"]
@@ -298,6 +307,17 @@ class AdamW:
                 f"{d['master']:.3e}), so nothing was learned. Check that the loss reached "
                 f"the parameters: a frozen tensor accumulates no gradient and a pruned "
                 f"branch produces none")
+        # A correct short run can sit below the band and this is not a defect: if the master
+        # has moved less than the device dtype can represent, every update rounds away by
+        # design and the fp32 master is doing its job. Measured on a 20-step OF3 warmup, where
+        # lr ~ k * 1.8e-06 puts every step under bf16 spacing and the arm read 0.810 against a
+        # (0.9, 1.1) band -- a guard raising on correct behaviour gets disabled by the next
+        # caller, which is worse than no guard. Reported, never silently passed.
+        if d["master"] < d["resolution"] and r < lo:
+            return {**d, "below_resolution": True,
+                    "note": (f"master displacement {d['master']:.3e} is under the device's own "
+                             f"resolution {d['resolution']:.3e}, so ratio {r:.4f} measures the "
+                             f"dtype rather than the optimizer; band not asserted")}
         if not (lo < r < hi):
             raise AssertionError(
                 f"cumulative displacement ratio {r:.4f} is outside {band}: the master moved "
@@ -321,7 +341,16 @@ class AdamW:
             cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
             d += float(np.sum((cur - self.init_device[n]) ** 2))
         m, d = math.sqrt(m), math.sqrt(d)
-        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan")}
+        # The displacement the device copy CANNOT show. A change smaller than half an ulp of
+        # the weight it is applied to rounds away entirely, so below this the ratio is
+        # measuring the dtype and not the optimizer. bfloat16 keeps 7 explicit mantissa bits,
+        # so its unit roundoff -- half an ulp under round-to-nearest -- is 2**-8.
+        res = 0.0
+        for n, t in self.params.items():
+            u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
+            res += float(np.sum((u * np.abs(self.init_device[n])) ** 2))
+        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
+                "resolution": math.sqrt(res)}
 
     def grad_norm(self, disabled=()) -> float:
         """Global L2 norm of the gradients, for clipping and for the trajectory log.
