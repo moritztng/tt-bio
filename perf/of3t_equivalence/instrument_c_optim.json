@@ -1,0 +1,2085 @@
+{
+  "instrument": "PROTOCOL SS5 -- optimizer under injected gradients",
+  "bar": "relative 1e-06 per parameter per step, fp32 master",
+  "steps": 200,
+  "their_config": {
+    "learning_rate": 0.0018,
+    "beta1": 0.9,
+    "beta2": 0.95,
+    "eps": 1e-08
+  },
+  "arms": {
+    "constant_lr": {
+      "worst": {
+        "rel": 2.738160842740276e-07,
+        "step": 191,
+        "tensor": "bias"
+      },
+      "final_step_rel": 2.7204311975280596e-07,
+      "per_step_worst": [
+        {
+          "step": 1,
+          "worst_rel": 2.9921261700040505e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 2,
+          "worst_rel": 4.076122614195734e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 3,
+          "worst_rel": 4.329673753025124e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 4,
+          "worst_rel": 5.732664270989593e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 5,
+          "worst_rel": 6.059958858129476e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 6,
+          "worst_rel": 6.340326417829962e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 7,
+          "worst_rel": 6.457330158562675e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 8,
+          "worst_rel": 6.795527533152001e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 9,
+          "worst_rel": 6.876509950087666e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 10,
+          "worst_rel": 7.137496251497855e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 11,
+          "worst_rel": 6.912202324266024e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 12,
+          "worst_rel": 6.915873041847379e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 13,
+          "worst_rel": 6.992237181488022e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 14,
+          "worst_rel": 7.163688615424744e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 15,
+          "worst_rel": 7.617636414720121e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 16,
+          "worst_rel": 8.07198631683907e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 17,
+          "worst_rel": 8.391993915876353e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 18,
+          "worst_rel": 8.804546586431247e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 19,
+          "worst_rel": 8.98530276888944e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 20,
+          "worst_rel": 9.487468478607917e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 21,
+          "worst_rel": 9.688909175440775e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 22,
+          "worst_rel": 9.752872149278375e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 23,
+          "worst_rel": 1.0196120825537406e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 24,
+          "worst_rel": 1.0412351066187911e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 25,
+          "worst_rel": 1.04399891043042e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 26,
+          "worst_rel": 1.0558795840230478e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 27,
+          "worst_rel": 1.0806744550818909e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 28,
+          "worst_rel": 1.0995675099698073e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 29,
+          "worst_rel": 1.1268169659376938e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 30,
+          "worst_rel": 1.1462646600774075e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 31,
+          "worst_rel": 1.1651984161715826e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 32,
+          "worst_rel": 1.1821812519520725e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 33,
+          "worst_rel": 1.202510985193616e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 34,
+          "worst_rel": 1.257599612665501e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 35,
+          "worst_rel": 1.2565514746158372e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 36,
+          "worst_rel": 1.2859738565332135e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 37,
+          "worst_rel": 1.3331964877421196e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 38,
+          "worst_rel": 1.340144378032074e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 39,
+          "worst_rel": 1.372933192377796e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 40,
+          "worst_rel": 1.3837976524204477e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 41,
+          "worst_rel": 1.4094928800612861e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 42,
+          "worst_rel": 1.399641773545665e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 43,
+          "worst_rel": 1.4313115976926236e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 44,
+          "worst_rel": 1.4513138523186735e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 45,
+          "worst_rel": 1.4490987332986945e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 46,
+          "worst_rel": 1.4603570509300833e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 47,
+          "worst_rel": 1.4662592534649783e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 48,
+          "worst_rel": 1.4978198794781702e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 49,
+          "worst_rel": 1.4954171229897382e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 50,
+          "worst_rel": 1.5577427901016218e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 51,
+          "worst_rel": 1.5598260318829404e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 52,
+          "worst_rel": 1.5579701060459103e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 53,
+          "worst_rel": 1.5516354232553697e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 54,
+          "worst_rel": 1.5693513718455693e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 55,
+          "worst_rel": 1.5789943544755479e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 56,
+          "worst_rel": 1.5905475133897146e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 57,
+          "worst_rel": 1.671450635096932e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 58,
+          "worst_rel": 1.6771137178906737e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 59,
+          "worst_rel": 1.679900688699077e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 60,
+          "worst_rel": 1.6942369870986661e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 61,
+          "worst_rel": 1.6984021327854286e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 62,
+          "worst_rel": 1.6622682077998648e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 63,
+          "worst_rel": 1.7229968266896816e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 64,
+          "worst_rel": 1.725845978351017e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 65,
+          "worst_rel": 1.7384232736186007e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 66,
+          "worst_rel": 1.7567756566323474e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 67,
+          "worst_rel": 1.7427996768033955e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 68,
+          "worst_rel": 1.7752955185762585e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 69,
+          "worst_rel": 1.7776603493211947e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 70,
+          "worst_rel": 1.7884634879721987e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 71,
+          "worst_rel": 1.7834036068017265e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 72,
+          "worst_rel": 1.8300122137323892e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 73,
+          "worst_rel": 1.8353948991413033e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 74,
+          "worst_rel": 1.8405540367452822e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 75,
+          "worst_rel": 1.8352019776065908e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 76,
+          "worst_rel": 1.8283567744788194e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 77,
+          "worst_rel": 1.8236459750288658e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 78,
+          "worst_rel": 1.8517164219321177e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 79,
+          "worst_rel": 1.8704140919415272e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 80,
+          "worst_rel": 1.870724942689684e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 81,
+          "worst_rel": 1.8916028504943084e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 82,
+          "worst_rel": 1.8949973541672622e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 83,
+          "worst_rel": 1.900747567989353e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 84,
+          "worst_rel": 1.9101171091157053e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 85,
+          "worst_rel": 1.9100226401760784e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 86,
+          "worst_rel": 1.9209994001914046e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 87,
+          "worst_rel": 1.9353313608786356e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 88,
+          "worst_rel": 1.9497693169761867e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 89,
+          "worst_rel": 1.9371487677625007e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 90,
+          "worst_rel": 1.9439725768921504e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 91,
+          "worst_rel": 1.9526330360303426e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 92,
+          "worst_rel": 1.9603501348087872e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 93,
+          "worst_rel": 1.9700855237957323e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 94,
+          "worst_rel": 1.9780938683188328e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 95,
+          "worst_rel": 1.9856047446673506e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 96,
+          "worst_rel": 1.9914237821136902e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 97,
+          "worst_rel": 2.000120488303457e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 98,
+          "worst_rel": 2.0077611983967443e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 99,
+          "worst_rel": 2.0166816984769345e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 100,
+          "worst_rel": 2.0548347891995415e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 101,
+          "worst_rel": 2.042590484117109e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 102,
+          "worst_rel": 2.0362259322259835e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 103,
+          "worst_rel": 2.0520733938553118e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 104,
+          "worst_rel": 2.053428359974376e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 105,
+          "worst_rel": 2.0587575069464926e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 106,
+          "worst_rel": 2.0644204040910477e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 107,
+          "worst_rel": 2.0878149627143718e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 108,
+          "worst_rel": 2.1124638888911353e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 109,
+          "worst_rel": 2.1429125651308388e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 110,
+          "worst_rel": 2.1414118359620284e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 111,
+          "worst_rel": 2.146183987294004e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 112,
+          "worst_rel": 2.1551326151291794e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 113,
+          "worst_rel": 2.1609332800732244e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 114,
+          "worst_rel": 2.1714270058859462e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 115,
+          "worst_rel": 2.176069958857224e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 116,
+          "worst_rel": 2.1760864303777764e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 117,
+          "worst_rel": 2.1711516514532318e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 118,
+          "worst_rel": 2.1697332073104027e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 119,
+          "worst_rel": 2.2263381760744105e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 120,
+          "worst_rel": 2.233831497630586e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 121,
+          "worst_rel": 2.227509268235558e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 122,
+          "worst_rel": 2.2224317594729045e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 123,
+          "worst_rel": 2.241788657191415e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 124,
+          "worst_rel": 2.2431878836920195e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 125,
+          "worst_rel": 2.2639291214274994e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 126,
+          "worst_rel": 2.2562403608098554e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 127,
+          "worst_rel": 2.2523135453354468e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 128,
+          "worst_rel": 2.2433929867510308e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 129,
+          "worst_rel": 2.247160983928286e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 130,
+          "worst_rel": 2.244723606713033e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 131,
+          "worst_rel": 2.2493473654732293e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 132,
+          "worst_rel": 2.2863984335324104e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 133,
+          "worst_rel": 2.3111028444919968e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 134,
+          "worst_rel": 2.3171258532593307e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 135,
+          "worst_rel": 2.3381160131002212e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 136,
+          "worst_rel": 2.3357555019642107e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 137,
+          "worst_rel": 2.3329343382685292e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 138,
+          "worst_rel": 2.331762275553386e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 139,
+          "worst_rel": 2.3327018788222572e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 140,
+          "worst_rel": 2.3308972933885566e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 141,
+          "worst_rel": 2.328902283388182e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 142,
+          "worst_rel": 2.3316637297059045e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 143,
+          "worst_rel": 2.31953581930056e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 144,
+          "worst_rel": 2.3162031508600144e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 145,
+          "worst_rel": 2.300334757295512e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 146,
+          "worst_rel": 2.3033330690484898e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 147,
+          "worst_rel": 2.3125061307922605e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 148,
+          "worst_rel": 2.3059175817410302e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 149,
+          "worst_rel": 2.3266470363313117e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 150,
+          "worst_rel": 2.3211846081083374e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 151,
+          "worst_rel": 2.3181399291270946e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 152,
+          "worst_rel": 2.320051773052585e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 153,
+          "worst_rel": 2.322779108901789e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 154,
+          "worst_rel": 2.3449949851823873e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 155,
+          "worst_rel": 2.3414007590209023e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 156,
+          "worst_rel": 2.33587404542711e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 157,
+          "worst_rel": 2.3382039609083734e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 158,
+          "worst_rel": 2.3415998081289057e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 159,
+          "worst_rel": 2.3465713262319627e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 160,
+          "worst_rel": 2.3516184619871922e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 161,
+          "worst_rel": 2.3542149024012972e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 162,
+          "worst_rel": 2.3584584451400796e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 163,
+          "worst_rel": 2.3609560084310724e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 164,
+          "worst_rel": 2.3630796426906473e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 165,
+          "worst_rel": 2.367462018849169e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 166,
+          "worst_rel": 2.371607618310828e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 167,
+          "worst_rel": 2.378865355068617e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 168,
+          "worst_rel": 2.3847180606891775e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 169,
+          "worst_rel": 2.3882792959274257e-07,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 170,
+          "worst_rel": 2.4106303504774324e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 171,
+          "worst_rel": 2.414241167373654e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 172,
+          "worst_rel": 2.408706709061428e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 173,
+          "worst_rel": 2.415693100378985e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 174,
+          "worst_rel": 2.453507461587415e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 175,
+          "worst_rel": 2.4826528386297763e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 176,
+          "worst_rel": 2.4908946696035027e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 177,
+          "worst_rel": 2.539617386613801e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 178,
+          "worst_rel": 2.5485039268410433e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 179,
+          "worst_rel": 2.5457237158254776e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 180,
+          "worst_rel": 2.588986226376165e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 181,
+          "worst_rel": 2.654421706694932e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 182,
+          "worst_rel": 2.661293789739171e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 183,
+          "worst_rel": 2.672065770706539e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 184,
+          "worst_rel": 2.6685988598319365e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 185,
+          "worst_rel": 2.6785162369128203e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 186,
+          "worst_rel": 2.674996992434236e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 187,
+          "worst_rel": 2.651045788169533e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 188,
+          "worst_rel": 2.6695869544821525e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 189,
+          "worst_rel": 2.6799226091911084e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 190,
+          "worst_rel": 2.6680524677193236e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 191,
+          "worst_rel": 2.738160842740276e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 192,
+          "worst_rel": 2.720590088352293e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 193,
+          "worst_rel": 2.729064337324414e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 194,
+          "worst_rel": 2.736554920715846e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 195,
+          "worst_rel": 2.734546095545797e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 196,
+          "worst_rel": 2.732032143474793e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 197,
+          "worst_rel": 2.7274647001087e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 198,
+          "worst_rel": 2.7224900826309825e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 199,
+          "worst_rel": 2.722130531231253e-07,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 200,
+          "worst_rel": 2.7204311975280596e-07,
+          "worst_tensor": "bias"
+        }
+      ],
+      "pass": true
+    },
+    "of3_schedule_aligned": {
+      "worst": {
+        "rel": 7.585732739934138e-08,
+        "step": 200,
+        "tensor": "linear"
+      },
+      "final_step_rel": 7.585732739934138e-08,
+      "per_step_worst": [
+        {
+          "step": 1,
+          "worst_rel": 7.046930639951971e-11,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 2,
+          "worst_rel": 7.338980101615234e-10,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 3,
+          "worst_rel": 1.051238848633859e-09,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 4,
+          "worst_rel": 1.1379909661817212e-09,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 5,
+          "worst_rel": 9.187131113040044e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 6,
+          "worst_rel": 9.187780442754644e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 7,
+          "worst_rel": 9.187742018438863e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 8,
+          "worst_rel": 9.186805820844845e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 9,
+          "worst_rel": 9.18672901429463e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 10,
+          "worst_rel": 9.186543501833745e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 11,
+          "worst_rel": 9.19079098394415e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 12,
+          "worst_rel": 9.191689473882928e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 13,
+          "worst_rel": 9.473917589445191e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 14,
+          "worst_rel": 9.473520496759648e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 15,
+          "worst_rel": 9.473505574091839e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 16,
+          "worst_rel": 9.473615474578016e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 17,
+          "worst_rel": 9.542759409722445e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 18,
+          "worst_rel": 9.54256597908722e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 19,
+          "worst_rel": 9.543582296444741e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 20,
+          "worst_rel": 9.546813786519358e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 21,
+          "worst_rel": 9.546557364960256e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 22,
+          "worst_rel": 9.54634615419497e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 23,
+          "worst_rel": 9.545776269014936e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 24,
+          "worst_rel": 9.545130198278118e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 25,
+          "worst_rel": 9.816750163042967e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 26,
+          "worst_rel": 9.816219973160599e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 27,
+          "worst_rel": 9.815600416295367e-09,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 28,
+          "worst_rel": 9.95768484731222e-09,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 29,
+          "worst_rel": 1.0424693490437535e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 30,
+          "worst_rel": 1.0861149424084371e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 31,
+          "worst_rel": 1.1051535037583781e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 32,
+          "worst_rel": 1.4208060108921917e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 33,
+          "worst_rel": 1.4252230413524815e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 34,
+          "worst_rel": 1.425059087345334e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 35,
+          "worst_rel": 1.4261129110458265e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 36,
+          "worst_rel": 1.4259366779326032e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 37,
+          "worst_rel": 1.4258412320891184e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 38,
+          "worst_rel": 1.4392864631952904e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 39,
+          "worst_rel": 1.4724376818342071e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 40,
+          "worst_rel": 1.5008088206115974e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 41,
+          "worst_rel": 1.5309914415698173e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 42,
+          "worst_rel": 1.55450810443692e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 43,
+          "worst_rel": 1.566168686134604e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 44,
+          "worst_rel": 1.574175194694635e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 45,
+          "worst_rel": 1.5822471630587974e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 46,
+          "worst_rel": 1.6181533577846365e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 47,
+          "worst_rel": 1.641888372409717e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 48,
+          "worst_rel": 1.6928165071780243e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 49,
+          "worst_rel": 1.7261767219177323e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 50,
+          "worst_rel": 1.7671964493135375e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 51,
+          "worst_rel": 1.81518498770019e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 52,
+          "worst_rel": 1.8269654150416458e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 53,
+          "worst_rel": 1.8694463640755676e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 54,
+          "worst_rel": 1.88381707503835e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 55,
+          "worst_rel": 1.9305857503517212e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 56,
+          "worst_rel": 1.9633849357851545e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 57,
+          "worst_rel": 2.011717773030901e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 58,
+          "worst_rel": 2.0682866526395128e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 59,
+          "worst_rel": 2.1384608065921712e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 60,
+          "worst_rel": 2.1612032709887605e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 61,
+          "worst_rel": 2.2216247813837787e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 62,
+          "worst_rel": 2.242955247449038e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 63,
+          "worst_rel": 2.292990297199623e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 64,
+          "worst_rel": 2.3344319535922023e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 65,
+          "worst_rel": 2.3582098941242662e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 66,
+          "worst_rel": 2.405448936139743e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 67,
+          "worst_rel": 2.4440057719561335e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 68,
+          "worst_rel": 2.477183236483299e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 69,
+          "worst_rel": 2.521933639154206e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 70,
+          "worst_rel": 2.5492485881832604e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 71,
+          "worst_rel": 2.610332745053865e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 72,
+          "worst_rel": 2.671495249006562e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 73,
+          "worst_rel": 2.7038301064241745e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 74,
+          "worst_rel": 2.7287997652884914e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 75,
+          "worst_rel": 2.757972881519842e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 76,
+          "worst_rel": 2.768563362169415e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 77,
+          "worst_rel": 2.8040434179897874e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 78,
+          "worst_rel": 2.8889923341999817e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 79,
+          "worst_rel": 2.914158315024474e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 80,
+          "worst_rel": 2.964990304445051e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 81,
+          "worst_rel": 3.025065091282394e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 82,
+          "worst_rel": 3.062839340257571e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 83,
+          "worst_rel": 3.099790839331705e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 84,
+          "worst_rel": 3.1092861583413535e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 85,
+          "worst_rel": 3.151208228836524e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 86,
+          "worst_rel": 3.1931661126027066e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 87,
+          "worst_rel": 3.226116490215732e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 88,
+          "worst_rel": 3.2764251471666616e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 89,
+          "worst_rel": 3.310465162122575e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 90,
+          "worst_rel": 3.334275406091858e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 91,
+          "worst_rel": 3.416831172861819e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 92,
+          "worst_rel": 3.4462522835349665e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 93,
+          "worst_rel": 3.501338222093021e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 94,
+          "worst_rel": 3.5196913494255315e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 95,
+          "worst_rel": 3.5563463658882694e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 96,
+          "worst_rel": 3.5913659429873575e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 97,
+          "worst_rel": 3.6369595340430814e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 98,
+          "worst_rel": 3.678037469028146e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 99,
+          "worst_rel": 3.698569867014943e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 100,
+          "worst_rel": 3.753208116174627e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 101,
+          "worst_rel": 3.805710381506332e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 102,
+          "worst_rel": 3.846793892883943e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 103,
+          "worst_rel": 3.884830558850218e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 104,
+          "worst_rel": 3.945151932779074e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 105,
+          "worst_rel": 4.002217754663249e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 106,
+          "worst_rel": 4.032316490082562e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 107,
+          "worst_rel": 4.0969578174895006e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 108,
+          "worst_rel": 4.141291967033207e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 109,
+          "worst_rel": 4.1636938375008e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 110,
+          "worst_rel": 4.2028691961648154e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 111,
+          "worst_rel": 4.238994579308208e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 112,
+          "worst_rel": 4.279439611966955e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 113,
+          "worst_rel": 4.3163805830343595e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 114,
+          "worst_rel": 4.336154972490896e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 115,
+          "worst_rel": 4.3902477794625114e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 116,
+          "worst_rel": 4.423133766082935e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 117,
+          "worst_rel": 4.453593164149758e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 118,
+          "worst_rel": 4.469274992696308e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 119,
+          "worst_rel": 4.498283034516603e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 120,
+          "worst_rel": 4.532461590632383e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 121,
+          "worst_rel": 4.537913264519877e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 122,
+          "worst_rel": 4.5973858450557596e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 123,
+          "worst_rel": 4.6233840493072216e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 124,
+          "worst_rel": 4.661634419962507e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 125,
+          "worst_rel": 4.7142727004607604e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 126,
+          "worst_rel": 4.742912192020179e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 127,
+          "worst_rel": 4.7655935078053917e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 128,
+          "worst_rel": 4.810348965806125e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 129,
+          "worst_rel": 4.8457842917087e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 130,
+          "worst_rel": 4.860524315057056e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 131,
+          "worst_rel": 4.886648361688893e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 132,
+          "worst_rel": 4.917036987479894e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 133,
+          "worst_rel": 4.9606449099216233e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 134,
+          "worst_rel": 4.9971602795588723e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 135,
+          "worst_rel": 5.050459926940604e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 136,
+          "worst_rel": 5.083383309996868e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 137,
+          "worst_rel": 5.1086657344458454e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 138,
+          "worst_rel": 5.16025381296667e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 139,
+          "worst_rel": 5.180806187114993e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 140,
+          "worst_rel": 5.208559731040597e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 141,
+          "worst_rel": 5.234378149942346e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 142,
+          "worst_rel": 5.299811253611155e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 143,
+          "worst_rel": 5.3236110609156234e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 144,
+          "worst_rel": 5.360395256457053e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 145,
+          "worst_rel": 5.383057502263756e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 146,
+          "worst_rel": 5.412973355624566e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 147,
+          "worst_rel": 5.4393463428366195e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 148,
+          "worst_rel": 5.475415426772094e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 149,
+          "worst_rel": 5.5335813839323693e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 150,
+          "worst_rel": 5.574678034872511e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 151,
+          "worst_rel": 5.6089162914100585e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 152,
+          "worst_rel": 5.6688900327330304e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 153,
+          "worst_rel": 5.725206572453162e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 154,
+          "worst_rel": 5.726746562619881e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 155,
+          "worst_rel": 5.7850723545407434e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 156,
+          "worst_rel": 5.815208371280925e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 157,
+          "worst_rel": 5.838038129020017e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 158,
+          "worst_rel": 5.859669909054775e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 159,
+          "worst_rel": 5.904484598992806e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 160,
+          "worst_rel": 5.9321225614176114e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 161,
+          "worst_rel": 5.960135660941505e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 162,
+          "worst_rel": 5.984587544157514e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 163,
+          "worst_rel": 6.021246752644449e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 164,
+          "worst_rel": 6.070114451344013e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 165,
+          "worst_rel": 6.099481478315812e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 166,
+          "worst_rel": 6.126671674345799e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 167,
+          "worst_rel": 6.160341641406186e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 168,
+          "worst_rel": 6.189734727799596e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 169,
+          "worst_rel": 6.243761284108172e-08,
+          "worst_tensor": "proj"
+        },
+        {
+          "step": 170,
+          "worst_rel": 6.29021415571115e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 171,
+          "worst_rel": 6.34950628860504e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 172,
+          "worst_rel": 6.395738090584768e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 173,
+          "worst_rel": 6.431475068319298e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 174,
+          "worst_rel": 6.468591720101294e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 175,
+          "worst_rel": 6.513076507929327e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 176,
+          "worst_rel": 6.607394620182645e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 177,
+          "worst_rel": 6.620189015955811e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 178,
+          "worst_rel": 6.653653622473481e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 179,
+          "worst_rel": 6.692567216317501e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 180,
+          "worst_rel": 6.735113983906652e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 181,
+          "worst_rel": 6.909942744504608e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 182,
+          "worst_rel": 6.925080777816896e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 183,
+          "worst_rel": 6.934021966652031e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 184,
+          "worst_rel": 6.9187268705023e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 185,
+          "worst_rel": 6.960036032986429e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 186,
+          "worst_rel": 7.002437268674062e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 187,
+          "worst_rel": 7.296468150929823e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 188,
+          "worst_rel": 7.29925939485161e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 189,
+          "worst_rel": 7.305645013333265e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 190,
+          "worst_rel": 7.323604235110003e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 191,
+          "worst_rel": 7.339386642404365e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 192,
+          "worst_rel": 7.357254072866233e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 193,
+          "worst_rel": 7.352964181299672e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 194,
+          "worst_rel": 7.356926796164699e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 195,
+          "worst_rel": 7.374410151894142e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 196,
+          "worst_rel": 7.411732133790282e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 197,
+          "worst_rel": 7.456746027043097e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 198,
+          "worst_rel": 7.505156868392316e-08,
+          "worst_tensor": "bias"
+        },
+        {
+          "step": 199,
+          "worst_rel": 7.52926855820269e-08,
+          "worst_tensor": "linear"
+        },
+        {
+          "step": 200,
+          "worst_rel": 7.585732739934138e-08,
+          "worst_tensor": "linear"
+        }
+      ],
+      "pass": true
+    },
+    "of3_schedule_lightning_lag": {
+      "worst": {
+        "rel": 0.0014994326500104907,
+        "step": 200,
+        "tensor": "bias"
+      },
+      "final_step_rel": 0.0014994326500104907,
+      "note": "lr(k-1) against our lr(k); reported to size the off-by-one, not as a pass"
+    }
+  },
+  "negative_control": {
+    "invariance": {
+      "perturbation": "proj gradient x1.01 at EVERY step",
+      "per_tensor_final_rel": {
+        "bias": 2.7204311975280596e-07,
+        "proj": 2.5466957620038845e-07,
+        "linear": 2.484751163661393e-07,
+        "stack": 2.4307487435785513e-07
+      },
+      "tensors_over_bar": [],
+      "finding": "Adam is invariant to a uniform per-tensor gradient scaling; a weight trajectory cannot detect one, so it cannot substitute for a direct per-parameter gradient comparison"
+    },
+    "single_step_kick": {
+      "perturbed_tensor": "proj",
+      "perturbed_step": 50,
+      "perturbation": "gradient x1.01 at that one step only",
+      "per_tensor_final_rel": {
+        "bias": 2.7204311975280596e-07,
+        "proj": 0.000494816296430389,
+        "linear": 2.484751163661393e-07,
+        "stack": 2.4307487435785513e-07
+      },
+      "tensors_over_bar": [
+        "proj"
+      ],
+      "localised": true,
+      "pass": true
+    },
+    "zeroed_gradients": {
+      "question": "which check fails if the thing under test is replaced by zeros?",
+      "per_tensor_final_rel": {
+        "bias": 0.8469260323969446,
+        "proj": 0.7803215626405118,
+        "linear": 0.7965995723316526,
+        "stack": 0.7864725375204499
+      },
+      "all_tensors_over_bar": true,
+      "pass": true
+    }
+  },
+  "verdict": "PASS"
+}
