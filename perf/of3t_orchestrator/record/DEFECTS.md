@@ -2927,6 +2927,13 @@ that is wrong is worse than one that is missing because it survives review.
 **The figure is unaffected and slightly strengthened**: 51.55 % of block 47's error recovered by
 the softmax backward is a reading at the width the campaign reports, not at a small crop.
 
-**Unfixed as a class:** nothing checks that a crop label in prose matches the capture the artifact
-was taken on. The capture records it — `single_mask` shape — so this is mechanisable and is not
-mechanised.
+**Unfixed as a class, but the fact table now exists.** Nothing checks that a crop label in prose
+matches the capture the artifact was taken on. `perf/of3t_orchestrator/crops/CROPS.json` (pass 342)
+records what the captures actually say, read off them on qb2 rather than off prose: **all three**
+shared block boundaries — `block0`, `block23`, `block47` — are `single_mask (1, 384)` with **56
+real tokens**. So every per-block result taken on `perf/refpath.py`'s `CAP` is a 384 reading, and a
+"crop 64" reading cannot come from that capture at all — the c64 arms of `of3t-frame384` and
+`of3t-widthattr` are built from their own n64 boundary. A crop label therefore identifies WHICH
+capture and not only a number. Two things the table makes visible in passing: 56 real tokens in 384
+means **85.4 % of the width is pad** at the width the campaign reports, which is the fact D175 was
+filed about; and the check itself is still not wired into the compose.
