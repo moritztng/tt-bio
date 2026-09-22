@@ -98,13 +98,23 @@ while still serving. Thirteen of the fifteen tile-aligned lengths from 640 to 10
 non-dividing fallback, on a path shared by rf3, boltz-2, protenix-v2, openfold3 and opendde.
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK` offers a dividing chunk below the production pick before one
-that pads. It is off, and the fold A/B that would justify turning it on did not. At 896 aa the
-flag does exactly what it was written to do, restoring the fused kernel to all 1088 calls; at
-1088 aa it does not restore it at all, so something other than the padding mask blocks that rung.
-Neither arm produced a usable wall: the control arm alone read 267 s and 327 s on the same size
-and the same code, which is the contention floor of a host serving 23 production workers, and a
-lever worth a few per cent cannot be measured through it. Restoring a lever is not the same as
-recovering time, and this pair of rungs has yet to show it recovers any.
+that pads. It is on, bounded to chunks of 128 and up. At 896 aa it restores the fused kernel to
+all 1088 calls and is worth **+9.5000 s, 1.1005x** (104.00 s to 94.50 s, two interleaved pairs on
+a p300c, both arm orders, A/A floor 0.635 %, effect 15.83x that floor, bit-exact over 12 legs).
+At 1088 aa it does not restore the kernel at all, so something other than the padding mask blocks
+that rung, and the fold A/B agrees: **+0.2500 s at 1.25x its own floor, which is inert.**
+
+The earlier reading here, that neither arm produced a usable wall, was a contention artifact and
+is superseded. Those arms were taken on a host serving 23 production workers where the control
+alone read 267 s and 327 s on the same size and the same code. The measurement that settled it
+scores contention on foreign cpu rather than on loadavg, because loadavg includes the fold being
+measured and was cutting legs on their own load.
+
+The bound is what lets this default on off a single rung's evidence. Twenty of the 37 tile-aligned
+lengths from 256 to 1536 have no divisor near the production pick of 256 and would fall to a chunk
+re-reading K and V 2.7x to 8x more; 896 is the mildest in the range at 1.14x. Declining everything
+under 128 collapses those lengths to the ladder they already have, so what ships is the rung that
+was measured.
 
 640 is a lever rung only, not a timing rung. Run-to-run noise is measured per model when the
 baseline is recorded, and it ranges from 0.7 % to 7.1 % across the five models. At a 6.5 % floor a 3-sigma exponent band

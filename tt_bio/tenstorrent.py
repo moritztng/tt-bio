@@ -1648,10 +1648,21 @@ def _triatt_dtype():
 
 
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
-# it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
-# measurement that motivates it. Off until a fold A/B says otherwise; release-gated because the
-# path is shared across five models.
-_SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", False)
+# it -- bounded to those that at most double the K/V re-reads -- before falling back to one that
+# pads. See the block in `_tri_att_q_chunks` for the 896 aa measurement and for why the bound is
+# what makes this safe to default on.
+#
+# Fold A/B on rf3, qb2 card 0 (p300c), board-pair sibling verified idle, AICLK sampled DURING
+# every leg at or above 1200 MHz, both arm orders, contention scored on foreign cpu:
+#
+#     896 aa   94.50 -> 104.00 s   +9.5000 s   1.1005x   A/A floor 0.635 %   effect 15.83x floor
+#    1088 aa  160.90 -> 161.15 s   +0.2500 s   1.0016x   A/A floor 0.124 %   inert, and the bound
+#                                                        now makes it a no-op by construction
+#
+# Bit-exact: one CIF sha256 across 12 legs at 896 and 6 at 1088, both arms, two processes each.
+# 0.000000 A against the 0.60 A bar, 1.84 A seed floor. Expected rather than lucky -- q_chunk
+# splits output rows and the online softmax reduces over k, so no reduction order changes.
+_SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", True)
 
 
 @lru_cache(maxsize=None)
@@ -1709,12 +1720,29 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     # 128 and 64, every one of which divides and fits the grid. Ordered widest-first for the same
     # reason the wide list is: the kernel re-reads K and V once per q chunk.
     #
-    # Off by default. This changes which kernel config a path shared by rf3, boltz-2,
-    # protenix-v2, openfold3 and opendde picks at ~13 sizes, and one sequence length is not
-    # evidence for a default (`one-size-tuning-is-a-standing-defect-class`). A length whose
-    # fallback already divides -- 768, 1024, every multiple of 256 -- returns the identical tuple
-    # with the flag either way, so the arm is a no-op there by construction and not by measurement.
-    narrower = sorted((q for q in dividing if q < prod), reverse=True)
+    # BOUNDED, and the bound is the whole reason this is on by default. Every narrower candidate
+    # uses LESS L1 than `prod`, which already fits, so the caller always takes the widest one
+    # offered -- the largest divisor of the padded length below `prod`. How far below `prod` that
+    # divisor sits is pure arithmetic of the padded length, and it is brutal at most lengths:
+    # enumerated over the 37 tile-aligned lengths from 256 to 1536, 20 of them would pick a chunk
+    # re-reading K and V 2.7x to 8x more than the shipped pick, because a padded length of the
+    # form 32*p for a prime p has no divisor between 32 and itself. 1184 = 32*37 would fall to
+    # q_chunk 32 and re-read K and V 37 times.
+    #
+    # 896 is the MILDEST length in the whole range: it picks 224 against a prod of 256, 1.14x the
+    # re-reads, and that is where the +9.50 s was measured. Generalising a win taken at the best
+    # case to the 8x cases is exactly `one-size-tuning-is-a-standing-defect-class`, so the rule
+    # is derived once, here, instead of being pinned per shape: offer a narrower chunk only when
+    # it at most DOUBLES the re-reads, i.e. q >= prod/2.
+    #
+    # What that buys. At 896 the offered list is unchanged, so the measured +9.50 s and the
+    # bit-exact digest carry over untouched rather than needing a re-take. At every length whose
+    # only narrower divisor is pathological -- including 1088, whose 64 is 4x and which measured
+    # inert anyway -- the list collapses to the flag-off list and the lever is a provable no-op.
+    # So the shipped behaviour changes at exactly the lengths where it was measured to help.
+    #
+    # perf/land_standing/narrowq_fallback_width.py enumerates the picks and the risky lengths.
+    narrower = sorted((q for q in dividing if prod > q >= prod / 2), reverse=True)
     return tuple(wider) + tuple(narrower) + (prod,)
 
 
