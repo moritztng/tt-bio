@@ -1,0 +1,110 @@
+{
+ "question": "across SEVEN blocks -- six clean, one factored -- which measured variable separates block 47 from the rest?",
+ "per_block": {
+  "0": {
+   "s_norm": 5850.166196032644,
+   "z_norm": 1320392.0939926212,
+   "cot_s": 3.534929780069599e-05,
+   "cot_z": 0.000783014240630463,
+   "ref_grad_sq": 0.012984505209032503,
+   "single_track_r": 0.9932,
+   "pair_track_r": 0.9997
+  },
+  "8": {
+   "s_norm": 1349510.8148449813,
+   "z_norm": 1321564.5211886715,
+   "cot_s": 2.1639759618229084e-05,
+   "cot_z": 0.0005644599851992892,
+   "ref_grad_sq": 0.009092398835022223,
+   "single_track_r": 1.0019,
+   "pair_track_r": 0.9971
+  },
+  "16": {
+   "s_norm": 1476941.383512647,
+   "z_norm": 1320567.3045548522,
+   "cot_s": 2.1640007771002005e-05,
+   "cot_z": 0.0005592626361820211,
+   "ref_grad_sq": 0.007710135133434251,
+   "single_track_r": 0.9992,
+   "pair_track_r": 0.999
+  },
+  "23": {
+   "s_norm": 1519031.2155757754,
+   "z_norm": 1319093.1772752262,
+   "cot_s": 2.141670516458086e-05,
+   "cot_z": 0.0004856499179133589,
+   "ref_grad_sq": 0.0077243145902505025,
+   "single_track_r": 0.9948,
+   "pair_track_r": 0.9991
+  },
+  "32": {
+   "s_norm": 1536832.0207441556,
+   "z_norm": 1314391.7043950874,
+   "cot_s": 2.1467169182691016e-05,
+   "cot_z": 0.0004294596926806223,
+   "ref_grad_sq": 0.006293591145922896,
+   "single_track_r": 1.0026,
+   "pair_track_r": 0.9998
+  },
+  "40": {
+   "s_norm": 1548253.8481312513,
+   "z_norm": 1306695.6102488576,
+   "cot_s": 1.9432948509814328e-05,
+   "cot_z": 0.0003046207125208093,
+   "ref_grad_sq": 0.015585888927472907,
+   "single_track_r": 1.0106,
+   "pair_track_r": 0.9988
+  },
+  "47": {
+   "s_norm": 2149284.3524716836,
+   "z_norm": 1293667.24897778,
+   "cot_s": 5.599999708545345e-05,
+   "cot_z": 0.0007601379094210728,
+   "ref_grad_sq": 0.10860764524064656,
+   "single_track_r": 0.8867,
+   "pair_track_r": 1.1832
+  }
+ },
+ "separation": {
+  "s_norm": {
+   "block47": 2149284.3524716836,
+   "others_min": 5850.166196032644,
+   "others_max": 1548253.8481312513,
+   "block47_over_max_others": 1.3881989410624611,
+   "separates": false
+  },
+  "z_norm": {
+   "block47": 1293667.24897778,
+   "others_min": 1306695.6102488576,
+   "others_max": 1321564.5211886715,
+   "block47_over_max_others": 0.9788907225007831,
+   "separates": false
+  },
+  "cot_s": {
+   "block47": 5.599999708545345e-05,
+   "others_min": 1.9432948509814328e-05,
+   "others_max": 3.534929780069599e-05,
+   "block47_over_max_others": 1.5841898020489353,
+   "separates": false
+  },
+  "cot_z": {
+   "block47": 0.0007601379094210728,
+   "others_min": 0.0003046207125208093,
+   "others_max": 0.000783014240630463,
+   "block47_over_max_others": 0.9707842718275842,
+   "separates": false
+  },
+  "ref_grad_sq": {
+   "block47": 0.10860764524064656,
+   "others_min": 0.006293591145922896,
+   "others_max": 0.015585888927472907,
+   "block47_over_max_others": 6.9683317869156784,
+   "separates": true
+  }
+ },
+ "answer": "exactly one: the REFERENCE GRADIENT squared-norm total, at 6.97x the next highest with no overlap. block 47 reads 1.0861e-01 against a 6.2936e-03..1.5586e-02 range for the other six, which spread only 2.5x among themselves.",
+ "the_four_that_do_NOT": "s_norm 1.39x (block 40 is at 1.5483e+06 against block 47's 2.1493e+06); z_norm 0.98x -- block 47 has the SMALLEST pair activation of the seven; cot_s 1.58x (block 0 at 3.5349e-05); cot_z 0.97x -- block 47's pair cotangent is BELOW block 0's, and block 0 is clean. All four are now measured-and-dead at n = 7 rather than argued-and-dead at n = 3.",
+ "why_block_47_has_the_largest_gradient": "it is the last block: its weight gradients receive the full head cotangent without attenuation through any pairformer block. That is expected model structure, not a defect. What is a defect is that our backward stops matching there.",
+ "honest_limit": "n = 7 with one point that is the outlier on BOTH axes is a correlation, not a mechanism -- any variable singling out block 47 would look like this. The value is that four rivals are now eliminated BY MEASUREMENT, leaving one standing, and that the one left has a decisive test.",
+ "the_decisive_test_and_it_is_one_arm": "IN EXACT ARITHMETIC, norm_ratio and cos are INVARIANT under scaling the injected cotangent: scale the cotangent by k and the device gradient scales by k, and if the reference is scaled by the same k analytically -- which costs nothing, it is a multiply on a stored tensor -- then r = ||g_dev||/||g_ref|| and cos are unchanged exactly. So ANY movement is finite-precision magnitude dependence, isolated.\nRun block 47 with the injected cotangent scaled by k = 1/8, which puts its gradient into the other six blocks' range, and compare against the reference times 1/8.\n  factors move toward 1.00  -> the defect IS magnitude-dependent, and the dtype carrying it is the next question;\n  factors stay at 1.183 / 0.887 -> magnitude is dead too, and what is left is something about the last block that is not its gradient size.\nEither way it is decisive, it needs no new capture, and it is the only variable left to test."
+}

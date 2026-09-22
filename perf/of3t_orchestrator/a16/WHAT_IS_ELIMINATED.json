@@ -1,0 +1,55 @@
+{
+ "question": "what distinguishes block 47, given a correct cotangent and correct inputs?",
+ "measured": {
+  "0": {
+   "s_norm": 5850.166196032644,
+   "z_norm": 1320392.0939926212,
+   "cot_s_norm": 3.534929780069599e-05,
+   "cot_z_norm": 0.000783014240630463,
+   "ref_grad_norm_median": 0.0040474392462584,
+   "ref_grad_sq_total": 0.012984505209032503,
+   "single_track_r": 0.993,
+   "pair_track_r": 1.0
+  },
+  "23": {
+   "s_norm": 1519031.2155757754,
+   "z_norm": 1319093.1772752262,
+   "cot_s_norm": 2.141670516458086e-05,
+   "cot_z_norm": 0.0004856499179133589,
+   "ref_grad_norm_median": 0.003537294225237227,
+   "ref_grad_sq_total": 0.0077243145902505025,
+   "single_track_r": 0.995,
+   "pair_track_r": 0.999
+  },
+  "47": {
+   "s_norm": 2149284.3524716836,
+   "z_norm": 1293667.24897778,
+   "cot_s_norm": 5.599999708545345e-05,
+   "cot_z_norm": 0.0007601379094210728,
+   "ref_grad_norm_median": 0.008467399975465164,
+   "ref_grad_sq_total": 0.10860764524064656,
+   "single_track_r": 0.887,
+   "pair_track_r": 1.183
+  }
+ },
+ "eliminated": [
+  {
+   "candidate": "the PAIR activation magnitude",
+   "verdict": "ELIMINATED",
+   "why": "z_norm is flat across all three blocks -- 1.3204e+06, 1.3191e+06, 1.2937e+06, a 2 % range -- while the pair-track factor goes 1.000, 0.999, 1.183. A 2 % spread in the input cannot produce an 18 % spread in the output factor."
+  },
+  {
+   "candidate": "the COTANGENT magnitude",
+   "verdict": "ELIMINATED",
+   "why": "cot_z is not monotone in the factor: 7.8301e-04 at block 0, 4.8565e-04 at block 23, 7.6014e-04 at block 47. Block 0 carries the LARGEST pair cotangent and reads 1.000."
+  },
+  {
+   "candidate": "the SINGLE activation magnitude, as a smooth function",
+   "verdict": "WEAKENED, not eliminated",
+   "why": "s_norm is 5.8502e+03 / 1.5190e+06 / 2.1493e+06 -- block 23 is already 70.7 % of block 47 and 260x block 0, yet its single-track factor is 0.995 against block 47's 0.887. If magnitude drives it there is a THRESHOLD between 1.52e+06 and 2.15e+06, not a gradient. A threshold is consistent with a dtype range effect; a smooth dependence is not what is measured."
+  }
+ ],
+ "what_survives": "the distinguishing variable that DOES separate block 47 is the GRADIENT magnitude regime, not the activation one: its reference gradients total 1.0861e-01 in squared norm against 1.2985e-02 at block 0 and 7.7243e-03 at block 23 -- 8.4x and 14.1x larger -- with a per-tensor median of 8.4674e-03 against 4.0474e-03 and 3.5373e-03. That is what being the LAST block buys: the cotangent has been attenuated least. Whether an 8-14x larger gradient can produce a clean 1.18 is not established here; it is simply the one regime variable left standing.",
+ "how_to_use_it": "the block-boundary ladder now in flight should report, per boundary, BOTH the cotangent norm ratio per track AND the reference gradient squared-norm total. If the per-track factor turns on where the gradient total crosses a threshold rather than where the activations do, that is a dtype-range story and it names the dtype to look at. If it turns on at one specific boundary with no regime change, it is a code path at that boundary.",
+ "caveat": "three blocks is three points. Block 23 sits at 70.7 % of block 47 on s_norm and 7.1 % of it on gradient squared norm, so gradient magnitude separates the blocks far more sharply than activation magnitude does -- but with n = 3 that is a ranking, not a fit, and the ladder is what turns it into one."
+}
