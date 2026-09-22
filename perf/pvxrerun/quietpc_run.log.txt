@@ -1,0 +1,6 @@
+START 2026-09-22T11:46:47Z
+host: pc   loadavg at start: 1.48 1.59 1.82 5/907 2258538
+tree: e7f44de532649de5146370569c35dda9cfde031a   card: UMD 0
+
+Done: 8 ok, 0 failed — /home/moritz/.coworker/wt/pvx-custquote/perf/pvxrerun/quietpc/out/protenix_results_in/results.json
+END 2026-09-22T12:19:01Z
