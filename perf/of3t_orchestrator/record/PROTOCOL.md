@@ -1834,3 +1834,43 @@ quoted as having ruled a cause out, state the axis the instrument reads and show
 invariant along it.** And where the experiment ran inside a frame carrying a known irreducible
 mismatch, state the detection ceiling — an arm whose maximum possible effect is smaller than the
 effect it reports absent has excluded nothing.
+
+---
+
+## A40 — a frame's gating control is a precondition of the frame, not a later check on it
+
+**Added pass 381, 2026-09-22, after D242. A number already existed when this was written, and the
+number is the reason it is being written: the control failed.**
+
+**The rule.** No frame may grade anything until the control that says it is the frame it claims has
+RUN and PASSED. A frame here is any harness that supplies part of a comparison's boundary — an
+injected activation, an injected cotangent, a replayed draw sequence, a reconstructed submodule.
+Where the frame was built by capturing from a reference, the control is always available and always
+the same: replay the capture exactly, in the reference's own precision, and require it to reproduce
+the reference's own output to round-off. Fix the bar before the arm exists.
+
+**What went wrong.** `of3t-modelframe` built the model frame to repair D237, published the clause
+at 1.7814x from it, and the campaign spent three passes reasoning about that number and dispatching
+rows against it. `of3t-twoside` ran the control two passes later and it failed by twelve orders of
+magnitude. The control cost one trunk replay. The frame's own float64 replay turned out to cost
+0.7945 against the reference where upstream's entire bf16 recipe costs 0.3148, so the harness was
+2.5x worse than the thing it was built to grade, and nothing read through it was ever a statement
+about our arithmetic.
+
+**Two corollaries that bind rows.**
+
+1. **A row that finds its own frame broken has delivered its result.** `of3t-twoside`'s `VERDICT:
+   STOP` is worth more than the arm it was dispatched for, and a brief that makes a control gating
+   must mean it: the row stops, reports, and does not build on a frame that failed. Taking the
+   dispatched arm anyway and banking it, as that row did, is correct only because it labelled the
+   frame the arm sits in.
+2. **Sort in-frame ratios from cross-frame ones before retracting anything.** A ratio whose two
+   legs share the broken frame is still a like-for-like reading and survives; a ratio that crosses
+   frames does not. `of3t-twoside`'s two-sided 1.7998x and `of3t-cotcoh`'s R137 survive on this
+   rule; the clause's 1.7814x does not. A blanket retraction throws away evidence that was paid for
+   and is as wrong as no retraction.
+
+**Relation to A34/A39.** A34 requires both sides of a per-parameter comparison to sit on the same
+boundary; A39 extends that to the denominator. A40 is the prior question both of them assume: that
+the boundary is the one it says it is. A34 and A39 are satisfiable by a frame that is internally
+consistent and externally wrong, which is precisely what happened here.

@@ -1313,3 +1313,96 @@ tape and therefore **cannot reach inference by construction** — an inference f
 tape — so it satisfies the training-only hard constraint without a flag. And the cost is bounded
 and knowable in advance: one typecast per first contribution and roughly double the cotangent
 residency on the training path only.
+
+---
+
+### D242. The model frame does not reproduce its own reference: an injected float64 trunk on its own captured boundary and cotangent reads 0.7945 against a bar pre-registered at 1e-12, so every cross-frame trunk ratio the campaign has published is a reading of the harness. **UNFIXED** — found by `of3t-twoside` at pass 381 running the control D241 made gating, CPU only; `of3t-frameself` dispatched to close it.
+
+**Campaign-internal, and it is the campaign's critical path.**
+
+**The reading.** `perf/of3t_modelframe/capture_model_frame.py` captured a boundary
+(`boundary_model_n384.pt`) and an incoming cotangent (`cot_model_n384.pt`) from the reference's own
+full-model float64 backward on `batch_step003` at num_recycles 0, where the stack runs once.
+Injecting that pair into a standalone float64 pairformer stack must therefore return
+`grads_f64_043.pt`'s own `pairformer_stack` section to float64 round-off. Bar pre-registered at
+**1e-12** mass-weighted relative L2 in commit 2520681ed, before the arm existed.
+
+    measured   0.7945281613194305
+    bar        1e-12
+    norm ratio 1.7584185703064399      cos 0.9840549138041126
+    worst      pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight  1.2729825152806933
+
+**What is excluded.**
+
+- **Not the capture.** `CAPTURE_model_n384.json`'s own witness scores that run's trunk gradient
+  against `grads_f64_043.pt` over all 2,736 tensors at **1.6952505222168705e-14**, with the loss
+  bit-identical to the published value and the global gradient norm agreeing to 1e-15. The capture
+  is the reference backward.
+- **Not the forward.** The arm's `s_norm` 2548915.665702611 and `z_norm` 15590107.181956384 match
+  the capture's `s_out_norm`/`z_out_norm` to every digit, as do `s_in_norm` 11757.133052375091,
+  `cot_s_norm` 5.599999708545341e-05 and `cot_z_norm` 0.0007601379094210722.
+- **Not `--checkpoint`.** Inert on this frame: at 4 blocks, plain 0.034117901729881786 against
+  checkpointed 0.0341179017298818, agreeing to 1e-16.
+- **Not accumulation through the stack.** Block 47 is the first block the backward touches and it
+  already reads 0.7849282 at ratio 1.679085. The curve is flat from entry to exit.
+
+**It is two components. A scale, and a structured remainder that the scale does not explain.**
+Over all 48 blocks of `perf/of3t_twoside/CTRL_PERBLOCK.json`:
+
+    mean 1.7460   median 1.7385   stdev 0.0706   coefficient of variation 4.04 %
+    outside [1.6, 1.9]: block 44 at 1.5098, block 46 at 2.1113 — two of forty-eight
+
+Forty-eight independently-parameterised blocks do not agree to 4 % through 48 different arithmetic
+paths, so a near-constant factor applied once at the entry is real. `of3t-twoside` reported this as
+"flat, 1.510 to 2.111", which quotes the extremes and understates it.
+
+**But the scale is not the whole defect, and the row's own artifact says so while its state doc does
+not.** `CTRL_PERBLOCK.json` carries a per-block least-squares fit that the write-up summarises only
+as "the residual left after that single scalar is small":
+
+    least-squares scale, arm -> ref   median 0.5716543455995005   reciprocal 1.7493088396822885
+                                      stdev 0.0206, min 0.4654, max 0.6402
+    residual AFTER the best scalar    median 0.08950314250776042
+                                      min 0.05114557550674285, max 0.30026146582125685 at block 47
+    reduction the scalar buys         8.88x   (0.7945 -> 0.0895)
+    residual above the 1e-12 bar      10.95 orders of magnitude
+
+**0.0895 is small against 0.79 and enormous against the bar** — R133's name-your-reference trap in
+a new dress. A repair that removes the scale and leaves 0.0895 has not fixed the frame and must be
+scored against 1e-12, not against 0.7945. The residual is also concentrated at the entry, 0.3003 at
+block 47 against a 0.0895 median, attenuating with depth — the same place the scale enters.
+
+Recomputed from the row's committed artifact by
+`perf/of3t_orchestrator/frameself/scalar_signature.py` into `SCALAR_SIGNATURE.json`, which also
+checks the three headline numbers are mutually consistent: the published rel_l2 falls out of the
+published ratio and cos at agreement exactly **0.0**.
+
+**Why it matters more than any trunk number.** An exact float64 replay of the injection costs
+**0.7945**; upstream's entire bf16 recipe costs **0.3148** against the same reference. The harness
+is 2.5x worse than the thing it was built to grade, so our arm's 0.9349 is dominated by it. Every
+cross-frame trunk ratio the campaign has published since 17:26 on 2026-09-21 — the clause's
+1.7814x, the trunk's 2.9702x, block 47's 4.1613x, the per-leaf table — is a reading of the frame
+and not of our arithmetic. In-frame ratios survive: `of3t-twoside`'s two-sided 1.7998x and
+`of3t-cotcoh`'s R137 refutation both hold both legs on one cotangent.
+
+**The two remaining hypotheses, and the one experiment that splits them.**
+
+- **H-A, the captured pair is insufficient**: the trunk's parameters reach the loss by a path that
+  does not pass through `(s_out, z_out)`, so no cotangent on those two tensors can reproduce the
+  gradient.
+- **H-B, the replay is not the same backward**: `perf/of3t_trunkg043/ref_grad.py:build` does not use
+  `model.pairformer_stack`. It constructs 48 standalone `PairFormerBlock`s from the checkpoint and
+  runs them in a bare Python loop, with `pair_dropout=0.25`, `fuse_projection_weights=False`,
+  `inf=1e9` and `m.eval()`. Any flag that leaves the forward identical and changes the backward — a
+  chunked or memory-efficient attention kernel, a custom `autograd.Function`, a different
+  `blocks_per_ckpt` — produces exactly this signature.
+
+**The splitter**: differentiate the real `model.pairformer_stack` on the captured pair, in the
+capture's own process, and score against the reference. Reproduces at 1e-12 means H-B, and the
+retraction then reaches every arm ever run through `ref_grad.py`, bf16 arms included. Does not
+reproduce means H-A, and the next step is enumerating the second path (`torch.autograd.grad`
+against `p.grad`, and `id(p)` collisions across `named_parameters`, which dedupes).
+
+**The general lesson, filed as PROTOCOL A40.** A frame's gating control is a precondition of the
+frame, not a later check on it. This control was cheap, was specified, and was owed at the moment
+the first ratio was published from the frame. It ran two passes later.
