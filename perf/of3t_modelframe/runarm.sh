@@ -30,6 +30,11 @@ case "$TAG" in
   *) echo "unknown arm $TAG"; exit 2 ;;
 esac
 
+# A lone p300c is a CUSTOM topology to tt-metal and needs a 1x1 mesh graph descriptor.
+# tt-bio builds one per worker and honours an inherited TT_MESH_GRAPH_DESC_PATH, so a stale
+# pin is strictly worse than no pin -- it once made the whole box look incapable for days.
+unset TT_MESH_GRAPH_DESC_PATH
+
 SMI=/home/ttuser/.local/bin/tt-smi
 BOARD=$("$SMI" -s 2>/dev/null | python3 -c "
 import sys,json;d=json.load(sys.stdin);print(d['device_info'][$CARD]['board_info']['board_type'])")
