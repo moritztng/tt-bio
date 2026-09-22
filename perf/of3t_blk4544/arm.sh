@@ -22,6 +22,10 @@ case "$WIDTH" in
   384) CROP=0;  BND=$R/boundary_n384.pt ;;
   *) echo "unknown width $WIDTH"; exit 2 ;;
 esac
+# BLK_BOUNDARY overrides the captured boundary. The pad-zero control is the only caller: the
+# boundary both widths are fed carries 99.9996 % of its z mass on pad cells at padded 384
+# (perf/of3t_blk4544/PADZERO.json), and a correctly masked model must not notice it being gone.
+BND=${BLK_BOUNDARY:-$BND}
 
 OUT=$O/grads_${TAG}.pt
 COT=$O/cot_${TAG}.pt
