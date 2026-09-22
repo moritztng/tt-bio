@@ -1,0 +1,38 @@
+{
+ "pin": "",
+ "blocks": "",
+ "chunk": 16,
+ "rc": 0,
+ "seconds": 685.2,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/of3t-vjpln/tt_bio/__init__.py",
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "2",
+  "TT_BIO_LEASE_CARDS": "2,2",
+  "VJP_PIN": "",
+  "VJP_BLOCKS": ""
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 384,
+  "blocks": 6754,
+  "fused": 6765,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 6532,
+  "l1_refused": 11,
+  "l1_cores": 96,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 3888,
+  "declined": 0
+ }
+}
