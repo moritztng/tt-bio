@@ -88,6 +88,52 @@ def summarise(s):
             "top8_by_error_mass": s["top8_by_error_mass"]}
 
 
+SECTION = "pairformer_stack"
+
+
+def model_projection(mb, path, inframe_vs_f64, inframe_vs_bf16):
+    """What the GRADIENTS clause would read if its trunk section were scored IN FRAME.
+
+    NOT a measurement, and the file says so in its own first field. It is arithmetic on two
+    measurements: of3t-modelboundary's model figure, and this row's in-frame reading of the
+    one section whose device file the two rows share. A mass-weighted rel L2 is
+    sqrt(sum_i m_i r_i^2), so swapping one section's r is exact given its mass share -- there
+    is no modelling step. What it assumes is the part to argue with: that the other sections'
+    own frames are already matched. Each of them is a separate capture-driven arm
+    (`arms.renorm.scopes`) and this row measured none of them, so the projection is a FLOOR on
+    what an in-frame model reading would be, not an estimate of it.
+    """
+    bar = mb["bars"]["A26_reachable_bar_vs_their_bf16"]
+    o = {"what": "A PROJECTION, not a measurement. See this function's docstring in "
+                 "perf/of3t_frame384/frame384.py.",
+         "from_artifact": path,
+         "A26_reachable_bar_vs_their_bf16": bar,
+         "section_substituted": SECTION,
+         "same_device_file_both_rows":
+             mb["arms"]["renorm"]["scopes"][-1].split("=", 1)[-1],
+         "assumption": "the other sections' arms are already frame-matched. None of them was "
+                       "measured here, so this is a LOWER BOUND on an in-frame model reading."}
+    for stat, inframe in (("renorm_vs_UPSTREAM_BF16", inframe_vs_bf16),
+                          ("renorm_vs_FLOAT64", inframe_vs_f64)):
+        sec = mb["per_section"][stat][SECTION]
+        m = sec["pct_of_model_mass"] / 100.0
+        cross = sec["mass_weighted_rel_l2"]
+        tot = mb["stats"][stat]["mass_weighted_rel_l2"]
+        moved = tot ** 2 - m * (cross ** 2 - inframe ** 2)
+        proj = moved ** 0.5 if moved > 0 else float("nan")
+        o[stat] = {
+            "model_as_measured": tot,
+            "trunk_section_mass_share_of_the_model": m,
+            "trunk_section_cross_frame": cross,
+            "trunk_section_in_frame_this_row": inframe,
+            "trunk_share_of_the_models_error_mass": m * cross ** 2 / tot ** 2,
+            "model_projected_in_frame": proj,
+            "multiple_of_the_A26_bar_as_measured": tot / bar,
+            "multiple_of_the_A26_bar_projected": proj / bar,
+            "clause_would_pass": proj <= bar}
+    return o
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref-f64-n384", required=True)
@@ -121,6 +167,12 @@ def main() -> int:
                          "the CROSSFRAME block is a reproduction control for")
     ap.add_argument("--reproduces-from", default="perf/of3t_ditmodel/TRUNK_D174.json "
                                                  "stats.MASKON_vs_FLOAT64")
+    ap.add_argument("--model-artifact", default="",
+                    help="of3t-modelboundary's MODEL_withtrunk_n384.json. The GRADIENTS clause "
+                         "reads it, and the pairformer_stack section of its `renorm` arm is the "
+                         "SAME device file this row scores in frame, so the two can be composed "
+                         "arithmetically. The composition is published as a PROJECTION and "
+                         "labelled one -- it is not a re-measurement of the model.")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -152,11 +204,27 @@ def main() -> int:
         "seconds_forward_backward": f64rep.get("seconds_forward_backward"),
         "peak_rss_gb": f64rep.get("peak_rss_gb"), "probe": probe}
 
-    d = sha256_file(a.ref_model_f64)
-    out["digests"]["REF_MODEL_f64"] = {"path": a.ref_model_f64, "sha256": d,
-                                       "matches_pin": d == PIN}
-    if d != PIN:
-        raise SystemExit(f"REF_MODEL_f64 digest {d} does not match the pin {PIN}")
+    # Every input is digested BEFORE it is loaded, not only the pinned one. A reference is
+    # part of the measurement's identity (D187), and a path is not a version (A24-AMENDMENT):
+    # five of these six files were produced by this row this week and carry no pin anywhere
+    # else, so the digest recorded here is what a successor re-checks them against.
+    for nm, path in (("REF_MODEL_f64", a.ref_model_f64),
+                     ("REF_LOCAL_f64_n384", a.ref_f64_n384),
+                     ("REF_LOCAL_bf16_n384", a.ref_bf16_n384),
+                     ("OURS_n384", a.ours_n384),
+                     ("c64_f64_plain", a.c64_plain), ("c64_f64_ckpt", a.c64_ckpt),
+                     ("c64_bf16_plain", a.c64_bf16_plain), ("c64_bf16_ckpt", a.c64_bf16_ckpt),
+                     ("c64_banked_on_qb2", a.c64_banked)):
+        if not path:
+            continue
+        d = sha256_file(path)
+        e = {"path": path, "bytes": os.path.getsize(path), "sha256": d}
+        if nm == "REF_MODEL_f64":
+            e["matches_pin"] = d == PIN
+            if d != PIN:
+                raise SystemExit(f"REF_MODEL_f64 digest {d} does not match the pin {PIN}")
+        out["digests"][nm] = e
+        print("SHA", nm, d, flush=True)
 
     # ---- CONTROL: --checkpoint is inert, at crop 64, before any 384 number ------------------
     gp, rp = trunk(a.c64_plain)
@@ -260,8 +328,18 @@ def main() -> int:
     r = fl["mass_weighted_norm_ratio"]
     floor = fl["mass_weighted_rel_l2"]
     bar = (2 ** 0.5) * floor / r if r else float("nan")
+    ob = score(ours, bf16, keys); ob.pop("_rows")
     out["MATCHED"] = {
         "ours_vs_REF_LOCAL_f64_n384": summarise(ou),
+        "ours_vs_REF_LOCAL_bf16_n384": {
+            **summarise(ob),
+            "what": "the exact SHAPE of the GRADIENTS clause -- our arm against upstream's OWN "
+                    "bf16 step, which is what `stats.renorm_vs_UPSTREAM_BF16` is at model "
+                    "scope -- but with both sides driven from the same capture. The clause "
+                    "compares this against the A26 bar below."},
+        "ratio_ours_vs_their_bf16_over_bar": (ob["mass_weighted_rel_l2"] /
+                                              ((2 ** 0.5) * fl["mass_weighted_rel_l2"]
+                                               / fl["mass_weighted_norm_ratio"])),
         "floor_REF_LOCAL_bf16_vs_REF_LOCAL_f64_n384": summarise(fl),
         "ratio_ours_over_floor": ou["mass_weighted_rel_l2"] / floor if floor else None,
         "A26_style_reachable_bar_for_this_scope": bar,
@@ -286,6 +364,18 @@ def main() -> int:
                 "scorer on the same banked device tensors. It is a reproduction control: if it "
                 "does not come back, the arm or the scorer is not the published one."}
     print("CROSSFRAME", xf["mass_weighted_rel_l2"], flush=True)
+
+    # ---- MODEL_PROJECTION: what the charter clause would read with this row's frame --------
+    if a.model_artifact:
+        with open(a.model_artifact) as fh:
+            mb = json.load(fh)
+        out["MODEL_PROJECTION"] = model_projection(
+            mb, a.model_artifact,
+            inframe_vs_f64=ou["mass_weighted_rel_l2"],
+            inframe_vs_bf16=ob["mass_weighted_rel_l2"])
+        print("PROJECTION", json.dumps(
+            {k: v for k, v in out["MODEL_PROJECTION"].items()
+             if isinstance(v, (int, float, bool))}, indent=1), flush=True)
 
     with open(a.out, "w") as fh:
         json.dump(out, fh, indent=2)
