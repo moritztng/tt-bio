@@ -53,7 +53,7 @@ from typing import Callable, Dict, Optional, Sequence
 import numpy as np
 
 __all__ = ["gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
-           "metrics", "fd_check"]
+           "metrics", "fd_check", "WeightCoverage", "weight_coverage"]
 
 
 # The reference's own bar against central differences. It is not a device number: this is
@@ -295,3 +295,70 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
         entry["pass"] = bool(ok)
         rep.grads[k] = entry
     return rep
+
+
+# ------------------------------------------------------------------- leaves against a total
+#
+# A leaf count with no denominator cannot show a shortfall. 2119 looks like a healthy number;
+# 2119 of 2531 is a gap you can act on, and the difference between those two ways of reporting
+# the same measurement is how a model with no trainable triangle multiplication passed a
+# 100 %-call-routing result (LEDGER K29, R22). So the shipped check reports both, always, and
+# it names every miss rather than counting them.
+
+
+@dataclass
+class WeightCoverage:
+    """How many of a built model's device weights the tape can reach, out of how many exist."""
+
+    total: int
+    registered: int
+    with_grad: int
+    unregistered: list = field(default_factory=list)
+    without_grad: list = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.total > 0 and not self.unregistered
+
+    def __str__(self) -> str:
+        out = [f"weights: {self.registered} of {self.total} registered as leaves, "
+               f"{self.with_grad} of {self.total} carrying a gradient"]
+        for label, names in (("NOT a leaf", self.unregistered),
+                             ("no gradient", self.without_grad)):
+            if names:
+                shown = ", ".join(names[:8])
+                out.append(f"  {len(names)} {label}: {shown}"
+                           + (" ..." if len(names) > 8 else ""))
+        return "\n".join(out)
+
+
+def weight_coverage(model) -> WeightCoverage:
+    """Walk ``model`` and report how much of it the tape reaches. Never a count alone.
+
+    Asked by identity of the handle the model holds, which is the only form of the question
+    that means anything: a name-keyed comparison against the optimizer's parameter dict agrees
+    with itself for a weight the forward stopped reading. ``unregistered`` is therefore the
+    load-bearing list -- a path on it is a tensor the forward multiplies and no optimizer can
+    move.
+
+    Take it AFTER a forward. Weights a module fuses lazily do not exist before one, so a
+    coverage report on a freshly built model is a report on a smaller model than the one that
+    runs.
+    """
+    from ..autograd import parameter_for
+    from ..tenstorrent import device_weights
+    found = device_weights(model)
+    unregistered, without_grad = [], []
+    with_grad = 0
+    for name, raw in found.items():
+        leaf = parameter_for(raw)
+        if leaf is None:
+            unregistered.append(name)
+            continue
+        if getattr(leaf, "grad", None) is None:
+            without_grad.append(name)
+        else:
+            with_grad += 1
+    return WeightCoverage(total=len(found), registered=len(found) - len(unregistered),
+                          with_grad=with_grad, unregistered=unregistered,
+                          without_grad=without_grad)
