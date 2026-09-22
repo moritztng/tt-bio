@@ -3604,6 +3604,18 @@ def host_f64_softmax_reach() -> str:
     branch that never consults it therefore reads zero in all three, which is indistinguishable
     from a process that never built the model -- the reporting gap D225 hid in for the whole
     campaign. `selected` counts construction sites, so the pair separates the cases.
+
+    REACHED means `served or refused`: a call that arrived with the site ON. `declined` is not
+    the same claim -- it counts a call that arrived with the site OFF, which says the route
+    exists but not that this selector is on it -- so it is reported beside the verdict rather
+    than folded into it. Read `declined` when the verdict says NEVER REACHED: a large number
+    there means the route works and the selector named a site the model did not build, and a
+    zero means nothing arrived at all.
+
+    One impurity, stated rather than hidden: `selected` is bumped wherever the site flag
+    resolves True, and a census that probes `host_f64_softmax_site(token, True)` to record what
+    a site WOULD answer bumps it without constructing anything. `perf/of3t_f64route/arm.py`
+    does exactly that and reads `selected 3` on an arm with the variable unset.
     """
     s = HOST_F64_SOFTMAX_STATS
     if not s["selected"]:
@@ -3612,8 +3624,9 @@ def host_f64_softmax_reach() -> str:
         return ("host f64 softmax: reached -- %d sites selected, %d served, %d refused, "
                 "%d declined" % (s["selected"], s["served"], s["refused"], s["declined"]))
     return ("host f64 softmax NEVER REACHED: %d construction sites selected it and no call "
-            "arrived at the gate. The selector is answering True for a site whose softmax does "
-            "not consult it." % s["selected"])
+            "arrived at the gate WITH A SITE ON (%d arrived with one off). The selector is "
+            "answering True for a site whose softmax does not consult it."
+            % (s["selected"], s["declined"]))
 
 
 def _warn_if_host_f64_never_reached() -> None:
