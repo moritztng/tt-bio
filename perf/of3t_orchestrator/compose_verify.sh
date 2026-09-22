@@ -888,6 +888,16 @@ echo "--- a timing figure comes from a timing run (D164)"
   { echo "COMPOSE: the D164 guard's own negative control does not fire -- the guard is not a guard"; exit 1; }
 
 echo "--- digest claims name their hardware (D155)"
+# STANDING pass 272 left this check in the row's own directory on purpose -- "a row that can edit
+# the gate checking its own lever does not have a gate" -- and handed the orchestrator the
+# decision to run it. I never made it, so from pass 369 the compose does. It is the mechanised
+# form of Moritz's 2026-09-21 hard stop: the host float64 softmax opens only on a hook that
+# `autograd.install` fills, so an inference fold has no route to it whatever the env var says.
+# `of3t-f64route` extended it to cover the `_fp32_softmax_attention` route it opened (D225), which
+# is exactly when an unrun guard stops being harmless.
+echo "--- the host float64 softmax opens only on an installed tape (D137, D225)"
+( cd "$CO" && "$PY" perf/of3t_d137tapegate/assert_gate_is_on_the_tape.py . ) || \
+  { echo "COMPOSE: the host float64 softmax is reachable without a tape -- inference hard stop"; exit 1; }
 echo "--- published ratios are frame-matched (D218)"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_frame_matched_ratios.py . ) || \
   { echo "COMPOSE: a published ratio is not frame-matched -- see D218"; exit 1; }
