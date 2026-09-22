@@ -1,0 +1,51 @@
+{
+ "ladder": {
+  "reffloat64_ourfloat32_d1": {
+   "ref_dtype": "float64",
+   "our_dtype": "float32",
+   "blocks": 1,
+   "rel": 0.006534956667707106,
+   "rel_real": 0.020715505918644506
+  },
+  "reffloat64_ourbfloat16_d1": {
+   "ref_dtype": "float64",
+   "our_dtype": "bfloat16",
+   "blocks": 1,
+   "rel": 0.006872690682604285,
+   "rel_real": 0.02051958424059166
+  },
+  "reffloat64_ourfloat32_d4": {
+   "ref_dtype": "float64",
+   "our_dtype": "float32",
+   "blocks": 4,
+   "rel": 0.013090018523561828,
+   "rel_real": 0.022317746470802077
+  },
+  "reffloat64_ourbfloat16_d4": {
+   "ref_dtype": "float64",
+   "our_dtype": "bfloat16",
+   "blocks": 4,
+   "rel": 0.012213602144487098,
+   "rel_real": 0.021575405720650146
+  },
+  "reffloat64_ourfloat32_d24": {
+   "ref_dtype": "float64",
+   "our_dtype": "float32",
+   "blocks": 24,
+   "rel": 0.07369642375530609,
+   "rel_real": 0.15915151761827262
+  },
+  "reffloat64_ourbfloat16_d24": {
+   "ref_dtype": "float64",
+   "our_dtype": "bfloat16",
+   "blocks": 24,
+   "rel": 0.07660804138252252,
+   "rel_real": 0.1668458857931204
+  }
+ },
+ "struct": 0,
+ "inputs": "real captured activations; reference run at BOTH fp32 and float64",
+ "dtype_device": "DataType.BFLOAT16",
+ "dtype_reference": "float64",
+ "tenancy": "3"
+}

@@ -1,0 +1,33 @@
+{
+ "ladder": {
+  "1": {
+   "rel": 0.006534956667707106,
+   "rel_real": 0.020715505918644506
+  },
+  "2": {
+   "rel": 0.012317136802941506,
+   "rel_real": 0.022838390944603534
+  },
+  "4": {
+   "rel": 0.013090018523561828,
+   "rel_real": 0.022317746470802077
+  },
+  "8": {
+   "rel": 0.018987213844613545,
+   "rel_real": 0.034234484693361315
+  },
+  "16": {
+   "rel": 0.07137896263292827,
+   "rel_real": 0.14174817052630617
+  },
+  "24": {
+   "rel": 0.07369642375530609,
+   "rel_real": 0.15915151761827262
+  }
+ },
+ "struct": 0,
+ "inputs": "real captured activations, DiT truncated to d blocks on BOTH sides",
+ "dtype_device": "DataType.FLOAT32",
+ "dtype_reference": "float64",
+ "tenancy": "3"
+}
