@@ -3301,7 +3301,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -3309,7 +3309,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -3317,7 +3317,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -3325,7 +3325,7 @@
                 "declined": 538,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 538 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -3333,7 +3333,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -3592,7 +3592,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -3600,7 +3600,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -3608,7 +3608,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -3616,7 +3616,7 @@
                 "declined": 538,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 538 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -3624,7 +3624,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -3883,7 +3883,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -3891,7 +3891,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -3899,7 +3899,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -3907,7 +3907,7 @@
                 "declined": 538,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 538 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -3915,7 +3915,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -4174,7 +4174,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -4182,7 +4182,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -4190,7 +4190,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -4198,7 +4198,7 @@
                 "declined": 538,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 538 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -4206,7 +4206,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: the pair-FFN row block is bounded by an explicit sequence window, `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (tt_bio/esmc.py:320), read on the PADDED token axis in `_split_plan` (esmc.py:686). Above 1024 `rows` comes back 0, the FFN runs unblocked, and `_row_blocked` -- the only place this lever exists -- is never entered, so it is not offered rather than declining. The window is a parity bound, not a tuning choice: 32 rows is pinned by `torch.equal` and 16 and 8 are faster and NOT bit-exact, so widening it is a release-gate decision. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
