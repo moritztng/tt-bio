@@ -2978,7 +2978,7 @@ Whether that is one phenomenon is not established and is not claimed.
 bf16 arm for that boundary anywhere in the campaign. So D58's two legs are now: diffusion
 re-explained, msa priced but uncompared.
 
-### D208. TRAJECTORY's clause is REPOINTED to a reference-derived bar of 89.2106 % with a coupled-scope requirement, and no artifact emits the coupled field. **UNFIXED** — the condition reads NOT MET on both new clauses.
+### D208. TRAJECTORY's clause is REPOINTED to a reference-derived bar of 89.2105 % with a coupled-scope requirement, and no artifact emits the coupled field. **UNFIXED** — the condition reads NOT MET on both new clauses.
 
 `of3t-trajwiden` proposed this and I checked it before making it, because **the bar moves 10.05
 points toward passing** and that is the direction that needs a reason.
@@ -3026,3 +3026,36 @@ does not have — its break control raised `KeyError: '=='` and refused to publi
 emitting an artifact with an unevaluated clause. The vocabulary already had `is`, doing strict
 equality with a type check. The guard refusing to publish on an operator it cannot evaluate is the
 right failure.
+
+### D209. A bar set by rounding a measured CEILING up is unsatisfiable by construction. FOUND at pass 356 by the orchestrator against its own pass-355 clause. UNFIXED
+
+Pass 355 repointed the TRAJECTORY charter clause onto the diffusion module's own share of
+upstream's float64 gradient mass and wrote the bar as **89.2106 %**. The measured share is
+
+    9.170528876862544 / 10.279642678524981  =  89.2105802084 %
+
+so `>= 89.2106` demanded **more than 100 % of the module the bar is a property of**. Covering every
+one of the 761 reference tensors at that boundary would have read 89.2105802084 and failed the
+clause by 0.0000198 points. The arithmetic was never wrong; the transcription rounded a CEILING up.
+
+Corrected at pass 356 to **89.2105**, rounded down, in `workstreams/_of3t_donecheck.py`. The
+correction moves toward passing and so was checked against the rule for that direction before it was
+made: it flips no verdict. Today's best artifact reads 88.83498302148425 and misses the corrected
+bar by the same 0.3756 points it missed the old one by, and the clause's sibling `scope.coupled` is
+still unemitted. Two substantive failures before and after.
+
+**The general rule.** A bar that is a MEASURED CEILING must be rounded DOWN. A bar that is a floor
+may be rounded up. The direction that is safe for a target is unsafe for a limit, and the two are
+easy to confuse because both read as "be at least this good". This is D201 arriving from the other
+side: there, two clauses of one guard were jointly impossible at their limit; here, one clause is
+impossible against its own limit. Both were found only by asking what the BEST POSSIBLE artifact
+would score, which is a cheap question and is now the standing check before any bar is written.
+
+**How it was caught.** Not by a guard. I was sizing a row against the gap and computed what full
+coverage of the module would read, which is the one arithmetic that exposes it. No composition
+check tests a bar for reachability, and `audit_evidence.py` cannot — a bar's ceiling is not in any
+artifact it reads. The check that would have caught it is the one I now owe every future bar.
+
+**Scope.** CAMPAIGN-INTERNAL. It gates no user-facing behaviour; it gated the campaign's own exit
+condition, which is worse for the campaign and invisible to anyone who runs the model. Filed against
+myself: pass 355 wrote it, pass 356 found it, one pass of exposure.
