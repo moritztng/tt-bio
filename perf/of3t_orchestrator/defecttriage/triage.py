@@ -214,6 +214,11 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D194": (CAMP, "TRAJECTORY's scope clause was treated as blocked by CEILING.json's 678.731 GB "
+             "projection for the 48-block float64 stack; of3t-frame384 ran that object at 24.881 "
+             "GB peak RSS, 27.3x less, with per-block activation checkpointing proved inert. The "
+             "wall is gone and nothing said so. Campaign-internal: it is about what this campaign "
+             "believed its own instrument cost, and no shipped number moves."),
     "D193": (CAMP, "A crop label in a brief and in the ledger said 'crop 64' for a capture "
              "whose masks are (1, 384): of3t-apbback's block-47 result is a crop-384 reading. "
              "D180 one turn worse -- the crop was quoted and was wrong. Entirely in the "

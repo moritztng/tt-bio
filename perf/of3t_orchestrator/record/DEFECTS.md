@@ -2937,3 +2937,45 @@ real tokens**. So every per-block result taken on `perf/refpath.py`'s `CAP` is a
 capture and not only a number. Two things the table makes visible in passing: 56 real tokens in 384
 means **85.4 % of the width is pad** at the width the campaign reports, which is the fact D175 was
 filed about; and the check itself is still not wired into the compose.
+
+### D194. TRAJECTORY's scope clause has been treated as blocked by a memory ceiling that a later row removed by 27x without anyone noticing. FOUND by `of3t-orchestrator`, pass 344. **UNFIXED** — the clause is still unmet, but it is a COST question now and not a feasibility one.
+
+`of3t-trajwide`'s `perf/of3t_trajwide/CEILING.json` is the campaign's standing answer to "what does
+the rung above `diffusion_module` cost". It measured ONE PairFormer block at crop 384 in float64 on
+qb2 at 2 threads — forward 13.602 s, backward 47.570 s, peak RSS 17.278 GB, **14.033 GB of
+activations above build** — and projected the 48-block stack:
+
+    projected activations       673.577 GB
+    projected high water        678.731 GB      against host_mem_gb 249.0
+    measured oom high water     215.53 GB       (an actual oom-kill, not a projection)
+    projected 20-step time      234,899 s = 65.25 h
+
+**`of3t-frame384` then ran exactly that object.** `perf/of3t_frame384/REF_F64_N384.json`: upstream's
+own **48-block** pairformer stack, **crop 384**, `policy f64`, *"every parameter and every
+activation float64; checkpoint upcast once at load; no cast on the path"*, 2,736 tensors loaded,
+**peak RSS 24.881 GB**. It fits on the 249 GB box nine times over. The projection was **27.3x
+high**, and the difference is per-block activation checkpointing, which that row added to
+`of3t-trunkg043`'s `ref_grad.py` and proved **inert**: 2736/2736 bit-identical on both policies at
+crop 64, max absolute difference exactly 0.0.
+
+**So the wall is gone and nothing in the campaign says so.** CEILING.json is not wrong — it measured
+what it measured, without checkpointing, and said so. It is STALE, and it has been the reason
+TRAJECTORY's `scope >= 99.2594 %` clause has sat at 36.9462 % with no owner: the rung above
+`diffusion_module` looked like it needed 2.7x the memory of the largest host we have.
+
+**On time I am deliberately not claiming a win.** CEILING projected 2,936 s per full-stack fwd+bwd
+at **2 threads on qb2**; frame384's measured run was **1,629.18 s on qb1** at a much higher thread
+count. Those are not thread-matched and I will not difference them. The MEMORY comparison is
+apples-to-apples — same object, same width, same precision, same tree — and that is the one that
+moved a wall.
+
+**What it does not establish.** `REF_F64_N384` is ONE forward+backward of the TRUNK, not a 20-step
+loop over the whole model. A 20-step trajectory also carries optimizer state and 19 more steps, and
+99.2594 % scope needs diffusion, conditioning and aux beside the trunk. What has changed is that
+the binding constraint was activation memory, and activation memory is now a solved problem on this
+path. The cost must be re-screened before anything is committed to — projecting from my own
+arithmetic is the error CEILING.json itself made.
+
+**Recorded so the next reader does not re-derive it:** any row quoting CEILING.json must state
+whether its own arm uses checkpointing, and CEILING.json's projection applies only to the
+no-checkpointing path.
