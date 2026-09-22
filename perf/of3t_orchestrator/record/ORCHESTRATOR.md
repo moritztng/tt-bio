@@ -64,13 +64,16 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R173 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R174 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R174** the CORRECTED clause reads **1.4511706984958472x** the bar — still FAILING, improved
+  18.54 % — and two of my own numbers are retracted: R159's 1.4172x was cross-space, R172's
+  0.014 % shortcut bound was wrong and the shortcut is withdrawn at 2.21 %
 - **R173** D242's two-sided falsifier has fired on BOTH branches bit for bit — 1.49e-3
   OVERCOUNTS at pass 395, **0.000848887340907281** EXACT after the repair
 - **R172** my own linearity shortcut looked unsafe on the device by 9.18 % from bf16's nominal
@@ -99,8 +102,8 @@ entry settles, one line, newest first:
   a BUG FIX**; linearity means one extra arm per configuration, not a re-run
 - **R160** D242 is a DOUBLE COUNT at `ref_grad.py:201` — `z_out` is an ancestor of `s_out`;
   every `MATCHED/` reading survives as a comparison, every `CROSSFRAME_` one is invalid
-- **R159** the clause's allowance is **1.4172x** upstream's own bf16 and was already
-  pre-registered; the frame is worth **3.81x** on that same quantity
+- **R159** the ladder was already pre-registered and the frame is worth **3.81x** — but its
+  "1.4172x allowance" is RETRACTED at R174 as a cross-space quotient; the target is x_allowance **1.7414**
 - **R158** two user-facing defects (D10, D24) were off the user-facing list for ~35 passes
   because an unclassified defect defaults to the least severe class; count 6 → 8
 - **R157** GRADIENTS is graded on a frame the campaign withdrew, and `DOESNOT` was a frame
@@ -1817,3 +1820,39 @@ so any fixed-absolute device error is 11.7471x more significant in relative term
 harness's round-trip is ~2-7e-9 absolute whatever the cotangent's size, giving 3.38e-5 relative
 on the external one against 2.9e-6 on the hooked one — four orders below the clause's scale, and
 there is no other fixed-absolute floor to amplify because the device arms' A/A is exactly 0.0.
+
+## Pass 408 — the corrected clause reads 1.4512x the bar, still failing, and two of my numbers are wrong
+
+`of3t-recut` delivered the re-score. On the repaired injection the trunk reads
+**0.6221485227575493** against float64 (was 0.9349175217825587) and **0.7768254196709333**
+against upstream's own bf16 (was 0.9969599833682794), a multiple of **1.976518918492322** (was
+2.970162431380236). **The clause is 0.22072451195864032 against a 0.15210099830945006 bar —
+1.4511706984958472x, down from 1.7814428090278143x, an 18.54 % improvement, and it still
+FAILS.** The trunk now carries 78.35 % of the model's error mass, down from 96.06 %, at
+**1.7414x** its allowance.
+
+**The repair was necessary and is not sufficient**, which is R130's sentence about the earlier
+frame fix now true of this one. **No bar moved**: `LADDER_APPLIES_UNCHANGED` re-derives all five
+pre-registered levels on the rescored artifact at rel_difference 0.0, and the recomposition
+control reproduces the headline at 0.0.
+
+**R159's "1.4172x" is retracted — it is a cross-space quotient, the class I have been catching
+in others.** The allowance 0.44608901561034203 lives in vs-upstream-bf16 space; upstream's floor
+0.3147698293887927 lives in vs-float64 space. The artifact's own quotients each stay in one
+space: 1.976518918492322 (float64) and **x_allowance 1.7414134679108282** (bf16). The honest
+target is **the trunk must fall by 1.7414x**. R159's framing was also ill-formed, since
+upstream against itself is zero.
+
+**R172's shortcut bound was wrong and its own two-sided statement fired on the withdrawal
+branch.** I predicted 0.014 % and said percent-scale would withdraw the shortcut. Measured
+**2.21 %**. I bounded the cotangent *injection* round-trip, which really is ~1e-5, and ignored
+the *taped backward's own bf16 arithmetic*: the subtraction cancels gradient norms 1.3279 and
+0.5947 into 0.8149, so each arm's ~0.9359 % bf16 error survives against a smaller difference.
+**A linearity shortcut needs the arithmetic to be linear, not just the mathematics.** The
+float64 sum identity of 6.4e-15 is what made it look safe, and float64 is exactly where it is
+safe. R161's mandatory control caught it, the shortcut was withdrawn and the repair untouched —
+which is the part of the design that worked.
+
+**Repoint condition 4 is satisfied by ELIMINATION, not waved through**: the reading now contains
+no shortcut at all, which meets the condition's purpose more strongly than a passing control
+would, and the failure and its magnitude sit in the record beside it.

@@ -2139,3 +2139,66 @@ round-trip is ~2-7e-9 absolute regardless of the cotangent's size, so on the ext
 it reads **3.38e-5 relative** against 2.9e-6 on the hooked one. That is still four orders below
 the clause's scale, and **there is no other fixed-absolute floor to amplify** — the device arms'
 A/A is exactly 0.0 across two cards, so they are bit-reproducible. Checked, and a non-issue.
+
+---
+
+### R174. The corrected clause reads 1.4512x the bar — still FAILING, improved 18.54 % — and two of my own numbers are wrong (pass 408, zero card)
+
+`of3t-recut` delivered the re-score. Verified against `LADDER_READ.json` and
+`CLAUSE_RECUT.json`, not the commit message.
+
+**THE CAMPAIGN'S ANSWER, on the repaired injection:**
+
+    trunk vs float64                 0.6221485227575493    was 0.9349175217825587
+    trunk vs upstream's own bf16     0.7768254196709333    was 0.9969599833682794
+    multiple of upstream's own bf16  1.976518918492322     was 2.970162431380236
+    cos vs float64                   0.8178953379770566
+    CLAUSE                           0.22072451195864032   bar 0.15210099830945006
+    x_bar                            1.4511706984958472    was 1.7814428090278143   FAILS
+    x_allowance                      1.7414134679108282
+    trunk's share of the model's error mass   0.7835130357121737   was 0.9605582781117755
+
+**The repair was necessary and is not sufficient** — R130's sentence about the earlier frame fix,
+now true of this one. The clause improves **18.54 %** and still misses by 45 %.
+
+**The ladder was NOT re-derived**: `LADDER_APPLIES_UNCHANGED` re-computes all five
+pre-registered levels on the rescored artifact's own section table and reports
+`worst_rel_difference_over_the_five_levels` **0.0**, and `RECOMPOSITION_CONTROL` reproduces the
+headline at rel_difference **0.0**. No bar moved, which was the whole point of fixing the ladder
+before the number existed.
+
+**MY FIRST ERROR, and it is the class I have been catching in others. R159's "our trunk may be
+up to 1.4172x upstream's own bf16" is a CROSS-SPACE quotient and is retracted.** I divided the
+trunk allowance **0.44608901561034203**, which lives in vs-upstream-bf16 space, by upstream's
+own floor **0.3147698293887927**, which lives in vs-float64 space. The artifact's own two
+quotients are each in ONE space and are the correct ones:
+`multiple_of_upstreams_own_bf16` = 0.6221485227575493 / 0.3147698293887927 = **1.976518918492322**
+(float64 space), and `x_allowance` = 0.7768254196709333 / 0.44608901561034203 =
+**1.7414134679108282** (bf16 space). **The honest target statement is: the trunk must fall by
+1.7414x for the clause to clear.** R159's framing was also ill-formed, not merely mis-scaled —
+"the allowance as a multiple of upstream's own bf16" has no meaning, because upstream against
+itself is zero.
+
+**MY SECOND ERROR: R172's bound on the linearity shortcut was wrong, and its own two-sided
+statement fired on the withdrawal branch.** I predicted the device subtraction would differ from
+a direct run by **0.014 %** and wrote that a percent-scale result would be real and would
+withdraw the shortcut. Measured: **2.208239e-02**, i.e. 2.21 %. **The shortcut is withdrawn on
+device arms and the end-to-end arm is the reading; the repair is untouched.** Why I was wrong:
+I bounded the error in the cotangent *injection* — the round-trip, which really is ~1e-5 — and
+ignored the error in the *taped backward's own bf16 arithmetic*. The subtraction cancels
+gradient norms **1.3279** and **0.5947** into **0.8149**, so each arm's own ~**0.9359 %** bf16
+gradient error survives undiminished against a smaller difference. **A linearity shortcut needs
+the ARITHMETIC to be linear, not just the mathematics**, and on a bf16 device it is not, to
+better than bf16 epsilon. The float64 reference's own sum identity of 6.435383259300361e-15 is
+what made the shortcut look safe, and float64 is exactly where it IS safe.
+
+**R161's control is what caught it**, which is the part of the design that worked: the shortcut
+was proposed with a mandatory end-to-end control and an instruction to withdraw the shortcut
+rather than the repair if it failed. It failed and that is what happened.
+
+**Repoint condition 4, handled without waving it through.** I wrote "the linearity shortcut's
+end-to-end control passes on one arm". It did not pass. But the condition's PURPOSE is that the
+reading must not rest on an unvalidated shortcut, and the row eliminated the shortcut entirely
+and read the direct arm — which satisfies that purpose **more strongly** than a passing control
+would, because the reading now contains no shortcut at all. Condition 4 is recorded as satisfied
+BY ELIMINATION, with the failure and its magnitude in the record beside it.
