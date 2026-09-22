@@ -1933,3 +1933,46 @@ up. Today only `pairformer_stack` is injected, so the check is cheap and always 
 worth having because **the next person to inject a second scope will not be thinking about
 this**, and a composed number built from two conventions is meaningless with nothing in it
 saying so.
+
+---
+
+### R169. The ten defects still carrying the stamper's default are all correctly campaign-internal — and reviewing them found three whose DIAGNOSIS R160 undercuts, with no catcher (pass 403, zero card)
+
+R158 recorded that a review of the defects inheriting `stamp_row_counts.py`'s
+"no user-facing claim made" default was owed. It is done. **First, a correction to my own
+count**: R158 said fourteen inherit; the table shows **ten** — D222, D223, D224, D225, D227,
+D231, D232, D233, D235, D237. Fourteen was the number carrying the JSON placeholder before pass
+393's fix, not the number left unreviewed after it.
+
+**All ten are correctly CAMPAIGN-INTERNAL** against the published test ("changes what someone
+using the shipped tt-bio gets today" against "is in this campaign's own measurement,
+instruments, references"). D222 a lever ceiling on an unmerged lever; D223 an attribution inside
+our own measurement; D224 a false-TRUE flag in our own gate; D225 a reach defect in a default-off
+lever; D227, D232, D233 readings of a residue; D231 a defect in our own falsifier; D235 an
+artifact-writer process defect; D237 a defect in our own clause. **The default happened to be
+right in every case**, which is worth saying plainly: the finding in R158 was that an
+unclassified defect silently takes the least severe class, not that these ten were misfiled.
+Six of the ten are in the rotated archive rather than the live tail, so the review had to read
+the UNION — the same thing `defects_union.py` does and the reason it exists.
+
+**The review's real result is a dependency nobody had recorded.** D227, D232 and D233 are
+`of3t-apbleaf`'s and `of3t-trunkceiling`'s characterisations of the cotangent on the
+**model-frame injection** — the injection R160 later established was double-counting the
+`s_out <- z_out` route, with the captured `cot_z` **99.6628 % duplicate by norm**. Pass 395's
+blast radius sorted the frame ARTIFACTS into `MATCHED` and `CROSSFRAME`; **it did not sort the
+DEFECTS filed from them**, and all three still read as live, confident mechanism findings with
+no indication that the instrument beneath them has since been repaired. D233 was described in
+this campaign as *"its clearest mechanism statement."*
+
+**Sorted carefully, because two-thirds of each entry survives.** D233's headline comparison is
+two-sided — upstream's own bf16 cotangent 1.2706 against ours 1.4924, both legs on the one
+injected cotangent — so it is common-mode and **survives as a comparison**. The internal
+decompositions (D232's `L = 0.005544` against `H = 0.999127`; D233's 99.72 % ACROSS against
+0.28 % ALONG) are algebraic identities given whatever cotangent was injected, and also stand.
+**What does not carry is the ATTRIBUTION**: "the residue is in the cotangent" is now, in part, a
+statement about the duplicate rather than about our arithmetic.
+
+D232 and D233 now carry that cross-reference in `DEFECTS.md`; D227 is in the rotated archive and
+carries it here. **A concluded row's verdict needs a catcher, and so does a defect whose
+instrument is repaired after it is filed** — the entry does not update itself, and the next
+reader has no way to know.

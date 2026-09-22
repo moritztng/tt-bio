@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R168 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R169 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R169** the ten defects on the stamper's default are all correctly campaign-internal; the
+  review found D227/D232/D233's DIAGNOSIS undercut by R160, with no catcher
 - **R168** recut's A/A is clean from RELOCATED inputs, six contract keys to the last digit;
   the `injection.convention` stamp does not survive composition and must be per scope
 - **R167** the D242 repair is landed and correct (verified from the diff); its
@@ -1685,3 +1687,29 @@ injected arm, `pairformer_stack`, the only one D242 touches; a single flag would
 five of six. Per-scope map plus the correction's sha256 for anything injected, and the composer
 refusing a mixed pool — cheap today, because only one scope is injected, and worth having
 because the next person to inject a second will not be thinking about it.
+
+## Pass 403 — the review I owed found nothing misfiled, and one thing nobody had caught
+
+R158 said a review of the ten defects still carrying `stamp_row_counts.py`'s "no user-facing
+claim made" default was owed. Done, and **all ten are correctly campaign-internal** against the
+published test. The default happened to be right every time — which is worth saying plainly,
+because R158's finding was that an unclassified defect silently takes the least severe class,
+not that these ten were misfiled. Six of them live in the rotated archive rather than the live
+tail, so the review had to read the union, which is exactly why `defects_union.py` exists. Also
+a correction to my own count: R158 said fourteen inherit; it is ten.
+
+**The review's real result is a dependency nobody had recorded.** D227, D232 and D233
+characterise the cotangent on the model-frame injection — the one R160 showed was 99.6628 %
+duplicate by norm. Pass 395 sorted the frame *artifacts* into MATCHED and CROSSFRAME; it did not
+sort the *defects filed from them*, and all three still read as live mechanism findings with no
+sign that the instrument beneath them has been repaired. D233 was called this campaign's
+clearest mechanism statement.
+
+Sorted carefully, because most of each entry survives: D233's two-sided comparison (1.2706
+against 1.4924, both legs on the one injected cotangent) is common-mode and stands, and the
+internal decompositions are algebraic identities given whatever was injected. **What does not
+carry is the attribution** — "the residue is in the cotangent" is now partly a statement about
+the duplicate. D232 and D233 now carry that cross-reference in `DEFECTS.md`.
+
+**A concluded row's verdict needs a catcher, and so does a defect whose instrument is repaired
+after it is filed.** The entry does not update itself and the next reader has no way to know.

@@ -491,6 +491,8 @@ it belongs in the protocol rather than in two verdicts.
 
 ### D232. The LayerNorm op is exonerated and so is its activation: 99.91 % of the residue arrives in the COTANGENT, which reads 1.4924 against float64. FOUND by `of3t-apbleaf`, pass 371. UNFIXED, and the object moves upstream.
 
+**D242 CROSS-REFERENCE, added pass 403.** This entry's readings were taken on the model-frame injection, which R160 later established was double-counting the `s_out <- z_out` route — the captured `cot_z` was **99.6628 % duplicate by norm**. Its two-sided comparisons (ours against upstream's own bf16, both legs on the one injected cotangent) are common-mode and **survive as comparisons**; its internal decompositions are algebraic identities given whatever cotangent was injected and also stand. **What does not carry without re-reading is the ATTRIBUTION** — "the residue is in the cotangent" is now, in part, a statement about the duplicate rather than about our arithmetic. Re-read after `of3t-recut`'s corrected re-score before building on it. See LEDGER R160 and R169.
+
 Against a pre-registered bar of L <= 0.25, over the 48 weight tensors:
 
     L = 0.005544    the three device ops that evaluate dW = sum_t g_t xhat_t
@@ -533,6 +535,8 @@ class (D223) -> the LayerNorm affine (D227/D229) -> the cotangent feeding it (th
 convergence rather than thrashing, and each move was made by a row refuting its own brief.
 
 ### D233. The cotangent residue is a DIRECTION error amplified by cancellation, not a scale error — 99.72 % of it lies ACROSS the reference. FOUND by `of3t-apbleaf`, pass 372. UNFIXED, and it explains the observable the campaign has been chasing since D227.
+
+**D242 CROSS-REFERENCE, added pass 403.** This entry's readings were taken on the model-frame injection, which R160 later established was double-counting the `s_out <- z_out` route — the captured `cot_z` was **99.6628 % duplicate by norm**. Its two-sided comparisons (ours against upstream's own bf16, both legs on the one injected cotangent) are common-mode and **survive as comparisons**; its internal decompositions are algebraic identities given whatever cotangent was injected and also stand. **What does not carry without re-reading is the ATTRIBUTION** — "the residue is in the cotangent" is now, in part, a statement about the duplicate rather than about our arithmetic. Re-read after `of3t-recut`'s corrected re-score before building on it. See LEDGER R160 and R169.
 
 Upstream's own bf16 cotangent at the same 48 sites reads **1.2706** rel_l2 against float64 where
 ours reads **1.4924** — a residue of only **1.1745x**. But the `dW` residue is **2.4044x**. Those
