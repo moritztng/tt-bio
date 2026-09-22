@@ -1097,7 +1097,7 @@ artifact it reads. The check that would have caught it is the one I now owe ever
 condition, which is worse for the campaign and invisible to anyone who runs the model. Filed against
 myself: pass 355 wrote it, pass 356 found it, one pass of exposure.
 
-### D210 — the diffusion transformer trains 14.2M parameters upstream does not have (UNFIXED, USER-FACING)
+### D210. The diffusion transformer trains 14.2M parameters upstream does not have (UNFIXED, USER-FACING)
 
 Found by `of3t-trajfull`, pass 357, outside its own scored set and reported anyway, which is the
 reason it is here at all.
@@ -1130,7 +1130,7 @@ DiT is on the shared diffusion path.
 
 Status: **UNFIXED** -- no owner as of pass 357, and named in the orchestrator's `GAP:`.
 
-### D211 — "GRADIENTS fails on coverage alone" was scoped to the narrow artifact (UNFIXED as prose, CORRECTED pass 357)
+### D211. "GRADIENTS fails on coverage alone" was scoped to the narrow artifact (UNFIXED as prose, CORRECTED pass 357)
 
 `PROVES:` carried the sentence *"the gradient is inside the reachable bar at 0.9592x and no worse
 per-tensor than upstream's own step, and GRADIENTS now fails on coverage alone"*. Both halves are
@@ -1178,7 +1178,7 @@ Status: **UNFIXED** -- the prose is corrected, but the condition it describes st
 artifact the campaign holds satisfies GRADIENTS' coverage and accuracy clauses at one scope.
 Named in the orchestrator's `GAP:`.
 
-### D212 — a bar-repoint proposal priced every route through a shipped env flag the training path does not read. FOUND at pass 358 by the orchestrator, against `of3t-covdefault`'s BAR section. REFUSED, not adopted.
+### D212. A bar-repoint proposal priced every route through a shipped env flag the training path does not read. FOUND at pass 358 by the orchestrator, against `of3t-covdefault`'s BAR section. REFUSED, not adopted.
 
 `of3t-covdefault` concluded NO-GO on flipping `TT_BIO_OF3_DEVICE_REFATOM` and that half is right:
 the flag ON costs **+198.476 ms cold / +50.231 ms warm** on openfold3 and **+192.515 / +48.185** on

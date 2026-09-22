@@ -344,7 +344,7 @@ regenerated every compose, spec lifted from the live gate, break control passing
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred eight rows dispatched, one
 hundred four concluded, four live. **Two hundred twelve defects filed**, **78 UNFIXED** (4
 scope-excluded, 9 USER-FACING, 65 campaign-internal) over the UNION of `DEFECTS.md` and its
-archives — the live file holds only the tail. `state/concluded` holds **106** of3t files, of which
+archives — the live file holds only the tail. `state/concluded` holds **one hundred six** (106) of3t files, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
 historical markers and not rows, so **one hundred four rows have concluded**. Counts recounted
 from disk this pass, not carried forward: 108 `of3t-*.txt` briefs, 106 markers, 2 of them this
