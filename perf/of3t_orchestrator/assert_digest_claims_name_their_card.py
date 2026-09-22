@@ -64,6 +64,18 @@ FROZEN = {
     # host field at all, so the artifact could not have carried one. Frozen here rather than by
     # editing a concluded row's artifact (A33), and the fix that removes these two entries is one
     # line in `aa.py`, not a re-run.
+    # `of3t-apbleaf`, concluded 2026-09-22 pass 372. Its state doc line 3 records the hardware
+    # where a reader looks -- "Host **qb1 (tt-quietbox), card 1, p150a Blackhole**" -- and its
+    # FLOOR field repeats it; the writer emits no host field, which is the same defect frozen for
+    # of3t-modelboundary below and not pc card 0. Frozen rather than edited because A33 forbids
+    # editing a concluded row's artifacts, and because the row was warned twice while live (the
+    # D155 live-row deferral exists exactly so a row CAN act) and concluded without acting. The
+    # fix that removes these five is in the writer, not in the files.
+    "perf/of3t_apbleaf/BITCMP_BANKED_CAPA.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK_BF16.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_CAPTURE.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_N384.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
     "perf/of3t_modelboundary/AA_c64_CTRL.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
     "perf/of3t_modelboundary/AA_c64_CTRL_nocaptures.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
     # `of3t-apbback`'s BLK47_VALIDATION.json, frozen pass 334 for a reason neither of the two

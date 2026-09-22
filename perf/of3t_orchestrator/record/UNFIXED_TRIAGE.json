@@ -16,11 +16,11 @@
   ],
   "why": "DEFECTS.md rotates; the live file is the tail, not the ledger"
  },
- "unfixed_total": 87,
+ "unfixed_total": 89,
  "counts": {
   "SCOPE-EXCLUDED": 5,
   "USER-FACING": 6,
-  "CAMPAIGN-INTERNAL": 76
+  "CAMPAIGN-INTERNAL": 78
  },
  "classes": {
   "SCOPE-EXCLUDED": [
@@ -114,7 +114,9 @@
    "D225",
    "D227",
    "D231",
-   "D232"
+   "D232",
+   "D233",
+   "D235"
   ]
  },
  "reasons": {
@@ -435,7 +437,9 @@
   "D225": "classified by stamp_row_counts.py; no user-facing claim made",
   "D227": "classified by stamp_row_counts.py; no user-facing claim made",
   "D231": "classified by stamp_row_counts.py; no user-facing claim made",
-  "D232": "classified by stamp_row_counts.py; no user-facing claim made"
+  "D232": "classified by stamp_row_counts.py; no user-facing claim made",
+  "D233": "classified by stamp_row_counts.py; no user-facing claim made",
+  "D235": "classified by stamp_row_counts.py; no user-facing claim made"
  },
  "boundary_cases": {
   "D8": "Could be read as CAMPAIGN-INTERNAL: pass 90 re-attributed most of it to D23, a reference defect. Kept USER-FACING because what SURVIVES the re-attribution is a gradient our port computes, and no measurement has yet shown that residue is zero.",
