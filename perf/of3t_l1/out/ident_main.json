@@ -1,0 +1,47 @@
+{
+ "argv": [
+  "--repo",
+  "/home/ttuser/.coworker/wt/of3t-l1-mainctl",
+  "--out",
+  "perf/of3t_l1/out/ident_main.json"
+ ],
+ "repo": "/home/ttuser/.coworker/wt/of3t-l1-mainctl",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "head": "bd643929a04c4c24bd8837884b0fbf519a14ef0b",
+  "branch": "HEAD",
+  "started_utc": "2026-09-19T17:03:57Z",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-l1-mainctl/tt_bio/__init__.py",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "control": "ABSENT",
+ "shapes": {
+  "m": [
+   1,
+   16,
+   128,
+   64
+  ],
+  "z": [
+   1,
+   128,
+   128,
+   128
+  ],
+  "t": [
+   2,
+   128,
+   128,
+   64
+  ]
+ },
+ "msa_module": {
+  "m_sha256": "f15eeab9f16caf966ebec9cfe64e0fde161477d90dd1b4d504b5d5284eb65e8c",
+  "z_sha256": "d209c4dc0b392ccc409c2ccea14606169442018dc05cb07a9b9428dd4b122421"
+ },
+ "template_pair_stack": {
+  "sha256": "60eeefac203a74e00603df26ddf00f54f5cef4fe417b8e3aa18f924f67695393"
+ },
+ "ok": true
+}
