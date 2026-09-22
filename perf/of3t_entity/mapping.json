@@ -1,0 +1,191 @@
+{
+ "classes_all_three_agree_on": [
+  "ligand",
+  "protein"
+ ],
+ "complex": {
+  "dna": "ACGTACGT",
+  "ligand": "ATP",
+  "protein": "GAVLIGAVLI",
+  "rna": "ACGUACGU"
+ },
+ "conventions": {
+  "af3": {
+   "dna": 2,
+   "ligand": 3,
+   "protein": 0,
+   "rna": 1
+  },
+  "boltz": {
+   "dna": 1,
+   "ligand": 3,
+   "protein": 0,
+   "rna": 2
+  }
+ },
+ "defect": "D16 -- three of five models emit the entity fact as `mol_type`",
+ "dna_and_rna_are_swapped_between_the_two_conventions": true,
+ "every_stack_matches_its_own_declared_source": true,
+ "method": "each stack's own parse/tokenise/featurise path EXECUTED on the same four-entity complex; the code reading is the cross-check, not the evidence",
+ "pass": true,
+ "stacks": {
+  "af2": {
+   "agrees_with_own_source": true,
+   "declared": null,
+   "molecule_type_keys": [],
+   "n_string_keys_scanned": 83,
+   "observed": null,
+   "ran": "AST census over AF2's four shipped modules",
+   "source": "no molecule-type feature exists in tt_bio/af2*.py",
+   "stack": "af2",
+   "upstream": "AF2 folds proteins only, so every token is protein, every entity flag would be identically zero and the weighting is VACUOUS -- `without` firing is the correct report, not a miss"
+  },
+  "boltz-2": {
+   "agrees_with_own_source": true,
+   "declared": {
+    "dna": 1,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 2
+   },
+   "n_ligand_tokens": 31,
+   "n_tokens": 57,
+   "observed": {
+    "dna": 1,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 2
+   },
+   "ran": "tt_bio.main.prepare_features (parse -> tokenize -> featurize)",
+   "source": "tt_bio/data/const.py:8-14 chain_type_ids, assigned at tt_bio/data/parse.py:1207-1211 and :1442, emitted at tt_bio/data/featurizer.py:651 into featurizer.py:1093",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ]
+   ],
+   "stack": "boltz-2",
+   "upstream": "NONPOLYMER is upstream Boltz's name for the class upstream's diffusion loss calls ligand"
+  },
+  "boltzgen": {
+   "agrees_with_own_source": true,
+   "declared": {
+    "dna": 1,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 2
+   },
+   "n_ligand_tokens": 31,
+   "n_tokens": 65,
+   "observed": {
+    "dna": 1,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 2
+   },
+   "ran": "tt_bio.boltzgen YamlDesignParser.parse_yaml -> Tokenizer.tokenize",
+   "source": "tt_bio/data/const.py:8-14 chain_type_ids (BoltzGen ships no const module of its own; tt_bio/boltzgen/data/featurizer.py:15 imports this one), assigned at tt_bio/boltzgen/data/parse/schema.py:992 and :1066, emitted at tt_bio/boltzgen/data/featurizer.py:700 into :906",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ],
+    [
+     "protein",
+     8
+    ]
+   ],
+   "stack": "boltzgen",
+   "upstream": "same const as Boltz-2, and the design chain's tokens come back protein, so the design path does not renumber"
+  },
+  "openfold3": {
+   "agrees_with_own_source": true,
+   "declared": {
+    "dna": 2,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 1
+   },
+   "emits": "the three flags directly, so no mol_type adapter is needed",
+   "entity_keys_in_the_frozen_5nw3_batch": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ],
+   "observed": null,
+   "ran": "of3t-reference's frozen batch_step003.pt, the real training artifact",
+   "source": "MoleculeType at tt_bio/_vendor/openfold3/core/data/resources/residues.py:24-28, expanded into the four flags at core/data/pipelines/featurization/structure.py:92-107",
+   "stack": "openfold3",
+   "token_counts": {
+    "is_dna": 0,
+    "is_ligand": 2,
+    "is_rna": 0
+   },
+   "upstream": "its integer enum is never exposed as a feature; it is expanded into is_protein/is_rna/is_dna/is_ligand before the batch"
+  },
+  "protenix-v2": {
+   "agrees_with_own_source": true,
+   "declared": {
+    "dna": 2,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 1
+   },
+   "n_ligand_tokens": 31,
+   "n_tokens": 57,
+   "observed": {
+    "dna": 2,
+    "ligand": 3,
+    "protein": 0,
+    "rna": 1
+   },
+   "ran": "tt_bio.protenix_data.build_complex_features",
+   "source": "tt_bio/protenix_data.py:40 MOL_TYPE_IDS, written at protenix_data.py:387 and emitted at protenix_data.py:519",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ]
+   ],
+   "stack": "protenix-v2",
+   "upstream": "upstream Protenix has NO integer mol_type feature -- its featuriser emits is_protein/is_ligand/is_dna/is_rna directly (protenix/data/core/featurizer.py:542-552) off a STRING mol_type annotation, so the integer column is our port's own encoding and its order follows OpenFold3's MoleculeType, not ByteDance's"
+  }
+ },
+ "three_mol_type_stacks_agree": false
+}
