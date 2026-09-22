@@ -81,8 +81,8 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **one hundred fourteen dispatched, one hundred ten concluded**, from disk at the END of pass
-360 (114 `of3t-*` briefs including this row's own; 112 markers, 2 of them this row's own
+ROWS: **one hundred fifteen dispatched, one hundred ten concluded**, from disk at the END of pass
+360 (115 `of3t-*` briefs including this row's own; 112 markers, 2 of them this row's own
 historical ones). **`of3t-refcov` concluded GO mid-pass and closed the coverage leg.** Four rows
 live: `of3t-vjpln` (qb1-2, the backward VJPs) and three trunk rows — `of3t-trunkblocks` (qb1-0),
 `of3t-trunkopclass` (qb1-3), `of3t-trunkceiling` (qb2-0) — **dispatched at 12:44 by another
@@ -359,10 +359,17 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               `inside_the_A26_style_bar` reads TRUE and is **wrong** — `frame384.py:348`
               compares ours-vs-float64 against a bars built for ours-vs-their-bf16, agreeing by
               luck on every worse arm and diverging on this one (D224). And
-              **`TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` read 0 served / 0 declined / 0 refused**
-              — the trunk ships `fp32_softmax=True` and `site_softmax` is in the other branch,
-              so **every trunk measurement this campaign took was made with the stack's biggest
-              accuracy lever off by routing** (D225). **The decisive measurement is now named**:
+              **`TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` read 0 served / 0 declined / 0
+              refused**, and the censused reach is **eight sites across three models**, not just
+              the trunk (D225): `tenstorrent.py:2217` sends anything biased or
+              `fp32_softmax=True` to `_fp32_softmax_attention`, which never calls
+              `site_softmax` where the hook lives. Unreachable at OF3's trunk, template, MSA
+              embedder and confidence, the shared `af2.py` path, and RF3's atom encoder,
+              template and diffusion atom decoder; reachable only at the atom transformer, the
+              diffusion transformer and Protenix. **Every trunk measurement this campaign took
+              was made with the stack's biggest accuracy lever off by routing**, and the
+              selector reported silence rather than zero. Owner: **`of3t-f64route`**, dispatched
+              pass 366, with an inference A/B owed on every model executing the changed line. **The decisive measurement is now named**:
               this arm's trunk gradient through `model_scope.py` at model scope, in one process
               over one union — not an estimate by scaling. **All three census axes have now converged on one object** (D223): blocks 44/4/0 hold
               76.4502 % of the error mass, the 96 `attn_pair_bias.layer_norm_a` leaves hold
@@ -1410,3 +1417,39 @@ two *equal* independent errors and ours is 1.1178x theirs.
 `of3t-covadopt` did it. That number decides GRADIENTS. The row is told to bank the dump with its
 digest if its card time runs out, and explicitly **not** to estimate it by scaling an in-frame
 number into a model-frame threshold — the mistake I made myself at D218.
+
+
+## Pass 366 — the lever is unreachable at eight sites, not one, and the fix is dispatched
+
+No new measurement landed, so I censused the mechanism behind D225 instead of waiting on it.
+`tenstorrent.py:2217`:
+
+    if att.biased or _FP32_SOFTMAX or att.fp32_softmax:
+        return _triatt_sdpa._gate_reject("site", shape)
+
+Anything biased or `fp32_softmax=True` takes `_fp32_softmax_attention`, which computes its own
+fp32 softmax reduction inline and **never calls `site_softmax`** — the one function the host
+float64 hook is wired into.
+
+    REACHABLE     openfold3_atom_transformer.py, openfold3_diffusion_transformer.py, protenix.py
+    UNREACHABLE   openfold3_trunk.py, openfold3_template.py, openfold3_msa_embedder.py,
+                  openfold3_confidence.py, af2.py, rf3/atom_encoder.py, rf3/template.py,
+                  rf3/diffusion_atom_decoder.py
+
+**Eight sites, three models, the whole OpenFold3 triangle path and AF2's.** `taped_ttnn.py:328`
+states the premise in its own comment — *"openfold3's trunk, template and MSA stacks all take
+that path by default... this is the shipped path for a whole model, not an opt-in corner"* — and
+nobody joined it to where the hook lives.
+
+Moritz directed this lever on 2026-09-21 and it was built correctly. It has been unreachable at
+every site that matters for the gradient ever since, and at the one place it has now been forced
+in it is worth **1.8556x**. Dispatched as **`of3t-f64route`** to productise
+`of3t-trunkceiling`'s verb-level install, agree with its 0.5547455957585244 or explain the gap,
+and pay the inference A/B these shared sites owe — training-only by construction, because
+`site_softmax` reaches the host implementation only when `ops.host_softmax_hook()` is non-None
+and only `autograd.install` fills it, but the argument gets measured rather than asserted.
+
+**The durable lesson is the reporting gap.** `HOST_F64_SOFTMAX_STATS` counts `served`,
+`declined` and `refused` — all three require the call to arrive. There is no counter for *never
+reached*, so **an unreachable selector is indistinguishable from an unused one**, and that is why
+a lever worth 1.8556x sat switched off by routing with a guard suite of 175 checks watching.

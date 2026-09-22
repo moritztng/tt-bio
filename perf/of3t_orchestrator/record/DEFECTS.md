@@ -1456,3 +1456,55 @@ This is `a-lever-can-fire-and-be-inert` one step further, and it has a consequen
 has been paying for: **every trunk measurement in this campaign was taken with the stack's biggest
 accuracy lever switched off by routing**, and nobody noticed because the flag it is set by
 reported nothing rather than reporting zero.
+
+### D225 UPDATE — the lever is unreachable at EIGHT sites across three models, not just the OpenFold3 trunk. Censused at pass 366 by the orchestrator.
+
+`of3t-trunkceiling` found `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` reading 0 served / 0 declined /
+0 refused on the trunk. The mechanism generalises, and the code already says so without anyone
+having acted on it.
+
+`tenstorrent.py:2217` is the gate:
+
+    if att.biased or _FP32_SOFTMAX or att.fp32_softmax:
+        return _triatt_sdpa._gate_reject("site", shape)
+
+Anything biased or `fp32_softmax=True` takes `_fp32_softmax_attention`, which computes its own
+fp32 softmax reduction inline and **never calls `site_softmax`** — the one function the host
+float64 hook is wired into. So the selector can only ever reach sites that do call it:
+
+    REACHABLE (call site_softmax)        openfold3_atom_transformer.py
+                                         openfold3_diffusion_transformer.py
+                                         protenix.py
+
+    UNREACHABLE (set fp32_softmax=True)  openfold3_trunk.py         OpenFold3
+                                         openfold3_template.py      OpenFold3
+                                         openfold3_msa_embedder.py  OpenFold3
+                                         openfold3_confidence.py    OpenFold3
+                                         af2.py                     the shared AF2 path
+                                         rf3/atom_encoder.py        RoseTTAFold3
+                                         rf3/template.py            RoseTTAFold3
+                                         rf3/diffusion_atom_decoder.py  RoseTTAFold3
+
+**Eight sites across three models, including the entire OpenFold3 triangle path and AF2's.**
+`taped_ttnn.py:328` states the premise in its own comment — *"openfold3's trunk, template and MSA
+stacks all take that path by default — `fp32_softmax=True` at every one of them — so this is the
+shipped path for a whole model, not an opt-in corner"* — and nobody joined it to the fact that
+`site_softmax` is where the host hook lives.
+
+**What that cost.** Moritz directed this lever on 2026-09-21 — *"Build the host float64 softmax.
+The 1.441x is accepted... a host round trip is not overshooting upstream; it is the only way to
+reach what they already do."* It was built, it is correct, and at the trunk it is worth **1.8556x**
+(1.029395337772341 -> 0.5547455957585244, D225). It has been unreachable at every site that
+matters for the gradient since it was built, and the selector reported **silence** rather than
+zero, so no guard and no row could see it.
+
+**The fix has two candidate shapes and both are training-only by construction**, because
+`site_softmax` only reaches the host implementation when `ops.host_softmax_hook()` is non-None
+and that hook is installed by `autograd.install`: route `_fp32_softmax_attention`'s own reduction
+through `site_softmax`, or install at the taped verb as `of3t-trunkceiling` did. The inference
+constraint is unaffected either way — with no tape open both are `ttnn.softmax` exactly.
+
+**And the reporting defect is the durable lesson**: a site selector that names zero sites must
+report zero. `HOST_F64_SOFTMAX_STATS` counts `served`, `declined` and `refused`, all of which
+require the call to arrive. There is no counter for *never reached*, so an unreachable selector is
+indistinguishable from an unused one.
