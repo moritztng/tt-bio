@@ -1363,3 +1363,49 @@ graded against it inherits that, so the replay must not be repaired to match the
 that is settled.
 
 Artifact `perf/of3t_orchestrator/frameself/POLICY_REFUTED.json`.
+
+---
+
+### R157. The GRADIENTS clause is graded on a frame the campaign withdrew, and DOESNOT was a frame behind that (pass 392, zero card)
+
+Two defects in the two places a reviewer actually reads, both found by checking the fields
+against the live artifacts rather than against each other.
+
+**1. The clause reports a withdrawn number as its distance to go.** GRADIENTS is graded on
+`perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json` — the `of3t-modelframe` frame,
+which **fails its own gating control** at **0.7945281613194305** against a 1e-12 bar
+pre-registered in commit 2520681ed (D242, localised at pass 389 to the captured `cot_z` alone).
+The clause still computes 0.27095922968432157 / 0.15210099830945006 = **1.7814428090278143**,
+and `of3t-frameself`'s retraction sort lists exactly that figure under CROSS-FRAME AND THEREFORE
+WITHDRAWN.
+
+**No verdict moves** — the clause is NOT MET either way, and a FAIL cannot manufacture a false
+GO, which is precisely why this survived. **An unflattering error is still an error**, and this
+one sits in the machine-readable file. Not re-scored, deliberately: `of3t-frameself` has the
+standing instruction not to, and re-scoring on a frame that still fails its own control would be
+the same defect with a newer figure.
+
+**2. `DOESNOT` was one frame behind the clause it describes, and its blocker had concluded.** It
+quoted `0.517117` where the artifact reads **0.27095922968432157**, and `3314` where it reads
+**3312**. Worse than the numbers: it said the 5.83 % *"awaits `of3t-modelframe`"*. **That row
+concluded** — it published a clause from a frame whose gating control had not been run, and the
+control then failed by twelve orders of magnitude. What the 5.83 % awaits today is D242's
+repair. *"Awaits a pending row"* reads as routine work in flight; *"sits on a frame that failed
+its own control"* does not, and the second is what is true. The field was also framed on D237,
+which D241 and D242 have superseded.
+
+Both fixed where a reviewer reads them: the frame's status now lives in the gate spec's
+GRADIENTS `why` and regenerates into `CHARTER_EVIDENCE.json` every compose, and `DOESNOT` is
+restated on the live values. No check moved, no bar moved, no number invented.
+
+**This is the third of a kind and the pattern is now worth naming.** R148: COVERAGE published
+MET beside prose naming three paths that do not fire. R154: TRAJECTORY published MET without the
+operating point five of the update rule's factors are single-valued or inert at. R157: GRADIENTS
+published a precise FAIL on a frame the campaign had withdrawn. **A clause's CHECKS stay live
+because a script recomputes them; the PROSE beside them is written once and then rots.** All
+three were fixed the same way — describe where the evidence lives, or what the artifact's status
+is, instead of restating a value the check already computes. **And rot has no preferred sign**:
+R148 understated us, R157 overstates the distance to go, so an audit that only looks at the
+clauses whose wording flatters will miss half of them.
+
+Artifact `perf/of3t_orchestrator/clausestatus/CLAUSE_STATUS.json`.
