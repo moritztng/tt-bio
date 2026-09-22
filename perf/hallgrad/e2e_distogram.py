@@ -26,6 +26,8 @@ finite difference from being swamped by a bf16 reduction of a scalar.
 """
 import argparse
 import json
+import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -38,11 +40,71 @@ import torch
 VOCAB = 21
 
 
+def tt_smi_path():
+    """`which` returns nothing over a non-login ssh, so the fallback is load-bearing."""
+    return shutil.which("tt-smi") or os.path.expanduser("~/.local/bin/tt-smi")
+
+
+class ClockTrace:
+    """Timestamped AICLK samples, so a number can be attributed to the window it was measured in.
+
+    A clock read outside the timed window is not a measurement of that window
+    (`clock-attribution-window-is-the-timed-fold-not-the-subprocess`). `device_counts` exists
+    because TT_VISIBLE_DEVICES restricting what tt-smi reports is a fact that could stop being
+    true, and if it did, the samples would silently average in three idle cards.
+    """
+
+    def __init__(self, period=1.0):
+        self.period = period
+        self.samples = []          # (unix_time, aiclk_mhz)
+        self.device_counts = set()
+        self.failures = 0
+        self._stop = threading.Event()
+        self._thread = None
+
+    def start(self):
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+
+    def _run(self):
+        exe = tt_smi_path()
+        while not self._stop.is_set():
+            try:
+                r = subprocess.run([exe, "-s"], capture_output=True, text=True, timeout=25)
+                info = json.loads(r.stdout).get("device_info", [])
+                self.device_counts.add(len(info))
+                now = time.time()
+                for dev in info:
+                    c = dev.get("telemetry", {}).get("aiclk")
+                    if c is not None:
+                        self.samples.append((now, int(c)))
+            except Exception:
+                self.failures += 1
+            self._stop.wait(self.period)
+
+    def window(self, t0, t1):
+        """min/median/max over the samples that fall inside [t0, t1]."""
+        v = [c for (t, c) in self.samples if t0 <= t <= t1]
+        if not v:
+            return {"samples": 0, "attributable": False}
+        return {"min": min(v), "max": max(v), "median": int(statistics.median(v)),
+                "samples": len(v), "attributable": True}
+
+    def summary(self):
+        return {"device_counts": sorted(self.device_counts), "failures": self.failures,
+                "total_samples": len(self.samples), "poll_s": self.period}
+
+
 def clocks_thread(stop, out):
+    """Back-compat shim for callers that still want a bare list of ints."""
+    exe = tt_smi_path()
     while not stop.is_set():
         try:
-            r = subprocess.run(["/home/ttuser/.local/bin/tt-smi", "-s"],
-                               capture_output=True, text=True, timeout=25)
+            r = subprocess.run([exe, "-s"], capture_output=True, text=True, timeout=25)
             for dev in json.loads(r.stdout).get("device_info", []):
                 c = dev.get("telemetry", {}).get("aiclk")
                 if c is not None:
@@ -52,37 +114,55 @@ def clocks_thread(stop, out):
         time.sleep(1.0)
 
 
-def make_weights(rng, c_s, c_z, heads, head_dim, hidden, bins):
-    """Every weight in (in, out) layout, which is what ttnn.linear and tt-bio both want."""
+def _transition_weights(rng, c_z, prefix):
+    def w(i, o, s=1.0):
+        return rng.standard_normal((i, o)) * (s / np.sqrt(i))
+    return {f"{prefix}tr_ln_g": np.ones((1, c_z)),
+            f"{prefix}tr_a": w(c_z, 4 * c_z),
+            f"{prefix}tr_b": w(c_z, 4 * c_z),
+            f"{prefix}tr_o": w(4 * c_z, c_z)}
+
+
+def make_weights(rng, c_s, c_z, heads, head_dim, hidden, bins,
+                 blocks=1, block_transition=False):
+    """Every weight in (in, out) layout, which is what ttnn.linear and tt-bio both want.
+
+    Draw order is fixed so that everything except the added blocks is invariant in `blocks`,
+    and block 0 is byte-identical for every K at a given seed: the pair init and the distogram
+    head first, then the shared transition when it sits outside the unit, then the blocks in
+    order. Without that, a K sweep varies two things at once and the fit measures neither.
+    """
     def w(i, o, s=1.0):
         return rng.standard_normal((i, o)) * (s / np.sqrt(i))
     d = {
         "emb_s": w(VOCAB, c_s),
         "pair_i": w(c_s, c_z), "pair_j": w(c_s, c_z),
     }
-    for tag in ("out", "in"):
-        d[f"tm_{tag}_a"] = w(c_z, hidden)
-        d[f"tm_{tag}_ag"] = w(c_z, hidden)
-        d[f"tm_{tag}_b"] = w(c_z, hidden)
-        d[f"tm_{tag}_bg"] = w(c_z, hidden)
-        d[f"tm_{tag}_g"] = w(c_z, c_z)
-        d[f"tm_{tag}_z"] = w(hidden, c_z)
-        d[f"tm_{tag}_ln_g"] = np.ones((1, c_z))
-        d[f"tm_{tag}_ln2_g"] = np.ones((1, hidden))
-    for tag in ("start", "end"):
-        d[f"ta_{tag}_q"] = w(c_z, heads * head_dim)
-        d[f"ta_{tag}_k"] = w(c_z, heads * head_dim)
-        d[f"ta_{tag}_v"] = w(c_z, heads * head_dim)
-        d[f"ta_{tag}_g"] = w(c_z, heads * head_dim)
-        d[f"ta_{tag}_b"] = w(c_z, heads)
-        d[f"ta_{tag}_o"] = w(heads * head_dim, c_z)
-        d[f"ta_{tag}_ln_g"] = np.ones((1, c_z))
-    d["tr_ln_g"] = np.ones((1, c_z))
-    d["tr_a"] = w(c_z, 4 * c_z)
-    d["tr_b"] = w(c_z, 4 * c_z)
-    d["tr_o"] = w(4 * c_z, c_z)
     d["dist_ln_g"] = np.ones((1, c_z))
     d["dist"] = w(c_z, bins)
+    if not block_transition:
+        d.update(_transition_weights(rng, c_z, ""))
+    for k in range(blocks):
+        prefix = f"b{k}_"
+        for tag in ("out", "in"):
+            d[f"{prefix}tm_{tag}_a"] = w(c_z, hidden)
+            d[f"{prefix}tm_{tag}_ag"] = w(c_z, hidden)
+            d[f"{prefix}tm_{tag}_b"] = w(c_z, hidden)
+            d[f"{prefix}tm_{tag}_bg"] = w(c_z, hidden)
+            d[f"{prefix}tm_{tag}_g"] = w(c_z, c_z)
+            d[f"{prefix}tm_{tag}_z"] = w(hidden, c_z)
+            d[f"{prefix}tm_{tag}_ln_g"] = np.ones((1, c_z))
+            d[f"{prefix}tm_{tag}_ln2_g"] = np.ones((1, hidden))
+        for tag in ("start", "end"):
+            d[f"{prefix}ta_{tag}_q"] = w(c_z, heads * head_dim)
+            d[f"{prefix}ta_{tag}_k"] = w(c_z, heads * head_dim)
+            d[f"{prefix}ta_{tag}_v"] = w(c_z, heads * head_dim)
+            d[f"{prefix}ta_{tag}_g"] = w(c_z, heads * head_dim)
+            d[f"{prefix}ta_{tag}_b"] = w(c_z, heads)
+            d[f"{prefix}ta_{tag}_o"] = w(heads * head_dim, c_z)
+            d[f"{prefix}ta_{tag}_ln_g"] = np.ones((1, c_z))
+        if block_transition:
+            d.update(_transition_weights(rng, c_z, prefix))
     return d
 
 
@@ -91,95 +171,135 @@ def torch_chain(logits, W, cfg):
     heads, head_dim, hidden = cfg["heads"], cfg["head_dim"], cfg["hidden"]
     n = logits.shape[0]
     scale = head_dim ** -0.5
+    blocks = int(cfg.get("blocks", 1))
+    block_transition = bool(cfg.get("block_transition", False))
 
     def ln(x, g):
         mu = x.mean(-1, keepdim=True)
         xc = x - mu
         return xc * torch.rsqrt((xc * xc).mean(-1, keepdim=True) + 1e-6) * g
 
+    def transition(z, prefix):
+        zn = ln(z, W[f"{prefix}tr_ln_g"])
+        swi = torch.nn.functional.silu(zn @ W[f"{prefix}tr_a"]) * (zn @ W[f"{prefix}tr_b"])
+        return z + swi @ W[f"{prefix}tr_o"]
+
     p = torch.softmax(logits, dim=-1)
     s = p @ W["emb_s"]
     z = (s @ W["pair_i"]).unsqueeze(1) + (s @ W["pair_j"]).unsqueeze(0)
 
-    for tag, incoming in (("out", False), ("in", True)):
-        zn = ln(z, W[f"tm_{tag}_ln_g"])
-        a = torch.sigmoid(zn @ W[f"tm_{tag}_ag"]) * (zn @ W[f"tm_{tag}_a"])
-        b = torch.sigmoid(zn @ W[f"tm_{tag}_bg"]) * (zn @ W[f"tm_{tag}_b"])
-        x = (torch.einsum("kic,kjc->ijc", a, b) if incoming
-             else torch.einsum("ikc,jkc->ijc", a, b))
-        x = ln(x, W[f"tm_{tag}_ln2_g"])
-        gate = torch.sigmoid(zn @ W[f"tm_{tag}_g"])
-        z = z + gate * (x @ W[f"tm_{tag}_z"])
+    for k in range(blocks):
+        pre = f"b{k}_"
+        for tag, incoming in (("out", False), ("in", True)):
+            zn = ln(z, W[f"{pre}tm_{tag}_ln_g"])
+            a = torch.sigmoid(zn @ W[f"{pre}tm_{tag}_ag"]) * (zn @ W[f"{pre}tm_{tag}_a"])
+            b = torch.sigmoid(zn @ W[f"{pre}tm_{tag}_bg"]) * (zn @ W[f"{pre}tm_{tag}_b"])
+            x = (torch.einsum("kic,kjc->ijc", a, b) if incoming
+                 else torch.einsum("ikc,jkc->ijc", a, b))
+            x = ln(x, W[f"{pre}tm_{tag}_ln2_g"])
+            gate = torch.sigmoid(zn @ W[f"{pre}tm_{tag}_g"])
+            z = z + gate * (x @ W[f"{pre}tm_{tag}_z"])
 
-    for tag in ("start", "end"):
-        zin = z.permute(1, 0, 2) if tag == "end" else z
-        zn = ln(zin, W[f"ta_{tag}_ln_g"])
-        def heads_of(key):
-            return (zn @ W[f"ta_{tag}_{key}"]).reshape(n, n, heads, head_dim).permute(0, 2, 1, 3)
-        q, k, v, g = (heads_of(x) for x in ("q", "k", "v", "g"))
-        bias = (zn @ W[f"ta_{tag}_b"]).permute(2, 0, 1).unsqueeze(0)
-        o = torch.softmax(q @ k.transpose(-2, -1) * scale + bias, dim=-1) @ v
-        o = o * torch.sigmoid(g)
-        o = o.permute(0, 2, 1, 3).reshape(n, n, heads * head_dim)
-        upd = o @ W[f"ta_{tag}_o"]
-        z = z + (upd.permute(1, 0, 2) if tag == "end" else upd)
+        for tag in ("start", "end"):
+            zin = z.permute(1, 0, 2) if tag == "end" else z
+            zn = ln(zin, W[f"{pre}ta_{tag}_ln_g"])
 
-    zn = ln(z, W["tr_ln_g"])
-    swi = torch.nn.functional.silu(zn @ W["tr_a"]) * (zn @ W["tr_b"])
-    z = z + swi @ W["tr_o"]
+            def heads_of(key):
+                return ((zn @ W[f"{pre}ta_{tag}_{key}"])
+                        .reshape(n, n, heads, head_dim).permute(0, 2, 1, 3))
+            q, k_, v, g = (heads_of(x) for x in ("q", "k", "v", "g"))
+            bias = (zn @ W[f"{pre}ta_{tag}_b"]).permute(2, 0, 1).unsqueeze(0)
+            o = torch.softmax(q @ k_.transpose(-2, -1) * scale + bias, dim=-1) @ v
+            o = o * torch.sigmoid(g)
+            o = o.permute(0, 2, 1, 3).reshape(n, n, heads * head_dim)
+            upd = o @ W[f"{pre}ta_{tag}_o"]
+            z = z + (upd.permute(1, 0, 2) if tag == "end" else upd)
+
+        if block_transition:
+            z = transition(z, pre)
+
+    if not block_transition:
+        z = transition(z, "")
     return ln(z, W["dist_ln_g"]) @ W["dist"]
 
 
 def tt_chain(ag, ttnn, logits, W, cfg):
-    """The same chain on device, on the tape. Every op here is gradchecked individually."""
-    heads, head_dim, hidden = cfg["heads"], cfg["head_dim"], cfg["hidden"]
+    """The same chain on device, on the tape. Every op here is gradchecked individually.
+
+    `cfg["blocks"]` sequential units; a unit is `_block` alone, or `_block` + the pair
+    transition when `cfg["block_transition"]` is set, which is AF2's actual pair block. With
+    the transition outside the unit it stays where it always was, once, before the head.
+    """
     n = int(logits.value.shape[0])
-    scale = head_dim ** -0.5
+    scale = cfg["head_dim"] ** -0.5
+    blocks = int(cfg.get("blocks", 1))
+    block_transition = bool(cfg.get("block_transition", False))
 
     p = ag.softmax(logits, dim=-1)
     s = ag.linear(p, W["emb_s"])
     zi, zj = ag.linear(s, W["pair_i"]), ag.linear(s, W["pair_j"])
-    c_z = int(zi.value.shape[-1])
     z = ag.add(_expand(ag, ttnn, zi, n, rows=True), _expand(ag, ttnn, zj, n, rows=False))
 
-    if cfg.get("checkpoint"):
-        # One checkpoint per pairformer block, which is the granularity the study called for.
-        z = ag.checkpoint(lambda zz: _block(ag, zz, W, cfg, n, scale), z)
-    else:
-        z = _block(ag, z, W, cfg, n, scale)
-    zn = ag.layer_norm(z, W["tr_ln_g"])
-    ta = ag.linear(zn, W["tr_a"])
-    swi = ag.mul(ag.mul(ta, ag.sigmoid(ta)), ag.linear(zn, W["tr_b"]))
-    z = ag.add(z, ag.linear(swi, W["tr_o"]))
+    for k in range(blocks):
+        if cfg.get("checkpoint"):
+            # One checkpoint per unit, which is the granularity the study called for. The
+            # `pre=` default argument is MANDATORY: closing over `k` directly makes every
+            # recompute use the LAST block's weights, which changes no shape, raises no error
+            # and makes the timing meaningless.
+            z = ag.checkpoint(
+                lambda zz, pre=f"b{k}_": _unit(ag, zz, W, cfg, n, scale, prefix=pre), z)
+        else:
+            z = _unit(ag, z, W, cfg, n, scale, prefix=f"b{k}_")
+
+    if not block_transition:
+        z = _transition(ag, z, W, prefix="")
     return ag.linear(ag.layer_norm(z, W["dist_ln_g"]), W["dist"])
 
 
-def _block(ag, z, W, cfg, n, scale):
+def _unit(ag, z, W, cfg, n, scale, prefix):
+    z = _block(ag, z, W, cfg, n, scale, prefix=prefix)
+    if cfg.get("block_transition"):
+        z = _transition(ag, z, W, prefix=prefix)
+    return z
+
+
+def _transition(ag, z, W, prefix=""):
+    """SwiGLU pair transition, AF2's `c_z -> 4*c_z -> c_z`."""
+    zn = ag.layer_norm(z, W[f"{prefix}tr_ln_g"])
+    ta = ag.linear(zn, W[f"{prefix}tr_a"])
+    swi = ag.mul(ag.mul(ta, ag.sigmoid(ta)), ag.linear(zn, W[f"{prefix}tr_b"]))
+    return ag.add(z, ag.linear(swi, W[f"{prefix}tr_o"]))
+
+
+def _block(ag, z, W, cfg, n, scale, prefix=""):
     """trimul outgoing, trimul incoming, tri-attention starting, tri-attention ending."""
     heads, head_dim = cfg["heads"], cfg["head_dim"]
     for tag, incoming in (("out", False), ("in", True)):
-        zn = ag.layer_norm(z, W[f"tm_{tag}_ln_g"])
-        a = ag.mul(ag.sigmoid(ag.linear(zn, W[f"tm_{tag}_ag"])), ag.linear(zn, W[f"tm_{tag}_a"]))
-        b = ag.mul(ag.sigmoid(ag.linear(zn, W[f"tm_{tag}_bg"])), ag.linear(zn, W[f"tm_{tag}_b"]))
-        x = ag.layer_norm(ag.pair_contract(a, b, incoming=incoming), W[f"tm_{tag}_ln2_g"])
-        gate = ag.sigmoid(ag.linear(zn, W[f"tm_{tag}_g"]))
-        z = ag.add(z, ag.mul(gate, ag.linear(x, W[f"tm_{tag}_z"])))
+        zn = ag.layer_norm(z, W[f"{prefix}tm_{tag}_ln_g"])
+        a = ag.mul(ag.sigmoid(ag.linear(zn, W[f"{prefix}tm_{tag}_ag"])),
+                   ag.linear(zn, W[f"{prefix}tm_{tag}_a"]))
+        b = ag.mul(ag.sigmoid(ag.linear(zn, W[f"{prefix}tm_{tag}_bg"])),
+                   ag.linear(zn, W[f"{prefix}tm_{tag}_b"]))
+        x = ag.layer_norm(ag.pair_contract(a, b, incoming=incoming),
+                          W[f"{prefix}tm_{tag}_ln2_g"])
+        gate = ag.sigmoid(ag.linear(zn, W[f"{prefix}tm_{tag}_g"]))
+        z = ag.add(z, ag.mul(gate, ag.linear(x, W[f"{prefix}tm_{tag}_z"])))
 
     for tag in ("start", "end"):
         zin = ag.permute(z, (1, 0, 2)) if tag == "end" else z
-        zn = ag.layer_norm(zin, W[f"ta_{tag}_ln_g"])
+        zn = ag.layer_norm(zin, W[f"{prefix}ta_{tag}_ln_g"])
 
         def heads_of(key):
-            h = ag.linear(zn, W[f"ta_{tag}_{key}"])
+            h = ag.linear(zn, W[f"{prefix}ta_{tag}_{key}"])
             return ag.permute(ag.reshape(h, [n, n, heads, head_dim]), (0, 2, 1, 3))
         q, k, v, g = (heads_of(x) for x in ("q", "k", "v", "g"))
-        bias = ag.reshape(ag.permute(ag.linear(zn, W[f"ta_{tag}_b"]), (2, 0, 1)),
+        bias = ag.reshape(ag.permute(ag.linear(zn, W[f"{prefix}ta_{tag}_b"]), (2, 0, 1)),
                           [1, heads, n, n])
         o = ag.triangle_attention(q, k, v, bias, scale=scale,
                                   chunk=cfg["chunk"], q_chunk=cfg["chunk"])
         o = ag.mul(o, ag.sigmoid(g))
         o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [n, n, heads * head_dim])
-        upd = ag.linear(o, W[f"ta_{tag}_o"])
+        upd = ag.linear(o, W[f"{prefix}ta_{tag}_o"])
         z = ag.add(z, ag.permute(upd, (1, 0, 2)) if tag == "end" else upd)
     return z
 
@@ -214,8 +334,13 @@ def main():
     ap.add_argument("--chunk", type=int, default=None)
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--eps", type=float, default=None)
+    ap.add_argument("--blocks", type=int, default=1,
+                    help="number of sequential pairformer units in the chain")
+    ap.add_argument("--block-transition", action="store_true",
+                    help="put the pair transition INSIDE each unit (AF2's real pair block); "
+                         "off keeps the single trailing transition this file always had")
     ap.add_argument("--checkpoint", action="store_true",
-                    help="recompute the pairformer block inside its own backward")
+                    help="recompute each pairformer unit inside its own backward")
     ap.add_argument("--skip-reference", action="store_true",
                     help="skip the float64 chain (it is O(N^3) on CPU); keep the directional check")
     args = ap.parse_args()
@@ -229,10 +354,12 @@ def main():
     threading.Thread(target=clocks_thread, args=(stop, clocks), daemon=True).start()
 
     cfg = dict(heads=args.heads, head_dim=args.head_dim, hidden=args.c_z,
-               chunk=args.chunk, checkpoint=args.checkpoint)
+               chunk=args.chunk, checkpoint=args.checkpoint, blocks=args.blocks,
+               block_transition=args.block_transition)
     rng = np.random.default_rng(args.seed)
     n, bins = args.n, args.bins
-    Wnp = make_weights(rng, args.c_s, args.c_z, args.heads, args.head_dim, args.c_z, bins)
+    Wnp = make_weights(rng, args.c_s, args.c_z, args.heads, args.head_dim, args.c_z, bins,
+                       blocks=args.blocks, block_transition=args.block_transition)
     logits_np = rng.standard_normal((n, VOCAB))
     target_np = rng.random((n, n, bins))
     target_np /= target_np.sum(-1, keepdims=True)
@@ -279,9 +406,11 @@ def main():
     g_dev = ttnn.to_torch(lt.grad).to(torch.float64).numpy()
 
     print(f"# N={n} c_z={args.c_z} heads={args.heads} head_dim={args.head_dim} bins={bins} "
-          f"chunk={args.chunk} checkpoint={args.checkpoint}")
-    print(f"# one pairformer block: trimul out, trimul in, tri-attention start, "
-          f"tri-attention end, transition")
+          f"chunk={args.chunk} checkpoint={args.checkpoint} blocks={args.blocks} "
+          f"block_transition={args.block_transition}")
+    print(f"# {args.blocks} pairformer unit(s): trimul out, trimul in, tri-attention start, "
+          f"tri-attention end" + (", transition (in unit)" if args.block_transition
+                                  else "; one trailing transition"))
     print(f"# loss {base_loss:.6f}   forward {t_fwd:.3f} s   backward {t_bwd:.3f} s   "
           f"bwd/fwd {t_bwd / t_fwd:.2f}")
     print(f"# |grad| = {np.linalg.norm(g_dev):.6e} over {g_dev.size} logits")
