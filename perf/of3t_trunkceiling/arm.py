@@ -84,7 +84,9 @@ def main() -> int:
     sys.argv = ["dev_cot.py"] + rest
     rc = dev_cot.main()
 
-    stats = {n: dict(v) for n, v in sorted(vars(T).items())
+    # str() the keys: two of the package's counters are keyed by a shape tuple, and json
+    # refuses those. A census that dies on serialisation loses the arm it was measuring.
+    stats = {n: {str(k): v2 for k, v2 in v.items()} for n, v in sorted(vars(T).items())
              if n.endswith("_STATS") and isinstance(v, dict)}
     stats["SOFTMAX_BW_RENORM_STATS"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
     census = {
