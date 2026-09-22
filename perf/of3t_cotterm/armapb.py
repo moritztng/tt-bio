@@ -32,9 +32,12 @@ import os
 import sys
 import time
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in ("", "perf/of3t_apbleaf", "perf/of3t_trunkg043", "perf/of3t_gradients", "perf/of3t_cotterm"):
-    sys.path.insert(0, os.path.join(_ROOT, _p) if _p else _ROOT)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import trees                                                              # noqa: E402
+
+_ROOT = trees.ROOT
+_PATHS = trees.install()          # spliced once, so the root wins as written (D149)
 
 
 def main() -> int:
@@ -53,6 +56,11 @@ def main() -> int:
 
     import apbmath
     import armln
+
+    # The trees that answered, read back. A path constant is a request, not a resolution: this
+    # refuses if `tt_bio` came from anywhere but the worktree under test, and the dict lands in
+    # every artifact below so a reader sees which trees produced the numbers (D149).
+    TREES = trees.resolved(require=[("tt_bio", _ROOT)])
 
     CKPT = "/home/ttuser/of3-weights/of3-p2-155k.pt"
     sd = torch.load(CKPT, map_location="cpu", weights_only=False, mmap=True)
@@ -133,9 +141,9 @@ def main() -> int:
     sites = {i: e for i, e in sorted(CAP.items())
              if all(k in e for k in ("a", "bias", "do"))}
     torch.save({"sites": sites, "host": os.uname().nodename, "real_rows": a.real_rows,
-                "state": STATE, "errors": ERR}, a.apb_out)
+                "state": STATE, "errors": ERR, "trees": TREES}, a.apb_out)
     print(json.dumps({"apb_out": a.apb_out, "sites": len(sites),
-                      "host": os.uname().nodename, "state": STATE,
+                      "host": os.uname().nodename, "state": STATE, "trees": TREES,
                       "missing": [i for i in range(48) if i not in sites],
                       "errors": ERR[:4],
                       "seconds": round(time.perf_counter() - t0, 1)}), flush=True)

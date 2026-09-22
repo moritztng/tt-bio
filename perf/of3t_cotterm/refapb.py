@@ -31,9 +31,12 @@ import os
 import sys
 import time
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in ("", "perf/of3t_apbleaf", "perf/of3t_cotterm"):
-    sys.path.insert(0, os.path.join(_ROOT, _p) if _p else _ROOT)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import trees                                                              # noqa: E402
+
+_ROOT = trees.ROOT
+_PATHS = trees.install(("", "perf/of3t_apbleaf", "perf/of3t_cotterm"))
 
 import torch                                                              # noqa: E402
 
@@ -107,14 +110,20 @@ def main() -> int:
     sys.argv = ["refln.py"] + rest
     rc = refln.main()
 
+    # `refln.main()` is what puts the reference tree on sys.path and imports openfold3, so the
+    # resolution is read back AFTER it rather than from the constant that asked for it. refln
+    # already refuses a tree that is not the one it was pointed at; this records which one
+    # answered, in this row's own artifact (D149).
+    TREES = trees.resolved()
+
     R = a.real_rows
     sites = {i: e for i, e in sorted(CAP.items())
              if all(k in e for k in ("a", "bias", "do"))}
     torch.save({"sites": sites, "policy": "f64", "host": os.uname().nodename,
-                "keep_z_block": a.keep_z_block, "real_rows": R,
+                "keep_z_block": a.keep_z_block, "real_rows": R, "trees": TREES,
                 "fires": sorted(set(FIRES.values())), "errors": ERR}, a.apb_out)
     print(json.dumps({"apb_out": a.apb_out, "sites": len(sites),
-                      "host": os.uname().nodename,
+                      "host": os.uname().nodename, "trees": TREES,
                       "missing": [i for i in range(48) if i not in sites],
                       "fires": sorted(set(FIRES.values())), "errors": ERR[:4],
                       "seconds": round(time.perf_counter() - t0, 1)}), flush=True)
