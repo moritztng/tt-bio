@@ -1,0 +1,252 @@
+{
+ "bars": {
+  "per_tensor": 0.05,
+  "median": 0.02
+ },
+ "a14_zero_ref": 1e-12,
+ "scoring": "of3t-orchestrator revision/d8_vs_endnode.py, unchanged",
+ "arms": {
+  "block 0  shipped": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block0_r0_crop64.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.06480958521787593,
+    "median_inside_bar": false,
+    "over_bar": 36,
+    "over_bar_norm_share": 0.23715030323112105,
+    "worst": 1.3207791641510027,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.weight",
+    "forward_z_masked": 0.007811127425918425,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block0_crop64_tbshipped.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.012135513239367901,
+    "median_inside_bar": true,
+    "over_bar": 9,
+    "over_bar_norm_share": 0.05118112149911673,
+    "worst": 0.9138911451654851,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight",
+    "forward_z_masked": 0.0034842882746024505,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "direction": "better",
+   "median_ratio_old_over_new": 5.34048984493149
+  },
+  "block 0  tb-off": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block0_r0_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.011475015405310745,
+    "median_inside_bar": true,
+    "over_bar": 7,
+    "over_bar_norm_share": 0.018557382689758952,
+    "worst": 0.7917975607637584,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+    "forward_z_masked": 0.003547891379158123,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block0_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.07397801501415792,
+    "median_inside_bar": false,
+    "over_bar": 37,
+    "over_bar_norm_share": 0.2410032622227681,
+    "worst": 1.0479890296400913,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_att_end.linear_z.weight",
+    "forward_z_masked": 0.007776812526565146,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "direction": "WORSE",
+   "median_ratio_old_over_new": 0.1551138592068827
+  },
+  "block 23 shipped": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block23_r0_crop64_tbshipped.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.09304022153637678,
+    "median_inside_bar": false,
+    "over_bar": 46,
+    "over_bar_norm_share": 0.6409741655958922,
+    "worst": 11.391449190884646,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.008780122024683496,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block23_crop64_tbshipped.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.01919069614011403,
+    "median_inside_bar": true,
+    "over_bar": 15,
+    "over_bar_norm_share": 0.2504428553527,
+    "worst": 5.741911456294123,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.00411585903245472,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "direction": "better",
+   "median_ratio_old_over_new": 4.848194190407516
+  },
+  "block 23 tb-off": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block23_r0_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.01743431268710607,
+    "median_inside_bar": true,
+    "over_bar": 12,
+    "over_bar_norm_share": 0.5365432490612003,
+    "worst": 11.119852728873756,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.004044989164883495,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block23_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.10076425650305254,
+    "median_inside_bar": false,
+    "over_bar": 46,
+    "over_bar_norm_share": 0.6995327675588303,
+    "worst": 5.52091979360528,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.009370297604187212,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "direction": "WORSE",
+   "median_ratio_old_over_new": 0.1730208041239099
+  },
+  "block 47 shipped": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block47_r0_crop64_tbshipped.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.42697605188559656,
+    "median_inside_bar": false,
+    "over_bar": 52,
+    "over_bar_norm_share": 1.0,
+    "worst": 2.9856843646174798,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.010138235465136822,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block47_crop64_tbshipped.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.20128904136799777,
+    "median_inside_bar": false,
+    "over_bar": 52,
+    "over_bar_norm_share": 1.0,
+    "worst": 33.08190724677101,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.00881554916676457,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": true
+   },
+   "direction": "better",
+   "median_ratio_old_over_new": 2.1212086310500955
+  },
+  "block 47 tb-off": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_block47_r0_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.40038596445025953,
+    "median_inside_bar": false,
+    "over_bar": 52,
+    "over_bar_norm_share": 1.0,
+    "worst": 1.4067543323995533,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.00939518850017173,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "against_0.4.3": {
+    "file": "instrument_a_bundle_043spb_block47_crop64_tboff.json",
+    "n": 52,
+    "n_dropped_by_a14": 1,
+    "median": 0.23857940295008812,
+    "median_inside_bar": false,
+    "over_bar": 52,
+    "over_bar_norm_share": 1.0,
+    "worst": 33.265665013881694,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight",
+    "forward_z_masked": 0.00940677319945046,
+    "upstream_revision": "0.4.3",
+    "scale_pair_bias": false,
+    "transpose_bias": false
+   },
+   "direction": "better",
+   "median_ratio_old_over_new": 1.678208426626091
+  }
+ },
+ "stacks": {
+  "stack 0..47 shipped": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_stack0_47_n384.json",
+    "n": 2448,
+    "n_dropped_by_a14": 48,
+    "median": 1.8886004059388757,
+    "median_inside_bar": false,
+    "over_bar": 2448,
+    "over_bar_norm_share": 1.0,
+    "worst": 19647.426127643113,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.bias",
+    "forward_z_masked": 0.2791900660723178,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": true,
+    "transpose_bias": true
+   },
+   "against_0.4.3": null
+  },
+  "stack 0..47 tb-off": {
+   "against_0.5.0": {
+    "file": "instrument_a_bundle_stack0_47_n384_tboff.json",
+    "n": 2448,
+    "n_dropped_by_a14": 48,
+    "median": 5.663934999545302,
+    "median_inside_bar": false,
+    "over_bar": 2448,
+    "over_bar_norm_share": 1.0,
+    "worst": 98529.08202263911,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.bias",
+    "forward_z_masked": 0.049652802052828265,
+    "upstream_revision": "0.5.0",
+    "scale_pair_bias": true,
+    "transpose_bias": false
+   },
+   "against_0.4.3": null
+  }
+ }
+}

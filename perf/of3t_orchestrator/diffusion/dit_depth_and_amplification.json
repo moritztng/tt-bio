@@ -1,0 +1,54 @@
+{
+ "correction": "PASS 119 published D29 with the wrong axis. `accumulation_probe` and `forward_rel` in device_gradient_043*.json are indexed by DIFFUSION STRUCTURE (sample), not by pairformer block: structures_done is [0..47] and device_gradient_043.py loops over structures. Worse, `accumulation_probe` is not an error at all -- the loop appends the NORM of one arbitrary parameter's ACCUMULATED gradient after each structure, then breaks. Its 26.68x growth is the accumulating gradient building up over 48 samples, carrying no parity information whatever. It should not appear in a parity summary. Pass 116 quoted it as a warning sign and pass 119 corrected its exponent; both were arguing about a quantity that was never a parity measure.",
+ "what_the_48_long_arrays_really_are": {
+  "axis": "diffusion structure (sample), 48 of them",
+  "accumulation_probe": "norm of one fixed parameter's ACCUMULATED gradient after k+1 structures",
+  "forward_rel": "device-vs-reference forward relative error for that structure"
+ },
+ "genuine_depth_evidence_dit_truncation_ladder": {
+  "source": "dit_depth_ladder_043.json -- DiT truncated to d blocks on BOTH sides, real captured activations, device FLOAT32 vs reference float64",
+  "depths": [
+   1,
+   2,
+   4,
+   8,
+   16,
+   24
+  ],
+  "rel_real": [
+   0.003447861096525667,
+   0.005271724921478168,
+   0.0053803244781614416,
+   0.007793169569769067,
+   0.015350452831831441,
+   0.021680430067684518
+  ],
+  "rel": [
+   0.0044849411813475595,
+   0.0035251927318216488,
+   0.003927586963039127,
+   0.007524065355961636,
+   0.012311260285534599,
+   0.013771177789274988
+  ],
+  "growth_1_to_24_rel_real": 6.288081062642403,
+  "loglog_exponent_rel_real": 0.5531385809983561,
+  "loglog_r2_rel_real": 0.9307122970850795,
+  "loglog_exponent_rel": 0.43529454765656156,
+  "loglog_r2_rel": 0.8059720135626534,
+  "reference_growth_over_24_blocks": {
+   "random_walk_k^0.5": 4.898979485566356,
+   "coherent_sum_k^1.0": 24.0
+  },
+  "reading": "the DiT forward error DOES grow with depth -- 6.29x over 24 blocks -- but at k^0.55, barely above a random walk (k^0.5, x4.90) and far below a coherent sum (k^1.0, x24.0). Sub-linear, so still not amplification, but unlike the probe this IS a depth axis and the growth is real."
+ },
+ "forward_to_gradient_amplification": {
+  "diffusion_forward_rel_median_per_structure": 0.008474800850934073,
+  "diffusion_gradient_median_all48": 0.16588485538135056,
+  "ratio": 19.573894218772956,
+  "dit_ladder_forward_at_full_depth": 0.021680430067684518,
+  "ratio_against_ladder": 7.651363688979956,
+  "reading": "the diffusion FORWARD agrees to 0.85 % per structure and the diffusion GRADIENT is 16.6 % out. The backward costs a factor of 19.6x over the forward it is taken at. Against the DiT truncation ladder at full depth (2.168 %) the factor is 7.7x. Either way the diffusion failure is BACKWARD-specific and is not inherited from a bad forward."
+ },
+ "what_survives_from_passes_118_119": "D27 (lever orthogonality across blocks 0/23/47) and D26 and D28 come from the per-BLOCK instrument-A bundles and are untouched by this correction. The s_fp32_residual hypothesis uses per-block probe s_norm/z_norm from those same bundles and is untouched. Only D29 and D28's scoping paragraph cited the 48-long arrays as per-block, and both are corrected here."
+}

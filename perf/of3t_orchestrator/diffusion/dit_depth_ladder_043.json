@@ -1,0 +1,46 @@
+{
+ "ladder": {
+  "1": {
+   "rel": 0.0044849411813475595,
+   "rel_real": 0.003447861096525667
+  },
+  "2": {
+   "rel": 0.0035251927318216488,
+   "rel_real": 0.005271724921478168
+  },
+  "4": {
+   "rel": 0.003927586963039127,
+   "rel_real": 0.0053803244781614416
+  },
+  "8": {
+   "rel": 0.007524065355961636,
+   "rel_real": 0.007793169569769067
+  },
+  "16": {
+   "rel": 0.012311260285534599,
+   "rel_real": 0.015350452831831441
+  },
+  "24": {
+   "rel": 0.013771177789274988,
+   "rel_real": 0.021680430067684518
+  }
+ },
+ "struct": 0,
+ "reference_revision": {
+  "tree": "/home/ttuser/of3t_rebase/of3pkg043",
+  "version": "0.4.3",
+  "transpose_bias_true_in_base_blocks": 0,
+  "has_DiffusionAttentionPairBias": false,
+  "load": {
+   "missing": 1,
+   "unexpected": 0,
+   "missing_keys": [
+    "version_tensor"
+   ]
+  }
+ },
+ "inputs": "real captured activations, DiT truncated to d blocks on BOTH sides",
+ "dtype_device": "DataType.FLOAT32",
+ "dtype_reference": "float64",
+ "tenancy": "2"
+}
