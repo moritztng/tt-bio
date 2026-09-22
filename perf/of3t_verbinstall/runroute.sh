@@ -42,7 +42,7 @@ source /home/ttuser/tt-bio-dev/env/bin/activate
 env "${ENVS[@]}" \
   TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=1,0 TT_BIO_LEASE_HOLDER=worker:of3t-verbinstall \
   OMP_NUM_THREADS=8 PYTHONPATH="$W" \
-  timeout 3000 python3 perf/of3t_verbinstall/routearm.py \
+  timeout ${ARM_TIMEOUT:-7200} python3 perf/of3t_verbinstall/routearm.py \
     --suppress-out "$SMX" --census-out "$CEN" \
     --lever "$LEVER" -- \
     --boundary "$B" --cap-last "$C" --out "$OUT" \
