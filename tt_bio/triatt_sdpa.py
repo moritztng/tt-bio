@@ -482,6 +482,10 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     the attention output `[B, n_heads, S, head_dim]`; the caller still owns the gate and the output
     projection.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the composed path runs instead
+
     if not (_FUSE_QKV or force) or bias is None:
         return None
     if not _ENABLED:
