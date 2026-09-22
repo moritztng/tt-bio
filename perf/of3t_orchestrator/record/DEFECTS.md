@@ -1657,3 +1657,35 @@ it appears in the trunk.**
 `single_transition` is also where the campaign's original kickoff lead pointed, for the opposite
 reason: it was *"the one sub-module with no attention and no pair coupling"* and the only one
 under the bar. It holds 14.87 % of the trunk's error at block 0.
+
+### D230. The mechanised form of Moritz's inference hard stop has never been run by anything. FOUND at pass 369 by the orchestrator. FIXED — the compose runs it now.
+
+`perf/of3t_d137tapegate/assert_gate_is_on_the_tape.py` checks the one property that keeps the
+host float64 softmax off every inference path: the route opens only on `ops.host_softmax_hook()`,
+a slot only `autograd.install` fills, **so a fold with no tape open has no route to it whatever
+`TT_BIO_HOST_F64_SOFTMAX_AB` is set to.** That is Moritz's 2026-09-21 constraint in executable
+form — *"make sure regular inference is not changed to softmax fp64, not made slower... i dont
+want to see regression in inference."*
+
+**Nothing in the tree referenced it.** Not `compose_verify.sh`, not a test, not another script.
+
+**And that is mine, not a row's.** Its own docstring records the reasoning: *"This lives in the
+row's own directory rather than in the orchestrator's gate, per STANDING pass 272: a row that can
+edit the gate checking its own lever does not have a gate. The state doc hands the orchestrator
+the same check in the terms its file should read, **and the orchestrator decides**."* D137 did
+exactly the right thing and handed me a decision I never made.
+
+**It became load-bearing this pass.** `of3t-f64route` extended it by 107 lines to cover the
+`_fp32_softmax_attention` route it opened for D225, and that row changes **`tt_bio/tenstorrent.py`
+and `tt_bio/af2.py`** — shipped code on the shared triangle path. An unrun guard is harmless right
+up to the moment something it guards starts moving.
+
+Wired into `compose_verify.sh` at pass 369. It passes on the composed tree and both its probes
+fire. The composition's separate default-off probes also fired with the new routing in place
+(*"host float64 softmax off at every site (both probes fired)"*), so two independent checks now
+cover the constraint.
+
+**The general shape**: a guard placed outside the gate for a good reason still needs someone to
+adopt it, and "the orchestrator decides" is only a safeguard if the orchestrator then decides.
+The campaign has a ratchet for concluded rows whose findings never reach the ledger (D204); it
+had none for a row's guard that never reaches the gate.

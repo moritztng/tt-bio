@@ -354,7 +354,11 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               required factor, 5.25 % left** — the biggest of them being the host float64
               softmax at **1.8556x** (trunk 1.029395337772341 -> **0.5547455957585244**), which
               had **never been on the route** (D225: 0 served / 0 declined / 0 refused;
-              unreachable at eight sites across three models; owner `of3t-f64route`) and which
+              unreachable at eight sites across three models; **`of3t-f64route` has now landed the route
+              on its branch** — the gate moved into `host_softmax_or_none`, `TriangleAttention`
+              takes a `softmax_site`, and `HOST_F64_SOFTMAX_STATS` gained a `selected` counter
+              bumped at CONSTRUCTION so an unreached selector reports itself; the measurements
+              it owes are the agreement with 0.5547455957585244 and the inference A/B) and which
               is **additive with the shipped renorm**, not substitutable (D226). The softmax
               axis is now closed in both tracks, forward and backward, at **1.0004x** for the
               last of it.
@@ -462,7 +466,7 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred twenty-nine defects filed**, **85 UNFIXED** (5
+concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred thirty defects filed**, **85 UNFIXED** (5
 scope-excluded, 6 USER-FACING, 74 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
@@ -1537,3 +1541,33 @@ and the common op is coincidence. Asked `of3t-apbleaf` to measure that before an
 *"the one sub-module with no attention and no pair coupling"* and the only one under the bar.
 
 **Two rows, two refutations of premises I wrote, both making the target smaller and sharper.**
+
+
+## Pass 369 — the executable form of Moritz's inference hard stop had never been run
+
+`of3t-f64route` landed the D225 route on its branch: the gate moves into `host_softmax_or_none`
+so both routes ask it, `TriangleAttention` takes a `softmax_site` the way `AttentionPairBias`
+already did, and `HOST_F64_SOFTMAX_STATS` gains **`selected`, bumped at CONSTRUCTION** — the
+never-reached counter D225 asked for, with `host_f64_softmax_reach()` comparing the two halves so
+an unreached selector reports itself at exit. Two shipped files move, `tt_bio/tenstorrent.py` and
+`tt_bio/af2.py`, on the shared triangle path. **Still owed: the agreement against
+0.5547455957585244 and the inference A/B.**
+
+**Checking that change is safe is what turned up D230.** The row extended
+`perf/of3t_d137tapegate/assert_gate_is_on_the_tape.py` by 107 lines — the check that the host
+float64 softmax opens only on `ops.host_softmax_hook()`, a slot only `autograd.install` fills, so
+an inference fold has no route to it whatever the env var says. That is Moritz's constraint in
+executable form, and **nothing in the tree ran it.** Not the compose, not a test, not another
+script.
+
+**That was mine.** Its docstring records STANDING pass 272 — *"a row that can edit the gate
+checking its own lever does not have a gate... and the orchestrator decides"* — so D137 placed it
+correctly and handed me a decision I never made. It was harmless until this pass, when a row
+started changing the code it guards.
+
+Wired into `compose_verify.sh`, which now reports *"the host float64 softmax opens only on an
+installed tape, through one gate (4 negative probes fired, positive control clean)"* alongside
+the separate default-off probes. Two independent checks on the hard stop, both green.
+
+**The general shape**: the campaign has a ratchet for a concluded row's findings that never reach
+the ledger (D204). It had none for a row's GUARD that never reaches the gate.
