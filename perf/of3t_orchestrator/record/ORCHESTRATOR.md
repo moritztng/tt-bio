@@ -868,28 +868,26 @@ precision on mass already inside the bar, another softmax configuration, or call
 gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random cosine is a
 missing term, not rounding.
 
-VERDICT: PARTIAL, re-stamped pass 334, 2026-09-22 — **still working, which is what PARTIAL means.**
+VERDICT: PARTIAL, re-stamped pass 335, 2026-09-22 — **still working, which is what PARTIAL means.**
 **Ninety-four** of3t rows concluded, **one hundred eighty-six defects** filed, **sixty UNFIXED**,
 counted over the UNION of `DEFECTS.md` and its rotation archives because the live file holds only
 the tail. The exit criterion is machine-readable and reads **0 of 3**
 (`state/of3t/CHARTER_EVIDENCE.json`, regenerated from the composition every compose, spec lifted
 from the live gate so the two cannot drift).
 
-**The distance still to go, recomputed pass 333 per tensor against upstream's own step.**
-**48.1831 %** of the model's gradient mass is AT OR BETTER than upstream's own bf16 step, tensor
-by tensor; **49.8019 %** is worse; **2.0150 %** has no reading on the shipped arm. Mass-weighted
-over the same union we read 0.520124 against the A26 bar of 0.147353, a 3.53x FAIL — the two point
-opposite ways because our failures concentrate in high-mass tensors. **Both are cross-frame on the
-trunk's share and D186 is why**; neither is retired, both are suspect until re-derived.
+**The distance still to go, per tensor against upstream's own step.** **48.1831 %** of the mass is
+AT OR BETTER than upstream's own bf16 step; **49.8019 %** is worse; **2.0150 %** has no reading on
+the shipped arm. Mass-weighted the same union reads 0.520124 against the A26 bar 0.147353, 3.53x —
+opposite directions because our failures concentrate in high-mass tensors. **Both are cross-frame
+on the trunk's share (D186)** and suspect until re-derived.
 
 **What is verified, and it is the larger part.** The update rule's four state-free factors — LR
 schedule, clipping, optimizer, EMA — are exact or at 1e-06 under an injected drive, with no card.
 **Outside the pairformer trunk the gradient is at upstream's own accuracy**: 0.083010 against
-float64 over 92.1568 % of the squared gradient norm, **1.1031x** upstream's own bf16 step, inside
-the A26 bar. And the twenty-step trajectory tracks upstream to **1.4553x** what their own
-bf16-mixed loop deviates from float64, sub-linear, over 88.08194359237523 % — **re-derived from
-the surviving dumps at pass 330 and now a committed artifact** (D182), where it had been prose in
-a row's state doc and in no artifact at all.
+float64 over 92.1568 % of the mass, **1.1031x** upstream's own bf16, inside the A26 bar. And the
+twenty-step trajectory tracks upstream to **1.4553x** what their own bf16-mixed loop deviates from
+float64, sub-linear, over 88.08194359237523 % — re-derived from the surviving dumps and now a
+committed artifact (D182), where it had been prose in no artifact at all.
 
 **What fails, all three at once and all with owners or a decision behind them.**
 
@@ -898,17 +896,19 @@ a row's state doc and in no artifact at all.
     TRAJECTORY  scope 36.9462 % against 99.2594 % -- and that is now its ONLY miss
     COVERAGE    9 of 11 conditional paths; 8 of 8 loss terms
 
-**The trunk: the op is the softmax backward, and the headline that made it urgent was a
-CROSS-FRAME comparison (D186, pass 334).** Substituting only the softmax backward in block 47
-recovers **51.55 %** of its error where substituting all 112 taped ops recovers 51.48 %, with the
-null bit-identical on 57 of 57. But that repair moves the model-level reading from 0.860514 to
-0.860908 — not at all — because the capture's own float64 gradient, **with no device op on its
-path**, is already 0.865188 from `grads_f64_043.pt` at cos 0.5298. Upstream's OWN float64 backward
-on that boundary reads **1.0806x worse than our device arm**, which settles that the
-comparison measures the frame, not our stack. **Frame-matched at crop 64 the trunk reads 0.9565x its floor,
-inside the bar** — D116's figure, long treated here as superseded. The model-scope 0.532795 at crop 384 is still cross-frame and **re-deriving it
-frame-matched is a measurement nobody has made**; until then neither 5.03x nor 0.9565x is the
-model-scope answer. D174's mask, D175's width law and pad content all stay refuted.
+**The trunk: the op is the softmax backward, and the headline that made it urgent was the FRAME
+(D186), now measured at TRUNK scope.** Upstream's LOCAL float64 against the MODEL float64 over all
+2,736 trunk tensors reads **1.8417** at cos 0.3651; our device arm reads 1.7043 against the same
+reference, **0.9254x the frame**; and the two leaf error profiles are the same distribution at
+**r = 0.9996**. The four LayerNorm affine leaves this campaign chased for many passes are where the
+FRAME concentrates. There IS a real device defect — frame-matched, only the softmax backward
+recovers **51.55 %** of block 47's error where all 112 taped ops recover 51.48 %, null bit-identical
+on 57 of 57 — but **frame-matched at crop 64 the trunk reads 0.9565x its floor, inside the bar**,
+which is D116's figure, long treated here as superseded. **GRADIENTS' accuracy clause inherits the
+defect**: our `renorm` arm is capture-driven and upstream's bf16 arm is full-model, so its 3.53x is
+cross-frame too. Re-deriving the model scope frame-matched is **a measurement nobody has made**;
+the one number that would fix it is upstream's own bf16 driven from the SAME capture, which is CPU
+work. D174's mask, D175's width law and pad content all stay refuted.
 
 **Two things wait on Moritz, not on measurement.** **D126**, ask **9760**, still open: on
 `origin/main` a training run computes one gradient and then exactly zero forever; the fix is two
@@ -2413,3 +2413,40 @@ crop-64 arm scored against a crop-384 reference.
 at cos 0.5298 are not interchangeable, and a ratio built from one of each measures their
 difference. **A reference is part of a measurement's identity** and belongs in the artifact beside
 the digest — `which-tree-is-the-claim-about`, applied to references rather than to trees.
+
+### Pass 335 — the frame is not a block-47 curiosity, it is the trunk, and it has the same shape as what we blamed on the port
+
+No OF3T row is live and BindCraft 2 holds new dispatches, so this pass was arithmetic on committed
+artifacts. `of3t-apbback`'s `REFVSREF.json` turns out to score the two float64 references against
+each other over **all 2,736 trunk tensors**, not only the one block its verdict quoted:
+
+    upstream's LOCAL float64 vs the MODEL float64   mass-weighted rel L2  1.841653219133536
+                                                    norm ratio            1.4642355341132198
+                                                    cos                   0.3651423770720734
+
+**Our c64 device arm reads 1.7043040667627918 against that same model reference — 0.9254x the
+frame.** A bf16 device backward closer to the model float64 than upstream's own float64 code in the
+capture frame is not a fact about our arithmetic.
+
+**And the two error distributions are one distribution.** Leaf error-mass shares, frame against
+ours, top eight, **r = 0.9996**: `pair_transition.layer_norm.weight` 59.828 % against 39.163 %,
+`.bias` 14.192 % against 10.100 %, then tri_att_start weight and bias, tri_att_end bias,
+attn_pair_bias.linear_z, pair_transition.linear_out, tri_mul_out.layer_norm_in.bias. **The four
+LayerNorm affine leaves this campaign chased for many passes are where the FRAME concentrates.** We
+were reading the reference mismatch and attributing it to the port — through D174, D175 and a good
+deal of dispatch.
+
+**What I am not concluding.** There is a real device defect: frame-matched, only the softmax
+backward recovers 51.55 % of block 47's error where all 112 taped ops recover 51.48 %, null
+bit-identical on 57 of 57. The synthesis is that the trunk's real backward error sits near
+**0.9565x its floor, inside the bar**, the softmax backward is the largest part of what remains,
+and 5.41x to 6.86x was the frame.
+
+**The gate inherits it.** GRADIENTS' accuracy clause compares our capture-driven `renorm` arm to
+upstream's full-model bf16 arm, so its 3.53x is cross-frame as well. I have written that into the
+clause's reading rather than repointing anything — there is nothing honest to repoint to yet.
+
+**The one measurement that would settle it**, named rather than dispatched: upstream's own bf16
+backward driven from the SAME capture, giving a frame-matched denominator. Upstream's code under
+bf16 autocast from a saved boundary — CPU work, no card. It is the first thing to dispatch when
+OF3T next gets a slot.

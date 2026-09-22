@@ -2434,3 +2434,51 @@ second is out of scope for it.
 references that disagree by 0.865 at cos 0.5298 are not interchangeable, and a ratio built from
 one of each measures their difference. **A reference is part of the measurement's identity** and
 belongs in the artifact beside the digest.
+
+### D186 UPDATE, pass 335. The frame is measured at TRUNK scope, not just at one block, and our device arm is 0.9254x of it with the same leaf profile at r = 0.9996
+
+`of3t-apbback`'s `REFVSREF.json` scores the two float64 references against each other over **all
+2,736 trunk tensors**, so the frame no longer rests on block 47:
+
+    upstream's LOCAL float64 vs the MODEL float64, 2,736 tensors
+      mass-weighted rel L2   1.841653219133536
+      norm ratio             1.4642355341132198
+      cos                    0.3651423770720734
+
+**Our c64 device arm reads 1.7043040667627918 against that same model reference — 0.9254x the
+frame.** A bf16 device backward is CLOSER to the model float64 than upstream's own float64 code is
+when run in the capture frame. Nothing about our arithmetic can explain that; only the frame can.
+
+**And the two error distributions are the same distribution.** Leaf error-mass shares, the frame's
+against ours, top eight, correlation **r = 0.9996**:
+
+    pair_stack.pair_transition.layer_norm.weight    59.828 %   39.163 %
+    pair_stack.pair_transition.layer_norm.bias      14.192 %   10.100 %
+    pair_stack.tri_att_start.layer_norm.weight       3.102 %    2.103 %
+    pair_stack.tri_att_start.layer_norm.bias         3.013 %    2.108 %
+    pair_stack.tri_att_end.layer_norm.bias           2.266 %    1.608 %
+    attn_pair_bias.linear_z.weight                   1.824 %    2.279 %
+    pair_stack.pair_transition.linear_out.weight     1.654 %    1.334 %
+    pair_stack.tri_mul_out.layer_norm_in.bias        1.635 %    1.258 %
+
+The four LayerNorm affine leaves this campaign chased for many passes as "where our trunk error
+concentrates" are **where the FRAME concentrates**. We were reading the reference mismatch and
+attributing it to the port.
+
+**What this does NOT say.** There is still a real device error: frame-matched, `of3t-apbback`
+measured the softmax backward as 51.55 % of block 47's error, with the null bit-identical on 57 of
+57. The honest synthesis is that **the trunk's real backward error sits near 0.9565x its floor —
+inside the bar — the softmax backward is the largest part of what remains, and the 5.41x to 6.86x
+figures were the frame.**
+
+**The gate inherits the defect.** GRADIENTS' accuracy clause reads
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2` at 0.520124 against a bar of 0.147353. Our
+`renorm` arm is **capture-driven**; upstream's bf16 arm is a **full-model** run. Same mismatch, so
+**the charter's own accuracy clause is a cross-frame comparison** and its 3.53x is not a clean
+reading of the port.
+
+**The measurement that fixes it, named rather than dispatched** (BindCraft 2 holds precedence for
+new rows): upstream's own bf16 backward driven from the SAME capture, giving a frame-matched
+denominator. It is upstream's code under bf16 autocast from a saved boundary — CPU work, no card —
+and it is the one number that would let GRADIENTS be read honestly. Until it exists, quote the
+frame-matched block result and say the model-scope clause is cross-frame.
