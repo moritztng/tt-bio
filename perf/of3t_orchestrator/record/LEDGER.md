@@ -1479,3 +1479,50 @@ fork is gone, which is the goal"*. The file does not exist.
 
 Artifacts `perf/of3t_orchestrator/userfacing/SURFACE_MAP.json` and the regenerated
 `UNFIXED_TRIAGE.json` / `CLOSURE_PLAN.json`.
+
+---
+
+### R159. The clause's allowance is 1.4172x upstream's own bf16 and it was already pre-registered; the frame is worth 3.81x on that same quantity (pass 394, zero card)
+
+Pass 392 established that the GRADIENTS clause's 1.7814428090278143x is graded on a withdrawn
+frame and is not a distance to go, which left the campaign with none. This pass looked for one
+in what is already banked rather than deriving a new bar, and `perf/of3t_modelframe/CLAUSE.json`
+has it: a five-level ladder, pre-registered, each level a hypothesised trunk reading substituted
+into the pooled clause and re-evaluated.
+
+    a bit-exact float64 trunk              0.1026990533692057   0.675203 x bar   clears
+    upstream's own bf16 floor here         0.12967067993359122  0.852530 x bar   clears
+    the A26 section level                  0.1475459165605533   0.970052 x bar   clears
+    projection from the in-frame multiple  0.19635234908555793  1.290934 x bar   FAILS
+    the frame mismatch alone               0.47443757904241024  3.119227 x bar   FAILS
+
+**So "if D242 is repaired, does GRADIENTS pass?" already has a conditional answer** — yes for
+any trunk at or better than its A26 section level. The clause is satisfiable and has been since
+the ladder was written; what is missing is one input, not a bar.
+
+**The target, stated inside ONE frame for the first time.** The trunk's allowance is
+**0.44608901561034203** and upstream's own bf16 floor for the trunk here is
+**0.3147698293887927**, both trunk readings against float64 in the published frame's pooling.
+**Our trunk may be up to 1.4172x upstream's own bf16 and the clause still clears.**
+
+**And one comparison deliberately NOT made.** The D242-immune estimate of our trunk's multiple
+is `of3t-twoside`'s two-sided **1.7997765325758555**, on the MODEL frame. Setting it against the
+1.4172 allowance is an in-frame multiple against a threshold-multiple from a different frame —
+the form D214 and D218 bar, and exactly how R129 and R130 were published wrong in consecutive
+passes. Recorded as a PREDICTION under A37, carrying both frames and its falsifier, with **no
+bar, allowance or done-check derived from it**: if the multiple transferred, the clause would
+miss by 1.2700x. The falsifier is one measurement — the trunk's rel_l2 against float64 on the
+repaired frame — and then the ladder.
+
+**For scale, and this is the entry's most useful number.** On that very quantity — our trunk as
+a multiple of upstream's own bf16 — the published cross-frame reading is **6.8606547391424275**
+and the in-frame two-sided one is **1.7997765325758555**. **The frame is worth 3.81x on the
+number the campaign most wants to know.** That is the quantitative case for D242 being the
+critical path rather than a bookkeeping item, and it is the first time the campaign has priced
+its own instrument defect against the thing it is trying to measure.
+
+Delivered to the row as Amendment 8, with the instruction that the step after the repair is one
+number and a table lookup, and that **no new bar may be written** — a bar re-derived after the
+frame moves is how A37 came to be written.
+
+Artifact `perf/of3t_orchestrator/ladderread/LADDER_READ.json`.
