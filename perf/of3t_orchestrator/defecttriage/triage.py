@@ -214,6 +214,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D202": (CAMP, "The 99.2594 % ceiling two charter clauses are measured against counts 0.74055 "
+             "of a HOST_APPLIED class the campaign's own READABLE_MASS.json measures at 1.52024; "
+             "applied consistently it is 98.47976 %. Safe to correct because it flips no verdict. "
+             "Campaign-internal: it is one of our own bars, and no shipped number moves."),
     "D200": (CAMP, "Both shape-keyed sites are refuted: the single track never executes and the "
              "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
              "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "

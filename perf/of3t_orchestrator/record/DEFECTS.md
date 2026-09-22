@@ -2456,3 +2456,123 @@ was built to audit — for one compose the campaign's row census was unreadable 
 like a formatting mistake in the document. **Where a guard compares a rendering against a pattern,
 the pattern must accept everything the renderer can emit**, and the cheap test is to run the
 renderer over the range and match each output.
+
+### D202. The 99.2594 % ceiling that TWO charter clauses are measured against counts 0.74055 of a class the campaign's own other artifact measures at 1.52024. FOUND by `of3t-trajwiden`, pass 348. **UNFIXED.**
+
+`COVERAGE_CEILING_IS_NOT_100.json` derives **99.2594 %** as 100 minus **0.74055**, counting the
+`input_embedder` host-applied weight. `READABLE_MASS.json` — a different namespace, neither this
+row's nor mine — resolves the **same HOST_APPLIED class** over 17 tensors at **1.52024 %**:
+`input_embedder` 0.76720 plus `diffusion_module.atom_attn_enc` 0.75304. Applied consistently the
+ceiling is **98.47976 %**, a **0.77964-point overstatement**, and the diffusion arm's 1.1286 % that
+`COVERAGE_CEILING` lists as RECOVERABLE BY MEASUREMENT is 0.75304 host-applied.
+
+**It is safe to correct precisely because it flips nothing, and that is the test I applied before
+touching it.** GRADIENTS' coverage clause reads 97.98499 % and TRAJECTORY's scope reads 88.0819 %;
+both fail against 99.2594 % and both still fail against 98.47976 %. A bar correction that moves a
+verdict is the failure mode D181 names — this one moves no verdict, so making the two artifacts
+agree is bookkeeping rather than advocacy. **Corrected only when a row re-derives it**, not by me
+editing a number in prose.
+
+**And the class is not structural either way.** `TT_BIO_OF3_DEVICE_REFATOM`
+(`openfold3_host_prep.py:187`, `env_flag(..., False)`) swaps `ref_atom_embed` for
+`ref_atom_embed_device` at `worker.py:1561` and the `linear_q` aggregation head at
+`host_prep:322`; the flag's own source comment says the eight linears and `linear_q.0.weight` then
+run where a cotangent can reach them, and names the READABLE_MASS HOST_APPLIED class as what it
+moves. **The op is ported; the number is a flag** — which is D184 seen from the bar's side. With it
+on inside the instruments the ceiling is 100 % minus the 0.49477 % held by `FUSED_NOT_SPLIT`,
+`NO_ARM`, `NOT_A_LEAF_LAZY` and `ARM_RAN_DID_NOT_CARRY`.
+
+**It must stay default-off for INFERENCE** — a device linear in bf16/fp32 is not bit-identical to
+the host float32 one — and the row proposes nothing for the shipped default. Worth 1.1286 points of
+coupled headroom, 0.75304 of it behind that flag, with `linear_ref_pos` alone at **0.6734 %**,
+59.7 % of the headroom in ONE tensor, at a collection cost of 1.9 h.
+
+**One more `firing != code`, caught by the row rather than by me:** the flag is wired on the
+shipped fold path while the trajectory builds `OF3DiffusionModule` directly, *"so the flag existing
+is not the flag firing here"*. It needs harness wiring, not a port.
+
+**Status, so this entry does not read as an open question.** Nothing here is a hypothesis. Both
+figures are read out of committed artifacts, the inconsistency between them is arithmetic, and the
+source of the class is named at file and line. What **remains open** is only which number the two
+artifacts are made to agree on, and that is a row's re-derivation rather than an edit of mine.
+
+### D199 UPDATE, pass 348. Both COVERAGE paths are demonstrated to FIRE against a real end-to-end OF3 training step — the first this campaign has ever run. **NOT composed into the charter yet, deliberately.**
+
+`of3t-trainfwd` registered the adapter and ran it:
+`tt_bio.train.catalogue.register('openfold3', tt_bio.train.openfold3.adapter)`, batch
+`batch_step003.pt`, checkpoint `of3-p2-155k.pt`, 20 rollout steps, upstream's own loss weights,
+padded width 384 / 56 real tokens on 5nw3, qb2 card 1, AICLK median 1350 over 159 DURING samples.
+
+    loss                     0.1342802552371707
+    forward / backward       8.8555 s / 479.0825 s, step 487.9380 s
+    params_reachable         3952      params_with_grad 2498     nonzero 2489
+    squared gradient norm    9.785634443843449   (the pinned model reference is 10.279642678524981)
+
+**`model_forward`**: 2489 parameters carry a nonzero gradient with the path on and **0** with it
+off, the off arm being the same forward with every objective seed replaced by zeros. A clean
+negative control.
+
+**`diffusion_rollout`**: with the rollout replaced by ground-truth structure fed to the confidence
+heads and every other tensor identical, **2488 of 2498** parameter gradients move — and the row
+reports the size honestly rather than only the boolean: the difference is
+**0.0014221448386379067** of the squared gradient norm, with `confidence_head` moving 1.34e-08 of
+its own and the trunk 0.0020 of its own. `lazily_minted_by_the_rollout: 0`, so nothing exists only
+because of the rollout. The losses differ in the seventh digit (0.1342802552 against 0.1342805299),
+which is the same story.
+
+The rule the row applies is the charter's own and it states it: *"a path is covered when a
+parameter gradient MOVES against an arm with the path off, not when a config key is set."* By that
+rule both paths are covered, which would make COVERAGE — 8 of 8 loss terms, 11 of 11 paths — the
+campaign's **first MET condition**.
+
+**Why I have not composed it.** The row is live and its own gate still owes `INFERENCE:`, the
+byte-identical shipped fold that proves this adapter changed nothing users get; it touched
+`tt_bio/autograd.py`, `openfold3_host_prep.py` and `recipes.py` alongside the new module. Composing
+a coverage win while the "did you break inference" check is outstanding is the wrong order, and a
+condition flipping to MET on a live row's artifact is exactly where this campaign has been wrong
+before. The merge is a one-line source addition to `merge_coverage.py` when the row concludes.
+
+**Worth recording beyond the clause:** `params_with_grad` is 2498 against `params_reachable` 3952
+and a 4,170-tensor reference, so this is a genuine end-to-end step but not yet the whole model, and
+it does not by itself retire D187's five stitched legs. What it does retire is the claim that no
+such step exists.
+
+### D203. The obvious way to widen TRAJECTORY's scope fails SILENTLY and in the flattering direction — it would raise the scope percentage while making the trajectory less honest. FOUND by `of3t-trajwiden`, pass 348, before running it. **RECORDED** as a trap with its working alternative and its pre-check.
+
+The tempting change is one line: at `perf/of3t_trajwide/trajwide.py:559` swap `HP.ref_atom_embed`
+for `HP.ref_atom_embed_device`. `tt_bio/openfold3_host_prep.py:262` constructs
+`RefAtomFeatureEmbedder` **inside** the function, calls it once and returns tensors — the module is
+transient. Two consequences, each fatal on its own:
+
+  * `weights_for(...)` discovers by `walk_device_weights(composed)`, and a module that **no
+    attribute of `composed` holds** is not reachable by a walk of attributes, lists and dicts. The
+    eight weights would be **absent from the parameter set with no error.**
+  * The call sits **outside** the taped per-step `fwd()`, so even if discovered, no cotangent
+    reaches them on any step and the optimizer steps eight weights whose gradient is permanently
+    `None`.
+
+**The direction is what makes it a defect rather than a bug.** A 20-step run with eight silently
+frozen weights scores **581 tensors instead of 573**, so the coupled scope percentage **goes up**
+while the trajectory covers less real training. In the row's own words: *"That is a number I would
+have reported as progress."*
+
+**Two standing lessons landing together**, and the row named both: `device-computed-weight-invisible-to-training`
+(the parameter set comes from a walk and the walk runs the forward, so host-side, fused and
+lazily-materialised weights look identical in a reach table) and `eligibility-firing-condition-is-not-a-code-fact`
+(`TT_BIO_OF3_DEVICE_REFATOM` is wired at `worker.py:1561` on the shipped fold path, which the
+trajectory never runs — the flag existing is not the flag firing here).
+
+**The working change and a seconds-long pre-check are both written down**
+(`perf/of3t_trajwiden/NEXT_ACTION_REFATOM.json`): hold the embedder as an attribute of the same
+`composed` object, precompute only the inputs once, call it **inside** `fwd()`, drop the host call.
+Then assert, before spending 0.93 h, that the 8 names are in the parameter set, that each resolves
+a gradient after one taped backward, that `tape_resolves_after_step` counts 8 more than 980, and —
+the assertion that catches a change of FUNCTION rather than of PLACE — that `cl0_d`/`plm0_d` match
+`HP.ref_atom_embed`'s host output to the device/host precision floor.
+
+**Dispatched as `of3t-refatom`** this pass, because the row that specified it ended while saying it
+was holding itself open for exactly this work. The prize is 0.75304 coupled points —
+88.08194359237523 % to 88.83498359237522 %, **66.72 % of the remaining headroom**, with
+`linear_ref_pos` alone at 0.6734 % — and the cost is half the first estimate because the reference
+side is already banked: `theirs/k20.npz` holds all eight entries at every one of the 20 rungs where
+the shipped arm's file holds none. The row checked the key lists rather than reasoning about it.
