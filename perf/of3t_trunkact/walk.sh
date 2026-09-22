@@ -44,6 +44,20 @@ dev)
   du -sh "$O/ours_${TAG}" 2>/dev/null
   exit $rc
   ;;
+pol)
+  S=$(date +%s)
+  echo "=== pol $TAG start $(date -u +%FT%TZ) host=$(hostname) CPU only ==="
+  PYTHONPATH=$F/ref:$F/deps OMP_NUM_THREADS=16 nice -n 5 \
+  timeout 7200 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_trunkact/policywalk.py \
+    --tree "$F/of3pkg043" --boundary "$F/boundary_n384.pt" \
+    --cap-last "$F/block47_boundary.pt" \
+    --out "$W/perf/of3t_trunkact/POLICYWALK_${TAG}.json" "$@" 2>&1 \
+    | grep -vE "UserWarning|warnings.warn|  from openfold3|Consider using tensor.detach" | tail -60
+  rc=${PIPESTATUS[0]}
+  E=$(date +%s)
+  echo "=== pol $TAG exit $rc elapsed $((E-S))s $(date -u +%FT%TZ) ==="
+  exit $rc
+  ;;
 ref)
   S=$(date +%s)
   echo "=== ref $TAG start $(date -u +%FT%TZ) host=$(hostname) CPU only ==="
