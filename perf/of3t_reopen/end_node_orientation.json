@@ -1,0 +1,21 @@
+{
+ "instrument": "our end node against BOTH of upstream 0.5.0's end-node functions",
+ "block": 2,
+ "tokens": 64,
+ "weights": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "refA": "TriangleAttentionEndingNode(z) == external transpose, transpose_bias=False",
+ "refB": "TriangleAttention(z^T, transpose_bias=True)^T -- base_blocks.py:388-397",
+ "refA_vs_refB": 0.8118399661459451,
+ "arms": {
+  "ours_transpose_bias_True": {
+   "vs_refA": 0.04042139401159954,
+   "vs_refB": 0.8052265330958082,
+   "matches": "A"
+  },
+  "ours_transpose_bias_False": {
+   "vs_refA": 0.8097172471687099,
+   "vs_refB": 0.03905762536171371,
+   "matches": "B"
+  }
+ }
+}
