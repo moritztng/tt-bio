@@ -2805,3 +2805,61 @@ of D189 measured side by side.
 
 **Cost, for the record:** float64 1629.18 s / 24.88 GB peak RSS, bf16 autocast 793.78 s / 11.15 GB,
 qb1, CPU only, no card.
+
+### D192. A digest I published at pass 330 was the campaign's quoted tree identity for eleven passes and reproduces under no rule in the tree. FOUND by `of3t-orchestrator`, pass 341, self-inflicted. **UNFIXED** in general; the corroboration guard is built and the value is corrected.
+
+`perf/of3t_orchestrator/trajrecover/RECOVERY.json` said the two 0.4.3 reference trees were
+*"BIT-IDENTICAL -- 293 .py files, digest 24f0aee7525f1042 on both"*. From there the number
+propagated into `DEFECTS.md`, `ORCHESTRATOR.md` twice and `GAP:`, where it stood as the campaign's
+tree identity.
+
+**The claim is true and the evidence for it was not.** Re-run on qb2 at pass 341 against the
+campaign's own rule (`of3t-campaign-refs/tree_digest.py`, A24-AMENDMENT: sha256 over the SORTED
+per-file sha256 of every `.py` under the package root):
+
+    /home/ttuser/of3t_refprec/of3pkg043/openfold3        293 files   1b27f5754b32b8e3...
+    /home/ttuser/of3t-campaign-refs/of3pkg043/openfold3  293 files   1b27f5754b32b8e3...
+
+Identical, so D183's substantive finding stands. **`24f0aee7525f1042` is not that value and is not
+produced by any of the three `tree_digest` implementations in the tree.**
+
+**Why nothing caught it, and what actually distinguishes the two numbers.** `1b27f5754b32b8e3` is
+carried by **seven** artifacts across five namespaces — `of3t-barresolve` (3), `of3t-d112`,
+`of3t-trunk043ref`, `perf/refpath.py` and `compose_verify.sh` itself. `24f0aee7525f1042` was
+carried by **one**: mine, the file that invented it. So a guard reading *"is this digest in a
+committed artifact?"* would have PASSED it. The discriminator is **corroboration** — a carrier
+outside `perf/of3t_orchestrator/`, i.e. a row that took the measurement. That check is now in
+`audit_evidence.py` over `PROVES/DOESNOT/GAP/VERDICT`, and on today's three quoted digests it
+passes `1b27f5754b32b8e3` (7 carriers) and `39bce7750297a920` (11) and fails the fabricated one.
+
+**The campaign had written the warning down before I hit it.** `tree_digest.py`'s docstring:
+*"a digest quoted without its rule cannot be reproduced -- `of3t-auxheads043` published 8f035f4e
+for the same 0.4.3 sdist under a different rule, and neither number is wrong, they are answers to
+different questions."* Mine is not that case; it is an answer to no question. **A digest is quoted
+with its rule and its producer, or it is not quoted.**
+
+**Still UNFIXED in general:** the guard covers the summary fields of one document. Nothing checks
+digests in DEFECTS.md prose, in briefs, or in another row's artifact.
+
+### D183 UPDATE, pass 341. The finding is re-verified on a stronger rule than the one it was filed under, and the fix has no home on this branch.
+
+**Re-verified two ways, on qb2.** Under the campaign's A24-AMENDMENT rule both package roots give
+`1b27f5754b32b8e3...` over 293 `.py` files. That rule hashes **content only**, so it is blind to a
+RENAME — a tree with one `.py` renamed digests identically, which I confirmed on a synthetic pair
+(`c47e6b0cd6f52c0e` for both). A renamed module is a different function, so tree identity deserves
+the path-sensitive reading as well: sha256 over (relative path + bytes) per `.py`, path-sorted,
+gives `3989e62e5674f792` on **both** trees. **Identical under the weaker rule and under the
+stronger one**, so the D149 refusal really is a path-string mismatch on identical content.
+
+**Three `tree_digest` implementations exist and two of them disagree in kind.**
+`of3t_barresolve/resolve_check.py:65` and `of3t_d112/make_manifest.py:29` implement the content-only
+rule; `of3t_orchestrator/version_boundary_at_source.py:28` implements the path-sensitive one. They
+return different values for the same tree and neither says so. Unifying them is the repair, and the
+right home is `perf/refpath.py`, which already documents the rule.
+
+**Why the code fix is not in this commit.** Both `perf/refpath.py` and the guard itself
+(`perf/of3t_trajwide/trajwide.py:966-973`) are absent from `wk/of3t-orchestrator` and from
+`origin/main`; they reach the composition through other rows' branches. Adding either here creates
+an add/add conflict against every branch that carries it, which is the dark-branch trap this
+campaign has paid for before. The fix belongs to a row whose base has the files. Recorded here with
+the verified digests so that row does not re-derive them.

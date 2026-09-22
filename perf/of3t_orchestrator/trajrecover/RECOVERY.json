@@ -62,11 +62,31 @@
   },
   "reproduces_the_row_exactly": "k=2 4.538411e-01, k=20 2.564253e-01, exponent -0.27724, intercept -0.46711, r2 0.9050 -- every published digit. The row was right; only its artifact was missing.",
   "the_w0_trap": "scored with --w0 own, which is what `live/PARTIAL_shipped.json` records as its w0_baseline. The default --w0 ckpt reads k=20 1.294855e+00 instead, a 5.05x apparent discrepancy that is a baseline convention and not a disagreement. The control arm is committed beside this so nobody rediscovers it as a defect.",
-  "d149_note": "the guard refuses this pairing because the dumps record /home/ttuser/of3t_refprec/of3pkg043 while refpath now resolves /home/ttuser/of3t-campaign-refs/of3pkg043. The two trees are BIT-IDENTICAL -- 293 .py files, digest 24f0aee7525f1042 on both -- so the refusal is a path-string mismatch on identical content. Scored against the recorded path with a local refpath override; the shared tree was not touched.",
+  "d149_note": "the guard refuses this pairing because the dumps record /home/ttuser/of3t_refprec/of3pkg043 while refpath now resolves /home/ttuser/of3t-campaign-refs/of3pkg043. The two trees are BIT-IDENTICAL -- 293 .py files, tree_sha256 1b27f5754b32b8e35e98f3f9246ebe09a9dcccc36b6f8e688d2b5e11b1aa57b5 on both under the A24-AMENDMENT rule -- so the refusal is a path-string mismatch on identical content. Scored against the recorded path with a local refpath override; the shared tree was not touched.",
   "sources": {
     "row": "of3t-trajwide (concluded 2026-09-21 19:19), state/of3t-trajwide.md",
     "dumps": "/home/ttuser/of3t_runs/trajwide/w/{shipped,theirs} on qb2",
     "scorer": "perf/of3t_trajwide/trajwide.py --score --w0 own --steps 20",
     "bar": "perf/of3t_trajbar/BAR.json scored.bar_bf16mixed_trajwide_scope, 573 tensors, same 88.08194359237523 %"
+  },
+  "d192_correction": {
+    "pass": 341,
+    "what": "this file said 'digest 24f0aee7525f1042 on both' at pass 330. That value is not reproducible under any rule in the tree and was the only occurrence in the campaign; six artifacts across five rows carry 1b27f5754b32b8e3, including perf/refpath.py and compose_verify.sh. Corrected here and in the summary fields.",
+    "reverified_pass_341_on_qb2": {
+      "rule": "A24-AMENDMENT, of3t-campaign-refs/tree_digest.py: sha256 over the SORTED per-file sha256 of every .py under the package root, concatenated",
+      "package_roots": [
+        "/home/ttuser/of3t_refprec/of3pkg043/openfold3",
+        "/home/ttuser/of3t-campaign-refs/of3pkg043/openfold3"
+      ],
+      "n_py_files": 293,
+      "tree_sha256": "1b27f5754b32b8e35e98f3f9246ebe09a9dcccc36b6f8e688d2b5e11b1aa57b5",
+      "identical": true
+    },
+    "also_checked_a_stronger_rule": {
+      "why": "the A24-AMENDMENT rule hashes CONTENT only, so it is blind to a RENAME: a tree with one .py renamed digests identically, verified on a synthetic pair. A renamed module is a different function, so tree identity deserves the path-sensitive reading too.",
+      "rule": "sha256 over (relative path + bytes) for every .py, path-sorted",
+      "tree_sha256_16": "3989e62e5674f792",
+      "identical": true
+    }
   }
 }

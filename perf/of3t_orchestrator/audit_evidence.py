@@ -1832,6 +1832,56 @@ if ORCH.is_file():
     # offset 136,593, i.e. as a section INSIDE `PASSLOG:` (which starts at 102,245), which is the
     # right place for it. Demanding it back would move a field boundary through 34 KB of history.
     # The list here is what the document owes as a heading today.
+    # D192, pass 341: a DIGEST quoted in a summary field must be corroborated by a row that
+    # measured it, not only by the document that introduced it.
+    #
+    # `24f0aee7525f1042` was published at pass 330 in this row's own trajrecover/RECOVERY.json
+    # as the identity of the two 0.4.3 reference trees, and from there it propagated into
+    # DEFECTS.md, ORCHESTRATOR.md twice and GAP, where it sat for eleven passes as the
+    # campaign's quoted tree identity. It is not reproducible under any rule in the tree. The
+    # correct value, `1b27f5754b32b8e3`, is carried by SEVEN artifacts across five namespaces
+    # including perf/refpath.py and compose_verify.sh -- so the two were distinguishable the
+    # whole time by counting who else had measured it.
+    #
+    # "Appears in a committed artifact" is NOT the rule and would have passed: the wrong value
+    # did appear in one, my own. The rule is CORROBORATION -- at least one carrier outside
+    # perf/of3t_orchestrator/, i.e. a row that took the measurement. The campaign's own
+    # tree_digest.py says it outright: "a digest quoted without its rule cannot be reproduced".
+    _dg = _re.compile(r"\b(?=[0-9a-f]{12,}\b)(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b")
+
+    def _carriers(tok):
+        """Namespaces outside this row's own that carry `tok` in a committed artifact."""
+        out = set()
+        for _p in (ROOT / "perf").rglob("*"):
+            if not _p.is_file() or _p.suffix not in (".json", ".py", ".md", ".txt", ".sh"):
+                continue
+            _rel = _p.relative_to(ROOT).as_posix()
+            if _rel.startswith("perf/of3t_orchestrator/"):
+                continue
+            try:
+                if tok in _p.read_text(errors="replace"):
+                    out.add(_rel.split("/")[1] if "/" in _rel[5:] else _rel)
+            except OSError:
+                continue
+        return out
+
+    _uncorrob = []
+    for _f in ("PROVES", "DOESNOT", "GAP", "VERDICT"):
+        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
+        if not _m:
+            continue
+        for _tok in sorted(set(_dg.findall(_m.group(1)))):
+            if not _carriers(_tok):
+                _uncorrob.append(f"{_f} quotes {_tok}, carried by no artifact outside "
+                                 f"perf/of3t_orchestrator/")
+    if _uncorrob:
+        bad.append("digest(s) quoted in a summary field with no row behind them: "
+                   + "; ".join(_uncorrob) + " -- a value only this row has written is not a "
+                     "measurement, it is a transcription (D192)")
+    else:
+        ok.append("every digest quoted in a summary field is corroborated by a row outside "
+                  "this namespace (probe: a fabricated digest fires; a real one does not)")
+
     _OWED = ("PROVES", "DOESNOT", "GAP", "VERDICT", "PASSLOG")
     _missing = [_f for _f in _OWED if not _re.search(rf"^{_f}:", _o, _re.M)]
     if _missing:

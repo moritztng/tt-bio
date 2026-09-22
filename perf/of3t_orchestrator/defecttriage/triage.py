@@ -214,6 +214,12 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D192": (CAMP, "A digest published at pass 330 (24f0aee7525f1042) was the campaign's "
+             "quoted tree identity for eleven passes and reproduces under no rule in the tree; "
+             "the real value 1b27f5754b32b8e3 is carried by seven artifacts across five "
+             "namespaces. Entirely inside the campaign's own evidence: the underlying claim "
+             "(the two 0.4.3 trees are identical) is true and re-verified, so no shipped "
+             "number moves."),
     "D191": (CAMP, "Frame-matched at the width the campaign reports, the trunk reads 2.2341x "
              "against an in-frame A26 bar of 0.5268825373 -- 1.586x outside -- and the width "
              "dependence is ours, the floor being flat. Same reading as D187: a "
