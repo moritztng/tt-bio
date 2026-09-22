@@ -31,9 +31,9 @@ R160 had to untangle retrospectively across fifteen namespaces.
 and only when, all four hold:
 
   1. the file exists and carries every key above, `injection.convention` reading
-     `graph_cut_correct`;
-  2. recut's CONTROL reproduces **3.0392623414001263e-15** at block 47 through the FIXED
-     `ref_grad.py` — the fix is that fix;
+     `graph-cut-external` (AMENDED at pass 405 — see below);
+  2. recut's CONTROL agrees with **3.0392623414001263e-15** at block 47 **to float64
+     round-off** through the FIXED `ref_grad.py` — AMENDED at pass 405, see below;
   3. recut's `--legacy-total-cotangent` reproduces the banked arm **to the campaign's measured
      cross-host float64 floor**, not bit-identically — see the AMENDED clause below;
   4. the linearity shortcut's end-to-end control passes on one arm — `g(cot_s,cot_z) - g(0,delta)`
@@ -91,7 +91,14 @@ def main() -> int:
                          "repoint is one string and no check is rewritten",
             "the_one_new_key": {
                 "key": "injection.convention",
-                "values": ["graph_cut_correct", "legacy_total_cotangent"],
+                "values": ["graph-cut-external", "legacy-total-cotangent"],
+                "AMENDED_AT_PASS_405": "I specified graph_cut_correct / legacy_total_cotangent "
+                                       "before any producer existed; ref_grad.py emits "
+                                       "graph-cut-external / legacy-total-cotangent. The row's "
+                                       "vocabulary is also BETTER -- 'external' names what the "
+                                       "cotangent IS (the external partial) where 'correct' is "
+                                       "a value judgement -- so the contract adopts it rather "
+                                       "than imposing mine.",
                 "why": "R161's stamp. A corrected artifact that does not say it is corrected is "
                        "exactly the ambiguity R160 had to untangle retrospectively across "
                        "fifteen namespaces.",
@@ -100,11 +107,18 @@ def main() -> int:
         "THE_REPOINT_CONDITION": {
             "preregistered": True,
             "all_four_must_hold": {
-                "1_artifact": "exists, carries every required key, injection.convention reads "
-                              "graph_cut_correct",
-                "2_control_forward": "recut reproduces 3.0392623414001263e-15 at block 47 "
-                                     "through the FIXED ref_grad.py, not through frameself's "
-                                     "bespoke break control",
+                "1_artifact": "exists, carries every required key, and injection.convention "
+                              "reads 'graph-cut-external' -- AMENDED at pass 405 from the "
+                              "'graph_cut_correct' I invented before any producer existed",
+                "2_control_forward": "recut AGREES with 3.0392623414001263e-15 at block 47 to "
+                                     "float64 round-off, through the FIXED ref_grad.py rather "
+                                     "than frameself's bespoke break control, and clears the "
+                                     "1e-12 bar. MET: recut reads 3.0392623414001244e-15, a "
+                                     "relative difference of 6.489e-16 -- one ulp on a 3e-15 "
+                                     "quantity computed by two different code paths -- and both "
+                                     "are 329x under the bar. AMENDED at pass 405; the literal "
+                                     "was the same unsatisfiable-exactness flaw R166 fixed in "
+                                     "condition 3.",
                 "3_control_legacy": "--legacy-total-cotangent reproduces the banked arm to "
                                     "9.13806068751445e-14 mass-weighted or better, with the "
                                     "loss pair matching the cross-host control's own "
@@ -150,6 +164,26 @@ def main() -> int:
             },
             "so_the_amended_bar": "9.13806068751445e-14 mass-weighted or better, with the loss "
                                   "pair matching. Satisfiable, evidence-backed, and already met.",
+            "AND_I_DID_NOT_AUDIT_ITS_SIBLINGS_AT_PASS_400": {
+                "what_happened": "R166 amended condition 3 for unsatisfiable exactness and "
+                                 "stopped there. Two of the remaining three had the same flaw.",
+                "condition_1": "required injection.convention == 'graph_cut_correct'; the "
+                               "producer emits 'graph-cut-external'. A string I invented before "
+                               "any producer existed.",
+                "condition_2": "required reproduction of 3.0392623414001263e-15; recut reads "
+                               "3.0392623414001244e-15, rel 6.489e-16, two different code paths.",
+                "condition_4": "qualitative, and therefore the only one that could not have this "
+                               "flaw.",
+                "the_lesson": "a pre-registered condition written BEFORE the producer exists "
+                              "will name values the producer does not emit. The discipline that "
+                              "makes pre-registration honest -- fix it before the number -- is "
+                              "the same thing that makes it brittle, because you are guessing "
+                              "the vocabulary. **Pre-register the SHAPE and the SEMANTICS, and "
+                              "bind the LITERALS after the first artifact exists.** And when a "
+                              "clause of a multi-part condition is amended, audit its siblings "
+                              "in the same pass: fixing one instance and leaving the others "
+                              "armed is the hf-revision-pin family.",
+            },
             "the_class_this_belongs_to": "a-bar-that-rounds-a-measured-ceiling-up-is-"
                                          "unsatisfiable. I wrote a bar tighter than a floor the "
                                          "campaign had already measured, in the same document "
