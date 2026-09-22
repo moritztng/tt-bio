@@ -20,7 +20,7 @@ case "$1" in
   A64)  CROP=64; BND=$R/boundary_c64.pt;  CEN=0 ;;
   A64R) CROP=64; BND=$R/boundary_c64.pt;  CEN=0 ;;
   C64)  CROP=64; BND=$R/boundary_c64.pt;  CEN=1 ;;
-  A384) CROP=0;  BND=$R/boundary_n384.pt; CEN=0 ;;
+  A384|A384R) CROP=0;  BND=$R/boundary_n384.pt; CEN=0 ;;
   C384) CROP=0;  BND=$R/boundary_n384.pt; CEN=1 ;;
   *) echo "unknown arm $1"; exit 2 ;;
 esac
