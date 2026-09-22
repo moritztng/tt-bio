@@ -1,0 +1,58 @@
+[
+ {
+  "key": "pairformer_stack_real",
+  "blocks": 48,
+  "tokens": 76,
+  "apb_scale": false,
+  "tri_scale": false,
+  "s_update_rel_l2": 0.02851779518745617,
+  "s_rel_l2": 0.028519457800771385,
+  "s_pcc": 0.9997536138063503,
+  "z_update_rel_l2": 0.42294826599992963,
+  "z_rel_l2": 0.5023901138568183,
+  "z_pcc": 0.8762984314152586,
+  "seconds": 0.3026327210027375
+ },
+ {
+  "key": "pairformer_stack_real",
+  "blocks": 48,
+  "tokens": 76,
+  "apb_scale": true,
+  "tri_scale": false,
+  "s_update_rel_l2": 0.0232622113493422,
+  "s_rel_l2": 0.023263567566759305,
+  "s_pcc": 0.9998165914876105,
+  "z_update_rel_l2": 0.42294826599992963,
+  "z_rel_l2": 0.5023901138568183,
+  "z_pcc": 0.8762984314152586,
+  "seconds": 0.30676565199973993
+ },
+ {
+  "key": "pairformer_stack_real",
+  "blocks": 48,
+  "tokens": 76,
+  "apb_scale": false,
+  "tri_scale": true,
+  "s_update_rel_l2": 0.028492832100036624,
+  "s_rel_l2": 0.028494493256237905,
+  "s_pcc": 0.9997539281998487,
+  "z_update_rel_l2": 0.40840956481333646,
+  "z_rel_l2": 0.4851206264653514,
+  "z_pcc": 0.8852901563872131,
+  "seconds": 0.3112963140010834
+ },
+ {
+  "key": "pairformer_stack_real",
+  "blocks": 48,
+  "tokens": 76,
+  "apb_scale": true,
+  "tri_scale": true,
+  "s_update_rel_l2": 0.021439841621338777,
+  "s_rel_l2": 0.021441091592775956,
+  "s_pcc": 0.9998525946219815,
+  "z_update_rel_l2": 0.40840956481333646,
+  "z_rel_l2": 0.4851206264653514,
+  "z_pcc": 0.8852901563872131,
+  "seconds": 0.30807184299919754
+ }
+]

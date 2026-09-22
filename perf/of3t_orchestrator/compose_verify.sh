@@ -15,37 +15,174 @@
 # It does NOT verify behaviour: on a host without ttnn no test executes. Say so when reporting.
 set -euo pipefail
 
-ROWS="reference tape equivalence data perf memory"
+# A row is listed here from the moment it is dispatched, not from its first push, so a new row
+# cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
+# saying so -- silence would be the bug.
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
 CO="$SLUG_TMP/compose"; BASE="$SLUG_TMP/basemain"
+D_WT="${D_WT:-/home/moritz/.coworker/wt}"   # worktrees on THIS host, for the unpushed-work note
 
-cd "$REPO"; git fetch -q origin
+cd "$REPO"
+# A bare `git fetch origin` fails outright if ANOTHER campaign's worker is updating its refs at
+# the same moment ("cannot lock ref refs/remotes/origin/wk/pvx-...") and takes the whole compose
+# down for a reason that has nothing to do with this campaign. Fetch only what we read, and
+# retry once, so a neighbour's push cannot abort the composition.
+# A row can be dispatched (and so listed in ROWS) before it has pushed a branch. The merge loop
+# below tolerates that, but `git fetch` does NOT: naming one absent ref fails the whole fetch,
+# and the retry message then blames a neighbour race for a row that simply has not started.
+# Ask origin what exists first, and fetch only that.
+_avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"
+[ -n "$_avail" ] || { sleep 5; _avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"; }
+[ -n "$_avail" ] || { echo "cannot list origin refs -- network or remote is down"; exit 1; }
+_refs="main"
+for _r in $ROWS; do
+  printf '%s\n' "$_avail" | grep -qx "wk/of3t-$_r" && _refs="$_refs wk/of3t-$_r"
+done
+_refs="$_refs wk/of3t-orchestrator"
+# shellcheck disable=SC2086
+git fetch -q origin $_refs 2>/dev/null || { sleep 5; git fetch -q origin $_refs 2>/dev/null || {
+  echo "fetch failed twice for this campaign's own refs -- not a neighbour race"; exit 1; }; }
 rm -rf "$CO" "$BASE"; mkdir -p "$SLUG_TMP"; git worktree prune
 git branch -f wk/of3t origin/main >/dev/null 2>&1 || git branch wk/of3t origin/main
 git worktree add -q "$CO" wk/of3t
 git worktree add -q --detach "$BASE" origin/main
 
 cd "$CO"
+PRESENT=""
 for r in $ROWS; do
-  git merge --no-edit -q "origin/wk/of3t-$r" || { echo "CONFLICT merging of3t-$r:"; \
-    git diff --name-only --diff-filter=U; exit 1; }
+  if git rev-parse --verify -q "origin/wk/of3t-$r" >/dev/null; then
+    if ! git merge --no-edit -q "origin/wk/of3t-$r"; then
+      # `.gitignore` is the one file where a conflict is routinely NOT a disagreement: both
+      # sides append an ignore rule for their own scratch, and keeping both is what each side
+      # meant. Resolved by union, announced, and ONLY for this path -- any other conflicted
+      # file still stops the composition, because for real content a union is a guess.
+      _u=$(git diff --name-only --diff-filter=U)
+      if [ "$_u" = ".gitignore" ]; then
+        git checkout --theirs .gitignore 2>/dev/null || true
+        git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+        git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+        cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+        rm -f /tmp/.gi_ours /tmp/.gi_theirs
+        git add .gitignore && git commit --no-edit -q
+        echo "  NOTE of3t-$r: .gitignore conflict resolved by UNION (both sides append their"\
+             " own scratch rule); every other path would have stopped the compose"
+      else
+        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+      fi
+    fi
+    PRESENT="$PRESENT $r"
+  else
+    echo "of3t-$r: dispatched but has not pushed a branch yet, skipped"
+  fi
 done
 git merge --no-edit -q wk/of3t-orchestrator || true
 
 # (1) ancestry, asserted AFTER the merges
-for r in $ROWS; do
+for r in $PRESENT; do
   git merge-base --is-ancestor "origin/wk/of3t-$r" HEAD \
     || { echo "of3t-$r is NOT in the composition -- it advanced mid-compose; rerun"; exit 1; }
 done
-echo "ancestry: all 6 rows in $(git rev-parse --short HEAD), $(git rev-list --count origin/main..HEAD) ahead of main"
+echo "ancestry:$(echo $PRESENT | wc -w) of $(echo $ROWS | wc -w) rows in $(git rev-parse --short HEAD), $(git rev-list --count origin/main..HEAD) ahead of main"
 
-# (1b) the ownership claim: no two row branches may touch the same file
-dup=$(for r in $ROWS; do git diff --name-only "origin/main...origin/wk/of3t-$r"; done \
-      | sort | uniq -d)
-[ -z "$dup" ] && echo "ownership: disjoint, 0 files touched by more than one row" \
-              || { echo "OWNERSHIP COLLISION:"; echo "$dup"; exit 1; }
+# (1b) the ownership claim: no two rows may EDIT the same file.
+#
+# The obvious form of this check is wrong and was wrong here for a pass. Diffing
+# `origin/main...origin/wk/of3t-$r` reports every file the row INHERITED as well as every file it
+# edited, and rows are told to build on `wk/of3t` rather than on main -- so the moment one did,
+# the check reported a 100-file "collision" in which the newest row claimed every other row's
+# artifacts. It was measuring inheritance.
+#
+# A row's own files are the files touched by commits reachable from ITS branch and from no other
+# row's branch. That is what `git log A --not B C D` gives.
+others_of(){ local me="$1" r; for r in $PRESENT; do [ "$r" = "$me" ] || \
+  printf 'origin/wk/of3t-%s ' "$r"; done; }
+: > "$SLUG_TMP/own.txt"
+for r in $PRESENT; do
+  # shellcheck disable=SC2046
+  for c in $(git rev-list "origin/wk/of3t-$r" --not origin/main $(others_of "$r")); do
+    git diff-tree --no-commit-id --name-only -r "$c"
+  done | sort -u | sed "s|^|$r |" >> "$SLUG_TMP/own.txt"
+done
+# Declared co-edits: a file two rows were BOTH granted, deliberately, in disjoint regions.
+# Blanket-failing on these would abort every compose and teach me to ignore the check, which is
+# how a gate dies. Each entry needs a reason and the regions have to be verified disjoint when it
+# is added -- an entry here is a claim, not a mute button.
+#   tt_bio/tenstorrent.py: of3t-leaves owns the weight-discovery seam on `Module` (~5857-5890);
+#   of3t-confidence owns the confidence path's `PairformerLayer`/`Pairformer` plumbing
+#   (~8764-8953). ~2900 lines apart, different classes, verified 2026-09-19 pass 6.
+#   tt_bio/train/optim.py: of3t-updaterule owns `AdamW.step` (~192-206, where the schedule is
+#   read relative to the counter, D11); of3t-gradients owns `displacement` and
+#   `check_displacement` (~289-336, the D13 resolution floor). Different methods, ~85 lines
+#   apart, hunk ranges compared 2026-09-19 pass 37. NOTE the semantic coupling, which
+#   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
+#   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
+#   of3t-updaterule's brief is amended to re-state that number under the merged code.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
+
+dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
+for a in $ALLOWED_COEDIT; do
+  if printf '%s\n' "$dup" | grep -qx "$a"; then
+    printf 'ownership: %s co-edited by' "$a"
+    grep " $a\$" "$SLUG_TMP/own.txt" | awk '{printf " %s",$1}'
+    echo " -- DECLARED, regions verified disjoint"
+  fi
+  dup=$(printf '%s\n' "$dup" | grep -vx "$a" || true)
+done
+dup=$(printf '%s\n' "$dup" | sed '/^$/d')
+if [ -z "$dup" ]; then
+  echo "ownership: no undeclared file is edited by more than one row"
+else
+  echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
+  while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
+    | awk '{printf " %s",$1}'; echo; done <<< "$dup"
+  exit 1
+fi
+
+# (1c) UNPUSHED WORK. A composition can only ever see `origin`, and a row whose worktree is ahead
+# of its remote is invisible to it -- not stalled, invisible. `of3t-reference` sat at its
+# pass-1 commit on origin for five passes while its worktree held two commits, an untracked
+# generator and twenty frozen batches, and the campaign's critical path was diagnosed from
+# `origin` twice and called stuck. This is a WARNING rather than a failure: the row owns its
+# branch and may be mid-work, and pushing for it would race a live agent.
+THIS_HOST="$(hostname -s)"
+for r in $ROWS; do
+  wt="$D_WT/of3t-$r"
+  lg="$D_WT/../workers/of3t-$r.log"
+  # A row whose worktree is on ANOTHER host has no directory here, and `continue` used to skip
+  # it in silence -- so for every carded row this check has been reporting nothing while
+  # looking like it reported "clean". That is the failure mode this check exists to catch,
+  # turned on itself. When qb2 hard-hung on 2026-09-19 the two rows holding the campaign's
+  # critical path were both there, and the compose said nothing about either.
+  if [ ! -d "$wt" ]; then
+    rhost=$(grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null | tail -1 | \
+            sed 's/.*host=//')
+    # Only for a LIVE row. A concluded row's worktree holds nothing the campaign is waiting
+    # on -- what origin has IS its final answer -- and noting nine of them buries the one
+    # that matters, which is how a check gets ignored.
+    if [ -n "$rhost" ] && [ "$rhost" != "$THIS_HOST" ] \
+       && [ ! -f "$D_WT/../state/concluded/of3t-$r" ]; then
+      echo "  NOTE of3t-$r: worktree is on $rhost, not $THIS_HOST -- unpushed work there is"\
+           " INVISIBLE to this compose. What origin has is all this composition can carry."
+    fi
+    continue
+  fi
+  ah=$(git -C "$wt" rev-list --count "origin/wk/of3t-$r..HEAD" 2>/dev/null || echo 0)
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+  [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
+  [ "$dirty" -gt 0 ] && echo "  NOTE of3t-$r: $dirty uncommitted file(s) in its worktree"
+  # WHY it is behind. `rc=124` is the 3000s per-turn cap: the row commits and is killed before
+  # it pushes, which looks identical to disobedience from `origin` and is not. Asking such a
+  # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
+  # two passes of wrong remedies on of3t-reference.)
+  if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
+    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
+    case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
+      " -- it likely commits and never reaches a push; reshape the work, do not re-ask";; esac
+  fi
+done
 
 # (2) collection against the control
 # pytest exits nonzero whenever anything failed to collect, and on a host without the ttnn/torch
@@ -62,11 +199,41 @@ diff -q "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" >/dev/null \
   || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"; exit 1; }
 echo "NOTE: no test EXECUTED -- without ttnn everything errors on extras or skips. Behaviour unverified."
 
-# (3) recompute the CPU-only instruments
-for i in instrument_b_lr instrument_c_optim; do
-  f="perf/of3t_equivalence/$i.py"
-  [ -f "$f" ] && { echo "--- $i"; ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ); }
+# (2b) a reference to a file that does not exist. Composing found exactly this in NOTICE last
+# pass, on a branch that looked fine alone, so it is a standing check rather than a one-off.
+missing=""
+for d in $(git diff origin/main...HEAD | grep -oE 'docs/[a-z0-9_-]+\.md' | sort -u); do
+  [ -f "$d" ] || missing="$missing $d"
 done
+[ -z "$missing" ] && echo "doc refs: every docs/*.md the diff mentions exists" \
+                  || { echo "DANGLING DOC REFERENCE:$missing"; exit 1; }
+
+# (3) recompute the CPU-only instruments
+for f in perf/of3t_equivalence/instrument_b_lr.py \
+         perf/of3t_equivalence/instrument_c_optim.py \
+         perf/of3t_orchestrator/instrument_b2_clip.py \
+         perf/of3t_orchestrator/instrument_c2_clip_in_step.py; do
+  [ -f "$CO/$f" ] || continue
+  echo "--- $(basename "$f" .py)"
+  ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ) || \
+    { echo "INSTRUMENT FAILED: $f"; exit 1; }
+done
+
+# (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
+# transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
+# on every compose. Also pins the denominators (K29).
+echo "--- audit_evidence"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
+  { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
 
 git worktree remove --force "$BASE"
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
+# `--push` exists because I once ran `compose_verify.sh; git -C $CO push -f` as one line and
+# force-pushed a FAILED, half-merged composition over a good one: 256 commits replaced by 55.
+# The branch is regenerated every pass so nothing was lost, but the shape of the mistake is
+# permanent -- a push that is not conditional on the verdict is not a verified push.
+if [ "${1:-}" = "--push" ]; then
+  git -C "$CO" push -f -q origin wk/of3t \
+    && echo "pushed wk/of3t -> $(git -C "$CO" rev-parse --short HEAD), \
+$(git -C "$CO" rev-list --count origin/main..HEAD) ahead"
+fi
