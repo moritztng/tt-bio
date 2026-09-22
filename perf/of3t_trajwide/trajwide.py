@@ -458,7 +458,7 @@ def run_theirs(dtype, blocks, cot, kwargs, *, steps, warmup, log, d_out, also_se
 
 # ----------------------------------------------------------------------------------- our side
 
-def build_ours(cap, kw, act, brk):
+def build_ours(cap, kw, act, brk, refatom="host"):
     """Our `diffusion_module`: `OF3DiffusionConditioning` feeding `OF3DiffusionModule`, which
     is what `openfold3_sample_diffusion.OF3SampleDiffusion` assembles and what `fold()` runs.
 
@@ -467,6 +467,15 @@ def build_ours(cap, kw, act, brk):
     back to the checkpoint by a transpose-invariant fingerprint, and record the ORIENTATION
     bit-exactly at the load rather than inferring it from a shape at comparison time. D83: the
     shape test cannot fire on a square weight and 87 of the compared tensors are square.
+
+    `refatom="device"` runs the encoder's `ref_atom_feature_embedder` on the card instead of
+    on the host, which is the only way its eight weights can be TRAINED here: the parameter
+    set comes from `walk_device_weights(composed)`, so a module `composed` does not hold is
+    absent from it with no error, and a call outside the taped `fwd()` gets no cotangent on
+    any step. So the module is built once, HELD on `composed`, and called INSIDE the tape.
+    `openfold3_host_prep.ref_atom_embed_device` cannot be used for this: it owns its module
+    and throws it away. The eight feature inputs do not change across steps and are built
+    once (`ref_atom_device_inputs`) -- they are features, not weights.
     """
     import math as _m
     import torch
@@ -476,6 +485,7 @@ def build_ours(cap, kw, act, brk):
     from tt_bio.tenstorrent import get_device, device_dtype_override
     from tt_bio.openfold3_diffusion import OF3DiffusionConditioning
     from tt_bio.openfold3_diffusion_module import OF3DiffusionModule
+    from tt_bio.openfold3 import RefAtomFeatureEmbedder
     from tt_bio.openfold3_weights import _sub
     from tt_bio.openfold3_fold import build_dm_device_aux
     from tt_bio import openfold3_host_prep as HP
@@ -556,13 +566,32 @@ def build_ours(cap, kw, act, brk):
              "ref_element": sq(batch["ref_element"]).float(),
              "ref_atom_name_chars": sq(batch["ref_atom_name_chars"]).float(),
              "ref_space_uid": sq(batch["ref_space_uid"]).float()}
-    cl0, plm0 = HP.ref_atom_embed(_sub(_sub(dmsd, "atom_attn_enc"),
-                                       "ref_atom_feature_embedder"), feats)
+    rafe_sd = _sub(_sub(dmsd, "atom_attn_enc"), "ref_atom_feature_embedder")
+    cl0 = plm0 = None
+    if refatom == "host":
+        cl0, plm0 = HP.ref_atom_embed(rafe_sd, feats)
 
     dev = get_device()
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=act)
+
+    # The device leg, built under `recording` so its eight weights carry their checkpoint
+    # names, and called once here only to give `build_dm_device_aux` the shapes it asks for.
+    # The call that TRAINS them is the one inside the tape, in `run_ours.level`.
+    rafe, rafe_in, cl0_d, plm0_d = None, None, None, None
+    if refatom == "device":
+        ttnn.from_torch = recording
+        try:
+            with device_dtype_override(act):
+                rafe = RefAtomFeatureEmbedder(rafe_sd, None)
+        finally:
+            ttnn.from_torch = orig
+        with device_dtype_override(act):
+            rafe_in = HP.ref_atom_device_inputs(dev, feats, atom_mask, NP)
+            cl0_d, plm0_d = rafe(*rafe_in)
+
     aux = build_dm_device_aux(
-        dev, ft, cl0=cl0, plm0=plm0, atom_mask=atom_mask, atom_to_token_index=a2t,
+        dev, ft, cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d,
+        atom_mask=atom_mask, atom_to_token_index=a2t,
         npe_q_indices=npe_q, npe_k_indices=npe_k, zij_mask=zij_mask,
         key_block_idxs=key_block_idxs, invalid_mask=invalid_mask, mask_trunked=mask_trunked,
         atom_to_token_mean=a2t_mean, token_mask=token_mask, n_atom=n_atom, n_token=n_token,
@@ -591,6 +620,7 @@ def build_ours(cap, kw, act, brk):
     n_emb = cap["n_emb"].reshape(n_struct, -1).float()
     d = dict(
         dev=dev, ft=ft, act=act, aux=aux, dc=dc, dm=dm, reg=reg, orient=orient,
+        rafe=rafe, rafe_in=rafe_in, refatom=refatom,
         shape_by_name=shape_by_name, n_atom=n_atom, n_token=n_token, n_struct=n_struct,
         n_tok_pad=n_tok_pad, nb=nb, NP=NP, sigma_data=sigma_data, atom_mask=atom_mask,
         relpos_d=ft(cap["relpos"].reshape(1, n_token, n_token, -1)),
@@ -632,13 +662,20 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
 
     class _Composed:
         """One object the shipped walk can reach both halves through. `walk_device_weights`
-        walks `__dict__`, so this adds one level of nesting and nothing else."""
+        walks `__dict__`, so this adds one level of nesting and nothing else.
 
-        def __init__(self, dc, dm):
+        The third attribute is named for the checkpoint path it holds, because the walk
+        builds a parameter name out of the attribute chain: `ref_atom_feature_embedder.
+        w_ref_pos` says what it is, and `rafe.w_ref_pos` would not. It is None on the host
+        leg, which the walk skips -- so the host arm's parameter set is unchanged.
+        """
+
+        def __init__(self, dc, dm, rafe=None):
             self.dc = dc
             self.dm = dm
+            self.ref_atom_feature_embedder = rafe
 
-    composed = _Composed(dc, dm)
+    composed = _Composed(dc, dm, G["rafe"])
 
     def level(j, taped):
         tk = float(t_all[0, j])
@@ -649,7 +686,14 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
         T = (lambda x: ag.Tensor(x)) if taped else (lambda x: x)
         zij = dc.pair(T(G["z_trunk_d"]), T(G["relpos_d"]), T(G["pair_d"]))
         si = dc.single(T(G["s_trunk_d"]), T(G["s_input_d"]), T(G["nemb_d"][j]), T(G["tok_d"]))
-        return dm(T(G["si_trunk_dm"]), si, zij, T(aux["cl0_d"]), T(aux["plm0_d"]),
+        # The atom featurization, INSIDE the tape on the device leg, so a cotangent reaches
+        # its eight weights on every one of the 48 levels and their gradient is the sum over
+        # the levels -- the same sum the reference takes from one shared `cl`/`plm`.
+        if G["rafe"] is not None:
+            cl0_d, plm0_d = G["rafe"](*[T(x) for x in G["rafe_in"]])
+        else:
+            cl0_d, plm0_d = T(aux["cl0_d"]), T(aux["plm0_d"])
+        return dm(T(G["si_trunk_dm"]), si, zij, cl0_d, plm0_d,
                   T(ft(rl_pad.unsqueeze(0))), T(ft(xl_k.unsqueeze(0))),
                   aux["amc_d"], aux["amc_na_d"], aux["idx_tt"], aux["flat_tt"],
                   aux["zij_mask_d"], aux["kidx_tt"], aux["valid_d"], aux["mb_d"],
@@ -777,7 +821,11 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
               f"grad_norm={opt.last_grad_norm} resolves={resolved}/{len(params.slots)} "
               f"rebound={moved} spread={spread}", flush=True)
 
+    refatom_params = sorted(p for p in params if "ref_atom_feature_embedder" in p)
     run_ours.last = {"n_params": len(params), "n_named": sum(1 for v in named.values() if v),
+                     "refatom_params": refatom_params,
+                     "n_refatom_params": len(refatom_params),
+                     "refatom_names": [named[p] for p in refatom_params],
                      "unnamed": unnamed[:40], "n_unnamed": len(unnamed),
                      "n_slots": len(params.slots),
                      "device_weights_walked": len(params),
@@ -883,6 +931,11 @@ def main() -> int:
     ap.add_argument("--aa-in-process", action="store_true", dest="aa_in_process",
                     help="reference side twice in ONE process, compared bit-exactly at every "
                          "rung. The A/A that says whether any magnitude below is readable")
+    ap.add_argument("--refatom", default="host", choices=["host", "device"],
+                    help="where the encoder's ref_atom_feature_embedder runs. `host` is "
+                         "of3t-trajwide's leg, eight weights outside the parameter set. "
+                         "`device` holds the module on `composed` and calls it inside the "
+                         "tape, which is what makes them trainable at this scope")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -913,6 +966,7 @@ def main() -> int:
         sl = os.path.join(a.out_dir, f"steplog_{a.arm}.json")
         tmp = sl + ".part"
         json.dump({"arm": a.arm, "side": a.side, "ref_tree": REF_TREE,
+                   "refatom": a.refatom,
                    "steps": log, "evidence": evidence, "n_steps": len(log),
                    "complete": evidence is not None,
                    "wall_s": time.time() - t0}, open(tmp, "w"), indent=1, default=str)
@@ -933,7 +987,7 @@ def main() -> int:
         import ttnn
         act = ttnn.float32
         G = build_ours(torch.load(CAP, map_location="cpu", weights_only=False), kw, act,
-                       a.arm)
+                       a.arm, refatom=a.refatom)
         G["out_ref"] = D["out"]
         d_out = wdir(a.out_dir, a.arm)
         run_ours(G, blocks, cot, steps=a.steps, warmup=a.warmup, log=log, d_out=d_out,
@@ -974,6 +1028,7 @@ def main() -> int:
 
     res = {
         "arm": a.arm,
+        "refatom": a.refatom,
         "w0_baseline": a.w0,
         "ref_tree": their_tree,
         "scope": scope_share(names),
