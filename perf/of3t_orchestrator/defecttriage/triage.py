@@ -215,7 +215,13 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
-    "D208": (CAMP, "TRAJECTORY's clause is repointed to a reference-derived bar of 89.2106 % with "
+    "D209": (CAMP, "The pass-355 TRAJECTORY bar of 89.2106 % rounded a measured CEILING up: the "
+             "diffusion module's full share is 9.170528876862544 / 10.279642678524981 = "
+             "89.2105802084 %, so covering every one of the 761 reference tensors would have "
+             "failed the clause by 0.0000198 points. Corrected to 89.2105 at pass 356, which "
+             "flips no verdict -- 88.83498302148425 misses both. Campaign-internal: it gated our "
+             "own exit condition, not any shipped behaviour."),
+    "D208": (CAMP, "TRAJECTORY's clause is repointed to a reference-derived bar of 89.2105 % with "
              "a coupled-scope requirement, and no artifact emits scope.coupled. The condition "
              "reads NOT MET on both new clauses. Campaign-internal: it is our own charter's "
              "wording and no shipped number moves."),
