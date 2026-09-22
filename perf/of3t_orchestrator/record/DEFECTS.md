@@ -1362,3 +1362,69 @@ which is true arithmetically — the trunk alone can close the clause. But same-
 the largest single share in the model, and the cross-reference column showed it as 1.878x, which
 read as unremarkable next to nine siblings. A26's own worked example still cites this module "at
 129x"; it is 2.019x today, so that example is 64x stale.
+
+### D216. `rotate_state_docs.sh` cuts the summary fields out of a state doc, and it has now corrupted this campaign's summary twice in one day. FOUND at pass 360 by the orchestrator. FIXED, with a positive and a negative control.
+
+The rotation keeps a fixed 32,768-byte head and a 49,152-byte tail and archives the middle. A
+state doc is a set of load-bearing ALL-CAPS fields followed by a passlog, and a byte-counted cut
+does not know that. At **06:30:02Z** and again at **13:00:02Z** on 2026-09-22 it took `VERDICT:`
+and `PASSLOG:` out of `state/of3t-orchestrator.md`, because `VERDICT:` began at byte **34,520** —
+598 bytes past the boundary.
+
+**It produces two different lies at once**, which is why it took two passes to name. The cut
+fields read as **ABSENT**, and the field immediately above the cut **swallows everything below
+it**, because nothing terminates it: at pass 357 `PROVES:` measured **136,078 characters against
+a 20,000 cap**. The audit reports both as content drift, so the doc looks stale rather than
+truncated, and the standing advice — *"restore from the published mirror, do not re-author"* — is
+a repair that has to be applied again every time the doc crosses 96 KB.
+
+**Fixed**: the head now extends to the last line matching `^[A-Z][A-Z_]{3,}:` plus 8 KB, so the
+cut lands inside the passlog, which is what it is for. A doc with no such headings is unaffected,
+and a file where head+tail would cover everything is skipped rather than rewritten.
+
+**Controlled, because a rotation guard that silently stops rotating is the same class of failure.**
+A 166,315-byte probe with fields past 32 KB, run under an overridden `HOME`:
+
+    old script    166,315 -> 82,288 bytes   PROVES 0, VERDICT 0, PASSLOG 0   (reproduces the bug)
+    fixed script  166,315 -> 98,004 bytes   PROVES 1, VERDICT 1, PASSLOG 1   and still archives
+
+So the fix keeps the fields AND still cuts 41 % of the doc. Two earlier attempts at this test were
+vacuous and are worth recording: the first probe was under the 98,304-byte threshold so nothing
+rotated, and the second ran against the real `state/` because the script does
+`D="$HOME/.coworker"; cd "$D"` and ignores its working directory. Neither changed anything, and
+neither tested anything either.
+
+### D217. The three live trunk rows are aimed at 31.2 % of the trunk's error mass, and putting EVERY block at upstream's own level still misses the bar. FOUND by `of3t-trunkblocks` (PARTIAL), pass 360. UNFIXED — the carrier blocks have no owner and the per-block route is measured insufficient.
+
+`of3t-trunkblocks` censused all 48 pairformer blocks by absolute differenced error mass, in the
+frame the live clause figure sits in, with a sum check at **4.222e-16** relative.
+
+**The carrier is blocks 44, 4 and 0, holding 76.4502 % of the trunk's error mass** — 30.6209 %,
+29.1573 % and 16.6720 %. **Block 45 holds 0.5981 %.**
+
+    of3t-blk4544   ran its whole ladder in blocks 45 and 44
+    of3t-trunkact  the forward activations, blocks 45 and 44
+    of3t-vjpln     LIVE, the VJPs that ladder ran out of, blocks 45 and 44
+
+Those rows are aimed at **31.2190 %** of the mass (block 44's 30.6209 plus block 45's 0.5981).
+**Blocks 4 and 0 carry 45.8293 % between them — more than block 44 — and have never been
+searched.** The premise the campaign has been running on is half right and half wrong.
+
+**And the per-block repair route does not reach the bar.** Every block at upstream's own accuracy
+level still leaves model scope at **1.103x** the A26 bar. So naming and fixing a carrier block is
+necessary and is not sufficient, which no row had established.
+
+**The three blocks are also where upstream's own bf16 error concentrates** — 69.8808 % of its own
+mass — so what is ours there is an **excess of 3.909x to 7.395x**, not a different location. That
+is the same shape `of3t-trunkact` found at leaf level and D215 found across sections: our error
+sits where theirs does, larger.
+
+**The ranking is frame-dependent and that is a trap for anyone re-running this.** In the pinned
+frame the top block is **46** at 39.8871 % of the mass, and it is an artifact of a reference
+**1.8416532191** away (D214), not a property of our arm.
+
+**Independent confirmation of D214's arithmetic.** This row's own instrument reproduces the
+orchestrator's pass-359 pooling exactly: published trunk 0.5201243840984896, trunk in frame
+**0.2785749654400184** against my 0.2785749654, trunk at the derived target 0.4361680548 landing
+on **0.1473526832678669** — the bar itself — and trunk exact 0.0973798897933013 against my
+0.0973798898. Two instruments, one answer.
