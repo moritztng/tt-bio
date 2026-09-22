@@ -1,0 +1,9 @@
+{
+ "what": "D95: the padding fraction of every axis the aux_heads A18 reading is taken over, measured from the boundary's own masks rather than assumed",
+ "token_axis": {"shape": 384, "real": 56, "real_fraction": 0.14583333333333334,
+   "heads_on_this_axis": ["distogram_logits", "pae_logits", "pde_logits"]},
+ "atom_axis": {"shape": 422, "real": 422, "real_fraction": 1.0,
+   "heads_on_this_axis": ["plddt_logits", "experimentally_resolved_logits"],
+   "note": "atom_mask sums to 422 of 422, so this axis carries no padding at all and a relative L2 over it is already a real-token reading"},
+ "cotangent_mass_inside_the_real_block": {"pae_logits": 1.0, "pde_logits": 0.9999999999999998}
+}

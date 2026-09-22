@@ -1,0 +1,12 @@
+{
+  "scope_tensors": 16,
+  "upstream_f64_vs_capture_mw": 0.0,
+  "worst_per_tensor": 0.0,
+  "worst_tensor": null,
+  "bit_identical": 16,
+  "pair_stack_mw": 0.979561886005612,
+  "pair_stack_r": 1.9345274434961166,
+  "capture_vs_model_f64_mw": 0.8651878877415111,
+  "capture_vs_model_f64_r": 0.6366493382287767,
+  "capture_vs_model_f64_cos": 0.5298474032214703
+}

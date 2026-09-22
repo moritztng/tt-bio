@@ -1,0 +1,36 @@
+{
+  "what": "ONE of our PairformerLayer on the card, on the capture's own operands, with per-op",
+  "host": "tt-quietbox2",
+  "card": 0,
+  "board": "p300c Blackhole",
+  "block": 47,
+  "arm": "shipped",
+  "sub": "softmax_devy",
+  "config": {
+    "scale_pair_bias": true,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false,
+    "tri_att_sdpa_hifi": true
+  },
+  "cap": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "cap_sha256": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5",
+  "taped_ops_in_scope": 112,
+  "substituted": 2,
+  "substituted_backwards_fired": 1,
+  "operand_match": {
+    "identity": 0,
+    "shape": 0
+  },
+  "placed": 57,
+  "absent": [],
+  "probe": {
+    "s_in_norm": 2448727.756823883,
+    "z_in_norm": 15601002.623743173,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261,
+    "s_out_norm": 2667513.3364284043
+  },
+  "seconds": 11.8
+}

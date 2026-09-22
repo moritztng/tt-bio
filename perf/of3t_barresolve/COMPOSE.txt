@@ -1,0 +1,32 @@
+compose_verify.sh on origin/main fd70adde2, run 2026-09-21T20:13:21Z on tt-quietbox2, CPU only.
+WS=the 84 dispatched of3t briefs, PY=tt-bio-dev/env/bin/python, REPO=an isolated clone so
+no shared checkout or branch ref was touched. It stops at row 8 of the floor:
+
+    Auto-merging tt_bio/autograd.py
+    CONFLICT (content): Merge conflict in tt_bio/autograd.py
+    Auto-merging tt_bio/tenstorrent.py
+    CONFLICT (content): Merge conflict in tt_bio/tenstorrent.py
+    Automatic merge failed; fix conflicts and then commit the result.
+      tt_bio/autograd.py: not a pure keyword-argument tail or fragment on both sides
+      tenstorrent.py: union of 2 import line(s)
+    CONFLICT merging of3t-leaves, and these are not keyword-argument tails:
+      tt_bio/autograd.py
+
+of3t-barresolve is appended AFTER the 22-row floor, so it had not been merged when this
+stopped -- 7 rows were in the tree. The cause is that origin/main moved to fd70adde2 (the
+D56 softmax-backward merge) after the last publish and compose_verify re-bases onto it:
+
+    git merge-tree origin/main            origin/wk/of3t-leaves  -> CONFLICT (tt_bio/autograd.py, tt_bio/tenstorrent.py)
+    git merge-tree origin/wk/of3t         origin/wk/of3t-leaves  -> clean
+
+So the composition is seeded at the published origin/wk/of3t instead, by
+compose_on_published.sh -- same row derivation, same merge loop, same .gitignore union:
+
+    == rows present:83  absent(no branch):0  skipped(conflict):0
+    ancestry: all 83 merged rows are ancestors of dd8cad19f
+    barresolve in tree: YES
+    trajbar.py sha: c54b17dcb8aae73423378122cec24def52684c35  (branch: c54b17dcb8aae73423378122cec24def52684c35)
+    
+    --- sys.path order: no new tree-resolution trust (D149), the composition's own copy
+    ok    NO of3t file inserts paths at a fixed index in a loop without reading the resolution back -- the D149 ratchet is empty (probe fires, a lone insert does not); a new one fails
+    ratchet rc=0

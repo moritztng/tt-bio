@@ -15,7 +15,9 @@ SETS = ["MODEL (all tensors)",
         "rest of the diffusion arm",
         "the one leaf (blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight), "
         "device reads 10.6980",
-        "diffusion device-arm scope minus the one leaf, device reads 0.2929"]
+        "diffusion device-arm scope minus the one leaf, device reads 0.2929",
+        "pairformer_stack, the seven blocks the device arm measured, device reads 0.14053",
+        "pairformer_stack block 47 alone, 64.86 % of that set, device reads 0.20129"]
 
 
 def f(x, spec=".6e"):

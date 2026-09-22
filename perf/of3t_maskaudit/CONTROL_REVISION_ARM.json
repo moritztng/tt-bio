@@ -1,0 +1,151 @@
+{
+ "arms": {
+  "CONTROL_050_tboff_vs_043": {
+   "s": {
+    "dilution_padded_over_masked": null,
+    "masked": 0.0,
+    "padded": 0.0
+   },
+   "z": {
+    "dilution_padded_over_masked": null,
+    "masked": 0.0,
+    "padded": 0.0
+   }
+  },
+  "REVISION_050_vs_043": {
+   "s": {
+    "dilution_padded_over_masked": 0.8289988130609208,
+    "masked": 0.03214910057635795,
+    "padded": 0.0387806352311332
+   },
+   "z": {
+    "dilution_padded_over_masked": 39.15070876877674,
+    "masked": 0.21040157247002225,
+    "padded": 0.005374144660129897
+   }
+  },
+  "UPSTREAM_OWN_BF16": {
+   "s": {
+    "dilution_padded_over_masked": 0.860358239300523,
+    "masked": 0.012878133443183962,
+    "padded": 0.01496833860003941
+   },
+   "z": {
+    "dilution_padded_over_masked": 1.244951934752337,
+    "masked": 0.024409521001988132,
+    "padded": 0.0196067979177397
+   }
+  }
+ },
+ "bound_check": {
+  "s": {
+   "bound": 0.04529418324938,
+   "bound_holds": true,
+   "measured_masked": 0.03214910057635795,
+   "one_over_sqrt_q": 1.1679587758020453,
+   "padded": 0.0387806352311332,
+   "q_ref_mass_inside_real_block": 0.733069197666498,
+   "slack_x": 1.408878706942389
+  },
+  "z": {
+   "bound": 0.9435397495893889,
+   "bound_holds": true,
+   "measured_masked": 0.21040157247002225,
+   "one_over_sqrt_q": 175.57021800871712,
+   "padded": 0.005374144660129897,
+   "q_ref_mass_inside_real_block": 3.244130404015195e-05,
+   "slack_x": 4.484470997591157
+  }
+ },
+ "boundary": "real 0.4.3 trunk entry, 5nw3, 56 real tokens padded to 384",
+ "control_masked_recomputes_unchanged": true,
+ "control_unmasked_moves": {
+  "s": {
+   "masked": 0.03214910057635795,
+   "moved_by_x": 0.8289988130609208,
+   "padded": 0.0387806352311332
+  },
+  "z": {
+   "masked": 0.21040157247002225,
+   "moved_by_x": 39.15070876877674,
+   "padded": 0.005374144660129897
+  }
+ },
+ "real_tokens": 56,
+ "reproduction_of_published": [
+  {
+   "abs_diff": 0.0,
+   "arm": "REVISION_050_vs_043",
+   "identical": true,
+   "published": 0.03214910057635795,
+   "recomputed": 0.03214910057635795,
+   "scope": "masked",
+   "track": "s"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "REVISION_050_vs_043",
+   "identical": true,
+   "published": 0.21040157247002225,
+   "recomputed": 0.21040157247002225,
+   "scope": "masked",
+   "track": "z"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "REVISION_050_vs_043",
+   "identical": true,
+   "published": 0.0387806352311332,
+   "recomputed": 0.0387806352311332,
+   "scope": "padded",
+   "track": "s"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "REVISION_050_vs_043",
+   "identical": true,
+   "published": 0.005374144660129897,
+   "recomputed": 0.005374144660129897,
+   "scope": "padded",
+   "track": "z"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "UPSTREAM_OWN_BF16",
+   "identical": true,
+   "published": 0.012878133443183962,
+   "recomputed": 0.012878133443183962,
+   "scope": "masked",
+   "track": "s"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "UPSTREAM_OWN_BF16",
+   "identical": true,
+   "published": 0.024409521001988132,
+   "recomputed": 0.024409521001988132,
+   "scope": "masked",
+   "track": "z"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "UPSTREAM_OWN_BF16",
+   "identical": true,
+   "published": 0.01496833860003941,
+   "recomputed": 0.01496833860003941,
+   "scope": "padded",
+   "track": "s"
+  },
+  {
+   "abs_diff": 0.0,
+   "arm": "UPSTREAM_OWN_BF16",
+   "identical": true,
+   "published": 0.0196067979177397,
+   "recomputed": 0.0196067979177397,
+   "scope": "padded",
+   "track": "z"
+  }
+ ],
+ "total_tokens": 384,
+ "what": "a known-masked reading recomputed (must not move) and its deliberately unmasked variant (must move), from the tensors of3t-orchestrator scored at pass 176"
+}

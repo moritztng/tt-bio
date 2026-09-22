@@ -1,0 +1,270 @@
+====================================================================================================
+HEADLINE, each arm against BUNDLE-MIN-043's float64 gradient (A23: mass-weighted first, median beside)
+====================================================================================================
+arm                           mass-wtd rel_l2  median/tensor  norm ratio r       cos  bar 2.0e-02
+ZERO_MODEL_BASELINE              1.000000e+00   1.000000e+00      0.000000       n/a  OUTSIDE
+arm2_f32_upstream                8.158418e-05   2.325119e-05      0.999998  1.000000  INSIDE
+arm2b_f32_upstream_omp7          8.107441e-05   2.196766e-05      0.999999  1.000000  INSIDE
+arm3_f32_removed                 8.158418e-05   2.325119e-05      0.999998  1.000000  INSIDE
+arm4_bf16_autocast               1.105201e-01   1.922203e-01      1.017050  0.994138  OUTSIDE
+negctl_f32_permuted              3.639337e-01   2.314495e-01      0.909368  0.931692  OUTSIDE
+
+----------------------------------------------------------------------------------------------------
+diffusion device-arm scope (diffusion_module minus diffusion_conditioning), FULL denominator per A20
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE            735     52.2644   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream              735     52.2644   3.261962e-05  2.814303e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7        735     52.2644   3.155192e-05  2.697575e-05     1.0000   1.00000
+arm3_f32_removed               735     52.2644   3.261962e-05  2.814303e-05     1.0000   1.00000
+arm4_bf16_autocast             735     52.2644   6.035589e-02  7.112905e-02     1.0174   0.99836
+negctl_f32_permuted            735     52.2644   3.988065e-01  4.300996e-01     0.9115   0.91705
+
+----------------------------------------------------------------------------------------------------
+attention side of the diffusion arm
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE            438     27.5862   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream              438     27.5862   2.526189e-05  2.728404e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7        438     27.5862   2.108871e-05  2.610745e-05     1.0000   1.00000
+arm3_f32_removed               438     27.5862   2.526189e-05  2.728404e-05     1.0000   1.00000
+arm4_bf16_autocast             438     27.5862   5.261258e-02  7.097272e-02     1.0281   0.99904
+negctl_f32_permuted            438     27.5862   4.476740e-01  4.339525e-01     0.9160   0.89446
+
+----------------------------------------------------------------------------------------------------
+rest of the diffusion arm
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE            297     24.6782   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream              297     24.6782   3.924410e-05  2.907894e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7        297     24.6782   4.013996e-05  2.805267e-05     1.0000   1.00000
+arm3_f32_removed               297     24.6782   3.924410e-05  2.907894e-05     1.0000   1.00000
+arm4_bf16_autocast             297     24.6782   6.797543e-02  7.130600e-02     1.0052   0.99772
+negctl_f32_permuted            297     24.6782   3.358675e-01  4.247332e-01     0.9064   0.94261
+
+----------------------------------------------------------------------------------------------------
+the one leaf (blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight), device reads 10.6980
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE             24     25.5795   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream               24     25.5795   2.444685e-05  2.101940e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7         24     25.5795   1.977226e-05  1.841239e-05     1.0000   1.00000
+arm3_f32_removed                24     25.5795   2.444685e-05  2.101940e-05     1.0000   1.00000
+arm4_bf16_autocast              24     25.5795   5.106099e-02  6.222344e-02     1.0288   0.99913
+negctl_f32_permuted             24     25.5795   4.514007e-01  3.764913e-01     0.9156   0.89262
+
+----------------------------------------------------------------------------------------------------
+diffusion device-arm scope minus the one leaf, device reads 0.2929
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE            711     26.6849   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream              711     26.6849   3.887300e-05  2.815974e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7        711     26.6849   3.968703e-05  2.727104e-05     1.0000   1.00000
+arm3_f32_removed               711     26.6849   3.887300e-05  2.815974e-05     1.0000   1.00000
+arm4_bf16_autocast             711     26.6849   6.808481e-02  7.122044e-02     1.0063   0.99772
+negctl_f32_permuted            711     26.6849   3.408564e-01  4.316933e-01     0.9075   0.94070
+
+----------------------------------------------------------------------------------------------------
+pairformer_stack, the seven blocks the device arm measured, device reads 0.14053
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE            399      1.6440   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream              399      1.6440   3.417154e-05  2.215534e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7        399      1.6440   3.269335e-05  2.151885e-05     1.0000   1.00000
+arm3_f32_removed               399      1.6440   3.417154e-05  2.215534e-05     1.0000   1.00000
+arm4_bf16_autocast             399      1.6440   2.942526e-01  1.965471e-01     0.9938   0.95646
+negctl_f32_permuted            399      1.6440   2.593945e-01  2.072810e-01     0.8734   0.97066
+
+----------------------------------------------------------------------------------------------------
+pairformer_stack block 47 alone, 64.86 % of that set, device reads 0.20129
+arm                              n  % of model   mass-wtd rel        median          r       cos
+ZERO_MODEL_BASELINE             57      1.0662   1.000000e+00  1.000000e+00     0.0000       n/a
+arm2_f32_upstream               57      1.0662   3.103001e-05  2.656918e-05     1.0000   1.00000
+arm2b_f32_upstream_omp7         57      1.0662   2.981666e-05  2.654858e-05     1.0000   1.00000
+arm3_f32_removed                57      1.0662   3.103001e-05  2.656918e-05     1.0000   1.00000
+arm4_bf16_autocast              57      1.0662   2.307760e-01  1.776185e-01     0.9467   0.97337
+negctl_f32_permuted             57      1.0662   2.839157e-01  2.183211e-01     0.8485   0.96602
+
+====================================================================================================
+THE HEAVY TENSORS, INDIVIDUALLY (A23 rule 3). Twelve tensors, ordered by their share of the model.
+====================================================================================================
+
+[10.38237 % of model]  diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.053722e-05     0.999995   1.000000
+    arm2b_f32_upstream_omp7        1.834290e-05     1.000000   1.000000
+    arm3_f32_removed               2.053722e-05     0.999995   1.000000
+    arm4_bf16_autocast             5.264684e-02     1.008890   0.998666
+    negctl_f32_permuted            2.863501e-01     0.938626   0.958328
+
+[ 9.29095 % of model]  diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.238443e-05     1.000004   1.000000
+    arm2b_f32_upstream_omp7        1.957494e-05     1.000004   1.000000
+    arm3_f32_removed               2.238443e-05     1.000004   1.000000
+    arm4_bf16_autocast             7.805802e-02     1.014072   0.997093
+    negctl_f32_permuted            3.686575e-01     0.898310   0.930109
+
+[ 8.80266 % of model]  diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.282479e-05     1.000009   1.000000
+    arm2b_f32_upstream_omp7        1.661122e-05     1.000010   1.000000
+    arm3_f32_removed               2.282479e-05     1.000009   1.000000
+    arm4_bf16_autocast             3.924116e-02     0.979176   0.999435
+    negctl_f32_permuted            3.305806e-01     0.832154   0.951264
+
+[ 8.05416 % of model]  diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.929034e-05     0.999992   1.000000
+    arm2b_f32_upstream_omp7        1.178860e-05     1.000004   1.000000
+    arm3_f32_removed               2.929034e-05     0.999992   1.000000
+    arm4_bf16_autocast             2.788682e-02     1.024740   0.999919
+    negctl_f32_permuted            3.286092e-01     0.746261   0.970787
+
+[ 5.45946 % of model]  diffusion_module.diffusion_conditioning.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.255803e-05     0.999987   1.000000
+    arm2b_f32_upstream_omp7        1.770483e-05     0.999994   1.000000
+    arm3_f32_removed               2.255803e-05     0.999987   1.000000
+    arm4_bf16_autocast             7.888542e-02     1.041672   0.997847
+    negctl_f32_permuted            4.063924e-01     0.797162   0.922217
+
+[ 3.38660 % of model]  diffusion_module.atom_attn_enc.noisy_position_embedder.linear_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              6.053078e-05     0.999981   1.000000
+    arm2b_f32_upstream_omp7        5.978867e-05     0.999987   1.000000
+    arm3_f32_removed               6.053078e-05     0.999981   1.000000
+    arm4_bf16_autocast             6.927961e-02     0.980427   0.997748
+    negctl_f32_permuted            2.751204e-01     0.979053   0.961569
+
+[ 3.03037 % of model]  diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              8.241037e-06     1.000004   1.000000
+    arm2b_f32_upstream_omp7        8.916995e-06     1.000001   1.000000
+    arm3_f32_removed               8.241037e-06     1.000004   1.000000
+    arm4_bf16_autocast             4.874537e-02     1.033209   0.999384
+    negctl_f32_permuted            3.547958e-01     0.693301   0.977055
+
+[ 2.86053 % of model]  diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              3.813532e-05     0.999993   1.000000
+    arm2b_f32_upstream_omp7        4.250397e-05     0.999985   1.000000
+    arm3_f32_removed               3.813532e-05     0.999993   1.000000
+    arm4_bf16_autocast             3.039691e-02     0.977208   0.999793
+    negctl_f32_permuted            4.061821e-01     0.665529   0.960097
+
+[ 2.84314 % of model]  aux_heads.distogram.linear.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              3.300507e-06     1.000000   1.000000
+    arm2b_f32_upstream_omp7        3.300507e-06     1.000000   1.000000
+    arm3_f32_removed               3.300507e-06     1.000000   1.000000
+    arm4_bf16_autocast             2.393696e-01     1.013635   0.971828
+    negctl_f32_permuted            3.300507e-06     1.000000   1.000000
+
+[ 2.69418 % of model]  diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              2.160280e-05     0.999980   1.000000
+    arm2b_f32_upstream_omp7        1.055385e-05     0.999990   1.000000
+    arm3_f32_removed               2.160280e-05     0.999980   1.000000
+    arm4_bf16_autocast             2.252174e-02     1.018129   0.999912
+    negctl_f32_permuted            3.968392e-01     0.612570   0.993977
+
+[ 2.43308 % of model]  diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              1.203628e-05     1.000010   1.000000
+    arm2b_f32_upstream_omp7        1.316758e-05     0.999994   1.000000
+    arm3_f32_removed               1.203628e-05     1.000010   1.000000
+    arm4_bf16_autocast             8.838432e-02     1.085951   0.999805
+    negctl_f32_permuted            7.837013e-01     1.770255   0.994098
+
+[ 2.40567 % of model]  diffusion_module.diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight
+    arm                                  rel_l2            r        cos
+    ZERO_MODEL_BASELINE            1.000000e+00     0.000000   0.000000
+    arm2_f32_upstream              1.470174e-05     0.999989   1.000000
+    arm2b_f32_upstream_omp7        1.318525e-05     0.999994   1.000000
+    arm3_f32_removed               1.470174e-05     0.999989   1.000000
+    arm4_bf16_autocast             3.919053e-02     1.030339   0.999701
+    negctl_f32_permuted            4.199794e-01     0.618597   0.975012
+
+====================================================================================================
+THE NAMED TENSOR, BESIDE WHAT THE DEVICE ARM READS ON IT
+====================================================================================================
+
+diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight
+    8.05416 % of the model on its own
+    device arm   rel_l2 18.504   (workstreams/of3t-refprec.txt, quoting of3t-orchestrator D62/D63: 'the tensor our device reads at rel 18.504')
+    ZERO_MODEL_BASELINE          rel_l2   1.000000e+00 r     0.000000 cos   0.000000
+    arm2_f32_upstream            rel_l2   2.929034e-05 r     0.999992 cos   1.000000
+    arm2b_f32_upstream_omp7      rel_l2   1.178860e-05 r     1.000004 cos   1.000000
+    arm3_f32_removed             rel_l2   2.929034e-05 r     0.999992 cos   1.000000
+    arm4_bf16_autocast           rel_l2   2.788682e-02 r     1.024740 cos   0.999919
+    negctl_f32_permuted          rel_l2   3.286092e-01 r     0.746261 cos   0.970787
+
+====================================================================================================
+SECTIONS (A23 rule 1: every set carries its share of the reference's squared norm)
+====================================================================================================
+section                                           n   % model ZERO_MODEL_BAS arm2_f32_upstr arm2b_f32_upst arm3_f32_remov arm4_bf16_auto negctl_f32_per
+diffusion_module.diffusion_transformer          552   43.8936   1.000000e+00   2.245319e-05   1.925134e-05   2.245319e-05   5.787709e-02   4.152178e-01
+diffusion_module.diffusion_conditioning          26   36.9462   1.000000e+00   2.218914e-05   1.972011e-05   2.218914e-05   6.253168e-02   3.492736e-01
+pairformer_stack                               2736    5.8282   1.000000e+00   3.257856e-05   3.111445e-05   3.257856e-05   3.147698e-01   2.565762e-01
+diffusion_module.atom_attn_enc                   98    5.5589   1.000000e+00   7.446880e-05   7.389442e-05   7.446880e-05   8.225781e-02   3.010130e-01
+aux_heads                                       244    2.8431   1.000000e+00   4.526612e-04   4.526612e-04   4.526612e-04   2.393700e-01   4.526612e-04
+diffusion_module.atom_attn_dec                   82    1.3173   1.000000e+00   4.367862e-05   6.221568e-05   4.367862e-05   5.070453e-02   3.350956e-01
+msa_module                                      227    1.2400   1.000000e+00   1.558228e-05   1.547796e-05   1.558228e-05   1.789444e-01   1.506580e-01
+diffusion_module.layer_norm_s                     1    0.9835   1.000000e+00   3.566929e-06   1.028507e-05   3.566929e-06   3.101235e-02   2.210236e-01
+input_embedder                                   98    0.8007   1.000000e+00   5.797372e-05   5.412521e-05   5.797372e-05   3.422188e-01   1.168190e-01
+diffusion_module.layer_norm_a                     1    0.2666   1.000000e+00   1.398081e-05   2.280865e-05   1.398081e-05   3.697011e-02   1.617146e-01
+diffusion_module.linear_s                         1    0.2445   1.000000e+00   1.777876e-05   1.659135e-05   1.777876e-05   6.544196e-02   3.960216e-01
+msa_module_embedder                               2    0.0612   1.000000e+00   1.766444e-05   1.885503e-05   1.766444e-05   2.490157e-01   1.668444e-01
+template_embedder                                96    0.0103   1.000000e+00   1.505950e-05   1.382592e-05   1.505950e-05   1.790342e-01   1.600027e-01
+layer_norm_z                                      2    0.0039   1.000000e+00   1.643497e-05   1.669607e-05   1.643497e-05   2.341485e-01   1.649050e-01
+layer_norm_s                                      2    0.0015   1.000000e+00   1.383471e-04   1.451486e-04   1.383471e-04   2.324119e+00   4.496941e-01
+linear_z                                          1    0.0004   1.000000e+00   1.576778e-05   1.530675e-05   1.576778e-05   1.676344e-01   1.729390e-01
+linear_s                                          1    0.0001   1.000000e+00   1.379233e-04   1.306197e-04   1.379233e-04   1.892157e+00   3.655189e-01
+
+====================================================================================================
+CONTROLS
+====================================================================================================
+
+arm2_f32_upstream
+    loss 1.267598032951355 against the reference's 1.267624369070698
+    abs 2.633612e-05   rel 2.077596e-05   bit-identical on RNG replay within the arm: True
+    gradient global norm 3.2061833031932405 over 4170 tensors
+    draws draws_recycles0.pt sha 36c8136c7c52cd55 mismatches 0
+    cast policy upstream: their autocast contexts entered 1644, torch actually enabled 0; .float() calls 480 of which 476 changed dtype {'float32': 4, 'int32': 168, 'int64': 308}
+
+arm2b_f32_upstream_omp7
+    loss 1.2675981521606445 against the reference's 1.267624369070698
+    abs 2.621691e-05   rel 2.068192e-05   bit-identical on RNG replay within the arm: True
+    gradient global norm 3.206185709023485 over 4170 tensors
+    draws draws_recycles0.pt sha 36c8136c7c52cd55 mismatches 0
+    cast policy upstream: their autocast contexts entered 1644, torch actually enabled 0; .float() calls 480 of which 476 changed dtype {'float32': 4, 'int32': 168, 'int64': 308}
+
+arm3_f32_removed
+    loss 1.267598032951355 against the reference's 1.267624369070698
+    abs 2.633612e-05   rel 2.077596e-05   bit-identical on RNG replay within the arm: True
+    gradient global norm 3.2061833031932405 over 4170 tensors
+    draws draws_recycles0.pt sha 36c8136c7c52cd55 mismatches 0
+    cast policy removed: their autocast contexts entered 1644, torch actually enabled 0; .float() calls 480 of which 476 changed dtype {'float32': 4, 'int32': 168, 'int64': 308}
+
+arm4_bf16_autocast
+    loss 1.2664434909820557 against the reference's 1.267624369070698
+    abs 1.180878e-03   rel 9.315678e-04   bit-identical on RNG replay within the arm: True
+    gradient global norm 3.2608531350374994 over 4170 tensors
+    draws draws_recycles0.pt sha 36c8136c7c52cd55 mismatches 0
+    cast policy bf16: their autocast contexts entered 7704, torch actually enabled 338; .float() calls 480 of which 476 changed dtype {'float32': 4, 'int32': 168, 'int64': 308}
+
+negctl_f32_permuted
+    loss 1.268425703048706 against the reference's 1.267624369070698
+    abs 8.013340e-04   rel 6.321541e-04   bit-identical on RNG replay within the arm: True
+    gradient global norm 2.915605289384578 over 4170 tensors
+    draws draws_recycles0_PERMUTED.pt sha 8aec4b596a929ed5 mismatches 0
+    cast policy upstream: their autocast contexts entered 1644, torch actually enabled 0; .float() calls 480 of which 476 changed dtype {'float32': 4, 'int32': 168, 'int64': 308}
+
+unmeasurable tensors (A14 floor, ref_norm < 1e-12): 86, holding 1.095e-23 % of the model
+the top 8 tensors hold 51.2671 % of the model

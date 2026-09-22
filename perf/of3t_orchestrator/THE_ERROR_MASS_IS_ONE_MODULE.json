@@ -1,0 +1,84 @@
+{
+ "FILENAME_IS_WRONG": "this file is named THE_ERROR_MASS_IS_ONE_MODULE and its central claim is refuted. The name is kept because it is cited in commits and briefs, and renaming would break those references while a reader who greps the name would still find the old claim in history. Read the REFUTED field first. What SURVIVES is the within-arm arithmetic: inside the 547-tensor diffusion arm, diffusion_transformer really is 99.6036 % of that ARM's error mass and the six sections partition it exactly. That was never a statement about the model, and I published it as one.",
+ "REFUTED": "REFUTED at pass 175 by of3t-pairformer, the same pass this file was written. Measured on its own scope the pairformer trunk reads 1.061553e+01 against upstream's own bf16 step -- WORSE than the diffusion transformer's 8.025 -- and in error mass (share of the model's squared gradient norm times rel^2, this file's own formula): diffusion transformer 28.0929 (80.79 %), PAIRFORMER TRUNK 6.5678 (18.89 %), the other five diffusion sections 0.1118 (0.32 %). This file's claim allots 0.4 % to everything outside the diffusion transformer; the trunk alone is 19 %. Caveat carried from the row: the diffusion rows are at the 043 step and the trunk row at the 0.5.0 boundary, so this is an order-of-magnitude statement rather than a partition of one number -- but 0.4 % against 19 % does not turn on the step.",
+ "WHY_THE_DATA_FIELDS_ARE_SUFFIXED": "Nulled at pass 180. This artifact was REFUTED and said so, but its data fields still read as live -- a stamp in one field does not stop the numbers being consumed out of another, by a reader or by a script. Every structured field is renamed with a _SUPERSEDED suffix so it cannot be picked up by name; the content is kept verbatim for audit. Renamed: reconciliation, rows. Current answer: THE_ANSWER.json.",
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "REFUTED -- see REFUTED and FILENAME_IS_WRONG. What stands is the within-ARM split: diffusion_transformer is 99.6036 % of the 547-tensor diffusion arm's error mass. It is NOT 99.6 % of the model's, and the pairformer trunk is 18.89 % of the model's measured error mass.",
+ "headline_RETIRED": "diffusion_transformer alone carries 99.6036 % of the diffusion arm's entire error mass against upstream's own training step. The other five sections of that arm -- atom_attn_enc, atom_attn_dec, layer_norm_s, layer_norm_a and linear_s -- contribute 0.4123 % between them. 'The failure is one module' is not a ratio argument; it is almost all of the error.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Arithmetic on of3t-trajectory's published per-section table (shipped column, against the pinned arm4) and its scope headline. No new measurement.",
+ "reconciliation_SUPERSEDED": {
+  "arm_error_mass": 28.20471585719318,
+  "mass_frac_of_arm": 0.511358,
+  "mass_frac_sum_of_sections": 0.511358,
+  "sections_share_of_arm_pct": 99.6159,
+  "sections_sum_of_error_mass": 28.09637617615092,
+  "verdict": "the six sections' masses sum to 51.1358 % against the arm's 51.1358 % -- an exact partition -- and they carry 99.6159 % of its error mass. The 0.38 % shortfall is consistent with the published rel figures being 4-6 significant figures; it is NOT a missing section. Every section is a proper subset, so of3t-trajectory's per-section table is internally consistent with its own headline -- which is the test the pairformer figures failed (D84)."
+ },
+ "rows_SUPERSEDED": [
+  {
+   "error_mass": 28.20471585719318,
+   "mass_frac": 0.511358,
+   "note": "of3t-trajectory's shipped-arm headline against upstream's own bf16 step",
+   "rel": 7.426742,
+   "scope": "diffusion device arm (547 tensors)",
+   "share_of_arm_error_pct": 100.0
+  },
+  {
+   "bound_over_own_floor": 1.95,
+   "error_mass": 28.092905038125004,
+   "mass_frac": 0.436221,
+   "rel": 8.025,
+   "scope": "diffusion_module.diffusion_transformer",
+   "share_of_arm_error_pct": 99.6036,
+   "subset_of": "diffusion device arm (547 tensors)"
+  },
+  {
+   "bound_over_own_floor": 1.33,
+   "error_mass": 0.00227604499325,
+   "mass_frac": 0.047348,
+   "rel": 0.21925,
+   "scope": "diffusion_module.atom_attn_enc",
+   "share_of_arm_error_pct": 0.0081,
+   "subset_of": "diffusion device arm (547 tensors)"
+  },
+  {
+   "bound_over_own_floor": 5.65,
+   "error_mass": 0.0010169130051602999,
+   "mass_frac": 0.012843,
+   "rel": 0.28139,
+   "scope": "diffusion_module.atom_attn_dec",
+   "share_of_arm_error_pct": 0.0036,
+   "subset_of": "diffusion device arm (547 tensors)"
+  },
+  {
+   "bound_over_own_floor": 1.27,
+   "error_mass": 0.000147504855858,
+   "mass_frac": 0.002445,
+   "rel": 0.24562,
+   "scope": "diffusion_module.linear_s",
+   "share_of_arm_error_pct": 0.0005,
+   "subset_of": "diffusion device arm (547 tensors)"
+  },
+  {
+   "bound_over_own_floor": 1.55,
+   "error_mass": 2.7415290760514997e-05,
+   "mass_frac": 0.009835,
+   "rel": 0.052797,
+   "scope": "diffusion_module.layer_norm_s",
+   "share_of_arm_error_pct": 0.0001,
+   "subset_of": "diffusion device arm (547 tensors)"
+  },
+  {
+   "bound_over_own_floor": 1.01,
+   "error_mass": 3.2598808899839994e-06,
+   "mass_frac": 0.002666,
+   "rel": 0.034968,
+   "scope": "diffusion_module.layer_norm_a",
+   "share_of_arm_error_pct": 0.0,
+   "subset_of": "diffusion device arm (547 tensors)"
+  }
+ ],
+ "what": "where the diffusion arm's error mass actually sits, and the subset-consistency check that D84 is filed for. For mass-weighted rel_l2 against one reference, a set's error mass is rel^2 x mass, and a subset's cannot exceed its superset's. This artifact declares the nesting so audit_evidence.py checks it mechanically rather than my noticing.",
+ "what_it_does_not_say": "error mass is not importance. atom_attn_dec is the section the softmax bound did NOT move at all, so it is where a second mechanism is visible even though it is 0.0036 % of the error -- that is exactly why of3t-residual was told to measure it separately rather than by mass.",
+ "why_this_matters_beyond_bookkeeping": "the campaign has been describing the failure with RATIOS against each section's own floor (diffusion_transformer 138.8x, atom_attn_dec 5.65x), and a ratio invites the reading that several sections are comparably broken. By error mass they are not close: atom_attn_dec is 5.65x out and contributes 0.0036 % of the arm's error. A23 says every set statistic must carry its set's mass share; this is the same rule applied to the ERROR rather than to the reference, and it is what makes 'fix the softmax and the arm is 63.3x better' arithmetically unsurprising rather than lucky."
+}

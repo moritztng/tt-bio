@@ -1,0 +1,23 @@
+{
+  "what": "controls for the cotangent scan, measured in this row own process",
+  "A16_zero_cotangent_baseline": {
+    "per_rung_min": 1.0,
+    "per_rung_max": 1.0,
+    "exactly_one_at_every_rung": true,
+    "what": "a cotangent of exact zeros scored against the float64 reference must read 1.0 at every rung"
+  },
+  "BREAK_rung_shift_3": {
+    "median_true": 0.12477755364167031,
+    "median_shifted": 0.20352297010482273,
+    "what": "our cotangent at rung k scored against the reference at rung k+3. Same tensors, same masking, wrong pairing: a scan that could not tell them apart would be measuring nothing"
+  },
+  "BREAK_token_permutation": {
+    "seed": 20260921,
+    "fixed_points": 1,
+    "median_true": 0.13318575445414024,
+    "median_permuted": 1.4852848121417854,
+    "max_true": 2.627265986014925,
+    "max_permuted": 3.004219796539286,
+    "what": "our per-block injection cotangent with its 56 real token positions permuted, scored against the same reference. Everything else identical."
+  }
+}
