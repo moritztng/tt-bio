@@ -2017,3 +2017,44 @@ artifact from relocated inputs to the last digit; the frame reproduces its own r
 float64 floor; and the corrected cotangent is banked with digests for the device arms.
 **What remains for the clause is the device re-score, the composition, and reading pass 394's
 pre-registered ladder — and no new bar may be written for any of it.**
+
+---
+
+### R171. I amended one clause of a four-part pre-registered condition at R166 and did not audit its siblings; two of the other three had the same flaw (pass 405, zero card)
+
+R166 fixed condition 3 of the repoint's four-part condition for unsatisfiable exactness and
+stopped there. Checking the remaining three against what `of3t-recut` actually emits:
+
+- **Condition 1 required `injection.convention == "graph_cut_correct"`.** The producer emits
+  **`graph-cut-external`**. A string I invented before any producer existed — and **the row's
+  vocabulary is better**: *external* names what the cotangent IS, the external partial, where
+  *correct* is a value judgement. The contract adopts the row's word rather than imposing mine.
+- **Condition 2 required reproduction of `3.0392623414001263e-15`.** `of3t-recut` reads
+  **3.0392623414001244e-15** — absolute difference **1.972e-30**, relative **6.489e-16**, one
+  ulp on a 3e-15 quantity computed by two different code paths, with both **329x under the
+  1e-12 bar**. The identical unsatisfiable-exactness flaw R166 had just fixed one clause along.
+- **Condition 4 is qualitative**, which is the only reason it could not have this flaw.
+
+**So two of the four conditions would have blocked the repoint on my own bookkeeping**, after
+every expensive arm had run. Both are now bound to what the producer emits, with the amendment
+and the superseded literal kept beside them.
+
+**Two lessons, and the second is the one worth carrying.**
+
+**A pre-registered condition written BEFORE the producer exists will name values the producer
+does not emit.** The discipline that makes pre-registration honest — fix it before the number,
+so it cannot be moved to fit an answer — is the same thing that makes it brittle, because you
+are guessing the vocabulary and the precision. The resolution is not to pre-register less:
+**pre-register the SHAPE and the SEMANTICS, and bind the LITERALS once the first artifact
+exists.** A condition amended for vocabulary before any number is known is still honest; one
+amended after the number is not.
+
+**And when a clause of a multi-part condition is amended, audit its siblings in the same pass.**
+Fixing one instance and leaving the others armed is the `hf-revision-pin-fix-missed-three-direct-callers`
+family, and this is its second appearance in this campaign — the first was R156, where
+retracting one mechanism revived a control I had declared blind.
+
+**Status of the four as of now**: 1 MET (`graph-cut-external` stamped in both `C64_CONTROLS`
+and `N384_CONTROLS`), 2 MET (6.489e-16 agreement, 329x under the bar), 3 MET (R166, the
+cross-host floor), 4 pending the device arm. The composed artifact's per-scope stamp (R168) is
+the remaining piece of condition 1.

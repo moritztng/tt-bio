@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R170 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R171 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R171** I amended one clause of a four-part pre-registered condition at R166 and did not
+  audit its siblings; two of the other three had the same flaw. Three of four now MET
 - **R170** D242 CLOSED at model scope — the repaired injection reproduces the reference's whole
   trunk at **1.6952505222168708e-14**, the capture's own witness value, against a 1e-12 bar
 - **R169** the ten defects on the stamper's default are all correctly campaign-internal; the
@@ -1738,3 +1740,29 @@ arms shared them. That is the half of A42 a shape check cannot do.
 
 What remains for the clause is the device re-score, the composition, and reading the
 pre-registered ladder. No new bar for any of it.
+
+## Pass 405 — two of my four repoint conditions would have blocked the repoint on my own bookkeeping
+
+R166 fixed condition 3 for unsatisfiable exactness and stopped there. Audited against what
+`of3t-recut` actually emits, two of the remaining three had the same flaw. Condition 1 required
+`injection.convention == "graph_cut_correct"`; the producer emits `graph-cut-external` — a
+string I invented before any producer existed, and the row's word is the better one, since
+*external* names what the cotangent is where *correct* is a value judgement. Condition 2
+required reproduction of 3.0392623414001263e-15; the row reads 3.0392623414001244e-15, a
+relative difference of 6.489e-16 on a quantity two different code paths compute, both 329x
+under the bar. Condition 4 is qualitative, which is the only reason it escaped.
+
+Both are now bound to what the producer emits, with the superseded literals kept beside them,
+and **no bar moved**. Three of four conditions are MET; the fourth waits on the device arm, and
+the composed artifact's per-scope stamp from R168 is the last piece of condition 1.
+
+**The lesson worth carrying.** A pre-registered condition written before the producer exists
+will name values the producer does not emit. The discipline that makes pre-registration honest
+— fix it before the number, so it cannot be moved to fit an answer — is the same thing that
+makes it brittle, because you are guessing the vocabulary and the precision. **Pre-register the
+shape and the semantics; bind the literals once the first artifact exists.** Amending for
+vocabulary before any number is known is still honest; amending after is not.
+
+And when one clause of a multi-part condition is amended, **audit its siblings in the same
+pass**. This is the second appearance of that family in this campaign — the first was R156,
+where retracting one mechanism revived a control I had declared blind.
