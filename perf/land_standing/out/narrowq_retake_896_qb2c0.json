@@ -1,0 +1,92 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_TRIATT_NARROW_Q_FALLBACK=1",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "rf3",
+      "rung": 896,
+      "off": [
+        103.0,
+        94.4,
+        94.8,
+        104.0
+      ],
+      "on": [
+        104.1,
+        105.1,
+        112.5,
+        111.4
+      ],
+      "folds": [
+        {
+          "arm": "off",
+          "rep": 1,
+          "runtime_s": 103.0,
+          "t_start": 1790043165.9765668,
+          "t_end": 1790043283.5540729
+        },
+        {
+          "arm": "on",
+          "rep": 1,
+          "runtime_s": 104.1,
+          "t_start": 1790043283.5541968,
+          "t_end": 1790043396.0767915
+        },
+        {
+          "arm": "off",
+          "rep": 2,
+          "runtime_s": 94.4,
+          "t_start": 1790043396.0769095,
+          "t_end": 1790043499.1098464
+        },
+        {
+          "arm": "on",
+          "rep": 2,
+          "runtime_s": 105.1,
+          "t_start": 1790043499.1099586,
+          "t_end": 1790043612.7123861
+        },
+        {
+          "arm": "off",
+          "rep": 3,
+          "runtime_s": 94.8,
+          "t_start": 1790043612.712489,
+          "t_end": 1790043720.9601848
+        },
+        {
+          "arm": "on",
+          "rep": 3,
+          "runtime_s": 112.5,
+          "t_start": 1790043720.9602811,
+          "t_end": 1790043858.5415046
+        },
+        {
+          "arm": "off",
+          "rep": 4,
+          "runtime_s": 104.0,
+          "t_start": 1790043858.5416338,
+          "t_end": 1790043976.861829
+        },
+        {
+          "arm": "on",
+          "rep": 4,
+          "runtime_s": 111.4,
+          "t_start": 1790043976.861954,
+          "t_end": 1790044103.416678
+        }
+      ],
+      "off_median": 98.9,
+      "on_median": 108.25,
+      "aa_spread_pct": 9.706774519716879,
+      "ab_median_pct": 9.453993933265918,
+      "inside_aa": true
+    }
+  ]
+}

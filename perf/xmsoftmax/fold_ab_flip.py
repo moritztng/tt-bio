@@ -124,7 +124,16 @@ def cell(model: str, rung: int, reps: int, workdir: Path,
     print("  warm-up (discarded)  %.4fs" % warm["runtime_s"], flush=True)
     off, on, folds = [], [], []
     for rep in range(1, reps + 1):
-        for arm, acc in (("off", off), ("on", on)):
+        # ALTERNATE the arm order. A fixed off-then-on order puts any position effect --
+        # thermal, allocator state, page cache -- on the same arm in every pair, so it
+        # reproduces across cards and processes and reads as a lever. On 2026-09-22 the
+        # narrow-q 768 aa NEGATIVE CONTROL, a length where the policy function provably
+        # cannot reach the fallback list, read +2.542 % at 3.80x its own A/A floor with the
+        # lever-enabled arm first in both pairs. The same cell had reproduced +9.50 s on two
+        # cards in two processes, which is what a position effect does: reproducing is not
+        # the same as being real. Alternating cancels it instead of confirming it.
+        order = (("off", off), ("on", on)) if rep % 2 else (("on", on), ("off", off))
+        for slot, (arm, acc) in enumerate(order):
             r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value,
                          timeout_s=timeout_s)
             if "error" in r:
@@ -132,17 +141,24 @@ def cell(model: str, rung: int, reps: int, workdir: Path,
                 return {"model": model, "rung": rung, "error": r["error"],
                         "off": off, "on": on, "folds": folds}
             acc.append(r["runtime_s"])
-            folds.append({"arm": arm, "rep": rep, "runtime_s": r["runtime_s"],
+            folds.append({"arm": arm, "rep": rep, "slot": slot,
+                          "runtime_s": r["runtime_s"],
                           "t_start": r["t_start"], "t_end": r["t_end"]})
             print("  %-3s rep%d  %.4fs" % (arm, rep, r["runtime_s"]), flush=True)
     # Floor first: the spread of the same-arm reps is what makes the delta a measurement.
-    aa = 100.0 * (max(off) - min(off)) / st.median(off)
+    # Take the WIDER of the two arms' own spreads. Reading it off one arm only can hand back
+    # a floor narrower than the noise the other arm is carrying, which is a floor that clears
+    # a delta it should have refused.
+    aa_off = 100.0 * (max(off) - min(off)) / st.median(off)
+    aa_on = 100.0 * (max(on) - min(on)) / st.median(on)
+    aa = max(aa_off, aa_on)
     ab = 100.0 * (st.median(on) - st.median(off)) / st.median(off)
     verdict = "INSIDE THE FLOOR" if abs(ab) <= aa else "outside the floor"
     print("  A/A floor %+.3f%%   A/B %+.3f%%   %s" % (aa, ab, verdict), flush=True)
     return {"model": model, "rung": rung, "off": off, "on": on, "folds": folds,
             "off_median": st.median(off), "on_median": st.median(on),
-            "aa_spread_pct": aa, "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
+            "aa_spread_pct": aa, "aa_spread_off_pct": aa_off, "aa_spread_on_pct": aa_on,
+            "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
 
 
 def main() -> int:
