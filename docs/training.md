@@ -178,20 +178,32 @@ Measured, and each carries its source:
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
 
-Refused rather than estimated:
+Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
+these are per model and `plan()` applies only the one you asked for:
 
-- **384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB, 536,870,912 B
-  refused. Both measured, both in the forward under per-block checkpointing where the forward
-  is untaped, so what fails is one block's working set. Distribution does not help: 8 chips
-  each run out at 384 aa exactly as one does. A crop re-measure on the shipped forward is
-  scheduled, and until it lands `plan()` refuses instead of extrapolating a slope through two
-  failures.
+- **Protenix-v2 — 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
+  536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
+  untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
+  run out at 384 aa exactly as one does.
+- **OpenFold3 — 512 aa runs and is the largest that does. 544, 576, 640 and 768 refuse.** The
+  three refusals are not one wall: 640 and 768 die with the card full, 23,710,208 B and
+  6,231,552 B free; 576 dies with 6,671,522,304 B still free, refused for contiguity inside
+  `ttnn::concat`, short by 77,930,560 B per bank. A capacity extrapolation cannot find that
+  frontier, which is why these are measurements and not a slope.
+
+**These two do not transfer to each other**, and a model with no entry gets no refusal from this
+table. Asking for a 512 aa OpenFold3 crop used to be refused on Protenix-v2's number for a crop
+OpenFold3 is measured to run; asking for 640 used to come back `UNMEASURED` when it is measured
+to refuse. Both were wrong, in opposite directions, and both came from one flat table.
 
 `UNMEASURED`, with the reason:
 
-- **Above 256 aa**, and not one of the two measured failure sizes. Activation volume is neither
-  linear nor quadratic in tokens across the triangle operations' chunking thresholds, so
-  interpolating between 256 and 384 would be a guess with a plausible shape.
+- **Above 256 aa**, and not a size that model's own forward OOM was measured at. Activation
+  volume is neither linear nor quadratic in tokens across the triangle operations' chunking
+  thresholds, so interpolating between 256 and 384 would be a guess with a plausible shape.
+  Where the memory fit *is* measured even though the step time is not, the answer says so:
+  OpenFold3 at 512 aa comes back `UNMEASURED` and adds that the memory fits up to 512 aa, so
+  the crop is expected to run and what is missing is a step time.
 - **Anything above a LoRA adapter on a frozen trunk.** The only source for a trained trunk's
   memory is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB and roughly 40
   engineer-days are projections of work that is not built, and which says so itself.

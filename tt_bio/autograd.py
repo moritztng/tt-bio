@@ -40,6 +40,7 @@ __all__ = [
     "relu", "silu", "reshape", "pairwise_distance",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
+    "exact_softmax", "exact_softmax_installed", "EXACT_SOFTMAX_STATS",
 ]
 
 
@@ -957,6 +958,139 @@ def host_f64_softmax(x, dim: int = -1):
         return bw
 
     return _tape(y, [xt], make)
+
+
+# --- the exact softmax, as a configuration of the package ---------------------------------
+#
+# `perf/of3t_bwdaccum/dev_cot.py --lever ceiling_hf3` measured the trunk's backward with every
+# softmax exact: 0.4175214198121818 against the float64 reference at crop 384, where the device
+# softmax reads 0.702981502944001. It got there by rewriting `taped_ttnn._VERBS` and rebinding
+# `ttnn.softmax` from a perf script, which is an experiment and not a thing a caller can run.
+# This is the same arithmetic, installed and removed by the training entry points, with the
+# reach counted rather than printed.
+#
+# TWO reaches, because they are two claims and neither implies the other:
+#
+#   the VERB    `_VERBS["softmax"]`, so every softmax the shipped modules take under a tape is
+#               exact in the forward AND in its Jacobian. Tape-gated by construction: `_VERBS`
+#               is only ever consulted through `taped_ttnn`'s shim, and the shim is only bound
+#               into the shipped modules inside `tape()`.
+#   the RAW op  `ttnn.softmax` itself, so `triangle_attention._scores` is exact in the forward
+#               and in the chunked backward's recompute. The verb cannot reach it:
+#               `taped_ttnn.py:861` routes the verb to `triangle_attention`, and this module is
+#               in `taped_ttnn._NEVER_SHIM`, so `_scores` calls the real `ttnn.softmax`. With
+#               only the verb installed, 3,504 renorm firings survive in the trunk and they are
+#               all the pair track.
+#
+# What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
+# backward, computed on an EXACT p. Making that exact too needs the chunked attention rewritten,
+# which this is not.
+#
+# Off unless asked for. While installed, the raw half is a process-wide rebinding of
+# `ttnn.softmax`, which is why it is installed and torn down explicitly rather than left on. No
+# inference fold has a route to it: these are the training entry points, and
+# `tests/test_training_opt_in.py::test_no_inference_module_imports_training` is what keeps the
+# inference modules from importing this one at all. That is the difference from a site selector
+# read off the environment, which every model's inference construction path executes.
+
+EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
+
+_EXACT_SOFTMAX_VERBS = ("softmax", "softmax_in_place")
+_EXACT_SOFTMAX_SAVED: Optional[dict] = None
+
+
+def _exact_softmax_raw(v, dim: int = -1, **kwargs):
+    """`ttnn.softmax`'s signature, computed on the host in float64. No tape node.
+
+    `compute_kernel_config` and the rest are accepted and dropped: they configure a device
+    kernel that no longer runs. `ttnn.softmax`'s contract is a ttnn tensor, so the rounded copy
+    is what comes back and the exactness this buys is in the FORWARD. That is enough for
+    `triangle_attention`, which recomputes its probabilities rather than saving them, so its
+    Jacobian is taken at this p rather than at a device-precision one.
+    """
+    EXACT_SOFTMAX_STATS["raw"] += 1
+    y64, y = host_f64_softmax_values(v, dim)
+    EXACT_SOFTMAX_STATS["raw_elements"] += int(y64.numel())
+    return y
+
+
+def _v_exact_softmax(shipped, args, kwargs):
+    """The taped `softmax` verb, served by `host_f64_softmax`: exact forward, exact Jacobian.
+
+    `softmax_in_place` lands here as well and is taped out of place, as the shipped verb is.
+    The host path never writes the caller's buffer, so the in-place kernel's one advantage is
+    gone and its one hazard with it.
+    """
+    x = _wrap(args[0])
+    dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+    EXACT_SOFTMAX_STATS["verb"] += 1
+    return host_f64_softmax(x, dim)
+
+
+def _install_exact_softmax() -> None:
+    """Idempotent. Keeps the objects it replaced, so the teardown restores those and not a
+    guess at what they were."""
+    global _EXACT_SOFTMAX_SAVED
+    if _EXACT_SOFTMAX_SAVED is not None:
+        return
+    from . import taped_ttnn as tt
+    saved = {"verbs": {n: tt._VERBS[n] for n in _EXACT_SOFTMAX_VERBS if n in tt._VERBS},
+             "raw": {n: getattr(ttnn, n) for n in _EXACT_SOFTMAX_VERBS if hasattr(ttnn, n)}}
+    for n in saved["verbs"]:
+        tt._VERBS[n] = _v_exact_softmax
+    for n in saved["raw"]:
+        setattr(ttnn, n, _exact_softmax_raw)
+    # Both swaps are invisible to a shim that has already resolved these names once. See
+    # `taped_ttnn.forget_shim_bindings`: this is why a package install is not the same thing as
+    # the same patch applied at process start.
+    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
+    _EXACT_SOFTMAX_SAVED = saved
+
+
+def _uninstall_exact_softmax() -> None:
+    """Idempotent."""
+    global _EXACT_SOFTMAX_SAVED
+    saved, _EXACT_SOFTMAX_SAVED = _EXACT_SOFTMAX_SAVED, None
+    if saved is None:
+        return
+    from . import taped_ttnn as tt
+    tt._VERBS.update(saved["verbs"])
+    for n, fn in saved["raw"].items():
+        setattr(ttnn, n, fn)
+    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
+
+
+def exact_softmax_installed() -> bool:
+    return _EXACT_SOFTMAX_SAVED is not None
+
+
+@contextlib.contextmanager
+def exact_softmax():
+    """Every softmax in the trunk exact, for a whole training step.
+
+        with tt_bio.autograd.exact_softmax():
+            with tt_bio.autograd.tape():
+                out = model(x)
+            out.backward()
+
+    Wider than `tape()`, deliberately. The backward recomputes -- `triangle_attention` never
+    holds its scores and a checkpointed block reruns its forward -- so a lever that came out
+    with the tape would leave every recomputed softmax on the card and take the Jacobian at
+    activations the forward did not produce. `install(exact_softmax=True)` / `uninstall()` is
+    the same thing without the block.
+
+    Nests: an inner block that found the lever already installed leaves it installed, the way
+    `tape()` leaves the shim to the outermost block. Taking it out at the inner `finally` would
+    be a teardown in the middle of the step it is meant to cover, and the arm would read as
+    half-installed with nothing saying so.
+    """
+    outer = exact_softmax_installed()
+    _install_exact_softmax()
+    try:
+        yield
+    finally:
+        if not outer:
+            _uninstall_exact_softmax()
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
@@ -1960,10 +2094,15 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
-def install():
+def install(*, exact_softmax: bool = False):
     """Route `tt_bio.ops` through the tape. Idempotent; returns the hook it replaced.
 
     This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
+
+    `exact_softmax` additionally computes every softmax in the taped forward, and every one the
+    backward recomputes, on the host in float64. Off by default: it costs a host round trip per
+    softmax and it is bought for gradient fidelity. `uninstall` takes it back out. When the
+    scope you want is one training step rather than one install, use `exact_softmax()`.
     """
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
@@ -1973,6 +2112,8 @@ def install():
     # The host float64 softmax a construction site may select. Injected rather than imported,
     # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
     ops.set_host_softmax_hook(host_f64_softmax)
+    if exact_softmax:
+        _install_exact_softmax()
     return ops.set_grad_hook(_hook)
 
 
@@ -1982,6 +2123,7 @@ def uninstall() -> None:
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
     ops.set_host_softmax_hook(None)
+    _uninstall_exact_softmax()
     ops.set_grad_hook(None)
 
 

@@ -1,0 +1,42 @@
+{
+ "what": "D242: every premise of 'forward identical + cotangent identical => backward identical' audited from committed files and the reference tree. All of them hold, and the backward still differs by 1.75x.",
+ "host": "pc",
+ "device_involved": false,
+ "filed_by": "of3t-orchestrator, pass 384",
+ "cost": "zero card, zero model run -- code reads, two JSON reads and one arithmetic bound",
+ "the_syllogism": "Same weights, same inputs, same function, same output cotangent => identical parameter gradients, exactly. The control reads 0.794528161319432 against a 1e-12 bar, so a premise must be false. This audit is the list of premises and what each one is now worth.",
+ "premises": [
+  {"id": "P1", "premise": "the replay reads the SAME boundary and cotangent files the capture wrote",
+   "status": "HOLDS -- verified this pass, and it was worth checking",
+   "evidence": "The capture ran on qb1 (CAPTURE_model_n384.json host tt-quietbox) and wrote /home/ttuser/of3t_modelframe/{boundary,cot}_model_n384.pt. The f64 arm ran on qb2 and read the SAME PATHS, which on this fleet is a different filesystem. The sha256s are identical on both sides: boundary 583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2 (153,359,829 B) and cotangent 4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac (152,176,541 B), capture report against perf/of3t_twoside/ctrl_f64.json.",
+   "note": "ctrl_f64.json carries no `host` field, which D235 requires. The sha match makes the reading safe anyway, but the field is owed."},
+
+  {"id": "P2", "premise": "the forward agrees where the gradient is driven, not just in whole-tensor norm",
+   "status": "HOLDS -- and the pad-dilution caveat is now quantified rather than open",
+   "evidence": "of3t-frameself is right that the published 'bit-exact' rests on whole-tensor norms while the pads carry 97.9 % of z's squared norm, so the check is diluted 47.6x on the 56 real rows. Bounded: if the arms agree on the pads and differ by relative d on the real block, the total norm moves by ~0.021*d, so agreement across all 16 printed digits gives d <= 4.76e-15.",
+   "arithmetic": {"real_row_squared_norm_share": 0.021, "dilution_factor": 47.6,
+                  "total_norm_agreement": 1e-16, "real_row_bound": 4.76e-15,
+                  "orders_below_the_defect": 14},
+   "consequence": "The forward really is the same function at the same point, to 4.76e-15 on the rows that matter. of3t-frameself's elementwise forward check should come back clean and the row should not hang its hypothesis on it."},
+
+  {"id": "P3", "premise": "the trunk's parameters are not shared with another module",
+   "status": "HOLDS -- excluded by code read",
+   "evidence": "openfold3/projects/of3_all_atom/model.py:100 instantiates PairFormerStack exactly once and model.py:307 calls it exactly once; those are the only two mentions of pairformer_stack in the file (lines 123 and 136 only assign blocks_per_ckpt). So no second module carries those parameter objects and named_parameters' de-duplication cannot be hiding a second call site.",
+   "kills": "H-A's shared-module form."},
+
+  {"id": "P4", "premise": "nothing sits between the stack's outputs and the tensor the hook was placed on",
+   "status": "HOLDS -- excluded by code read",
+   "evidence": "model.py:307-320 is `s, z = self.pairformer_stack(...)` and the function returns `s_input, s, z` with no operation on s or z in between. The forward hook's `output` tuple holds the same objects the rest of the model consumes."},
+
+  {"id": "P5", "premise": "the function the replay differentiates is the function the reference differentiated",
+   "status": "HOLDS -- checkpoint_blocks refuted at pass 383 (R146)",
+   "evidence": "228 of 228 parameter gradients bit-identical to a bare loop on upstream's real PairFormerBlock at use_reentrant None/True/False, ds_in and dz_in exactly 0.0, scorer break control firing at 1.35e-11. Plus of3t-frameself's own two: the tree (293 .py files byte for byte) and the per-block call (_prep_blocks' bindings equal PairFormerBlock.forward's defaults; dropout pinned r=0 so pair_dropout=0.25 is inert)."},
+
+  {"id": "P6", "premise": "the tensor hook fired once, so the captured cotangent is the whole dL/d(out)",
+   "status": "NOT YET VERIFIED -- and this pass eliminated the codebase's most plausible way for it to fail",
+   "evidence": "A PyTorch tensor hook fires with the ACCUMULATED gradient within one backward execution, so multiple consumers are safe. The risk is multiple EXECUTIONS, which is what separately-checkpointed regions downstream of the trunk would produce -- and the published capture's hook overwrites its slot, so a second firing is invisible and would leave the captured cot one contribution rather than the sum. The train preset does run the loss in checkpointed chunks: core/loss/diffusion.py:419-447 `run_low_mem_loss_fn` chunks over the sample dimension with checkpoint_section(apply_ckpt=True, use_reentrant=False), and the preset sets loss_module.diffusion.chunk_size: 4. BUT its closure is `kwargs={'batch': batch, 'eps': eps}` (diffusion.py:540-545) and `x` is the atom positions -- NO TRUNK TENSOR is captured, so the chunk boundaries sit downstream of x and the grad reaching s_out/z_out is accumulated once. ckpt_intermediate_steps, the train preset's other setting, reaches only sequence_local_atom_attention.py and not the trunk or its consumers.",
+   "left_open": "The hook COUNT itself, which of3t-frameself's self-test banks. It is one integer and it is now the last cheap discriminator standing."}
+ ],
+ "the_reading": "Seven premises, six of them now hold with evidence and the seventh is instrumented and running. The direction is the remaining constraint and it is sharp: the replay is 1.75x LARGER than the reference, so a merely-missing additive path is excluded -- whatever is wrong must partially cancel in the real model, or the captured cotangent must itself be too large.",
+ "what_it_does_not_say": "It does not name the cause. Six exclusions are not a mechanism, and a premise audit cannot see a premise nobody wrote down. If the self-test reproduces at 1e-12 (H-B) then ref_grad.py differs from the real stack in a way none of these reads can see, and the diff of the two module trees at the taped call -- which the self-test also banks -- is where to look next. If it does not reproduce (H-A), the captured cotangent is not dL/d(out), and P6's count says whether that is a partial sum or something else."
+}

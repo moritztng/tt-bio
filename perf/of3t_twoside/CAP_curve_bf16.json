@@ -1,0 +1,44 @@
+{
+ "what": "upstream 0.4.3's own float64 cotangent at the two affine leaf families, masked to the real rows, at every block, on the model frame",
+ "host": "tt-quietbox2",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no card is opened",
+ "git_commit": "",
+ "argv": [
+  "--tree",
+  "/home/ttuser/of3t_refprec/of3pkg043",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+  "--policy",
+  "bf16auto",
+  "--crop",
+  "384",
+  "--threads",
+  "14",
+  "--checkpoint",
+  "--out",
+  "/home/ttuser/of3t_twoside/sqnorms_curve_bf16.pt",
+  "--report",
+  "/home/ttuser/of3t_twoside/ARM_curve_bf16.json"
+ ],
+ "real_rows": 56,
+ "families": {
+  "A": "attn_pair_bias.layer_norm_a",
+  "B": "pair_stack.pair_transition.layer_norm"
+ },
+ "seconds": 272.4,
+ "n_sites": 96,
+ "n_A": 48,
+ "n_B": 48,
+ "forward_hook_fires": {
+  "A:0": 2,
+  "A:47": 2,
+  "B:0": 2,
+  "B:47": 2
+ },
+ "missing": [],
+ "cot_out": "/home/ttuser/of3t_twoside/cot_curve_bf16.pt",
+ "cot_out_bytes": 243654953
+}

@@ -1,0 +1,71 @@
+{
+ "what": "of3t-recut job 2 at crop 384, on the model's own frame: the repaired injection against the",
+ "host": "tt-quietbox2",
+ "row": "of3t-recut",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "bar": 1e-12,
+ "CORRECTED": {
+  "stamp": "graph-cut-external",
+  "injection": {
+   "convention": "graph-cut-external",
+   "what": "<cot_s, s_out> + <cot_z - d<cot_s,s_out>/dz_out, z_out>, the graph-cut external cotangent (D242 repaired)",
+   "graph_cut": {
+    "is_cut": false,
+    "ancestor_descendant_pairs": [
+     [
+      "z_out",
+      "s_out"
+     ]
+    ],
+    "checked_by": "walk of the grad_fn DAG over the injected outputs"
+   },
+   "correction_source": "this arm's own graph",
+   "cot_z_norm_hooked": 0.0007601379094210722,
+   "cot_z_norm_injected": 6.47087024696404e-05,
+   "correction_norm": 0.0007575746327655109,
+   "duplicate_share_of_the_hooked_cot_z": 0.9966278794626707
+  },
+  "block47": {
+   "n_tensors": 57,
+   "n_absent_from_arm": 0,
+   "n_bit_identical": 0,
+   "rel_l2_as_is": 3.0392623414001244e-15,
+   "norm_ratio_arm_over_ref": 0.9999999999999993,
+   "cos": 1.0,
+   "best_scalar_a_star": 1.0000000000000007,
+   "residual_after_best_scalar_frac_of_ref": 0.0,
+   "ref_squared_norm": 0.10960555905607551,
+   "arm_squared_norm": 0.10960555905607537,
+   "worst_rel_l2": 0.48061390670371634,
+   "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+  },
+  "all_trunk_tensors": {
+   "n_tensors": 2736,
+   "n_absent_from_arm": 0,
+   "n_bit_identical": 0,
+   "rel_l2_as_is": 1.6952505222168708e-14,
+   "norm_ratio_arm_over_ref": 0.999999999999999,
+   "cos": 1.0000000000000002,
+   "best_scalar_a_star": 1.000000000000001,
+   "residual_after_best_scalar_frac_of_ref": 0.0,
+   "ref_squared_norm": 0.599115204802637,
+   "arm_squared_norm": 0.5991152048026359,
+   "worst_rel_l2": 3.861200506210858,
+   "worst_tensor": "pairformer_stack.blocks.17.attn_pair_bias.layer_norm_z.bias"
+  },
+  "of3t_frameself_got_at_block47": 3.0392623414001263e-15,
+  "block47_clears_the_bar": true,
+  "all_trunk_clears_the_bar": true
+ },
+ "FALSIFIER": {
+  "exact_means": 0.000848887340907281,
+  "overcounts_means": 0.0014907294032500784,
+  "source": "perf/of3t_frameself/BREAK_DOUBLECOUNT.json prereg_falsifier",
+  "measured_dz_in_norm": 0.000848887340907281,
+  "rel_to_exact": 0.0,
+  "rel_to_overcounting": 0.4305557138293895,
+  "verdict": "the injection is the exact one"
+ }
+}

@@ -331,3 +331,170 @@ def test_the_backward_reads_the_float64_forward_not_the_device_copy():
     bw = next(n for n in ast.walk(fn) if isinstance(n, ast.FunctionDef) and n.name == "bw")
     names = {n.id for n in ast.walk(bw) if isinstance(n, ast.Name)}
     assert "y64" in names, "the backward does not read the float64 forward output"
+
+
+# --- the exact softmax installed from the package -----------------------------------------
+#
+# The site selector above is one of two ways to reach this arithmetic, and it is the one an
+# inference fold shares a call site with. The other is `autograd.install(exact_softmax=True)`,
+# which replaces the taped `softmax` verb and `ttnn.softmax` itself for the life of the
+# install. It reads 0.4175214198121818 against the float64 reference at crop 384 where the
+# device softmax reads 0.702981502944001, and the reason it is safe to have at all is
+# structural rather than a matter of what the default is: an inference fold never calls the
+# training entry points. These pin that structure, and the reach the number depends on.
+
+
+def _shim():
+    tt = pytest.importorskip("tt_bio.taped_ttnn")
+    return tt, tt.taped_ttnn()
+
+
+def test_the_exact_softmax_ships_off(monkeypatch):
+    """`install()` on its own must not touch a softmax. The lever costs a host round trip per
+    call and returns different numbers; it is asked for or it is not there."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    import ttnn
+
+    before = ttnn.softmax
+    prev = ag.install()
+    try:
+        assert not ag.exact_softmax_installed()
+        assert ttnn.softmax is before
+    finally:
+        ag.uninstall()
+        import tt_bio.ops as ops
+        ops.set_grad_hook(prev)
+
+
+def test_install_and_uninstall_put_back_the_objects_they_replaced():
+    """Identity, not equality. A teardown that rebuilds what it thinks the original was leaves
+    a second definition of the shipped softmax in the process."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    tt, _ = _shim()
+    import ttnn
+
+    was = {"raw": ttnn.softmax, "raw_ip": ttnn.softmax_in_place,
+           "verb": tt._VERBS["softmax"], "verb_ip": tt._VERBS["softmax_in_place"]}
+    ag.install(exact_softmax=True)
+    try:
+        assert ag.exact_softmax_installed()
+        assert ttnn.softmax is ag._exact_softmax_raw
+        assert ttnn.softmax_in_place is ag._exact_softmax_raw
+        assert tt._VERBS["softmax"] is ag._v_exact_softmax
+        assert tt._VERBS["softmax_in_place"] is ag._v_exact_softmax
+    finally:
+        ag.uninstall()
+    assert not ag.exact_softmax_installed()
+    assert ttnn.softmax is was["raw"] and ttnn.softmax_in_place is was["raw_ip"]
+    assert tt._VERBS["softmax"] is was["verb"]
+    assert tt._VERBS["softmax_in_place"] is was["verb_ip"]
+
+
+def test_the_context_manager_is_the_same_switch():
+    """`exact_softmax()` exists for the SCOPE, not for different behaviour: the backward
+    recomputes after the tape block has closed, so a lever scoped to the tape would leave every
+    recomputed softmax on the card."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    import ttnn
+
+    before = ttnn.softmax
+    with ag.exact_softmax():
+        assert ttnn.softmax is ag._exact_softmax_raw
+        with ag.exact_softmax():            # idempotent, and the inner block does not undo it
+            assert ttnn.softmax is ag._exact_softmax_raw
+        assert ttnn.softmax is ag._exact_softmax_raw
+    assert ttnn.softmax is before
+
+
+def test_the_two_reaches_are_two_different_entry_points():
+    """The verb and the raw op are separate claims and the counters keep them separate.
+
+    The verb makes the forward AND the Jacobian exact; it cannot reach
+    `autograd.triangle_attention._scores`, which calls `ttnn.softmax` directly from a module
+    `taped_ttnn._NEVER_SHIM` excludes. With the verb alone the pair track runs on the card, and
+    `raw` reading 0 is how that says so.
+    """
+    ag = pytest.importorskip("tt_bio.autograd")
+    tt, _ = _shim()
+
+    assert ag._v_exact_softmax is not ag._exact_softmax_raw
+    assert set(ag.EXACT_SOFTMAX_STATS) == {"verb", "raw", "raw_elements"}
+    # `_scores` calls the raw op, so the raw half is the only one that can reach it.
+    src = (SRC / "autograd.py").read_text(errors="replace")
+    body = src[src.index("def triangle_attention("):]
+    body = body[:body.index("\ndef ", 1)]
+    assert "ttnn.softmax(" in body, (
+        "triangle_attention no longer calls ttnn.softmax directly; the module-wide half of the "
+        "install was justified by that call and needs re-deriving")
+    assert "tt_bio.autograd" in tt._NEVER_SHIM
+
+
+def test_forget_shim_bindings_makes_a_verb_swap_visible():
+    """`_Ttnn.__getattr__` caches a closure that captured the `_VERBS` entry AND the shipped
+    callable, and `_SHIM` is a module singleton that outlives a `tape()`. So a lever installed
+    after anything has gone through the shim once reads as perfectly inert -- a failure mode a
+    patch applied at process start never meets, and the reason the package install needs this
+    and `dev_cot.py` did not."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    tt, shim = _shim()
+
+    getattr(shim, "softmax")
+    assert "softmax" in shim.__dict__, "the shim is expected to cache its bindings"
+
+    on_tape = ag.Tensor.__new__(ag.Tensor)      # `_on_tape` asks isinstance and nothing else
+    saved = tt._VERBS["softmax"]
+    try:
+        tt._VERBS["softmax"] = lambda shipped, args, kwargs: "SWAPPED"
+        assert "softmax" in shim.__dict__, "the swap alone is invisible, which is the point"
+        tt.forget_shim_bindings("softmax")
+        assert "softmax" not in shim.__dict__
+        assert shim.softmax(on_tape) == "SWAPPED"
+    finally:
+        tt._VERBS["softmax"] = saved
+        tt.forget_shim_bindings("softmax")
+
+
+def test_the_exact_softmax_install_drops_the_cached_bindings():
+    """The install above, wired: the same invalidation, done for it rather than by its caller."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    tt, shim = _shim()
+
+    for n in ("softmax", "softmax_in_place"):
+        getattr(shim, n)
+        assert n in shim.__dict__
+    with ag.exact_softmax():
+        for n in ("softmax", "softmax_in_place"):
+            assert n not in shim.__dict__, (
+                f"`{n}` kept its pre-install binding; every call site that had already used it "
+                f"would take the device softmax and the arm would read as inert")
+
+
+def test_no_inference_fold_has_a_route_to_the_exact_softmax():
+    """Moritz's hard constraint, argued structurally rather than by a default.
+
+    The site selector is an environment variable read on call sites shared with every model's
+    inference (`tt-bio-shared-diffusion-global-env-default-regression` is what that shape did
+    last time). This install has no environment variable and no inference caller: the only
+    things that turn it on are `autograd.install` and `autograd.exact_softmax`, and
+    `tests/test_training_opt_in.py::test_no_inference_module_imports_training` is what keeps
+    the inference modules from importing that module at all.
+    """
+    callers = {}
+    for path in sorted(SRC.rglob("*.py")):
+        if "_vendor" in path.parts or path.name in ("autograd.py", "taped_ttnn.py"):
+            continue
+        text = path.read_text(errors="replace")
+        hits = sorted({m for m in ("exact_softmax", "_install_exact_softmax",
+                                   "_exact_softmax_raw", "_v_exact_softmax")
+                       if m in text})
+        if hits:
+            callers[str(path.relative_to(SRC))] = hits
+    assert not callers, (
+        f"the exact softmax is named outside the training stack: {callers}. It must stay "
+        f"reachable only from the training entry points, or it is a global flag again.")
+    # And no environment variable of its own, which is the mechanism being avoided.
+    src = (SRC / "autograd.py").read_text(errors="replace")
+    body = src[src.index("EXACT_SOFTMAX_STATS ="):src.index("def mul(")]
+    assert "environ" not in body and "env_flag" not in body, (
+        "the exact softmax grew an environment variable; that is the shape the site selector "
+        "already has and the reason this install exists")

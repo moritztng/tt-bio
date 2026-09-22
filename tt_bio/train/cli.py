@@ -216,13 +216,14 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
     if rank < 1:
         raise click.BadParameter("must be at least 1", param_hint="--rank")
 
-    fit = plan(tokens=tokens or 256, chips=chips, global_batch=global_batch,
+    fit = plan(tokens=tokens or 256, model=model, chips=chips, global_batch=global_batch,
                frozen_trunk=train_mode == "adapters")
     click.echo(str(fit))
     if fit.verdict == "refused":
         raise click.ClickException(
-            "refusing to start on a configuration measured not to fit. Lower --tokens, or "
-            "wait for the crop re-measure named above")
+            "refusing to start on a configuration measured not to fit. Lower --tokens. "
+            "The measurement named above is this model's own; no other model's wall is "
+            "applied to it")
     if dry_run:
         if not fit.measured:
             click.echo("\nnote: UNMEASURED is an answer, not an error. It means we have no "

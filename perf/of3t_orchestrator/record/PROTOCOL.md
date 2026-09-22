@@ -1806,3 +1806,161 @@ the whole argument. Concretely, before a brief goes out with a two-sided pre-reg
 - **If it is caught late, amend the brief, the queue line and the row's gate together, in the
   same pass.** A correction that reaches only the state doc does not reach a running row — the
   campaign has paid for that once already.
+
+**A39 — 2026-09-22, raised by `of3t-orchestrator` from D241/R135 and R136. §3z gains the
+denominator; §3 gains a sentence on what an exclusion is worth. No tolerance moves and no number
+existed when this was written.**
+
+A34 made the same-boundary requirement explicit and `of3t-modelframe` was the first arm built to
+it. It was read as a requirement on OUR arm and it was satisfied there: our trunk is handed the
+reference's float64 boundary and its float64 cotangent. The bf16 denominator the arm is divided
+by is a full-model run that drove its own trunk with its own bf16 boundary and its own bf16
+cotangent, and nobody checked, because the denominator is "the reference" and a reference is the
+thing you do not question. D237 was the same mistake at the numerator and it was worth 1.9085x.
+
+**The rule, part one. A34 binds the DENOMINATOR.** A ratio whose numerator is a boundary-injected
+arm and whose denominator is a full-model run is cross-frame even when both sides name the same
+reference tensors. No row may publish such a ratio without saying which side is injected and
+which direction the bias runs. Where the bias favours us, the ratio is a lower bound and must be
+labelled one; where it favours the reference, the reading is not usable at all.
+
+**The rule, part two. An exclusion inherits its instrument's blind axis.** `of3t-blk4544` and
+`of3t-vjpln` both refuted their candidates on `R44 >= 1.90`, and `R44` is a width ratio,
+`rel_l2(ds, rung 44)@384 / @64`. The carrier this campaign later located is the LayerNorm affine
+family, 93.80 % of the excess and **width-invariant** — which moves both legs of R44 equally and
+leaves it fixed by construction. The falsifier could never have named the cause, and the verdict
+it produced was then quoted for two passes as "that is closed". So: **before an exclusion is
+quoted as having ruled a cause out, state the axis the instrument reads and show the cause is not
+invariant along it.** And where the experiment ran inside a frame carrying a known irreducible
+mismatch, state the detection ceiling — an arm whose maximum possible effect is smaller than the
+effect it reports absent has excluded nothing.
+
+---
+
+## A40 — a frame's gating control is a precondition of the frame, not a later check on it
+
+**Added pass 381, 2026-09-22, after D242. A number already existed when this was written, and the
+number is the reason it is being written: the control failed.**
+
+**The rule.** No frame may grade anything until the control that says it is the frame it claims has
+RUN and PASSED. A frame here is any harness that supplies part of a comparison's boundary — an
+injected activation, an injected cotangent, a replayed draw sequence, a reconstructed submodule.
+Where the frame was built by capturing from a reference, the control is always available and always
+the same: replay the capture exactly, in the reference's own precision, and require it to reproduce
+the reference's own output to round-off. Fix the bar before the arm exists.
+
+**What went wrong.** `of3t-modelframe` built the model frame to repair D237, published the clause
+at 1.7814x from it, and the campaign spent three passes reasoning about that number and dispatching
+rows against it. `of3t-twoside` ran the control two passes later and it failed by twelve orders of
+magnitude. The control cost one trunk replay. The frame's own float64 replay turned out to cost
+0.7945 against the reference where upstream's entire bf16 recipe costs 0.3148, so the harness was
+2.5x worse than the thing it was built to grade, and nothing read through it was ever a statement
+about our arithmetic.
+
+**Two corollaries that bind rows.**
+
+1. **A row that finds its own frame broken has delivered its result.** `of3t-twoside`'s `VERDICT:
+   STOP` is worth more than the arm it was dispatched for, and a brief that makes a control gating
+   must mean it: the row stops, reports, and does not build on a frame that failed. Taking the
+   dispatched arm anyway and banking it, as that row did, is correct only because it labelled the
+   frame the arm sits in.
+2. **Sort in-frame ratios from cross-frame ones before retracting anything.** A ratio whose two
+   legs share the broken frame is still a like-for-like reading and survives; a ratio that crosses
+   frames does not. `of3t-twoside`'s two-sided 1.7998x and `of3t-cotcoh`'s R137 survive on this
+   rule; the clause's 1.7814x does not. A blanket retraction throws away evidence that was paid for
+   and is as wrong as no retraction.
+
+**Relation to A34/A39.** A34 requires both sides of a per-parameter comparison to sit on the same
+boundary; A39 extends that to the denominator. A40 is the prior question both of them assume: that
+the boundary is the one it says it is. A34 and A39 are satisfiable by a frame that is internally
+consistent and externally wrong, which is precisely what happened here.
+
+### A40, addendum — pass 382. This was a REGRESSION, not an oversight, and the control already existed
+
+A40 above reads as though nobody had thought of the control. That is wrong, and the correction
+matters because it changes what has to be fixed.
+
+**`of3t-conditioning` had already built it, named it, and written down the principle.**
+`perf/of3t_conditioning/capture_cond_boundary.py:15-22`:
+
+> **COTANGENT_COMPLETE** — seeding it with `cond_out_cot` must reproduce all 26
+> `diffusion_conditioning.*` gradients in `grad_f64`. [...] a cotangent at a boundary is a
+> complete gradient only if the parameters reach the loss through that boundary alone, and the
+> reference's own float64 answer is the only thing that can say so. `DiffusionConditioning.forward`
+> returns `(si, zij)` and has no other entry point, so the expectation is exact agreement — and an
+> expectation is not a check.
+
+That is D242's control, stated in full, with its rationale, two rows before the model frame was
+built.
+
+**`capture_model_frame.py` shipped without it and argued the opposite in a comment**
+(`perf/of3t_modelframe/capture_model_frame.py:232-234`):
+
+> A boundary and a cotangent cannot be checked directly against anything. What CAN be checked is
+> that the backward they were taken from is the one the reference published.
+
+Both sentences are about the same object. The first is false — `of3t-twoside` checked it directly,
+in one trunk replay — and the second describes the WITNESS, which passed at 1.6952505222168705e-14
+and was then read as validating the frame.
+
+**So the rule has a second half. A capture's WITNESS and its frame's GATING CONTROL test different
+things, and passing the first says nothing about the second.**
+
+- The **witness** asks: is the backward these tensors were taken from the reference's backward?
+  It is an assertion about PROVENANCE and it cannot see a replay defect, because no replay has run.
+- The **control** asks: does replaying this capture, in the reference's own precision, reproduce
+  the reference? It is an assertion about SUFFICIENCY and it is the only one that licenses grading.
+
+A frame carrying a green witness and no control is not a validated frame, and it reads exactly
+like one. That is why this cost three passes: the instrument that was run could not fail.
+
+**What binds from here.** Any row producing a boundary/cotangent capture ships COTANGENT_COMPLETE
+by name, with its bar fixed in advance, and may not substitute a provenance witness for it. Any
+row consuming one asserts the control has passed before it publishes a ratio. Where the producer
+is concluded, the consuming row owns the control — it is cheaper than the arm it gates, always,
+because it is one replay of the same function.
+
+**And a reviewer's rule, from how this got through.** When a producer's comment explains why a
+check is impossible, that is the place to look hardest. The comment was load-bearing: it is the
+reason no successor asked for the control.
+
+---
+
+## A41 — 2026-09-22, pass 395. A MULTI-OUTPUT COTANGENT INJECTION IS ONLY VALID IF THE OUTPUTS ARE A GRAPH CUT.
+
+D242 cost this campaign fifteen passes, disqualified its headline clause and sent four
+mechanisms to their deaths, and it is one line: `perf/of3t_trunkg043/ref_grad.py:201` builds
+`loss = (s_out * cot_s).sum() + (z_out * cot_z).sum()` on outputs where **`z_out` is an ancestor
+of `s_out`**. A hook or `autograd.grad` returns the TOTAL derivative at each output, so `cot_z`
+already contains the route through `s_out`, and the surrogate adds it a second time. With
+`L = f(a, b)`, `a = s_out(theta, b)`, `b = z_out(theta)`:
+
+    surrogate   ga.da/dtheta + df/db.db/dtheta + 2.ga.(da/db).(db/dtheta)
+    truth       ga.da/dtheta + df/db.db/dtheta + 1.ga.(da/db).(db/dtheta)
+
+**THE RULE.** Before injecting cotangents at more than one output, establish that no output is
+reachable from another — that the set is a cut. State it in the artifact with the evidence, not
+as an assumption. Where it is not a cut, inject the PARTIAL derivative at each output
+(`df/db`, obtained by subtracting the routes through the other outputs) or inject at one output
+only.
+
+**WHY IT HID.** Every cheap check passes under a double count. The forward is bit-exact, because
+the surrogate touches only the backward. The cotangent is confirmed by as many instruments as
+you like, because it is the correct total derivative — three instruments agreed here, four times.
+The reference is confirmed, because it is right. The replay reproduces the original graph
+bit-for-bit, because both run the same wrong surrogate. **Every premise of the syllogism holds
+and the conclusion still fails, which is the signature: when that happens the defect is in the
+QUESTION being asked, not in any of the things being checked.**
+
+**ITS COROLLARY FOR COMPARISONS, AND THIS ONE IS LOAD-BEARING.** A double count is common-mode
+between two arms driven by the same injection, so the quotient stays a like-for-like comparison —
+but of two arms computing **the same wrong functional**, not of two gradients. A common-mode
+defect does not cancel in a `rel_l2`. So a ratio survives as a comparison and does NOT survive as
+a statement about the true gradient, and the distinction has to be carried in the wording. The
+campaign's `MATCHED/` versus `CROSSFRAME_` naming separated exactly these two classes for
+fifteen passes before anyone could say why.
+
+**AND THE CHEAP PRECAUTION THAT WOULD HAVE CAUGHT IT ON DAY ONE.** An injected boundary owes a
+one-line reachability assertion: for each pair of injected outputs, check that neither appears in
+the other's `grad_fn` ancestry. It costs a graph walk, it needs no model run, and it is now
+required of any row that injects at more than one tensor.

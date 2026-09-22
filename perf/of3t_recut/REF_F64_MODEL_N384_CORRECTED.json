@@ -1,0 +1,96 @@
+{
+ "what": "Upstream's own 48-block pairformer stack, differentiated over the captured trunk boundary.",
+ "tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "openfold3_file": "/home/ttuser/of3t_refprec/of3pkg043/openfold3/__init__.py",
+ "policy": "f64",
+ "blocks": 48,
+ "crop": 384,
+ "dims": {
+  "c_s": 384,
+  "c_z": 128,
+  "c_hidden_pair_bias": 24,
+  "no_heads_pair_bias": 16,
+  "c_hidden_mul": 128,
+  "c_hidden_pair_att": 32,
+  "no_heads_pair": 4,
+  "transition_type": "swiglu",
+  "transition_n": 4,
+  "pair_dropout": 0.25,
+  "fuse_projection_weights": false,
+  "inf": 1000000000.0
+ },
+ "load": {
+  "tensors_loaded": 2736,
+  "missing": [],
+  "unexpected": []
+ },
+ "dtype_policy": "every parameter and every activation float64; checkpoint upcast once at load; no cast on the path",
+ "boundary": "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+ "boundary_sha256": "583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2",
+ "cotangent_from": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+ "cotangent_sha256": "4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac",
+ "permuted_cotangent": null,
+ "pad_perturbation": null,
+ "injection": {
+  "convention": "graph-cut-external",
+  "what": "<cot_s, s_out> + <cot_z - d<cot_s,s_out>/dz_out, z_out>, the graph-cut external cotangent (D242 repaired)",
+  "graph_cut": {
+   "is_cut": false,
+   "ancestor_descendant_pairs": [
+    [
+     "z_out",
+     "s_out"
+    ]
+   ],
+   "checked_by": "walk of the grad_fn DAG over the injected outputs"
+  },
+  "correction_source": "this arm's own graph",
+  "cot_z_norm_hooked": 0.0007601379094210722,
+  "cot_z_norm_injected": 6.47087024696404e-05,
+  "correction_norm": 0.0007575746327655109,
+  "duplicate_share_of_the_hooked_cot_z": 0.9966278794626707
+ },
+ "probe": {
+  "s_in_norm": 11757.133052375091,
+  "z_in_norm": 16157800.913600853,
+  "cot_s_norm": 5.599999708545341e-05,
+  "cot_z_norm": 6.47087024696404e-05,
+  "real_tokens": 56,
+  "tokens": 384
+ },
+ "loss": -0.003637065298452298,
+ "s_norm": 2548915.665702611,
+ "z_norm": 15590107.181956384,
+ "ds_in_norm": 0.009204973933437452,
+ "dz_in_norm": 0.000848887340907281,
+ "gradient": {
+  "tensors": 2736,
+  "with_gradient": 2736,
+  "none": 0,
+  "squared_norm_total": 0.599115204802637
+ },
+ "seconds_forward_backward": 850.4940848060005,
+ "checkpointed": true,
+ "threads": 14,
+ "peak_rss_gb": 24.547679901123047,
+ "out": "/home/ttuser/of3t_recut/ref_f64_model_n384_corrected.pt",
+ "provenance": {
+  "host": "tt-quietbox2",
+  "row": "of3t-recut",
+  "defect": "D242",
+  "device_involved": false,
+  "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+  "producer": {
+   "path": "perf/of3t_trunkg043/ref_grad.py",
+   "sha256": "d3f467d9345594c83cd61c480489f341f5e2cb923a2ec8098f8c8ab7c463c7ef",
+   "is": "perf/of3t_trunkg043/ref_grad.py with the D242 repair"
+  },
+  "git_commit": "3b0dc30f395bd0a4bfdfdbc83963a105af73a097",
+  "out": {
+   "path": "/home/ttuser/of3t_recut/ref_f64_model_n384_corrected.pt",
+   "sha256": "9686246284dc4d9e606aafb9d45fd0889f9973184c7e3f6b7090c663adab7708",
+   "bytes": 1635549881
+  },
+  "exit": 0
+ }
+}
