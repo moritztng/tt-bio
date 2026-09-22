@@ -370,6 +370,15 @@ GAP: **GRADIENTS, and as of pass 379 it is one thing, measured on the right boun
               `of3t-lnreduce` is dispatched on it, pre-registered two-sided against K.
               The pass-378 projections of 1.2909x and 1.0674x are **dead** (R130) and are not
               quoted as targets anywhere: A37.
+              **The charter clause and `assert_frame_matched_ratios.py` were repointed onto this
+              artifact this pass**, together so they cannot diverge. The direction is toward
+              passing, so the justification is in the spec beside the edit: the reason predates
+              the number (D237, pass 377, when a bit-exactly perfect trunk read 3.1624x),
+              nothing else in the artifact moves (same bar 0.15210099830945006, same float64
+              sha256 `1d4ea9225f85` at `matches_pin` true, same coverage 99.50523155277438, same
+              upstream floor 3494), **no condition flips** (3.3998x and 1.7814x both fail; the
+              per-tensor clause passed at 3314 and passes at 3312), and the row that produced
+              the arm was barred from the edit and did not make it.
 
 **D126 is ANSWERED and CLOSED, and it never reached `origin/main`'s shipped RECIPE** (2026-09-22,
 ask 9807, Moritz: *"us your own own judgement, do the right thing"*; record
