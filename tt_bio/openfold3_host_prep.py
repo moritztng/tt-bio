@@ -148,13 +148,22 @@ def derive_block_aux(features: dict) -> dict:
         * features["token_mask"].float()[:, None]
     ).reshape(-1)
 
-    atom_array = features["atom_array"]
     # Representative ("token center") atom per token for the confidence head: CA for
     # protein, C1' for nucleic acids — the upstream TOKEN_CENTER_ATOMS convention the
     # vendored tokenizer already annotates. A protein-only "== CA" mask leaves RNA/DNA
     # tokens with zero representatives and crashes the confidence head on an empty
     # one-hot. Fall back to CA only if the annotation is absent.
-    if "token_center_atom" in atom_array.get_annotation_categories():
+    #
+    # `atom_array` is the biotite structure, and it is the one input here that a TRAINING
+    # batch does not carry: upstream's featuriser emits tensors, and its own convention for
+    # the representative atom is `ground_truth.start_atom_index` (each token's first atom)
+    # rather than a name lookup. `None` says the caller has to supply its own; every
+    # inference path builds `features` through `build_openfold3_features`, which always
+    # sets it, so this branch is unreachable there and nothing about a fold moves.
+    atom_array = features.get("atom_array")
+    if atom_array is None:
+        ca_mask = None
+    elif "token_center_atom" in atom_array.get_annotation_categories():
         ca_mask = torch.from_numpy(atom_array.token_center_atom).bool()
     else:
         ca_mask = torch.from_numpy(atom_array.atom_name == "CA").bool()
