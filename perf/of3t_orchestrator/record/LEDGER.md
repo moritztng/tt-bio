@@ -1852,3 +1852,51 @@ after A41 was written, which is the check that makes this defect class unfileabl
 duplicate was 99.66 % and the remainder **11.7471x** smaller. The correction is large in norm at
 both crops and far less parallel at 64, so **the geometry is crop-dependent** and the n384
 figure is the one the clause needs.
+
+---
+
+### R167. The D242 repair is landed and correct; its `--cot-correction` default breaks A34 for every scored pair (pass 401, zero card)
+
+`of3t-recut` pushed **`3b0dc30f3`, "of3t: repair D242, the double-counted cotangent injection"**.
+Verified against R161's four decisions **from the diff, not the commit message**, and it matches
+point for point:
+
+- the graph-cut-correct injection `cot_z_ext = cot_z - d<cot_s, s_out>/d(z_out)` is the **DEFAULT**;
+- `--legacy-total-cotangent` restores the old behaviour for reproducing banked artifacts;
+- `injection_convention` is stamped in **both** the report and the `.pt`, with
+  `correction_source` ("this arm's own graph" or the path) and `correction_norm` beside it;
+- **A41's `ancestor_pairs` walk runs on every arm and on both conventions** — one pass after A41
+  was written;
+- `--checkpoint` leaves the last block eager, because the correction is a derivative of one
+  output against the other and needs its graph, with bit-neutrality **re-earned** at 2,736/2,736
+  rather than inherited;
+- the module docstring carries the formula, the reason and both numbers.
+
+The row had also already corrected its own legacy-control reading to the cross-run floor one
+minute before R166's amendment landed. **The catch was the row's, not mine** — R166 stands as a
+correction to my bar, not as a save.
+
+**But the design left one thing unsettled and it would have corrupted the re-score silently.**
+The default computes the correction from **the arm's own graph inside the arm's own cast
+policy** — `with ctx:`, which is `autocast(bfloat16)` under `--policy bf16auto` and disabled
+under f64. **So a bf16 arm and a float64 arm self-correct to different values and are driven by
+different injected cotangents.** A34 requires both sides of a per-parameter comparison to be on
+the same boundary, same incoming cotangent included, and the correction is subtracted from the
+incoming cotangent — it IS part of it. Self-correction reintroduces exactly the asymmetry D241
+named: *the clause divides two different experiments.*
+
+**PROTOCOL A42** records the rule: for any scored pair or set, the correction is computed ONCE
+on the arm that defines the boundary — the float64 reference — and passed to every other arm
+with `--cot-correction`. Self-correction is correct only for an arm read in isolation, or for
+the reference itself.
+
+**And the shape check is not a provenance check.** `ref_grad.py` validates that a loaded
+correction fits `cot_z`'s shape; a correction from the wrong arm has the right shape. Every
+artifact must record the correction's **sha256**, and a scorer comparing two arms must ASSERT
+the digests are equal before reading either.
+
+**Why this is a separate amendment rather than a footnote to A41.** A41 makes the injection
+correct for ONE arm; A42 makes it the same for TWO. **A41's failure shows up as a wrong absolute
+reading; A42's shows up only as a wrong RATIO — and the ratio is what this campaign's clause is
+made of.** The same defect class that took fifteen passes to find would have been invisible a
+second time, one level up.

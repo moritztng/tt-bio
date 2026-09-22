@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R166 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R167 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R167** the D242 repair is landed and correct (verified from the diff); its
+  `--cot-correction` DEFAULT self-corrects per arm and breaks A34 for every scored pair -> A42
 - **R166** my own repoint condition was tighter than a floor the campaign had measured;
   recut's legacy control PASSES at the cross-host float64 floor 9.13806068751445e-14
 - **R165** this field was a 41 KB transcription of the ledger file beside it; cut to an index,
@@ -104,7 +106,8 @@ entry settles, one line, newest first:
 - **R149** `of3t-f64route`'s target question was already answered on disk; the ceiling is
   **1.0525x**, and the ROUTE install is the worse arm at 34.25 %
 
-**The four standing amendments a successor most needs**: A41 (a multi-output cotangent injection
+**The four standing amendments a successor most needs**: A42 (a cotangent CORRECTION is part of the injected cotangent, so one correction,
+one source, asserted by digest across a comparison), A41 (a multi-output cotangent injection
 is valid only if the outputs are a graph cut), A40 (a frame's gating control is a precondition of
 the frame), A37 (a projection is a PREDICTION, never a TARGET, and no bar may be derived from
 one), A34 (both sides of a per-parameter comparison on the SAME boundary). PROTOCOL carries all
@@ -1635,3 +1638,29 @@ and `CHECKPOINT_IS_INERT` is 2,736 of 2,736 bit-identical. And one caution — a
 duplicate is 98.62 % of `cot_z` by norm but the remainder only 1.1999x smaller, against 99.66 %
 and 11.7471x at n384, so the geometry is crop-dependent and the n384 figure is the one the
 clause needs.
+
+## Pass 401 — the repair is landed and correct, and its default would have broken the ratio
+
+`of3t-recut` pushed `3b0dc30f3`. Verified against R161's four decisions from the diff rather
+than the message: correct injection as the default, `--legacy-total-cotangent` reachable,
+`injection_convention` stamped in both the report and the `.pt`, `correction_source` and
+`correction_norm` recorded, A41's `ancestor_pairs` walk running on every arm and both
+conventions one pass after A41 was written, and `--checkpoint` leaving the last block eager
+with bit-neutrality re-earned at 2,736/2,736. It also fixed its own legacy-control reading a
+minute before my amendment landed — that catch was the row's.
+
+**One thing the design left unsettled would have corrupted the re-score silently.** The default
+computes the correction from the arm's own graph *inside the arm's own cast policy*, so a
+`bf16auto` arm and an `f64` arm self-correct to different values and are driven by different
+injected cotangents. A34 requires the same incoming cotangent on both sides of a comparison,
+and the correction is part of that cotangent. Self-correction reintroduces the asymmetry D241
+named.
+
+**PROTOCOL A42**: one correction, computed once on the arm that defines the boundary, passed to
+every other arm with `--cot-correction`; and because a shape check is not a provenance check,
+every artifact records the correction's sha256 and the scorer asserts the digests match.
+
+A41 makes the injection correct for one arm; A42 makes it the same for two. A41's failure is a
+wrong absolute reading, A42's is a wrong ratio — and the ratio is what the clause is made of.
+The defect class that took fifteen passes to find would have been invisible a second time, one
+level up.

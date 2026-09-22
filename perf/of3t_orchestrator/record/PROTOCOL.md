@@ -1964,3 +1964,33 @@ fifteen passes before anyone could say why.
 one-line reachability assertion: for each pair of injected outputs, check that neither appears in
 the other's `grad_fn` ancestry. It costs a graph walk, it needs no model run, and it is now
 required of any row that injects at more than one tensor.
+
+---
+
+## A42 — 2026-09-23, pass 401. A COTANGENT CORRECTION IS PART OF THE INJECTED COTANGENT, SO A34 BINDS IT.
+
+A41 requires the graph-cut-correct injection `cot_z_ext = cot_z - d<cot_s, s_out>/d(z_out)`.
+`ref_grad.py` computes that correction, by default, from **the arm's own graph inside the arm's
+own cast policy** (`with ctx:`, which is `autocast(bfloat16)` for `--policy bf16auto` and
+disabled for f64). **So a bf16 arm and a float64 arm self-correct to different values and are
+therefore driven by different injected cotangents.**
+
+A34 requires both sides of a per-parameter comparison to be on the SAME boundary — same batch,
+same entry activations, **same incoming cotangent**. The correction is subtracted from the
+incoming cotangent, so it is part of it. Self-correction reintroduces exactly the asymmetry
+D241 named: *the clause divides two different experiments.*
+
+**THE RULE.** For any scored pair or set, the correction is computed **ONCE**, on the arm that
+defines the boundary — the float64 reference — and passed to every other arm with
+`--cot-correction`. Self-correction from the arm's own graph is correct only for a single arm
+read in isolation, or for the reference arm itself.
+
+**AND THE SHAPE CHECK IS NOT A PROVENANCE CHECK.** `ref_grad.py` validates that a loaded
+correction fits `cot_z`'s shape; a correction from the wrong arm has the right shape. Every
+artifact must record the correction's **sha256**, and a scorer comparing two arms must
+ASSERT the two digests are equal before reading either. A comparison whose two sides used
+different corrections is not a comparison, and nothing in the numbers will say so.
+
+**WHY THIS IS A42 AND NOT A FOOTNOTE TO A41.** A41 makes the injection correct for one arm.
+A42 makes it the same for two. They are different failures: A41's shows up as a wrong absolute
+reading, A42's only as a wrong RATIO, and the ratio is what this campaign's clause is made of.
