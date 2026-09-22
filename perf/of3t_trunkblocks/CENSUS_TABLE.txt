@@ -1,0 +1,172 @@
+of3t-trunkblocks -- per-block census of the pairformer trunk at crop 384
+host tt-quietbox   device_involved False
+  REF_LOCAL_f64_n384     2dcd8e70d6b564677e4a568af3ca1ca291e09d027b6dfea1f00f95159f951e1b  1484510533 B
+  REF_LOCAL_bf16_n384    6d537f5f944a8f1649d75ecf3d035b0190454354902686d4b398368d781acc92  1484524263 B
+  OURS_n384              095243e7b29f3778f527ea8835a5266783667b638d5111173aa636ce8c17ca4e  1332373965 B
+
+CONTROLS
+  A/A in-frame reference against itself      0  exactly zero True
+  A/A our device arm against itself          0  exactly zero True
+  A/A device, two runs (of3t-modelboundary)  2736 of 2736 bit-identical, worst move 0
+  A16 zero-gradient baseline                 1.0000000000000002  exactly one False
+  repro in_frame_clause_reading      recomputed 1.0293953377723442  published 1.0293953377723410  rel diff 3.020e-15
+  repro ours_vs_local_float64        recomputed 0.8354121633458236  published 0.8354121633458239  rel diff 3.987e-16
+  repro the_floor                    recomputed 0.3739383921130377  published 0.3739383921130369  rel diff 2.227e-15
+
+IN FRAME  ours vs upstream 0.4.3's own bf16 autocast step, same capture
+  E = 2.1035218708025667   R = 1.9851011361181046   pooled = 1.0293953377723442
+  sum check  sum_b e_b - E = -8.882e-16   relative 4.222e-16
+  denominator floor on the reference norm 1.0e-12: 0 of 2736 tensors below it, 0.0000 % of the mass, 0.0000 % of the error; smallest reference norm 7.336785e-08
+  worst per tensor by relative L2  53.851519  pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.bias
+  worst per tensor by absolute err 6.602328e-01  pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight
+
+ blk          e_b   share E      mass rel in blk   floor e_b  ours/fl worst rel worst tensor (in frame)                             
+------------------------------------------------------------------------------------------------------------------------------------
+   0 3.506998e-01  16.6720%   2.9924%    2.42979  5.9413e-02    4.048   16.0112 0.attn_pair_bias.mha.linear_v.weight                
+   1 3.724097e-02   1.7704%   1.1070%    1.30182  1.5180e-03   21.393    4.1689 1.attn_pair_bias.mha.linear_v.weight                
+   2 9.535041e-03   0.4533%   0.7133%    0.82059  1.4254e-03    5.254   11.8935 2.single_transition.layer_norm.weight               
+   3 1.961751e-02   0.9326%   0.8702%    1.06570  1.7813e-03   10.747   22.4306 3.attn_pair_bias.layer_norm_z.bias                  
+   4 6.133302e-01  29.1573%   4.4611%    2.63170  7.5380e-02    3.909    5.5210 4.attn_pair_bias.mha.linear_v.weight                
+   5 9.730593e-03   0.4626%   0.8482%    0.76021  9.0269e-04    8.851   11.8580 5.attn_pair_bias.layer_norm_z.bias                  
+   6 5.834974e-03   0.2774%   0.7780%    0.61468  1.2447e-03    3.879    6.3447 6.attn_pair_bias.layer_norm_a.weight                
+   7 1.267750e-02   0.6027%   0.8459%    0.86889  1.6256e-03    4.966   23.6336 7.attn_pair_bias.layer_norm_a.weight                
+   8 6.261871e-03   0.2977%   0.7972%    0.62902  1.5096e-03    3.060    4.9080 8.single_transition.layer_norm.weight               
+   9 6.426894e-03   0.3055%   1.1792%    0.52398  1.6448e-03    3.020   12.3843 9.attn_pair_bias.layer_norm_z.bias                  
+  10 6.556019e-03   0.3117%   0.6875%    0.69310  1.4100e-03    3.636    8.8071 10.attn_pair_bias.layer_norm_a.weight               
+  11 6.328648e-03   0.3009%   1.0533%    0.55016  1.4120e-03    3.239   14.7744 11.attn_pair_bias.layer_norm_a.weight               
+  12 6.197948e-03   0.2946%   1.0376%    0.54855  1.0570e-03    4.327    7.1977 12.attn_pair_bias.mha.linear_g.weight               
+  13 5.371689e-03   0.2554%   0.6476%    0.64643  1.0416e-03    4.017   17.3902 13.attn_pair_bias.mha.linear_g.weight               
+  14 8.370175e-03   0.3979%   0.6350%    0.81490  1.5453e-03    3.673    9.0527 14.attn_pair_bias.layer_norm_z.bias                 
+  15 2.202930e-02   1.0473%   1.0655%    1.02056  1.0252e-03   20.294   53.8515 15.attn_pair_bias.layer_norm_a.bias                 
+  16 5.585168e-03   0.2655%   0.7450%    0.61454  1.0359e-03    3.931    9.6825 16.attn_pair_bias.mha.linear_q.bias                 
+  17 6.859553e-03   0.3261%   0.5042%    0.82784  1.5246e-03    2.541   21.8126 17.attn_pair_bias.layer_norm_z.bias                 
+  18 5.015006e-03   0.2384%   0.4456%    0.75297  1.0905e-03    3.236    5.5518 18.attn_pair_bias.mha.linear_v.weight               
+  19 7.056076e-03   0.3354%   0.6180%    0.75837  1.5851e-03    2.583    6.4482 19.attn_pair_bias.mha.linear_v.weight               
+  20 7.904532e-03   0.3758%   0.8069%    0.70249  8.9013e-04    6.777   10.4158 20.attn_pair_bias.layer_norm_a.weight               
+  21 4.750650e-03   0.2258%   0.6327%    0.61502  8.5053e-04    4.005    6.5208 21.attn_pair_bias.layer_norm_z.bias                 
+  22 7.983297e-03   0.3795%   1.0268%    0.62584  4.3738e-03    1.992    8.5577 22.attn_pair_bias.mha.linear_v.weight               
+  23 4.237997e-03   0.2015%   0.6035%    0.59475  8.5381e-04    3.461    9.5667 23.attn_pair_bias.layer_norm_a.weight               
+  24 1.078050e-02   0.5125%   0.5140%    1.02789  1.6290e-03    3.328    7.9082 24.attn_pair_bias.mha.linear_v.weight               
+  25 4.098655e-03   0.1948%   0.5506%    0.61239  8.2213e-04    3.415    5.3920 25.attn_pair_bias.mha.linear_v.weight               
+  26 3.813798e-03   0.1813%   0.4459%    0.65642  4.9871e-04    5.780   23.5201 26.attn_pair_bias.mha.linear_k.weight               
+  27 5.464065e-03   0.2598%   0.3128%    0.93813  7.5310e-04    5.036    4.5098 27.attn_pair_bias.mha.linear_v.weight               
+  28 5.567268e-03   0.2647%   0.7293%    0.62014  1.3612e-03    2.686    6.4589 28.attn_pair_bias.mha.linear_q.bias                 
+  29 7.235582e-03   0.3440%   0.5918%    0.78477  1.0213e-03    4.609   10.7516 29.attn_pair_bias.layer_norm_a.weight               
+  30 5.279815e-03   0.2510%   0.7858%    0.58177  7.2811e-04    5.697    6.7586 30.attn_pair_bias.mha.linear_v.weight               
+  31 5.419307e-03   0.2576%   0.5467%    0.70668  7.4036e-04    5.723   10.1131 31.attn_pair_bias.layer_norm_a.weight               
+  32 5.596550e-03   0.2661%   0.5535%    0.71369  9.9246e-04    4.871    6.8278 32.attn_pair_bias.mha.linear_v.weight               
+  33 7.786154e-03   0.3701%   0.6157%    0.79812  8.3241e-04    6.967    7.9957 33.single_transition.layer_norm.bias                
+  34 6.560079e-03   0.3119%   0.9735%    0.58264  1.4428e-03    4.118    5.8206 34.attn_pair_bias.mha.linear_v.weight               
+  35 7.984642e-03   0.3796%   0.5570%    0.84978  8.4400e-04    7.005   11.3100 35.single_transition.swiglu.linear_a.weight         
+  36 7.870527e-03   0.3742%   0.6508%    0.78055  9.3555e-04    6.588    6.9483 36.attn_pair_bias.mha.linear_v.weight               
+  37 1.569721e-02   0.7462%   2.4029%    0.57365  6.7189e-03    0.781   10.4448 37.single_transition.layer_norm.weight              
+  38 2.130988e-02   1.0131%   0.6213%    1.31447  1.8757e-03    8.688    8.4531 38.attn_pair_bias.mha.linear_v.weight               
+  39 7.712627e-03   0.3667%   1.1820%    0.57333  3.0195e-03    2.862    6.4143 39.attn_pair_bias.mha.linear_v.weight               
+  40 1.322069e-02   0.6285%   2.4715%    0.51910  1.9641e-03    4.333    7.0960 40.attn_pair_bias.mha.linear_v.weight               
+  41 1.172989e-02   0.5576%   0.9592%    0.78489  2.4538e-03    2.880    7.5049 41.attn_pair_bias.mha.linear_v.weight               
+  42 7.423135e-02   3.5289%   2.9468%    1.12649  3.5003e-03   23.317    7.8831 42.attn_pair_bias.layer_norm_a.bias                 
+  43 2.511887e-02   1.1941%   1.7340%    0.85424  2.8456e-03    5.248    6.9058 43.single_transition.layer_norm.bias                
+  44 6.441165e-01  30.6209%   5.5201%    2.42448  4.8080e-02    7.395    4.9634 44.attn_pair_bias.mha.linear_q.weight               
+  45 1.258187e-02   0.5981%   4.0121%    0.39746  7.7551e-03    2.477    2.5691 45.attn_pair_bias.layer_norm_z.bias                 
+  46 1.375739e-02   0.6540%  39.8871%    0.13181  1.4246e-03    7.207    2.0219 46.attn_pair_bias.layer_norm_z.bias                 
+  47 4.987214e-03   0.2371%   5.3342%    0.21702  3.3131e-03    3.670    3.6049 47.attn_pair_bias.layer_norm_z.bias                 
+
+RANKED in frame, cumulative share of E
+  blk 44   30.6209 %   cumulative  30.6209 %
+  blk 4    29.1573 %   cumulative  59.7782 %
+  blk 0    16.6720 %   cumulative  76.4502 %
+  blk 42    3.5289 %   cumulative  79.9791 %
+  blk 1     1.7704 %   cumulative  81.7495 %
+  blk 43    1.1941 %   cumulative  82.9436 %
+  blk 15    1.0473 %   cumulative  83.9909 %
+  blk 38    1.0131 %   cumulative  85.0040 %
+  blk 3     0.9326 %   cumulative  85.9366 %
+  blk 37    0.7462 %   cumulative  86.6828 %
+  blk 46    0.6540 %   cumulative  87.3368 %
+  blk 40    0.6285 %   cumulative  87.9653 %
+  blk 7     0.6027 %   cumulative  88.5680 %
+  blk 45    0.5981 %   cumulative  89.1661 %
+  blk 41    0.5576 %   cumulative  89.7238 %
+  blk 24    0.5125 %   cumulative  90.2363 %
+  blk 5     0.4626 %   cumulative  90.6988 %
+  blk 2     0.4533 %   cumulative  91.1521 %
+  blk 14    0.3979 %   cumulative  91.5500 %
+  blk 35    0.3796 %   cumulative  91.9296 %
+  blk 22    0.3795 %   cumulative  92.3092 %
+  blk 20    0.3758 %   cumulative  92.6849 %
+  blk 36    0.3742 %   cumulative  93.0591 %
+  blk 33    0.3701 %   cumulative  93.4292 %
+  blk 39    0.3667 %   cumulative  93.7959 %
+  blk 29    0.3440 %   cumulative  94.1399 %
+  blk 19    0.3354 %   cumulative  94.4753 %
+  blk 17    0.3261 %   cumulative  94.8014 %
+  blk 34    0.3119 %   cumulative  95.1133 %
+  blk 10    0.3117 %   cumulative  95.4249 %
+  blk 9     0.3055 %   cumulative  95.7305 %
+  blk 11    0.3009 %   cumulative  96.0313 %
+  blk 8     0.2977 %   cumulative  96.3290 %
+  blk 12    0.2946 %   cumulative  96.6237 %
+  blk 6     0.2774 %   cumulative  96.9010 %
+  blk 32    0.2661 %   cumulative  97.1671 %
+  blk 16    0.2655 %   cumulative  97.4326 %
+  blk 28    0.2647 %   cumulative  97.6973 %
+  blk 27    0.2598 %   cumulative  97.9570 %
+  blk 31    0.2576 %   cumulative  98.2147 %
+  blk 13    0.2554 %   cumulative  98.4700 %
+  blk 30    0.2510 %   cumulative  98.7210 %
+  blk 18    0.2384 %   cumulative  98.9594 %
+  blk 47    0.2371 %   cumulative  99.1965 %
+  blk 21    0.2258 %   cumulative  99.4224 %
+  blk 23    0.2015 %   cumulative  99.6238 %
+  blk 25    0.1948 %   cumulative  99.8187 %
+  blk 26    0.1813 %   cumulative 100.0000 %
+
+THE SAME CENSUS IN THE PINNED FRAME (the graded artifact's own denominator)
+  pooled 2.0151163033431092 reproduces the section's published 2.0151163033431088 at rel diff 2.204e-16
+  in-frame top three [44, 4, 0]   pinned top three [46, 44, 47]   same set False
+  blk 46  e=9.193506e-01 share 33.8338 %  rel in blk   4.4228  worst rel  11.3515  pairformer_stack.blocks.46.pair_stack.tri_mul_out.layer_norm_in.weight
+  blk 44  e=3.844397e-01 share 14.1481 %  rel in blk   6.2977  worst rel  17.3760  pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight
+  blk 47  e=2.048992e-01 share  7.5407 %  rel in blk   1.4443  worst rel   3.6393  pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight
+  blk 0   e=1.902405e-01 share  7.0012 %  rel in blk   3.2599  worst rel   9.1121  pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight
+  blk 4   e=1.612492e-01 share  5.9343 %  rel in blk   2.1740  worst rel  13.2843  pairformer_stack.blocks.4.attn_pair_bias.mha.linear_v.weight
+  blk 42  e=9.989406e-02 share  3.6763 %  rel in blk   3.0069  worst rel  38.2153  pairformer_stack.blocks.42.single_transition.layer_norm.weight
+  blk 45  e=6.482565e-02 share  2.3857 %  rel in blk   2.1500  worst rel   6.4755  pairformer_stack.blocks.45.pair_stack.tri_mul_in.layer_norm_in.weight
+  blk 9   e=3.076284e-02 share  1.1321 %  rel in blk   2.0413  worst rel  47.9543  pairformer_stack.blocks.9.attn_pair_bias.mha.linear_q.bias
+  blk 15  e=2.814895e-02 share  1.0359 %  rel in blk   1.6012  worst rel 349.2190  pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight
+  blk 38  e=2.706126e-02 share  0.9959 %  rel in blk   1.7115  worst rel  96.2886  pairformer_stack.blocks.38.attn_pair_bias.layer_norm_a.weight
+
+FLOAT64 FRAME, for comparison: ranked [44, 4, 0, 42, 1, 15]
+
+COUNTERFACTUAL  bar 0.1473526832644032   trunk target 0.4361680548
+  E 2.1035218708   E allowed 0.3776507459   fraction of E that must go 82.046740 %
+  control model_as_published                           0.5201243840984896  published 0.5201243841
+  control model_with_the_trunk_in_frame                0.2785749654400184  published 0.2785749654
+  control model_with_the_trunk_exact                   0.0973798897933013
+  control model_with_the_trunk_at_the_clause_target    0.1473526832678669
+
+  k blocks                                 cum E   trunk EX   model EX   x bar   pass  trunk A26  model A26   x bar   pass
+--------------------------------------------------------------------------------------------------------------------------
+  1 [44]                                30.6209%   0.857426   0.238212   1.617  False   0.885223   0.244661   1.660  False
+  2 [44, 4]                             59.7782%   0.652850   0.192048   1.303  False   0.742023   0.211846   1.438  False
+  3 [44, 4, 0]                          76.4502%   0.499546   0.159766   1.084  False   0.658628   0.193312   1.312  False
+  4 [44, 4, 0, 42]                      79.9791%   0.460600   0.152057   1.032  False   0.632395   0.187596   1.273  False
+  5 [44, 4, 0, 42, 1]                   81.7495%   0.439764   0.148038   1.005  False   0.618622   0.184620   1.253  False
+  6 [44, 4, 0, 42, 1, 43]               82.9436%   0.425133   0.145265   0.986   True   0.610660   0.182909   1.241  False
+  7 [44, 4, 0, 42, 1, 43, 15]           83.9909%   0.411875   0.142788   0.969   True   0.602363   0.181131   1.229  False
+  8 [44, 4, 0, 42, 1, 43, 15, 38]       85.0040%   0.398630   0.140351   0.952   True   0.594976   0.179555   1.219  False
+  9 [44, 4, 0, 42, 1, 43, 15, 38, 3]    85.9366%   0.386036   0.138069   0.937   True   0.588140   0.178101   1.209  False
+ 10 [44, 4, 0, 42, 1, 43, 15, 38, 3, 3  86.6828%   0.375655   0.136216   0.924   True   0.587172   0.177896   1.207  False
+ 11 [44, 4, 0, 42, 1, 43, 15, 38, 3, 3  87.3368%   0.366314   0.134570   0.913   True   0.582474   0.176900   1.201  False
+ 12 [44, 4, 0, 42, 1, 43, 15, 38, 3, 3  87.9653%   0.357108   0.132970   0.902   True   0.578441   0.176047   1.195  False
+ 24 [44, 4, 0, 42, 1, 43, 15, 38, 3, 3  93.4292%   0.263870   0.118148   0.802   True   0.549634   0.170010   1.154  False
+ 48 [44, 4, 0, 42, 1, 43, 15, 38, 3, 3 100.0000%   0.000000   0.097380   0.661   True   0.513474   0.162580   1.103  False
+
+SINGLE BLOCK, top eight by share of E
+  blk 44  share 30.6209 %  EXACT model 0.238212 (1.617x, pass False)  A26 model 0.244661 (1.660x, pass False)
+  blk 4   share 29.1573 %  EXACT model 0.240295 (1.631x, pass False)  A26 model 0.250248 (1.698x, pass False)
+  blk 0   share 16.6720 %  EXACT model 0.257385 (1.747x, pass False)  A26 model 0.264754 (1.797x, pass False)
+  blk 42  share  3.5289 %  EXACT model 0.274226 (1.861x, pass False)  A26 model 0.274639 (1.864x, pass False)
+  blk 1   share  1.7704 %  EXACT model 0.276402 (1.876x, pass False)  A26 model 0.276580 (1.877x, pass False)
+  blk 43  share  1.1941 %  EXACT model 0.277111 (1.881x, pass False)  A26 model 0.277443 (1.883x, pass False)
+  blk 15  share  1.0473 %  EXACT model 0.277292 (1.882x, pass False)  A26 model 0.277411 (1.883x, pass False)
+  blk 38  share  1.0131 %  EXACT model 0.277334 (1.882x, pass False)  A26 model 0.277553 (1.884x, pass False)

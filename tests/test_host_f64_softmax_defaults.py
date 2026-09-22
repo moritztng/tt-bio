@@ -84,17 +84,87 @@ def test_no_site_ships_the_path_on():
     assert offenders == [], "the host float64 softmax ships on at: %s" % ", ".join(offenders)
 
 
-def test_every_precise_softmax_site_also_has_a_float64_one():
-    """The anti-drift check. `softmax_ckc(token)` and `host_f64_softmax_site(token)` decide the
-    same call, so a site that gained one lever and not the other is a site this path misses."""
+#: Sites that reach the host float64 softmax through `_fp32_softmax_attention` rather than
+#: through `site_softmax`, and therefore have no per-site precise-config lever: that route takes
+#: its compute kernel config from the process-wide `TT_BIO_SOFTMAX_CKC`, not from a token. Every
+#: other float64 site is also a `softmax_ckc` site, and this list is the only exception the
+#: anti-drift check allows.
+FLOAT64_ONLY = {"af2.tri_att", "af2.msa"}
+
+
+def _lever_sites():
+    """The tokens each lever reaches, read off the tree.
+
+    A token arrives two ways: written at the call (`softmax_ckc("x")`) or handed to a module that
+    resolves it (`softmax_site="x"`, which `AttentionPairBias` gives to both levers and
+    `TriangleAttention` to the float64 one). Reading only the first form is what let the triangle
+    attention sites stay invisible to this check while D225 was open.
+    """
     ckc, f64 = set(), set()
     for path in sorted(SRC.rglob("*.py")):
         t = path.read_text()
+        passed = set(re.findall(r"softmax_site=\s*\"([^\"]+)\"", t))
         ckc |= set(re.findall(r"softmax_ckc\(\s*\"([^\"]+)\"", t))
-        f64 |= set(re.findall(r"host_f64_softmax_site\(\s*\"([^\"]+)\"", t))
-    assert ckc == f64, "sites with a precise lever but no float64 one: %s; the other way: %s" % (
-        sorted(ckc - f64), sorted(f64 - ckc))
-    assert ckc == set(SITES), "the site list in this file is stale: %s" % sorted(ckc)
+        f64 |= set(re.findall(r"host_f64_softmax_site\(\s*\"([^\"]+)\"", t)) | passed
+        # `AttentionPairBias` resolves BOTH levers from the token it is handed, so a token passed
+        # to it counts for both. `TriangleAttention` resolves only the float64 one.
+        ckc |= {tok for tok in passed if tok not in FLOAT64_ONLY}
+    return ckc, f64
+
+
+def test_every_precise_softmax_site_also_has_a_float64_one():
+    """The anti-drift check. Where both levers exist they decide the same call, so a site that
+    gained one and not the other is a site this path misses. The float64 lever now reaches
+    strictly more sites than the precise one -- `_fp32_softmax_attention` has no site-level
+    compute kernel config -- and every one of those is named in `FLOAT64_ONLY`, so drift in
+    either direction still fails here."""
+    ckc, f64 = _lever_sites()
+    assert not (ckc - f64), "sites with a precise lever but no float64 one: %s" % sorted(ckc - f64)
+    assert f64 - ckc == FLOAT64_ONLY, (
+        "float64-only sites changed: %s, expected %s. A new one is fine, but it has to be named "
+        "here with the route it is on." % (sorted(f64 - ckc), sorted(FLOAT64_ONLY)))
+    assert set(SITES) <= ckc, "the site list in this file is stale: %s" % sorted(set(SITES) - ckc)
+
+
+def test_the_fp32_softmax_route_gates_on_the_tape(monkeypatch):
+    """The route D225 was missing, at the gate rather than at the call.
+
+    `_fp32_softmax_attention` cannot call `site_softmax` -- its device implementations consume
+    their input -- so it asks `host_softmax_or_none`. Both have to answer the same way, and the
+    census has to separate a site that declined from one that asked and found no tape."""
+    import tt_bio.tenstorrent as T
+
+    before = dict(T.HOST_F64_SOFTMAX_STATS)
+    assert T.host_softmax_or_none(False) is None
+    assert T.HOST_F64_SOFTMAX_STATS["declined"] == before["declined"] + 1
+
+    assert T.host_softmax_or_none(True) is None, "no tape open, so there is nothing to serve"
+    assert T.HOST_F64_SOFTMAX_STATS["refused"] == before["refused"] + 1
+
+    _fake_tape(monkeypatch, lambda x, dim: "HOST")
+    assert T.host_softmax_or_none(True)("SC", -1) == "HOST"
+    assert T.HOST_F64_SOFTMAX_STATS["refused"] == before["refused"] + 1
+
+
+def test_a_selected_site_that_never_reaches_a_call_is_reported(monkeypatch):
+    """D225's reporting gap. served/declined/refused all need the call to ARRIVE, so a selector
+    wired to a branch that never consults it reads the same zeros as a model nobody ran."""
+    import tt_bio.tenstorrent as T
+
+    monkeypatch.setitem(T.HOST_F64_SOFTMAX_STATS, "selected", 0)
+    monkeypatch.setitem(T.HOST_F64_SOFTMAX_STATS, "served", 0)
+    monkeypatch.setitem(T.HOST_F64_SOFTMAX_STATS, "refused", 0)
+    monkeypatch.setitem(T.HOST_F64_SOFTMAX_STATS, "declined", 0)
+    assert "not selected" in T.host_f64_softmax_reach()
+
+    monkeypatch.setenv(ENV, "openfold3.atom_transformer")
+    assert T.host_f64_softmax_site("openfold3.atom_transformer") is True
+    assert T.HOST_F64_SOFTMAX_STATS["selected"] == 1
+    assert "NEVER REACHED" in T.host_f64_softmax_reach()
+
+    T.host_softmax_or_none(True)          # the call arrives, and finds no tape
+    assert "NEVER REACHED" not in T.host_f64_softmax_reach()
+    assert "reached" in T.host_f64_softmax_reach()
 
 
 def test_no_wired_site_still_calls_ttnn_softmax_directly():
