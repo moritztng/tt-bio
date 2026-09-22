@@ -1,0 +1,34 @@
+{
+ "arms": {
+  "base": {
+   "cifs": {
+    "cdk2x2_128.cif": "0156ce8c0946f9d05791a5fd63e246619cb5d464ef770a46405fa8e4edc25999"
+   },
+   "rc": 0,
+   "seconds": 38.4,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/of3t_f64softmax/blast_of3/out_openfold3_base/openfold3_results_cdk2x2_128/results.json\n23:40:36  [tt-quietbox2:tt3] loading model\u2026\n23:40:41  [tt-quietbox2:tt3] cdk2x2_128\n23:40:41  [tt-quietbox2:tt3]   prep\n23:40:43  [tt-quietbox2:tt3]   trunk 0/4\n23:40:45  [tt-quietbox2:tt3]   trunk 1/4\n23:40:46  [tt-quietbox2:tt3]   trunk 2/4\n23:40:46  [tt-quietbox2:tt3]   trunk 3/4\n23:40:48  [tt-quietbox2:tt3]   diffusion 0/6\n23:40:56  [tt-quietbox2:tt3]   diffusion 1/6\n23:40:56  [tt-quietbox2:tt3]   diffusion 2/6\n23:40:56  [tt-quietbox2:tt3]   diffusion 3/6\n23:40:56  [tt-quietbox2:tt3]   diffusion 4/6\n23:40:56  [tt-quietbox2:tt3]   diffusion 5/6\n23:40:56  [tt-quietbox2:tt3]   confidence\n23:40:57  [tt-quietbox2:tt3]   saving\n23:40:57  [tt-quietbox2:tt3] \u2713 cdk2x2_128 \u2014 16.3s\n"
+  },
+  "off": {
+   "cifs": {
+    "cdk2x2_128.cif": "0156ce8c0946f9d05791a5fd63e246619cb5d464ef770a46405fa8e4edc25999"
+   },
+   "rc": 0,
+   "seconds": 28.5,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/of3t_f64softmax/blast_of3/out_openfold3_off/openfold3_results_cdk2x2_128/results.json\n23:41:15  [tt-quietbox2:tt3] loading model\u2026\n23:41:20  [tt-quietbox2:tt3] cdk2x2_128\n23:41:20  [tt-quietbox2:tt3]   prep\n23:41:22  [tt-quietbox2:tt3]   trunk 0/4\n23:41:23  [tt-quietbox2:tt3]   trunk 1/4\n23:41:23  [tt-quietbox2:tt3]   trunk 2/4\n23:41:23  [tt-quietbox2:tt3]   trunk 3/4\n23:41:23  [tt-quietbox2:tt3]   diffusion 0/6\n23:41:24  [tt-quietbox2:tt3]   diffusion 1/6\n23:41:24  [tt-quietbox2:tt3]   diffusion 2/6\n23:41:24  [tt-quietbox2:tt3]   diffusion 3/6\n23:41:24  [tt-quietbox2:tt3]   diffusion 4/6\n23:41:24  [tt-quietbox2:tt3]   diffusion 5/6\n23:41:24  [tt-quietbox2:tt3]   confidence\n23:41:25  [tt-quietbox2:tt3]   saving\n23:41:25  [tt-quietbox2:tt3] \u2713 cdk2x2_128 \u2014 5.7s\n"
+  },
+  "on": {
+   "cifs": {
+    "cdk2x2_128.cif": "b665d1aed1bab1d2b5c44b5aa4f8cd50d653f27d14b8704b15b5d9e5007dd5d5"
+   },
+   "rc": 0,
+   "seconds": 30.6,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/of3t_f64softmax/blast_of3/out_openfold3_on/openfold3_results_cdk2x2_128/results.json\n23:41:43  [tt-quietbox2:tt3] loading model\u2026\n23:41:48  [tt-quietbox2:tt3] cdk2x2_128\n23:41:48  [tt-quietbox2:tt3]   prep\n23:41:50  [tt-quietbox2:tt3]   trunk 0/4\n23:41:51  [tt-quietbox2:tt3]   trunk 1/4\n23:41:51  [tt-quietbox2:tt3]   trunk 2/4\n23:41:51  [tt-quietbox2:tt3]   trunk 3/4\n23:41:52  [tt-quietbox2:tt3]   diffusion 0/6\n23:41:53  [tt-quietbox2:tt3]   diffusion 1/6\n23:41:53  [tt-quietbox2:tt3]   diffusion 2/6\n23:41:54  [tt-quietbox2:tt3]   diffusion 3/6\n23:41:54  [tt-quietbox2:tt3]   diffusion 4/6\n23:41:55  [tt-quietbox2:tt3]   diffusion 5/6\n23:41:55  [tt-quietbox2:tt3]   confidence\n23:41:56  [tt-quietbox2:tt3]   saving\n23:41:56  [tt-quietbox2:tt3] \u2713 cdk2x2_128 \u2014 8.4s\n"
+  }
+ },
+ "card": "3",
+ "fixture": "/home/ttuser/.coworker/wt/of3t-f64softmax/perf/size512/fixtures/cdk2x2_128.yaml",
+ "model": "openfold3",
+ "off_is_byte_identical_to_base": true,
+ "on_moves_the_digest": true,
+ "verdict": "PASS"
+}

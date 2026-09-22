@@ -1,0 +1,114 @@
+{
+ "arm": "bf16mixed_aa2",
+ "side": "theirs",
+ "mode": "bf16mixed",
+ "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+ "steps": [
+  {
+   "lr": 0.0,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.9801228642463684,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 1,
+   "wall_s": 67.69651770591736
+  },
+  {
+   "lr": 1.8e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.7009788751602173,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 2,
+   "wall_s": 147.10797357559204
+  },
+  {
+   "lr": 3.6e-06,
+   "coefs": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "grad_norm_last_sample": 0.74444979429245,
+   "n_disabled_last_sample": 0,
+   "participation_spread": [
+    4
+   ],
+   "k": 3,
+   "wall_s": 211.80016469955444
+  }
+ ],
+ "evidence": {
+  "ref_tree": "/home/ttuser/of3t_refprec/of3pkg043",
+  "n_parameters": 761,
+  "n_elements": 203239484,
+  "dropout": {
+   "modules": 0,
+   "nonzero": [],
+   "max_rate": 0.0
+  },
+  "layer_norm_z_realigned": [],
+  "missing_keys": 0,
+  "unexpected_keys": 0,
+  "aa_in_process": [],
+  "mode": "bf16mixed",
+  "boundary_dtypes": {
+   "torch.bool": 1,
+   "torch.float32": 32,
+   "torch.int32": 39
+  },
+  "autocast_policy": {
+   "matmul": "torch.bfloat16",
+   "linear": "torch.bfloat16",
+   "softmax": "torch.float32",
+   "layer_norm_fp32_in": "torch.float32",
+   "layer_norm_bf16_in": "torch.bfloat16",
+   "sum": "torch.float32",
+   "mean": "torch.float32",
+   "rsqrt": "torch.float32",
+   "silu_bf16_in": "torch.bfloat16"
+  },
+  "cotangent_dtype": "torch.float64",
+  "loadavg_start": [
+   10.63037109375,
+   11.22216796875,
+   10.7509765625
+  ],
+  "loadavg_end": [
+   13.6689453125,
+   13.39697265625,
+   11.7626953125
+  ],
+  "wall_s": 232.40203499794006,
+  "threads": 10
+ },
+ "n_steps": 3,
+ "complete": true,
+ "threads": 10,
+ "loadavg_start": [
+  10.63037109375,
+  11.22216796875,
+  10.7509765625
+ ],
+ "loadavg_now": [
+  13.6689453125,
+  13.39697265625,
+  11.7626953125
+ ],
+ "wall_s": 232.40204763412476
+}

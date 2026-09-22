@@ -1,0 +1,46 @@
+{
+ "what": "aux_heads A18 reading against 0.4.3 (published) and the bound on the 0.5.0 reading the brief assumed had been taken",
+ "bar_per_tensor": 0.05,
+ "heads": {
+  "distogram_logits": {
+   "port_vs_043_published": 0.0028277,
+   "revision_distance_in_units_of_043": 0.0,
+   "port_vs_050_lower_bound": 0.0028277,
+   "port_vs_050_upper_bound": 0.0028277,
+   "ratio_port_over_revision": null,
+   "still_fails_A18_at_lower_bound": false
+  },
+  "pde_logits": {
+   "port_vs_043_published": 0.087897,
+   "revision_distance_in_units_of_043": 0.01340740990166656,
+   "port_vs_050_lower_bound": 0.07448959009833345,
+   "port_vs_050_upper_bound": 0.10130440990166656,
+   "ratio_port_over_revision": 6.555852371536301,
+   "still_fails_A18_at_lower_bound": true
+  },
+  "pae_logits": {
+   "port_vs_043_published": 0.18199,
+   "revision_distance_in_units_of_043": 0.024622048089369332,
+   "port_vs_050_lower_bound": 0.1573679519106307,
+   "port_vs_050_upper_bound": 0.20661204808936934,
+   "ratio_port_over_revision": 7.3913428866453605,
+   "still_fails_A18_at_lower_bound": true
+  },
+  "experimentally_resolved_logits": {
+   "port_vs_043_published": 0.33315,
+   "revision_distance_in_units_of_043": 0.05887036150457315,
+   "port_vs_050_lower_bound": 0.27427963849542686,
+   "port_vs_050_upper_bound": 0.39202036150457314,
+   "ratio_port_over_revision": 5.659044576686018,
+   "still_fails_A18_at_lower_bound": true
+  },
+  "plddt_logits": {
+   "port_vs_043_published": 0.36515,
+   "revision_distance_in_units_of_043": 0.06192654292139133,
+   "port_vs_050_lower_bound": 0.30322345707860865,
+   "port_vs_050_upper_bound": 0.4270765429213913,
+   "ratio_port_over_revision": 5.8965022553175,
+   "still_fails_A18_at_lower_bound": true
+  }
+ }
+}

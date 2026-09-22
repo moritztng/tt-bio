@@ -1,0 +1,132 @@
+{
+ "NAME_DRIFT": {
+  "artifacts_gradient_files": [
+   "grads_f64_r0.pt"
+  ],
+  "declared_in_artifacts": false,
+  "validated_gradient.file": "grads_f64_recycles0.pt",
+  "why_it_matters": "A24 identifies an input by digest. The manifest names a gradient file its own artifacts list no longer declares, so any row that hashes validated_gradient.file against the artifacts list fails closed. This capture consumes neither, and says so rather than silencing it."
+ },
+ "bit_identical_to_cap": {
+  "0": {
+   "checked": true,
+   "s_in_bit_identical": true,
+   "s_out_bit_identical": true,
+   "z_in_bit_identical": true,
+   "z_out_bit_identical": true
+  },
+  "23": {
+   "checked": true,
+   "s_in_bit_identical": true,
+   "s_out_bit_identical": true,
+   "z_in_bit_identical": true,
+   "z_out_bit_identical": true
+  },
+  "47": {
+   "checked": true,
+   "s_in_bit_identical": true,
+   "s_out_bit_identical": true,
+   "z_in_bit_identical": true,
+   "z_out_bit_identical": true
+  }
+ },
+ "breakdown": {
+  "confidence_loss": 0.0008269634261447702,
+  "diffusion_loss": 1.5445824319680206,
+  "distogram_loss": 2.857794861542796,
+  "experimentally_resolved_loss": 0.024195682726382676,
+  "loss": 1.6311432393241485,
+  "mse_loss": 2.043219258677082,
+  "pae_loss": 2.9946791425818775,
+  "pde_loss": 2.0360840413051786,
+  "plddt_loss": 3.214675603742801,
+  "scaled_distogram_loss": 0.0857338439299831,
+  "smooth_lddt_loss": 0.32655888409933304
+ },
+ "bundle_dir": "/home/ttuser/of3t/bundle_min",
+ "chain_breaks": [],
+ "chain_is_sequential": true,
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "n_loaded": 4935,
+  "n_missing": 3,
+  "n_unexpected": 48,
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4"
+ },
+ "crop": 64,
+ "dropout": {
+  "disabled": true,
+  "modules": 61,
+  "why": "identical to the cap/ capture: r = 0 is reproducible and is the function our tape computes"
+ },
+ "forward": {
+  "loss": 1.6311432393241485,
+  "note": "no_grad and no backward: arm 3 is a forward question",
+  "rel": 0.01686095617439924,
+  "seconds": 350.2953975200653,
+  "their_loss": 1.6591175475821072
+ },
+ "hashes": {
+  "batch_step003.pt": {
+   "bytes": 100822382,
+   "declared": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "draws_recycles0.pt": {
+   "bytes": 525598,
+   "declared": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "match": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  }
+ },
+ "instrument": "every pairformer block input of BUNDLE-MIN own step, crop 64",
+ "manifest": "origin/wk/of3t-reference:perf/of3t_reference/bundle_min/MANIFEST.json",
+ "masks": {
+  "pair_mask": {
+   "shape": [
+    1,
+    64,
+    64
+   ],
+   "sum": 3136.0
+  },
+  "single_mask": {
+   "shape": [
+    1,
+    64
+   ],
+   "sum": 56.0
+  }
+ },
+ "n_blocks": 48,
+ "reference": {
+  "file": "grads_f64_recycles0.pt",
+  "global_norm": 3.908301894520238,
+  "loss": 1.6591175475821072,
+  "num_recycles": 0
+ },
+ "replay": {
+  "mismatches": [],
+  "n_mismatch": 0,
+  "randn_consumed": 45,
+  "random_consumed": 2
+ },
+ "same_run_as_cap": true,
+ "saved": {
+  "bytes": 421617611,
+  "file": "/home/ttuser/of3t_trunkfwd/capall/blocks_all_crop64.pt",
+  "s_shape": [
+   1,
+   64,
+   384
+  ],
+  "sha256": "1a43b96f35981ecc88aa0c1ba9e294ed675d57a892a83a3a3224de7b9ae82666",
+  "z_shape": [
+   1,
+   64,
+   64,
+   128
+  ]
+ }
+}

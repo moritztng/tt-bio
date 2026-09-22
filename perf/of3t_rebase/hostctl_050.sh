@@ -14,17 +14,24 @@
 # --allow-unexpected because 0.5.0 cannot load these weights cleanly. That is the finding, and
 # producing the control deliberately is the one use the escape hatch has.
 set -uo pipefail
-R=/home/ttuser/of3t_rebase
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+R=${OF3T_REBASE_RUN:-$HOME/of3t_rebase_run}
 B=/home/ttuser/of3t/bundle_min
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-export PYTHONPATH="/home/ttuser/of3t_gradients/of3pkg:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs"
+source "$W/perf/refpath.sh"
+# This arm is upstream 0.5.0 ON PURPOSE -- it holds the box fixed and moves the revision -- so
+# it pins and asserts 0.5.0, not the campaign's 0.4.3 default. It used of3t_gradients/of3pkg,
+# which is the same 0.5.0 tree (092fb575...) as of3pkg050 under the restored references.
+export PYTHONPATH="$REF_OF3PKG050:$REF_DEPS:$REF_PYLIBS"
+ref_assert "$PY" "$REF_OF3PKG050"
+mkdir -p "$R/run"
 export OMP_NUM_THREADS=8
 BATCH_SHA=3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f
-cd "$R"
+cd "$W"
 echo "=== 0.5.0 on qb2 CPU, host control  $(date -u +%FT%TZ) ==="
 "$PY" perf/of3t_reference/bundle_min.py \
     --batch "$B/batch_step003.pt" --batch-sha256 "$BATCH_SHA" \
-    --out run/out_050_hostctl --dtype float64 --num-recycles 0 \
+    --out "$R/run/out_050_hostctl" --dtype float64 --num-recycles 0 \
     --checkpoint /home/ttuser/of3-weights/of3-p2-155k.pt \
     --replay-draws "$B/draws_recycles0.pt" --fd-samples 0 --allow-unexpected
 echo "=== host control exit $? $(date -u +%FT%TZ) ==="

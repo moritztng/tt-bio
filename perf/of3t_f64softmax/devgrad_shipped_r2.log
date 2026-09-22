@@ -1,0 +1,338 @@
+=== of3t-f64softmax arm shipped, 48 structures, tag _f64shipped, card 3  2026-09-20T23:48:46Z ===
+ARM_START shipped 1789948126
+2026-09-20 23:48:47.507 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[1s] checkpoint: 763 tensors under diffusion_module.
+[2s] boundary: 384 tokens, 422 atoms, N=48, sigma_data=16.0, cot (1, 48, 422, 3)
+[2s] host prep: nb=14 NP=448 n_tok_pad=384, cl0 (422, 128) plm0 (14, 32, 128, 16)
+[3s] device aux built
+[4s] module built: 870 device weights reachable, 547 carry a checkpoint name, 547 recorded at load
+[4s] structures: [0, 1, 2, 3, 4]... (48 of 48)
+[6s]   structure 0: 1.8s, forward rel 1.104135e-02, probe grad norm 0.00012509712481726117
+[7s]   structure 1: 1.2s, forward rel 8.779905e-03, probe grad norm 0.000232628401024289
+[8s]   structure 2: 1.3s, forward rel 9.636900e-03, probe grad norm 0.0003559964741849335
+[9s]   structure 3: 1.2s, forward rel 1.016909e-02, probe grad norm 0.000697846026414512
+[11s]   structure 4: 1.2s, forward rel 7.321306e-03, probe grad norm 0.000723172931968522
+[12s]   structure 5: 1.2s, forward rel 8.474801e-03, probe grad norm 0.0007382579787108721
+[13s]   structure 6: 1.2s, forward rel 4.071330e-03, probe grad norm 0.0007391930486717042
+[14s]   structure 7: 1.2s, forward rel 9.854648e-03, probe grad norm 0.0007756295379638651
+[15s]   structure 8: 1.3s, forward rel 8.978267e-03, probe grad norm 0.000841030956368352
+[17s]   structure 9: 1.2s, forward rel 9.553275e-03, probe grad norm 0.0008372115178608633
+[18s]   structure 10: 1.2s, forward rel 8.950465e-03, probe grad norm 0.0008577692899999021
+[19s]   structure 11: 1.2s, forward rel 8.209518e-03, probe grad norm 0.0008823488876525849
+[20s]   structure 12: 1.2s, forward rel 1.233396e-02, probe grad norm 0.001107885433749641
+[21s]   structure 13: 1.2s, forward rel 2.052573e-03, probe grad norm 0.0011428575152850797
+[23s]   structure 14: 1.3s, forward rel 8.967036e-03, probe grad norm 0.001188593291051385
+[24s]   structure 15: 1.2s, forward rel 6.274670e-03, probe grad norm 0.0011823436800105437
+[25s]   structure 16: 1.2s, forward rel 1.063066e-02, probe grad norm 0.0013077118282082746
+[26s]   structure 17: 1.2s, forward rel 5.822644e-03, probe grad norm 0.0013028722610408437
+[27s]   structure 18: 1.2s, forward rel 1.114499e-02, probe grad norm 0.0014820490387667676
+[28s]   structure 19: 1.2s, forward rel 3.939355e-03, probe grad norm 0.0015718389602949613
+[30s]   structure 20: 1.2s, forward rel 7.831642e-03, probe grad norm 0.0016152978349624875
+[31s]   structure 21: 1.2s, forward rel 1.070709e-02, probe grad norm 0.0016980448432597794
+[32s]   structure 22: 1.2s, forward rel 2.049309e-03, probe grad norm 0.0016666359355682822
+[33s]   structure 23: 1.2s, forward rel 3.690652e-03, probe grad norm 0.0016088744525432322
+[34s]   structure 24: 1.2s, forward rel 8.495140e-03, probe grad norm 0.0016677495057870347
+[36s]   structure 25: 1.2s, forward rel 1.567026e-02, probe grad norm 0.0018308238120750804
+[37s]   structure 26: 1.2s, forward rel 8.955223e-03, probe grad norm 0.001848735831300057
+[38s]   structure 27: 1.2s, forward rel 5.760807e-03, probe grad norm 0.0018631460236078986
+[39s]   structure 28: 1.2s, forward rel 9.768924e-03, probe grad norm 0.001965561607776219
+[40s]   structure 29: 1.2s, forward rel 5.044921e-03, probe grad norm 0.0019660485172621786
+[41s]   structure 30: 1.2s, forward rel 7.852163e-03, probe grad norm 0.0020212757373702325
+[43s]   structure 31: 1.3s, forward rel 4.084999e-03, probe grad norm 0.002031422064982784
+[44s]   structure 32: 1.2s, forward rel 9.278507e-03, probe grad norm 0.002140209876161759
+[45s]   structure 33: 1.2s, forward rel 7.593024e-03, probe grad norm 0.0022396974043268018
+[46s]   structure 34: 1.2s, forward rel 8.073382e-03, probe grad norm 0.0023084812858476674
+[47s]   structure 35: 1.2s, forward rel 1.007128e-02, probe grad norm 0.0022650058134706277
+[49s]   structure 36: 1.2s, forward rel 6.246671e-03, probe grad norm 0.002324504064180029
+[50s]   structure 37: 1.3s, forward rel 8.101040e-03, probe grad norm 0.002474833567792318
+[51s]   structure 38: 1.2s, forward rel 7.986832e-03, probe grad norm 0.0025718046258682925
+[52s]   structure 39: 1.2s, forward rel 7.263989e-03, probe grad norm 0.0026539179081814385
+[53s]   structure 40: 1.2s, forward rel 3.069131e-03, probe grad norm 0.0028207583388291926
+[55s]   structure 41: 1.2s, forward rel 9.796257e-03, probe grad norm 0.0029112128838076432
+[56s]   structure 42: 1.2s, forward rel 1.527525e-02, probe grad norm 0.0030331833276068766
+[57s]   structure 43: 1.3s, forward rel 8.770794e-03, probe grad norm 0.003113737278678001
+[58s]   structure 44: 1.2s, forward rel 5.039472e-03, probe grad norm 0.003107118543912509
+[59s]   structure 45: 1.2s, forward rel 4.882680e-03, probe grad norm 0.003127470268993229
+[61s]   structure 46: 1.2s, forward rel 7.481015e-03, probe grad norm 0.0031877440667349675
+[62s]   structure 47: 1.2s, forward rel 1.316201e-02, probe grad norm 0.003337803190317644
+[63s] wrote 547 device gradient tensors to /home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt
+{
+ "structures_done": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  46,
+  47
+ ],
+ "accumulation_probe": [
+  0.00012509712481726117,
+  0.000232628401024289,
+  0.0003559964741849335,
+  0.000697846026414512,
+  0.000723172931968522,
+  0.0007382579787108721,
+  0.0007391930486717042,
+  0.0007756295379638651,
+  0.000841030956368352,
+  0.0008372115178608633,
+  0.0008577692899999021,
+  0.0008823488876525849,
+  0.001107885433749641,
+  0.0011428575152850797,
+  0.001188593291051385,
+  0.0011823436800105437,
+  0.0013077118282082746,
+  0.0013028722610408437,
+  0.0014820490387667676,
+  0.0015718389602949613,
+  0.0016152978349624875,
+  0.0016980448432597794,
+  0.0016666359355682822,
+  0.0016088744525432322,
+  0.0016677495057870347,
+  0.0018308238120750804,
+  0.001848735831300057,
+  0.0018631460236078986,
+  0.001965561607776219,
+  0.0019660485172621786,
+  0.0020212757373702325,
+  0.002031422064982784,
+  0.002140209876161759,
+  0.0022396974043268018,
+  0.0023084812858476674,
+  0.0022650058134706277,
+  0.002324504064180029,
+  0.002474833567792318,
+  0.0025718046258682925,
+  0.0026539179081814385,
+  0.0028207583388291926,
+  0.0029112128838076432,
+  0.0030331833276068766,
+  0.003113737278678001,
+  0.003107118543912509,
+  0.003127470268993229,
+  0.0031877440667349675,
+  0.003337803190317644
+ ],
+ "bisect": {},
+ "forward_rel": [
+  0.011041354303912976,
+  0.008779904801706833,
+  0.009636900414156378,
+  0.010169092255517117,
+  0.007321306304987851,
+  0.008474800850934073,
+  0.00407133030531627,
+  0.009854648337974701,
+  0.008978266987504152,
+  0.00955327487629717,
+  0.008950465331503139,
+  0.00820951815357247,
+  0.012333957026185387,
+  0.0020525731072655066,
+  0.008967035888988386,
+  0.006274670093521885,
+  0.010630655263003358,
+  0.005822643754588051,
+  0.011144991734511918,
+  0.003939354709207752,
+  0.007831642150565726,
+  0.010707085720462011,
+  0.002049308809439459,
+  0.0036906517680513552,
+  0.00849514025924934,
+  0.015670259561894134,
+  0.00895522308305366,
+  0.00576080748474857,
+  0.009768923828811154,
+  0.005044921429692765,
+  0.007852162979212369,
+  0.0040849986184578945,
+  0.009278507473220166,
+  0.007593023783854644,
+  0.008073381990699105,
+  0.01007128221046416,
+  0.006246671051394602,
+  0.008101040246170154,
+  0.007986831770456003,
+  0.00726398905594133,
+  0.0030691312438766243,
+  0.009796256678489832,
+  0.015275254164217754,
+  0.008770793885960528,
+  0.005039472387081795,
+  0.004882680114668555,
+  0.007481015490649817,
+  0.013162014324829992
+ ],
+ "forward_rel_median": 0.008474800850934073,
+ "structures_asked": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  46,
+  47
+ ],
+ "n_struct_total": 48,
+ "tokens": 384,
+ "atoms": 422,
+ "nb": 14,
+ "NP": 448,
+ "device_weights_reachable": 870,
+ "device_weights_named": 547,
+ "weights_with_grad": 547,
+ "weights_without_grad": 0,
+ "compared": 547,
+ "reference_tensors": 761,
+ "share_of_diffusion_sq_norm": 0.5732029094107396,
+ "median_rel": 0.1250047459812202,
+ "worst_rel": 18.503974843073646,
+ "worst_tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+ "over_5e-2": 459,
+ "zero_model_median": 1.0,
+ "orientation_recorded_at_load": {
+  "N": 211,
+  "T": 336,
+  "?": 0
+ },
+ "square_2d_compared": 87,
+ "softmax_f64_bound": false,
+ "softmax_lever": null,
+ "ckc_census": null,
+ "tt_bio_softmax_ckc_flag": null,
+ "fp32_softmax_stats": null,
+ "nonfinite_probe": null,
+ "nonfinite_probe_count": null,
+ "probe2_len": null,
+ "probe3_len": null,
+ "probe3_first_bad": null,
+ "probe2_first_bad": null,
+ "softmax_calls_intercepted": 0,
+ "softmax_site_f64": false,
+ "host_f64_softmax_stats": {
+  "served": 0,
+  "declined": 1440,
+  "elements": 0
+ },
+ "host_f64_softmax_ab": null,
+ "host_f64_verbs": null,
+ "host_f64_calls_intercepted": null,
+ "verb_census": null,
+ "cotangent_permuted": false,
+ "grads_dumped_to": "/home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt",
+ "per_tensor_dumped": true,
+ "provenance": {
+  "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+  "ckpt": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "out_dir": "perf/of3t_f64softmax",
+  "tag": "_f64shipped",
+  "structs": "all",
+  "mask_ones": false,
+  "argv": [
+   "perf/of3t_diffusion/device_gradient.py",
+   "--structs",
+   "all",
+   "--tag",
+   "_f64shipped",
+   "--cap",
+   "/home/ttuser/of3t_softgrad/diffcap043",
+   "--out-dir",
+   "perf/of3t_f64softmax",
+   "--dump-per-tensor",
+   "--dump-grads",
+   "/home/ttuser/of3t_f64softmax/device_grads_043all_shipped.pt"
+  ]
+ },
+ "error": null
+}
+wrote perf/of3t_f64softmax/device_gradient_f64shipped.json and perf/of3t_f64softmax/device_gradient_f64shipped_per_tensor.json
+ARM_END shipped 1789948191  elapsed 65s
+card3 AICLK during the window: n=32 mean=1315 MHz min=800 max=1350
+DEVGRAD_F64_DONE shipped rc=0 2026-09-20T23:49:51Z

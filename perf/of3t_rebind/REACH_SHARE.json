@@ -1,0 +1,250 @@
+{
+ "reference_tensors": 4170,
+ "reference_sq_norm": 10.279642678524985,
+ "walked_device_tensors": 3932,
+ "device_tensors_unreadable": 0,
+ "reference_names_with_no_checkpoint_weight": 0,
+ "sq_norm_of_those": 0,
+ "fully_covered_reference_names": 2678,
+ "sq_norm_fully_covered": 9.778878691367064,
+ "pct_fully_covered": 95.12858566374045,
+ "under_saturated_value_classes": 800,
+ "pct_lower_bound": 95.15185639387377,
+ "pct_upper_bound": 95.20108341059361,
+ "reference_names_not_covered_count": 1492,
+ "sq_norm_not_covered": 0.5007639871579208,
+ "top_uncovered_by_sq_norm": [
+  [
+   "aux_heads.distogram.linear.weight",
+   0.292264138413571
+  ],
+  [
+   "input_embedder.atom_attn_enc.linear_q.0.weight",
+   0.07612126831763757
+  ],
+  [
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   0.0692234667012629
+  ],
+  [
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   0.005370421931692652
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight",
+   0.004069836154439106
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight",
+   0.0037108956998010358
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+   0.0034566697899963148
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight",
+   0.001909469186277506
+  ],
+  [
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   0.0013029218254034327
+  ],
+  [
+   "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   0.0012902418165119767
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight",
+   0.0011956710217420263
+  ],
+  [
+   "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   0.0011244021812551045
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight",
+   0.0009547904517766223
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+   0.0009402139002422931
+  ],
+  [
+   "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight",
+   0.0008395323604897013
+  ]
+ ],
+ "short_class_detail": [
+  {
+   "bucket": [
+    384,
+    [
+     3,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     0.0005084767868664384
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    384,
+    [
+     3,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+     0.0692234667012629
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    128,
+    [
+     1,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     3.928408902766179e-05
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    128,
+    [
+     1,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     0.0005163435455334058
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    128,
+    [
+     1,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+     0.0003871192305017613
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    128,
+    [
+     1,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+     0.0013029218254034327
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    15232,
+    [
+     119,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     0.00038970693184164483
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    15232,
+    [
+     119,
+     128
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+     0.0011244021812551045
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    32768,
+    [
+     128,
+     256
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+     0.0012902418165119767
+    ]
+   ]
+  },
+  {
+   "bucket": [
+    32768,
+    [
+     128,
+     256
+    ]
+   ],
+   "n_ref": 1,
+   "n_dev": 0,
+   "names_by_norm": [
+    [
+     "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+     6.531077881781931e-25
+    ]
+   ]
+  }
+ ]
+}

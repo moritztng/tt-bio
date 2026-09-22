@@ -1,0 +1,85 @@
+{
+ "arms": {
+  "opendde": {
+   "accsm_off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "afc14a284044be8516df3759611408596df01a6d85f3e3e70e87be657230afe5"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 46.1
+   },
+   "off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "0cc1cdf1d31e74c57766886d836c8aa735508cd18b1d9a9fcdd3bc64bfcc8bc4"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 46.5
+   }
+  },
+  "protenix-v2": {
+   "accsm_off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "7e16974edf4d45a7611891f2a65288ce07fb94a8d507867aaa4312ecbb02b851"
+    },
+    "env_flag": null,
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.2
+   },
+   "off": {
+    "autograd_importers": [],
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "env_flag": "0",
+    "f64_flag": null,
+    "module_read": null,
+    "processes_reporting": 0,
+    "processes_that_imported_autograd": 0,
+    "processes_witnessed": 3,
+    "rc": 0,
+    "renorm_stats": {
+     "applied": 0,
+     "declined": 0
+    },
+    "wall_seconds": 35.3
+   }
+  }
+ },
+ "card": "3",
+ "failures": [],
+ "fixture": "/home/ttuser/.coworker/wt/of3t-d56-renorm/perf/size512/fixtures/cdk2x2_128.yaml",
+ "tree": "/home/ttuser/.coworker/wt/of3t-d56-renorm",
+ "verdict": "PASS"
+}
