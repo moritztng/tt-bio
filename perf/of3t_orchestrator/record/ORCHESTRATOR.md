@@ -2261,3 +2261,26 @@ measured, release-gated and waiting only on a merge, which is one decision.
 a third re-pin of a question whose first two *"both got silently"* dropped. With the router's last
 resort being "latest open", a backlog that size makes any swipe-less reply ambiguous. It bears on
 whether the D126 answer lands on the D126 question, which is why it is recorded here.
+
+**Pass 332 addendum — the reply landed, the hazard was real, and OF3T's priority changed.** While
+this pass was running, Moritz replied without a swipe-to-reply and `tg_agent.sh:147`'s "latest open
+pending ask" fallback attached it to **9760**. His message was a new directive — start a BindCraft 2
+bring-up campaign, opus 5, don't stop until done with great perf — and **not a ruling on D126**.
+
+**So the routing hazard D185 describes materialised within the same hour it was filed**, and
+superseding 9758 is the reason it attached to one record rather than being ambiguous between two.
+Verified this pass: 9760 still reads `status: open`, no answered file was written for it, and
+`TASKS.md:52` carries *"D126 (ask 9760) is STILL UNANSWERED ... Nobody cherry-picks it to main
+until he says"*. **D126 is not decided and nothing is cherry-picked.**
+
+**The priority change binds this row.** The BindCraft 2 campaign is queued as
+`tt-bio-bindcraft2-port-p1`, TOP PRIORITY, explicitly *"takes precedence over new OF3T dispatches;
+in-flight OF3T rows finish normally and are not killed"*. So: `of3t-apbback` and `of3t-trajretake`
+run to completion and I absorb them, and **I dispatch no new OF3T rows** until that changes. The
+trunk-backward residual and the model-scope trajectory stay named and unowned rather than being
+handed to new rows.
+
+**One thing already carried across, without my doing anything.** The BindCraft brief takes D126
+forward on its own: *"BC2 optimises sequence logits, same registry, same failure mode, so assert
+non-empty reached-parameter counts from step 1."* An identity-keyed tape silently unregistering a
+leaf is the campaign's most transferable finding and it has transferred.
