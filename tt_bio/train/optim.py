@@ -57,20 +57,40 @@ DISPLACEMENT_BAND = (0.9, 1.1)
 
 
 def af3_lr(step: int, lr: float, *, warmup_steps: int = 1000,
-           decay_every_n_steps: int = 50000, decay_factor: float = 0.95) -> float:
-    """Protenix's `AlphaFold3LRScheduler`, `protenix/utils/lr_scheduler.py:85-91`.
+           decay_every_n_steps: int = 50000, decay_factor: float = 0.95,
+           base_lr: float = 0.0, plateau_until: int | None = None) -> float:
+    """The AlphaFold-family learning rate, in the two closed forms upstreams actually use.
 
-    Linear warmup to `lr` over `warmup_steps`, then a step decay of `decay_factor` every
-    `decay_every_n_steps`. Upstream's defaults are lr 1.8e-3 with warmup 1000
-    (`configs/configs_base.py:74-76`, and `train_demo.sh` runs lr 1e-3 warmup 2000).
-    The warmup is not decoration on a randomly initialised network: Adam's first update
-    has magnitude ~lr per element whatever the gradient is, so without it the first pass
-    over the data moves every weight the full step size before the second moment has any
-    history.
+    Both are a linear warmup to `lr` over `warmup_steps`, offset by `base_lr`, followed by a
+    decay of `decay_factor` every `decay_every_n_steps`. They differ in what sits between,
+    and `plateau_until` is the whole of the difference.
+
+    `plateau_until=None` is Protenix's `AlphaFold3LRScheduler`,
+    `protenix/utils/lr_scheduler.py:85-91`. No plateau, and the decay exponent counts from
+    step zero, so the first decay lands at `decay_every_n_steps`. Upstream's defaults are lr
+    1.8e-3 with warmup 1000 (`configs/configs_base.py:74-76`, and `train_demo.sh` runs lr
+    1e-3 warmup 2000).
+
+    `plateau_until=S` is the AlphaFold 2 supplement schedule, which is what OpenFold3 ships
+    as `AlphaFoldLRScheduler` (`openfold3/core/utils/lr_schedulers.py`; defaults base_lr 0.0,
+    max_lr 1e-3, warmup_no_steps 1000, start_decay_after_n_steps 50000, decay_every_n_steps
+    50000, decay_factor 0.95). The rate holds flat at `lr` until step `S`, and the decay
+    exponent counts from `S` and starts at 1, so the first decay lands immediately after the
+    plateau instead of a whole period later. Passing `plateau_until` is not a per-model
+    branch: it is the one parameter the two schedules disagree on, and naming it is what lets
+    a single function carry both.
+
+    The warmup is not decoration on a randomly initialised network: Adam's first update has
+    magnitude ~lr per element whatever the gradient is, so without it the first pass over the
+    data moves every weight the full step size before the second moment has any history.
     """
     if step <= warmup_steps:
-        return step / warmup_steps * lr
-    return lr * (decay_factor ** (step // decay_every_n_steps))
+        return base_lr + step / warmup_steps * lr
+    if plateau_until is None:
+        return lr * (decay_factor ** (step // decay_every_n_steps))
+    if step <= plateau_until:
+        return lr
+    return lr * (decay_factor ** ((step - plateau_until) // decay_every_n_steps + 1))
 
 # --------------------------------------------------------------------- optimizer
 
