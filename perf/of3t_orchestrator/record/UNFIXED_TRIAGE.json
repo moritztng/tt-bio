@@ -16,10 +16,10 @@
   ],
   "why": "DEFECTS.md rotates; the live file is the tail, not the ledger"
  },
- "unfixed_total": 83,
+ "unfixed_total": 80,
  "counts": {
   "SCOPE-EXCLUDED": 5,
-  "USER-FACING": 9,
+  "USER-FACING": 6,
   "CAMPAIGN-INTERNAL": 69
  },
  "classes": {
@@ -31,11 +31,8 @@
    "D213"
   ],
   "USER-FACING": [
-   "D10",
-   "D24",
    "D32",
    "D55",
-   "D56",
    "D58",
    "D184",
    "D205",

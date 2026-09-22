@@ -40,7 +40,7 @@ n_def = len(st)
 
 p = D/"state"/"of3t-orchestrator.md"; t = p.read_text()
 def ids(c): return ", ".join(sorted(j["classes"][c], key=lambda s: int(s[1:])))
-t = re.sub(r"\*\*[A-Za-z ]+ defects filed\*\*, \*\*\d+ UNFIXED\*\* \(\d+\n?scope-excluded, \d+ USER-FACING, \d+ campaign-internal\)",
+t = re.sub(r"\*\*[A-Za-z\- ]+ defects filed\*\*, \*\*\d+ UNFIXED\*\* \(\d+\s*\n?\s*scope-excluded, \d+ USER-FACING, \d+ campaign-internal\)",
            f"**{word(n_def).capitalize()} defects filed**, **{j['unfixed_total']} UNFIXED** "
            f"({j['counts']['SCOPE-EXCLUDED']}\nscope-excluded, {j['counts']['USER-FACING']} USER-FACING, "
            f"{j['counts']['CAMPAIGN-INTERNAL']} campaign-internal)", t, count=1)
@@ -57,5 +57,8 @@ t = re.sub(r"`state/concluded` holds \*\*[a-z\- ]+\*\* of3t files",
            f"`state/concluded` holds **{word(len(markers))}** of3t files", t, count=1)
 t = re.sub(r"so \*\*[a-z\- ]+ rows have concluded\*\*", f"so **{word(rows)} rows have concluded**", t, count=1)
 p.write_text(t)
+if "defects filed**, **%d UNFIXED" % j["unfixed_total"] not in t:
+    raise SystemExit("STAMP FAILED: the defects-filed line did not match its pattern -- a stamper "
+                     "that silently matches nothing reads exactly like a doc that is already current")
 print(f"stamped: {briefs} briefs, {len(markers)} markers, {rows} rows concluded, "
       f"{n_def} defects, {j['unfixed_total']} UNFIXED {j['counts']}")

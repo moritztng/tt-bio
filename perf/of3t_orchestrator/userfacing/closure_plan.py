@@ -54,10 +54,26 @@ PLAN = {
     # leaves the trunk at 5.4139x upstream's own bf16, carried by the attention-pair-bias and the
     # single transition. That residual is the trunk's real object and is not yet a plan item
     # because it has no owner -- when it gets one it belongs here.
+    # D10, D24 and D56 were here and are GONE because they LANDED, verified at pass 363 against
+    # git rather than against a row's prose. tt_bio/ranking.py on origin/main is the unified
+    # sample-ranking rule, called from openfold3_fold.py:295, rf3/confidence.py:122 and
+    # worker.py:1068, with the superseded per-model names surviving only in its own docstring --
+    # that closes D10 and D24. tt_bio/autograd.py:86 reads
+    # SOFTMAX_BW_RENORM = env_flag("TT_BIO_SOFTMAX_BW_RENORM", True), default ON, which closes
+    # D56. Removing an item from this plan is the flattering direction, so each one is recorded
+    # with the file and line a reader can check.
     "D184": {
         "needs": MERGE,
         "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
-        "closes_when": ("`TT_BIO_OF3_DEVICE_REFATOM` stops being default-off. `of3t-hostleg` wired "
+        "closes_when": ("REWRITTEN pass 363: not the flag. `of3t-covdefault` NO-GO'd flipping it "
+                        "(+198.476 ms cold / +50.231 ms warm on openfold3) and `of3t-refcov` then "
+                        "reached those gradients WITHOUT it -- `git diff -- tt_bio/` empty, the arm "
+                        "constructing RefAtomFeatureEmbedder directly -- taking coverage to "
+                        "99.50523155277438 %. The symbol does not exist on origin/main at all. What "
+                        "is left is the narrower true statement that on the shipped inference "
+                        "default those seventeen parameters receive no gradient, which matters to "
+                        "TRAINING and not to a user's fold; it closes when a shipped training route "
+                        "reaches them. Superseded text: `of3t-hostleg` wired "
                         "both legs and measured them: the `all` arm reads mass-weighted rel_l2 "
                         "0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 "
                         "per-tensor bar, worst 1.175005e-01, and its inference default is "
@@ -101,56 +117,6 @@ PLAN = {
         "would_a_row_help": True,
         "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
                   "has not been built"),
-    },
-    "D10": {
-        "needs": MERGE,
-        "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
-        "closes_when": ("it lands on main. DECIDED 2026-09-21 on ask 9629: unify, on consistency "
-                        "grounds, because no accuracy argument survives either way -- of3t-rankunify "
-                        "withdrew it. Built, verified in the tree at pass 278, not merged"),
-        "evidence_held": ("+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds "
-                          "the WRONG way, every difference inside its seed floor, p = 0.146"),
-        "would_a_row_help": False,
-        "asked": "pin 9629, together with D24 -- ANSWERED 2026-09-21 (state/ask-9629-decision.md)",
-    },
-    "D24": {
-        "needs": MERGE,
-        "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
-        "closes_when": "the same as D10: the decision is made and the merge is not",
-        "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
-        "would_a_row_help": False,
-        "asked": "pin 9629, together with D10 -- ANSWERED 2026-09-21",
-    },
-    "D56": {
-        "needs": MERGE,
-        "one_line": "a diffusion-scope concentration that the softmax-backward repair collapses 333x",
-        "closes_when": ("TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted "
-                        "and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is "
-                        "that the SHIPPED configuration is still the unrepaired one"),
-        "evidence_held": ("matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 "
-                          "norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms"),
-        "what_it_costs": ("read from taped_ttnn.py at pass 259, because the ask should not have gone "
-                          "out without it. The lever adds EXACTLY TWO OPS inside the softmax "
-                          "backward rule -- one `ttnn.sum(y, dim, keepdim=True, "
-                          "compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the "
-                          "shapes the existing `inner` reduction already uses. It lives in `bw`, so "
-                          "it runs ONLY under the tape: an inference fold cannot execute it and the "
-                          "inference cost is zero STRUCTURALLY, not by measurement, and the fold "
-                          "A/B agrees: three legs at 512 aa, flag on / off / on, all three the same "
-                          "CIF sha256 on an A/A floor of exactly zero (land-standing, 04ad2cf7a). "
-                          "TRAINING COST MEASURED at pass 311, and this field said for sixteen "
-                          "passes that it could not be: `of3t-stepfloor` re-ran the pass-54 trunk "
-                          "rung with the lever OFF and the probe inert -- backward 356.00 s against "
-                          "357.32 s with it ON, so the lever is +0.37 %, 1.32 s of a 357 s backward, "
-                          "at a 1350 MHz median over 69 DURING samples. The baseline this field said "
-                          "did not exist is D32's, and D32 now has one. Caveat the row raised "
-                          "itself: the two arms are separate processes and the forward moved "
-                          "13.53 -> 4.04 s on a warm JIT cache, so the STEP-scope ON/OFF pair has to "
-                          "be re-taken inside one process; the backward-only figure is unaffected "
-                          "because the lever lives in `bw`."),
-        "would_a_row_help": False,
-        "asked": ("pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the "
-                  "composition since pass 274, verified backward-only by AST, and not merged"),
     },
     "D58": {
         "needs": CARD,
