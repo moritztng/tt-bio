@@ -2434,3 +2434,506 @@ second is out of scope for it.
 references that disagree by 0.865 at cos 0.5298 are not interchangeable, and a ratio built from
 one of each measures their difference. **A reference is part of the measurement's identity** and
 belongs in the artifact beside the digest.
+
+### D186 UPDATE, pass 335. The frame is measured at TRUNK scope, not just at one block, and our device arm is 0.9254x of it with the same leaf profile at r = 0.9996
+
+`of3t-apbback`'s `REFVSREF.json` scores the two float64 references against each other over **all
+2,736 trunk tensors**, so the frame no longer rests on block 47:
+
+    upstream's LOCAL float64 vs the MODEL float64, 2,736 tensors
+      mass-weighted rel L2   1.841653219133536
+      norm ratio             1.4642355341132198
+      cos                    0.3651423770720734
+
+**Our c64 device arm reads 1.7043040667627918 against that same model reference — 0.9254x the
+frame.** A bf16 device backward is CLOSER to the model float64 than upstream's own float64 code is
+when run in the capture frame. Nothing about our arithmetic can explain that; only the frame can.
+
+**And the two error distributions are the same distribution.** Leaf error-mass shares, the frame's
+against ours, top eight, correlation **r = 0.9996**:
+
+    pair_stack.pair_transition.layer_norm.weight    59.828 %   39.163 %
+    pair_stack.pair_transition.layer_norm.bias      14.192 %   10.100 %
+    pair_stack.tri_att_start.layer_norm.weight       3.102 %    2.103 %
+    pair_stack.tri_att_start.layer_norm.bias         3.013 %    2.108 %
+    pair_stack.tri_att_end.layer_norm.bias           2.266 %    1.608 %
+    attn_pair_bias.linear_z.weight                   1.824 %    2.279 %
+    pair_stack.pair_transition.linear_out.weight     1.654 %    1.334 %
+    pair_stack.tri_mul_out.layer_norm_in.bias        1.635 %    1.258 %
+
+The four LayerNorm affine leaves this campaign chased for many passes as "where our trunk error
+concentrates" are **where the FRAME concentrates**. We were reading the reference mismatch and
+attributing it to the port.
+
+**What this does NOT say.** There is still a real device error: frame-matched, `of3t-apbback`
+measured the softmax backward as 51.55 % of block 47's error, with the null bit-identical on 57 of
+57. The honest synthesis is that **the trunk's real backward error sits near 0.9565x its floor —
+inside the bar — the softmax backward is the largest part of what remains, and the 5.41x to 6.86x
+figures were the frame.**
+
+**The gate inherits the defect.** GRADIENTS' accuracy clause reads
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2` at 0.520124 against a bar of 0.147353. Our
+`renorm` arm is **capture-driven**; upstream's bf16 arm is a **full-model** run. Same mismatch, so
+**the charter's own accuracy clause is a cross-frame comparison** and its 3.53x is not a clean
+reading of the port.
+
+**The measurement that fixes it, named rather than dispatched** (BindCraft 2 holds precedence for
+new rows): upstream's own bf16 backward driven from the SAME capture, giving a frame-matched
+denominator. It is upstream's code under bf16 autocast from a saved boundary — CPU work, no card —
+and it is the one number that would let GRADIENTS be read honestly. Until it exists, quote the
+frame-matched block result and say the model-scope clause is cross-frame.
+
+### D186 UPDATE, pass 336. Both sides of the frame-matched comparison already exist at crop 64, and the table is now published in one place
+
+`of3t-apbback`'s `REFAUDIT.json` carries **four** references, not two, and `REF_LOCAL_bf16`
+(`/home/ttuser/of3t_trunkg043/ref_bf16auto_c64.pt`, 2,736 trunk tensors) is upstream's own bf16
+backward **driven from the same capture**. So the frame-matched denominator I called missing at
+pass 335 exists at crop 64 — `of3t-trunkg043` produced it and nothing had put the two readings
+side by side:
+
+    FRAME-MATCHED, both scored against REF_LOCAL_f64
+      ours   0.3833065668   floor  0.4007237405   ->  0.9565x   INSIDE the bar
+    CROSS-FRAME, our capture-driven arm against the MODEL-frame floor
+      ours   1.7043040668   floor  0.3147698294   ->  5.4144x   the campaign's headline
+
+**The floor 0.3147698294 is exactly the A26 denominator this campaign quotes**, so the bar has
+always been the model-frame floor and it was paired with a local-frame numerator. The 5.41x and
+the 0.9565x are the same device tensors; only the reference differs.
+
+**And the two rows that appeared to disagree never did.** `apbgrad_scope_RENORM_c64` and
+`padshape_RENORM_w64` give identical readings to ten digits against both references —
+0.3833065668 and 1.7043040668. The 4.45x between their published figures is the reference alone.
+
+Published as `perf/of3t_orchestrator/frames/FRAME_TABLE.json`, read from apbback's artifact with
+nothing recomputed, because this arithmetic was scattered across one row's artifacts and three of
+my defect entries and a reader had no single place to check it.
+
+**What is still genuinely missing, stated narrowly.** Both local references are **c64** dumps.
+GRADIENTS' clause reads model scope at **crop 384**, where our arm is still capture-driven and
+upstream's bf16 arm is full-model — so that clause remains cross-frame and its 3.53x is not a
+clean reading of the port. Closing it needs upstream 0.4.3 run from the SAME capture at crop 384,
+float64 and bf16 autocast: upstream's own code from a saved boundary, CPU work, no card. That is
+one row's worth of work and it is the campaign's highest-value remaining measurement.
+
+### D187. With the trunk reframed, the campaign's largest UNEXPLAINED accuracy gap is `diffusion_transformer` at 2.019x over 43.6 % of the mass, and it has no owner. FOUND by `of3t-orchestrator`, pass 337. **UNFIXED.**
+
+The model-scope arm is **stitched from five legs produced by five harnesses in four rows** — its
+own `arms` block lists `diffusion=`, `cond=`, `aux=`, `msa=` and `pairformer_stack=` pointing at
+five different dumps, each driven from its own boundary. D186 proved the pairformer leg is
+cross-frame. This asks the same of every other leg, and the answer is not uniform:
+
+    section                              mass%   ours/upstream-bf16   status
+    diffusion_module.diffusion_transformer 43.622%   2.019x   UNEXPLAINED, and now the largest
+    diffusion_module.diffusion_conditioning 36.946%  0.126x   KNOWN, the charter already asks it
+    pairformer_stack                        5.828%   6.861x   CROSS-FRAME, proven (D186)
+    diffusion_module.atom_attn_enc          4.735%   1.026x   near 1.0
+    aux_heads                               2.843%   0.010x   EXPLAINED, host-fp32 confidence path
+    diffusion_module.atom_attn_dec          1.284%   0.395x   unexplained, small mass
+    msa_module                              1.232%   0.499x   unexplained, small mass
+
+**A faithful bf16 reproduction should read near 1.0x.** This spans **0.010x to 6.861x**, about
+700x, which is the tell that the legs are not all measuring the same thing.
+
+**Both low outliers are explained, and I checked before filing rather than after.** `aux_heads` at
+0.010x is `openfold3_confidence.py` running the confidence s-path on HOST in fp32 where upstream
+uses bf16 — being 100x closer to float64 is expected, and it is worth saying that this section is
+therefore **not reproducing upstream's arithmetic** but doing something more accurate, which is a
+labelling question rather than a defect. `diffusion_conditioning` at 0.126x is already in the
+charter: `of3t-direct` retracted it at 1.0414x while being ~8x more accurate than upstream's own
+step, failing only because the two errors are anti-aligned.
+
+**So the residual is `diffusion_transformer`: 2.019x over 43.622 % of the mass, unexplained, and
+with no owner.** D172 resolved its old 8.1943 as a pre-D56 reading and D56 is live on this arm; the
+2.019x that remains is what nobody has chased. It is now the largest single accuracy object in the
+campaign, ahead of the trunk, whose 6.861x is the frame.
+
+**And a caution on reading the aggregate at all.** `MODEL_withtrunk_n384.json`'s own
+`reconciliation` block records that a scope's reading divides by `||g_bf16||` on that scope while
+the campaign's mass share is a share of `||g_float64||^2`, giving a **3.3 %** published-versus-exact
+difference. A stitched aggregate over legs with different frames, different precisions and a known
+weighting mismatch is not one measurement, and the model-scope headline should be read as a
+summary of the table above rather than as a number in its own right.
+
+Published as `perf/of3t_orchestrator/sections/SECTION_ATTRIBUTION.json`.
+
+### D188. Every one of this campaign's 94 briefs told its row to base on `wk/of3t` in PROSE, and none carried the line the dispatcher reads. FOUND by `of3t-orchestrator`, pass 338. **FIXED** going forward.
+
+`worker.sh:303-318` picks a fresh row's base: `origin/$DEF` unless the row's own branch already
+exists, else a **`CONTINUES_FROM:`** line in the brief. Its own comment says what happens without
+one: *"every such pass silently forks from $DEF and the worker has to manually detect + reset
+(recurred 3x on RFD3, ~5-10min/pass)"*, and records one case where a row *"silently forked from
+main instead of its real predecessor branch ... the worker had to notice and hand-fix it with a
+cherry-pick"*.
+
+**Zero of 94 `of3t-*` briefs carry `CONTINUES_FROM:`**, including the nine that say *"Base on
+`wk/of3t`"* in prose. So every OF3T row has been forking from `origin/main` and detecting-and-
+resetting itself, at the 5-10 minutes a pass its author measured. Caught only because
+`of3t-frame384`'s log says `fresh worktree ... from origin/main` and `HEAD is now at fd70adde2`,
+and that row's brief tells it to reuse a producer that exists only on `wk/of3t`.
+
+**The lesson is the campaign's own, one layer down.** *A decision written into a state doc does not
+reach a running row, because the row reads its brief* — the charter's founding lesson. This is the
+same shape: **a decision written into a brief's PROSE does not reach the DISPATCHER, because the
+dispatcher reads specific lines.** `#DISPATCH:`, `DONE_CHECK:`, `CONTINUES_FROM:` and the TASKS
+`<!--ws:-->` tag are read by machines; everything else in a brief is read by an agent. I have now
+been bitten by that distinction twice in three passes — the missing ws-tag at 336 and this.
+
+**Fixed for `of3t-frame384`**, verified unambiguous: `git ls-remote --heads origin of3t` matches
+exactly `refs/heads/wk/of3t`, one ref of the 94 `wk/of3t*`. It does **not** retroactively move that
+row's worktree, because worker.sh reuses an existing one across relaunches, so the live session was
+told directly.
+
+**Standing rule for this campaign:** a brief whose row must start from the composition carries
+`CONTINUES_FROM: of3t` under its `#DISPATCH:` line. Prose saying "base on wk/of3t" is for the agent
+and is not a substitute.
+
+### D189. A26's denominator — "upstream's own bf16 recipe" — is HOST-DEPENDENT at the percent level, while the float64 reference is not. FOUND by `of3t-frame384`, pass 338. **UNFIXED.**
+
+Same producer, same tree, same boundary, same torch 2.8.0+cpu, crop 64, qb1 against qb2:
+
+    float64        squared gradient norm  1.8714981803225077  vs  1.8714981803225081   ->  2e-16
+    bf16 autocast                         1.9851095175279738  vs  2.1115345382360076   ->  6.0 %
+    loss                                 -0.30275363525224397 vs -0.3053330322856267
+
+qb1 is an EPYC 8124P (Zen 4c), qb2 a Ryzen 7 9700X (Zen 5), **both carrying `avx512_bf16`** — so
+this is kernel blocking and accumulation order, not a missing instruction. The float64 arm is
+bit-reproducible across the two boxes to 2e-16; the bf16 arm is not, by 6 %.
+
+**It is consistent rather than alarming, and that is the point.** `of3t-trunkg043` measured 92.68 %
+of the trunk's error mass on four cancellation-limited LayerNorm affine leaves, which are exactly
+the leaves a different summation order moves.
+
+**The consequence for every published ratio.** A26's floor is *upstream's own bf16 step*, so the
+BAR is a host-dependent quantity at the percent level while the numerator's float64 reference is
+not. **Any ratio whose floor came off one box and numerator off another carries a host term**, and
+this campaign has arms from pc, qb1 and qb2 scored against bars from whichever box produced them.
+The 0.3147698293887927 the charter quotes has a host and nothing records which.
+
+**Third framing defect in four passes, and they compose:** D186 (the reference FRAME), D187 (five
+stitched legs with different frames and precisions), D189 (the bar moves by host). Each on its own
+is a caveat; together they mean a published ratio needs its frame, its leg and its host before it
+means anything.
+
+`of3t-frame384` is handling it correctly and without being asked: building BOTH n384 references on
+qb1 so its own ratio is internally consistent, and rebuilding the c64 pair on qb1 to re-derive
+0.9565x there, so the published figure gets a measured host-robustness reading rather than an
+assertion of one.
+
+**What this owes:** every bar-bearing artifact should record the host that produced the FLOOR, not
+only the host that produced the arm. D155 already requires a host for a digest claim; a bar is the
+same kind of claim and has never been held to it.
+
+### D189 UPDATE, pass 339. Still **UNFIXED**: the campaign DID test reduction-order sensitivity, on the arm where it does not matter, and no artifact names the host that produced the A26 floor
+
+Two findings, both from `of3t-refprec`'s own artifacts.
+
+**1. The reassurance exists and is about a different quantity.**
+`perf/of3t_refprec/THREAD_COUNT_FLOOR.json` scores the same **fp32** arm at `OMP_NUM_THREADS` 3
+against 7:
+
+    n_compared 4135      mass_weighted_rel_l2  1.7335891859774135e-05
+    n_bit_identical 175  cos 0.9999999998500171   norm ratio 1.0000007503720203
+
+So changing the reduction order moves the **fp32** arm by 1.7e-05 — nothing. D189 measured the
+**bf16** arm moving **6.0e-02** across hosts, about **3,500x** more. The campaign therefore holds a
+measured, correct reassurance about reduction order that **does not cover the arm the bar is made
+of**. `a-guard-cannot-notice-its-artifact-is-the-wrong-instrument`, in the mild form: nothing here
+is wrong, it is just evidence for exactly what it says and no further.
+
+Worth noting the tell was already in it: even in the fp32 thread comparison the worst tensor is
+`pairformer_stack.blocks.35.attn_pair_bias.layer_norm_z.bias` at rel 6.269, a LayerNorm bias — the
+same cancellation-limited leaf family D189's 6 % lands on. The shape was visible; only its
+magnitude on bf16 was not.
+
+**2. The A26 floor's producing host is unrecorded and not recoverable from the artifacts.**
+`REFPREC.json` carries only an `arms` block. Checked six of that row's JSON outputs —
+`REFPREC.json`, `AUTOCAST_SITE_CENSUS.json`, `INSTRUMENT_SELFTEST.json`,
+`THREAD_COUNT_FLOOR.json`, `W0_SAME_POINT.json`, `manifest_arm2_f32_upstream.json` — and **none
+contains a `host`, `hostname` or `machine` field**, nor does `NOTES.md` name one. The pinned
+`arm4_bf16_autocast/grads_f64.pt` that IS the 0.3147698293887927 the charter quotes therefore has
+a producing host nobody can now name from the record.
+
+**So D189's consequence is not hypothetical for this campaign: it is unresolvable for the bar we
+quote.** The floor can be re-derived on a named host — `of3t-frame384` is doing exactly that for
+its own ratio — but the existing figure cannot be retroactively attributed. Any statement of the
+form "Nx upstream's own bf16" that pairs an arm from one box with this floor carries an unrecorded
+host term of up to the 6 % order.
+
+**What it owes, unchanged from the original entry and now with a worked example:** a bar-bearing
+artifact records the host that produced the FLOOR, not only the arm. `of3t-hostleg`'s
+`SEVENTEEN.json` shows the shape for the arm half (`"host": "qb1 (tt-quietbox) card 1, Blackhole
+p150a"`); the floor half has never had one.
+
+### D189 UPDATE, pass 340. Still **UNFIXED**, but now bounded — and my pass-339 finding 2 was too strong.
+
+**Correction first. The floor IS attributable, by three records that converge.** Pass 339 said the
+A26 floor's producing host was "not recoverable from the artifacts". That is wrong, and I stopped
+one field short of seeing it. The charter's bar-bearing artifact
+`perf/of3t_modelboundary/MODEL_withtrunk_n384.json` carries a top-level **`"host": "tt-quietbox2"`**
+— I listed its keys, quoted `bars` out of it, and did not read the key next to them. Its bf16 input
+is `/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt`, a qb2 home directory,
+and `fleet.log:118653` reads `launched of3t-refprec on qb2-cpu-of3t-refprec`. Three independent
+records, one answer: **qb2**.
+
+What survives is narrower and still worth fixing: refprec's own outputs do not self-attribute
+(`REFPREC.json` has exactly one key, `arms`), and a `host` field on the scoring artifact records
+the host that **scored**, which is not by construction the host that **produced the dump**. Here
+they coincide and that is checkable — but only because a path happened to carry a home directory.
+
+**The host term on the bar is not a percent-level nuisance. At crop 64 it is a 2.0797x swing in the
+floor's lower bound, and it swings toward LENIENCY.** Derived from D189's own three numbers, no new
+run. With `f64 = 1.8714981803225077`, `qb1 = 1.9851095175279738`, `qb2 = 2.1115345382360076`:
+
+    ||g_bf16|| / ||g_f64||    qb1  1.0299058646915684     qb2  1.0621953361011056
+    reverse triangle ineq.    F >= 0.029905864691568418   F >= 0.062195336101105614
+    ratio of the two lower bounds                              2.0797036548701033
+
+The bar is `sqrt(2) * F / R` (`of3t_wholemodel/model_scope.py:228`; recomputed exactly:
+sqrt(2)*0.10592054683439786/1.0165697057473722 = 0.14735268326440318). F is the floor, so **the
+host whose bf16 is sloppier hands the port a bigger bar**. A26 is in principle passable by choosing
+which box the reference runs on, with the port untouched.
+
+**Mind the axis — the same data gives 6.37 %, 3.14 %, or 108 %.** D189's headline "6.0 %" is on the
+**squared gradient norm at crop 64**: 6.3687 % in `||g||^2`, 3.1352 % in `||g||`, and 107.97 % in
+the floor's lower bound. It is not a distance, and it is not at model scope. Quote the one that
+matches the claim being made.
+
+**Bounded: D189 is not why GRADIENTS is red.** Clause 1 reads
+`renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2 = 0.5201243840984896` against the bar
+`0.14735268326440318` — failing by **3.5298x**. Granting the crop-64 host swing at face value on
+the bar (2.08x) still leaves it failing by ~1.70x. So D189 is a defect about what a published ratio
+*means*, not the cause of the red clause. Where it does bite is any ratio sitting near 1.0 — the
+frame-matched **0.9565x** — which is the independent, measured argument for `of3t-frame384` having
+pre-registered a **band** (0.70–1.30) rather than a point: the band is wider than the host term.
+
+**Not previously stated, and it runs the other way: GRADIENTS clause 2 passes.**
+`renorm_vs_FLOAT64.n_over_per_tensor_bar = 3311` against
+`UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar = 3478`. **Our renorm arm puts fewer tensors over
+the per-tensor bar than upstream's own bf16 recipe does.** The campaign's narrative is carried by
+the failing mass-weighted clause; the per-tensor clause has been green against upstream's own
+reference and no summary says so.
+
+**What it still owes, unchanged:** a bar-bearing artifact records the host that produced the FLOOR
+as a field, not as an inference from a path. `of3t-frame384` commit `1ed6fca90` does exactly this
+for its own scorer ("the scorer records the host that produced the FLOOR, not only the arm"), so
+the fix exists and needs porting to the model-scope producer.
+
+### D190. A field-boundary edit anchored on `index("FIELD:")` matches the field's own name quoted in PROSE, and the auditor reports the resulting DELETION as staleness. FOUND by `of3t-orchestrator`, pass 340, self-inflicted. **UNFIXED** in general; the guard for the second half is built.
+
+**What I did.** To re-stamp `VERDICT:` I spliced the state doc with
+`t[:t.index('VERDICT:')] + new + t[t.index('PASSLOG:', i):]`. The first `VERDICT:` in the document
+is not the field — it is a PASSLOG sentence at line 344 reading *"This doc lost `DOESNOT:`,
+`GAP:`, `VERDICT:` and the ENDGAME"*, an entry about an EARLIER pass losing these very fields. The
+splice landed there and deleted everything to the next `PASSLOG:`, taking **`DOESNOT:` (56,734
+characters)** with it. The document's own record of the failure was the string that caused it to
+happen again.
+
+**Why no guard caught it, and this is the part worth keeping.** The compose did not go silent — it
+printed four lines, all true and all pointing at the wrong thing:
+
+    DRIFT PROVES/DOESNOT does not quote 0.0121 -- the artifact has moved and the summary has not
+    DRIFT PROVES/DOESNOT does not quote 1.804e-07 -- the artifact has moved and the summary has not
+    DRIFT DOESNOT does not say the repairs are a CONFIGURATION rather than the shipped port
+    DRIFT summary field(s) have accreted: PROVES is 20608 chars against a 20000 cap
+
+Every content check locates its field by a lookahead to the NEXT heading
+(`^PROVES:(.*?)(?=^DOESNOT:)`). With `DOESNOT:` gone the search returns `None`, the haystack is
+empty, and **"the field does not quote X" is indistinguishable from "the field was deleted"** —
+the checks degrade into the one failure mode that reads as ordinary staleness. I nearly went
+looking for moved artifacts. Note also the fourth line: PROVES appeared to breach its cap only
+because its terminator had vanished, so a cap fired on a field that had not changed by one
+character — the same wrong-field diagnosis recorded at pass 198 for the hyphen case.
+
+**Fixed for the reporting half** (`audit_evidence.py`): presence is asserted before content, over
+`PROVES, DOESNOT, GAP, VERDICT, PASSLOG`, with its own sentence naming the mirror to restore from.
+Break control run: deleting `DOESNOT:` fires it, an EMPTY `DOESNOT:` does not (emptiness is the
+content checks' job, not this one's). **Still UNFIXED in general**: nothing stops the next
+prose-anchored splice, and the real rule is that a field edit must anchor on a heading matched at
+line start with `re.M`, never on `str.index`.
+
+**A second field was already gone and no guard had ever looked.** `DIRECTIVE-STATUS` is carried in
+the auditor's `_CAPS` at a 12,000-char cap, and the cap loop skips a field it cannot find
+(`if _m and len(...) > _cap`). It now reads `DIRECTIVE-STATUS,` — a COMMA — at offset 136,593,
+inside `PASSLOG:` (which begins at 102,245). That is the right place for it and it is not being
+restored as a field; but it stopped being one without a word, which is D190's class one level
+quieter: **a check that skips what it cannot find cannot report a disappearance.**
+
+**Recovery.** The doc was rebuilt from the published mirror
+`perf/of3t_orchestrator/record/ORCHESTRATOR.md` at pass 339's commit `af370f9b8` — the reason that
+mirror exists — then the VERDICT replacement was re-applied against a heading matched at line
+start. Diff against the mirror is now confined to the VERDICT block and the pass-340 PASSLOG
+entry; `PROVES` is back to 17,669 and `DOESNOT` to 56,734, both byte-for-byte.
+
+### D191. Frame-matched at the width the campaign actually reports, the trunk FAILS: 2.2341x against an in-frame A26 bar of 0.5268825373, and the width dependence is OURS — the floor is flat. FOUND by `of3t-frame384`, pass 340 (commit `fb217fb68`), absorbed by `of3t-orchestrator` the same pass. **UNFIXED**, and it is the campaign's largest object.
+
+**The crop-64 frame-matched result did not generalise, and the row said so against its own
+pre-registration.** `of3t-frame384` registered a BAND (ours 0.30–0.90, floor 0.30–0.90, ratio
+0.70–1.30) before its first run. At padded width 384, scored against the capture's own float64
+(`ref_f64_n384.pt`, built on qb1 from the boundary the device arm is driven from):
+
+    ours   0.8354121633
+    floor  0.3739383921    upstream 0.4.3's own bf16 autocast, SAME capture
+    ratio  2.2341x         A26-style bar 0.5268825373 -- 1.586x OUTSIDE it
+
+Through the same scorer at crop 64: ours 0.3833065668, floor 0.3739375769, ratio **1.0251x**,
+inside. **The floor is flat in width to six digits and our arm is 2.18x worse at 384 than at 64**,
+so the width dependence belongs to us. Two widths is two points, not a law — and D175's refutation
+(`of3t-padshape`, NO-GO) found the shape between them non-monotone and shape-keyed, so the curve
+must not be assumed.
+
+**What this does to D186.** Reframing was real and it does NOT exonerate the trunk. The frame is
+confirmed at this width — `ref_f64_n384` against `grads_f64_043` reads 1.8416532191 at cos 0.36514,
+which is why cross-frame ratios here are *unreadable* rather than merely pessimistic — but with the
+frame removed the trunk still fails by 1.586x. My pass-336 conclusion that the trunk reads "0.9565x
+its floor, inside the bar" was drawn from crop 64 and I flagged crop 384 as missing; it was the
+axis, exactly as D180 says, and the worst point is the one to quote.
+
+**And it confirms this pass's D189 bound by accident, which is the best kind of confirmation.** The
+c64 floor I published in `frames/FRAME_TABLE.json` is 0.4007237405; this row's, same scope, same
+capture, is 0.3739375769 — **7.2 % apart, and the numerators agree to 1e-16**
+(0.38330656678 reproduced from `of3t-apbback`). That difference alone moves the c64 ratio from
+0.9565x to 1.0251x, across the 1.0 line. D189 predicted the host term bites exactly where a ratio
+sits near 1.0, and here it did, in the same pass, on a floor built on a different box.
+
+**Controls the row ran, none of which I had to take on trust:** A/A exactly 0, A16
+1.0000000000000002, CROSSFRAME reproduces the published 2.159527121735274 to the last digit, the
+c64 numerator reproduces `of3t-apbback` to 1e-16, and the activation-checkpointing flag added to
+`ref_grad.py` is inert — 2736/2736 bit-identical on both policies, max absolute difference exactly
+0.0. Cross-host qb1 against qb2's banked c64 float64: max absdiff 3.22e-14, mass-weighted 9.14e-14,
+both CPU — i.e. **float64 is host-stable to 1e-14 while the bf16 floor moved 7.2 %**, the two halves
+of D189 measured side by side.
+
+**Cost, for the record:** float64 1629.18 s / 24.88 GB peak RSS, bf16 autocast 793.78 s / 11.15 GB,
+qb1, CPU only, no card.
+
+### D192. A digest I published at pass 330 was the campaign's quoted tree identity for eleven passes and reproduces under no rule in the tree. FOUND by `of3t-orchestrator`, pass 341, self-inflicted. **UNFIXED** in general; the corroboration guard is built and the value is corrected.
+
+`perf/of3t_orchestrator/trajrecover/RECOVERY.json` said the two 0.4.3 reference trees were
+*"BIT-IDENTICAL -- 293 .py files, digest 24f0aee7525f1042 on both"*. From there the number
+propagated into `DEFECTS.md`, `ORCHESTRATOR.md` twice and `GAP:`, where it stood as the campaign's
+tree identity.
+
+**The claim is true and the evidence for it was not.** Re-run on qb2 at pass 341 against the
+campaign's own rule (`of3t-campaign-refs/tree_digest.py`, A24-AMENDMENT: sha256 over the SORTED
+per-file sha256 of every `.py` under the package root):
+
+    /home/ttuser/of3t_refprec/of3pkg043/openfold3        293 files   1b27f5754b32b8e3...
+    /home/ttuser/of3t-campaign-refs/of3pkg043/openfold3  293 files   1b27f5754b32b8e3...
+
+Identical, so D183's substantive finding stands. **`24f0aee7525f1042` is not that value and is not
+produced by any of the three `tree_digest` implementations in the tree.**
+
+**Why nothing caught it, and what actually distinguishes the two numbers.** `1b27f5754b32b8e3` is
+carried by **seven** artifacts across five namespaces — `of3t-barresolve` (3), `of3t-d112`,
+`of3t-trunk043ref`, `perf/refpath.py` and `compose_verify.sh` itself. `24f0aee7525f1042` was
+carried by **one**: mine, the file that invented it. So a guard reading *"is this digest in a
+committed artifact?"* would have PASSED it. The discriminator is **corroboration** — a carrier
+outside `perf/of3t_orchestrator/`, i.e. a row that took the measurement. That check is now in
+`audit_evidence.py` over `PROVES/DOESNOT/GAP/VERDICT`, and on today's three quoted digests it
+passes `1b27f5754b32b8e3` (7 carriers) and `39bce7750297a920` (11) and fails the fabricated one.
+
+**The campaign had written the warning down before I hit it.** `tree_digest.py`'s docstring:
+*"a digest quoted without its rule cannot be reproduced -- `of3t-auxheads043` published 8f035f4e
+for the same 0.4.3 sdist under a different rule, and neither number is wrong, they are answers to
+different questions."* Mine is not that case; it is an answer to no question. **A digest is quoted
+with its rule and its producer, or it is not quoted.**
+
+**Still UNFIXED in general:** the guard covers the summary fields of one document. Nothing checks
+digests in DEFECTS.md prose, in briefs, or in another row's artifact.
+
+### D183 UPDATE, pass 341. The finding is re-verified on a stronger rule than the one it was filed under, and the fix has no home on this branch.
+
+**Re-verified two ways, on qb2.** Under the campaign's A24-AMENDMENT rule both package roots give
+`1b27f5754b32b8e3...` over 293 `.py` files. That rule hashes **content only**, so it is blind to a
+RENAME — a tree with one `.py` renamed digests identically, which I confirmed on a synthetic pair
+(`c47e6b0cd6f52c0e` for both). A renamed module is a different function, so tree identity deserves
+the path-sensitive reading as well: sha256 over (relative path + bytes) per `.py`, path-sorted,
+gives `3989e62e5674f792` on **both** trees. **Identical under the weaker rule and under the
+stronger one**, so the D149 refusal really is a path-string mismatch on identical content.
+
+**Three `tree_digest` implementations exist and two of them disagree in kind.**
+`of3t_barresolve/resolve_check.py:65` and `of3t_d112/make_manifest.py:29` implement the content-only
+rule; `of3t_orchestrator/version_boundary_at_source.py:28` implements the path-sensitive one. They
+return different values for the same tree and neither says so. Unifying them is the repair, and the
+right home is `perf/refpath.py`, which already documents the rule.
+
+**Why the code fix is not in this commit.** Both `perf/refpath.py` and the guard itself
+(`perf/of3t_trajwide/trajwide.py:966-973`) are absent from `wk/of3t-orchestrator` and from
+`origin/main`; they reach the composition through other rows' branches. Adding either here creates
+an add/add conflict against every branch that carries it, which is the dark-branch trap this
+campaign has paid for before. The fix belongs to a row whose base has the files. Recorded here with
+the verified digests so that row does not re-derive them.
+
+### D191 UPDATE, pass 342. **LOCATED**, still **UNFIXED**: 93.80 % of the width growth is LayerNorm affine parameters, three blocks carry 74.58 %, and the softmax backward the campaign has chased for fifty passes carries 0.1232 % of it.
+
+`of3t-widthattr` (commit `8d74c4ab4`, `perf/of3t_widthattr/GROWTH.json`, qb1, CPU only, no card)
+decomposed the excess of our shipped renorm trunk arm at padded width 384 over width 64, as a
+DIFFERENCE of numerators rather than a shift of shares — `total 0.5509895585288948` in mw² units,
+additive by construction, against a float64 denominator that is width-invariant to **3.20e-15**.
+
+    by leaf family    attn_pair_bias.layer_norm_a.weight   34.89 %
+                      attn_pair_bias.layer_norm_a.bias     27.43 %
+                      single_transition.layer_norm.bias    10.22 %
+                      single_transition.layer_norm.weight   7.39 %
+                      ------------------------------------------- four families: 79.93 %
+                      all LayerNorm affine, 24 families:         93.80 %
+    by block          44: 30.38 %   4: 25.05 %   0: 19.15 %   ---> 74.58 % in three of 48
+    concentration     83.85 % in 20 of 2,736 tensors
+
+**The standing hypothesis is REFUTED and that is the pass's result.** I asked whether the op
+carrying 51.55 % of block 47's error carries the width growth. Its 16-tensor scope carries
+**0.1232 %** of it; **block 47 entire carries 0.1808 %**. So D191 and the softmax-backward finding
+are two separate objects, and the block this campaign has instrumented hardest is essentially
+absent from the failure at the width we report. `attn_pair_bias` across all 48 blocks carries
+65.79 %, `single_transition` 18.73 %, `pair_stack` 15.48 %.
+
+**It is not a width LAW, and I was carrying it as one.** The three sections scale with different
+exponents — attn_pair_bias p = 1.1286, single_transition p = 0.9645, pair_stack p = 0.4477 — so
+there is no single exponent to fit, which is consistent with D175's refutation (non-monotone,
+shape-keyed) rather than with a smooth law.
+
+**The floor is flat, confirmed independently:** `floor_384 / floor_64 = 1.0000021801307795`, where
+our own arm moves **2.1794882627817005**. Upstream's own bf16 reads the same value at both widths
+on every tensor carrying the growth, to every digit printed.
+
+**And on the worst tensor this is not a precision floor.**
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, 18.65 % of the growth on its own, reads
+`norm_ratio 7.3729` at `cos -0.0057` at 384 — seven times too large and orthogonal to the
+reference. At 64 the same tensor reads `norm_ratio 2.1824` at `cos -0.1491`.
+
+**Caveat the row raised and I am recording rather than burying:** the two device arms D191 is
+computed from differ in `tri_att_sdpa_hifi`. The flag is inert at width 64 by construction and
+unreachable from 84.52 % of the growth by code, so the result stands — but any future row
+differencing these two arms must match it.
+
+**What closes it needs a card, and this row could not take one.** One c64 and one n384 device arm
+with `tri_att_sdpa_hifi` matched and the fp32-softmax L1 plan pinned to the same shard geometry at
+both widths: if the growth survives, it is the pair track's chunking; if it collapses, it is the
+single track's softmax partition. Not dispatched — BindCraft 2 holds card precedence.
+
+### D193. I labelled `of3t-apbback`'s block-47 result "at crop 64" in a brief and in this ledger; the capture is at 384. FOUND by `of3t-widthattr`, pass 342. **UNFIXED** as a class.
+
+Verified directly rather than taken on report: `/home/ttuser/of3t_gradients/cap/block47_boundary.pt`
+carries `kwargs.single_mask (1, 384)` and `kwargs.pair_mask (1, 384, 384)`. The row is right —
+`of3t-apbback` is a crop-384 object at every reading, and `N384_OOM.json` is the record of it
+moving to a single-block n384 reference precisely because the full stack would not fit.
+
+**This is D180 one turn worse.** D180 says quote the crop or do not quote the number; here the crop
+was quoted and was WRONG, in the brief that framed `of3t-widthattr`'s central question as a
+cross-width comparison when both readings are at 384. The row answered the substantive question
+correctly anyway, so nothing downstream is wrong — but the framing it was given was, and a label
+that is wrong is worse than one that is missing because it survives review.
+
+**The figure is unaffected and slightly strengthened**: 51.55 % of block 47's error recovered by
+the softmax backward is a reading at the width the campaign reports, not at a small crop.
+
+**Unfixed as a class, but the fact table now exists.** Nothing checks that a crop label in prose
+matches the capture the artifact was taken on. `perf/of3t_orchestrator/crops/CROPS.json` (pass 342)
+records what the captures actually say, read off them on qb2 rather than off prose: **all three**
+shared block boundaries — `block0`, `block23`, `block47` — are `single_mask (1, 384)` with **56
+real tokens**. So every per-block result taken on `perf/refpath.py`'s `CAP` is a 384 reading, and a
+"crop 64" reading cannot come from that capture at all — the c64 arms of `of3t-frame384` and
+`of3t-widthattr` are built from their own n64 boundary. A crop label therefore identifies WHICH
+capture and not only a number. Two things the table makes visible in passing: 56 real tokens in 384
+means **85.4 % of the width is pad** at the width the campaign reports, which is the fact D175 was
+filed about; and the check itself is still not wired into the compose.

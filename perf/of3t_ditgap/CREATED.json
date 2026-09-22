@@ -1,0 +1,113 @@
+{
+ "what": "created at the LayerNorm weight's own reduction, or inherited in the cotangent",
+ "blocks_used": [
+  5,
+  6,
+  10,
+  11,
+  12,
+  8,
+  1
+ ],
+ "padded_width": 384,
+ "real_tokens": 56,
+ "scoring_host": "tt-quietbox2 (qb2), CPU only, no card",
+ "groups": {
+  "attention_pair_bias (AdaLN)": {
+   "layer_norm_weight": {
+    "leaf": "attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "n": 7,
+    "ours": 0.138838046508422,
+    "up": 0.056419921774069584,
+    "ours_over_up": 2.460798280869498
+   },
+   "siblings": {
+    "attention_pair_bias.layer_norm_a.linear_s.weight": {
+     "n": 7,
+     "ours": 0.09171322202010343,
+     "up": 0.0647666567384382,
+     "ours_over_up": 1.4160561412099686
+    },
+    "attention_pair_bias.layer_norm_a.linear_g.weight": {
+     "n": 7,
+     "ours": 0.1302398419239623,
+     "up": 0.07538350930935346,
+     "ours_over_up": 1.7276967219646584
+    },
+    "attention_pair_bias.layer_norm_a.linear_g.bias": {
+     "n": 7,
+     "ours": 0.1349947851682749,
+     "up": 0.05892357872216249,
+     "ours_over_up": 2.2910147023622707
+    },
+    "attention_pair_bias.linear_ada_out.weight": {
+     "n": 7,
+     "ours": 0.10505533528312679,
+     "up": 0.07133423064760526,
+     "ours_over_up": 1.4727198194945916
+    },
+    "attention_pair_bias.mha.linear_o.weight": {
+     "n": 7,
+     "ours": 0.1069426486810396,
+     "up": 0.06937685023079211,
+     "ours_over_up": 1.5414745455476782
+    }
+   },
+   "verdict_ratio_norm_over_worst_sibling": 1.0741084630893738
+  },
+  "conditioned_transition (AdaLN)": {
+   "layer_norm_weight": {
+    "leaf": "conditioned_transition.layer_norm.layer_norm_s.weight",
+    "n": 7,
+    "ours": 0.13881913605892254,
+    "up": 0.07060441513297613,
+    "ours_over_up": 1.9661537567795304
+   },
+   "siblings": {
+    "conditioned_transition.layer_norm.linear_s.weight": {
+     "n": 7,
+     "ours": 0.09910510957935521,
+     "up": 0.06825989473388686,
+     "ours_over_up": 1.4518790274394549
+    },
+    "conditioned_transition.layer_norm.linear_g.weight": {
+     "n": 7,
+     "ours": 0.08967338826309364,
+     "up": 0.07253407076105062,
+     "ours_over_up": 1.2362933352866015
+    },
+    "conditioned_transition.layer_norm.linear_g.bias": {
+     "n": 7,
+     "ours": 0.0843872784531339,
+     "up": 0.06590897153228807,
+     "ours_over_up": 1.280361026598534
+    },
+    "conditioned_transition.linear_g.weight": {
+     "n": 7,
+     "ours": 0.11647892864460381,
+     "up": 0.07063467352967101,
+     "ours_over_up": 1.6490332980115683
+    },
+    "conditioned_transition.linear_out.weight": {
+     "n": 7,
+     "ours": 0.10961500157721153,
+     "up": 0.06776337891171143,
+     "ours_over_up": 1.6176141647249964
+    },
+    "conditioned_transition.swiglu.linear_a.weight": {
+     "n": 7,
+     "ours": 0.11078392805073996,
+     "up": 0.06926707930144364,
+     "ours_over_up": 1.5993734565971665
+    },
+    "conditioned_transition.swiglu.linear_b.weight": {
+     "n": 7,
+     "ours": 0.1047392088078955,
+     "up": 0.06662314606296325,
+     "ours_over_up": 1.572114422649901
+    }
+   },
+   "verdict_ratio_norm_over_worst_sibling": 1.1923068861922625
+  }
+ }
+}

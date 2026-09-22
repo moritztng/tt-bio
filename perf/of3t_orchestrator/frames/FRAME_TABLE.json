@@ -1,0 +1,46 @@
+{
+  "what": "Which OF3T comparisons are FRAME-MATCHED and which are not, in one place. Every number below is read from of3t-apbback's REFAUDIT.json; nothing here is recomputed or new.",
+  "why": "The campaign carried `the trunk is 5.41x upstream's own bf16` as its largest open defect. That ratio pairs a numerator scored against the MODEL float64 with a denominator that is upstream's bf16 against the MODEL float64 -- but our arm is CAPTURE-DRIVEN and upstream's is a FULL-MODEL run, so the two sides do not share a frame. Scored in one frame the same device tensors read 0.9565x. See D186.",
+  "the_four_references": {
+    "REF_LOCAL_f64": {
+      "path": "/home/ttuser/of3t_trunkg043/ref_f64_c64.pt",
+      "trunk_gradient_norm": 1.3680271124223045
+    },
+    "REF_LOCAL_bf16": {
+      "path": "/home/ttuser/of3t_trunkg043/ref_bf16auto_c64.pt",
+      "trunk_gradient_norm": 1.4531120184748345
+    },
+    "REF_MODEL_f64": {
+      "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+      "trunk_gradient_norm": 0.7740253256855605
+    },
+    "REF_MODEL_bf16": {
+      "path": "/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt",
+      "trunk_gradient_norm": 0.8180216597979879
+    }
+  },
+  "frame_matched": {
+    "comparison": "our device arm and the floor BOTH scored against REF_LOCAL_f64, the capture's own float64",
+    "ours": 0.38330656678074404,
+    "floor": 0.4007237404807558,
+    "ratio": 0.9565357079190865,
+    "reading": "0.9565x -- INSIDE the bar",
+    "scope": "2,736 pairformer trunk tensors, crop 64"
+  },
+  "cross_frame": {
+    "comparison": "our CAPTURE-driven arm against the MODEL-frame floor. This is the campaign's 5.41x",
+    "ours": 1.7043040667627918,
+    "floor": 0.3147698293887927,
+    "ratio": 5.414445438027337,
+    "reading": "5.4144x -- and it is measuring the frame",
+    "note": "the floor 0.3147698294 is exactly the A26 denominator the campaign quotes, so the bar is the MODEL-frame floor and it has been paired with a LOCAL-frame numerator"
+  },
+  "the_same_tensors_twice": "apbgrad_scope_RENORM_c64 and padshape_RENORM_w64 give identical readings to ten digits against both references (0.3833065668 and 1.7043040668). They are the same device tensors; the 4.45x between the two rows' published figures is the reference alone.",
+  "what_is_still_missing": "The frame-matched comparison exists at CROP 64 only. REF_LOCAL_f64 and REF_LOCAL_bf16 are both c64 dumps. GRADIENTS' clause reads model scope at crop 384, where our arm is still capture-driven and upstream's bf16 arm is full-model, so that clause remains CROSS-FRAME. Closing it needs upstream 0.4.3 run from the SAME capture at crop 384, in float64 and in bf16 autocast -- upstream's own code from a saved boundary, CPU work, no card.",
+  "source": {
+    "path": "perf/of3t_apbback/REFAUDIT.json",
+    "host": "tt-quietbox2",
+    "card": 0,
+    "board": "p300c Blackhole"
+  }
+}
