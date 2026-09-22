@@ -1,0 +1,26 @@
+{
+  "what": "D193's owed fact table: the padded width each shared capture was taken at, read off the capture itself rather than off prose. A crop label in a brief, a defect entry or a summary field is checkable against this.",
+  "why": "of3t-apbback's block-47 result was labelled 'at crop 64' in my brief and in DEFECTS.md. It is a crop-384 object. The crop is recorded in the capture as a tensor shape, so the label never had to be remembered -- D180 says quote the crop or do not quote the number, and D193 is the case where it was quoted and was wrong, which is worse because it survives review.",
+  "measured_on": "tt-quietbox2 (qb2), pass 342, torch load + shape read, no device",
+  "rule": "padded_width = kwargs.single_mask.shape[-1]; real_tokens = int(single_mask.sum())",
+  "captures": {
+    "/home/ttuser/of3t_gradients/cap/block0_boundary.pt": {
+      "single_mask": [1, 384], "pair_mask": [1, 384, 384],
+      "padded_width": 384, "real_tokens": 56
+    },
+    "/home/ttuser/of3t_gradients/cap/block23_boundary.pt": {
+      "single_mask": [1, 384], "pair_mask": [1, 384, 384],
+      "padded_width": 384, "real_tokens": 56
+    },
+    "/home/ttuser/of3t_gradients/cap/block47_boundary.pt": {
+      "single_mask": [1, 384], "pair_mask": [1, 384, 384],
+      "padded_width": 384, "real_tokens": 56
+    }
+  },
+  "consequences": [
+    "ALL THREE shared block boundaries are padded width 384 with 56 real tokens. Every per-block result this campaign took on perf/refpath.py's CAP is a 384 reading, including of3t-apbback's block-47 softmax bisect (51.55 % of the block's error). The figure is unaffected and is a reading at the width the campaign reports.",
+    "A 'crop 64' reading therefore cannot come from CAP. of3t-frame384's and of3t-widthattr's c64 arms are built from their own n64 boundary, not from these files -- so a crop label also identifies WHICH capture, not only a number.",
+    "56 real tokens in 384 means 85.4 % of the width is pad at the campaign's reported width. That is the fact D175 was filed about and is recorded here beside the widths rather than argued from memory."
+  ],
+  "not_covered": "the n64 and n384 boundaries built by of3t-frame384 and of3t-trunk043ref are not in this table; a row that adds one should extend it rather than start a second table."
+}
