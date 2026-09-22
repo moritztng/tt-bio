@@ -1586,3 +1586,759 @@ surrogate. **When every premise holds and the conclusion still fails, the defect
 QUESTION, not in anything being checked.**
 
 Artifact `perf/of3t_orchestrator/doublecount/BLAST_RADIUS.json`. Delivered as Amendment 9.
+
+---
+
+### R161. How D242's repair lands: four decisions, and opt-in is the right default for a LEVER and the wrong one for a BUG FIX (pass 396, zero card)
+
+R160 located D242 at `ref_grad.py:201` and specified the fix. **Fifteen namespaces drive that
+file** — `of3t_apbback`, `of3t_apbleaf`, `of3t_bwdaccum`, `of3t_condtrans`, `of3t_frame384`,
+`of3t_gradients`, `of3t_modelframe`, `of3t_orchestrator`, `of3t_trajwiden`, `of3t_trunkact`,
+`of3t_trunkback`, `of3t_trunkdepth`, `of3t_trunkg043`, `of3t_trunkgrad`, `of3t_widthattr` — so
+how the fix lands is arbitration, not an edit, and improvising it inside a running pass is how
+a repair becomes its own defect.
+
+**1. The correct behaviour becomes the DEFAULT, which inverts my own standing rule on purpose.**
+That rule — a shared-instrument change must be opt-in so every existing arm reproduces — exists
+to protect a CORRECT baseline from a SPECULATIVE change. **Here the baseline is measured-wrong
+and the change is measured-right**, so applying the rule unchanged would leave every future arm
+inheriting a known double count unless its author remembered a flag. **Opt-in is the right
+default for a LEVER and the wrong default for a BUG FIX: a lever that defaults on is an
+unreviewed change, a bug fix that defaults off is a known defect left armed.** The old behaviour
+stays reachable as `--legacy-total-cotangent` for reproducing a banked number, and **every
+artifact stamps which convention produced it** — that stamp is what would have made R160 a
+five-minute read instead of fifteen passes.
+
+**2. Every corrected reading lands in ONE new namespace**, never back into the concluded rows'
+directories (`sibling-perf-campaigns-need-namespaced-output-paths`). It also gives the campaign
+one place to read the corrected picture rather than a diff across fifteen.
+
+**3. No arm is re-run from scratch, and this is the decision that saves the device time.** The
+parameter gradient is linear in the injected cotangent, measured rather than assumed:
+`TWOBASIS.json` puts `|| g_sonly + g_zonly - g_ctrl || / || g_ctrl ||` at
+**6.435383259300361e-15** in this exact setup. So with
+`delta = autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)` computed once,
+**`g_corrected = g(cot_s, cot_z) - g(0, delta)`**, and `g(cot_s, cot_z)` is already banked for
+every arm. Each configuration needs ONE additional arm driven by `(0, delta)` — for the DEVICE
+arms that is the difference between a cheap re-score and card time on every one of them. Its
+control is free: re-run one arm end to end with the corrected cotangent and it must reproduce
+the subtraction; if it does not, the linearity is what broke and the shortcut is withdrawn,
+not the repair.
+
+**4. `of3t-frameself` is authorised to edit `perf/of3t_trunkg043/ref_grad.py`.** That row
+concluded, the change repairs the defect frameself root-caused, and splitting the fix from the
+diagnosis across two rows would cost a full ramp-up to save nothing. The edit is to that one
+file only.
+
+Also delivered: add A41's reachability assertion to the capture while the file is open — for
+each pair of injected outputs, assert neither appears in the other's `grad_fn` ancestry. A graph
+walk, no model run, and it is what makes this class impossible to file twice.
+
+**What none of this decides** is whether the corrected readings clear the clause. That is pass
+394's pre-registered ladder and one measurement, and no bar may be re-derived to meet it.
+
+Artifact `perf/of3t_orchestrator/doublecount/REPAIR_DESIGN.json`. Delivered as Amendment 10.
+
+---
+
+### R162. D242 is SOLVED: the break control clears the 1e-12 bar at 3.04e-15, from 0.7849 (pass 396, zero card)
+
+`of3t-frameself`'s break control ran and the mechanism is confirmed to round-off. Verified here
+against `perf/of3t_frameself/BREAK_DOUBLECOUNT.json` rather than the row's prose:
+
+    cot_z norm, as captured          0.0007601379094210722
+    the s-route correction term      0.0007575746327655109
+    cot_z norm after subtraction     6.47087024696404e-05        11.7471x smaller
+    block 47 vs grads_f64_043        3.0392623414001263e-15      from 0.7849281738435908
+    norm ratio                       0.9999999999999992
+    cos                              1.0000000000000002
+    best scalar                      1.0000000000000007
+    residual after the best scalar   0.0
+    bar                              1e-12, commit 2520681ed, fixed before the arm existed
+    cost                             16.65 s
+
+**Three orders of margin under a bar the campaign has failed for fifteen passes, and it is not
+merely close to the reference: 3.0392623414001263e-15 is bit for bit what `--blockprobe`'s
+LOSS-driven `torch.autograd.grad` reads at the same block.** The corrected injection is the same
+computation as the real backward, not an approximation of it.
+
+**The duplicate was 99.6628 % of the captured `cot_z` by norm** (99.3267 % by squared norm; the
+row's write-up says 99.66 % "of the squared norm", which is the norm figure — it changes
+nothing). The true external cotangent is **11.7471x smaller** than what was injected, which is
+why the defect presented as a near-scale of 1.7460 at 4.04 % CV, why no single scalar fixed it,
+and why Amendment 5's target — a 7x-to-26x magnitude error with about ten degrees of angle on
+the z channel only — was the right shape.
+
+**What D242 was, stated finally.** The captured pair is not wrong as a cotangent; it is wrong as
+an **injection**. A hook and `torch.autograd.grad(loss, z_out)` both correctly report the total
+derivative at `z_out`, which already contains the route through `s_out`; injecting `cot_s` at
+`s_out` as well replays that route a second time. The instrument was right about the cotangent
+and wrong about what to do with it.
+
+**Status change.** D242 moves from UNFIXED to root-caused with a proven repair. **The re-score
+is still owed** — every `MATCHED/` reading remains on the old functional until the arms are
+re-driven, which is R161's four decisions and the `g(cot_s, cot_z) - g(0, delta)` shortcut. So
+the honest line is *repair proven at one block, campaign not yet re-scored*, and nothing in
+`PROVES:` moves until it is.
+
+Artifact `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`, verdict field: *"MECHANISM CONFIRMED:
+removing the double-counted s_out <- z_out route brings the injection to 3.03926e-15 of the
+reference, from 0.784928"*.
+
+---
+
+### R163. `of3t-frameself` concluded GO having solved D242, which left the re-score unowned on the critical path; `of3t-recut` dispatched (pass 397)
+
+`of3t-frameself` concluded **GO** at 23:57 on 2026-09-22. It root-caused D242, proved the
+repair at **3.0392623414001263e-15** against a 1e-12 bar, and banked a **13.2 s** one-block
+reproducer. That is the right verdict and the row earned it.
+
+**But solving a defect and repairing the instrument are two things, and its conclusion left the
+second unowned.** `perf/of3t_trunkg043/ref_grad.py:201` is unchanged, no arm has been re-scored,
+and every `MATCHED/` reading in the campaign is still on the old functional. **Nothing in
+`PROVES:` may move until that is done**, so the re-score is the critical path and it had no
+owner for the length of one pass. `of3t-recut` is dispatched onto it — qb2, one card, gate
+entry and brief on all three hosts, namespace `perf/of3t_recut/`, carrying R161's four
+decisions as instructions rather than as reading.
+
+**D242's own entry was also stale in a way that matters**, and is corrected: it still read
+plain **UNFIXED** with *"`of3t-frameself` dispatched to close it"* — a row that had concluded.
+It now reads **ROOT-CAUSED, REPAIR PROVEN, STILL UNFIXED**, carries the break control's numbers,
+names `of3t-recut` as the owner, and says explicitly why it stays unfixed: *the line is still
+live and no arm has been re-scored.* **A defect whose mechanism is proven is not a defect that
+is fixed, and the distinction has to survive in the heading a reviewer reads** — this is the
+fourth instance of the R148/R154/R157 family and the first where the rot would have been in the
+flattering direction on the campaign's own headline defect.
+
+**The sequencing.** `of3t-recut` and `of3t-verbinstall` are disjoint: recut owns the model-frame
+trunk and the ladder, verbinstall owns the softmax install and D245, and recut's brief forbids
+re-scoring verbinstall's arms. recut takes qb2, which frameself had just freed; verbinstall
+holds qb1.
+
+
+---
+
+### R164. The re-score would have landed and the clause would still have read the stale artifact; the contract and the repoint condition are fixed before the number exists (pass 398, zero card)
+
+`of3t-recut` writes to `perf/of3t_recut/`. The GRADIENTS clause is graded on
+`perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json`. **Nothing connects the two.**
+So the foreseeable outcome was: recut finishes, publishes a corrected reading, and the charter's
+clause still grades the stale artifact and still reports FAIL — **R157 a second time, this time
+visible in advance.**
+
+Repointing the gate is the orchestrator's job; a row may not edit it. **So the contract and the
+repoint condition are fixed now, before the corrected number exists** — the discipline A37
+applies to bars, applied to the gate itself. A repoint decided after seeing the result is a gate
+moved to fit an answer.
+
+**The contract**: recut's artifact carries the six paths the clause's `require` list already
+reads — `inputs.float64.sha256`,
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2`,
+`stats.renorm_vs_FLOAT64.n_over_per_tensor_bar`,
+`stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar`,
+`coverage_total.pct_of_model_compared`, `bars.A26_reachable_bar_vs_their_bf16` — so the repoint
+is one string and no check is rewritten. **Plus one new required key, `injection.convention`,
+reading `graph_cut_correct` or `legacy_total_cotangent`**: R161's stamp, because an artifact
+that does not say which functional produced it is precisely the ambiguity R160 had to untangle
+retrospectively across fifteen namespaces.
+
+**The repoint condition, pre-registered.** All four must hold: the artifact exists with every
+key and the convention stamped correct; the CONTROL reproduces **3.0392623414001263e-15** at
+block 47 **through the fixed `ref_grad.py`** rather than frameself's bespoke break control;
+`--legacy-total-cotangent` reproduces a banked number exactly; and the linearity shortcut's
+end-to-end control passes on one arm. **Any one failing means no repoint** and the clause keeps
+grading the old artifact with R157's frame-status `why`. **A corrected reading nobody has
+controlled is not better evidence than a known-stale one — it is just newer.**
+
+**And the repoint moves no bar.** 99.2594, `bars.A26_reachable_bar_vs_their_bf16` and the keyed
+inequality are unchanged; only the file the clause reads changes.
+
+Also checked this pass and clean, so it is recorded rather than acted on: `of3t-verbinstall`'s
+state doc claims the package install is "pushed" and **it is** — `exact_softmax` appears 20
+times in `tt_bio/autograd.py` at `origin/wk/of3t-verbinstall`. One later commit (`339e0d7ea`,
+the arm-timeout variable) sits unpushed on qb1, and **qb1 CAN push**: `git push --dry-run` from
+that worktree returns rc=0 with `b6b64dd5f..339e0d7ea`. So the standing worry from
+`worker-pushed-claim-unverified-qb1-qb2-cannot-push` does not hold for qb1 today, and the
+unpushed commit is simply a row mid-arm rather than a stranded one.
+
+Artifact `perf/of3t_orchestrator/clausestatus/REPOINT_CONTRACT.json`.
+
+---
+
+### R165. My own state doc carried a 41 KB transcription of the ledger it sits beside, and it was re-read every pass (pass 399, zero card)
+
+Both rows were mid-arm with nothing new on their branches, so I measured the thing only I can
+fix: **the state doc had reached 160,815 bytes and I had added ~40 KB of it in thirteen
+passes.** The breakdown, before the cut:
+
+    LEDGER field    40,967      a full restatement of R149-R164
+    PASSLOG         69,849      26 pass sections from pass 365
+    GAP              9,323
+    PROVES           6,945
+    ROWS             6,762
+    everything else  ~27,000
+
+**The LEDGER field was a transcription.** Every entry it restated lives in
+`state/of3t/LEDGER.md` — verified before cutting: R149 through R164 each return exactly one
+`### Rn.` heading there, and thirteen rotations hold the older ones. `audit_evidence.py` reads
+the word LEDGER only for defect labels, not for that field's prose. So 41 KB of duplicate was
+being re-read on every pass beside the file that already carried it, which is
+`a-digest-with-one-carrier-is-a-transcription` applied to my own document.
+
+Replaced with an INDEX: the range, where the rotations are, **one line per entry newest first**
+saying what it settles, and the four standing amendments a successor most needs (A41, A40, A37,
+A34). **160,815 → 122,966 bytes, a 23.5 % cut with nothing lost** — the full text, evidence and
+artifact path of every entry is one file away and the index says which.
+
+**PASSLOG is deliberately NOT cut.** A30 requires it kept verbatim and the rotation script
+archives it; it is the one field whose job is the narrative. The distinction is the point:
+**a field that carries what a successor cannot reconstruct earns its size; a field that
+restates a neighbouring file does not.**
+
+**Why this is worth a ledger entry rather than silent housekeeping.** Pass 9's cost lesson is
+that the state doc is re-read every pass, so its size is a recurring cost and a long campaign's
+total grows with the square of its length — one orchestrator reached 1,168,747 bytes and
+$12.83/pass. At 400 passes this campaign is exactly the shape that lesson describes, and the
+duplication was mine: I wrote both copies, one entry at a time, each time reasonably.
+**Transcription does not feel like duplication while you are doing it, which is why it needs a
+periodic measurement rather than a rule.**
+
+---
+
+### R166. My own repoint condition was tighter than a floor the campaign had already measured, and `of3t-recut`'s legacy control PASSES (pass 400, zero card)
+
+`of3t-recut` produced its first corrected-injection artifacts within fifteen minutes of
+dispatch. `C64_CONTROLS.json` reports `LEGACY_REPRODUCES_THE_BANKED_ARM` verdict **"the flag
+does NOT reproduce the banked arm"** on `all_bit_identical: False`, at `mass_weighted_rel_l2`
+**9.138060687514453e-14**.
+
+**That is not a failure, and the bar was mine.** `perf/of3t_trunkceiling/FRAME_CEIL_HF.json`'s
+`controls.CROSSHOST_qb1_vs_the_banked_c64_artifact` already measured that exact number:
+
+    mass_weighted_rel_l2   9.13806068751445e-14      recut: 9.138060687514453e-14
+    bit_identical          0 of 2736                 recut: 0 of 2736
+    qb1_loss               -0.3073181442478611       recut legacy loss: -0.3073181442478611
+    banked_loss            -0.3073181442478619       recut banked loss: -0.3073181442478619
+
+**The same number and the same two losses.** Its own description: *"both sides CPU float64,
+upstream 0.4.3, same tree, same boundary, same cotangent, same torch 2.8.0+cpu; python 3.10.12
+on qb1 against 3.12.3 on qb2. No device on either side."* The banked c64 arm was built on qb1
+and recut runs on qb2. **The legacy flag reproduces the banked arm to the campaign's own
+cross-host float64 floor. It is not bit-identical across two Python versions, and nothing in
+this campaign is.**
+
+**R164's condition 3 is amended and the error is mine.** I wrote *"reproduces a banked number
+exactly"*; the row reasonably read that as bit-identity; and it is a bar tighter than a floor
+this campaign had already measured — `a-bar-that-rounds-a-measured-ceiling-up-is-unsatisfiable`,
+written by me **in the same document that fixes conditions in advance so they cannot be moved
+to fit an answer.** Amended bar: **9.13806068751445e-14 mass-weighted or better with the loss
+pair matching**, which is satisfiable, evidence-backed, and already met. Caught before it
+blocked a repoint, which is the only reason it was cheap — a pre-registered condition is
+exactly the kind that gets enforced without being re-examined.
+
+**And the row is asked to change its verdict string**, because *"the flag does NOT reproduce
+the banked arm"* reads as a failed control to anyone who does not chase the number. **A control
+that passes must not read as one that failed** — the mirror of R148, where a check that passed
+sat above prose saying it did not fire.
+
+**Two things recut did that are right, recorded rather than asked about.** `DEFAULT_MOVES`
+shows **A41's assertion implemented and firing** — `is_cut: False`, ancestor/descendant pair
+`[z_out, s_out]`, `checked_by: "walk of the grad_fn DAG over the injected outputs"` — one pass
+after A41 was written, which is the check that makes this defect class unfileable twice. And
+`CHECKPOINT_IS_INERT` is **2,736 of 2,736 bit-identical at rel_l2 0.0**.
+
+**One number not to carry across.** At crop 64 the duplicate is **98.62 %** of the hooked
+`cot_z` by norm while the true external cotangent is only **1.1999x** smaller; at n384 the
+duplicate was 99.66 % and the remainder **11.7471x** smaller. The correction is large in norm at
+both crops and far less parallel at 64, so **the geometry is crop-dependent** and the n384
+figure is the one the clause needs.
+
+---
+
+### R167. The D242 repair is landed and correct; its `--cot-correction` default breaks A34 for every scored pair (pass 401, zero card)
+
+`of3t-recut` pushed **`3b0dc30f3`, "of3t: repair D242, the double-counted cotangent injection"**.
+Verified against R161's four decisions **from the diff, not the commit message**, and it matches
+point for point:
+
+- the graph-cut-correct injection `cot_z_ext = cot_z - d<cot_s, s_out>/d(z_out)` is the **DEFAULT**;
+- `--legacy-total-cotangent` restores the old behaviour for reproducing banked artifacts;
+- `injection_convention` is stamped in **both** the report and the `.pt`, with
+  `correction_source` ("this arm's own graph" or the path) and `correction_norm` beside it;
+- **A41's `ancestor_pairs` walk runs on every arm and on both conventions** — one pass after A41
+  was written;
+- `--checkpoint` leaves the last block eager, because the correction is a derivative of one
+  output against the other and needs its graph, with bit-neutrality **re-earned** at 2,736/2,736
+  rather than inherited;
+- the module docstring carries the formula, the reason and both numbers.
+
+The row had also already corrected its own legacy-control reading to the cross-run floor one
+minute before R166's amendment landed. **The catch was the row's, not mine** — R166 stands as a
+correction to my bar, not as a save.
+
+**But the design left one thing unsettled and it would have corrupted the re-score silently.**
+The default computes the correction from **the arm's own graph inside the arm's own cast
+policy** — `with ctx:`, which is `autocast(bfloat16)` under `--policy bf16auto` and disabled
+under f64. **So a bf16 arm and a float64 arm self-correct to different values and are driven by
+different injected cotangents.** A34 requires both sides of a per-parameter comparison to be on
+the same boundary, same incoming cotangent included, and the correction is subtracted from the
+incoming cotangent — it IS part of it. Self-correction reintroduces exactly the asymmetry D241
+named: *the clause divides two different experiments.*
+
+**PROTOCOL A42** records the rule: for any scored pair or set, the correction is computed ONCE
+on the arm that defines the boundary — the float64 reference — and passed to every other arm
+with `--cot-correction`. Self-correction is correct only for an arm read in isolation, or for
+the reference itself.
+
+**And the shape check is not a provenance check.** `ref_grad.py` validates that a loaded
+correction fits `cot_z`'s shape; a correction from the wrong arm has the right shape. Every
+artifact must record the correction's **sha256**, and a scorer comparing two arms must ASSERT
+the digests are equal before reading either.
+
+**Why this is a separate amendment rather than a footnote to A41.** A41 makes the injection
+correct for ONE arm; A42 makes it the same for TWO. **A41's failure shows up as a wrong absolute
+reading; A42's shows up only as a wrong RATIO — and the ratio is what this campaign's clause is
+made of.** The same defect class that took fifteen passes to find would have been invisible a
+second time, one level up.
+
+---
+
+### R168. `of3t-recut`'s A/A floor is clean from relocated inputs; the convention stamp does not survive composition, and it has to be per scope (pass 402, zero card)
+
+**The A/A passes and it is worth more than it looks.**
+`AA_FRAMEMATCHED_composed3660_n384.json` reproduces the published artifact on six of R164's
+seven contract keys **to the last digit** — `renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2`
+0.27095922968432157, `n_over_per_tensor_bar` 3312 against 3494, `coverage_total`
+99.50523155277438, `bars.A26_reachable_bar_vs_their_bf16` 0.15210099830945006, same float64
+sha256 — **from relocated inputs**: `/home/ttuser/of3t_covadopt/…` where the published run used
+`/tmp/of3t/of3t-covadopt/…`, and `of3t_modelframe/dev_RENORM_model_n384_nocaptures.pt` where it
+used `of3t_trunkceiling/dev_RENORM_n384_nocaptures.pt`. **Exact agreement from different paths
+is what an A/A floor is for**, and it is what licenses the re-score to proceed.
+
+**The seventh key is absent.** `injection.convention` is stamped in `ref_grad.py`'s report and
+`.pt` — verified at pass 401 — but **the composed-3660 scorer is a different writer and the
+stamp does not survive composition.** The composed artifact is what the clause reads, so R164's
+contract is unmet until it does. **The stamp has to travel as far as the number does**, which is
+the same failure mode as R164 itself one level in: a fix applied to the producer and not to the
+thing the gate reads.
+
+**And it must be PER SCOPE, because only one of the six is injected.** The composition pools
+`diffusion`, `input_embedder`, `cond`, `aux` and `msa` — full-model runs with no injection —
+with `pairformer_stack`, the injected arm and the only scope D242 touches. A single top-level
+flag would be false for five of six. Per-scope map, each reading `graph_cut_external`,
+`legacy_total_cotangent` or `not_injected`, with the correction's sha256 for any injected scope.
+
+**Then the composer must refuse a mixed pool of injected scopes** — A42's digest rule one level
+up. Today only `pairformer_stack` is injected, so the check is cheap and always passes. It is
+worth having because **the next person to inject a second scope will not be thinking about
+this**, and a composed number built from two conventions is meaningless with nothing in it
+saying so.
+
+---
+
+### R169. The ten defects still carrying the stamper's default are all correctly campaign-internal — and reviewing them found three whose DIAGNOSIS R160 undercuts, with no catcher (pass 403, zero card)
+
+R158 recorded that a review of the defects inheriting `stamp_row_counts.py`'s
+"no user-facing claim made" default was owed. It is done. **First, a correction to my own
+count**: R158 said fourteen inherit; the table shows **ten** — D222, D223, D224, D225, D227,
+D231, D232, D233, D235, D237. Fourteen was the number carrying the JSON placeholder before pass
+393's fix, not the number left unreviewed after it.
+
+**All ten are correctly CAMPAIGN-INTERNAL** against the published test ("changes what someone
+using the shipped tt-bio gets today" against "is in this campaign's own measurement,
+instruments, references"). D222 a lever ceiling on an unmerged lever; D223 an attribution inside
+our own measurement; D224 a false-TRUE flag in our own gate; D225 a reach defect in a default-off
+lever; D227, D232, D233 readings of a residue; D231 a defect in our own falsifier; D235 an
+artifact-writer process defect; D237 a defect in our own clause. **The default happened to be
+right in every case**, which is worth saying plainly: the finding in R158 was that an
+unclassified defect silently takes the least severe class, not that these ten were misfiled.
+Six of the ten are in the rotated archive rather than the live tail, so the review had to read
+the UNION — the same thing `defects_union.py` does and the reason it exists.
+
+**The review's real result is a dependency nobody had recorded.** D227, D232 and D233 are
+`of3t-apbleaf`'s and `of3t-trunkceiling`'s characterisations of the cotangent on the
+**model-frame injection** — the injection R160 later established was double-counting the
+`s_out <- z_out` route, with the captured `cot_z` **99.6628 % duplicate by norm**. Pass 395's
+blast radius sorted the frame ARTIFACTS into `MATCHED` and `CROSSFRAME`; **it did not sort the
+DEFECTS filed from them**, and all three still read as live, confident mechanism findings with
+no indication that the instrument beneath them has since been repaired. D233 was described in
+this campaign as *"its clearest mechanism statement."*
+
+**Sorted carefully, because two-thirds of each entry survives.** D233's headline comparison is
+two-sided — upstream's own bf16 cotangent 1.2706 against ours 1.4924, both legs on the one
+injected cotangent — so it is common-mode and **survives as a comparison**. The internal
+decompositions (D232's `L = 0.005544` against `H = 0.999127`; D233's 99.72 % ACROSS against
+0.28 % ALONG) are algebraic identities given whatever cotangent was injected, and also stand.
+**What does not carry is the ATTRIBUTION**: "the residue is in the cotangent" is now, in part, a
+statement about the duplicate rather than about our arithmetic.
+
+D232 and D233 now carry that cross-reference in `DEFECTS.md`; D227 is in the rotated archive and
+carries it here. **A concluded row's verdict needs a catcher, and so does a defect whose
+instrument is repaired after it is filed** — the entry does not update itself, and the next
+reader has no way to know.
+
+---
+
+### R170. D242 is CLOSED at model scope: the repaired injection reproduces the reference's whole trunk at 1.6952505222168708e-14, which is the capture's own witness (pass 404, zero card)
+
+`of3t-recut`'s `N384_CONTROLS.json`, read from the artifact on qb2:
+
+    injection.convention               graph-cut-external
+    graph_cut.is_cut                   False, pair [z_out, s_out], by a walk of the grad_fn DAG
+    duplicate_share_of_hooked_cot_z    0.9966278794626707
+    block 47, 57 tensors               3.0392623414001244e-15   bar 1e-12   CLEARS
+    ALL 2,736 TRUNK TENSORS            1.6952505222168708e-14   bar 1e-12   CLEARS
+      norm ratio                       0.999999999999999
+      cos                              1.0000000000000002
+      residual after the best scalar   0.0
+      ref squared norm                 0.599115204802637  against arm 0.5991152048026359
+
+**This is the whole trunk, not one block, and it is 59x under the bar.** `of3t-frameself`
+proved the repair at block 47; this closes it at model scope.
+
+**And the number is not merely small, it is the RIGHT small number.** The capture's own witness —
+its full-model backward scored against `grads_f64_043.pt` over the same 2,736 tensors — reads
+**1.6952505222168705e-14**. The repaired injection reads **1.6952505222168708e-14**. They agree
+to fifteen significant figures. **The repaired injection is indistinguishable from the capture's
+own backward**, which is the strongest form this claim can take: not "close to the reference"
+but "as close as the reference's own run is".
+
+**A42 was taken exactly, one pass after it was written.** `COTANGENTS.json` banks the handoff for
+the device arms: `cot_external.pt` (sha256 `1d15a8dc…`, 152,176,717 B) with
+`correction_from: ref_f64_model_n384_corrected.pt` and `convention: graph-cut-external` — **one
+correction, sourced from the arm that defines the boundary, not self-computed per arm** — and
+`cot_delta_only.pt` (sha256 `33be05b1…`) for R161's `g(cot_s,cot_z) - g(0,delta)` shortcut. Both
+carry digests, so a scorer can assert two arms shared them, which is the half of A42 that a
+shape check cannot do. `hooked_over_external` 11.747073892846307.
+
+**Where the campaign now stands.** The instrument is fixed with the correct convention as the
+default and the legacy path reachable and controlled; the A/A floor reproduces the published
+artifact from relocated inputs to the last digit; the frame reproduces its own reference at the
+float64 floor; and the corrected cotangent is banked with digests for the device arms.
+**What remains for the clause is the device re-score, the composition, and reading pass 394's
+pre-registered ladder — and no new bar may be written for any of it.**
+
+---
+
+### R171. I amended one clause of a four-part pre-registered condition at R166 and did not audit its siblings; two of the other three had the same flaw (pass 405, zero card)
+
+R166 fixed condition 3 of the repoint's four-part condition for unsatisfiable exactness and
+stopped there. Checking the remaining three against what `of3t-recut` actually emits:
+
+- **Condition 1 required `injection.convention == "graph_cut_correct"`.** The producer emits
+  **`graph-cut-external`**. A string I invented before any producer existed — and **the row's
+  vocabulary is better**: *external* names what the cotangent IS, the external partial, where
+  *correct* is a value judgement. The contract adopts the row's word rather than imposing mine.
+- **Condition 2 required reproduction of `3.0392623414001263e-15`.** `of3t-recut` reads
+  **3.0392623414001244e-15** — absolute difference **1.972e-30**, relative **6.489e-16**, one
+  ulp on a 3e-15 quantity computed by two different code paths, with both **329x under the
+  1e-12 bar**. The identical unsatisfiable-exactness flaw R166 had just fixed one clause along.
+- **Condition 4 is qualitative**, which is the only reason it could not have this flaw.
+
+**So two of the four conditions would have blocked the repoint on my own bookkeeping**, after
+every expensive arm had run. Both are now bound to what the producer emits, with the amendment
+and the superseded literal kept beside them.
+
+**Two lessons, and the second is the one worth carrying.**
+
+**A pre-registered condition written BEFORE the producer exists will name values the producer
+does not emit.** The discipline that makes pre-registration honest — fix it before the number,
+so it cannot be moved to fit an answer — is the same thing that makes it brittle, because you
+are guessing the vocabulary and the precision. The resolution is not to pre-register less:
+**pre-register the SHAPE and the SEMANTICS, and bind the LITERALS once the first artifact
+exists.** A condition amended for vocabulary before any number is known is still honest; one
+amended after the number is not.
+
+**And when a clause of a multi-part condition is amended, audit its siblings in the same pass.**
+Fixing one instance and leaving the others armed is the `hf-revision-pin-fix-missed-three-direct-callers`
+family, and this is its second appearance in this campaign — the first was R156, where
+retracting one mechanism revived a control I had declared blind.
+
+**Status of the four as of now**: 1 MET (`graph-cut-external` stamped in both `C64_CONTROLS`
+and `N384_CONTROLS`), 2 MET (6.489e-16 agreement, 329x under the bar), 3 MET (R166, the
+cross-host floor), 4 pending the device arm. The composed artifact's per-scope stamp (R168) is
+the remaining piece of condition 1.
+
+---
+
+### R172. My own linearity shortcut looked unsafe on the device by 9.18 %; the artifacts already held the measurement, and it is 0.014 % (pass 406, zero card)
+
+R161's shortcut is `g_corrected = g(cot_s, cot_z) - g(0, delta)`, and the device arm for it
+landed: `DEV_RENORM_MODEL_N384_DELTA.json`, driven by `cot_delta_only.pt` at sha256
+`33be05b1…` — **the digest COTANGENTS.json banked**, so A42's chain holds — with
+`probe/cot_s_norm` exactly **0.0** and `cot_z_norm` 0.0007575746327655109, i.e. precisely
+`(0, delta)`, and `shipped_config` equal to `arm_config` on all six kwargs.
+
+**The concern I raised against my own design.** The subtraction reconstructs
+`g(Q(cot_hooked)) - g(Q(delta))` where `Q` is the device's cotangent round-trip, while a direct
+run gives `g(Q(cot_hooked - delta))`. Those differ, and the two cotangents are nearly equal —
+the duplicate is 99.6628 % of the hooked one by norm — so the external cotangent they bracket is
+**11.7471x smaller** and any quantisation error is measured against the *small* quantity.
+Reasoning from bf16's nominal epsilon (2^-8, 3.906e-3) gives an error of **9.18 %** of the
+external cotangent. That would have made the shortcut useless on the device.
+
+**It is wrong, and the artifacts already contained what settles it.** Both arms bank a
+`cotangent_on_device` block — a field added for exactly this question, whose own note reads *"a
+ratio away from 1 would mean the harness rescales a track on the way in"*:
+
+    banked hooked arm   ref 0.0007601379094210722  dev 0.0007601401183388326  rel 2.9059e-06
+    delta arm           ref 0.0007575746327655109  dev 0.0007575817533478665  rel 9.3992e-06
+    worst-case combined absolute 9.3295e-09
+    as a share of the external cotangent (6.4709e-05)      0.01442 %
+
+**So the shortcut is safe on the device to 0.014 %, not unsafe by 9.18 % — the nominal-epsilon
+bound overstated it by 637x.** The harness does not round-trip the injected cotangent at bf16
+precision, and it says so in a field it records on every arm.
+
+**The lesson, and it is one this campaign already has in another costume.** I was about to
+escalate a precision risk derived from a **dtype's name** rather than from a measurement —
+`roofline-roof-must-be-measured-not-asserted` applied to precision instead of bandwidth, and
+`your-own-worktree-already-holds-the-answer-grep-it-before-spending-device-time` applied to a
+risk instead of a result. **A quantisation bound taken from a dtype's epsilon is an upper bound
+on a harness nobody has measured; once the harness is instrumented, the epsilon is the wrong
+number to reason from.**
+
+R161's end-to-end control still stands and should still be run — this bounds the shortcut, it
+does not replace its control. But the row should not read a sub-0.1 % disagreement between the
+subtraction and a direct `cot_external.pt` run as a defect: **0.014 % is the expected size.**
+
+---
+
+### R173. D242's two-sided falsifier has now fired on BOTH branches, bit for bit, and the repair moved it from one to the other (pass 407, zero card)
+
+Pass 387 pre-registered a one-scalar falsifier for D242 with both values banked before any arm
+ran: `||dL/dz_in||` at **0.000848887340907281** means the injection is exact on the original
+graph; at **0.0014907294032500784** it overcounts.
+
+    pass 395  --graphdrive, the double-counting injection    0.0014907294032500784   OVERCOUNTS
+    pass 407  the repaired graph-cut-external injection      0.000848887340907281    EXACT
+
+**Both bit-identical to the banked values.** `REF_F64_MODEL_N384_CORRECTED.json` reads
+`dz_in_norm` 0.000848887340907281 and `ds_in_norm` 0.009204973933437452 — the real backward's
+own two numbers. **A two-sided falsifier that fires on one branch, is then acted on, and fires
+on the other branch after the repair is the strongest form this evidence takes**: the values
+were fixed before the mechanism was known, so neither branch could be fitted to the answer.
+
+**And it is independent of the parameter-gradient confirmation.** R170 established the repair
+on the 2,736 trunk tensors at **1.6952505222168708e-14** — the capture's own witness value.
+This is a different quantity, `dL/dz_in`, checked against a different reference, and it lands
+exactly. Two independent pre-registered confirmations of one repair.
+
+**The A42 chain is verifiable by digest at every hop**, checked this pass:
+`REF_F64_MODEL_N384_CORRECTED` computes the correction from **its own graph** —
+`correction_source: "this arm's own graph"`, which A42 permits only for the arm that defines
+the boundary — banks it as `cot_external.pt` (`1d15a8dc…`) and `cot_delta_only.pt`
+(`33be05b1…`), and both device arms cite those digests: `DEV_..._EXTERNAL` carries
+`1d15a8dc…` with `cot_z_norm` 6.47087024696404e-05, `DEV_..._DELTA` carries `33be05b1…` with
+`cot_s_norm` exactly 0.0. **One correction, one source, three consumers, digest-checkable.**
+
+**One consequence of the repair worth stating before it surprises anyone.** The corrected
+injection is 11.7471x smaller than the hooked one, so any FIXED-ABSOLUTE error in the device
+path becomes 11.7471x more significant in relative terms. Measured: the harness's cotangent
+round-trip is ~2-7e-9 absolute regardless of the cotangent's size, so on the external cotangent
+it reads **3.38e-5 relative** against 2.9e-6 on the hooked one. That is still four orders below
+the clause's scale, and **there is no other fixed-absolute floor to amplify** — the device arms'
+A/A is exactly 0.0 across two cards, so they are bit-reproducible. Checked, and a non-issue.
+
+---
+
+### R174. The corrected clause reads 1.4512x the bar — still FAILING, improved 18.54 % — and two of my own numbers are wrong (pass 408, zero card)
+
+`of3t-recut` delivered the re-score. Verified against `LADDER_READ.json` and
+`CLAUSE_RECUT.json`, not the commit message.
+
+**THE CAMPAIGN'S ANSWER, on the repaired injection:**
+
+    trunk vs float64                 0.6221485227575493    was 0.9349175217825587
+    trunk vs upstream's own bf16     0.7768254196709333    was 0.9969599833682794
+    multiple of upstream's own bf16  1.976518918492322     was 2.970162431380236
+    cos vs float64                   0.8178953379770566
+    CLAUSE                           0.22072451195864032   bar 0.15210099830945006
+    x_bar                            1.4511706984958472    was 1.7814428090278143   FAILS
+    x_allowance                      1.7414134679108282
+    trunk's share of the model's error mass   0.7835130357121737   was 0.9605582781117755
+
+**The repair was necessary and is not sufficient** — R130's sentence about the earlier frame fix,
+now true of this one. The clause improves **18.54 %** and still misses by 45 %.
+
+**The ladder was NOT re-derived**: `LADDER_APPLIES_UNCHANGED` re-computes all five
+pre-registered levels on the rescored artifact's own section table and reports
+`worst_rel_difference_over_the_five_levels` **0.0**, and `RECOMPOSITION_CONTROL` reproduces the
+headline at rel_difference **0.0**. No bar moved, which was the whole point of fixing the ladder
+before the number existed.
+
+**MY FIRST ERROR, and it is the class I have been catching in others. R159's "our trunk may be
+up to 1.4172x upstream's own bf16" is a CROSS-SPACE quotient and is retracted.** I divided the
+trunk allowance **0.44608901561034203**, which lives in vs-upstream-bf16 space, by upstream's
+own floor **0.3147698293887927**, which lives in vs-float64 space. The artifact's own two
+quotients are each in ONE space and are the correct ones:
+`multiple_of_upstreams_own_bf16` = 0.6221485227575493 / 0.3147698293887927 = **1.976518918492322**
+(float64 space), and `x_allowance` = 0.7768254196709333 / 0.44608901561034203 =
+**1.7414134679108282** (bf16 space). **The honest target statement is: the trunk must fall by
+1.7414x for the clause to clear.** R159's framing was also ill-formed, not merely mis-scaled —
+"the allowance as a multiple of upstream's own bf16" has no meaning, because upstream against
+itself is zero.
+
+**MY SECOND ERROR: R172's bound on the linearity shortcut was wrong, and its own two-sided
+statement fired on the withdrawal branch.** I predicted the device subtraction would differ from
+a direct run by **0.014 %** and wrote that a percent-scale result would be real and would
+withdraw the shortcut. Measured: **2.208239e-02**, i.e. 2.21 %. **The shortcut is withdrawn on
+device arms and the end-to-end arm is the reading; the repair is untouched.** Why I was wrong:
+I bounded the error in the cotangent *injection* — the round-trip, which really is ~1e-5 — and
+ignored the error in the *taped backward's own bf16 arithmetic*. The subtraction cancels
+gradient norms **1.3279** and **0.5947** into **0.8149**, so each arm's own ~**0.9359 %** bf16
+gradient error survives undiminished against a smaller difference. **A linearity shortcut needs
+the ARITHMETIC to be linear, not just the mathematics**, and on a bf16 device it is not, to
+better than bf16 epsilon. The float64 reference's own sum identity of 6.435383259300361e-15 is
+what made the shortcut look safe, and float64 is exactly where it IS safe.
+
+**R161's control is what caught it**, which is the part of the design that worked: the shortcut
+was proposed with a mandatory end-to-end control and an instruction to withdraw the shortcut
+rather than the repair if it failed. It failed and that is what happened.
+
+**Repoint condition 4, handled without waving it through.** I wrote "the linearity shortcut's
+end-to-end control passes on one arm". It did not pass. But the condition's PURPOSE is that the
+reading must not rest on an unvalidated shortcut, and the row eliminated the shortcut entirely
+and read the direct arm — which satisfies that purpose **more strongly** than a passing control
+would, because the reading now contains no shortcut at all. Condition 4 is recorded as satisfied
+BY ELIMINATION, with the failure and its magnitude in the record beside it.
+
+---
+
+### R175. With the double count removed, the trunk's remaining error is 97 % DIRECTION — the magnitude is within 5.5 % — and the repoint is blocked on one missing key (pass 409, zero card)
+
+**The repoint is BLOCKED, by my own pre-registration.** `MODEL_RECUT_composed3660_n384.json`
+carries six of the seven contract keys, with the corrected
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2` = **0.22072451195864032** — but
+`injection.convention` is still absent. R164 fixed the rule before the number existed: *any of
+the four failing means no repoint.* The name and the namespace say "recut" and the value differs
+from the legacy one, so a reader could work it out — **and that is precisely the reasoning that
+makes a stamp optional and then rots.** R168's point stands: the stamp must travel as far as
+the number does. One key, asked of the row.
+
+**And the corrected reading has a structure nobody has named.** From the artifact's own two
+scalars, `cos_vs_float64` **0.8178953379770566** and `norm_ratio_vs_float64`
+**1.054584096168068**, the observed `rel_l2` **0.6221485227575493** reconstructs to 1.1e-15 —
+so the decomposition is exact, not a model:
+
+    magnitude alone   (cos = 1, same norm ratio)    0.054584     8.8 % of the observed
+    direction alone   (norm ratio = 1, same cos)    0.603498    97.0 % of the observed
+    the angle                                       35.13 degrees
+    perpendicular share of our vector               0.5754
+
+**The campaign's picture is inverted.** On the double-counted functional the trunk read as a
+near-constant SCALE of 1.7460 at cos 0.9841 — a magnitude story with a ten-degree angle. That
+is what the duplicate was doing: it added a large, nearly-parallel component, which inflated
+the magnitude AND flattered the cosine. **With it removed the magnitude is within 5.5 % and the
+angle is 35 degrees.** Everything the campaign chased from D227 through D233 as a magnitude
+deficit was reading the duplicate; **what is actually left is a direction error.**
+
+**What this does NOT license, and the restraint is the point.** The decomposition is in
+**vs-float64** space, because those are the two scalars the artifact banks. The clause is graded
+in **vs-upstream-bf16** space. Carrying the decomposition across is exactly the cross-space
+error I retracted one pass ago in R159, so **no statement is made here about what the clause
+needs** — only about where the error is, in the space it is measured in.
+
+**The one-line ask that closes that gap**: bank `cos` and `norm_ratio` against upstream's own
+bf16 alongside the float64 pair. The scorer already computes both comparisons; it reports the
+decomposition for only one of them. With both, the same exact decomposition can be done in the
+space the clause lives in, and the campaign can say for the first time whether the remaining
+1.7414x is reachable by magnitude, by direction, or by neither.
+
+---
+
+### R176. The PACKAGE install fires only half of itself: `verb` reads 0, and the arm is bit-identical to the no-lever baseline (pass 410, zero card)
+
+`of3t-verbinstall`'s package arm landed. `FRAME_PKG_HF3.json`, the tape-gated install of the
+consistent softmax arm, reads
+
+    ours vs float64          0.702981502944001       identical to CTRL_B, the SHIPPED device softmax
+    ours vs upstream bf16    0.9153623104186986      identical to CTRL_B
+    floor                    0.37393839211303687
+
+**Bit-identical to the arm with no exact softmax at all**, to sixteen digits. And the row's own
+`EXACT_SOFTMAX_PKG_HF3.json` — a counter it banked because D225 taught this campaign that a
+lever can read zero — says which half is missing:
+
+    verb   0            the taped verb: exact forward AND exact Jacobian
+    raw    1742         the module-wide ttnn.softmax, 21,856,518,144 elements
+
+**The verb half never fired.** That is where essentially all of the win lives: `CEIL_HF`
+(verb only) reads 0.5547455957585244 and `CEIL_HF3` (verb + module-wide) reads
+0.5545352626143085, so the module-wide half is worth **0.0002** and the verb half is worth the
+other 0.36. A package install that delivers only `raw` therefore delivers nothing measurable,
+which is exactly what the score shows.
+
+**What this does to D245.** D245 was *"the shippable site-selector install is 34.25 % worse
+against float64 than the harness verb install."* It is now worse than that: **the tape-gated
+package install, which R161 argued was both the more accurate and the structurally safer answer
+to Moritz's inference hard stop, is INERT on the half that matters.** The campaign's best trunk
+number — 1.0525x, `CEIL_HF3` — still has no shippable path, and now there are two failed
+attempts at one rather than one.
+
+**Not yet diagnosed, and the two candidates are different problems.** Either
+`tt_bio.autograd.exact_softmax()` patches only `ttnn.softmax` module-wide and never installs at
+the taped verb — a design gap, one line — or it installs and the verb is never reached at
+runtime — D225's reach family, and a harder question. `installed_from` records
+`install(exact_softmax=True)`, and the counter separates the two by construction, so the row
+can settle it without a new instrument. **It is the row's to diagnose; the campaign's status
+must not meanwhile claim a shippable lever.**
+
+**And the row lost 230 minutes of card time to an infrastructure defect worth filing beyond
+this campaign.** Its state doc: *"two arms, 115 minutes each, nothing computed —
+`tenstorrent._assert_local_dispatch` hangs instead of failing, and every cheap liveness signal
+says the job is healthy. It probes a freshly-opened chip with one trivial 32x32 add so that a
+bad bring-up 'fails HERE, at startup' — its own docstring. It has no timeout."* **A startup
+probe whose purpose is to fail fast, and which instead hangs forever while every liveness check
+reads green, is a fleet-wide defect** — the `chip-holder-at-100pct-cpu-can-be-a-corpse` family,
+and it will cost every card row that meets it. The row added a bounded pre-flight for itself
+(`b77e89f27`); **the underlying probe still has no timeout.**
+
+---
+
+### R177. `VERDICT` and `GAP` were three passes and one closed defect behind — the same rot I named at R157, committed by me within three passes of naming it (pass 411, zero card)
+
+Checked the two fields Moritz actually reads against the numbers the campaign now holds. Both
+carried **1.7814** (withdrawn) and **0.7945** (D242's unrepaired control) and **neither carried
+1.4511, 0.2207 or 1.7414** — the corrected clause, its value, and the distance to go. They said
+the campaign was blocked on a frame defect that has since been root-caused, repaired,
+controlled three ways, and re-scored.
+
+**That is exactly R157's pattern** — *"a clause's CHECKS stay live because a script recomputes
+them; the PROSE beside them is written once and then rots"* — and **I wrote it three passes
+before committing it myself, on the campaign's headline.** Naming a failure mode does not
+inoculate you against it; the only thing that catches it is re-reading the field against the
+artifacts, which is a task and not an intention.
+
+**VERDICT rewritten** on the corrected numbers and kept under its 4,000 cap at 3,967 by deleting
+two paragraphs D242's closure superseded — the pass-383 hypothesis-space narrowing, and *"the
+defect is two components: a scale near 1.7493 plus a residual of 0.1779"*, **which was no longer
+merely stale but WRONG**: the defect was a double count, and the corrected error is 97 %
+direction, not a scale plus a residual.
+
+**GAP rewritten and it shrank 9,322 → 5,583 chars.** Its `control` block described D242 as open
+at twelve orders over; it now records the closure with the mechanism and the three
+confirmations. Its `next` block still had `of3t-frameself` "parked on an evidence-backed DEFER
+until 22:15 CEST" — two concluded rows ago — and now names the one key blocking the repoint and
+the two live rows. `retracted` becomes `rescored`: 1.7814428090278143x is **superseded**, not
+merely withdrawn, by 1.4511706984958472x. And two sentences calling the frame "broken" and the
+ladder levels "provisional in the broken frame" are corrected: the frame was repaired at pass
+408 and those levels are no longer provisional.
+
+**The general form, and it is the sharper version of R157.** A field that records a BLOCKER is
+the one most likely to rot, because it is written at the moment of maximum certainty and its
+whole content is a claim about something that is expected to change. **The closure of a defect
+should trigger a re-read of every field that named it** — the defect's own entry (done at R163),
+the clause's `why` (R157), and the summary fields (here). Three places, and the campaign has now
+found the same rot in all three.
+
+**Addendum to R177, same pass.** The rewrite's own collateral damage was caught by the compose,
+which is the system working. `audit_evidence.py:1831` reads only **`_vt[:2000]`** — VERDICT's
+first two thousand characters — when checking that the three distance-to-go shares are stated.
+My longer header pushed 49.8019 % and 2.0150 % past that window while 48.1831 % survived, which
+is why exactly two of three drifted. **The numbers were present and correct; the audit's window
+had moved relative to them.** The 2,000-char limit encodes a real editorial intent — these
+shares belong where a reader meets them — so the prose moved rather than the check: the
+distance-to-go paragraph now sits directly under the header, ahead of the counts. **Widening
+the window to fit my preamble would have been moving a check to accommodate writing**, which is
+the same act as moving a bar to accommodate a number.

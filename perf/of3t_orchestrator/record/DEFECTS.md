@@ -491,6 +491,8 @@ it belongs in the protocol rather than in two verdicts.
 
 ### D232. The LayerNorm op is exonerated and so is its activation: 99.91 % of the residue arrives in the COTANGENT, which reads 1.4924 against float64. FOUND by `of3t-apbleaf`, pass 371. UNFIXED, and the object moves upstream.
 
+**D242 CROSS-REFERENCE, added pass 403.** This entry's readings were taken on the model-frame injection, which R160 later established was double-counting the `s_out <- z_out` route — the captured `cot_z` was **99.6628 % duplicate by norm**. Its two-sided comparisons (ours against upstream's own bf16, both legs on the one injected cotangent) are common-mode and **survive as comparisons**; its internal decompositions are algebraic identities given whatever cotangent was injected and also stand. **What does not carry without re-reading is the ATTRIBUTION** — "the residue is in the cotangent" is now, in part, a statement about the duplicate rather than about our arithmetic. Re-read after `of3t-recut`'s corrected re-score before building on it. See LEDGER R160 and R169.
+
 Against a pre-registered bar of L <= 0.25, over the 48 weight tensors:
 
     L = 0.005544    the three device ops that evaluate dW = sum_t g_t xhat_t
@@ -533,6 +535,8 @@ class (D223) -> the LayerNorm affine (D227/D229) -> the cotangent feeding it (th
 convergence rather than thrashing, and each move was made by a row refuting its own brief.
 
 ### D233. The cotangent residue is a DIRECTION error amplified by cancellation, not a scale error — 99.72 % of it lies ACROSS the reference. FOUND by `of3t-apbleaf`, pass 372. UNFIXED, and it explains the observable the campaign has been chasing since D227.
+
+**D242 CROSS-REFERENCE, added pass 403.** This entry's readings were taken on the model-frame injection, which R160 later established was double-counting the `s_out <- z_out` route — the captured `cot_z` was **99.6628 % duplicate by norm**. Its two-sided comparisons (ours against upstream's own bf16, both legs on the one injected cotangent) are common-mode and **survive as comparisons**; its internal decompositions are algebraic identities given whatever cotangent was injected and also stand. **What does not carry without re-reading is the ATTRIBUTION** — "the residue is in the cotangent" is now, in part, a statement about the duplicate rather than about our arithmetic. Re-read after `of3t-recut`'s corrected re-score before building on it. See LEDGER R160 and R169.
 
 Upstream's own bf16 cotangent at the same 48 sites reads **1.2706** rel_l2 against float64 where
 ours reads **1.4924** — a residue of only **1.1745x**. But the `dW` residue is **2.4044x**. Those
@@ -1051,7 +1055,11 @@ residency on the training path only.
 
 ---
 
-### D242. The model frame does not reproduce its own reference: an injected float64 trunk on its own captured boundary and cotangent reads 0.7945 against a bar pre-registered at 1e-12, so every cross-frame trunk ratio the campaign has published is a reading of the harness. **UNFIXED** — found by `of3t-twoside` at pass 381 running the control D241 made gating, CPU only; `of3t-frameself` dispatched to close it.
+### D242. The model frame does not reproduce its own reference, and the cause is a DOUBLE COUNT in the injection: `(s_out, z_out)` is not a graph cut, so the captured `cot_z` replays the `s_out <- z_out` route twice. **ROOT-CAUSED, REPAIR PROVEN, STILL UNFIXED** — found by `of3t-twoside` at pass 381 running the control D241 made gating; root-caused and proven by `of3t-frameself`, which concluded GO at pass 396; `of3t-recut` dispatched to land the repair in the instrument and re-score.
+
+**Pass 396, the break control.** `z_out` is an ancestor of `s_out` — the last block's `attn_pair_bias` reads the `z` its own `pair_stack` just produced — so a hook and `torch.autograd.grad(loss, z_out)` both correctly report a TOTAL derivative that already contains the route through `s_out`, and `(s_out*cot_s).sum() + (z_out*cot_z).sum()` adds it again. Subtracting `autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)` from `cot_z` takes block 47 from **0.7849281738435908** to **3.0392623414001263e-15** against `grads_f64_043.pt`, norm ratio 0.9999999999999992, cos 1.0000000000000002, residual after the best scalar exactly **0.0**, under the 1e-12 bar fixed in commit 2520681ed, for 16.65 s — and bit for bit what `--blockprobe`'s loss-driven `autograd.grad` reads at the same block. The duplicate was **99.6628 %** of the captured `cot_z` by norm; the true external cotangent is **11.7471x smaller**. `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`.
+
+**Why it stays UNFIXED.** The mechanism is proven and the repair is demonstrated at one block, but the line is still live: `perf/of3t_trunkg043/ref_grad.py:201` has not been changed and no arm has been re-scored, so every `MATCHED/` reading remains on the old functional. It closes when the corrected injection is the default and the trunk's corrected reading has been read against `CLAUSE.json`'s pre-registered ladder. See LEDGER R160-R162 and PROTOCOL A41.
 
 **Campaign-internal, and it is the campaign's critical path.**
 
