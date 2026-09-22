@@ -188,6 +188,20 @@ def main() -> int:
                          "of the ratio and leaves the forward half bit-identical -- which is "
                          "exactly the control a ratio needs: it shows the numerator responds "
                          "while pinning that the denominator is not what responded.")
+    ap.add_argument("--block-cot", default="",
+                    help="dump the cotangent entering each DiT block's backward, for the "
+                         "structures named by --block-cot-structs, to this .pt")
+    ap.add_argument("--block-cot-ref", default="",
+                    help="a --block-cot dump from the f64 arm. With it, each block's cotangent "
+                         "is scored against that in-frame float64 reference and the depth trend "
+                         "is published: flat at the precision's own floor means no per-block "
+                         "injection, degrading with depth means the backward accumulates it. "
+                         "of3t-bwdaccum's discriminator, applied to the DiT-24.")
+    ap.add_argument("--block-cot-structs", default="0,15,31,47",
+                    help="which structures of the 48 to keep. The statistic is per BLOCK, so a "
+                         "subset of structures is a scope statement and not an approximation; "
+                         "four are kept because the whole axis in float64 is 2.7 GB and this "
+                         "host has 39 GB free.")
     ap.add_argument("--tag", required=True)
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--dump", default="")
@@ -260,6 +274,31 @@ def main() -> int:
             hs.append(mod.register_forward_hook(dtype_hook))
             break
 
+    # ---- the cotangent entering each DiT block's backward ---------------------------------
+    # A block returns one tensor, so the cotangent entering its backward is the gradient of the
+    # loss with respect to that output. Read with a tensor hook on the output rather than by
+    # reimplementing the traversal: a hook fires when the real backward reaches the real tensor,
+    # which is the only thing that makes this a measurement of the shipped reverse pass.
+    BCOT = {}
+    bstructs = [int(v) for v in a.block_cot_structs.split(",") if v != ""]
+    if a.block_cot or a.block_cot_ref:
+        def mk(i):
+            def fwd(mod, inp, out):
+                o = out[0] if isinstance(out, (tuple, list)) else out
+                if not torch.is_tensor(o) or not o.requires_grad:
+                    return
+                def grab(g, _i=i):
+                    if _i in BCOT:
+                        return
+                    BCOT[_i] = g.detach()[:, bstructs].double().clone()
+                o.register_hook(grab)
+            return fwd
+        blocks = dm.diffusion_transformer.blocks
+        for i, blk in enumerate(blocks):
+            hs.append(blk.register_forward_hook(mk(i)))
+        print(f"[{time.time()-t0:.0f}s] block-cot armed on {len(blocks)} DiT blocks, "
+              f"structures {bstructs}", flush=True)
+
     kw = cast(kwargs, dt)
     ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
            else BM.no_autocast() if a.policy == "f64"
@@ -305,6 +344,55 @@ def main() -> int:
         torch.save({"policy": a.policy, "grads": grads, "cap": str(a.cap),
                     "forward_rel": fwd, "xl": xl.detach()}, a.dump)
 
+    BLOCK_COT = None
+    if a.block_cot:
+        Path(a.block_cot).parent.mkdir(parents=True, exist_ok=True)
+        torch.save({"policy": a.policy, "structs": bstructs, "cot": BCOT}, a.block_cot)
+        print(f"[{time.time()-t0:.0f}s] block-cot wrote {len(BCOT)} blocks to {a.block_cot}",
+              flush=True)
+    if a.block_cot_ref:
+        R = torch.load(a.block_cot_ref, map_location="cpu", weights_only=False)
+        if R["structs"] != bstructs:
+            print(f"HARD FAILURE: the reference dump kept structures {R['structs']} and this arm "
+                  f"kept {bstructs}; a per-block rel over a different structure set is a "
+                  f"different measurement", flush=True)
+            return 7
+        if R["policy"] != "f64":
+            print(f"HARD FAILURE: --block-cot-ref is a {R['policy']} dump. A cotangent scored "
+                  f"against another approximation is not scored (A14/A27).", flush=True)
+            return 7
+        per = {}
+        for i in sorted(BCOT):
+            if i not in R["cot"]:
+                continue
+            r, nb = rel(BCOT[i], R["cot"][i])
+            per[i] = {"rel_l2": r, "reference_norm": nb,
+                      "arm_norm": float(torch.linalg.vector_norm(BCOT[i].reshape(-1)))}
+        ks = sorted(per)
+        vals = [per[k]["rel_l2"] for k in ks]
+        # The DiT runs blocks 0..23 forward, so the BACKWARD reaches 23 first and 0 last.
+        # "Depth" for a reverse pass is therefore how far the cotangent has travelled, which is
+        # 23 - i. Reported both ways round so the trend cannot be read off the wrong axis.
+        first, last = vals[-1], vals[0]
+        BLOCK_COT = {
+          "reference": a.block_cot_ref, "reference_policy": R["policy"],
+          "structures_kept": bstructs, "n_blocks": len(ks),
+          "per_block_forward_order": {str(k): per[k] for k in ks},
+          "cotangent_travel_order": [{"blocks_travelled": len(ks) - 1 - k, "block": k,
+                                      "rel_l2": per[k]["rel_l2"]} for k in reversed(ks)],
+          "at_first_block_the_backward_reaches": {"block": ks[-1], "rel_l2": first},
+          "at_last_block_the_backward_reaches": {"block": ks[0], "rel_l2": last},
+          "degradation_over_24_blocks": (last / first) if first else None,
+          "median": median(vals), "min": min(vals), "max": max(vals),
+          "worst_block": ks[vals.index(max(vals))],
+          "DISCRIMINATOR": "flat within the A/A floor means no per-block injection and the "
+                           "factor is the leaf rules; monotone growth in travel order means the "
+                           "backward accumulates it block over block. of3t-bwdaccum's reading.",
+        }
+        print(f"[{time.time()-t0:.0f}s] BLOCK-COT rel_l2 at block {ks[-1]} (first the backward "
+              f"reaches) {first:.6e} -> at block {ks[0]} (last) {last:.6e}, "
+              f"{BLOCK_COT['degradation_over_24_blocks']:.4f}x over {len(ks)} blocks", flush=True)
+
     full, _ = score_grads(grads, ref_grad)
     matched = None
     match_names = None
@@ -335,6 +423,8 @@ def main() -> int:
                     "n_structures": len(fwd), "median": fwd_med,
                     "min": min(fwd), "max": max(fwd), "per_structure": fwd,
                     "min_reference_norm": min(fwd_ref_norm)},
+        "BLOCK_COTANGENT": BLOCK_COT,
+        "block_cot_dump": a.block_cot or None,
         "GRADIENT_full_scope": full,
         "GRADIENT_matched_scope": matched,
         "matched_scope_source": a.match_scope or None,
@@ -351,6 +441,9 @@ def main() -> int:
     a.report.write_text(json.dumps(rep, indent=1, sort_keys=True) + "\n")
     show = {k: v for k, v in rep.items() if k not in ("FORWARD",)}
     show["FORWARD"] = {k: v for k, v in rep["FORWARD"].items() if k != "per_structure"}
+    if BLOCK_COT:
+        show["BLOCK_COTANGENT"] = {k: v for k, v in BLOCK_COT.items()
+                                   if k != "per_block_forward_order"}
     print(json.dumps(show, indent=1, sort_keys=True), flush=True)
     return 0
 

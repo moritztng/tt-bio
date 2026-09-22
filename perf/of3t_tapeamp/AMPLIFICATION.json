@@ -163,5 +163,303 @@
   "The msa_module track is NOT measured here. D58's second sighting reads 10.903x on our side and no upstream bf16 arm exists for it. The conditioning result PREDICTS its upstream ratio lands in the same 7x-10x band; that is a prediction, not a measurement, and it is the next arm rather than a claim of this one.",
   "Upstream's arms are CPU arms and ours is a device arm, so the two differ in more than precision policy. That is why the argument does not rest on the difference between 11.026x and 7.666x: it rests on both being far from 1x, and on the fp32 arm showing the same factor four orders of absolute error away.",
   "The upstream f32 arm is not an instrument floor for OUR arm. It is upstream's own fp32 recipe against upstream's own float64, and it is used here only to show the factor survives a change of precision."
- ]
+ ],
+ "BLOCK_COTANGENT": {
+  "what": "the cotangent entering each DiT block's backward, upstream 0.4.3's own bf16 and fp32 recipes against its own in-frame float64, 24 blocks, structures 0/15/31/47 of 48",
+  "REFERENCE_IS_IN_FRAME": {
+   "f64_arm_forward_median_vs_capture_xl_out": 0.0,
+   "f64_arm_gradient_median_vs_capture_grad_f64": 0.0,
+   "reading": "both exactly 0.0, so the arm that produced these reference cotangents is bit-for-bit the function that produced the capture's reference. Not asserted."
+  },
+  "DISCRIMINATOR_ANSWER": "NEITHER of the two shapes the brief named. Not flat at the bf16 floor, so not a wrong leaf backward: it moves 13.802x over 24 blocks. Not monotone degradation with depth, so not a uniform per-block injection: 8.191x of that 13.802x is ONE block boundary (19 -> 18) and the remaining 18 blocks are a plateau that ends slightly LOWER than it began (2.587e-01 -> 2.510e-01). The shape is a ramp over five blocks, one localised step, then saturation. That is of3t-bwdaccum's third pre-registered shape, which it found on the 48-block trunk; this is the first sighting on the DiT-24, and it is in the REFERENCE's own arm rather than ours.",
+  "PRECISION_INDEPENDENT_SHAPE": {
+   "bf16_total_over_24_blocks": 13.802493217637807,
+   "f32_total_over_24_blocks": 11.71266579164507,
+   "step_at_19_to_18_bf16": 8.191027117519972,
+   "step_at_19_to_18_f32": 5.726471524048872,
+   "bf16_over_f32_min": 11791.93004937647,
+   "bf16_over_f32_max": 18350.682869898883,
+   "reading": "The two curves ramp together, step at the SAME block boundary and plateau together, with the ratio of their absolute errors constant to within 1.6x across all 24 blocks while the errors themselves are four orders of magnitude apart. A dtype boundary cannot produce a shape that is the same shape 11,800x to 18,300x away in absolute error. The shape belongs to the function's reverse pass."
+  },
+  "MAGNITUDE_IS_NOT_THE_STEP": {
+   "reference_norm_block_23": 0.0001267855017039971,
+   "reference_norm_block_19": 0.00012735505283666416,
+   "reference_norm_block_18": 0.00017826003774683077,
+   "reference_norm_block_0": 0.0011372239150802214,
+   "norm_growth_over_24_blocks": 8.96966845416812,
+   "norm_step_at_19_to_18": 1.3997091892023588,
+   "bf16_norm_over_reference_range": [
+    0.9359383773950007,
+    0.9915415451204016
+   ],
+   "reading": "At the step the cotangent's own magnitude moves only 1.399x while its RELATIVE error moves 8.191x, so the step is not a magnitude event. The arm's cotangent is the right size at every block (0.936 to 0.992 of the reference's norm), so nothing is blowing up or collapsing. A relative error that jumps at constant magnitude is a cancellation event, which is the mechanism of3t-bwdaccum measured directly on the trunk as a site cancellation factor K, with every leaf reading at or below u*K at u = 2^-8."
+  },
+  "TABLE_travel_order": [
+   {
+    "blocks_travelled": 0,
+    "block": 23,
+    "bf16_rel_l2": 0.018181843487620152,
+    "bf16_step": null,
+    "f32_rel_l2": 1.541888682470735e-06,
+    "f32_step": null,
+    "bf16_over_f32": 11791.93004937647,
+    "reference_norm": 0.0001267855017039971,
+    "bf16_norm_over_reference": 0.9913395643162343
+   },
+   {
+    "blocks_travelled": 1,
+    "block": 22,
+    "bf16_rel_l2": 0.020252335201288402,
+    "bf16_step": 1.1138768857557282,
+    "f32_rel_l2": 1.669291327645723e-06,
+    "f32_step": 1.082627654397746,
+    "bf16_over_f32": 12132.295223657087,
+    "reference_norm": 0.00012547731702766156,
+    "bf16_norm_over_reference": 0.991178277152356
+   },
+   {
+    "blocks_travelled": 2,
+    "block": 21,
+    "bf16_rel_l2": 0.022137090489542603,
+    "bf16_step": 1.0930636032596526,
+    "f32_rel_l2": 1.800430643661543e-06,
+    "f32_step": 1.0785598737883408,
+    "bf16_over_f32": 12295.441964108273,
+    "reference_norm": 0.00012479727994273195,
+    "bf16_norm_over_reference": 0.9910305868915237
+   },
+   {
+    "blocks_travelled": 3,
+    "block": 20,
+    "bf16_rel_l2": 0.027285142071334405,
+    "bf16_step": 1.2325532157996872,
+    "f32_rel_l2": 2.1690736869691003e-06,
+    "f32_step": 1.204752704362911,
+    "bf16_over_f32": 12579.167888694737,
+    "reference_norm": 0.00012553460812072498,
+    "bf16_norm_over_reference": 0.9913791875444087
+   },
+   {
+    "blocks_travelled": 4,
+    "block": 19,
+    "bf16_rel_l2": 0.0315860866037567,
+    "bf16_step": 1.157629545090067,
+    "f32_rel_l2": 2.4682295255505377e-06,
+    "f32_step": 1.1379187071322852,
+    "bf16_over_f32": 12797.062135747457,
+    "reference_norm": 0.00012735505283666416,
+    "bf16_norm_over_reference": 0.9915415451204016
+   },
+   {
+    "blocks_travelled": 5,
+    "block": 18,
+    "bf16_rel_l2": 0.2587224919077054,
+    "bf16_step": 8.191027117519972,
+    "f32_rel_l2": 1.4134246092881813e-05,
+    "f32_step": 5.726471524048872,
+    "bf16_over_f32": 18304.654539586754,
+    "reference_norm": 0.00017826003774683077,
+    "bf16_norm_over_reference": 0.9854030849164543
+   },
+   {
+    "blocks_travelled": 6,
+    "block": 17,
+    "bf16_rel_l2": 0.2597599317369666,
+    "bf16_step": 1.0040098555854637,
+    "f32_rel_l2": 1.4155327819601623e-05,
+    "f32_step": 1.0014915352811373,
+    "bf16_over_f32": 18350.682869898883,
+    "reference_norm": 0.00018005551344866226,
+    "bf16_norm_over_reference": 0.98507688817644
+   },
+   {
+    "blocks_travelled": 7,
+    "block": 16,
+    "bf16_rel_l2": 0.2486578426485319,
+    "bf16_step": 0.9572601940022194,
+    "f32_rel_l2": 1.3700804764809723e-05,
+    "f32_step": 0.9678903194200492,
+    "bf16_over_f32": 18149.1413765128,
+    "reference_norm": 0.00018945385304667585,
+    "bf16_norm_over_reference": 0.9758856621449239
+   },
+   {
+    "blocks_travelled": 8,
+    "block": 15,
+    "bf16_rel_l2": 0.21000310302909564,
+    "bf16_step": 0.8445464691251535,
+    "f32_rel_l2": 1.1937091463228785e-05,
+    "f32_step": 0.8712693646937438,
+    "bf16_over_f32": 17592.48504344569,
+    "reference_norm": 0.0003092256498723868,
+    "bf16_norm_over_reference": 0.9359383773950007
+   },
+   {
+    "blocks_travelled": 9,
+    "block": 14,
+    "bf16_rel_l2": 0.20720035958536392,
+    "bf16_step": 0.9866537998567412,
+    "f32_rel_l2": 1.1903097546301187e-05,
+    "f32_step": 0.9971522445788145,
+    "bf16_over_f32": 17407.263847026956,
+    "reference_norm": 0.00031029236642179047,
+    "bf16_norm_over_reference": 0.9381402104919505
+   },
+   {
+    "blocks_travelled": 10,
+    "block": 13,
+    "bf16_rel_l2": 0.2093776917242413,
+    "bf16_step": 1.0105083415069092,
+    "f32_rel_l2": 1.2180401230096584e-05,
+    "f32_step": 1.0232967664691253,
+    "bf16_over_f32": 17189.720417985038,
+    "reference_norm": 0.0003207757699457287,
+    "bf16_norm_over_reference": 0.9405761355025309
+   },
+   {
+    "blocks_travelled": 11,
+    "block": 12,
+    "bf16_rel_l2": 0.21246317526667655,
+    "bf16_step": 1.0147364483628893,
+    "f32_rel_l2": 1.2663772915672146e-05,
+    "f32_step": 1.0396843811992988,
+    "bf16_over_f32": 16777.2414020265,
+    "reference_norm": 0.00033444410758772783,
+    "bf16_norm_over_reference": 0.944920717843072
+   },
+   {
+    "blocks_travelled": 12,
+    "block": 11,
+    "bf16_rel_l2": 0.21406426312159263,
+    "bf16_step": 1.0075358369887226,
+    "f32_rel_l2": 1.3152297750408693e-05,
+    "f32_step": 1.0385765630819208,
+    "bf16_over_f32": 16275.807253142579,
+    "reference_norm": 0.000360356321866137,
+    "bf16_norm_over_reference": 0.9487307138263292
+   },
+   {
+    "blocks_travelled": 13,
+    "block": 10,
+    "bf16_rel_l2": 0.2178557292432494,
+    "bf16_step": 1.0177118126415297,
+    "f32_rel_l2": 1.3986605145444193e-05,
+    "f32_step": 1.063434345151559,
+    "bf16_over_f32": 15576.026274982873,
+    "reference_norm": 0.00038828352858296625,
+    "bf16_norm_over_reference": 0.9550124953420595
+   },
+   {
+    "blocks_travelled": 14,
+    "block": 9,
+    "bf16_rel_l2": 0.25771794088174965,
+    "bf16_step": 1.1829752734847365,
+    "f32_rel_l2": 1.6707487414359912e-05,
+    "f32_step": 1.1945348596476237,
+    "bf16_over_f32": 15425.2961256307,
+    "reference_norm": 0.00041380442542708477,
+    "bf16_norm_over_reference": 0.9422876697404522
+   },
+   {
+    "blocks_travelled": 15,
+    "block": 8,
+    "bf16_rel_l2": 0.25839776789048896,
+    "bf16_step": 1.0026378722661424,
+    "f32_rel_l2": 1.7001646460144187e-05,
+    "f32_step": 1.0176064203125748,
+    "bf16_over_f32": 15198.396725648508,
+    "reference_norm": 0.0004486471518224103,
+    "bf16_norm_over_reference": 0.9506516822943977
+   },
+   {
+    "blocks_travelled": 16,
+    "block": 7,
+    "bf16_rel_l2": 0.2629503483262438,
+    "bf16_step": 1.0176184975316205,
+    "f32_rel_l2": 1.8354459589415733e-05,
+    "f32_step": 1.0795695365412317,
+    "bf16_over_f32": 14326.237557976185,
+    "reference_norm": 0.0004896123195729147,
+    "bf16_norm_over_reference": 0.9492789231589168
+   },
+   {
+    "blocks_travelled": 17,
+    "block": 6,
+    "bf16_rel_l2": 0.29199912137830425,
+    "bf16_step": 1.110472464619136,
+    "f32_rel_l2": 1.97532428441935e-05,
+    "f32_step": 1.0762094491512237,
+    "bf16_over_f32": 14782.338458626195,
+    "reference_norm": 0.0005854568483884793,
+    "bf16_norm_over_reference": 0.9362388731938498
+   },
+   {
+    "blocks_travelled": 18,
+    "block": 5,
+    "bf16_rel_l2": 0.29182601702897426,
+    "bf16_step": 0.9994071751020589,
+    "f32_rel_l2": 2.002433688364917e-05,
+    "f32_step": 1.0137240270670473,
+    "bf16_over_f32": 14573.56709111622,
+    "reference_norm": 0.0006326825280516168,
+    "bf16_norm_over_reference": 0.9458049650066912
+   },
+   {
+    "blocks_travelled": 19,
+    "block": 4,
+    "bf16_rel_l2": 0.29004799007181303,
+    "bf16_step": 0.9939072363209319,
+    "f32_rel_l2": 2.0875460893177975e-05,
+    "f32_step": 1.0425044791482603,
+    "bf16_over_f32": 13894.207728203963,
+    "reference_norm": 0.0007461776897873712,
+    "bf16_norm_over_reference": 0.9648638646682166
+   },
+   {
+    "blocks_travelled": 20,
+    "block": 3,
+    "bf16_rel_l2": 0.28625355194036123,
+    "bf16_step": 0.9869178954471902,
+    "f32_rel_l2": 2.053052500173638e-05,
+    "f32_step": 0.9834764897787566,
+    "bf16_over_f32": 13942.826689339467,
+    "reference_norm": 0.0007866409974179658,
+    "bf16_norm_over_reference": 0.9705205022153671
+   },
+   {
+    "blocks_travelled": 21,
+    "block": 2,
+    "bf16_rel_l2": 0.2756330680922138,
+    "bf16_step": 0.9628983333965402,
+    "f32_rel_l2": 1.9872958659946574e-05,
+    "f32_step": 0.9679712846245192,
+    "bf16_over_f32": 13869.755017794356,
+    "reference_norm": 0.0008540147639163127,
+    "bf16_norm_over_reference": 0.9752162807480703
+   },
+   {
+    "blocks_travelled": 22,
+    "block": 1,
+    "bf16_rel_l2": 0.25417701635793283,
+    "bf16_step": 0.9221571929566057,
+    "f32_rel_l2": 1.826484451943902e-05,
+    "f32_step": 0.9190802855264493,
+    "bf16_over_f32": 13916.188341346993,
+    "reference_norm": 0.0010580394059590014,
+    "bf16_norm_over_reference": 0.9763060859992815
+   },
+   {
+    "blocks_travelled": 23,
+    "block": 0,
+    "bf16_rel_l2": 0.25095477142202927,
+    "bf16_step": 0.9873228312218206,
+    "f32_rel_l2": 1.8059626825699667e-05,
+    "f32_step": 0.988764333935559,
+    "bf16_over_f32": 13895.900166935302,
+    "reference_norm": 0.0011372239150802214,
+    "bf16_norm_over_reference": 0.9762376291592705
+   }
+  ],
+  "LIMIT": "These are UPSTREAM's per-block curves, not ours. Our own per-block cotangent curve on the device arm is NOT measured in this pass and is the next arm: it needs the tape's DiT block outputs hooked the way census_run.py hooks _unshard, plus a block identity the tape does not carry today. What this reading establishes is that the accumulation exists in the reference, at 2.5e-01 by the bottom of the DiT-24, which is what makes our gradient at 0.734x of upstream's own readable as a result."
+ }
 }
