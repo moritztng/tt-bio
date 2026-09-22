@@ -1,0 +1,158 @@
+{
+ "instrument": "PROTOCOL SS6 coverage for the two paths that needed an OF3 training forward",
+ "owner": "of3t-trainfwd",
+ "composes_with": "perf/of3t_covpaths/COVERAGE_UNION.json -- same schema, disjoint paths; that file owns the other nine and is not re-emitted here",
+ "union": {
+  "model_forward": {
+   "covered": true,
+   "census_said": false,
+   "this_row": "CONTRADICTS",
+   "evidence": {
+    "adapter": "tt_bio.train.catalogue.register('openfold3', tt_bio.train.openfold3.adapter)",
+    "arm_on": "ARM_full_n384.json",
+    "arm_off": "ARM_zeroseed_n384.json -- the same forward, every objective seed replaced by zeros",
+    "loss": 0.1342802552371707,
+    "seeded_outputs": [
+     "distogram_logits",
+     "resolved_logits"
+    ],
+    "params_reachable": 3952,
+    "n_params_nonzero_grad_on": 2489,
+    "n_params_nonzero_grad_off": 0,
+    "squared_gradient_norm_on": 9.785634443843449,
+    "squared_gradient_norm_off": 0.0,
+    "by_section_on": {
+     "input_glue": {
+      "n": 5,
+      "sq": 0.0586938328215179
+     },
+     "trunk": {
+      "n": 2314,
+      "sq": 6.775973617677438
+     },
+     "confidence_head": {
+      "n": 179,
+      "sq": 2.9509669933444918
+     }
+    },
+    "terms_that_fired": [
+     "distogram",
+     "resolved"
+    ],
+    "terms_skipped": {
+     "bond": "weight is zero in this stage",
+     "smooth_lddt": "missing ['pred_dist']",
+     "mse": "missing ['pred_xyz']",
+     "plddt": "missing ['per_atom_lddt', 'per_atom_weight']",
+     "pae": "missing ['pred_xyz']",
+     "pde": "missing ['pred_xyz']"
+    },
+    "host": "tt-quietbox2",
+    "card": "1",
+    "commit": "5feca4f411bbb6cd2b7852af6f5be1778c712c49",
+    "padded_width": 384,
+    "real_tokens": 56,
+    "target": "5nw3",
+    "aiclk_during": {
+     "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 159
+     }
+    }
+   },
+   "reason": "the census reads covered false because `tt-bio wires no OF3 training forward: nothing in tt_bio/train/ produces the eight outputs from an OF3 batch, so no term's gradient was carried into a parameter`. One is registered now and the gradient is carried: the af3 objective's seeds reach the model's own parameters through one backward."
+  },
+  "diffusion_rollout": {
+   "covered": true,
+   "census_said": false,
+   "this_row": "CONTRADICTS",
+   "evidence": {
+    "arm_on": "ARM_full_n384.json -- the shipped sampler, 20 rollout steps",
+    "arm_off": "ARM_norollout_n384.json -- the confidence heads fed the ground truth structure instead, every other tensor identical",
+    "loss_on": 0.1342802552371707,
+    "loss_off": 0.13428052993402045,
+    "rollout_steps": 20,
+    "contribution": {
+     "tensors_compared": 2498,
+     "only_in_on": [],
+     "only_in_off": [],
+     "squared_norm_arm_on": 9.785634443843438,
+     "squared_norm_of_difference": 0.013916589517109269,
+     "share_of_squared_gradient_norm": 0.0014221448386379067,
+     "n_params_moved": 2488,
+     "by_section": {
+      "confidence_head": {
+       "n": 179,
+       "sq": 2.950966993344492,
+       "delta_sq": 3.964392252602549e-08,
+       "share_of_own": 1.3434214145884046e-08
+      },
+      "input_glue": {
+       "n": 5,
+       "sq": 0.0586938328215179,
+       "delta_sq": 5.393889858394889e-05,
+       "share_of_own": 0.0009189874981920454
+      },
+      "trunk": {
+       "n": 2314,
+       "sq": 6.775973617677422,
+       "delta_sq": 0.013862610974602792,
+       "share_of_own": 0.002045847837783411
+      }
+     }
+    },
+    "lazily_minted_by_the_rollout": 0,
+    "host": "tt-quietbox2",
+    "card": "1",
+    "commit": "5feca4f411bbb6cd2b7852af6f5be1778c712c49",
+    "padded_width": 384,
+    "real_tokens": 56,
+    "target": "5nw3",
+    "aiclk_during": {
+     "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 159
+     }
+    }
+   },
+   "reason": "the census's reason -- `the rollout is a differentiated path through the diffusion module` -- does not hold: upstream runs it under torch.no_grad() (of3pkg043/openfold3/projects/of3_all_atom/model.py:381) and in training it is the MINI rollout. Its reach into a parameter gradient is the structure it hands the confidence heads, and that is what these two arms separate. See ADDENDUM_upstream_rollout_is_no_grad.md."
+  }
+ },
+ "union_summary": {
+  "paths": 2,
+  "covered": 2,
+  "confirms": [],
+  "extends": [],
+  "contradicts": [
+   "diffusion_rollout",
+   "model_forward"
+  ]
+ },
+ "rule": "a path is covered when a parameter gradient MOVES against an arm with the path off, not when a config key is set",
+ "sources": {
+  "ARM_full_n384": {
+   "path": "perf/of3t_trainfwd/ARM_full_n384.json",
+   "sha256": "68d4ebd65e9adee7ab499ed6b7274c226d05fdd8de82618eb74f09e5518340b6"
+  },
+  "ARM_zeroseed_n384": {
+   "path": "perf/of3t_trainfwd/ARM_zeroseed_n384.json",
+   "sha256": "463e89d89ae4ff033683fb856a3b36dceae2b7179a01829d8acec5de8481f396"
+  },
+  "ARM_norollout_n384": {
+   "path": "perf/of3t_trainfwd/ARM_norollout_n384.json",
+   "sha256": "14f3b40f5e7f46e5cc5a45513c09c407f86602ff851bec224473e945f51a851c"
+  },
+  "grad_full_n384": {
+   "path": "/home/ttuser/of3t_trainfwd/grad_full_n384.pt",
+   "sha256": "78a77d81230d7bc9726f91e3356055428b5e3fefecdd8729545ad6a8fea8c30f"
+  },
+  "grad_norollout_n384": {
+   "path": "/home/ttuser/of3t_trainfwd/grad_norollout_n384.pt",
+   "sha256": "99d813e055b7d41172fe91a6b92c29c35520eec7fd78de86b929b6529af3a88c"
+  }
+ }
+}
