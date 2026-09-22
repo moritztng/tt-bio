@@ -376,7 +376,15 @@ GAP: **GRADIENTS, and as of pass 379 it is one thing, measured on the right boun
               and the map amplifies coherent error **4.33x** against **0.4725** for noise —
               which is `of3t-apbleaf`'s 99.72 %-ACROSS reading seen from the other side.
               `of3t-cotcoh` is dispatched to walk the coherent fraction back from block 47 and
-              name the op that produces it.
+              name the op that produces it, and it was given a **named candidate mid-flight**:
+              **D240** — `tt_bio/autograd.py:348-353` promotes a cotangent to fp32 only on the
+              SECOND contribution, so a tensor with one consumer keeps **bf16**. Cotangent
+              precision keyed on graph **FAN-OUT** is coherence-shaped, is invisible to every
+              per-op check run so far (each op is exact *given its inputs*), and is confined to
+              the tape so a fix **cannot reach inference by construction**. **Filed as a
+              candidate, not a finding** — a code fact is not a firing condition, and three
+              mechanism calls from magnitudes were wrong this pass. Two cheap tests are in the
+              brief and the first, a bf16-`.grad` count per block, can kill it for free.
               The pass-378 projections of 1.2909x and 1.0674x are **dead** (R130) and are not
               quoted as targets anywhere: A37.
               **The charter clause and `assert_frame_matched_ratios.py` were repointed onto this
@@ -413,14 +421,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 91 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 92 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        6  D32, D55, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  80  D10, D18, D22, D23, D24, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227, D231, D232, D233, D235, D237
+    CAMPAIGN-INTERNAL  81  D10, D18, D22, D23, D24, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227, D231, D232, D233, D235, D237, D240
 
 **Six** USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`. **Three closed this pass and it was verified
@@ -460,8 +468,8 @@ regenerated every compose, break control passing): COVERAGE and TRAJECTORY MET, 
 **Counts, stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.** One hundred
 seventeen rows dispatched; `state/concluded` holds **one hundred nineteen** of3t files, two of
 them this row's own historical markers, so **one hundred seventeen rows have concluded**.
-**Two hundred thirty-nine defects filed**, **91 UNFIXED** (5
-scope-excluded, 6 USER-FACING, 80 campaign-internal) over the union of `DEFECTS.md` and its archives.
+**Two hundred forty defects filed**, **92 UNFIXED** (5
+scope-excluded, 6 USER-FACING, 81 campaign-internal) over the union of `DEFECTS.md` and its archives.
 
 **Distance to go, per tensor** (`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator
 10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
@@ -501,7 +509,8 @@ delivers it**, weaker than this doc claimed an hour ago and still not a NO-GO. T
 arithmetic, not a hypothesis: `dW` is linear in the cotangent and the operator is exact, so the
 leaf error **is** the cotangent's error mapped through an exact reduction, and that map amplifies
 a position-**coherent** error **4.33x** against **0.4725** for noise. `of3t-cotcoh` walks it back
-from block 47.
+from block 47, with candidate **D240** delivered mid-flight: cotangent precision keyed on graph
+FAN-OUT, coherence-shaped and confined to the tape (GAP).
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** The per-pass
 narrative, including the superseded CEIL_HF projection and its correction, is in PASSLOG.

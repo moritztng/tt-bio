@@ -1223,3 +1223,47 @@ against, not in their ceiling.
 leaf error IS the cotangent's error mapped through an exact reduction — and that map amplifies a
 position-**COHERENT** cotangent error **4.33x** against the isotropic **0.4725** it applies to
 noise. `of3t-cotcoh` is dispatched on it.
+
+---
+
+### D240. A taped tensor's cotangent precision depends on its graph FAN-OUT, not on intent: one consumer keeps bf16, two get fp32. **UNFIXED** — CANDIDATE for the trunk's coherent error, named by `of3t-orchestrator` at pass 379 from a source read, NOT yet measured firing.
+
+`tt_bio/autograd.py:348-353` is the only place `self.grad` is ever assigned:
+
+    if self.grad is None:
+        self.grad = grad                  # first contribution: stored AS-IS, in the closure's dtype
+        return
+    if self.grad.dtype != ttnn.float32:
+        self.grad = ttnn.typecast(self.grad, ttnn.float32)   # promoted only on the SECOND
+
+So **the promotion to fp32 is triggered by a second contribution arriving, not by the tape
+opening.** A tensor consumed once keeps its cotangent in whatever dtype its closure produced —
+bf16 on the trunk — while the identical tensor with two consumers carries fp32. `of3t-lnreduce`
+noted the promotion in passing while measuring something else; nobody has asked what it means
+for a tensor that never gets a second contribution.
+
+**Why this is a candidate for the coherent error specifically.** A precision policy keyed on
+graph topology produces an error that is *structured* — determined by which tensors happen to
+have fan-out 1, which is a property of the model's shape and is identical on every step and every
+position. That is coherent, not isotropic, and `of3t-lnreduce` measured the affine map amplifying
+coherent cotangent error **4.33x** against **0.4725** for noise. It is also invisible to every
+check the campaign has run: each op is exact *given its inputs*, and the inputs are where the
+loss is.
+
+**It is a candidate and nothing more, and this entry says so deliberately.** Three mechanism
+calls were made from magnitudes this pass and all three were wrong (R133). This one is a code
+fact rather than a magnitude, but a code fact is not a firing condition
+(`eligibility-firing-condition-is-not-a-code-fact`). **What would settle it**, and what
+`of3t-cotcoh` is told to run:
+
+1. **Count it.** During the real trunk backward on `of3t-modelframe`'s boundary, count taped
+   tensors whose `.grad` is bf16 when it is CONSUMED, per block. If the count is zero on the
+   trunk path the candidate is dead and costs nothing further.
+2. **Break control.** Promote on the first contribution too — a one-line change — and re-measure
+   the trunk. If the 2.9702x does not move, the candidate is dead with a measurement behind it.
+
+**Two things in its favour before anyone spends time.** The fix, if it is one, is confined to the
+tape and therefore **cannot reach inference by construction** — an inference fold installs no
+tape — so it satisfies the training-only hard constraint without a flag. And the cost is bounded
+and knowable in advance: one typecast per first contribution and roughly double the cotangent
+residency on the training path only.
