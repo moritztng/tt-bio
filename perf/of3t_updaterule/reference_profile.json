@@ -156,5 +156,13 @@
  },
  "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
  "sha256_matches": true,
- "torch": "2.14.0+cu130"
+ "torch": "2.14.0+cu130",
+ "reference_standing": {
+  "stamped_by": "of3t-orchestrator, pass 63",
+  "why_not_the_owning_row": "of3t-updaterule concluded before the reference was republished, so no row was left to stamp this. The stamp is mechanical -- which artifact the numbers were measured against -- and changes no measurement in this file.",
+  "reference_used_sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+  "reference_used_status": "WITHDRAWN: the train-mode tape, D18. Its reference side is one dropout draw whose own draw-to-draw floor is median 0.550.",
+  "reference_republished_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+  "what_still_holds": "the bijection split and the presence set are properties of the checkpoint and the tensor names, not of the gradient's values, so 3275/4147 mapped and 4147/4147 present stand. The NORM shares in this file are against the withdrawn gradient: recomputed against the republished one the tracer reach is 4.05 %, not 6.54 %."
+ }
 }
