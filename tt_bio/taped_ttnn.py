@@ -42,7 +42,8 @@ from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
-__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
+__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn",
+           "forget_shim_bindings"]
 
 # ---------------------------------------------------------------------------------------
 # The shipped forward, taped where it computes.
@@ -1073,6 +1074,19 @@ def _taped_verb(qual, shipped):
 _SHIM = _Ttnn(ttnn)
 _SHIMMED: list = []
 _NEVER_SHIM = (__name__, "tt_bio.autograd")
+
+
+def forget_shim_bindings(*names: str) -> None:
+    """Drop `_SHIM`'s cached binding for these verb names, so the next call re-resolves it.
+
+    `_Ttnn.__getattr__` caches a closure that captured BOTH the tape entry out of `_VERBS` and
+    the shipped callable off `ttnn`, so a swap of either one afterwards is invisible at any
+    call site that has already been through the shim once. `_SHIM` is a module singleton and
+    outlives any one `tape()`, so this is not a first-tape problem -- it is the second tape in
+    a process, where a lever installed between the two reads as perfectly inert.
+    """
+    for n in names:
+        _SHIM.__dict__.pop(n, None)
 
 
 def taped_ttnn():

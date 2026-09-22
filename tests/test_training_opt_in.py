@@ -184,3 +184,30 @@ def test_the_training_package_defines_no_forward():
         f"The training path calls the shipped forward; it does not carry its own. If this is a "
         f"genuine unrelated name clash, rename it -- the ambiguity is the problem."
     )
+
+
+def test_the_training_only_levers_stay_inside_the_training_stack():
+    """`autograd.install(exact_softmax=True)` replaces `ttnn.softmax` process-wide while it is
+    installed, so what keeps it off an inference fold is that nothing on that path can ask for
+    it. The import census above says the modules cannot reach `tt_bio.autograd`; this says the
+    lever did not grow a second door -- a helper re-exported somewhere an inference module does
+    import, or a construction-site selector like the one it exists to replace.
+
+    Kept here rather than beside the lever because it is the same invariant this file already
+    holds: the training stack is opt-in, and a lever is only as opt-in as its narrowest caller.
+    """
+    NAMES = ("exact_softmax", "_install_exact_softmax", "_uninstall_exact_softmax",
+             "_exact_softmax_raw", "_v_exact_softmax", "EXACT_SOFTMAX_STATS",
+             "forget_shim_bindings")
+    offenders = {}
+    for path in sorted(PKG.rglob("*.py")):
+        if "_vendor" in path.parts or path.relative_to(PKG).name in ALLOWED:
+            continue
+        if path.relative_to(PKG).parts[0] == "train":
+            continue
+        text = path.read_text(errors="replace")
+        hits = sorted({n for n in NAMES if n in text})
+        if hits:
+            offenders[str(path.relative_to(PKG))] = hits
+    assert not offenders, (
+        f"training-only softmax levers are named outside the training stack: {offenders}")

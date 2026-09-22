@@ -1,0 +1,38 @@
+{
+ "what": "D242 candidate, located by code read at zero card cost: the reference ran the pairformer trunk under checkpoint_blocks with blocks_per_ckpt=1, and every ref_grad.py replay runs a bare Python loop",
+ "host": "pc",
+ "device_involved": false,
+ "filed_by": "of3t-orchestrator, pass 382",
+ "status": "CANDIDATE. A code fact is not a firing condition (eligibility-firing-condition-is-not-a-code-fact). It is not the cause until a break control moves 0.7945281613194305.",
+ "chain": [
+  {"step": "the reference's model build",
+   "file": "perf/of3t_reference/bundle_min.py:354",
+   "code": "cfg = OF3ProjectEntry().get_model_config_with_presets(presets=[\"train\"])",
+   "says": "grads_f64_043.pt, and therefore capture_model_frame.py's capture, is built on the TRAIN preset"},
+  {"step": "what the train preset sets",
+   "file": "openfold3/projects/of3_all_atom/config/model_setting_presets.yml:1-4",
+   "code": "train:\n  settings:\n    blocks_per_ckpt: 1\n    ckpt_intermediate_steps: true",
+   "says": "blocks_per_ckpt is 1, so EVERY pairformer block is individually checkpointed"},
+  {"step": "what the stack does with it",
+   "file": "openfold3/core/model/latent/pairformer.py:400-472",
+   "code": "blocks = self._prep_blocks(...)\nblocks_per_ckpt = self.blocks_per_ckpt\nif not torch.is_grad_enabled():\n    blocks_per_ckpt = None\ns, z = checkpoint_blocks(blocks, args=(s, z), blocks_per_ckpt=blocks_per_ckpt, use_reentrant=self.use_reentrant)\nreturn s, z",
+   "says": "the stack's forward is EXACTLY prep-partials then checkpoint_blocks then return. There is no post-op, which is why the replay's forward is bit-exact. Checkpointing is gated on grad being enabled, so inference runs the plain loop and TRAINING DOES NOT."},
+  {"step": "which checkpoint function",
+   "file": "openfold3/core/utils/checkpointing.py:102-110",
+   "code": "checkpoint = get_checkpoint_fn(use_reentrant=use_reentrant)\nargs = checkpoint(chunker(s, e), *args, use_reentrant=use_reentrant)",
+   "says": "PairFormerStack.__init__ defaults use_reentrant to None and nothing in the config sets it, so torch.utils.checkpoint receives use_reentrant=None and resolves it to its own default"},
+  {"step": "what the replay does instead",
+   "file": "perf/of3t_trunkg043/ref_grad.py:178-190",
+   "code": "def fwd(s, z):\n    for m in mods:\n        s, z = m(s, z, sm, pm)\n    return s, z",
+   "says": "a bare Python loop over 48 standalone PairFormerBlocks, no checkpointing at all. The --checkpoint option is a THIRD thing: torch.utils.checkpoint per block with use_reentrant=False explicitly."}
+ ],
+ "three_configurations_not_two": {
+  "reference": "checkpoint_blocks, blocks_per_ckpt=1, use_reentrant=None",
+  "replay_default": "no checkpointing, bare loop",
+  "replay_--checkpoint": "torch.utils.checkpoint per block, use_reentrant=False",
+  "why_it_matters": "of3t-twoside's '--checkpoint is inert on this frame' control compared the second against the THIRD. Neither of them is what the reference ran, so that control could not have seen this difference. It is a correct reading of the question it asked."
+ },
+ "the_honest_caveat": "Checkpointing is supposed to be mathematically exact, reentrant or not, so this difference should NOT produce a 1.749x scale. That is an argument for testing it, not for dismissing it: if the break control leaves 0.7945 unmoved the candidate is dead cheaply, and if it moves it then an exactness assumption this campaign has been making is false and that is worth more than the frame.",
+ "the_break_control": "run ref_grad.py's 48 blocks through openfold3.core.utils.checkpointing.checkpoint_blocks with blocks_per_ckpt=1 and use_reentrant=None -- upstream's own function, not a reimplementation -- and re-read the control. Minutes, CPU only, no model run. It is strictly cheaper than the full-model splitter and tests the same hypothesis branch.",
+ "what_it_does_not_say": "It does not name the cause, it does not explain the 0.0895 residual that survives the best scalar, and it does not touch H-A. If the break control moves 0.7945 only partially, both components are still live."
+}
