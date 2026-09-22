@@ -357,6 +357,97 @@ def run_cotprobe(cots, loss, published_cot, out_dir, tag):
     }
 
 
+def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag):
+    """--blockprobe only: read the REFERENCE's own trunk gradient with a second instrument.
+
+    Every premise that would force the injected replay to reproduce `grads_f64_043.pt` has now
+    been measured and holds -- same module object, boundary reproducing the outputs bit for
+    bit, one hook firing, cotangent confirmed by `torch.autograd.grad`, no trunk parameter
+    object registered at a second name -- and the replay still disagrees on the 1,968 tensors
+    `cot_z` reaches. The one quantity never read twice is the reference gradient itself.
+
+    `torch.autograd.grad(loss, <one block's parameters>)` prunes the graph to that block, so the
+    last block costs ONE block's backward instead of forty-eight. Block 47 is where the injected
+    replay's residual peaks (0.30026 against a 0.0895 median), which makes it the cheapest place
+    to ask whether `p.grad` and `autograd.grad` agree with each other.
+    """
+    taped = [c for c in cots if c["grad_enabled"]]
+    c = taped[0]
+    names, params = [], []
+    for i in blocks:
+        for n, prm in model.named_parameters():
+            if n.startswith(f"pairformer_stack.blocks.{i}."):
+                names.append(n); params.append(prm)
+    t0 = time.time()
+    got = torch.autograd.grad(loss, [c["s_out_t"], c["z_out_t"]] + params,
+                              retain_graph=False, allow_unused=True)
+    t_probe = time.time() - t0
+    g_s, g_z, gp = got[0], got[1], got[2:]
+    mine = {n: (g.detach().to(torch.float64) if g is not None else None)
+            for n, g in zip(names, gp)}
+
+    def load(path):
+        d = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+        return d["grads"] if isinstance(d, dict) and "grads" in d else d
+
+    def fit(arm, ref, keys):
+        dot = a2 = r2 = e2 = 0.0
+        worst, worst_name, n_bit = -1.0, None, 0
+        for n in keys:
+            r = ref[n].to(torch.float64).reshape(-1)
+            m = arm[n]
+            if m is None:
+                continue
+            m = m.reshape(-1)
+            rn2 = float(torch.dot(r, r)); r2 += rn2
+            dot += float(torch.dot(m, r)); a2 += float(torch.dot(m, m))
+            e = float(torch.dot(m - r, m - r)); e2 += e
+            if torch.equal(m, r):
+                n_bit += 1
+            rel = (e / rn2) ** 0.5 if rn2 > 0 else (0.0 if e == 0 else float("inf"))
+            if rel > worst:
+                worst, worst_name = rel, n
+        return {"n_tensors": len(keys), "n_bit_identical": n_bit,
+                "rel_l2_as_is": (e2 / r2) ** 0.5 if r2 else None,
+                "norm_ratio_arm_over_ref": (a2 / r2) ** 0.5 if r2 else None,
+                "cos": dot / (a2 * r2) ** 0.5 if a2 > 0 and r2 > 0 else None,
+                "best_scalar_a_star": dot / a2 if a2 > 0 else None,
+                "residual_after_best_scalar_frac_of_ref":
+                    (max(r2 - dot * dot / a2, 0.0) / r2) ** 0.5 if a2 > 0 and r2 else None,
+                "ref_squared_norm": r2, "arm_squared_norm": a2,
+                "worst_rel_l2": worst, "worst_tensor": worst_name}
+
+    rg = load(ref_grads)
+    inj = load(injected)
+    per = {}
+    for i in blocks:
+        keys = [n for n in names if n.startswith(f"pairformer_stack.blocks.{i}.")]
+        per[str(i)] = {
+            "autograd_grad_vs_grads_f64_043": fit(mine, rg, keys),
+            "injected_replay_vs_grads_f64_043": fit({n: inj[n] for n in keys}, rg, keys),
+            "autograd_grad_vs_injected_replay": fit(mine, inj, keys),
+        }
+    return {
+        "what": "the reference's own trunk gradient read by torch.autograd.grad on one block's "
+                "parameters instead of by p.grad after a full backward",
+        "host": socket.gethostname(), "row": "of3t-frameself", "defect": "D242",
+        "device_involved": False,
+        "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+        "blocks": list(blocks), "loss": float(loss),
+        "reference": {"path": str(ref_grads), "sha256": sha256_file(ref_grads),
+                      "is": "the full-model float64 backward on batch_step003, num_recycles 0"},
+        "injected_arm": {"path": str(injected), "sha256": sha256_file(injected),
+                         "is": "of3t-twoside's injected float64 replay through ref_grad.py"},
+        "cotangent_reread": {
+            "cot_s_norm": norms(g_s), "cot_z_norm": norms(g_z),
+            "bit_identical_to_the_hook": {
+                "s": bool(torch.equal(g_s.detach().to(torch.float64), c["cot_s"])),
+                "z": bool(torch.equal(g_z.detach().to(torch.float64), c["cot_z"]))}},
+        "seconds_autograd_grad": t_probe,
+        "per_block": per,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, type=Path)
@@ -387,6 +478,15 @@ def main() -> int:
                          "a bit-exact forward. This holds everything fixed but the "
                          "differentiator. Opt-in: without it nothing below runs and the file "
                          "produces byte for byte what it produced before.")
+    ap.add_argument("--blockprobe", metavar="I,J,...", default=None,
+                    help="opt-in. Read the reference's own trunk gradient for these blocks with "
+                         "torch.autograd.grad instead of p.grad after a full backward, and score "
+                         "it against --ref-grads and against --blockprobe-injected. autograd "
+                         "prunes the graph to the named blocks, so the last block costs one "
+                         "block's backward, not forty-eight. Stops before the full backward.")
+    ap.add_argument("--blockprobe-injected", type=Path, default=None,
+                    help="the injected replay's gradient file the --blockprobe reading is also "
+                         "scored against")
     ap.add_argument("--cotprobe", action="store_true",
                     help="opt-in. Read the stack's output cotangent a second time with "
                          "torch.autograd.grad instead of a tensor hook, enumerate every tape "
@@ -504,7 +604,7 @@ def main() -> int:
         if z_out.requires_grad:
             z_out.register_hook(
                 lambda g, sl=slot: sl.__setitem__("cot_z", g.detach().to(torch.float64).clone()))
-        if a.cotprobe:
+        if a.cotprobe or a.blockprobe:
             # --cotprobe only. The graph tensors themselves, so autograd.grad can be pointed at
             # them. Holding a reference does not change the graph.
             slot["s_out_t"], slot["z_out_t"] = s_out, z_out
@@ -537,6 +637,22 @@ def main() -> int:
         raise SystemExit(f"loss {float(loss)!r} is not bit-identical to the published "
                          f"{a.expect_loss!r} -- this is not the reference's own step, so its "
                          f"boundary and cotangent are not the reference's either")
+
+    if a.blockprobe:
+        if a.blockprobe_injected is None or a.ref_grads is None:
+            raise SystemExit("--blockprobe needs --ref-grads and --blockprobe-injected")
+        blocks = [int(x) for x in a.blockprobe.split(",") if x.strip() != ""]
+        rb = run_blockprobe(cots, loss, model, blocks, a.ref_grads, a.blockprobe_injected,
+                            a.out_dir, a.tag)
+        h1.remove(); h2.remove()
+        a.out_dir.mkdir(parents=True, exist_ok=True)
+        rp = a.out_dir / f"BLOCKPROBE_{a.tag}.json"
+        rp.write_text(json.dumps(rb, indent=1))
+        print("BLOCKPROBE " + json.dumps(
+            {k: rb[k] for k in ("cotangent_reread", "per_block", "seconds_autograd_grad")},
+            indent=1), flush=True)
+        print("report " + str(rp), flush=True)
+        return 0
 
     if a.cotprobe:
         if a.cotprobe_compare is None:
