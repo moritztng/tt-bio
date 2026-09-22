@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -196,7 +196,49 @@ echo "main:        $(tail -1 "$SLUG_TMP/col_base.txt")"
 echo "composition: $(tail -1 "$SLUG_TMP/col_comp.txt")"
 diff -q "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" >/dev/null \
   && echo "error sets: IDENTICAL -- no new import breakage" \
-  || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"; exit 1; }
+  || { echo "NEW COLLECTION ERRORS (classified below):"
+       # `|| true`: diff exits 1 when the files differ, which is the ONLY case this branch
+       # runs in, and `set -e` then kills the script before the classifier can say a word.
+       # Second time this campaign has been bitten by a command whose failure IS the expected
+       # case (K65: `grep -v` filtering everything out under pipefail).
+       diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" || true
+       # Say WHAT KIND of new error it is. 84 of the ~107 baseline errors on a CPU host are a
+       # top-level `import ttnn`, and three tests already avoid that with
+       # `pytest.importorskip("ttnn")` and skip instead. A new file of that class is a
+       # one-line convention miss, not broken code -- and a reader who has to run pytest by
+       # hand to learn which it is will start ignoring this gate.
+       _ttnn_only=0; _real=0
+       for _f in $( { diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" || true; } \
+                   | grep '^> ERROR' | awk '{print $3}'); do
+         # Capture THEN grep. `pytest | grep -q` under `set -o pipefail` is non-zero whenever
+         # pytest is -- which is always here, since the file is in the error set -- so the
+         # pipeline reported "not the ttnn class" for a file that plainly was one. Third time
+         # this script has been bitten by pipefail on a command whose failure is expected.
+         _out=$( { cd "$CO" && "$PY" -m pytest "$_f" --collect-only -q 2>&1; } || true )
+         if printf '%s' "$_out" | grep -q "No module named 'ttnn'"; then
+           echo "  $_f: top-level \`import ttnn\` on a host without it -- the class 84 of the"
+           echo "    baseline errors already are. The convention that avoids it is"
+           echo "    \`pytest.importorskip(\"ttnn\")\` (see tests/test_sdpa_cb_model.py,"
+           echo "    tests/test_training_full_weights.py, tests/test_sdpa_fused_pairs.py),"
+           echo "    which SKIPS instead. One line, and the error set stays identical."
+           _ttnn_only=$((_ttnn_only + 1))
+         else
+           echo "  $_f: NOT the ttnn class -- read it, this one may be real."
+           _real=$((_real + 1))
+         fi
+       done
+       # FAIL only on a new error that is NOT the ttnn class. A device test with a top-level
+       # `import ttnn` is indistinguishable on pc from the 84 baseline errors of that shape,
+       # and on a host WITH ttnn it collects fine -- so counting it as breakage measures "a
+       # row added a device test", not "the composition broke imports". Keeping it fatal would
+       # block every live row's normal work on a style preference, which is how a correctness
+       # gate gets routed around. It still WARNS by name with the one-line convention fix.
+       if [ "${_real:-0}" -gt 0 ]; then
+         echo "  -> $_real new error(s) of an unknown class: that is breakage. Stopping."
+         exit 1
+       fi
+       echo "  -> all $_ttnn_only new error(s) are the ttnn class; not breakage, but owed a"
+       echo "     \`pytest.importorskip\` so the error set goes back to identical."; }
 echo "NOTE: no test EXECUTED -- without ttnn everything errors on extras or skips. Behaviour unverified."
 
 # (2b) a reference to a file that does not exist. Composing found exactly this in NOTICE last
@@ -225,6 +267,70 @@ done
 echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
+
+# (5c) WILL IT MERGE? The composition is built by merging rows into a branch based on
+# `origin/main`, which makes it *likely* to merge back cleanly and proves nothing. Main moves
+# under us -- a `.gitignore` conflict already stopped one compose -- and the gate's question is
+# not "did the rows compose" but "will this land". A trial merge in a throwaway worktree costs
+# seconds and cannot be wrong about what git will do; every other way of answering can.
+# `rm -rf` leaves git's worktree metadata behind, so a second run's `add` fails on a path that
+# looks absent -- and the first version of this check swallowed that failure and printed
+# NOTHING, which is the silently-skipped shape this compose exists to catch. Prune first, and
+# say so if the add still fails.
+rm -rf "$SLUG_TMP/mergetest"; git worktree prune
+if ! git worktree add -q --detach "$SLUG_TMP/mergetest" origin/main 2>/dev/null; then
+  echo "  NOTE merge gate did NOT run: could not create the trial worktree. Unproven, not clean."
+else
+  if git -C "$SLUG_TMP/mergetest" merge --no-commit --no-ff "$(git -C "$CO" rev-parse HEAD)" \
+       >/dev/null 2>&1; then
+    if git merge-base --is-ancestor origin/main "$(git -C "$CO" rev-parse HEAD)"; then
+      echo "merge gate: clean, and the composition is a DESCENDANT of origin/main (fast-forwardable)"
+    else
+      echo "merge gate: clean (a real merge, not a fast-forward)"
+    fi
+  else
+    echo "MERGE GATE: wk/of3t does NOT merge cleanly into origin/main. Conflicted:"
+    git -C "$SLUG_TMP/mergetest" diff --name-only --diff-filter=U | sed 's/^/  /'
+    git -C "$SLUG_TMP/mergetest" merge --abort 2>/dev/null || true
+    git worktree remove --force "$SLUG_TMP/mergetest" 2>/dev/null || true
+    exit 1
+  fi
+  git -C "$SLUG_TMP/mergetest" merge --abort 2>/dev/null || true
+  git worktree remove --force "$SLUG_TMP/mergetest" 2>/dev/null || true
+fi
+
+# (5d) PUBLISH THE WRITTEN RECORD INTO THE BRANCH. The campaign's artifacts are in git; its
+# REASONING is not -- PROTOCOL.md, DEFECTS.md, EVIDENCE.md and LEDGER.md live in
+# `~/.coworker/state/of3t/`, which is gitignored, on one machine, with no backup. 440 KB of
+# markdown holding every bar, every defect and every correction, one disk away from gone,
+# while the 190 MB of artifacts they explain are replicated on origin. K61 said /tmp is scoped
+# but not durable; `state/` is durable but not REPLICATED, which is the same lesson one level
+# up. A reviewer handed `wk/of3t` should get the evidence AND the argument.
+#
+# Copies, not moves: `state/of3t/` stays authoritative and each copy says so in its header, so
+# nobody edits the wrong one and the campaign never holds two live answers to one question.
+_REC="$REPO/perf/of3t_orchestrator/record"
+mkdir -p "$_REC"
+_recn=0
+# ORCHESTRATOR.md is the state doc, and it is here for the same reason as the rest: its
+# PROVES / DOESNOT / VERDICT fields are the campaign's headline and the audit checks them, so
+# a reviewer who cannot read them cannot run the checks that read them.
+for _f in PROTOCOL DEFECTS EVIDENCE LEDGER ORCHESTRATOR; do
+  _src="/home/moritz/.coworker/state/of3t/$_f.md"
+  [ "$_f" = ORCHESTRATOR ] && _src="/home/moritz/.coworker/state/of3t-orchestrator.md"
+  [ -f "$_src" ] || continue
+  { echo "<!-- PUBLISHED COPY, regenerated by compose_verify.sh on every compose."
+    echo "     AUTHORITATIVE SOURCE: ~/.coworker/state/of3t/$_f.md on pc."
+    echo "     Edit that one. An edit here is overwritten on the next compose, and two live"
+    echo "     copies of one document is the defect this campaign spent four passes fixing."
+    echo "     Published so that wk/of3t carries the reasoning and not only the artifacts:"
+    echo "     the source is gitignored, on one machine, with no backup. -->"
+    echo
+    cat "$_src"
+  } > "$_REC/$_f.md"
+  _recn=$((_recn + 1))
+done
+echo "record: $_recn campaign documents published into the branch ($(du -sh "$_REC" | cut -f1))"
 
 # (6) REGENERATE COMPOSITION.md's data. Everything above is computed; the table in that file
 # was TYPED, once, at pass 6 -- and by pass 57 it still said "the six row branches" and listed
