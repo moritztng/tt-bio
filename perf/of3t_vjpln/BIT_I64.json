@@ -1,4 +1,10 @@
 {
+ "host": "qb1",
+ "hostname": "tt-quietbox",
+ "board": "p150a Blackhole",
+ "card": "qb1 (tt-quietbox) card 2 vs card 2, p150a Blackhole",
+ "a_ran_on": "qb1 card 2, p150a Blackhole",
+ "b_ran_on": "qb1 card 2, p150a Blackhole",
  "a": "/home/ttuser/of3t_blk4544/cot_B64.pt",
  "b": "/home/ttuser/of3t_vjpln/cot_I64.pt",
  "tensors": 98,

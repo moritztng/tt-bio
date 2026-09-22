@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sys
 import time
 
@@ -89,7 +90,17 @@ def main() -> int:
         rc = dev_cot.main()
     finally:
         if SIDECAR:
+            # D155: a card number without a host is not an identification -- card 0 is a
+            # different piece of hardware on pc, qb1 and qb2 -- and an artifact whose value
+            # could depend on which card produced it has to carry that card itself, not leave
+            # it in a log. `socket.gethostname()` rather than a flag, because a transcribed
+            # host is the same failure one level up.
+            _short = socket.gethostname().split(".")[0]
+            _host = {"tt-quietbox": "qb1", "tt-quietbox2": "qb2"}.get(_short, _short)
+            _card = os.environ.get("TT_VISIBLE_DEVICES", "")
             body = {"pin": PIN, "blocks": BLOCKS, "chunk": CHUNK, "rc": rc,
+                    "host": _host, "hostname": _short,
+                    "card": "%s (%s) card %s, p150a Blackhole" % (_host, _short, _card),
                     "seconds": round(time.perf_counter() - t0, 1),
                     "cast": CAST, "tt_bio": os.path.realpath(tt_bio.__file__),
                     "env": {k: os.environ.get(k, "") for k in
