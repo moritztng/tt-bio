@@ -1587,3 +1587,73 @@ required running the census rather than reading the flags.
 the one inside the package is `_VERBS["clamp"]` in `taped_ttnn.py`, purely additive — before it a
 taped tensor handed to `ttnn.clamp` raised, and the only `ttnn.clamp` in the tree is
 `protenix.py`'s distogram floor on an inference path with no tape open.
+
+### D228. The unsubstituted tape verbs are NOT the carrier — both route classes are already exact — and the 47.97 % share I put in their brief is width-dependent. FOUND by `of3t-readverbs`, pass 368. D219's lead is REFUTED.
+
+D219 sent a row at `_identity_grad` and `_sliced` on the strength of a census showing them at
+**26.50 %** and **21.47 %** of 60,144 firings at padded 384 — **47.97 %** of the taped backward
+never substituted. Both halves of that premise are now corrected by measurement.
+
+**The share does not transfer across widths.** Recounted at the width actually measured: 11,856
+backward firings at padded 64 over 48 blocks, 247 per block, with `_identity_grad` at **960
+(8.0972 %)** and `_sliced` at **912 (7.6923 %)** — **15.79 %**, not 47.97 %. The class share is
+width-dependent and the 384 figure does not carry. That is the same trap `of3t-vjpln` fell into
+from the other direction when it found 60,144 firings where every prior row had planned against
+11,856, and the campaign has now paid for it in both directions.
+
+**And the classes are exact anyway**, which is the decisive half. Against the float64 VJPs, per
+firing:
+
+    _sliced           0.0 at 114 of 117 substituted firings, three at 1e-31 to 1e-9
+                      -- the index arithmetic and the accumulation into overlapping parents
+                      are exact, and it takes no cast at all
+    _identity_grad    0.0 everywhere except the narrowing-cast firings (fp32 cotangent into a
+                      bf16 parent), 384 of 960, 8 per block uniformly across all 48, where it
+                      moves ~1.6e-3 relative -- UNDER bfloat16's 3.9e-3 unit roundoff.
+                      192 are widening and exactly lossless; 384 are cast=False placement verbs
+
+Four arms at padded 64 against `of3t-blk4544`'s `cot_B64` — route (117 substitutions, 0.9868 % of
+firings measured from the run's own counters), `identity3` (the inertness control, 0 lossy),
+`nocast` (all 960 firings, every cast omitted, the whole class at all 48 blocks) and the A/A
+floor — and **all 98 tensors are bit-identical in every one**, sha `7ecaa69ed0fe`.
+
+**So the tape-verb axis is closed.** Data movement is not where the trunk's error lives, and the
+criterion `of3t-blk4544` used to exclude it — *"real arithmetic rather than data movement"* —
+turns out to have been right for a reason nobody had measured. D219 said that criterion "removed
+exactly the class every later conclusion points at"; that was a plausible inference and it is
+wrong.
+
+**One thing the row owes and should state rather than leave to inference**: per-firing exactness
+is a property of the op, so it should be width-invariant even though the share is not. If the
+narrowing-cast population scales with width the conclusion still holds, because each such firing
+is already at the bf16 floor — but that argument belongs in the report, not in my reading of it.
+
+### D229. The three-axis convergence is TWO blocks, not three: block 0 carrier is a different site. FOUND by `of3t-apbleaf`, pass 368. FIXED as framing -- D223 over-joined three census axes; the object itself stays open under D227.
+
+D223 intersected `of3t-trunkblocks`' block axis (44, 4, 0 holding 76.4502 %) with
+`of3t-trunkact`'s leaf axis (the 96 `attn_pair_bias.layer_norm_a` tensors) and
+`of3t-trunkopclass`' class axis (APB at 65.3917 %), and called it one object. **The block axis is
+right and the intersection was not.** Computed in the bf16auto frame:
+
+    layer_norm_a as a share of that block's OWN error mass
+      block 44      90.7937 %
+      block  4      96.3496 %
+      block  0       0.0177 %
+
+Block 0 reproduces `of3t-trunkblocks`' 16.6720 % exactly, so the disagreement is not a
+measurement conflict — the leaf simply is not what carries block 0.
+
+**Block 0's carrier is `single_transition.layer_norm`, weight and bias, 14.8674 % of the trunk's
+error mass between them.** The same op on the same single track, at a different site.
+
+**That makes the object cleaner rather than larger, and it is mechanism-shaped.** What the trunk's
+residue has in common across all three blocks is **the LayerNorm affine gradient**, not the
+attention pair bias: `attn_pair_bias.layer_norm_a` at blocks 44 and 4, `single_transition.
+layer_norm` at block 0. Set beside D227's finding — a systematic **12.8 % magnitude deficit**,
+norm ratio 0.872086 against upstream's bf16, surviving an exact float64 softmax — the campaign's
+whole remaining object is **`dW = sum_t g_t xhat_t` coming out systematically too small wherever
+it appears in the trunk.**
+
+`single_transition` is also where the campaign's original kickoff lead pointed, for the opposite
+reason: it was *"the one sub-module with no attention and no pair coupling"* and the only one
+under the bar. It holds 14.87 % of the trunk's error at block 0.

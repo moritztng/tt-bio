@@ -363,11 +363,21 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               **0.872086** against upstream's own bf16, **0.910191** against float64 — which
               **survived an exact float64 softmax in both tracks unchanged**. Our gradients
               there are consistently too SMALL, which is the signature of a missing or
-              mis-scaled term rather than of rounding. Owner: **`of3t-apbleaf`**, which also
-              holds the three-axis convergence (blocks 44/4/0 at 76.4502 %, the 96 leaves at
-              56.1174 %, the APB class at 65.3917 %). **A NO-GO would need** an arm that removes
-              the 12.8 % deficit and still misses the bar; nobody has one, so *"the silicon
-              cannot"* is unproven.
+              mis-scaled term rather than of rounding. Owner: **`of3t-apbleaf`**. **The object is the
+              LayerNorm affine gradient itself, at two sites** (D229, correcting D223's
+              three-axis join): `layer_norm_a` is 90.7937 % of block 44's own error mass and
+              96.3496 % of block 4's but **0.0177 %** of block 0's, whose carrier is
+              **`single_transition.layer_norm`** at **14.8674 %** of the trunk's error mass.
+              Same op, different site — so the hypothesis is **`dW = sum_t g_t xhat_t` coming
+              out systematically too small wherever it appears in the trunk**, and the cheap
+              discriminator is whether the deficit is the SAME factor at both sites (one
+              mechanism) or not (two bugs). **The tape-verb axis is closed** (D228,
+              `of3t-readverbs`): both route classes are already exact — `_sliced` 0.0 at 114 of
+              117 firings, `_identity_grad` 0.0 except at 384 narrowing casts moving ~1.6e-3,
+              under bf16's 3.9e-3 unit roundoff, all 98 tensors bit-identical across four arms.
+              D219's 47.97 % was padded-384 and the share is width-dependent: 15.79 % at padded
+              64. **A NO-GO would need** an arm that removes the 12.8 % deficit and still misses
+              the bar; nobody has one, so *"the silicon cannot"* is unproven.
     coverage  **MET, and now in the gate** (D220, pass 361). `of3t-covadopt` GO:
               `perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json`, written by
               of3t-modelboundary's own unmodified instrument over of3t-refcov's composed 3,660
@@ -452,7 +462,7 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred twenty-seven defects filed**, **85 UNFIXED** (5
+concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred twenty-nine defects filed**, **85 UNFIXED** (5
 scope-excluded, 6 USER-FACING, 74 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
@@ -1493,3 +1503,37 @@ are different bugs and the census separates them cheaply.
 
 **What a NO-GO needs is now written down** so nobody re-derives it: an arm that removes the
 12.8 % deficit and still misses 0.5268825372815341.
+
+## Pass 368 — both live rows refuted a premise I had given them, and the object got sharper for it
+
+**D228 — the tape-verb axis is closed and D219's lead is refuted.** `of3t-readverbs` recounted at
+the width it measured: 11,856 firings at padded 64, `_identity_grad` 8.0972 % and `_sliced`
+7.6923 %, **15.79 %** against the **47.97 %** its brief quoted from padded 384. The class share is
+width-dependent and I should have flagged that when I wrote it. And the classes are exact anyway,
+which is the decisive half: `_sliced` moves 0.0 at 114 of 117 substituted firings;
+`_identity_grad` moves 0.0 except at the 384 narrowing-cast firings where it moves **~1.6e-3
+relative, under bfloat16's 3.9e-3 unit roundoff**; all 98 tensors bit-identical across four arms
+including `nocast` over the whole class at all 48 blocks.
+
+So `of3t-blk4544`'s original criterion — *"real arithmetic rather than data movement"* — was right
+for a reason nobody had measured, and D219's claim that it "removed exactly the class every later
+conclusion points at" was a plausible inference these arms refute.
+
+**D229 — the three-axis convergence is two blocks, not three.** `of3t-apbleaf` computed rather
+than accepted my join: `layer_norm_a` holds **90.7937 %** of block 44's own error mass and
+**96.3496 %** of block 4's, and **0.0177 %** of block 0's — while block 0 reproduces
+`of3t-trunkblocks`' 16.6720 % exactly, so the block axis is right and the intersection was mine.
+**Block 0's carrier is `single_transition.layer_norm`, 14.8674 % of the trunk's error mass.**
+
+**That makes the object cleaner, not larger.** What the residue has in common across all three
+blocks is the **LayerNorm affine gradient itself**, not the attention pair bias. With D227's
+systematic 12.8 % magnitude deficit the campaign's whole remaining object is **`dW = sum_t g_t
+xhat_t` coming out systematically too small wherever it appears in the trunk** — and that
+hypothesis predicts something cheap to check: **the deficit should be the same factor at both
+sites.** Same factor, one mechanism in the shared LayerNorm backward; different factors, two bugs
+and the common op is coincidence. Asked `of3t-apbleaf` to measure that before anything else.
+
+`single_transition` is where the campaign's kickoff lead pointed, for the opposite reason — it was
+*"the one sub-module with no attention and no pair coupling"* and the only one under the bar.
+
+**Two rows, two refutations of premises I wrote, both making the target smaller and sharper.**
