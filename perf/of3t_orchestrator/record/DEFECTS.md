@@ -1233,3 +1233,31 @@ rotted. The six upgrades are named, since that history is what a reviewer actual
 
 **And the sync, which is K19 again.** The gate script is per-host and nothing syncs it, so the edit
 was pushed to qb1 and qb2 and the md5 checked equal on all three rather than assumed.
+
+### D245. The shippable host-float64-softmax install (the site selector) is 34.25 % worse against float64 than the harness verb install, so the campaign's best trunk number comes from a configuration nobody can ship. **UNFIXED** — found by `of3t-orchestrator` at pass 386 from committed artifacts, no card; `of3t-verbinstall` dispatched to close it.
+
+Same frame, same scorer, same references, arms differing only in where the exact softmax is
+installed: verb install **0.4179981990834974** against float64, the consistent verb+module-wide
+arm **0.41752141981218177**, the site-selector route **0.5605347900452246**. Deterministic —
+ROUTE_HF and ROUTE_HF2 on two cards agree to sixteen digits.
+
+The verb install is `perf/of3t_bwdaccum/dev_cot.py` rewriting `tt._VERBS` from a perf script, so
+the campaign's 1.0525x is an experiment rather than a lever. The route is the shippable
+mechanism and it is the worse one.
+
+**Mechanism candidate, not established.** The route serves **1,685 raw** calls the verb serves
+none of (verb: served 5,285 / served_taped 5,285 / served_raw 0 / declined 6,197; route: served
+7,442 / served_taped 5,757 / served_raw 1,685 / declined 0). A raw serve is an exact FORWARD with
+no tape node (`tt_bio/autograd.py:920-935`), so its Jacobian stays whatever the surrounding
+region was, and `ag.triangle_attention`'s chunked backward recomputes its own `ttnn.softmax` on
+the card where neither a verb patch nor a site selector can reach it. Serving the pair track's
+forward exact while its recompute stays on the device evaluates the Jacobian at activations the
+forward did not produce — which is precisely the inconsistency `of3t-f64route` named, located in
+the other arm. Falsifier pre-registered in the row's brief and two-sided.
+
+**And the fix direction is also the safer one for Moritz's inference hard stop.** The site
+selector is an environment variable on call sites shared with every model's inference
+(`tt-bio-shared-diffusion-global-env-default-regression`). A tape-gated install has no route from
+an inference fold by construction.
+
+Evidence `perf/of3t_orchestrator/softmaxarm/SOFTMAX_ARM_TABLE.json`. See LEDGER R149.

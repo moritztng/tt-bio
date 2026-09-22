@@ -1216,3 +1216,57 @@ because we are bad, which is why both absolute curves are reported beside the ra
 by evidence — two projections, one mechanism, and now the scope of one candidate. Every time,
 the evidence was cheap and already available. **The orchestrator's edge is not proposing
 mechanisms; it is finding the measurement that already exists before a row pays for a new one.**
+
+---
+
+### R149. `of3t-f64route`'s handed-up target question rests on a false premise, the ceiling stands at 1.0525x, and the ROUTE install is the defective arm (pass 386, zero card, committed artifacts only)
+
+`of3t-f64route` concluded: *"the campaign's softmax ceiling needs re-deriving, because the two
+arms are not two measurements of the same thing ... which of the two is the right TARGET is a
+campaign decision and not this row's."* It offered **0.5547455957585244** (the verb install,
+which it said ran each block's OUTPUT on the device softmax and its JACOBIAN on the float64 one)
+against its own route's **0.7734340172378431**, which it called the consistent arm, and framed
+the choice as matching upstream's bf16 against being correct.
+
+**The consistent arm is a third one `of3t-trunkceiling` had already measured.** `--lever
+ceiling_hf3` (`perf/of3t_bwdaccum/dev_cot.py:54-58`, `:398-401`) is `ceiling_hf` plus a
+module-wide replacement of `ttnn.softmax`, so `autograd.triangle_attention._scores` is exact in
+the forward **and** in the chunked backward's recompute and no softmax in the trunk runs on the
+card. Four arms, one frame, one scorer, two references, differing only in where the host float64
+softmax is installed — A26 in-frame bar **0.5268825372815341**, read from each artifact's own
+`MATCHED` section and asserted equal across all seven:
+
+    arm                                      vs float64             vs their bf16          x bar
+    device softmax        (CTRL_B/CEIL_B)    0.702981502944001      0.9153623104186986     1.7373
+    verb install          (VERB_HF/CEIL_HF)  0.4179981990834974     0.5547455957585244     1.0529
+    verb + module-wide    (CEIL_HF3)         0.41752141981218177    0.5545352626143085     1.0525
+    site selector         (ROUTE_HF/HF2)     0.5605347900452246     0.7734340172378431     1.4679
+
+**The consistency correction is −0.11 % against float64 and −0.04 % against their bf16, and it
+runs the BETTER way.** There is no trade. The ceiling does not need re-deriving: it moves from
+1.0529x to **1.0525x** when the consistent arm is quoted instead of the verb arm.
+
+**And float64 ranks the arms the same way upstream's bf16 does.** Against float64 no
+reference-sharing argument exists — float64 has no error to share — so a lever that makes more
+softmaxes exact and moves the gradient **farther** from the true gradient is a defect, not a
+target. The route is **34.25 %** worse than the consistent arm against float64.
+
+**Verified, and reproducible in both directions.** ROUTE_HF (qb1 card 2) and ROUTE_HF2 (qb1 card
+3) agree to sixteen digits, so the 34.25 % is deterministic. The cross-board A/A is exact twice:
+CTRL_B (qb1 p150a) = CEIL_B (qb2 p300c) and VERB_HF (qb1) = CEIL_HF (qb2), both to sixteen
+digits — D234 for the shipped arm, now a second instance on the lever arm, which is what lets a
+p300c reading be compared to a p150a one with no correction. `ceiling_hf3` is `ceiling_hf` plus
+one line, and the scorer is deterministic, so the non-zero delta between them **is** the proof
+the module-wide patch fired; its own counter `SMRAW` is printed to stdout by `dev_cot.py:446-447`
+and never banked, which `of3t-verbinstall` owes.
+
+Artifact `perf/of3t_orchestrator/softmaxarm/SOFTMAX_ARM_TABLE.json`, generated from the source
+JSON by `softmax_arm_table.py` in the same directory — nothing transcribed, and it raises rather
+than reports if the bar or the floor differs across arms.
+
+**The transferable lesson, and it is the third time this campaign has paid for it.** `of3t-f64route`
+compared its own new arm against ONE other arm and escalated the disagreement as a decision.
+Both numbers were in the campaign's own artifact set beside a third arm that answered it. **Before
+handing a question up as a product decision, check whether an arm that resolves it has already
+been run** — the orchestrator's edge is finding the measurement that already exists before a row
+pays for a new one (pass 379's closing note, and pass 383's R146).
