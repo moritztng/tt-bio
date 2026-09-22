@@ -145,34 +145,18 @@ def walk(obj, path="", seen=None, out=None):
     return out
 
 
-def main():
-    sd = torch.load(os.path.expanduser("~/of3-weights/of3-p2-155k.pt"), map_location="cpu",
-                    weights_only=False)
-    if hasattr(sd, "state_dict"):
-        sd = sd.state_dict()
-    aux = {k[len("aux_heads."):]: v for k, v in sd.items() if k.startswith("aux_heads.")}
-    g = pickle.load(open(os.path.expanduser("~/of3_ref_out.pkl"), "rb"))["intermediates"]
-    si_input = g["input_embedder_real"]["out"][0].float()
-    si_trunk, zij_trunk = (t.float() for t in g["pairformer_stack_real"]["out"])
-    N = si_trunk.shape[0]
-    repr_x, mask = ca_walk(N), torch.ones(N * 23)
-    dev = get_device()
-    ckc = ttnn.init_device_compute_kernel_config(
-        dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
-        packer_l1_acc=True)
-    reg, restore = record_uploads()
-    head = OF3ConfidenceHead(aux, dev, ckc)
-    restore()
+def tape_parameters(head, reg):
+    """Turn every device weight of a built OF3ConfidenceHead into a taped leaf.
 
-    up = lambda x, dt=ttnn.bfloat16: ttnn.from_torch(
-        x.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT, device=dev, dtype=dt)
-    si_d = up(si_input)
-    st_d = up(si_trunk, ttnn.float32)
-    zt_d = up(zij_trunk)
-    oh_d = head.distance_onehot(repr_x)
-    # Warm `_wd` so every head/embedding weight exists before it is declared a parameter.
-    head.forward_device(si_d, st_d, zt_d, oh_d)
+    Returns `params`: their-name -> (leaf, gradient inverse, where, block index,
+    lookup name), plus the device tensors that could not be mapped and the inverse
+    round-trip checks. `head._wd_cache` must already be warm -- run one forward
+    before calling this, or the head and embedding weights do not exist yet.
 
+    Split out of main() so an instrument taking the same head at a DIFFERENT
+    boundary reuses this bijection instead of restating it. A second copy of a name
+    map is a second thing that can be wrong in only one of them.
+    """
     params = {}          # device tensor id -> (their-name, inverse_fn, leaf)
     for key, dev_t in list(head._wd_cache.items()):
         name, transposed, _dt = key
@@ -237,6 +221,38 @@ def main():
     for p, s_, why in unmapped:
         print(f"  UNMAPPED {p:52s} {str(s_):22s} {why}")
 
+    return params, unmapped, inverse_checks
+
+
+def main():
+    sd = torch.load(os.path.expanduser("~/of3-weights/of3-p2-155k.pt"), map_location="cpu",
+                    weights_only=False)
+    if hasattr(sd, "state_dict"):
+        sd = sd.state_dict()
+    aux = {k[len("aux_heads."):]: v for k, v in sd.items() if k.startswith("aux_heads.")}
+    g = pickle.load(open(os.path.expanduser("~/of3_ref_out.pkl"), "rb"))["intermediates"]
+    si_input = g["input_embedder_real"]["out"][0].float()
+    si_trunk, zij_trunk = (t.float() for t in g["pairformer_stack_real"]["out"])
+    N = si_trunk.shape[0]
+    repr_x, mask = ca_walk(N), torch.ones(N * 23)
+    dev = get_device()
+    ckc = ttnn.init_device_compute_kernel_config(
+        dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
+        packer_l1_acc=True)
+    reg, restore = record_uploads()
+    head = OF3ConfidenceHead(aux, dev, ckc)
+    restore()
+
+    up = lambda x, dt=ttnn.bfloat16: ttnn.from_torch(
+        x.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT, device=dev, dtype=dt)
+    si_d = up(si_input)
+    st_d = up(si_trunk, ttnn.float32)
+    zt_d = up(zij_trunk)
+    oh_d = head.distance_onehot(repr_x)
+    # Warm `_wd` so every head/embedding weight exists before it is declared a parameter.
+    head.forward_device(si_d, st_d, zt_d, oh_d)
+
+    params, unmapped, inverse_checks = tape_parameters(head, reg)
     sti = ag.Tensor(st_d, requires_grad=True)
     zti = ag.Tensor(zt_d, requires_grad=True)
     with ag.tape():
