@@ -997,6 +997,14 @@ EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
 
 _EXACT_SOFTMAX_VERBS = ("softmax", "softmax_in_place")
 _EXACT_SOFTMAX_SAVED: Optional[dict] = None
+# WHO turned it on, because `uninstall()` is not this lever's private teardown. Two callers
+# already use `install()`/`uninstall()` as a scoped pair around something much narrower than a
+# training step -- `train/lora.py:608-615` brackets the DISCOVERY forward, `train/recipes.py:211`
+# the fit -- and neither knows this lever exists. Tearing down on any `uninstall()` made the
+# lever collateral damage of the first such pair to close: measured, PKG_HF3 came back
+# 0.702981502944001, the device-softmax control to sixteen digits, with its 1,742 exact
+# softmaxes all spent inside that discovery forward and none in the step that was scored.
+_EXACT_SOFTMAX_OWNER: Optional[str] = None
 
 
 def _exact_softmax_raw(v, dim: int = -1, **kwargs):
@@ -1027,12 +1035,13 @@ def _v_exact_softmax(shipped, args, kwargs):
     return host_f64_softmax(x, dim)
 
 
-def _install_exact_softmax() -> None:
+def _install_exact_softmax(owner: Optional[str] = None) -> bool:
     """Idempotent. Keeps the objects it replaced, so the teardown restores those and not a
-    guess at what they were."""
-    global _EXACT_SOFTMAX_SAVED
+    guess at what they were. Returns whether THIS call is the one that installed it, and
+    records `owner` so only the matching teardown takes it back out."""
+    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
     if _EXACT_SOFTMAX_SAVED is not None:
-        return
+        return False
     from . import taped_ttnn as tt
     saved = {"verbs": {n: tt._VERBS[n] for n in _EXACT_SOFTMAX_VERBS if n in tt._VERBS},
              "raw": {n: getattr(ttnn, n) for n in _EXACT_SOFTMAX_VERBS if hasattr(ttnn, n)}}
@@ -1045,12 +1054,17 @@ def _install_exact_softmax() -> None:
     # the same patch applied at process start.
     tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
     _EXACT_SOFTMAX_SAVED = saved
+    _EXACT_SOFTMAX_OWNER = owner
+    return True
 
 
-def _uninstall_exact_softmax() -> None:
-    """Idempotent."""
-    global _EXACT_SOFTMAX_SAVED
+def _uninstall_exact_softmax(owner: Optional[str] = None) -> None:
+    """Idempotent. With `owner`, takes it out only if that owner is the one that put it in."""
+    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
+    if owner is not None and _EXACT_SOFTMAX_OWNER != owner:
+        return
     saved, _EXACT_SOFTMAX_SAVED = _EXACT_SOFTMAX_SAVED, None
+    _EXACT_SOFTMAX_OWNER = None
     if saved is None:
         return
     from . import taped_ttnn as tt
@@ -1084,13 +1098,12 @@ def exact_softmax():
     be a teardown in the middle of the step it is meant to cover, and the arm would read as
     half-installed with nothing saying so.
     """
-    outer = exact_softmax_installed()
-    _install_exact_softmax()
+    mine = _install_exact_softmax("exact_softmax")
     try:
         yield
     finally:
-        if not outer:
-            _uninstall_exact_softmax()
+        if mine:
+            _uninstall_exact_softmax("exact_softmax")
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
@@ -2113,7 +2126,7 @@ def install(*, exact_softmax: bool = False):
     # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
     ops.set_host_softmax_hook(host_f64_softmax)
     if exact_softmax:
-        _install_exact_softmax()
+        _install_exact_softmax("install")
     return ops.set_grad_hook(_hook)
 
 
@@ -2123,7 +2136,9 @@ def uninstall() -> None:
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
     ops.set_host_softmax_hook(None)
-    _uninstall_exact_softmax()
+    # Only what THIS pair turned on. An `uninstall()` from a caller that never asked for the
+    # exact softmax must leave it alone; see `_EXACT_SOFTMAX_OWNER`.
+    _uninstall_exact_softmax("install")
     ops.set_grad_hook(None)
 
 

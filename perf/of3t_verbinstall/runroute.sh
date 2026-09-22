@@ -39,15 +39,26 @@ SAMPLER=$!
 S=$(date +%s)
 echo "=== $TAG lever=$LEVER start $(date -u +%FT%TZ) qb1 card 0 (fanned out; card 1 holds PKG_HF3) env=${ENVS[*]:-none} ==="
 source /home/ttuser/tt-bio-dev/env/bin/activate
+
+# Pre-flight, bounded. `tenstorrent._assert_local_dispatch` probes a fresh chip with one trivial
+# add and has NO timeout, so a wedged card hangs inside it looking exactly like a long job: on
+# 2026-09-22 two arms sat there 115 min at 100% CPU with the card at 1350 MHz and 9 W over idle.
+# A healthy open+dispatch is 1.6 s. Fail in 120 s instead of never.
+if ! env TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=1,0 TT_BIO_LEASE_HOLDER=worker:of3t-verbinstall OMP_NUM_THREADS=8 PYTHONPATH="$W" \
+     timeout 120 python3 perf/of3t_verbinstall/cardcheck.py 0; then
+  echo "=== $TAG ABORTED: card 0 failed the bounded dispatch check. Reset it (tt-smi -r 0) ==="
+  kill "$SAMPLER" 2>/dev/null
+  exit 3
+fi
 env "${ENVS[@]}" \
   TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=1,0 TT_BIO_LEASE_HOLDER=worker:of3t-verbinstall \
   OMP_NUM_THREADS=8 PYTHONPATH="$W" \
-  timeout 3000 python3 perf/of3t_verbinstall/routearm.py \
+  timeout ${ARM_TIMEOUT:-7200} python3 perf/of3t_verbinstall/routearm.py \
     --suppress-out "$SMX" --census-out "$CEN" \
     --lever "$LEVER" -- \
     --boundary "$B" --cap-last "$C" --out "$OUT" \
     --report "$REP" --arm flipped --crop 0 "${EXTRA[@]}" 2>&1 \
-  | grep -E '^\{|^CENSUS|^SUPPRESS|OUR GRADIENT|discovery|Traceback|rror|FAILED|placed|config ' | tail -30
+  | tee "$O/raw_${TAG}.log" | grep --line-buffered -E '^\{|^CENSUS|^SUPPRESS|OUR GRADIENT|discovery|Traceback|rror|FAILED|placed|config ' | tail -30
 rc=${PIPESTATUS[0]}
 E=$(date +%s)
 kill "$SAMPLER" 2>/dev/null
