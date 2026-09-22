@@ -49,7 +49,7 @@
     },
     "host": "tt-quietbox2",
     "card": "1",
-    "commit": "5feca4f411bbb6cd2b7852af6f5be1778c712c49",
+    "commit": "524deccaefe4359ee9b568fffe25e97c709481e4",
     "padded_width": 384,
     "real_tokens": 56,
     "target": "5nw3",
@@ -58,7 +58,7 @@
       "min": 800,
       "max": 1350,
       "median": 1350,
-      "n": 159
+      "n": 134
      }
     }
    },
@@ -106,7 +106,7 @@
     "lazily_minted_by_the_rollout": 0,
     "host": "tt-quietbox2",
     "card": "1",
-    "commit": "5feca4f411bbb6cd2b7852af6f5be1778c712c49",
+    "commit": "524deccaefe4359ee9b568fffe25e97c709481e4",
     "padded_width": 384,
     "real_tokens": 56,
     "target": "5nw3",
@@ -115,7 +115,7 @@
       "min": 800,
       "max": 1350,
       "median": 1350,
-      "n": 159
+      "n": 134
      }
     }
    },
@@ -136,7 +136,7 @@
  "sources": {
   "ARM_full_n384": {
    "path": "perf/of3t_trainfwd/ARM_full_n384.json",
-   "sha256": "68d4ebd65e9adee7ab499ed6b7274c226d05fdd8de82618eb74f09e5518340b6"
+   "sha256": "58003050ee355465148da0b41d8286727eb2ff6e25416ddd16f351e78dadacd7"
   },
   "ARM_zeroseed_n384": {
    "path": "perf/of3t_trainfwd/ARM_zeroseed_n384.json",

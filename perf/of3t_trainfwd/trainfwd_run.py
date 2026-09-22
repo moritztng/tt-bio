@@ -97,6 +97,8 @@ def main() -> int:
     ap.add_argument("--checkpoint", type=Path,
                     default=Path(os.path.expanduser("~/of3-weights/of3-p2-155k.pt")))
     ap.add_argument("--rollout", type=int, default=20)
+    ap.add_argument("--denoise", action="store_true",
+                    help="run the one-step denoise arm; OFF by default, its backward overflows")
     ap.add_argument("--cycles", type=int, default=1)
     ap.add_argument("--seed", type=int, default=20260922)
     ap.add_argument("--grad-out", type=Path, default=None)
@@ -127,6 +129,8 @@ def main() -> int:
 
     # `norollout` hands the confidence heads the ground truth instead of a rollout. The edit
     # is on the ADAPTER's own switch, not a second forward.
+    fwd.denoise = bool(a.denoise)
+    rec["denoise"] = fwd.denoise
     if a.arm == "norollout":
         fwd.repr_coords_in = batch["true_xyz"]
 
