@@ -3129,7 +3129,17 @@ if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
         with open(os.path.join(d, f"capacity_{os.getpid()}.json"), "w") as fh:
             _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
                         "fp32_softmax": FP32_SOFTMAX_STATS,
-                        "opm_small_depth": OPM_SMALL_DEPTH_STATS}, fh)
+                        "opm_small_depth": OPM_SMALL_DEPTH_STATS,
+                        # The host float64 softmax's reach, taken in the process that FOLDED.
+                        # Every INFERENCE_AB artifact this campaign has written reads 0 calls,
+                        # on every row and both arms, because that census is an atexit hook in
+                        # the launcher and these counters live wherever the model ran. A
+                        # per-pid dump is the census that cannot miss it, and this instrument
+                        # already had the shape.
+                        "host_f64_softmax": HOST_F64_SOFTMAX_STATS,
+                        "host_f64_softmax_sites": dict(
+                            _SITE_FLAG_SEEN.get("TT_BIO_HOST_F64_SOFTMAX_AB", {})),
+                        "host_f64_softmax_reach": host_f64_softmax_reach()}, fh)
 
     _atexit_cap.register(_capacity_census_dump)
 
@@ -3594,7 +3604,7 @@ def softmax_ckc(token: str, default: bool = False):
 # 0 refused, which is exactly what a model nobody ran reads. `host_f64_softmax_reach()` compares
 # the two halves and says which of the two happened.
 HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
-                          "selected": 0}
+                          "selected": 0, "tail": 0}
 
 
 def host_f64_softmax_reach() -> str:
@@ -3604,6 +3614,11 @@ def host_f64_softmax_reach() -> str:
     branch that never consults it therefore reads zero in all three, which is indistinguishable
     from a process that never built the model -- the reporting gap D225 hid in for the whole
     campaign. `selected` counts construction sites, so the pair separates the cases.
+
+    `tail` counts arrivals through `_fp32_softmax_attention`'s own reduction, the route that
+    did not exist before D225 was fixed; `declined + refused + served - tail` is what
+    `site_softmax` carries. Both are arrivals. Keeping them apart is what lets a census say
+    WHICH route a model took rather than only that it took one.
 
     REACHED means `served or refused`: a call that arrived with the site ON. `declined` is not
     the same claim -- it counts a call that arrived with the site OFF, which says the route
@@ -3727,7 +3742,7 @@ def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
     return ttnn.softmax(x, dim=dim, **kw)
 
 
-def host_softmax_or_none(host_f64: bool):
+def host_softmax_or_none(host_f64: bool, tail: bool = False):
     """`site_softmax`'s gate on its own: the host float64 softmax, or None for the device.
 
     `site_softmax` is the form for a site whose device implementation is `ttnn.softmax`. The
@@ -3736,7 +3751,11 @@ def host_softmax_or_none(host_f64: bool):
     the input alive. A site that has to own that difference asks the gate directly instead of
     passing its implementation in, and the census is the same counters either way, so one
     reading covers every site.
+
+    ``tail`` says the call came through `_fp32_softmax_attention` rather than `site_softmax`,
+    so a census can tell the two routes apart. It changes no behaviour.
     """
+    HOST_F64_SOFTMAX_STATS["tail"] += tail
     if host_f64:
         from . import ops
         host = ops.host_softmax_hook()
@@ -4067,7 +4086,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         if own:
             ttnn.deallocate(bias_f)
         try:
-            host = host_softmax_or_none(host_f64)
+            host = host_softmax_or_none(host_f64, tail=True)
             if host is not None:
                 # The host route is the only one here that does not consume its input, so this
                 # is the one place the tail owns the free. Both device implementations below
@@ -4091,11 +4110,14 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         if own:
             ttnn.deallocate(bias_f)
         if accurate_softmax:
-            host = host_softmax_or_none(host_f64)
+            host = host_softmax_or_none(host_f64, tail=True)
             attn = host(sc, -1) if host is not None else _accurate_softmax(sc, sm_ckc)
         else:
             # `ttnn.softmax` IS this branch's device implementation, so it is `site_softmax`
             # verbatim: host_f64 off, the call below is byte for byte the one that ships.
+            # `tail` is counted here instead of inside, because `site_softmax` is reached from
+            # both routes and only this arrival is the tail's.
+            HOST_F64_SOFTMAX_STATS["tail"] += 1
             attn = site_softmax(sc, dim=-1, host_f64=host_f64,
                                 compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
