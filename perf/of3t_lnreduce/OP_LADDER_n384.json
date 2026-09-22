@@ -1,0 +1,446 @@
+{
+ "what": "the affine reduction priced at one real op, and the pre-registered K ladder",
+ "host": "tt-quietbox",
+ "card": "0",
+ "git_commit": "4038f562f36e8bc040443fbf5bd72c4124222dd3",
+ "capture": "/tmp/of3t/of3t-lnreduce/ln_pairtrans_n384.pt",
+ "eps": 1e-05,
+ "real_rows": 56,
+ "sites_in_capture": [
+  "blocks.47.transition_z.norm_weight",
+  "blocks.47.transition_z.norm_weight",
+  "blocks.47.transition_z.norm_weight",
+  "blocks.47.transition_z.norm_weight",
+  "blocks.47.transition_z.norm_weight",
+  "blocks.47.transition_z.norm_weight"
+ ],
+ "started_utc": "2026-09-22T15:55:39Z",
+ "chunk_scan": [
+  {
+   "i": 0,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0926508754491806,
+   "g_l2_total": 0.0926508754491806
+  },
+  {
+   "i": 1,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0,
+   "g_l2_total": 0.0
+  },
+  {
+   "i": 2,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0,
+   "g_l2_total": 0.0
+  },
+  {
+   "i": 3,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0,
+   "g_l2_total": 0.0
+  },
+  {
+   "i": 4,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0,
+   "g_l2_total": 0.0
+  },
+  {
+   "i": 5,
+   "gamma_path": "blocks.47.transition_z.norm_weight",
+   "g_shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "g_l2_real": 0.0,
+   "g_l2_total": 0.0
+  }
+ ],
+ "site_chosen": 0,
+ "site": {
+  "gamma_path": "blocks.47.transition_z.norm_weight",
+  "x_shape": [
+   1,
+   64,
+   384,
+   128
+  ],
+  "g_shape": [
+   1,
+   64,
+   384,
+   128
+  ],
+  "x_dtype_on_card": "DataType.BFLOAT16",
+  "g_dtype_on_card": "DataType.BFLOAT16",
+  "channel": 128,
+  "padded_positions": 24576,
+  "dW_from_the_arm": [
+   0.00098419189453125,
+   0.0032806396484375,
+   -0.002410888671875,
+   0.0001220703125
+  ]
+ },
+ "fd_validation": {
+  "corner": "24 x 24 real positions of the same site",
+  "channels_probed": [
+   0,
+   16,
+   32,
+   48,
+   64,
+   80,
+   96,
+   112
+  ],
+  "dW_rel_l2_analytic_vs_central_fd": 2.1621787084737582e-09,
+  "dB_rel_l2_analytic_vs_central_fd": 1.6848856988413338e-09,
+  "dx_samples": 36,
+  "dx_rel_l2_analytic_vs_central_fd": 1.425736662168515e-07,
+  "note": "dW and dB are LINEAR in W and B, so their difference quotient validates the assembly -- the masking, xhat and the reduction -- rather than curvature. dx is not linear in x and is the check that can fail."
+ },
+ "ladder": [
+  {
+   "K_real_positions": 1,
+   "side": 1,
+   "padded_positions": 24576,
+   "ref_l2_dW": 5.4159967295337356e-05,
+   "cancellation_dW": 1.0,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.0029429301497583553,
+    "ours_fp32in": 0.0029429301497583553,
+    "torch_bf16": 0.002328999179117962,
+    "torch_bf16act_fp32param": 6.553392154364913e-08,
+    "host_f64_prod": 0.0029429301497583553,
+    "ratio_ours_over_torch_bf16": 1.2636029141379521,
+    "ratio_ours_over_upstream_config": 44906.97459327541,
+    "ratio_hostf64prod_over_torch_bf16": 1.2636029141379521
+   },
+   "dB": {
+    "ours": 0.0,
+    "ours_fp32in": 0.0,
+    "torch_bf16": 0.0,
+    "torch_bf16act_fp32param": 0.0,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": null,
+    "ratio_ours_over_upstream_config": null,
+    "ratio_hostf64prod_over_torch_bf16": null
+   },
+   "cos_dW_ours": 0.9999957331329182,
+   "cos_dW_torch": 0.9999992763212632
+  },
+  {
+   "K_real_positions": 4,
+   "side": 2,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.0005002489969946701,
+   "cancellation_dW": 2.409960403291635,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.007537086284063998,
+    "ours_fp32in": 0.00725883900491105,
+    "torch_bf16": 0.0022670890964993687,
+    "torch_bf16act_fp32param": 8.263407456732778e-08,
+    "host_f64_prod": 0.007412778483713879,
+    "ratio_ours_over_torch_bf16": 3.324565538999802,
+    "ratio_ours_over_upstream_config": 91210.39139759477,
+    "ratio_hostf64prod_over_torch_bf16": 3.2697340810998616
+   },
+   "dB": {
+    "ours": 0.0015935405581597522,
+    "ours_fp32in": 8.86015481280195e-05,
+    "torch_bf16": 0.001971325143739991,
+    "torch_bf16act_fp32param": 0.0,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.8083600836828432,
+    "ratio_ours_over_upstream_config": null,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.9999916425603868,
+   "cos_dW_torch": 0.9999982813600936
+  },
+  {
+   "K_real_positions": 16,
+   "side": 4,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.004412740940575618,
+   "cancellation_dW": 3.2405859077989856,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.00972391102650468,
+    "ours_fp32in": 0.008574199951785226,
+    "torch_bf16": 0.003718568308895027,
+    "torch_bf16act_fp32param": 2.2332037516786557e-07,
+    "host_f64_prod": 0.008769987858196144,
+    "ratio_ours_over_torch_bf16": 2.6149609792684276,
+    "ratio_ours_over_upstream_config": 43542.426521518275,
+    "ratio_hostf64prod_over_torch_bf16": 2.358431291208994
+   },
+   "dB": {
+    "ours": 0.0017763393723691052,
+    "ours_fp32in": 0.0002192726913260558,
+    "torch_bf16": 0.008744875610731407,
+    "torch_bf16act_fp32param": 0.0,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.20312917546697215,
+    "ratio_ours_over_upstream_config": null,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.999986830321539,
+   "cos_dW_torch": 0.9999950973942977
+  },
+  {
+   "K_real_positions": 64,
+   "side": 8,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.012791294744182734,
+   "cancellation_dW": 4.114171161482753,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.0013949264299420064,
+    "ours_fp32in": 0.0017339785825584877,
+    "torch_bf16": 0.01049095845785851,
+    "torch_bf16act_fp32param": 1.224775752267318e-07,
+    "host_f64_prod": 0.0017562515251788734,
+    "ratio_ours_over_torch_bf16": 0.13296463192999325,
+    "ratio_ours_over_upstream_config": 11389.239437176182,
+    "ratio_hostf64prod_over_torch_bf16": 0.1674062033734687
+   },
+   "dB": {
+    "ours": 0.0016622142825897027,
+    "ours_fp32in": 5.9267984477582944e-05,
+    "torch_bf16": 0.009678278080568528,
+    "torch_bf16act_fp32param": 0.0,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.1717469025742294,
+    "ratio_ours_over_upstream_config": null,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.9999991135258687,
+   "cos_dW_torch": 0.9999648690070215
+  },
+  {
+   "K_real_positions": 256,
+   "side": 16,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.05325354526819853,
+   "cancellation_dW": 4.72850261588777,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.0017997187734325574,
+    "ours_fp32in": 0.0009978117950308863,
+    "torch_bf16": 0.008252467834236735,
+    "torch_bf16act_fp32param": 4.2625332522741585e-08,
+    "host_f64_prod": 0.0010194519707852478,
+    "ratio_ours_over_torch_bf16": 0.2180824947861202,
+    "ratio_ours_over_upstream_config": 42221.81193477767,
+    "ratio_hostf64prod_over_torch_bf16": 0.12353298325573372
+   },
+   "dB": {
+    "ours": 0.0012377273763289215,
+    "ours_fp32in": 6.574175465312435e-05,
+    "torch_bf16": 0.009624453016296325,
+    "torch_bf16act_fp32param": 0.0,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.12860236049084303,
+    "ratio_ours_over_upstream_config": null,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.9999993815207893,
+   "cos_dW_torch": 0.9999896951068958
+  },
+  {
+   "K_real_positions": 784,
+   "side": 28,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.18071244617937143,
+   "cancellation_dW": 4.18034683389872,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.00042719371979453287,
+    "ours_fp32in": 0.00048554214238011247,
+    "torch_bf16": 0.0021830743322296528,
+    "torch_bf16act_fp32param": 1.9773660797826394e-07,
+    "host_f64_prod": 0.0005197682696818345,
+    "ratio_ours_over_torch_bf16": 0.19568445906201667,
+    "ratio_ours_over_upstream_config": 2160.4179628766155,
+    "ratio_hostf64prod_over_torch_bf16": 0.23809004668703898
+   },
+   "dB": {
+    "ours": 0.0013989570064498911,
+    "ours_fp32in": 4.3872611525494545e-05,
+    "torch_bf16": 0.0151405849025609,
+    "torch_bf16act_fp32param": 2.3336807100952613e-08,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.0923978178817431,
+    "ratio_ours_over_upstream_config": 59946.375714473186,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.9999999176406758,
+   "cos_dW_torch": 0.9999976197895948
+  },
+  {
+   "K_real_positions": 3136,
+   "side": 56,
+   "padded_positions": 24576,
+   "ref_l2_dW": 0.20248060514290336,
+   "cancellation_dW": 17.954670079396355,
+   "out_dtype": "DataType.BFLOAT16",
+   "dW": {
+    "ours": 0.002761490159601064,
+    "ours_fp32in": 0.0011439455380764945,
+    "torch_bf16": 0.037209639709522284,
+    "torch_bf16act_fp32param": 4.474781942593628e-07,
+    "host_f64_prod": 0.0011766256542593899,
+    "ratio_ours_over_torch_bf16": 0.07421437512318545,
+    "ratio_ours_over_upstream_config": 6171.22844202879,
+    "ratio_hostf64prod_over_torch_bf16": 0.03162152773971312
+   },
+   "dB": {
+    "ours": 0.001694009806213516,
+    "ours_fp32in": 0.00014905429751880142,
+    "torch_bf16": 0.034762798287153375,
+    "torch_bf16act_fp32param": 2.4834615912636648e-08,
+    "host_f64_prod": 0.0,
+    "ratio_ours_over_torch_bf16": 0.04873053636880374,
+    "ratio_ours_over_upstream_config": 68211.63702199838,
+    "ratio_hostf64prod_over_torch_bf16": 0.0
+   },
+   "cos_dW_ours": 0.9999976051901425,
+   "cos_dW_torch": 0.9996340547712204
+  }
+ ],
+ "op_full_real_set": {
+  "K_real_positions": 3136,
+  "side": 56,
+  "padded_positions": 24576,
+  "ref_l2_dW": 0.20248060514290336,
+  "cancellation_dW": 17.954670079396355,
+  "out_dtype": "DataType.BFLOAT16",
+  "dW": {
+   "ours": 0.002761490159601064,
+   "ours_fp32in": 0.0011439455380764945,
+   "torch_bf16": 0.037209639709522284,
+   "torch_bf16act_fp32param": 4.474781942593628e-07,
+   "host_f64_prod": 0.0011766256542593899,
+   "ratio_ours_over_torch_bf16": 0.07421437512318545,
+   "ratio_ours_over_upstream_config": 6171.22844202879,
+   "ratio_hostf64prod_over_torch_bf16": 0.03162152773971312
+  },
+  "dB": {
+   "ours": 0.001694009806213516,
+   "ours_fp32in": 0.00014905429751880142,
+   "torch_bf16": 0.034762798287153375,
+   "torch_bf16act_fp32param": 2.4834615912636648e-08,
+   "host_f64_prod": 0.0,
+   "ratio_ours_over_torch_bf16": 0.04873053636880374,
+   "ratio_ours_over_upstream_config": 68211.63702199838,
+   "ratio_hostf64prod_over_torch_bf16": 0.0
+  },
+  "cos_dW_ours": 0.9999976051901425,
+  "cos_dW_torch": 0.9996340547712204
+ },
+ "worst_case": {
+  "tensor": "blocks.47.transition_z.norm_weight (upstream pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight)",
+  "worst_channel": 80,
+  "worst_channel_rel_error_ours": 0.14470901062226732,
+  "worst_channel_rel_error_torch_bf16": 1.5503222228717848,
+  "worst_channel_abs_error_ours": 8.874511443863304e-06,
+  "max_abs_error_ours": 0.0005107136088681463,
+  "max_abs_error_torch_bf16": 0.007301786391131854,
+  "max_abs_error_upstream_config": 8.329569575749041e-08
+ },
+ "aa_floor": {
+  "what": "the same device reduction on the same operands, twice, in one process",
+  "dW_bit_identical": true,
+  "dB_bit_identical": true,
+  "dW_rel_difference": 0.0,
+  "dB_rel_difference": 0.0
+ },
+ "mask_control": {
+  "dW_rel_l2_unmasked_against_masked": 0.0,
+  "g_l2_on_pad_positions": 0.0,
+  "g_l2_on_real_positions": 0.09265096969140521,
+  "note": "the model's own cotangent is exactly zero on the pads; a nonzero left column here would mean the pads participate and every rung above would be pad junk."
+ },
+ "amplification": {
+  "along": {
+   "dW": 1.0,
+   "dB": 1.0
+  },
+  "across": {
+   "dW_draws": [
+    0.3010851136399667,
+    0.6574554995235753,
+    0.642430731252706,
+    0.27278797660467685,
+    0.3781564310982306,
+    0.6046487335443095,
+    0.6587181154712023,
+    0.26506330931400823
+   ],
+   "dB_draws": [
+    1.6020947245787593,
+    1.5760131807938684,
+    1.4489352187566311,
+    1.4531994642888864,
+    1.5443160364507271,
+    1.5898224355228558,
+    1.803910299918121,
+    1.498728553551611
+   ],
+   "dW": 0.4725432388060844,
+   "dB": 1.5646274892326824,
+   "dW_min": 0.26506330931400823,
+   "dW_max": 0.6587181154712023
+  },
+  "note": "amplification = (relative dW error) / (relative cotangent error), computed in float64 on the real operands, so no accumulator is involved. ALONG the cotangent it is 1 by construction: a scale error passes a linear reduction at its own size. ACROSS it, the reduction's own cancellation multiplies it.",
+  "apbleaf_check": {
+   "cotangent_residue_measured_there": 1.1745,
+   "gradient_residue_measured_there": 2.4044,
+   "implied_amplification": 2.047169008088548,
+   "predicted_here_across": 0.4725432388060844,
+   "seed_floor_across": {
+    "min": 0.26506330931400823,
+    "max": 0.6587181154712023,
+    "draws": 8
+   }
+  }
+ },
+ "finished_utc": "2026-09-22T15:55:41Z"
+}

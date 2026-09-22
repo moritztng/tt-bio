@@ -1,0 +1,49 @@
+{
+ "model": "openfold3",
+ "env": "TT_BIO_HOST_F64_SOFTMAX_AB=all",
+ "what": "arrivals at the host float64 gate in ONE inference fold, counted in the process that folded. Every arrival is `refused` because a fold opens no tape, which is the inference guarantee measured at the call rather than argued from the source.",
+ "processes": 2,
+ "processes_that_built_a_model": 1,
+ "per_process": [
+  {
+   "pid_file": "capacity_2796561.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 0,
+    "elements": 0,
+    "selected": 0,
+    "tail": 0
+   },
+   "selected_per_site": {},
+   "sites_resolved": {},
+   "reach": "host f64 softmax: not selected at any construction site",
+   "fp32_softmax_calls": 0,
+   "fp32_softmax_tail_invocations": 0
+  },
+  {
+   "pid_file": "capacity_2796703.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 623,
+    "elements": 0,
+    "selected": 195,
+    "tail": 440
+   },
+   "selected_per_site": {
+    "pairformer": 168,
+    "openfold3.atom_transformer": 3,
+    "openfold3.diffusion_transformer": 24
+   },
+   "sites_resolved": {
+    "pairformer": true,
+    "openfold3.atom_transformer": true,
+    "openfold3.diffusion_transformer": true
+   },
+   "reach": "host f64 softmax: reached -- 195 sites selected, 0 served, 623 refused, 0 declined",
+   "fp32_softmax_calls": 440,
+   "fp32_softmax_tail_invocations": 440
+  }
+ ]
+}
