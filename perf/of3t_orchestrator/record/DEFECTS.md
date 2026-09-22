@@ -1729,3 +1729,46 @@ mechanism could hide from every arm the campaign has run.
 **The rule to carry**: `R44` is a single-track instrument. Any refutation read off it is scoped to
 `ds`, and a pair-track claim needs `dz` or a bit-identity. Two rows discovered this independently;
 it belongs in the protocol rather than in two verdicts.
+
+### D232. The LayerNorm op is exonerated and so is its activation: 99.91 % of the residue arrives in the COTANGENT, which reads 1.4924 against float64. FOUND by `of3t-apbleaf`, pass 371. UNFIXED, and the object moves upstream.
+
+Against a pre-registered bar of L <= 0.25, over the 48 weight tensors:
+
+    L = 0.005544    the three device ops that evaluate dW = sum_t g_t xhat_t
+    H = 0.999127    what arrives in the operands
+    A_g / A_x = 154.0x   so it is the COTANGENT, not the activation
+
+The float64 reduction agrees with torch's own float64 autograd to **7.9e-16** at every checked
+site, and the A/A floor is bit-identical over **2,736 of 2,736** tensors across two capture arms
+12 minutes apart (qb1 card 1, AICLK n=118 and n=113, median 1350).
+
+**Fixing the op buys essentially nothing.** Substituting the exact float64 reduction on our own
+operands into all 96 tensors moves the trunk **1.0293953378 -> 1.0291925560** — **0.0394 %** of
+the error mass. So D227's *"systematic 12.8 % magnitude deficit on the layer_norm_a affine
+gradients"* is real as a reading and **not a statement about that op's arithmetic**: the op is
+computing the right thing from wrong inputs.
+
+**And the leaf is not sufficient even when perfect.** Substituting **upstream's** float64 gives
+**0.6822397912**, **1.2949x** the in-frame A26 bar — the leaf pair perfect **still fails**. That
+is consistent with D223, where no single op class closed the clause either.
+
+**Where it actually is**: the cotangent arriving at `layer_norm_a` reads **1.4924 mass-weighted
+rel_l2 against float64**, non-zero on exactly **56 of 384** rows at all 48 sites.
+
+**A methodological catch worth keeping.** The forward activation reads **1.3827 over the padded
+width** and **1.7e-03 to 1.5e-02 over the 56 real rows** — so the activation is accurate where it
+counts and *"an unmasked figure at 384 is pad junk."* The campaign has been bitten by unmasked
+padded readings before (`of3t-trunkact`'s C1: the pad region carries 99.9855 % of the forward's
+squared error and 0.000 % of the gradient). Any figure quoted at padded width owes its masked
+counterpart.
+
+**Where this points, and it joins D231.** The cotangent at `layer_norm_a` is produced by the
+AttentionPairBias backward above it, which mixes the pair bias `z` into the single track through
+the attention output. **D231 established that the pair track has never been tested**, because
+`R44` is `ds` at rung 44 and three rows used it as their falsifier. So the one path that can
+deliver a contaminated cotangent to `layer_norm_a` is the one path no instrument in this campaign
+has measured. That is now the campaign's whole remaining object.
+
+**The object has moved three times and got smaller each time**: blocks (D217) -> leaves and op
+class (D223) -> the LayerNorm affine (D227/D229) -> the cotangent feeding it (this). That is
+convergence rather than thrashing, and each move was made by a row refuting its own brief.

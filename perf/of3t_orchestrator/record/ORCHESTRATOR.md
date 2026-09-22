@@ -362,29 +362,23 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               is **additive with the shipped renorm**, not substitutable (D226). The softmax
               axis is now closed in both tracks, forward and backward, at **1.0004x** for the
               last of it.
-              **What remains is scale, not precision**: a **systematic 12.8 % magnitude
-              deficit** on the `attn_pair_bias.layer_norm_a` affine gradients — norm ratio
-              **0.872086** against upstream's own bf16, **0.910191** against float64 — which
-              **survived an exact float64 softmax in both tracks unchanged**. Our gradients
-              there are consistently too SMALL, which is the signature of a missing or
-              mis-scaled term rather than of rounding. Owner: **`of3t-apbleaf`**. **The object is the
-              LayerNorm affine gradient itself, at two sites** (D229, correcting D223's
-              three-axis join): `layer_norm_a` is 90.7937 % of block 44's own error mass and
-              96.3496 % of block 4's but **0.0177 %** of block 0's, whose carrier is
-              **`single_transition.layer_norm`** at **14.8674 %** of the trunk's error mass.
-              Same op, different site — so the hypothesis is **`dW = sum_t g_t xhat_t` coming
-              out systematically too small wherever it appears in the trunk**, and the
-              discriminator is whether the deficit is the same factor across sites. **It is now
-              three-way** (D231): both named carriers are on the SINGLE track, so
-              `attn_pair_bias.layer_norm_z` — the same op in the same module on the PAIR track —
-              is the control the hypothesis needs, and **no arm has ever tested it**, because
-              `R44` is `ds` at rung 44 and three rows used it as their falsifier. **The tape-verb axis is closed** (D228,
-              `of3t-readverbs`): both route classes are already exact — `_sliced` 0.0 at 114 of
-              117 firings, `_identity_grad` 0.0 except at 384 narrowing casts moving ~1.6e-3,
-              under bf16's 3.9e-3 unit roundoff, all 98 tensors bit-identical across four arms.
-              D219's 47.97 % was padded-384 and the share is width-dependent: 15.79 % at padded
-              64. **A NO-GO would need** an arm that removes the 12.8 % deficit and still misses
-              the bar; nobody has one, so *"the silicon cannot"* is unproven.
+              **What remains is the COTANGENT, not the op** (D232, `of3t-apbleaf`).
+              Against a pre-registered bar of L <= 0.25: **L = 0.005544, H = 0.999127,
+              A_g/A_x = 154.0x** — the three device ops evaluating `dW = sum_t g_t xhat_t` make
+              **0.55 %** of the error and **99.91 % arrives in the operands**, the cotangent
+              rather than the activation. The float64 reduction agrees with torch's own float64
+              autograd to **7.9e-16**; the A/A floor is bit-identical over 2,736 of 2,736.
+              **Fixing the op buys 0.0394 %** of the error mass (trunk 1.0293953378 ->
+              1.0291925560), and **the leaf pair PERFECT still fails**: upstream's float64
+              substituted gives 0.6822397912, **1.2949x** the in-frame bar. So D227's 12.8 %
+              deficit is a real reading and not a statement about that op's arithmetic.
+              **The cotangent reaching `layer_norm_a` reads 1.4924 against float64**, non-zero
+              on exactly 56 of 384 rows at all 48 sites, and it is produced by the
+              AttentionPairBias backward where the pair bias mixes into the single track —
+              **which is precisely the path D231 established has never been tested**, because
+              `R44` is `ds` at rung 44 and three rows used it as their falsifier. Owner:
+              `of3t-apbleaf`, asked for the cotangent scored per contributing term, masked to
+              the 56 real rows, read on `dz` or bit-identity and never on R44.
     coverage  **MET, and now in the gate** (D220, pass 361). `of3t-covadopt` GO:
               `perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json`, written by
               of3t-modelboundary's own unmodified instrument over of3t-refcov's composed 3,660
@@ -425,14 +419,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 86 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 87 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        6  D32, D55, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  75  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227, D231
+    CAMPAIGN-INTERNAL  76  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227, D231, D232
 
 **Six** USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`. **Three closed this pass and it was verified
@@ -469,8 +463,8 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred thirty-one defects filed**, **86 UNFIXED** (5
-scope-excluded, 6 USER-FACING, 75 campaign-internal) over the UNION of `DEFECTS.md` and its
+concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred thirty-two defects filed**, **87 UNFIXED** (5
+scope-excluded, 6 USER-FACING, 76 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
 historical markers and not rows, so **one hundred eleven rows have concluded**. Recounted from
@@ -1612,3 +1606,36 @@ it to read `layer_norm_z` on `dz` or on bit-identity, never on R44.
 **The rule belongs in the protocol, not in two verdicts**: R44 is a single-track instrument, any
 refutation read off it is scoped to `ds`, and a pair-track claim needs `dz` or a bit-identity.
 Two rows discovered that independently.
+
+## Pass 371 — the op is exonerated, the activation is exonerated, and the residue is in the cotangent
+
+**D232, `of3t-apbleaf`.** Against a pre-registered bar of `L <= 0.25`, over the 48 weight
+tensors: **L = 0.005544, H = 0.999127, A_g/A_x = 154.0x**. The three device ops that evaluate
+`dW = sum_t g_t xhat_t` make **0.55 %** of the error; **99.91 % arrives in the operands**, and
+the 154x ratio says it is the **cotangent**, not the activation. The float64 reduction agrees
+with torch's own float64 autograd to **7.9e-16** at every checked site, and the A/A floor is
+bit-identical over **2,736 of 2,736** tensors across two capture arms 12 minutes apart.
+
+**Two numbers retire hypotheses, one of them mine.** Substituting the exact float64 reduction on
+our own operands into all 96 tensors moves the trunk **1.0293953378 -> 1.0291925560** —
+**0.0394 %** of the error mass, so D227's *"12.8 % magnitude deficit on the layer_norm_a affine
+gradients"* is a real reading and **not a statement about that op's arithmetic**. And
+substituting **upstream's** float64 gives **0.6822397912**, **1.2949x** the in-frame bar: **the
+leaf pair perfect still fails.** Nobody should spend another card perfecting that leaf.
+
+**The pad catch is a finding in its own right.** The forward activation reads **1.3827 at padded
+384** and **1.7e-03 to 1.5e-02 over the 56 real rows** — accurate where it counts, and *"an
+unmasked figure at 384 is pad junk."* `of3t-trunkact` hit the same thing from the other side: the
+pad region is 99.9855 % of the forward's squared error and **0.000 %** of the gradient. Every
+padded figure owes its masked counterpart.
+
+**Where it points, and the two findings join.** The cotangent arriving at `layer_norm_a` reads
+**1.4924** against float64, non-zero on exactly **56 of 384** rows at all 48 sites, and it is
+produced by the AttentionPairBias backward above it — where the pair bias `z` mixes into the
+single track. **D231 established, twice-measured, that the pair track has never been tested.** So
+the one path that can deliver a contaminated cotangent to this leaf is the one path no instrument
+in this campaign has measured.
+
+**The object has moved three times and got smaller each time** — blocks (D217), leaves and op
+class (D223), the LayerNorm affine (D227/D229), now the cotangent feeding it — and every move was
+made by a row refuting its own brief.
