@@ -36,8 +36,16 @@ def archive_chain(stem: str = "of3t-DEFECTS") -> list[pathlib.Path]:
     """
     if not ARCHIVE.is_dir():
         return []
+    # SECOND key, and it is load-bearing (D238). Files at the SAME `archive-` depth were left
+    # in `iterdir()` order, which is filesystem order, so the chain came back with 09-22 11:32
+    # ahead of 09-21 23:28 and the resolved status of anything updated across two same-depth
+    # archives depended on the machine. The rotation stamps each file with the time it ran and a
+    # later run archives newer content, so ascending NAME is ascending content age. That one
+    # missing key had D199 resolving UNFIXED off its original heading while its pass-351
+    # `CLOSED` update sat in a file sorted before it -- a defect the ledger reported open while
+    # the charter condition it gates was already MET.
     return sorted((p for p in ARCHIVE.iterdir() if stem in p.name and p.suffix == ".md"),
-                  key=lambda p: -p.name.count("archive-"))
+                  key=lambda p: (-p.name.count("archive-"), p.name))
 
 
 def defects_text(live: pathlib.Path | None = None) -> str:
