@@ -1,0 +1,29 @@
+{
+ "what": "how of3t-refprec's result will be read, written BEFORE the numbers exist. The arms were launched 07:51-07:56 and were still in their backward at 08:17; nothing in this file is informed by any of their output.",
+ "why_this_file_exists": "this campaign has withdrawn four readings that were constructed after seeing a number -- an interpolated K read off the curve it explained (D62), a residual extrapolated with too little margin (D61), a sectional bound that assumed independence (pass 158), and a two-mechanism split refuted by the next arm (D57). The cheapest possible guard against a fifth is to fix the interpretation while the answer is still unknown.",
+
+ "precondition_checked_before_the_numbers": {
+  "claim": "the arms load the same model as the reference, so the comparison is valid on that axis.",
+  "evidence": "all three arms log `checkpoint of3-p2-155k.pt: loaded 4935 tensors, 1 missing, 0 unexpected`, identical to the float64 reference build. The bundle MANIFEST records that single missing key as `version_tensor`, taken through upstream's own `warn_and_load_nonstrict` branch with `raised: None`. The 3-missing / 48-unexpected line in the same log family is the 0.5.0 NEGATIVE CONTROL, which correctly raised ValueError. So `1 missing` is the expected, documented state and not a discrepancy.",
+  "checked_at": "pass 168, before any arm produced a gradient."
+ },
+
+ "the_reading_rule_for_arm2": {
+  "arm": "arm2_f32_upstream -- float32 with upstream's own autocast and .float() calls LEFT IN. This is the precision the recipe actually runs, and it is the arm that answers the question.",
+  "statistic": "mass-weighted rel_l2 over all 4,170 tensors against the float64 reference.",
+  "if_below_5e-02": "the bar is achievable in single precision. Our device arm's 7.5692 is then entirely OURS, the campaign's framing is CONFIRMED, and the 54.0115 % outside the bar is a port gap with no excuse available.",
+  "if_at_or_above_1.0": "the bar is comparing single precision against float64, and we have been holding ourselves to something upstream never meets either. The framing is REFUTED and 'reproduce OpenFold3 training' has to be restated against UPSTREAM'S OWN TRAJECTORY rather than a float64 ideal -- which is a different campaign with a different bar.",
+  "if_between": "the interesting case, and the one I must not round. Report the number, state the bar it implies, and say explicitly that neither the confirm nor the refute branch was reached. A value near 2.0e-02 would mean the bar sits almost exactly at the recipe's own floor, which is worth knowing precisely because it is neither comfortable answer."
+ },
+
+ "the_other_arms_and_what_each_decides": {
+  "arm3_f32_removed": "float32 with upstream's casts REMOVED. arm3 minus arm2 isolates how much of the floor is upstream's own casting rather than single precision itself. If arm2 is much worse than arm3, part of what we have been calling our gap is upstream's own downcasting, which the reference build deliberately stripped.",
+  "arm4_bf16_autocast": "bf16 autocast with fp32 parameters -- the honest floor of an AF3-style training step. EXPECTED to be worse than arm2; if it is BETTER, something is wrong with an arm and the result is void until that is explained.",
+  "negctl_f32_permuted": "must move the headline by orders of magnitude. If it does not, the comparison cannot fail and none of the other three arms means anything."
+ },
+
+ "the_single_most_informative_tensor": "whatever arm2 reads on `diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` -- 8.05416 % of the model, the fourth-heaviest tensor, where our device reads rel 18.504 with r 19.2415 and cos 0.74941. If upstream's own fp32 reads ~1e-03 there, the 18.504 is ours alone and the conditioning defence is finished. If it reads O(1), that one tensor is beyond single precision for everybody.",
+
+ "what_this_file_does_NOT_do": "it does not predict the answer. I have no expectation worth recording -- the ladder's host-fp32 column suggests small numbers at the measured K of 17..208, and the device/host ratio of ~2,172x suggests our gap is arithmetic rather than conditioning, but both of those are block-arm results and the whole point of this row is that model-scope behaviour has repeatedly failed to follow block-arm extrapolation. If the result surprises me, that is the measurement doing its job.",
+ "provenance": "written 2026-09-20 pass 168 by of3t-orchestrator on pc, CPU only, no device opened, while of3t-refprec's four arms were mid-backward on qb2 with empty output directories."
+}
