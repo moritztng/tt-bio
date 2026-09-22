@@ -8,11 +8,13 @@ second is the rule Moritz put above the others -- the training path calls the SA
 inference path calls, because a forked forward trains a model we do not serve and the drift is
 invisible until it matters.
 
-The fork check is deliberately a census, not a pass/fail on zero: `perf/ptxft/tape_block.py`
-re-implements four shipped modules today and de-forking it is scheduled build work, not a bug
-to fail CI on. What this test pins is that the fork does not GROW and does not move into
-`tt_bio/`. Shipping a taped copy of a production module under `tt_bio/` is the failure this
-catches.
+The fork check is deliberately a census, not a pass/fail on zero: when
+`perf/ptxft/tape_block.py` existed it re-implemented four shipped modules, and de-forking it
+was scheduled build work rather than a bug to fail CI on. **That file is gone**, so the census
+now skips with "the fork is gone, which is the goal" -- corrected 2026-09-22, when this
+paragraph still described it in the present tense. What the test pins either way is that the
+fork does not GROW and does not move into `tt_bio/`. Shipping a taped copy of a production
+module under `tt_bio/` is the failure this catches, and that half runs unconditionally.
 
 Host-only: pure AST, no ttnn import, no device.
 """

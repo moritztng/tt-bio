@@ -98,6 +98,57 @@ PLAN = {
                   "separate ask: both are built, measured, release-gated and waiting only on "
                   "Moritz"),
     },
+    # Added pass 393. D10 and D24 were classified USER-FACING in triage.py's own table and
+    # were absent from the live USER-FACING list for ~35 passes, because the generator had
+    # refused since roughly pass 358 and stamp_row_counts.py kept the file alive by appending
+    # new defects to CAMPAIGN-INTERNAL. This plan's own guard is what caught it, on the first
+    # regeneration -- "live but unplanned: ['D10', 'D24']".
+    "D10": {
+        "needs": MERGE,
+        "one_line": "the confidence head mis-ranks diffusion samples on the shipped selector, so the served structure is not the best of the five",
+        "closes_when": ("the repaired rule merges. It is BUILT and MEASURED end to end through "
+                        "the production CLI -- what is left is a merge, which is Moritz's gate "
+                        "and not this campaign's"),
+        "evidence_held": ("`of3t-confhead`, 1UBQ, production CLI, 200 sampling steps, arms "
+                          "interleaved, p300c at AICLK 1350 sampled during, nine ship-arm seeds "
+                          "and eight fix-arm seeds over a 28-pair seed floor, read from "
+                          "perf/of3t_confhead/analyze.json at 5588d889a rather than from the "
+                          "row's prose. Served rank-0 CA-RMSD: shipped 0.775 A, D10 alone "
+                          "0.760 A, best-of-5 0.679 A in both. **The 0.015 A the fix gains is "
+                          "well inside the 0.226 A seed floor**, which is why the entry says "
+                          "D10 ships as a CORRECTNESS fix with NO ACCURACY CLAIM. D1 alone "
+                          "serves 1.201 A and D1+D10 0.924 A, so D1 does not ship"),
+        "would_a_row_help": False,
+        "asked": ("belongs in the same merge question as D184 and D126: built, measured, "
+                  "release-gated, waiting only on Moritz"),
+    },
+    "D24": {
+        "needs": MERGE,
+        "one_line": "on a single chain OpenFold3's ranking rule has two of its four terms identically zero, and it is the only model of five that leaves it unhandled",
+        "closes_when": ("the ipTM->pTM fallback the other four models carry is given to "
+                        "OpenFold3 and merged. **It is measured to change nothing a "
+                        "single-chain user is served** and it is still the right consistency "
+                        "change for complexes, so what closes it is a merge plus one "
+                        "measurement on a COMPLEX, where the terms are not degenerate"),
+        "evidence_held": ("machine-checked in perf/of3t_confhead/rank_rule.py on the shipped "
+                          "default, independent of D1. On ubiquitin the rule reduces one step "
+                          "further than filed: `disorder` reads 0.0 on all five samples -- a "
+                          "compact 76-residue fold never pushes a 25-residue smoothed RASA "
+                          "window past the 0.581 threshold -- so every rank_score is 0.2*pTM to "
+                          "the last digit. With iptm = 0 and disorder = 0 the shipped, family, "
+                          "no_disorder and ptm rules all reduce to a POSITIVE MULTIPLE of pTM, "
+                          "and a positive multiple cannot change an ordering: rules.py puts all "
+                          "four on identical served RMSDs, sample for sample. So the heading's "
+                          "'affects every monomer fold shipped today' is true of the RULE and "
+                          "not of the STRUCTURE a monomer user receives. It stays USER-FACING: "
+                          "the shipped selector is degenerate and that is a real defect; what "
+                          "the measurement bounds is its consequence, not its existence. "
+                          "`disorder = 0` is a property of a compact 76-residue monomer, not of "
+                          "monomers, so a larger or genuinely disordered single chain is "
+                          "unmeasured"),
+        "would_a_row_help": True,
+        "asked": ("not yet asked. The complex-side measurement has no owner"),
+    },
     "D210": {
         "needs": RELEASE,
         "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",

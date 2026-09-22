@@ -91,8 +91,9 @@ TABLE = {
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
                   "gradients and withholds it from four sitting inside near-cancellations."),
-    "D56": (USER, "A constant ~2,172x device arithmetic floor against torch fp32 on the worst "
-                  "gradient component, which the entry itself calls a port gap."),
+    # D56 REMOVED at pass 393: no longer UNFIXED on its latest status-bearing heading, and
+    # this script refuses to report a classification of a set that has moved -- the same rule
+    # that removed D164 at pass 340.
     "D58": (USER, "The forward-to-gradient factor is 11.026x (diffusion) and 10.903x (msa_module) at the "
              "repaired denominator, not the ~20x first filed. of3t-tapeamp REFUTED the "
              "'belongs to the tape' half on the diffusion leg: 69.53 %% of the factor is "
@@ -314,6 +315,61 @@ TABLE = {
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
+    # ------------------------------------------------------------------------------------
+    # Pass 393: the TWENTY UNFIXED defects filed since the last successful regeneration.
+    # This table has been unrunnable since roughly pass 358 -- `main()` refuses when the
+    # UNFIXED set has moved, and it had moved by twenty -- so UNFIXED_TRIAGE.json was kept
+    # alive by `stamp_row_counts.py:30-33` instead, whose own comment reads "a newly-visible
+    # UNFIXED defect defaults to campaign-internal" and whose `reasons` placeholder reads
+    # "classified by stamp_row_counts.py; no user-facing claim made". Fourteen of the twenty
+    # below still carry that placeholder. THE DEFAULT IS THE LEAST SEVERE CLASS, nothing ever
+    # revisited it, and the USER-FACING count Moritz reads was built on top of it.
+    #
+    # Six are classified here on their own evidence. The other fourteen INHERIT the stamper's
+    # default and say so in their `why`, so the placeholder is visible in the source of truth
+    # instead of hidden behind a count. Reviewing them is owed and is NOT done here; what is
+    # done is making the generator runnable again, which restores the invariant that `classes`
+    # and `reasons` cannot disagree.
+    "D210": (USER, "14.2M fused-QKV pad lanes are in the optimizer's parameter set and Adam "
+             "steps them; upstream does not have them. USER-FACING because a user who trains "
+             "gets them. R152 measured their one route into other parameters' updates -- the "
+             "global-norm clip -- INERT on the trajectory arm: clip exactly 1.0 at all 20 "
+             "steps and all 80 per-sample coefficients, 12.5703x of headroom. Confined by the "
+             "batch's gradient norm, not by the parameter set."),
+    "D211": (CAMP, "GRADIENTS' coverage clause and its accuracy clause are not satisfiable by "
+             "any single artifact the campaign holds. A defect in this campaign's own gate."),
+    "D213": (SCOPE, "main's test suite is red on artifacts belonging to another campaign's "
+             "namespace. Recorded as outside this campaign's scope by its own entry."),
+    "D214": (CAMP, "the headline trunk figure is cross-frame and its scope bar is looser than "
+             "the model clause it feeds. A reporting rule about this campaign's own figures."),
+    "D217": (CAMP, "the live rows were aimed at 31.2190 % of the trunk's error mass while "
+             "blocks 4 and 0 hold 45.8293 % between them, unowned. A dispatch defect."),
+    "D219": (CAMP, "the trunk's carrier was searched among the wrong verbs, 60,144 firings at "
+             "padded 384 against 11,856 planned. An instrument-targeting defect."),
+    "D222": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D223": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D224": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D225": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D227": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D231": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D232": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D233": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D235": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D237": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D240": (CAMP, "a taped tensor's cotangent precision keyed on graph fan-out. REFUTED by "
+             "of3t-cotcoh's own count (R144): 4,983 of 5,569 taped tensors consume a bf16 "
+             "cotangent whatever their fan-out. Confined to the tape, so it cannot reach "
+             "inference by construction."),
+    "D241": (CAMP, "the trunk clause divides two different experiments -- our arm is "
+             "boundary-injected and the bf16 denominator is a full-model run. A defect in this "
+             "campaign's own measurement."),
+    "D242": (CAMP, "the model frame does not reproduce its own reference: an injected float64 "
+             "trunk on its own captured boundary and cotangent reads 0.7945281613194305 "
+             "against a 1e-12 bar. A defect in this campaign's instrument, localised at pass "
+             "389 to the captured cot_z alone."),
+    "D245": (CAMP, "the shippable host-float64-softmax install is 34.25 % worse against float64 "
+             "than the harness verb install. Campaign-internal because the lever is off at "
+             "every site and unmerged -- nothing a user runs today reaches it."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
