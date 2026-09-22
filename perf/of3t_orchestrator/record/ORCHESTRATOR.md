@@ -74,16 +74,15 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **one hundred eleven dispatched, one hundred five concluded**, counted from disk at the END
-of pass 360 (111 `of3t-*` briefs including this row's own; 107 markers, 2 of them this row's own
-historical ones). **Five rows live, at the cap**: `of3t-refcov` (qb1-1, the coverage leg),
-`of3t-vjpln` (qb1-2, the backward VJPs), and three trunk rows — `of3t-trunkblocks` (qb1-0),
-`of3t-trunkopclass` (qb1-3) and `of3t-trunkceiling` (qb2-0) — **dispatched at 12:44 outside any
-pass of mine and untracked until pass 360 committed them.** They quote pass 359's numbers, so they
-are on-object; two of them re-bought census work `of3t-trunkact` had concluded 22 minutes earlier
-and all three are amended in place. `of3t-trunkceiling` is the row permitted to produce a NO-GO
-for the accuracy clause, under four conditions added this pass. Concluded this window:
-`of3t-trunkact` (NO-GO), `of3t-covdefault` (NO-GO), `of3t-blk4544`, `of3t-trajfull`.
+ROWS: **one hundred eleven dispatched, one hundred six concluded**, from disk at the END of pass
+360 (111 `of3t-*` briefs including this row's own; 108 markers, 2 of them this row's own
+historical ones). **`of3t-refcov` concluded GO mid-pass and closed the coverage leg.** Four rows
+live: `of3t-vjpln` (qb1-2, the backward VJPs) and three trunk rows — `of3t-trunkblocks` (qb1-0),
+`of3t-trunkopclass` (qb1-3), `of3t-trunkceiling` (qb2-0) — **dispatched at 12:44 by another
+session, untracked until this pass committed them**, along with their gate entries. They quote
+pass 359's numbers so they are on-object; two re-bought census work `of3t-trunkact` concluded 22
+minutes earlier and all three are amended in place. `of3t-trunkceiling` is the row permitted to
+produce a NO-GO for the accuracy clause, under four conditions added this pass.
 
 Every row owns a disjoint artifact namespace `perf/of3t_<row>/` and is based on `wk/of3t` via
 `CONTINUES_FROM:` so the DISPATCHER resolves the base rather than the row spending ten minutes
@@ -333,17 +332,32 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               bar of 0.5268825373 — so hitting that scope bar leaves the clause at 1.1219x and
               failing. Factor still to find: **2.360x**. Owner: `of3t-vjpln`; `of3t-trunkact` and
               `of3t-blk4544` have concluded.
-    coverage  97.98499 % against 99.2594 % on the SHIPPED arm, and **the bar stands** (D212,
-              pass 358). `of3t-covdefault` NO-GO'd flipping `TT_BIO_OF3_DEVICE_REFATOM` on a real
-              inference A/B (+198.476 ms cold / +50.231 ms warm on openfold3) and proposed
-              repointing the bar to the shipped arm's own 97.9849. Refused: the flag is not on
-              any route. `tt_bio/train/openfold3.py:332` calls the HOST `ref_atom_embed`
-              unconditionally and its host prep runs ABOVE `with ag.tape():` at line 362, while
-              the arm that DID reach the eight built `RefAtomFeatureEmbedder` directly with no
-              env var at all. `tt_bio/train/` cannot reach inference by construction, so
-              97.98499 +0.75304 (the eight) +0.74051 (`linear_q.0.weight`) = **99.47854**, which
-              clears. Owner: `of3t-refcov`, dispatched pass 358, with the accuracy cost of moving
-              two host-float32 legs onto the card pre-registered as a possible NO-GO.
+    coverage  **MET on a verified artifact, NOT YET adopted by the gate.** `of3t-refcov`
+              concluded GO: **97.98499306866148 -> 99.50523155277378**, clearing the 99.2594 bar
+              by 0.2458, `n_compared` 3643 -> 3660, against a prediction committed at `c57ac6284`
+              BEFORE any arm and hit to **6.0e-13**. Key-set equality with
+              `of3t-hostleg/SEVENTEEN.json`, disjointness checked, denominator recomputed
+              in-process at 5e-16. **Zero shipped-code change** — `git diff -- tt_bio/` is empty
+              and the arm constructs `RefAtomFeatureEmbedder` directly, which is exactly the
+              route D212 said existed and `of3t-covdefault` said did not. Inference is an
+              identity argument, not a timing: a real fold imported 146 `tt_bio` modules, none
+              under `tt_bio.train`, by an `atexit` hook rather than a grep, and the digest is
+              bit-identical three times. Accuracy IMPROVES with it, so the pre-registered NO-GO
+              did not fire: mass-weighted vs float64 moves **-5.670594e-03** on the shipped
+              default and **-1.370213e-01** on the pre-D56 arm.
+              **Why the gate still reads 97.98499, and it is not an oversight.** The clause pair
+              must read ONE scope or narrowing becomes a way to pass (D181). The gate takes
+              coverage AND accuracy from `perf/of3t_modelboundary/MODEL_withtrunk_n384.json`;
+              `perf/of3t_refcov/COVERAGE_COMPOSED.json` carries both but scores accuracy against
+              float64, not against upstream's bf16 with the A26 bar the accuracy clause reads.
+              Repointing coverage alone is precisely the D181 defect. And a splice will not do:
+              the row's own **C2** control shows the levers reach **547 previously-published
+              tensors**, worst rel diff **0.7404** on the renorm arm (3.8798 on the shipped one)
+              because `--device-refatom` moves `cl0`/`plm0` onto the card and they feed the whole
+              diffusion module. So the composed set is not "the 3643 plus 17" and adoption needs
+              a FRESH `model_scope.py` run over the 3660 in `of3t-modelboundary`'s namespace,
+              emitting both statistics. **Owed, unowned, and small.** No verdict turns on it:
+              accuracy fails at 3.5298x either way.
 
 **D126 is ANSWERED and CLOSED, and it never reached `origin/main`'s shipped RECIPE** (2026-09-22,
 ask 9807, Moritz: *"us your own own judgement, do the right thing"*; record
@@ -410,7 +424,7 @@ hundred five concluded, three live; `state/concluded` holds **one hundred seven*
 scope-excluded, 9 USER-FACING, 66 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
-historical markers and not rows, so **one hundred five rows have concluded**. Recounted from
+historical markers and not rows, so **one hundred six rows have concluded**. Recounted from
 disk at the end of this pass, not carried forward, and it moved DURING the pass: `of3t-trunkact`
 concluded while these fields were being written.
 
@@ -1383,3 +1397,42 @@ distance measured across two frames. 360: a ratio built from two references. All
 same shape — **arithmetic that is correct about the wrong pair of objects** — and none was caught
 by a guard, because each number was internally consistent. The check that finds them is cheap and
 mechanical: name the two objects a ratio compares and confirm they differ in exactly one respect.
+
+**A second writer is on this campaign's control plane, and it is working well.** The three trunk
+briefs, their three `_of3t_donecheck.py` gate entries with stage hints, and an appended target
+note on `of3t-trunkact` were all written outside any pass of mine and were **uncommitted** when I
+found them. The content is good — absolute mass before relative, a runtime call census rather than
+a source read, the A/A floor quoted first, and `trunkceiling`'s `REACHABLE:` field demanding a
+MEASURED statement rather than one inferred from a lever catalogue. All of it is committed and
+pushed now. Two things for the next pass: **the gate script has two writers**, which is the
+surface where a race actually costs something, and uncommitted control-plane work is one `rm`
+from gone. One correction to the note on `of3t-trunkact`: it says pass 359 recorded amending that
+brief and did not. Pass 359 amended the two rows that were LIVE; `of3t-trunkact` concluded at
+12:22, before that pass ran.
+
+
+### Pass 360, late — `of3t-refcov` closed the coverage leg, and D212 is settled by measurement
+
+It concluded **GO** while this pass was running. Coverage **97.98499306866148 ->
+99.50523155277378**, clearing 99.2594 by 0.2458, against a prediction committed at `c57ac6284`
+before any arm and hit to **6.0e-13**. `git diff -- tt_bio/` is **empty**: the arm constructs
+`RefAtomFeatureEmbedder` directly and registers it, with no env flag and no shipped-code change.
+
+That is D212 decided by measurement rather than by argument. `of3t-covdefault` concluded that
+*"every route that reaches it requires the flag ON"* and proposed dropping the bar to 97.9849.
+Pass 358 refused on three code facts and dispatched this row instead. Had the repoint been taken,
+the bar would now sit below a figure we can actually reach, and nothing would have been built.
+
+Accuracy improves with it — mass-weighted vs float64 **-5.670594e-03** on the shipped default —
+so the pre-registered NO-GO condition did not fire.
+
+**I am not adopting it into the gate this pass, and the reason is D181.** The coverage and
+accuracy clauses must read one scope. Both currently come from
+`MODEL_withtrunk_n384.json`; refcov's artifact carries both but scores accuracy against float64
+rather than against upstream's bf16 with the A26 bar the clause reads. Repointing coverage alone
+is the D181 defect exactly. Nor can the two be spliced: the row's own **C2** control shows its
+levers reach **547 previously-published tensors**, worst 0.7404 on the renorm arm, because
+`--device-refatom` moves `cl0`/`plm0` onto the card and they feed the whole diffusion module. The
+composed set is genuinely a different set, not a superset. Adoption is a fresh `model_scope.py`
+run over the 3660 in `of3t-modelboundary`'s namespace emitting both statistics — small, owed and
+unowned. No verdict turns on the delay: the accuracy clause fails at 3.5298x with either artifact.
