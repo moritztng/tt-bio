@@ -1335,7 +1335,11 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # NOT bit-exact, same reason as K3: k_chunk sets the online-softmax reduction order. The
     # accuracy arm is pLDDT. Separate switch from K3 so the two can be A/B'd apart.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
-        if _SDPA_BAND_DIV_K:
+        # `not _IS_SMALL_GRID` is the Blackhole scope, read at call time rather than snapshotted:
+        # the grid is only known once a device is open, and `_apply_grid_thresholds` clears this
+        # function's cache so the first post-open call re-decides. Same shape as
+        # `_TRANSITION_L1_ROWS`, which also ships on for one part.
+        if _SDPA_BAND_DIV_K and not _IS_SMALL_GRID:
             dk = _dividing_sdpa_chunk_size(k_len)
             # Only when it really divides. At padded 288 and 352 no 32-aligned divisor
             # clears the cap/2 floor, so `_dividing_sdpa_chunk_size` hands back the cap,
@@ -1387,9 +1391,30 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 _SDPA_DIV_K = env_flag("TT_BIO_SDPA_DIV_K", True)
 
 # K4: the same dividing pick inside the 256 < seq <= 384 band, where the fused kernel already
-# serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`. Ships OFF
-# until its fold-level A/B and pLDDT arm land on both architectures.
-_SDPA_BAND_DIV_K = env_flag("TT_BIO_SDPA_BAND_DIV_K", False)
+# serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`.
+#
+# ON, and Blackhole only, which is what its own shipping condition asked for one architecture at a
+# time. That condition was "until its fold-level A/B and pLDDT arm land on both architectures", and
+# the Blackhole half has landed: Boltz-2 at 298 aa (pads to 320) reads 9.061 -> 8.930 s, 1.01473x,
+# +0.1315 s, on an A/A floor of 1.00337 -- 4.4x its own floor, with the arms not overlapping at all
+# (base 9.035-9.101, on 8.905-8.967). qb2 card 0, p300c 11x10, benchlock, sibling card 1 verified
+# idle per block, AICLK 1350 sampled DURING every fold over 475 samples
+# (`perf/c14_bfp8/k4_band_ab298_qb2c0.json`).
+#
+# Not bit-exact, by design: k_chunk sets the online-softmax reduction order. Scored as a structure
+# instead. CA 0.2266 A / all-atom 0.4312 A against the 0.60 A bar, and against the DEPOSITED
+# structure (1HCL, which is what this fixture is) the sign is favourable rather than merely small:
+# CA-RMSD 0.808517 -> 0.763417 A and TM 0.985599 -> 0.987320 over the same 294 residues, so the
+# fold moves TOWARD native. pLDDT 0.910271 -> 0.911447. One seed at one size, so "no measurable
+# accuracy cost" is supported and "an accuracy gain" is not.
+#
+# WORMHOLE STAYS OFF and the reason is in this file, not caution. The band's q half looked like an
+# obvious win on a Wormhole op screen and the FOLD came back 0.9333x, a 6.7 % REGRESSION (see
+# `_sdpa_chunks_shipped`). K4's Wormhole evidence today is exactly that kind of op screen
+# (1.4232x / 1.5612x, `perf/whb2/out/divk_wh.json`). Flipping it there on a Blackhole fold would be
+# repairing the clause to pass it. `TT_BIO_SDPA_BAND_DIV_K=1` prices it on a Galaxy when someone
+# has one; the arm that lets it ship is one interleaved fold A/B at 320 or 384 aa.
+_SDPA_BAND_DIV_K = env_flag("TT_BIO_SDPA_BAND_DIV_K", True)
 
 
 @lru_cache(maxsize=None)
@@ -4836,6 +4861,10 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     global SMALL_GRID_PAIR_TILE_AREA, SMALL_GRID_MSA_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
     global TRANSITION_L1_CHUNK_BYTES_PER_CORE, _FP32_SOFTMAX_L1_GRID
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
+    # `_sdpa_chunks_shipped` reads `_IS_SMALL_GRID` and is lru_cached, so anything that resolved a
+    # pick before the grid was known cached a guess. Clearing here is what makes the read at call
+    # time honest; without it the flag looks inert, which is the flattering direction.
+    _sdpa_chunks_shipped.cache_clear()
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
     # The fp32-softmax tuned rectangle is the live grid on a small part, not the fitted 8x8.

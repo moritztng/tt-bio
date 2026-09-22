@@ -494,6 +494,39 @@ adds happen in the same order — only how many run per pass changes.
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
+## `TT_BIO_SDPA_BAND_DIV_K` — on, Blackhole only
+
+Triangle attention splits its key axis into chunks, and in the 256-384 residue band the chunk was
+64 for every length. 64 divides those lengths, so the fused kernel already served there; it is just
+not the best divisor. This flag picks the largest 32-aligned divisor instead, which is 160 at a
+padded 320 and 192 at a padded 384, so the online softmax makes one pass over the key axis where it
+used to make several.
+
+It fires at exactly two padded lengths, 320 and 384, which covers sequences of 289-320 and 353-384
+tokens. Padded 288 and 352 keep 64 because no 32-aligned divisor clears the kernel's floor, and
+every length outside the band returns the same pick it returns today, byte for byte. Nothing else
+moves.
+
+**Speed: 1.01473x at 298 residues**, 9.061 s to 8.930 s, +0.1315 s. Three blocks with the arms
+interleaved, two timed folds each after a discarded warmup, on a p300c at an AICLK of 1350 MHz
+sampled during every fold, against an A/A floor of 0.337 %. The arms do not overlap: every off fold
+is 9.035-9.101 s and every on fold is 8.905-8.967 s. All 560 triangle-attention calls a fold serve
+at the wider chunk, none decline.
+
+**Accuracy: not bit-exact, and the structure moves toward the deposited one.** The chunk width sets
+the order the softmax reduces in, so the mmCIF digest changes. Scored instead: against PDB 1HCL,
+which is what this target is, CA-RMSD goes 0.808517 to 0.763417 Å and TM-score 0.985599 to
+0.987320 over the same 294 residues. pLDDT goes 0.910271 to 0.911447. The move away from the
+previous route is 0.2266 Å CA and 0.4312 Å all-atom, inside the 0.60 Å bar. That is one seed at one
+size, so read it as no measurable accuracy cost rather than as a gain.
+
+**Wormhole ships off, on purpose.** The only Wormhole evidence is an op-level screen, and this same
+band already burned that: its q half looked like a clear win on a Wormhole op screen and the fold
+came back 6.7 % slower. `TT_BIO_SDPA_BAND_DIV_K=1` prices it on a Galaxy; what it needs before the
+default moves there is one interleaved fold A/B at 320 or 384 residues.
+
+`TT_BIO_SDPA_BAND_DIV_K=0` is the way back on any card.
+
 ## `TT_BIO_SDPA_FUSED_LARGE_S` — on
 
 Triangle attention re-reads the same pair bias once per row of the pair tensor. The fused kernel
