@@ -1,0 +1,105 @@
+{
+ "what": "the same seven arms of3t-trajwide ran, all scored at 20 of 20 rungs instead of 9. The break controls are what make the shipped arm's 2.564253e-01 readable: without them a number between 0 and 1 could be anything.",
+ "scope": "diffusion_module, 573 of 761 reference tensors, 88.08194359237523 % of the model's squared gradient norm. theirs_aa2 reads 89.2106 % because the reference against itself covers all 761 of its own tensors, not the 573 our device arm reaches.",
+ "host": "qb2 (tt-quietbox2), device arms on cards 0 and 1 of one p300c board pair, reference arms CPU only, OMP_NUM_THREADS=3. Scored on qb2.",
+ "arms": {
+  "norebind": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 0.8563582988725468,
+   "worst_per_tensor_k20": 0.9247688923256325,
+   "worst_tensor_k20": "atom_attn_dec.atom_transformer.layer_norm_z.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": 0.23535611989997243,
+   "growth_r2": 0.9964612951520648,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_norebind.json"
+  },
+  "permute": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 0.8598760439512486,
+   "worst_per_tensor_k20": 2.5411651727250244,
+   "worst_tensor_k20": "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": 0.23470593730438186,
+   "growth_r2": 0.9963758344368279,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_permute.json"
+  },
+  "shipped": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 0.2564252741863578,
+   "worst_per_tensor_k20": 0.8110072057401185,
+   "worst_tensor_k20": "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": -0.2772440946061829,
+   "growth_r2": 0.9049624179817609,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_shipped.json"
+  },
+  "shipped_aa2": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 0.2564252741863578,
+   "worst_per_tensor_k20": 0.8110072057401185,
+   "worst_tensor_k20": "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": -0.2772440946061829,
+   "growth_r2": 0.9049624179817609,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_shipped_aa2.json"
+  },
+  "stale": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 0.31396354541233057,
+   "worst_per_tensor_k20": 0.8311453997592274,
+   "worst_tensor_k20": "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": -0.17421543305689913,
+   "growth_r2": 0.812103941334916,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_stale.json"
+  },
+  "theirs_aa2": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 89.21058020840096,
+   "tensors_compared": 761,
+   "rel_d_k20": 0.0,
+   "worst_per_tensor_k20": 0.0,
+   "worst_tensor_k20": "linear_s.weight",
+   "tensors_bit_identical_k20": 761,
+   "growth_exponent": null,
+   "growth_r2": null,
+   "growth_shape": null,
+   "artifact": "perf/of3t_trajwiden/traj_widen_theirs_aa2.json"
+  },
+  "zero": {
+   "steps_scored": 20,
+   "pct_of_model_sq_grad_norm": 88.08194359237523,
+   "tensors_compared": 573,
+   "rel_d_k20": 1.0,
+   "worst_per_tensor_k20": 1.0,
+   "worst_tensor_k20": "linear_s.weight",
+   "tensors_bit_identical_k20": 0,
+   "growth_exponent": 0.0,
+   "growth_r2": 1.0,
+   "growth_shape": "sub-linear",
+   "artifact": "perf/of3t_trajwiden/traj_widen_zero.json"
+  }
+ },
+ "reads": {
+  "instrument_is_deterministic": "theirs_aa2 against theirs is EXACTLY 0.0 at all 20 rungs with 761 of 761 tensors bit-identical, so every magnitude below is readable.",
+  "our_arm_is_deterministic": "shipped_aa2 reproduces shipped to every recorded digit (2.564253e-01 at k=20, growth exponent -0.2772440946), so the device arm repeats.",
+  "saturation": "zero (the model's own gradient replaced by zero) reads exactly 1.000000 at every rung, which is what a d_k of zero against a moving reference must read. shipped sits 3.90x below saturation.",
+  "break_controls_move": "norebind (skip rebind, so step k+1 reads the weights discovery saw) reads 8.563583e-01, 3.34x shipped; permute (gradients handed over under a rotated name map) reads 8.598760e-01, 3.35x shipped with a worst tensor of 2.5412, above 1.0. Both flip the growth exponent POSITIVE (+0.2354, +0.2347) where shipped and stale are negative, so the SIGN of the growth law separates a healthy loop from a broken one.",
+  "the_weak_control": "stale (step k+1 reads the weights step k-1 wrote) reads 3.139635e-01, only 1.22x shipped. It moves, and it is the least sensitive of the three: 20 warmup steps move the weights about 1e-6 relative, so one step of staleness is a small perturbation. This instrument is weakly sensitive to weight FRESHNESS and strongly sensitive to weight IDENTITY and to the name map. Stated rather than left for a reader to infer from the table."
+ }
+}
