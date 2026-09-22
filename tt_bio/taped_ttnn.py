@@ -284,6 +284,19 @@ _VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
                            reads_output=True)
 _VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
 _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
+# of3t-trunkceiling, NOT SHIPPED -- stays on wk/of3t-trunkceiling. Without it the 5-op
+# `_accurate_softmax` chain cannot be taped at all: its -60 floor is a `ttnn.clamp` and the tape
+# raises on the first taped tensor handed to it, so the accurate-softmax lever is catalogued as
+# reaching the trunk and RAISES on the training path. Measured, not argued: a 2-block trunk arm
+# with TT_BIO_ACCURATE_SOFTMAX_AB=openfold3.trunk dies with "ttnn.clamp has no tape entry"
+# after 102 leaves register.
+#
+# The rule needs no bounds. `clamp` is the identity exactly where it did not clip, so `x == y`
+# IS the mask -- for either bound, for None, and at the boundary itself, which is what torch's
+# `(x >= min) & (x <= max)` does. On the -60 floor the mask is 1 everywhere a weight exceeds
+# exp(-60) = 8.8e-27, so on a live row this is the identity, and on a fully-masked row it
+# correctly stops the gradient of a value the forward replaced.
+_VERBS["clamp"] = _unary(lambda xv, y: ttnn.eq(xv, y))
 
 
 # A fused eltwise activation, and its derivative from whichever of (input, output) is
