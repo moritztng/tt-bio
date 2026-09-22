@@ -1,0 +1,170 @@
+{
+ "instrument": "PROTOCOL SS6: conditional-path gradient contribution against a control",
+ "path": "nucleotide",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "index": 27,
+ "dtype": "float32",
+ "seed": 20260921,
+ "n_templates": 4,
+ "package": "openfold3",
+ "cache_file": "/home/ttuser/of3t_cov/datasets/training_cache_with_templates_subset_4.json",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "target": {
+  "pdb_id": "4hj5",
+  "datapoint": "1",
+  "n_tokens_real": 152,
+  "molecule_type_tokens": {
+   "is_protein": 143,
+   "is_dna": 9,
+   "is_rna": 0,
+   "is_ligand": 0
+  },
+  "template_pseudo_beta_mask_nnz": 165,
+  "loss_weights": {
+   "bond": 0.0,
+   "smooth_lddt": 4.0,
+   "mse": 4.0,
+   "distogram": 0.029999999329447746,
+   "experimentally_resolved": 9.999999747378752e-05,
+   "plddt": 9.999999747378752e-05,
+   "pae": 9.999999747378752e-05,
+   "pde": 9.999999747378752e-05
+  },
+  "summed_confidence_weight": 0.00039999998989515007
+ },
+ "arms": {
+  "nucleotide_on": {
+   "loss": 1.160454273223877,
+   "edit": {},
+   "breakdown": {
+    "plddt_loss": 1.9886220693588257,
+    "pde_loss": 1.1564743518829346,
+    "experimentally_resolved_loss": 0.06311889737844467,
+    "pae_loss": 2.1956515312194824,
+    "confidence_loss": 0.0005403866525739431,
+    "mse_loss": 0.25467780232429504,
+    "smooth_lddt_loss": 0.24167346954345703,
+    "diffusion_loss": 1.1189520359039307,
+    "distogram_loss": 1.3653967380523682,
+    "scaled_distogram_loss": 0.04096190258860588,
+    "loss": 1.160454273223877
+   }
+  },
+  "nucleotide_off": {
+   "loss": 1.1037089824676514,
+   "edit": {
+    "tokens_refiled_as_protein": 9
+   },
+   "breakdown": {
+    "plddt_loss": 1.9728655815124512,
+    "pde_loss": 1.1431190967559814,
+    "experimentally_resolved_loss": 0.06311889737844467,
+    "pae_loss": 2.1490604877471924,
+    "confidence_loss": 0.0005328163970261812,
+    "mse_loss": 0.19677700102329254,
+    "smooth_lddt_loss": 0.23972374200820923,
+    "diffusion_loss": 1.0646306276321411,
+    "distogram_loss": 1.284848928451538,
+    "scaled_distogram_loss": 0.03854546695947647,
+    "loss": 1.1037089824676514
+   }
+  }
+ },
+ "contribution": {
+  "squared_norm_arm_on": 0.8951985535495917,
+  "squared_norm_of_difference": 0.24930580177750666,
+  "share_of_squared_gradient_norm": 0.2784921856597881,
+  "n_params_moved": 4164,
+  "n_params_with_gradient_on": 4170,
+  "by_section": {
+   "input_embedder": {
+    "sq": 0.00022653215166084184,
+    "delta_sq": 0.00011565562128020353,
+    "n": 98,
+    "share_of_own": 0.5105483721946904
+   },
+   "layer_norm_z": {
+    "sq": 2.384389282011736e-05,
+    "delta_sq": 8.911906477170687e-07,
+    "n": 2,
+    "share_of_own": 0.03737605492695224
+   },
+   "linear_z": {
+    "sq": 1.723231346925027e-06,
+    "delta_sq": 1.0259265127537135e-07,
+    "n": 1,
+    "share_of_own": 0.059535042383276046
+   },
+   "template_embedder": {
+    "sq": 0.0001767920831528411,
+    "delta_sq": 1.5428960492384025e-05,
+    "n": 96,
+    "share_of_own": 0.08727178399185052
+   },
+   "msa_module_embedder": {
+    "sq": 0.0005954602991294157,
+    "delta_sq": 7.537759988100248e-05,
+    "n": 2,
+    "share_of_own": 0.1265871125097798
+   },
+   "msa_module": {
+    "sq": 0.011536091498871557,
+    "delta_sq": 0.0007256604821706566,
+    "n": 227,
+    "share_of_own": 0.06290349571530701
+   },
+   "layer_norm_s": {
+    "sq": 5.039076117750892e-06,
+    "delta_sq": 5.941133024646094e-07,
+    "n": 2,
+    "share_of_own": 0.1179012359769199
+   },
+   "linear_s": {
+    "sq": 3.8775221620624776e-07,
+    "delta_sq": 4.320438870892494e-08,
+    "n": 1,
+    "share_of_own": 0.11142267381895314
+   },
+   "pairformer_stack": {
+    "sq": 0.03844876404380104,
+    "delta_sq": 0.0031847363006906183,
+    "n": 2736,
+    "share_of_own": 0.08283065476597763
+   },
+   "diffusion_module": {
+    "sq": 0.8212873681656022,
+    "delta_sq": 0.23896419472470554,
+    "n": 761,
+    "share_of_own": 0.29096294913003146
+   },
+   "aux_heads": {
+    "sq": 0.02289655135487259,
+    "delta_sq": 0.006223116987295931,
+    "n": 244,
+    "share_of_own": 0.27179276437067434
+   }
+  },
+  "confidence_head": {
+   "n_params": 243,
+   "n_grad_none_on": 0,
+   "n_grad_none_off": 0,
+   "n_grad_zero_on": 0,
+   "n_grad_zero_off": 0
+  }
+ },
+ "confidence_param_names_n": 243,
+ "template_embedder": null,
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "total_s": 3514.3564801216125
+}

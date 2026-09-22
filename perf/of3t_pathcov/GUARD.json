@@ -1,0 +1,254 @@
+{
+ "tree": "/home/ttuser/.coworker/wt/of3t-pathcov",
+ "n_modules_on_training_path": 26,
+ "n_asserted": 20,
+ "observed_in_tape": [
+  "autograd",
+  "eltwise_fusion",
+  "openfold3_atom_transformer",
+  "openfold3_confidence",
+  "openfold3_diffusion",
+  "openfold3_diffusion_decoder",
+  "openfold3_diffusion_module",
+  "openfold3_diffusion_transformer",
+  "openfold3_msa_embedder",
+  "ops",
+  "taped_ttnn",
+  "tenstorrent"
+ ],
+ "census": [
+  "perf/of3t_pathcov/CENSUS_diffusion.json.gz",
+  "perf/of3t_pathcov/CENSUS_cond.json.gz",
+  "perf/of3t_pathcov/CENSUS_msa.json.gz",
+  "perf/of3t_pathcov/CENSUS_aux.json.gz",
+  "perf/of3t_pathcov/CENSUS_trunk.json.gz"
+ ],
+ "modules": [
+  "autograd",
+  "device_lease",
+  "dispatch",
+  "eltwise_fusion",
+  "envflags",
+  "openfold3",
+  "openfold3_atom_transformer",
+  "openfold3_batch",
+  "openfold3_confidence",
+  "openfold3_diffusion",
+  "openfold3_diffusion_decoder",
+  "openfold3_diffusion_module",
+  "openfold3_diffusion_transformer",
+  "openfold3_fold",
+  "openfold3_host_prep",
+  "openfold3_msa_embedder",
+  "openfold3_sample_diffusion",
+  "openfold3_template",
+  "openfold3_trunk",
+  "openfold3_weights",
+  "ops",
+  "protenix",
+  "protenix_weights",
+  "taped_ttnn",
+  "tenstorrent",
+  "token_axis"
+ ],
+ "asserted": [
+  "autograd",
+  "eltwise_fusion",
+  "openfold3",
+  "openfold3_atom_transformer",
+  "openfold3_batch",
+  "openfold3_confidence",
+  "openfold3_diffusion",
+  "openfold3_diffusion_decoder",
+  "openfold3_diffusion_module",
+  "openfold3_diffusion_transformer",
+  "openfold3_fold",
+  "openfold3_host_prep",
+  "openfold3_msa_embedder",
+  "openfold3_sample_diffusion",
+  "openfold3_template",
+  "openfold3_trunk",
+  "openfold3_weights",
+  "ops",
+  "taped_ttnn",
+  "tenstorrent"
+ ],
+ "offenders": [],
+ "noted_outside_asserted_set": [
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1531,
+   "func": "device_confidence_enabled",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1541,
+   "func": "_wtt",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1549,
+   "func": "_dev_lin",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1564,
+   "func": "_device_resident",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1597,
+   "func": "z_base_device",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1610,
+   "func": "confidence_device",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 1980,
+   "func": "load_from_checkpoint",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 2376,
+   "func": "fold",
+   "what": "import ttnn as _tn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 2403,
+   "func": "fold",
+   "what": "import ttnn as _tn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 2408,
+   "func": "fold",
+   "what": "import ttnn as _tn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 2414,
+   "func": "fold",
+   "what": "import ttnn as _tn"
+  },
+  {
+   "rule": "A",
+   "module": "protenix",
+   "line": 2419,
+   "func": "fold",
+   "what": "import ttnn as _tn"
+  },
+  {
+   "rule": "A",
+   "module": "token_axis",
+   "line": 435,
+   "func": "token_pad_masks_tt",
+   "what": "import ttnn"
+  },
+  {
+   "rule": "A",
+   "module": "token_axis",
+   "line": 452,
+   "func": "bucketed_pairformer",
+   "what": "import ttnn"
+  }
+ ],
+ "passed": true,
+ "break_control": [
+  {
+   "control": "synthetic-A",
+   "fired": true,
+   "found": [
+    {
+     "rule": "A",
+     "module": "openfold3_pathcov_synthetic",
+     "line": 5,
+     "func": "f",
+     "what": "import ttnn"
+    }
+   ]
+  },
+  {
+   "control": "synthetic-B",
+   "fired": true,
+   "found": [
+    {
+     "rule": "B",
+     "module": "openfold3_pathcov_synthetic",
+     "line": 5,
+     "func": "f",
+     "what": "from ttnn import add"
+    }
+   ]
+  },
+  {
+   "control": "synthetic-C",
+   "fired": true,
+   "found": [
+    {
+     "rule": "C",
+     "module": "openfold3_pathcov_synthetic",
+     "line": 5,
+     "func": "f",
+     "what": "function-local import of tt_bio.openfold3_pathcov_synthetic_dev, which holds its own ttnn global and is imported at module scope nowhere on the path"
+    }
+   ]
+  },
+  {
+   "control": "real-pre-fix-5a2efa001^",
+   "fired": true,
+   "modules_named": [
+    "openfold3_confidence",
+    "openfold3_host_prep"
+   ],
+   "restored": [
+    {
+     "file": "openfold3_confidence.py",
+     "restored_bytes": 12254
+    },
+    {
+     "file": "openfold3_host_prep.py",
+     "restored_bytes": 12523
+    }
+   ],
+   "offenders": [
+    {
+     "rule": "A",
+     "module": "openfold3_confidence",
+     "line": 163,
+     "func": "forward",
+     "what": "import ttnn"
+    },
+    {
+     "rule": "A",
+     "module": "openfold3_host_prep",
+     "line": 219,
+     "func": "run_input_atom_encoder",
+     "what": "import ttnn"
+    }
+   ]
+  }
+ ],
+ "break_control_passed": true
+}

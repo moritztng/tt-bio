@@ -1,0 +1,206 @@
+{
+ "tree": "e9e88c80ca76dff446c89d7bc226c95576138630",
+ "raw_grep_hits": 27,
+ "branch_points": 21,
+ "modules": 9,
+ "by_module": {
+  "tt_bio/eltwise_fusion.py": [
+   80,
+   104,
+   115
+  ],
+  "tt_bio/mm_dualnoc.py": [
+   87
+  ],
+  "tt_bio/reblock_permute.py": [
+   373,
+   597,
+   877
+  ],
+  "tt_bio/softmax_generic.py": [
+   369,
+   514
+  ],
+  "tt_bio/swiglu_fused.py": [
+   94
+  ],
+  "tt_bio/tenstorrent.py": [
+   1146,
+   4334,
+   4800,
+   8761
+  ],
+  "tt_bio/triatt_qkv.py": [
+   74,
+   179,
+   276,
+   390
+  ],
+  "tt_bio/triatt_sdpa.py": [
+   340,
+   486
+  ],
+  "tt_bio/trimul_tail.py": [
+   232
+  ]
+ },
+ "non_branch": [
+  {
+   "file": "tt_bio/eltwise_fusion.py",
+   "line": 86,
+   "kind": "definition",
+   "text": "def _taping():"
+  },
+  {
+   "file": "tt_bio/eltwise_fusion.py",
+   "line": 97,
+   "kind": "helper_body",
+   "text": "return ops.taping()"
+  },
+  {
+   "file": "tt_bio/taped_ttnn.py",
+   "line": 1066,
+   "kind": "comment",
+   "text": "# untaped and produce a partial gradient rather than an error. And `ops.taping()` -- which"
+  },
+  {
+   "file": "tt_bio/train/lora.py",
+   "line": 590,
+   "kind": "other",
+   "text": "shipped fused kernels decline while a tape is open (``ops.taping()``), and declining routes"
+  },
+  {
+   "file": "tt_bio/train/lora.py",
+   "line": 603,
+   "kind": "comment",
+   "text": "# `ops.taping()` is `grad_hook() is not None`, and that ONE predicate is what the fused"
+  },
+  {
+   "file": "tt_bio/ops.py",
+   "line": 71,
+   "kind": "definition",
+   "text": "def taping():"
+  }
+ ],
+ "vs_D32_published": {
+  "tt_bio/eltwise_fusion.py": {
+   "published": [
+    80,
+    104,
+    115
+   ],
+   "found": [
+    80,
+    104,
+    115
+   ],
+   "moved": []
+  },
+  "tt_bio/mm_dualnoc.py": {
+   "published": [
+    87
+   ],
+   "found": [
+    87
+   ],
+   "moved": []
+  },
+  "tt_bio/reblock_permute.py": {
+   "published": [
+    373,
+    597,
+    877
+   ],
+   "found": [
+    373,
+    597,
+    877
+   ],
+   "moved": []
+  },
+  "tt_bio/softmax_generic.py": {
+   "published": [
+    369,
+    514
+   ],
+   "found": [
+    369,
+    514
+   ],
+   "moved": []
+  },
+  "tt_bio/swiglu_fused.py": {
+   "published": [
+    94
+   ],
+   "found": [
+    94
+   ],
+   "moved": []
+  },
+  "tt_bio/tenstorrent.py": {
+   "published": [
+    1126,
+    4129,
+    4595,
+    8531
+   ],
+   "found": [
+    1146,
+    4334,
+    4800,
+    8761
+   ],
+   "moved": [
+    1126,
+    1146,
+    4129,
+    4334,
+    4595,
+    4800,
+    8531,
+    8761
+   ]
+  },
+  "tt_bio/triatt_qkv.py": {
+   "published": [
+    74,
+    179,
+    276,
+    390
+   ],
+   "found": [
+    74,
+    179,
+    276,
+    390
+   ],
+   "moved": []
+  },
+  "tt_bio/triatt_sdpa.py": {
+   "published": [
+    340,
+    486
+   ],
+   "found": [
+    340,
+    486
+   ],
+   "moved": []
+  },
+  "tt_bio/trimul_tail.py": {
+   "published": [
+    233
+   ],
+   "found": [
+    232
+   ],
+   "moved": [
+    232,
+    233
+   ]
+  }
+ },
+ "count_matches_D32": true,
+ "modules_match_D32": true
+}

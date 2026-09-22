@@ -1,0 +1,298 @@
+{
+ "T3_within_20pct_of_U": false,
+ "arms": {
+  "P": "native masks, _mask_trans=False (what the shipped PairformerLayer computes when handed mask + attn_mask)",
+  "R": "native masks, _mask_trans=True (upstream 0.4.3)",
+  "U": "masks forced to all ones (the unmasked port)"
+ },
+ "bar": 0.05,
+ "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+ "branch": "T1",
+ "control_flag_does_something": {
+  "moved_where_it_can_act": true,
+  "s_full_padded_layout": {
+   "cos": 0.9991468720108361,
+   "our_norm": 2582708.3478619857,
+   "r": 1.0028860761497633,
+   "ref_norm": 2575275.9054920846,
+   "rel_l2": 0.041466972382504935
+  },
+  "s_max_abs_padded_rows": 1391.574051080283,
+  "s_max_abs_real_tokens": 0.0,
+  "s_padded_rows_only": {
+   "cos": 0.9970027259358202,
+   "our_norm": 1374356.8383219722,
+   "r": 1.0103051831980692,
+   "ref_norm": 1360338.302899245,
+   "rel_l2": 0.07850171874362058
+  },
+  "s_real_tokens": {
+   "cos": 0.9999999999999981,
+   "our_norm": 2186670.000497004,
+   "r": 1.0,
+   "ref_norm": 2186670.000497004,
+   "rel_l2": 0.0
+  },
+  "untouched_on_scored_scope": true,
+  "z_full_padded_layout": {
+   "cos": 0.9991090497048659,
+   "our_norm": 15600282.210741524,
+   "r": 0.9985561970711002,
+   "ref_norm": 15622838.51074106,
+   "rel_l2": 0.04220678181275327
+  },
+  "z_max_abs_padded_rows": 738.0796202361234,
+  "z_max_abs_real_block": 0.0,
+  "z_padded_rows_only": {
+   "cos": 0.9990979041327921,
+   "our_norm": 14580627.131018333,
+   "r": 0.9984741546438362,
+   "ref_norm": 14602908.911767839,
+   "rel_l2": 0.04247077831239372
+  },
+  "z_real_block": {
+   "cos": 0.9999999999999958,
+   "our_norm": 183342.2497413986,
+   "r": 1.0,
+   "ref_norm": 183342.2497413986,
+   "rel_l2": 0.0
+  }
+ },
+ "control_ones_mask_flag_is_noop": {
+  "distogram_logits": {
+   "max_abs": 0.0
+  },
+  "experimentally_resolved_logits": {
+   "max_abs": 0.0
+  },
+  "pae_logits": {
+   "max_abs": 0.0
+  },
+  "pde_logits": {
+   "max_abs": 0.0
+  },
+  "plddt_logits": {
+   "max_abs": 0.0
+  }
+ },
+ "control_same_function": {
+  "distogram_logits": {
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  },
+  "experimentally_resolved_logits": {
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  },
+  "pae_logits": {
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  },
+  "pde_logits": {
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  },
+  "plddt_logits": {
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  }
+ },
+ "dtype_policy_A27": "every parameter and every activation float64, no cast on the path, of3-p2-155k upcast once at load; autocast('cuda') is inert on CPU and torch says so",
+ "heads": [
+  {
+   "A16_zero_model": 1.0,
+   "P_fraction_of_U": 0.0,
+   "P_over_bar": false,
+   "P_vs_R": {
+    "cos": 0.9999999999999991,
+    "our_norm": 587.0393362550751,
+    "r": 1.0,
+    "ref_norm": 587.0393362550751,
+    "rel_l2": 0.0
+   },
+   "P_vs_U": {
+    "cos": 0.9521282109839992,
+    "our_norm": 587.0393362550751,
+    "r": 1.3306060934574144,
+    "ref_norm": 441.1819088620934,
+    "rel_l2": 0.48651554689440846
+   },
+   "U_vs_R": {
+    "cos": 0.9521282109839992,
+    "our_norm": 441.1819088620934,
+    "r": 0.7515372166992145,
+    "ref_norm": 587.0393362550751,
+    "rel_l2": 0.36563453999391987
+   },
+   "head": "plddt_logits",
+   "padding_fraction_scored": 0.0,
+   "scope": "atom-gathered (422 of 422 atoms, no padding)"
+  },
+  {
+   "A16_zero_model": 1.0,
+   "P_fraction_of_U": 0.0,
+   "P_over_bar": false,
+   "P_vs_R": {
+    "cos": 1.0,
+    "our_norm": 102.30470922717292,
+    "r": 1.0,
+    "ref_norm": 102.30470922717292,
+    "rel_l2": 0.0
+   },
+   "P_vs_U": {
+    "cos": 0.9866972678486299,
+    "our_norm": 102.30470922717292,
+    "r": 1.433082481595217,
+    "ref_norm": 71.38787232490189,
+    "rel_l2": 0.4750665855136892
+   },
+   "U_vs_R": {
+    "cos": 0.9866972678486299,
+    "our_norm": 71.38787232490189,
+    "r": 0.6977965419595829,
+    "ref_norm": 102.30470922717292,
+    "rel_l2": 0.3314998205719988
+   },
+   "head": "experimentally_resolved_logits",
+   "padding_fraction_scored": 0.0,
+   "scope": "atom-gathered (422 of 422 atoms, no padding)"
+  },
+  {
+   "A16_zero_model": 1.0,
+   "P_fraction_of_U": 0.0,
+   "P_over_bar": false,
+   "P_vs_R": {
+    "cos": 1.0000000000000007,
+    "our_norm": 1618.8245439992772,
+    "r": 1.0,
+    "ref_norm": 1618.8245439992772,
+    "rel_l2": 0.0
+   },
+   "P_vs_U": {
+    "cos": 0.879604062843156,
+    "our_norm": 1618.8245439992772,
+    "r": 1.4940918015825682,
+    "ref_norm": 1083.4839882560027,
+    "rel_l2": 0.7771048022569976
+   },
+   "U_vs_R": {
+    "cos": 0.879604062843156,
+    "our_norm": 1083.4839882560027,
+    "r": 0.6693029162871936,
+    "ref_norm": 1618.8245439992772,
+    "rel_l2": 0.5201185104113915
+   },
+   "head": "pae_logits",
+   "padding_fraction_scored": 0.0,
+   "scope": "pair, real block 56x56"
+  },
+  {
+   "A16_zero_model": 1.0,
+   "P_fraction_of_U": 0.0,
+   "P_over_bar": false,
+   "P_vs_R": {
+    "cos": 1.0000000000000004,
+    "our_norm": 3930.8446098366344,
+    "r": 1.0,
+    "ref_norm": 3930.8446098366344,
+    "rel_l2": 0.0
+   },
+   "P_vs_U": {
+    "cos": 0.9805591404043664,
+    "our_norm": 3930.8446098366344,
+    "r": 1.3321041069820674,
+    "ref_norm": 2950.8539079142342,
+    "rel_l2": 0.40260108754891205
+   },
+   "U_vs_R": {
+    "cos": 0.9805591404043664,
+    "our_norm": 2950.8539079142342,
+    "r": 0.7506920778628468,
+    "ref_norm": 3930.8446098366344,
+    "rel_l2": 0.30222944696193466
+   },
+   "head": "pde_logits",
+   "padding_fraction_scored": 0.0,
+   "scope": "pair, real block 56x56"
+  },
+  {
+   "A16_zero_model": 1.0,
+   "P_fraction_of_U": NaN,
+   "P_over_bar": false,
+   "P_vs_R": {
+    "cos": 1.0000000000000022,
+    "our_norm": 40409.16297008335,
+    "r": 1.0,
+    "ref_norm": 40409.16297008335,
+    "rel_l2": 0.0
+   },
+   "P_vs_U": {
+    "cos": 1.0000000000000022,
+    "our_norm": 40409.16297008335,
+    "r": 1.0,
+    "ref_norm": 40409.16297008335,
+    "rel_l2": 0.0
+   },
+   "U_vs_R": {
+    "cos": 1.0000000000000022,
+    "our_norm": 40409.16297008335,
+    "r": 1.0,
+    "ref_norm": 40409.16297008335,
+    "rel_l2": 0.0
+   },
+   "head": "distogram_logits",
+   "padding_fraction_scored": 0.0,
+   "scope": "pair, real block 56x56"
+  }
+ ],
+ "key_gate": {
+  "loaded": 244,
+  "missing": 0,
+  "unexpected": 0
+ },
+ "masks": {
+  "P": {
+   "mask_trans": false,
+   "pair_sum": 3136.0,
+   "pair_sum_native": 3136.0,
+   "reached": true,
+   "single_sum": 56.0,
+   "single_sum_native": 56.0
+  },
+  "R": {
+   "mask_trans": true,
+   "pair_sum": 3136.0,
+   "pair_sum_native": 3136.0,
+   "reached": true,
+   "single_sum": 56.0,
+   "single_sum_native": 56.0
+  },
+  "U": {
+   "mask_trans": true,
+   "pair_sum": 147456.0,
+   "pair_sum_native": 3136.0,
+   "reached": true,
+   "single_sum": 384.0,
+   "single_sum_native": 56.0
+  },
+  "U_nt": {
+   "mask_trans": false,
+   "pair_sum": 147456.0,
+   "pair_sum_native": 3136.0,
+   "reached": true,
+   "single_sum": 384.0,
+   "single_sum_native": 56.0
+  }
+ },
+ "n_tokens": 384,
+ "n_tokens_real": 56,
+ "padding_fraction_tokens": 0.8541666666666666,
+ "verdict": {
+  "T3": false,
+  "bar": 0.05,
+  "branch": "T1",
+  "heads_over_bar": 0,
+  "reachable_bar_A26": 0.07071067811865477,
+  "worst_P_vs_R": 0.0
+ }
+}

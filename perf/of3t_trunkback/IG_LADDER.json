@@ -1,0 +1,109 @@
+{
+ "what": "The CHAIN error: dL/ds_in and dL/dz_in, ours against float64, at each scope.",
+ "scopes": {
+  "W0_24": {
+   "ours": "/home/ttuser/of3t_trunkback/DEV_w0_24_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w0_24_ig.pt",
+   "first_block": 0,
+   "blocks": 24,
+   "ds_in": {
+    "rel_l2": 3.586976851359172,
+    "norm_ratio": 3.5848059574919224,
+    "cos": 0.13730601214630644,
+    "ref_norm": 0.005084581532809242,
+    "our_norm": 0.018227238170167984,
+    "magnitude_share": 0.5192765898207677,
+    "direction_share": 0.4807234101792323,
+    "best_rescaled_rel_l2": 0.9905286765301035
+   },
+   "dz_in": {
+    "rel_l2": 0.17935689401924063,
+    "norm_ratio": 1.0256094515349088,
+    "cos": 0.9846369144818505,
+    "ref_norm": 0.0009086724213138301,
+    "our_norm": 0.0009319430236485748,
+    "magnitude_share": 0.020387520277175872,
+    "direction_share": 0.9796124797228228,
+    "best_rescaled_rel_l2": 0.1746142795983793
+   }
+  },
+  "W0_24_bf16": {
+   "ours": "/home/ttuser/of3t_trunkback/REF_w0_24_bf16_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w0_24_ig.pt",
+   "first_block": 0,
+   "blocks": 24,
+   "ds_in": {
+    "rel_l2": 1.2271979669450763,
+    "norm_ratio": 1.4348234108532285,
+    "cos": 0.5410782116159641,
+    "ref_norm": 0.005084581532809242,
+    "our_norm": 0.007295476617666694,
+    "magnitude_share": 0.12554417947255256,
+    "direction_share": 0.8744558205274475,
+    "best_rescaled_rel_l2": 0.8409722759487794
+   },
+   "dz_in": {
+    "rel_l2": 0.07902276746653439,
+    "norm_ratio": 0.999952758964503,
+    "cos": 0.9968775547192547,
+    "ref_norm": 0.0009086724213138301,
+    "our_norm": 0.0009086294946877196,
+    "magnitude_share": 3.573833758604214e-07,
+    "direction_share": 0.999999642616634,
+    "best_rescaled_rel_l2": 0.07896290836183419
+   }
+  },
+  "W23_25": {
+   "ours": "/home/ttuser/of3t_trunkback/DEV_w23_25_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w23_25_ig.pt",
+   "first_block": 23,
+   "blocks": 25,
+   "ds_in": {
+    "rel_l2": 2.935334920668822,
+    "norm_ratio": 2.7984872852493603,
+    "cos": 0.03847435547403416,
+    "ref_norm": 2.1974358143863138e-05,
+    "our_norm": 6.149496186711672e-05,
+    "magnitude_share": 0.37540445412339357,
+    "direction_share": 0.6245955458766066,
+    "best_rescaled_rel_l2": 0.9992595878803754
+   },
+   "dz_in": {
+    "rel_l2": 0.47607178416674106,
+    "norm_ratio": 0.5448667864319717,
+    "cos": 0.9821074599585686,
+    "ref_norm": 0.0010513176593469197,
+    "our_norm": 0.0005728280745675385,
+    "magnitude_share": 0.9139704910769193,
+    "direction_share": 0.08602950892308014,
+    "best_rescaled_rel_l2": 0.18832136653531525
+   }
+  },
+  "W23_25_bf16": {
+   "ours": "/home/ttuser/of3t_trunkback/REF_w23_25_bf16_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w23_25_ig.pt",
+   "first_block": 23,
+   "blocks": 25,
+   "ds_in": {
+    "rel_l2": 0.3464635737823,
+    "norm_ratio": 0.9309200072147891,
+    "cos": 0.9380908339806442,
+    "ref_norm": 2.1974358143863138e-05,
+    "our_norm": 2.045636964182543e-05,
+    "magnitude_share": 0.03975478466502834,
+    "direction_share": 0.960245215334972,
+    "best_rescaled_rel_l2": 0.3463893578063556
+   },
+   "dz_in": {
+    "rel_l2": 0.049355382852686695,
+    "norm_ratio": 0.994440352627795,
+    "cos": 0.9987907549551286,
+    "ref_norm": 0.0010513176593469197,
+    "our_norm": 0.0010454727038847788,
+    "magnitude_share": 0.012688942907275609,
+    "direction_share": 0.9873110570927381,
+    "best_rescaled_rel_l2": 0.04916327710969096
+   }
+  }
+ }
+}

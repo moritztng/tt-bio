@@ -40,6 +40,7 @@ from ._vendor.openfold3.core.utils.atom_attention_block_utils import (
     get_query_block_padding,
 )
 from ._vendor.openfold3.core.utils.relpos import relpos_complex
+from .envflags import env_flag
 from .openfold3_weights import _sub
 
 N_QUERY = 32
@@ -177,22 +178,40 @@ def _lin(x: torch.Tensor, w: dict, name: str) -> torch.Tensor:
     return out
 
 
-def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]:
-    """Host replica of OF3 ``RefAtomFeatureEmbedder`` (Algorithm 5, line 1-7).
+# The gate that moves the atom-featurization legs off the host and onto the card. Default OFF:
+# a device linear in bf16 or fp32 is not bit-identical to the host float32 one it replaces, and
+# the OF3T charter's hard constraint is that nothing may change inference's output or slow it
+# down. On, the eight `ref_atom_feature_embedder` linears and the input embedder's
+# `linear_q.0.weight` run where a cotangent can reach them -- which is what `HOST_APPLIED`
+# names in `perf/of3t_readable_mass/READABLE_MASS.json`.
+DEVICE_REF_ATOM = "TT_BIO_OF3_DEVICE_REFATOM"
 
-    ``w`` is the encoder's ``ref_atom_feature_embedder`` sub-state-dict (all eight
-    linears are bias-free in the OF3 checkpoint). Returns ``cl`` [n_atom, c_atom] and
-    ``plm`` [nb, n_query, n_key, c_atom_pair].
+
+def ref_atom_single_inputs(features: dict, n_pad: int | None = None) -> list[torch.Tensor]:
+    """The five per-atom feature blocks the single leg consumes, in reference order.
+
+    ``n_pad`` zero-pads the atom axis to that many rows. All five linears are bias-free, so a
+    zero row is a zero row out and the padded ``cl`` equals the host ``cl`` padded after the
+    fact -- which is exactly what ``build_dm_device_aux`` does when the leg runs on the host.
+    """
+    x = [features["ref_pos"].float(),
+         torch.arcsinh(features["ref_charge"].unsqueeze(-1).float()),
+         features["ref_mask"].unsqueeze(-1).float(),
+         features["ref_element"].float(),
+         features["ref_atom_name_chars"].flatten(start_dim=-2).float()]
+    if n_pad is not None:
+        x = [F.pad(t, (0, 0, 0, n_pad - t.shape[-2])) for t in x]
+    return x
+
+
+def ref_atom_block_inputs(features: dict, atom_mask: torch.Tensor):
+    """``dlm``, ``vlm``, ``inv_sq_dists``: the pair leg's inputs, and no weight in any of them.
+
+    Mask-derived gathers (``convert_single_rep_to_blocks``) plus one reciprocal. Shared by the
+    host and device legs so that only the eight linears differ between them, and so the device
+    leg's gradient is the gradient of the same function.
     """
     ref_pos = features["ref_pos"].float()
-    atom_mask = features["atom_mask"].float()
-    cl = (
-        _lin(ref_pos, w, "linear_ref_pos")
-        + _lin(torch.arcsinh(features["ref_charge"].unsqueeze(-1).float()), w, "linear_ref_charge")
-        + _lin(features["ref_mask"].unsqueeze(-1).float(), w, "linear_ref_mask")
-        + _lin(features["ref_element"].float(), w, "linear_ref_element")
-        + _lin(features["ref_atom_name_chars"].flatten(start_dim=-2).float(), w, "linear_ref_atom_chars")
-    )
     d_l, d_m, pair_mask = convert_single_rep_to_blocks(
         ql=ref_pos, n_query=N_QUERY, n_key=N_KEY, atom_mask=atom_mask)
     v_l, v_m, _ = convert_single_rep_to_blocks(
@@ -201,12 +220,59 @@ def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]
     dlm = (d_l.unsqueeze(-2) - d_m.unsqueeze(-3)) * pair_mask.unsqueeze(-1)
     vlm = (v_l.unsqueeze(-2) == v_m.unsqueeze(-3)).float() * pair_mask.unsqueeze(-1)
     inv_sq_dists = 1.0 / (1.0 + (dlm ** 2).sum(dim=-1, keepdim=True))
+    return dlm, vlm, inv_sq_dists
+
+
+def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]:
+    """Host replica of OF3 ``RefAtomFeatureEmbedder`` (Algorithm 5, line 1-7).
+
+    ``w`` is the encoder's ``ref_atom_feature_embedder`` sub-state-dict (all eight
+    linears are bias-free in the OF3 checkpoint). Returns ``cl`` [n_atom, c_atom] and
+    ``plm`` [nb, n_query, n_key, c_atom_pair].
+    """
+    names = ("linear_ref_pos", "linear_ref_charge", "linear_ref_mask",
+             "linear_ref_element", "linear_ref_atom_chars")
+    cl = sum(_lin(x, w, n) for x, n in zip(ref_atom_single_inputs(features), names))
+    dlm, vlm, inv_sq_dists = ref_atom_block_inputs(
+        features, features["atom_mask"].float())
     plm = (
         _lin(dlm, w, "linear_ref_offset") * vlm
         + _lin(inv_sq_dists, w, "linear_inv_sq_dists") * vlm
         + _lin(vlm, w, "linear_valid_mask") * vlm
     )
     return cl, plm
+
+
+def ref_atom_device_inputs(dev, features: dict, atom_mask: torch.Tensor,
+                           n_pad: int | None = None) -> list:
+    """The eight device tensors ``RefAtomFeatureEmbedder`` consumes, built once.
+
+    Kept separate from the call so a taped instrument can hoist the transfers out of the loop
+    and re-run only the module inside each tape, which is what makes the 48 structures
+    accumulate into one weight gradient instead of 48 copies of the transfer.
+    """
+    from .tenstorrent import _dtype
+
+    ft = lambda t: ttnn.from_torch(t.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT,
+                                   device=dev, dtype=_dtype(ttnn.bfloat16))
+    return [ft(t) for t in ref_atom_single_inputs(features, n_pad)] + \
+           [ft(t) for t in ref_atom_block_inputs(features, atom_mask)]
+
+
+def ref_atom_embed_device(compute_kernel_config, w: dict, features: dict,
+                          atom_mask: torch.Tensor, n_pad: int | None = None):
+    """The same eight linears on the card, returning DEVICE ``cl`` and ``plm``.
+
+    The point of this path is that nothing crosses back to the host between a weight and its
+    consumer. ``cl`` is [1, ``n_pad`` or n_atom, 128] and ``plm`` is
+    [1, nb, N_QUERY, N_KEY, 16], which is the shape ``OF3DiffusionModule`` already takes.
+    """
+    from .openfold3 import RefAtomFeatureEmbedder
+    from .tenstorrent import get_device
+
+    dev = get_device()
+    rafe = RefAtomFeatureEmbedder(w, compute_kernel_config)
+    return rafe(*ref_atom_device_inputs(dev, features, atom_mask, n_pad))
 
 
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
@@ -253,6 +319,24 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
                               dtype=ttnn.uint32)
     ql_d = at(ft(a_pad), ft(a_pad.clone()), ft(plm.unsqueeze(0)), ft(atom_mask_col),
               kidx_tt, ft(valid), ft(mask_bias), n_atom, NP, nb)
+    if env_flag(DEVICE_REF_ATOM, False):
+        # The aggregation head on the card. `linear_q.0.weight` is 0.74055 % of the model's
+        # squared gradient norm on its own -- the single heaviest of the seventeen tensors
+        # READABLE_MASS.json files as HOST_APPLIED -- and it is the last op of this leg, so
+        # moving it moves the `ttnn.to_torch` with it: `ai` [n_token, 384] comes back instead
+        # of `ql` [n_atom, 128], which is the smaller transfer on every real target.
+        from .openfold3 import AtomEncoderTokenHead
+
+        n_token = aux["atom_to_token_mean"].shape[0]
+        head = AtomEncoderTokenHead(_sub(enc, "linear_q"), compute_kernel_config)
+        amc_na = torch.zeros(1, n_atom, 1)
+        amc_na[0, :, 0] = atom_mask
+        ai_d = head(ql_d, ft(amc_na), ft(aux["atom_to_token_mean"].unsqueeze(0)))
+        ai = ttnn.to_torch(ai_d).float().reshape(n_token, 384)
+        ttnn.deallocate(ai_d)
+        ttnn.deallocate(ql_d)
+        return ai
+
     ql = ttnn.to_torch(ql_d).float().reshape(n_atom, 128)
     ttnn.deallocate(ql_d)
 

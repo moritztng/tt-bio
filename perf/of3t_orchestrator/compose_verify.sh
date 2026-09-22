@@ -15,10 +15,94 @@
 # It does NOT verify behaviour: on a host without ttnn no test executes. Say so when reporting.
 set -euo pipefail
 
+# Where this script lives -- the compose runs inside a scratch worktree, so a relative path to
+# the sibling asserters resolves against the wrong tree.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads"
+#
+# That property was a COMMENT and not code until pass 175, and it was false when checked: this
+# list stopped at `auxheads` while `conditioning`, `adaln`, `softmax` and `refprec` had all been
+# dispatched AND pushed branches to origin. Four rows carrying the campaign's most recent
+# measurements -- including the softmax NO-GO and the row that refuted D55's mechanism -- were
+# absent from every composition, and the compose reported "18 of 18 rows" while doing it,
+# because the denominator was the same stale string as the numerator. A hand-maintained list
+# cannot enforce "listed from the moment it is dispatched"; the briefs are the record of what
+# was dispatched, so derive it from them.
+ROWS_FLOOR="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads conditioning adaln softmax trajectory"
+WS="${WS:-/home/moritz/.coworker/workstreams}"
+# A brief is "dispatched" when it carries a `#DISPATCH:` line -- the same fact the fleet queue
+# reads to launch it, so this cannot disagree with what actually ran.
+ROWS_SEEN="$( { for _b in "$WS"/of3t-*.txt; do
+    [ -f "$_b" ] || continue
+    grep -q '^#DISPATCH:' "$_b" || continue
+    _n="$(basename "$_b" .txt)"; _n="${_n#of3t-}"
+    [ "$_n" = "orchestrator" ] && continue   # the composition's author is not one of its rows
+    printf '%s\n' "$_n"
+  done; } | sort -u | paste -sd' ' - )"
+# The floor is a RATCHET, not a default: a brief that is renamed or retired must not silently
+# shrink the composition, so the union is what composes. A row present only in the floor is
+# announced, because that means its brief stopped saying it was dispatched.
+# ORDER MATTERS and pass 175 learned it the hard way. The first version of this derivation
+# `sort -u`'d the union, which is deterministic but ALPHABETICAL -- and the floor's hand-written
+# order was not arbitrary: it is the order rows were chartered, so an earlier row's version of a
+# shared file lands before a later row's. Sorting alphabetically moved `refprec` ahead of
+# `trajectory` and the compose hit a conflict in `perf/of3t_trajectory/agreement.py`, a file in
+# trajectory's OWN namespace, because refprec's branch carried an older copy of it through a
+# merge. So: the floor keeps its curated order, and rows known only from a brief are appended
+# after it, sorted among themselves for determinism.
+ROWS="$ROWS_FLOOR"
+for _r in $ROWS_SEEN; do
+  case " $ROWS_FLOOR " in *" $_r "*) ;; *) ROWS="$ROWS $_r" ;; esac
+done
+
+# HELD OUT, announced every run and never silent. A row lands here only when its branch cannot be
+# composed with the others AT ALL -- not a conflict a resolver can take, but two independent
+# implementations of one file -- and only after it has been told, in its brief, what to base on
+# instead. The alternative is a composition that stops composing until a mid-flight row rebases,
+# which hides every OTHER row's evidence behind one row's duplicate work.
+#
+#   d10d24-unify  pass 271. Wrote `tt_bio/ranking.py` and `tests/test_sample_ranking.py` from
+#                 scratch; both already exist finished on `wk/of3t-rankunify`, which CONCLUDED and
+#                 is what Moritz's 9629 decision means by "merge the unified rule". add/add, 7 and
+#                 2 hunks. AMENDMENT 1 tells it to rebase onto rankunify and keep ITS files.
+#   d56-renorm    pass 271. Edits `perf/of3t_orchestrator/assert_new_levers_default_off.py` --
+#                 the instrument that checks its own lever, which is the one file a row may not
+#                 change -- and conflicts there in 3 hunks plus 2 in tt_bio/ from a stale base.
+#                 AMENDMENT 1 tells it to flip the default in its own namespace, say what the
+#                 assert must become, and rebase onto d116's unified helper.
+#   d1-pairbias   pass 272. Branched from main, so it conflicts in five tt_bio/ files at once, and
+#                 it created `perf/of3t_pairbias/attn_f64.py` -- the concluded row of3t-pairbias's
+#                 namespace -- add/add. Its brief now carries the STANDING base-on-wk/of3t and
+#                 own-namespace rules that the whole 9629 dispatch wave was sent out without.
+# RELEASED pass 273: d10d24-unify rebased onto wk/of3t and now merges clean (`git merge-tree`
+# against the published composition), so the hold is lifted. A hold that outlives the thing it was
+# for is the same rust the D149 ratchet refuses.
+# RELEASED pass 274: d56-renorm unified the flag (autograd.SOFTMAX_BW_RENORM is now the single
+# definition and taped_ttnn._SOFTMAX_BW_RENORM an alias -- D151 repaired), dropped its edit to
+# assert_new_levers_default_off.py, and merges clean. That gate change is adopted here instead,
+# in the same pass, so the assert and the shipped default move together.
+# RELEASED pass 280: d1-pairbias CONCLUDED GO, and a concluded row's evidence must be in the
+# composition rather than held outside it. Its three remaining conflicts are resolved by
+# resolve_d1_pairbias.py, which takes the ROW's side on Moritz's ask-9629 ruling and records why.
+HELD_OUT=""
+for _h in $HELD_OUT; do
+  _keep=""
+  for _r in $ROWS; do [ "$_r" = "$_h" ] || _keep="$_keep $_r"; done
+  ROWS="$(printf '%s' "$_keep" | sed 's/^ //')"
+  echo "HELD OUT of3t-$_h: told to rebase (see its brief); NOT in this composition and NOT silently dropped"
+done
+for _r in $ROWS; do
+  case " $ROWS_FLOOR " in *" $_r "*) _inf=1 ;; *) _inf=0 ;; esac
+  case " $ROWS_SEEN " in *" $_r "*) _ins=1 ;; *) _ins=0 ;; esac
+  [ "$_inf" = 0 ] && echo "  NOTE of3t-$_r: dispatched brief not in ROWS_FLOOR -- composing it"\
+                          " from the brief. Add it to the floor once the row concludes."
+  [ "$_ins" = 0 ] && echo "  NOTE of3t-$_r: in ROWS_FLOOR but its brief carries no #DISPATCH:"\
+                          " line -- retired or renamed. Still composed; the floor is a ratchet."
+done
+unset _r _inf _ins _b _n
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -69,8 +153,188 @@ for r in $ROWS; do
         git add .gitignore && git commit --no-edit -q
         echo "  NOTE of3t-$r: .gitignore conflict resolved by UNION (both sides append their"\
              " own scratch rule); every other path would have stopped the compose"
+      elif [ "$_u" = "tt_bio/openfold3_trunk.py" ] && [ "$r" = "foldab" ]; then
+        # The second file where a conflict is NOT a disagreement. Both sides INSERT around an
+        # unchanged anchor line: of3t-pairbias documents why the trunk default stays False,
+        # of3t-foldab adds an env-gated measurement lever after it and restates a shortened
+        # copy of pairbias's comment. Keeping the lever + pairbias's FULL comment is what each
+        # side meant. Unlike .gitignore this is shipped code, so the resolution is ASSERTED,
+        # not trusted: assert_trunk_lever_resolution.py checks from the AST that pairbias's
+        # unconditional default survived and that every env write to it sits inside a
+        # not-None guard, with three negative controls behind it. Any other path still stops.
+        python3 - <<'_RESOLVE'
+p = "tt_bio/openfold3_trunk.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-foldab\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j]
+theirs = s[j + len("=======\n"):k]
+lever = theirs.split("        # scale_pair_bias=False:")[0]
+open(p, "w").write(s[:i] + lever + ours + s[k + len(">>>>>>> origin/wk/of3t-foldab\n"):])
+_RESOLVE
+        python3 "$HERE/assert_trunk_lever_resolution.py" tt_bio/openfold3_trunk.py \
+          || { echo "CONFLICT merging of3t-$r: openfold3_trunk.py resolution FAILED its assert"; exit 1; }
+        python3 -m py_compile tt_bio/openfold3_trunk.py \
+          || { echo "CONFLICT merging of3t-$r: resolved openfold3_trunk.py does not compile"; exit 1; }
+        git add tt_bio/openfold3_trunk.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: openfold3_trunk.py conflict resolved by keeping BOTH inserts"\
+             " (pairbias comment + foldab env lever), asserted from the AST, not assumed"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "auxfind" ]; then
+        # Third file where a conflict is not a disagreement: two rows APPEND keyword arguments to
+        # the same signature -- one `s_path`/`dtype`, of3t-auxfind `token_mask`/`single_mask` for
+        # the reference-mask fix behind the aux_heads A18 failure. Both are optional, so the union
+        # is what each side meant and no existing caller changes. Shipped code, so it is ASSERTED
+        # from the AST: all four names present, each still with a default (a merge that dropped
+        # one side would compile and import, and fail only at runtime on a device). Five negative
+        # controls, including one that reorders a parameter into a SyntaxError.
+        python3 - <<'_RESOLVE'
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-auxfind\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+merged = ours[:-2].rstrip().rstrip(",") + ", " + theirs.strip()
+open(p, "w").write(s[:i] + merged + "\n" + s[k + len(">>>>>>> origin/wk/of3t-auxfind\n"):])
+_RESOLVE
+        python3 "$HERE/assert_confidence_forward_signature.py" tt_bio/openfold3_confidence.py \
+          || { echo "CONFLICT merging of3t-$r: openfold3_confidence.py resolution FAILED its assert"; exit 1; }
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: openfold3_confidence.py signature conflict resolved by keeping BOTH"\
+             " parameter sets, asserted from the AST with defaults intact"
+      elif [ "$_u" = "tt_bio/openfold3_confidence.py" ] && [ "$r" = "confidence" ]; then
+        # Fourth: same file, DIFFERENT rule, and the difference matters. main gained M18's
+        # `tri_att_sdpa_hifi=...` at OF3's Pairformer-family sites on 2026-09-21; of3t-confidence
+        # (concluded 09-19) carries `s_fp32_residual=True`. Those two are a union like auxfind's.
+        # But the same hunk ALSO disagrees on `scale_pair_bias`: main ships **False**, the row's
+        # branch carries **True**, and that is **D1** -- a repair that is HELD because applying it
+        # measured 0.149 A WORSE at rank 0, and which pin 9629 asks Moritz to decide. A blind union
+        # would take one of them arbitrarily; taking the row's would apply a held repair inside the
+        # composition. So the rule is: union the NAMES, and on a collision **HEAD wins**, because
+        # HEAD is main and main is what ships. Asserted below, by value, not just by presence.
+        python3 - <<'_RESOLVE'
+import re
+p = "tt_bio/openfold3_confidence.py"
+s = open(p).read()
+i = s.index("<<<<<<< HEAD\n"); j = s.index("=======\n", i)
+k = s.index(">>>>>>> origin/wk/of3t-confidence\n")
+ours = s[i + len("<<<<<<< HEAD\n"):j].rstrip()
+theirs = s[j + len("=======\n"):k].rstrip()
+indent = re.match(r"\s*", ours).group(0)
+
+def kwargs(text):
+    """name -> full `name=value` source, splitting only at top-level commas.
+
+    The trailing `)` closes the CALL and must come off before the depth counter runs, or it
+    drives depth negative and every later top-level comma is missed -- which is exactly what
+    the first version did: it dropped the last two kwargs and the closing paren, and the AST
+    assert caught it on a SyntaxError rather than on a device.
+    """
+    t = text.rstrip()
+    if not t.endswith(")"):
+        raise SystemExit("resolution: a conflict side does not end the call with ')'")
+    out, depth, cur = {}, 0, ""
+    for ch in t[:-1].replace("\n", " ") + ",":
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            x = cur.strip()
+            if "=" in x:
+                out[x.split("=", 1)[0].strip()] = x
+            cur = ""
+        else:
+            cur += ch
+    return out
+
+a, b = kwargs(ours), kwargs(theirs)
+merged = dict(b); merged.update(a)          # HEAD (main) wins every collision
+order = list(a) + [n for n in b if n not in a]
+body = ",\n".join(indent + merged[n] for n in order) + ")"
+open(p, "w").write(s[:i] + body + "\n" + s[k + len(">>>>>>> origin/wk/of3t-confidence\n"):])
+_RESOLVE
+        python3 - <<'_ASSERT' || { echo "CONFLICT merging of3t-$r: confidence resolution FAILED its assert"; exit 1; }
+import ast, sys
+src = open("tt_bio/openfold3_confidence.py").read()
+tree = ast.parse(src)                                   # a lost bracket fails HERE, not on a device
+need = {"scale_pair_bias", "fp32_softmax", "accurate_softmax",
+        "tri_att_sdpa_hifi", "s_fp32_residual"}
+found = {}
+for n in ast.walk(tree):
+    if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "Pairformer":
+        for kw in n.keywords:
+            if kw.arg in need:
+                found[kw.arg] = ast.unparse(kw.value)
+miss = sorted(need - set(found))
+if miss:
+    print("Pairformer(...) lost keyword(s):", ", ".join(miss)); sys.exit(1)
+if found["scale_pair_bias"] != "False":
+    print("scale_pair_bias resolved to", found["scale_pair_bias"],
+          "-- main ships False and D1 is HELD (0.149 A worse at rank 0, pin 9629)"); sys.exit(1)
+print("  confidence Pairformer keeps all five kwargs; scale_pair_bias=False as main ships")
+_ASSERT
+        git add tt_bio/openfold3_confidence.py && git commit --no-edit -q
+        echo "  NOTE of3t-$r: confidence conflict resolved by UNION of names with HEAD winning"\
+             " scale_pair_bias (D1 is HELD), asserted from the AST by VALUE"
       else
-        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+        # GENERIC LAST RESORT, and it exists because the per-row cases above do not scale. When
+        # main touches a shared signature -- 2026-09-21, M18's `tri_att_sdpa_hifi` at OF3's four
+        # Pairformer-family sites -- EVERY concluded row that had appended a kwarg at one of
+        # those sites conflicts on the same shape at once. resolve_kwarg_tail_conflict.py takes
+        # only conflicts where BOTH sides are pure keyword-argument tails, unions the names,
+        # lets HEAD win any collision (main is what ships; at confidence the contested name is
+        # `scale_pair_bias`, which is D1 and HELD), and refuses with exit 2 on anything else.
+        # A `.gitignore` in the same merge is unioned first, since that rule is already settled.
+        _left=""
+        for _f in $_u; do
+          if [ "$_f" = ".gitignore" ]; then
+            git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+            git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+            cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+            rm -f /tmp/.gi_ours /tmp/.gi_theirs
+            git add .gitignore
+          elif [ "$r" = "d1-pairbias" ] && "$PY" "$HERE/resolve_d1_pairbias.py" "$_f"; then
+            # Two rows, opposite conclusions on the same lines, and not a stale base: of3t-pairbias
+            # held the OF3 trunk default at False on nine seeds of 1UBQ; of3t-d1-pairbias flips it on
+            # Moritz's ruling and 48 folds over four targets, with 1UBQ identified as the earlier
+            # reading's own target. The resolver takes the row's side, keeps the superseded reasoning
+            # in the file, and refuses if either goes missing.
+            git add "$_f"
+          elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
+            # d116 unified the softmax-backward inner term across its two identical call sites
+            # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
+            # HEAD's box read and `__all__`, take d116's helper call and its new name. The
+            # resolver refuses the moment the hunk stops having that exact shape.
+            git add "$_f"
+          elif "$PY" "$HERE/resolve_prose_only_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            # Both sides differ only in comments and docstrings -- a row based on an older
+            # wk/of3t reflowed a comment, or carries a wording main has since sharpened. HEAD's
+            # prose wins, and the safety is checked not argued: both sides are reconstructed,
+            # parsed, stripped of docstrings and compared as ASTs, so any executable difference
+            # anywhere refuses and stops the compose.
+            git add "$_f"
+          elif "$PY" "$HERE/resolve_softmax_inner_box.py" "$_f" "origin/wk/of3t-$r"; then
+            # The BOX memory policy against D56's shared `softmax_bw_inner`, in either
+            # orientation. Two repairs on the same three lines, neither aware of the other, and
+            # they compose: read the handle through the box, then call the helper. Taking HEAD
+            # alone leaves `y` unbound and the backward raises NameError the first time it runs,
+            # which a collection-only compose cannot see. Generalises d116's literal, whose
+            # orientation flipped the moment D56 landed on main.
+            git add "$_f"
+          elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
+            git add "$_f"
+          else
+            _left="$_left $_f"
+          fi
+        done
+        if [ -n "$_left" ]; then
+          echo "CONFLICT merging of3t-$r, and these are not keyword-argument tails:"
+          printf '  %s\n' $_left; exit 1
+        fi
+        git commit --no-edit -q
+        echo "  NOTE of3t-$r: conflict(s) resolved by kwarg-tail UNION with HEAD winning"\
+             " collisions; anything that was not a kwarg tail would have stopped the compose"
       fi
     fi
     PRESENT="$PRESENT $r"
@@ -82,8 +346,46 @@ done
 # which is exactly why its failure must be loud: a conflict here silently drops the orchestrator's
 # corrections from the branch that goes to the merge gate, and the compose would still print
 # "clean". Found pass 92 while reverting a default flip through this very merge.
-git merge --no-edit -q wk/of3t-orchestrator \
-  || { echo "CONFLICT merging wk/of3t-orchestrator:"; git diff --name-only --diff-filter=U; exit 1; }
+if ! git merge --no-edit -q wk/of3t-orchestrator; then
+  # One conflict shape is resolvable here and exactly one: an add/add inside
+  # `perf/of3t_orchestrator/`, the orchestrator's OWN artifact namespace. D171, pass 319. The
+  # charter evaluator was written by `of3t-d122-d115` INTO this namespace and reached every tree
+  # through that row's branch, never through the owner's, so when the owner finally carried it
+  # the two copies had no merge base. Namespace ownership is the thing this campaign arbitrates
+  # (`sibling-perf-campaigns-need-namespaced-output-paths`), so the owner's copy is the answer by
+  # definition -- the other side is a row that wrote outside its own namespace.
+  #
+  # Narrow on purpose: ONLY add/add (both sides added, no base), ONLY under this one prefix, and
+  # any other conflicted path still stops the composition. And it is self-verifying rather than
+  # trusted -- everything under this prefix is an instrument the compose RUNS a few lines below,
+  # so a resolution that dropped something load-bearing fails the run it is resolving. That is
+  # the property, not the intention: `charter_evidence.py` refuses to publish if its own break
+  # and negative controls do not pass.
+  _u="$(git diff --name-only --diff-filter=U)"
+  _bad="$(printf '%s\n' "$_u" | grep -v '^perf/of3t_orchestrator/' || true)"
+  _notaa="$(for _f in $_u; do
+              if git ls-files -u -- "$_f" | awk '{print $3}' | grep -qx 1; then
+                printf '%s\n' "$_f"
+              fi
+            done; :)"
+  if [ -n "$_u" ] && [ -z "$_bad" ] && [ -z "$_notaa" ]; then
+    for _f in $_u; do
+      # HEAD here is the accumulated composition and `wk/of3t-orchestrator` is what is being
+      # merged, so the owner's copy is THEIRS, not OURS. Getting this backwards would silently
+      # keep the row's stale copy and print the reassuring note anyway.
+      git checkout --theirs -- "$_f" && git add -- "$_f"
+      echo "  NOTE wk/of3t-orchestrator: add/add on $_f resolved to the NAMESPACE OWNER's copy"\
+           " (D171); it is an instrument this compose runs, so a wrong resolution fails below"
+    done
+    git commit --no-edit -q
+  else
+    echo "CONFLICT merging wk/of3t-orchestrator:"; printf '%s\n' "$_u"
+    [ -n "$_bad" ] && echo "  (outside perf/of3t_orchestrator/ -- not the D171 shape)"
+    [ -n "$_notaa" ] && echo "  (has a merge base, so it is a real disagreement, not add/add:"\
+                             " $_notaa)"
+    exit 1
+  fi
+fi
 
 # (1) ancestry, asserted AFTER the merges
 for r in $PRESENT; do
@@ -125,20 +427,141 @@ done
 #   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
 #   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
 #   of3t-updaterule's brief is amended to re-state that number under the merged code.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
+#   tt_bio/openfold3_trunk.py: of3t-foldab owns the env-gated measurement lever
+#   `TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR`, which forces `tri_att_end_bias_follows_pair` (the
+#   TRANSPOSE_BIAS orientation); of3t-trunkcliff owns the construction-site comment recording
+#   what the PAIR-BIAS SCALE convention costs at the activation level. Two DIFFERENT flags on
+#   adjacent lines, and unlike the entries above the hunks OVERLAP -- both start at line 132
+#   (foldab +7 lines, trunkcliff +27), so disjointness is NOT the argument here.
+#   The argument is that the merged result was CHECKED and carries both, which is asserted
+#   below rather than declared: a silent pick of one side is the exact failure this list could
+#   otherwise wave through (memory: parallel-branches-independently-fix-same-defect).
+#   Semantic coupling, which a reader must not confuse: they are different conventions and they
+#   do not interact -- of3t-trunkcliff measured the pair track BIT-IDENTICAL under its
+#   convention change, and of3t-trunk043ref measured the single track unmoved across foldab's
+#   orientation (0.101290 vs 0.101335). Both must stay; neither may flip a default.
+#   perf/of3t_condtrans/floor_bf16.py: of3t-condtrans (CONCLUDED at b6cc90acc) owns the `f64`
+#   policy and `--capture-ln`, which re-derive the REFERENCE operands at named LayerNorm sites;
+#   of3t-cond043 owns `--expect-version`, which reads the package version off the imported
+#   module's own directory and hard-fails a mismatch -- it exists because of3t_gradients/pylibs
+#   carries an openfold3-0.5.0 dist-info that would make importlib.metadata report 0.5.0 behind a
+#   0.4.3 source tree. The hunks OVERLAP: both edit the same argparse block and the same
+#   docstring, so disjointness is NOT the argument. The argument is that both are wanted in ONE
+#   instrument -- a private copy would fork the campaign's only diffusion-scope floor -- and that
+#   the merged result is ASSERTED to carry both rather than assumed. Added pass 238, when
+#   of3t-cond043 was still unpushed and the collision was still avoidable.
+#   tt_bio/autograd.py: of3t-d116 owns `softmax_bw_inner`, the ONE expression it factored out of
+#   `triangle_attention` and `_v_softmax` so the TT_BIO_SOFTMAX_BW_RENORM repair cannot be applied
+#   to one of two identical sites -- which matters now that Moritz's 9629 decision is SHIP IT ON;
+#   of3t-d137-tapegate owns `host_f64_softmax` / `host_f64_softmax_values` and the tape gate, the
+#   D137 safety fix. The hunks OVERLAP in `__all__`, so disjointness is NOT the argument -- both
+#   are wanted in the one tape, and the merged result is ASSERTED below to carry both rather than
+#   assumed. Added pass 271. NOTE of3t-d116 is based on a main from before `_v_softmax` moved to
+#   the box pattern; `resolve_d116_softmax_inner.py` bridges that and the row is told to rebase.
+#   perf/of3t_trajwide/{trajwide,price_ref,ceiling,ceiling_closures}.py: of3t-trajwide owns the
+#   measurement; of3t-refsweep owns the PATH LINES, by dispatch (D153) -- it repoints 43 scripts
+#   in 11 namespaces off `/home/ttuser/of3t_rebase/`, which went with of3t-rebase's worktree, and
+#   a sys.path entry that does not exist resolves nothing so `import openfold3` falls through to
+#   0.5.0. A per-row sweep was not possible: the roots span namespaces whose rows have concluded.
+#   The hunks are disjoint by construction -- the sweep's edit to each of these four files is the
+#   three lines that move `refpath` from the row's directory to `perf/`, which it did because
+#   eight namespaces import it now. Checked at pass 279: bit-identical tree behind the new path
+#   (digest 1b27f5754b32b8e3 over 293 .py files, reproduced by a fresh pip download), so no number
+#   moves. Asserted below rather than assumed.
+#   tt_bio/openfold3_fold.py: of3t-hostleg and of3t-pathcov, arbitrated pass 324. Their hunks
+#   are region-disjoint -- hostleg adds `cl0_d`/`plm0_d` to `build_dm_device_aux`, pathcov
+#   replaces the pTM/ipTM frame mask inside `OpenFold3`. The two lines they BOTH add (the
+#   `ranking as rank` import and a blank line) are already on `wk/of3t` and are inherited from
+#   their common base rather than authored by either row, which is why a same-file check reads a
+#   collision where there is no contested region. Asserted below, both sides, not assumed.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py tt_bio/openfold3_fold.py"
+_coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
   if printf '%s\n' "$dup" | grep -qx "$a"; then
     printf 'ownership: %s co-edited by' "$a"
     grep " $a\$" "$SLUG_TMP/own.txt" | awk '{printf " %s",$1}'
-    echo " -- DECLARED, regions verified disjoint"
+    case "$a" in
+      tt_bio/openfold3_trunk.py)
+        # Do NOT claim disjointness here: these hunks OVERLAP (both start at line 132). What is
+        # verified for this file is that the merged result carries both sides, asserted below.
+        echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
+      perf/of3t_condtrans/floor_bf16.py)
+        # Same shape: overlapping hunks in one argparse block, both sides asserted below. The
+        # flag is set here rather than asserting unconditionally, because until of3t-cond043
+        # pushes its branch only one side EXISTS and an unconditional assert would abort every
+        # compose on a collision that has not happened yet.
+        _coedit_floor=1
+        echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
+      *)
+        echo " -- DECLARED, regions verified disjoint" ;;
+    esac
   fi
   dup=$(printf '%s\n' "$dup" | grep -vx "$a" || true)
 done
 dup=$(printf '%s\n' "$dup" | sed '/^$/d')
 if [ -z "$dup" ]; then
   echo "ownership: no undeclared file is edited by more than one row"
+  # The one co-edited file whose hunks OVERLAP: prove both sides survived, do not assume it.
+  _tf="$CO/tt_bio/openfold3_trunk.py"
+  _miss=""
+  grep -q "TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR" "$_tf" || _miss="$_miss of3t-foldab's env lever"
+  grep -q "folds the bias inside its own score scale" "$_tf" || _miss="$_miss of3t-trunkcliff's pair-bias note"
+  if [ -n "$_miss" ]; then
+    echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_trunk.py --$_miss"; exit 1
+  fi
+  echo "co-edit: openfold3_trunk.py carries BOTH foldab's lever and trunkcliff's pair-bias note"
+  # The fourth: of3t-refsweep's path sweep over of3t-trajwide's live scripts. Prove the sweep
+  # kept the row's substance rather than assuming a path-only diff stayed path-only.
+  if printf '%s ' $PRESENT | grep -q "refsweep " && printf '%s ' $PRESENT | grep -q "trajwide "; then
+    _tw="$CO/perf/of3t_trajwide/trajwide.py"
+    _twmiss=""
+    grep -q "def align_layer_norm_z" "$_tw" || _twmiss="$_twmiss trajwide's align_layer_norm_z"
+    grep -q "assert_resolved" "$_tw" || _twmiss="$_twmiss trajwide's resolved-tree assertion (D149)"
+    [ -f "$CO/perf/refpath.py" ] || _twmiss="$_twmiss the shared perf/refpath.py the sweep moved it to"
+    if [ -n "$_twmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in perf/of3t_trajwide/trajwide.py --$_twmiss"; exit 1
+    fi
+    echo "co-edit: trajwide.py keeps its align_layer_norm_z and its D149 resolved-tree assertion after refsweep's path move"
+  fi
+  # The fifth, arbitrated pass 324: of3t-hostleg and of3t-pathcov on openfold3_fold.py. Regions
+  # are disjoint, so what has to be proved is only that the merge kept both, which a same-file
+  # collision check cannot tell you either way.
+  if printf '%s ' $PRESENT | grep -q "hostleg " && printf '%s ' $PRESENT | grep -q "pathcov "; then
+    _of="$CO/tt_bio/openfold3_fold.py"
+    _ofmiss=""
+    grep -q "cl0_d=None" "$_of" || _ofmiss="$_ofmiss of3t-hostleg's device atom-embed leg (cl0_d/plm0_d)"
+    grep -q "max over ALIGNMENT FRAMES" "$_of" || _ofmiss="$_ofmiss of3t-pathcov's pTM/ipTM frame mask"
+    if [ -n "$_ofmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in tt_bio/openfold3_fold.py --$_ofmiss"; exit 1
+    fi
+    echo "co-edit: openfold3_fold.py carries BOTH hostleg's cl0_d/plm0_d device leg and pathcov's pTM/ipTM frame mask"
+  fi
+  # The third overlapping co-edit, asserted only when both rows are in this composition.
+  if printf '%s ' $PRESENT | grep -q "d116 " && printf '%s ' $PRESENT | grep -q "d137-tapegate "; then
+    _af="$CO/tt_bio/autograd.py"
+    _amiss=""
+    grep -q "def softmax_bw_inner" "$_af" || _amiss="$_amiss of3t-d116's unified softmax_bw_inner"
+    grep -q "SOFTMAX_BW_RENORM" "$_af" || _amiss="$_amiss the D56 renorm branch inside it"
+    grep -q "host_f64_softmax" "$_af" || _amiss="$_amiss of3t-d137-tapegate's host_f64_softmax"
+    if [ -n "$_amiss" ]; then
+      echo "CO-EDIT LOST A SIDE in tt_bio/autograd.py --$_amiss"; exit 1
+    fi
+    echo "co-edit: autograd.py carries BOTH d116's unified softmax_bw_inner (with the D56 renorm) and d137-tapegate's host_f64_softmax"
+  fi
+  # The second overlapping co-edit, asserted only when both rows are actually in this composition.
+  if [ "$_coedit_floor" = "1" ]; then
+    _ff="$CO/perf/of3t_condtrans/floor_bf16.py"
+    _fmiss=""
+    grep -q -- "--capture-ln" "$_ff" || _fmiss="$_fmiss of3t-condtrans's --capture-ln"
+    grep -q '"f64"' "$_ff" || _fmiss="$_fmiss of3t-condtrans's f64 policy"
+    grep -q -- "--expect-version" "$_ff" || _fmiss="$_fmiss of3t-cond043's --expect-version"
+    if [ -n "$_fmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in perf/of3t_condtrans/floor_bf16.py --$_fmiss"; exit 1
+    fi
+    echo "co-edit: floor_bf16.py carries BOTH condtrans's f64/--capture-ln and cond043's --expect-version"
+  fi
 else
   echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
   while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
@@ -278,9 +701,191 @@ for f in perf/of3t_equivalence/instrument_b_lr.py \
     { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
 
+# (3d) EVERY PUBLISHED HEADLINE RE-DERIVED FROM ITS OWN PER-TENSOR SIDECAR.
+# recompute_from_sidecar.py was written at pass 175 with "exits non-zero if any --expect
+# disagrees, so it can gate a compose" in its own docstring -- and was never wired in. It ran
+# once, verified five headlines, and became a historical artifact. A check that ran once is not
+# a guard: three headlines have changed since. This gates the four that cover 90.9251 % of the
+# model's gradient mass, on CPU, with no device and no trust in any row's arithmetic -- only in
+# its per-tensor diff_norm/ref_norm, which is why the campaign requires those instead of
+# summary statistics. Controls run at pass 181: a wrong value and a missing section both exit 1.
+echo "--- headlines re-derived from sidecars"
+_RS="$HERE/recompute_from_sidecar.py"
+_sc_fail=0
+_sc() {  # <sidecar-path-in-CO> <section=value>
+  [ -f "$CO/$1" ] || { echo "  SIDECAR MISSING: $1"; _sc_fail=1; return; }
+  "$PY" "$_RS" "$CO/$1" --expect "$2" >/dev/null 2>&1 \
+    || { echo "  HEADLINE DOES NOT RE-DERIVE: $1 expected $2"; _sc_fail=1; }
+}
+_sc perf/of3t_direct/sidecar_diffusion_conditioning/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "diffusion_module.diffusion_conditioning=0.06463839"
+_sc perf/of3t_direct/sidecar_aux_heads/per_tensor_DEVICE_vs_UPSTREAM_BF16.json \
+    "aux_heads=0.2360143"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_vs_UPSTREAM_BF16.json "ALL=7.426217"
+_sc perf/of3t_residual/sidecar/per_tensor_DEVICE_SOFTMAX_F64_BOUND_vs_UPSTREAM_BF16.json \
+    "ALL=0.0777758"
+[ "$_sc_fail" = 0 ] || { echo "COMPOSE: a published headline no longer re-derives from its sidecar"; exit 1; }
+echo "  4 headlines re-derive from their per-tensor sidecars (90.9251 % of the gradient mass)"
+
 # (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
+# (3b) DISPATCH HYGIENE. `card=-` reads as "any TT card" to fleet.sh, never "none", and the
+# failure is silent -- the row defers every two minutes with "no free card on any of [...]",
+# which reads as capacity rather than a typo. Three live hits: 2026-08-22, 2026-09-07 (three
+# days of deferrals), and 2026-09-20, mine, two rows at once. The memory entry asked twice for
+# a check; this is it. Deliberately narrow -- see the script's SCOPE comment for the wider
+# version that flagged 12 of 30 rows including one that plainly needed its card.
+# (3c) a SUPERSEDED artifact must be NULLED, not merely stamped -- found unapplied to SEVEN of
+# my own artifacts at pass 180, each still exposing structured number fields a reader or a
+# script would consume as current. The stamp is documentation; the suffix is the interlock.
+echo "--- superseded artifacts nulled"
+"$PY" "$HERE/assert_superseded_is_nulled.py" || \
+  { echo "COMPOSE: a superseded artifact still exposes live data fields"; exit 1; }
+
+echo "--- dispatch card tokens"
+"$PY" "$HERE/assert_dispatch_card_token.py" || \
+  { echo "COMPOSE: a brief's #DISPATCH card token is wrong -- it will defer forever"; exit 1; }
+
+# (3d) the audit's own published check COUNT is computed from confirmations, so any other
+# guard that drifts lowers it and the count guard then blames "checks were added" -- the wrong
+# cause, twice in one session at pass 236. This probe lifts that block out of the live audit
+# and shows it refusing to evaluate while another check is down, while still firing on a
+# genuinely stale count. CPU-only, no artifacts read.
+# (3e) GO condition 5, priced. The plan for each USER-FACING defect is asserted against the live
+# triage the gate reads, so it refuses rather than reporting a stale plan as a current one.
+# (3f) INFERENCE MUST NOT REGRESS (Moritz, 2026-09-21, verbatim: "make sure regular inference is
+# not changed to softmax fp64, not made slower. cause it was already in a good state. we did this
+# only for training. i dont want to see regression in inference.")
+#
+# The fp32 softmax sites are on the SHARED triangle path -- af2.py, openfold3_trunk.py,
+# openfold3_template.py, openfold3_msa_embedder.py and openfold3_confidence.py all set
+# fp32_softmax=True -- and the composition already wires host_f64_softmax_site into Protenix as
+# well as OpenFold3. So a default that reaches inference reaches EVERY model in tt-bio.
+#
+# The shipping line is main. This asserts it on every compose rather than once: no float64
+# softmax symbol may exist on origin/main at all. Defaults-off in the composition is checked
+# separately by assert_new_levers_default_off.py; this is the stronger, simpler property.
+# (3g) D141. A capture's checkpoint provenance must prove BOTH halves of the load. The shared
+# diffusion capture recorded missing_keys and not unexpected_keys, so 24 trained layer_norm_z
+# tensors were dropped while the report read "1 missing, version_tensor". Three existing reports
+# are frozen; a fourth must never ship blind.
+# (3h) D142. PROTOCOL is read top to bottom by every row, so a clause conditioned on a defect
+# that has since closed teaches a verdict the campaign no longer stands behind. Live conditions
+# only -- ordinary provenance ("Record: D96") stays correct after a defect closes.
+echo "--- PROTOCOL rests on no closed defect"
+"$PY" "$HERE/assert_protocol_defect_refs.py" || \
+  { echo "COMPOSE: a PROTOCOL clause carries a live condition on a defect that has closed"; exit 1; }
+
+# (3h-bis) D166. Every closure, ratchet and GAP line in this campaign addresses a defect BY
+# NUMBER, so two entries opening one D-number make a status word written for either read as the
+# other's. Pass 308 did exactly that -- appended `### D165.` next to an existing `### D165.`,
+# having picked the number off a `sort -n | tail` that printed 164. UPDATE headings are excluded
+# deliberately: `### D164 UPDATE 1` is one defect, and the campaign uses that form on purpose.
+echo "--- every defect D-number is opened exactly once"
+"$PY" "$HERE/assert_defect_ids_unique.py" || \
+  { echo "COMPOSE: two defect entries open the same D-number"; exit 1; }
+
+# (3i) D148/A30. A summary of what the campaign still owes is composed from the state at the TOP
+# of a pass, and rows report inside it -- DIRECTIVE-STATUS's "honest shape of what is left, at pass
+# 199" was already wrong that same pass and stayed on the page for seventy more. The stamp must be
+# present AND within ten passes; presence alone would have passed all seventy.
+echo "--- summary paragraphs are stamped and fresh"
+"$PY" "$HERE/assert_summary_stamped.py" || \
+  { echo "COMPOSE: a 'what is left' summary is unstamped or more than ten passes stale -- see A30"; exit 1; }
+
+echo "--- capture provenance records unexpected_keys"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_capture_records_unexpected.py . ) || \
+  { echo "COMPOSE: a capture report proves only half of its load -- see D141"; exit 1; }
+
+# (3j) D149. `of3t-trajwide` ran openfold3 0.5.0 for its whole life while its constant and its
+# prose said 0.4.3, because three `sys.path.insert(1, p)` calls reverse the order they were written
+# to set. Narrow on purpose: the reversing LOOP, not the absence of a resolution read -- the broad
+# version flagged 18 further files whose second insert is `os.getcwd()`.
+# (3k) D151. One env var, two module-level reads, two backends -- and a comment asserting there
+# is only one flag. Both default off today, so this is green when it lands; it goes red the moment
+# a row flips one of the two, which is what of3t-d56-renorm's branch does.
+# (3l) D122/D154. The gate that ends this campaign reads `state/of3t/CHARTER_EVIDENCE.json`.
+# `audit_evidence.py` recomputes the four conditions against THIS tree and compares them to the
+# copy inside the composition -- but the copy the GATE reads is the one in state/, and nothing
+# re-derived it. They are byte-identical today only because one row wrote both. Publish it from
+# the composition every pass, so the evaluation the gate reads is of `wk/of3t` and is never older
+# than the compose that blessed it. The instrument REFUSES if its own break control fails, which
+# is why this runs before the audit rather than after.
+# D179. COVERAGE's two halves live in two rows' artifacts: the census has the eight loss terms,
+# `of3t-covpaths` has the eleven paths under a key named `union` that means something else. Compose
+# them here rather than committing a derived artifact, so it can never be older than its sources --
+# it pins both by sha256 and refuses if `COVERAGE_UNION.json`'s cited census digest does not match
+# the census in this tree, which is the case where merging would silently join two measurements.
+echo "--- compose COVERAGE's two halves (D179)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/coverage/merge_coverage.py ) || \
+  { echo "COMPOSE: merge_coverage.py refused -- its two sources disagree, see its output"; exit 1; }
+
+echo "--- publish the charter evaluation from the composition"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/charter/charter_evidence.py ) || \
+  { echo "COMPOSE: charter_evidence.py refused to publish -- see its break control"; exit 1; }
+
+# (3m) D155. A digest-equality claim that does not name its host cannot be attributed to healthy
+# hardware, and pc card 0 is a faulty card root-caused 2026-08-17 that must not host bit-exact
+# gating for any model at any size. Three of3t artifacts are in that state and are frozen; a new
+# one fails. The list may only shrink.
+# (3n) D162. Five per-site levers resolve at the construction site, so their shipped default is
+# an ARGUMENT and not a module constant -- a census that walks flags to a resolved value has no
+# row for the family at all. openfold3.trunk flipped to the fused HiFi SDPA path by default and
+# the census was silent. assert_new_levers_default_off.py covers one of the five; this covers the
+# rest by reading the call sites, as a shrink-only ratchet over the three that are ON today.
+echo "--- site-flag call-site defaults (D162)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_site_flag_defaults.py . ) || \
+  { echo "COMPOSE: a construction site ships a per-site lever ON by default, unpinned -- see D162"; exit 1; }
+
+# (3o) D164. A guard that binds a sentence to its artifact cannot notice the artifact is the
+# wrong INSTRUMENT. audit_evidence.py recomputed 172.43 + 698.32 = 870.75 and asserted cycles==1
+# for 250 passes -- both true -- while the run those seconds came from was D14's MEMORY ladder,
+# taking an allocator read on every one of 246,510 verb calls at 3.53 ms each. The same backward
+# timed clean reads 222.48 s. Ask the question those assertions cannot: was it timing?
+echo "--- a timing figure comes from a timing run (D164)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_timing_is_a_timing_run.py ) || \
+  { echo "COMPOSE: live prose quotes a probe-instrumented run's wall clock as a timing figure -- see D164"; exit 1; }
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_timing_is_a_timing_run.py --self-test >/dev/null ) || \
+  { echo "COMPOSE: the D164 guard's own negative control does not fire -- the guard is not a guard"; exit 1; }
+
+echo "--- digest claims name their hardware (D155)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
+  { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
+
+echo "--- one flag, one default (D151)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_one_flag_one_default.py . ) || \
+  { echo "COMPOSE: an env var's two readers disagree on its default -- see D151"; exit 1; }
+
+echo "--- sys.path order: no new tree-resolution trust (D149)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_path_order_ratchet.py . ) || \
+  { echo "COMPOSE: a new of3t script trusts a package-path constant instead of the resolution"; exit 1; }
+
+echo "--- inference: no float64 softmax on main"
+git fetch -q origin main 2>/dev/null || true
+_f64_on_main=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/main -- tt_bio/ 2>/dev/null || true)
+# Probe: the same grep must FIND the path on the composition, or this check is reading nothing
+# and its silence on main means nothing (A17).
+_f64_on_compose=$(git grep -lE "host_f64_softmax|HOST_F64_SOFTMAX" origin/wk/of3t -- tt_bio/ 2>/dev/null || true)
+if [ -z "$_f64_on_compose" ]; then
+  echo "COMPOSE: the float64-softmax grep finds nothing on wk/of3t either, so its silence on main"
+  echo "         is uninformative -- the probe did not fire (A17)"; exit 1
+fi
+if [ -n "$_f64_on_main" ]; then
+  echo "COMPOSE: a float64 softmax path is ON MAIN, which is the shipping line for every model in"
+  echo "         tt-bio, not just OpenFold3 --"; printf '           %s\n' $_f64_on_main
+  echo "         Moritz: \"i dont want to see regression in inference\". Revert it."; exit 1
+fi
+echo "  ok    no float64 softmax symbol on origin/main; the probe finds $(printf '%s\n' $_f64_on_compose | wc -l) file(s) on wk/of3t, so the grep reads something"
+
+echo "--- user-facing closure plan"
+"$PY" "$HERE/userfacing/closure_plan.py" | tail -4 || \
+  { echo "COMPOSE: the USER-FACING closure plan is stale against UNFIXED_TRIAGE.json"; exit 1; }
+
+echo "--- check-count evaluability"
+"$PY" "$HERE/countstable/count_is_not_evaluable_while_drifted.py" | tail -2 || \
+  { echo "COMPOSE: the check-count guard no longer refuses an unevaluable run"; exit 1; }
+
 echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
@@ -336,8 +941,14 @@ for _f in PROTOCOL DEFECTS EVIDENCE LEDGER ORCHESTRATOR; do
   _src="/home/moritz/.coworker/state/of3t/$_f.md"
   [ "$_f" = ORCHESTRATOR ] && _src="/home/moritz/.coworker/state/of3t-orchestrator.md"
   [ -f "$_src" ] || continue
+  # The header names the SOURCE THIS COPY WAS TAKEN FROM, derived from $_src rather than
+  # re-typed from the loop variable. Until pass 307 it printed `state/of3t/$_f.md` for every
+  # document including ORCHESTRATOR, whose source is special-cased one line above and whose
+  # advertised path DOES NOT EXIST -- so the one instruction the header gives, "edit that one",
+  # pointed a reader at nothing, or at a second live copy they would have had to create. That
+  # is the defect the next two lines warn about, committed by the warning itself.
   { echo "<!-- PUBLISHED COPY, regenerated by compose_verify.sh on every compose."
-    echo "     AUTHORITATIVE SOURCE: ~/.coworker/state/of3t/$_f.md on pc."
+    echo "     AUTHORITATIVE SOURCE: $_src on pc."
     echo "     Edit that one. An edit here is overwritten on the next compose, and two live"
     echo "     copies of one document is the defect this campaign spent four passes fixing."
     echo "     Published so that wk/of3t carries the reasoning and not only the artifacts:"
@@ -355,6 +966,8 @@ echo "record: $_recn campaign documents published into the branch ($(du -sh "$_R
 # first. Same drift class this campaign audits everywhere else, in a document I own. The prose
 # stays authored; the numbers are written here, into $REPO so the branch carries them.
 _DOC="$REPO/perf/of3t_orchestrator/COMPOSITION.md"
+_PROTO="/home/moritz/.coworker/state/of3t/PROTOCOL.md"
+_ORCH="/home/moritz/.coworker/state/of3t-orchestrator.md"
 if [ -f "$_DOC" ] && grep -q '<!-- BEGIN GENERATED' "$_DOC"; then
   {
     echo "<!-- BEGIN GENERATED by compose_verify.sh -- do not edit between these markers -->"
@@ -362,6 +975,22 @@ if [ -f "$_DOC" ] && grep -q '<!-- BEGIN GENERATED' "$_DOC"; then
     echo "Composed $(date -u +%F\ %TZ) from \`origin/main\` at \`$(git rev-parse --short origin/main)\`."
     echo "Head \`$(git -C "$CO" rev-parse --short HEAD)\`, **$(git -C "$CO" rev-list --count origin/main..HEAD) commits ahead**,"
     echo "carrying **$(set -- $PRESENT; echo $#) of $(set -- $ROWS; echo $#) rows**."
+    echo
+    # Pass 313. Three numbers in this file's AUTHORED prose had drifted: "seventeen amendments"
+    # when PROTOCOL carries 30, "146 scoreboard figures", and -- the expensive one -- a closing
+    # summary saying the model-dependent half was measured "at one Pairformer block, where it
+    # FAILED, on a scope holding 0.20 % of the gradient's magnitude", written early and still
+    # there with the campaign at 92.1568 %. The file's own opening paragraph warns about exactly
+    # this class and then commits it three times, because it drew the authored/generated line in
+    # the wrong place: it generated the TABLE and left the CLAIMS in prose. A claim with a number
+    # in it is data. These three are derived here so they cannot drift again.
+    echo "PROTOCOL carries **$(grep -oE '^\*\*A[0-9]+' "$_PROTO" 2>/dev/null | sort -u | wc -l | tr -d ' ') amendments**,"
+    echo "each marked for whether a number already existed when it was written."
+    echo
+    echo "Campaign headline, copied verbatim from \`state/of3t-orchestrator.md\`'s \`VERDICT:\` so"
+    echo "this file cannot state a different one:"
+    echo
+    sed -n 's/^VERDICT: /> **VERDICT:** /p' "$_ORCH" 2>/dev/null | head -1
     echo
     echo "| row | branch head | files reachable ONLY from this row |"
     echo "|---|---|---|"
@@ -431,17 +1060,45 @@ git worktree remove --force "$BASE"
 # This is deliberately NOT a general "no default moved" check, which would need a definition of
 # `default` this script cannot honestly give. It is a named assertion about a named line, and when
 # D1+D10 are approved to ship together the line here changes with them.
+# The SECOND shipped default the composition must not move, added pass 177. of3t-auxfind's
+# confidence-mask fix is RELEASE-GATED and rides in the composition: it takes aux_heads' A18 from
+# 4 of 5 heads at 5.174368e-01 to 0 of 5 at 3.865648e-03, and it would move pLDDT, PAE, PTM/IPTM
+# and the ranking score on any padded fold. That is safe ONLY while it is off by default, and
+# "off by default" is a property of the composed branch, not of the row's write-up -- so it is
+# read from the tree. The asserter checks the default VALUE is None (a default merely EXISTING
+# is not enough) and that the shipped fold path still does not pass the masks.
+"$PY" "$HERE/assert_confidence_forward_signature.py" "$CO/tt_bio/openfold3_confidence.py" \
+  || { echo "SHIPPED DEFAULT MOVED -- the release-gated confidence masks are live in the composition"; exit 1; }
+
+# The THIRD and FOURTH shipped defaults, added pass 209 after both pass-207 repairs landed in the
+# composition, and REVERSED for one of them at pass 274. TT_BIO_SOFTMAX_BW_RENORM now rides in LIVE
+# on Moritz's ask-9629 ruling -- it moves every taped gradient (it is what takes the trunk from
+# 9.025172e+00 to 3.833066e-01) and it cannot move a fold, because every read of it is inside a
+# backward closure, checked by AST rather than asserted. The host float64 softmax still may not: it
+# moves fold output and costs a round trip at any site where it is on, and D137 says it is gated on
+# an env flag rather than on the tape. So the asserter pins BOTH directions -- renorm ON, host path
+# OFF -- and for the host path checks both halves, the default AND that no construction site
+# overrides it to True, because a selector defaulting False says nothing when a site passes
+# default=True, which is exactly how opendde.refiner ships the accurate-softmax chain ON.
+"$PY" "$HERE/assert_new_levers_default_off.py" "$CO" \
+  || { echo "SHIPPED DEFAULT MOVED -- a pass-207 repair is live in the composition"; exit 1; }
+
 _trunk="$CO/tt_bio/openfold3_trunk.py"
-_want='scale_pair_bias=False, tri_att_scale_pair_bias=False'
+# Flipped at pass 280, in the same commit that lands the flip, which is what the previous version
+# of this block instructed: "If Moritz approves it anyway, change _want in this script in the same
+# commit that flips the default." He approved it (ask 9629) and of3t-d1-pairbias is GO.
+_want='scale_pair_bias=True, tri_att_scale_pair_bias=False'
 if grep -q "$_want" "$_trunk"; then
-  echo "shipped defaults: OF3 trunk pair-bias default is False, matching main (D1 HELD: measured 0.149 A worse at rank 0, of3t-confhead final, 5588d889a; not blocked on D10, which is resolved)"
+  echo "shipped defaults: OF3 trunk pair-bias is scale_pair_bias=True (ask 9629 DECIDED: fix it everywhere; of3t-d1-pairbias GO -- 48 folds, 4 targets, 6 seeds, sign test p=0.541, pLDDT up in 24 of 24; unmerged to main)"
 else
   echo "SHIPPED DEFAULT MOVED -- $_trunk does not carry: $_want"
   grep -n 'scale_pair_bias=' "$_trunk" | sed 's/^/  /'
-  echo "  D1 is HELD on its own measurement: D1+D10 serves 0.149 A worse than shipped at rank 0 over"
-  echo "  nine ship and eight fix seeds (of3t-confhead, concluded), and the best rule still serves"
-  echo "  0.086 A worse. Fixing the selector did not rescue it. If Moritz approves it anyway,"
-  echo "  change _want in this script in the same commit that flips the default."
+  echo "  D1 is DECIDED, not held: ask 9629 says fix it everywhere, and of3t-d1-pairbias measured"
+  echo "  the reopen condition Moritz set -- 'reliably worse across targets and seeds' -- and did"
+  echo "  not meet it: 10 of 24 paired folds regress, sign test p = 0.541, pooled median negative,"
+  echo "  and the sole regressing target is 1UBQ, which is the target the 0.149 A reading was built"
+  echo "  on. A revert to False is now the drift. If it is deliberate, say why here in the same"
+  echo "  commit, and reopen the ask rather than moving the default quietly."
   exit 1
 fi
 

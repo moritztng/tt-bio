@@ -1,0 +1,79 @@
+# Workstream: of3t-trunkgrad
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-trunkgrad
+
+OF3T row `of3t-trunkgrad` — **the last unmeasured scope in the campaign.** The pairformer trunk
+holds **5.8282 %** of the model's squared gradient norm and its gradient has never been scored
+against a reference built from the revision our checkpoint is bound to.
+
+## Base your worktree on `wk/of3t-trunkcliff`, not `main`
+
+    git fetch origin && git checkout -B wk/of3t-trunkgrad origin/wk/of3t-trunkcliff
+
+That branch carries the 0.4.3 reference build, the per-block arms and the pre-scaled-bias arm
+this row needs. Starting from `main` means rebuilding all of it, or worse, measuring against a
+different boundary and reporting a number that cannot be compared to the ones below.
+
+## What is settled — the forward is fully explained, so do not re-derive it
+
+- `of3t-trunk043ref`: rebuilt at upstream **0.4.3**, the shipped port's **pair** track reads
+  **4.947045e-02** masked at crop 64 (0.9894x the 5.0e-02 bar) and 4.853716e-02 at N=384.
+  **92.08 %** of the old 2.793661e-01 was the 0.5.0 reference, measured not bounded. The
+  orientation question is closed: 0.5.0 forced to the 0.4.3 orientation reads **exactly 0.0**.
+- `of3t-trunkcliff`: the remaining **single**-track error is **not bf16, it is a different
+  function**. `AttentionPairBias` folds the pair bias inside its own score scale, so a reference
+  that adds it unscaled needs it pre-baked by `sqrt(head_dim)`. Fed the same float64 state, the
+  block-45 update is **78.0 % wrong** (ratio 0.684, cos 0.628) while upstream's own bf16 recipe
+  reads 9.1e-03 — and **pre-scaled it reproduces upstream 0.4.3 float64 to 4.2e-16**. It looked
+  like a depth cliff only because `|bias|/|q.k|` grows 0.0039 -> 0.0131 -> 0.0302 as `q.k`
+  collapses in the last blocks.
+
+    arm              crop64 s      crop64 z      N=384 s       N=384 z
+    SHIPPED          1.065338e-01  4.947045e-02  1.061989e-01  4.853716e-02
+    bias pre-scaled  1.655263e-02  4.947045e-02  1.855062e-02  4.853716e-02
+
+  So the forward clears A18 on **both** tracks under the pre-scaled convention and fails the
+  single track under the shipped one. **The pair track is bit-identical either way.**
+
+**The flip is D1 and it is HELD**, because `of3t-confhead` measured that it buys 0.050 A of
+best-of-5 and **costs 0.463 A on the structure a user receives**. `compose_verify.sh` asserts the
+shipped default. **This row changes no default and proposes no flip.**
+
+## What to do
+
+**Take the gradient against a 0.4.3-built float64 reference, under BOTH conventions.** The
+1.061553e+01 on record came from `of3t-pairformer` scored against a **0.5.0** reference and is
+superseded; do not carry it in, and do not carry in any other figure — `of3t-auxgrad` found that
+re-running the old arm in-process reproduced its predecessor **to every digit**, and that
+cross-process agreement is what made its new number trustworthy. Do the same here: an arm that
+reproduces `of3t-pairformer`'s configuration is your instrument control.
+
+Both conventions, because the campaign needs to know what the held default costs **in gradient
+terms**, not only in Angstrom and forward-relative-L2. That number does not exist today and it is
+the missing half of the D1 decision.
+
+**Report by MASS, not by count** (A23): how much of the compared mass sits outside the per-tensor
+bar, beside how many tensors do. `of3t-auxgrad`'s scope had 89 of 176 tensors over the bar
+holding 1.17e-07 of the mass — the counts and the mass said opposite things and only the mass
+decided the scope.
+
+**A26's `sqrt(2)` does NOT apply here.** Against a float64 reference only one side carries error,
+so the reachable bar is the threshold itself — see the **A26-SCOPE** amendment, which
+`of3t-auxgrad` surfaced. Quote it if you like, but do not let it rescue a tensor.
+
+**Confirm the forward in the same process that takes the gradient**, both tracks, masked, with
+the padding fraction beside each figure.
+
+## Rules
+
+- **Pre-register the branches before you run**, including what reading would mean "the trunk's
+  gradient fails even under the pre-scaled convention" — that is a real possible outcome and it
+  would mean the forward explanation is incomplete.
+- Norm ratio and error cosine beside every relative L2; per **A27** name the dtype policy of any
+  arm used as a denominator.
+- `BIT-EXACTNESS IS NOT REQUIRED`; accuracy is. **CLOCK DISCIPLINE** on any perf number.
+- Change no shipped default. `compose_verify.sh` asserts `scale_pair_bias=False` and the
+  release-gated confidence masks stay off; if your work moves either, stop.
+- Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-trunkgrad`; do NOT merge to
+  main. Your push from qb2 may silently not reach origin — commit early in small steps and check
+  with `git ls-remote origin wk/of3t-trunkgrad`.

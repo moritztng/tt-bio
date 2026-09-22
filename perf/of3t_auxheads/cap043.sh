@@ -2,12 +2,14 @@
 # Capture the 0.4.3 reference boundary for aux_heads, msa_module and input_embedder.
 # CPU only, no card: this is upstream float64 against itself. ~25 min at OMP 14.
 set -uo pipefail
-W=/home/ttuser/.coworker/wt/of3t-auxheads
-B=/home/ttuser/of3t_rebase/bundle_min_043
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$W/perf/refpath.sh"
+B=$REF_BUNDLE
 OUT=${OUT:-/home/ttuser/of3t_auxheads/cap043}
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/deps:/home/ttuser/of3t_gradients/pylibs:$W"
+export PYTHONPATH="$(ref_pythonpath "$REF_PYLIBS" "$W")"
+ref_assert "$PY"
 export OMP_NUM_THREADS=${OMP:-14}
 mkdir -p "$OUT"
 echo "=== capture start $(date -u +%FT%TZ)  OMP=$OMP_NUM_THREADS ==="

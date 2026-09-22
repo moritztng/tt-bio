@@ -1,0 +1,27 @@
+{
+ "DTYPE_PROBE": {
+  "dit_block0_linear_out_dtype": "torch.bfloat16",
+  "probed_module": "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g"
+ },
+ "LAYERNORM_SIGNATURE": "layernorm_keeps_affine_in_x_dtype",
+ "backward_seconds": 52.734219789505005,
+ "cap": "/home/ttuser/of3t_diffusion_cap",
+ "ckpt": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "compared": 737,
+ "forward_seconds": 23.11734914779663,
+ "omp_num_threads": "8",
+ "out": "/tmp/of3t/cond043/floor043_pkg043_cap050_bf16auto.pt",
+ "policy": "bf16auto",
+ "scope_error_mass": 7.530849215466239,
+ "scope_mass_weighted_vs_f64": 0.7715593634478717,
+ "scope_reference_mass": 12.65042918623153,
+ "torch": "2.8.0+cpu",
+ "upstream_pkg": "/home/ttuser/of3t_refprec/of3pkg043",
+ "upstream_version": "0.4.3",
+ "upstream_version_declared": "0.4.3",
+ "upstream_version_source": "/home/ttuser/of3t_refprec/of3pkg043/PKG-INFO",
+ "what": "Upstream openfold3's OWN bf16 gradient for the diffusion module, at the boundary it is scored at.",
+ "worst_rel": 3.285227558478492,
+ "worst_tensor": "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.linear_g.bias",
+ "xl_dtype": "torch.float32"
+}
