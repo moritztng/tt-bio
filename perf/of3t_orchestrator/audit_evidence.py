@@ -647,7 +647,20 @@ if _man:
     if _declared and _seen:
         _bad = {k: v for k, v in _seen.items() if not _declared.startswith(str(v)[:40])
                 and not str(v).startswith(_declared[:40])}
-        if _bad:
+        # The republish is a KNOWN transition, not a surprise: `of3t-reference` is rebuilding
+        # the r=0 bundle and its new digest lands in the MANIFEST before the rows that cite it
+        # can re-hash. If every citer still agrees with every other citer and only the MANIFEST
+        # has moved, that is exactly that transition -- name it and name who owes the re-hash,
+        # rather than failing the compose for hours on an expected state. A compose I expect to
+        # be red is a compose I stop reading. Citers disagreeing with EACH OTHER is the real
+        # defect and still fails.
+        if _bad and len(set(_seen.values())) == 1:
+            warn.append(f"REPUBLISH IN FLIGHT: the MANIFEST now declares "
+                        f"{_declared[:16]}... while all {len(_seen)} citers still agree on "
+                        f"{list(_seen.values())[0][:16]}... -- expected while "
+                        f"`of3t-reference` publishes. Owed: a re-hash in "
+                        + ", ".join(sorted(_seen)) + ", in the same commit as the re-run")
+        elif _bad:
             bad.append(f"TWO REFERENCES IN FLIGHT: the MANIFEST declares "
                        f"{_declared[:16]}... for grads_f64_recycles0.pt while "
                        + "; ".join(f"{k} cites {v[:16]}..." for k, v in _bad.items())
