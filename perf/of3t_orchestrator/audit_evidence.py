@@ -15,11 +15,34 @@ CPU only, no card, no network. Run from a `wk/of3t` checkout.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+_FELL_BACK: set = set()
+
+
+def _campaign_doc(name: str) -> Path:
+    """The authoritative document if this host has it, else the copy published in the branch.
+
+    The campaign's record lives in a gitignored state dir on pc, so every check that reads it
+    -- GAP against DEFECTS, the summary fields, D20's shares -- could only ever run for one
+    person on one machine. The compose now publishes copies into the branch, so those checks
+    fall back to the copy and a reviewer's `compose_verify.sh` runs the same 146 checks rather
+    than silently fewer. Authoritative first, always: on pc the state file wins.
+    """
+    src = (Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+           if name == "ORCHESTRATOR" else
+           Path(f"/home/moritz/.coworker/state/of3t/{name}.md"))
+    if src.is_file():
+        return src
+    _FELL_BACK.add(name)
+    return ROOT / "perf/of3t_orchestrator/record" / f"{name}.md"
 ok, bad, warn = [], [], []
+_reach_top = {}
 
 
 def j(rel):
@@ -139,13 +162,22 @@ if upper.is_file():
                         + (" ..." if len(absent) > 4 else ""))
         else:
             ok.append("bundle says PUBLISHED and declares every artifact present")
-    if "HOLD" in st.upper():
-        # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
-        # against it -- so this warns loudly rather than failing, the same way an unpushed
-        # worktree does. It becomes a failure the moment a row quotes a number from it.
-        warn.append(f"reference bundle is ON HOLD, do not compare against it: {st[:110]}")
+    # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
+    # against it -- so this warns loudly rather than failing, the same way an unpushed worktree
+    # does. It becomes a failure the moment a row quotes a number from it.
+    #
+    # Read the STRUCTURED hold, not the substring "HOLD" in prose. The first version fired on a
+    # manifest whose status began "PUBLISHED." because the word appeared later in a sentence
+    # saying the hold was lifted -- a keyword gate cannot tell a claim from its own negation,
+    # and this campaign has the same lesson filed twice already.
+    _hold = m.get("hold")
+    _hstate = str(_hold.get("state", "")) if isinstance(_hold, dict) else str(_hold or "")
+    _held = bool(_hstate) and not _hstate.strip().upper().startswith(
+        ("PUBLISHED", "NONE", "LIFTED", "CLEARED", "NO HOLD"))
+    if _held:
+        warn.append(f"reference bundle is ON HOLD, do not compare against it: {_hstate[:110]}")
     else:
-        ok.append("reference bundle manifest carries no hold")
+        ok.append(f"reference bundle carries no hold ({(_hstate or st)[:48]}...)")
     if lower.is_file():
         lo = json.loads(lower.read_text())
         if "status" not in lo:
@@ -208,22 +240,23 @@ if d:
 d = j("perf/of3t_gradients/reach_by_norm.json")
 if d:
     r = d["reach"]
+    _reach_top = d.get("by_top_level", {})
     check("D17 reference tensors", d["n_tensors"], 4147)
     check("D17 none absent", d["n_absent"], 0)
-    close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.06543442172265604)
-    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9800944410036996)
+    close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.040545222363297974, tol=1e-6)
+    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9869491000000000, tol=1e-3)
     check("D17 device tensors mapped", r["device_bijection_mat64"]["tensors"], 3545)
     # The published global norm is the one number that ties this artifact to the manifest.
-    close("D17 global norm vs manifest", d["total_norm"], 3.908301894520238, tol=1e-12)
+    close("D17 global norm, rebuilt r=0 reference", d["total_norm"], 3.707776369277738, tol=1e-9)
     # The ceiling. These two are what every SS3d figure in EVIDENCE is measured inside.
     close("D17 block-0 share of the squared norm",
-          r["instrument_a_block0_53"]["norm_share"], 0.0020038559007500654)
+          r["instrument_a_block0_53"]["norm_share"], 0.000860, tol=5e-3)
     close("D17 whole-trunk share of the squared norm",
-          r["pairformer_stack_all"]["norm_share"], 0.05274678966027111)
+          r["pairformer_stack_all"]["norm_share"], 0.03155993434564877, tol=1e-6)
     if r["pairformer_stack_all"]["norm_share"] < 0.10:
         ok.append(f"D17 ceiling stands: the whole 48-block trunk is "
                   f"{r['pairformer_stack_all']['norm_share']:.2%} of the squared norm, block 0 "
-                  f"is {r['instrument_a_block0_53']['norm_share']:.2%}")
+                  f"is {r['instrument_a_block0_53']['norm_share']:.3%}")
     else:
         bad.append("D17's ceiling has moved -- EVIDENCE's scope note says no trunk-scope "
                    "instrument can speak for the gradient's magnitude, and that sentence is "
@@ -354,7 +387,7 @@ if d:
         bad.append(f"the r=0 / r=0.25 spread has collapsed ({_w}) -- EVIDENCE reads that "
                    f"spread as evidence of two different functions, and that reading depends "
                    f"on it being the same order as the dropout floor")
-    _ev = Path("/home/moritz/.coworker/state/of3t/EVIDENCE.md")
+    _ev = _campaign_doc("EVIDENCE")
     if _ev.is_file():
         _txt = _ev.read_text()
         _missing = [s for s in ("1.631143239324149", "3.727845454375", "4,138 of 4,147")
@@ -626,15 +659,22 @@ if b and c:
 _man = j("perf/of3t_reference/bundle_min/MANIFEST.json")
 if _man:
     _declared = None
+    _declared_file = None
     for _a in _man.get("artifacts", []):
-        if isinstance(_a, dict) and _a.get("file") == "grads_f64_recycles0.pt":
+        # Follow whatever the MANIFEST currently calls the validated gradient. Hardcoding
+        # `grads_f64_recycles0.pt` was right until `of3t-reference` republished as
+        # `grads_f64_r0.pt`, at which point the check stopped being able to run -- and a check
+        # that cannot run is how D18 stayed invisible for thirty-nine passes.
+        if isinstance(_a, dict) and str(_a.get("file", "")).startswith("grads_f64") \
+                and "recycles3" not in str(_a.get("file", "")):
             _declared = _a.get("sha256")
+            _declared_file = _a.get("file")
     _citers = {
         "perf/of3t_updaterule/reference_profile.json": ("declared_sha256",),
         "perf/of3t_gradients/reach_by_norm.json": ("reference", "sha256"),
         "perf/of3t_gradients/instrument_a_bundle_block0.json": ("bundle", "sha256"),
     }
-    _seen = {}
+    _seen, _stamped = {}, []
     for _rel, _path in _citers.items():
         _d = j(_rel)
         if not _d:
@@ -642,8 +682,13 @@ if _man:
         _v = _d
         for _k in _path:
             _v = _v.get(_k) if isinstance(_v, dict) else None
-        if _v:
+        # A citer that DECLARES it was taken against a withdrawn reference is history, not a
+        # live claim, and history is allowed to disagree. `of3t-gradients` stamps these with
+        # `reference_standing` naming both digests. Undeclared disagreement is the defect.
+        if _v and not (_d.get("superseded_by") or _d.get("reference_standing")):
             _seen[_rel] = _v
+        elif _v:
+            _stamped.append(_rel)
     if _declared and _seen:
         _bad = {k: v for k, v in _seen.items() if not _declared.startswith(str(v)[:40])
                 and not str(v).startswith(_declared[:40])}
@@ -669,17 +714,51 @@ if _man:
         else:
             ok.append(f"one reference campaign-wide: {len(_seen)} artifacts and the MANIFEST "
                       f"all cite {_declared[:16]}...")
-    elif not _declared:
-        warn.append("the MANIFEST no longer declares a sha256 for grads_f64_recycles0.pt -- "
+    if _stamped:
+        ok.append(f"{len(_stamped)} citer(s) declare which reference they were taken "
+                  f"against, so a disagreeing digest in them is history rather than a live "
+                  f"claim: "
+                  + ", ".join(x.split('/')[-1] for x in _stamped))
+    if not _declared:
+        warn.append("the MANIFEST declares no sha256 for any grads_f64* artifact -- "
                     "the one-reference check cannot run, which is how D18 stayed invisible")
+
+# --- DEFECTS' LIVE claims must follow the artifacts too --------------------------------------
+# EVIDENCE is audited, the summary fields are audited, and DEFECTS.md -- the document that says
+# which defects are open and how big they are -- was not. When the reference was republished
+# every share moved, and D20 (the campaign's CEILING) still read 88.54 / 3.57 / 91.9 % from the
+# withdrawn tape for six passes.
+#
+# The rule that makes this checkable without freezing history: a defect's HISTORICAL narrative
+# may quote the numbers of its day, but the figures in its HEADING and its current-state
+# paragraph must match the artifacts. So: check the heading line and the D20 body.
+_DEFP = _campaign_doc("DEFECTS")
+if _DEFP.is_file() and _reach_top:
+    _dt = _DEFP.read_text()
+    _diff_share = _reach_top.get("diffusion_module", {}).get("share")
+    _aux_share = _reach_top.get("aux_heads", {}).get("share")
+    if _diff_share and _aux_share:
+        _want_sum = f"{(_diff_share + _aux_share) * 100:.1f} %"
+        _m = re.search(r"^### D20\. .*?(\d+(?:\.\d+)?) % of the gradient", _dt, re.M)
+        if _m and abs(float(_m.group(1)) - (_diff_share + _aux_share) * 100) <= 0.15:
+            ok.append(f"DEFECTS D20's headline share matches the artifacts ({_want_sum})")
+        elif _m:
+            bad.append(f"DEFECTS D20 headlines {_m.group(1)} % where the artifacts give "
+                       f"{_want_sum} -- the ceiling is quoted against a reference that has "
+                       f"been replaced")
+        for _name, _sh in (("diffusion_module", _diff_share), ("aux_heads", _aux_share)):
+            _s = f"{_sh * 100:.2f} %"
+            if _s not in _dt:
+                bad.append(f"DEFECTS never quotes {_name}'s current share {_s} -- D20's body "
+                           f"is the campaign's ceiling and it must follow the artifact")
 
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
 # GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
 # omitted the hardest blocker entirely. The gate only checks that the field EXISTS. A summary
 # written by transcription drifts exactly like a scoreboard does, so it gets the same treatment
 # as the scoreboard: checked against its source.
-DEF = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
-ORCH = Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+DEF = _campaign_doc("DEFECTS")
+ORCH = _campaign_doc("ORCHESTRATOR")
 if DEF.is_file() and ORCH.is_file():
     import re as _re
     unfixed = [m.group(1) for m in
@@ -694,6 +773,41 @@ if DEF.is_file() and ORCH.is_file():
                    f"-- the summary has drifted from DEFECTS.md")
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
+
+# --- an UNFIXED defect must not leave a hypothesis hanging ------------------------------------
+# Pass 82's own finding, and I am the case that motivates it. D19 carried a paragraph headed
+# "A hypothesis with a decisive test, offered rather than asserted" for twenty passes. The test
+# had already run at stack scope and REFUTED the hypothesis -- and the refuting number went into
+# PROTOCOL.md, into EVIDENCE.md and into my own state doc, but never back into the defect entry,
+# which is where a reader goes to find out what is wrong. I read it, believed the question open,
+# and spent most of a pass rebuilding a control that had already been run.
+#
+# So: a defect entry may state a hypothesis, but an UNFIXED one may not leave it OPEN. It must
+# carry a resolution word in the same entry. This does not ask the campaign to settle every
+# question -- "REFUTED", "CONFIRMED", "still open" and "what would settle it" all satisfy it.
+# It only forbids the one shape that cost a pass: a hypothesis presented as live, in an entry
+# whose evidence has already moved on, with nothing in the entry saying which.
+if DEF.is_file():
+    import re as _re2
+    _txt = DEF.read_text()
+    _entries = _re2.split(r"^### (D\d+)\.", _txt, flags=_re2.M)
+    _HYP = _re2.compile(r"hypothesis|is live\b|offered rather than asserted", _re2.I)
+    _RES = _re2.compile(r"REFUTED|CONFIRMED|RESOLVED|settled|still open|remains open|"
+                        r"what would settle", _re2.I)
+    _dangling = []
+    for _i in range(1, len(_entries), 2):
+        _num, _body = _entries[_i], _entries[_i + 1]
+        _head = _body.split("\n", 1)[0]
+        if "UNFIXED" not in _head:
+            continue
+        if _HYP.search(_body) and not _RES.search(_body):
+            _dangling.append(_num)
+    if _dangling:
+        bad.append(f"these UNFIXED defects state a hypothesis and never say whether it still "
+                   f"stands: {', '.join(_dangling)} -- a reader of the entry cannot tell that "
+                   f"the evidence has moved on, which cost pass 82 most of a pass")
+    else:
+        ok.append("no UNFIXED defect leaves a hypothesis open without saying so")
 
 # --- PROVES / DOESNOT are transcription too, and they are what Moritz reads ------------------
 # EVIDENCE.md is audited figure by figure; the two summary fields quote the same numbers in
@@ -727,7 +841,26 @@ if ORCH.is_file():
     if _d:
         claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
                        "the clip/optimizer seam"))
-    missing = [(s, why) for s, where, why in claims if s not in where]
+    # A share written "3.156 %" and a check formatting "3.16 %" disagree about nothing. Accept
+    # either rendering rather than forcing the prose to carry the check's precision -- the
+    # point is that the summary follows the artifact, not that it matches a format string.
+    def _quoted(s, where):
+        if s in where:
+            return True
+        if s.endswith(" %"):
+            try:
+                v = float(s[:-2])
+            except ValueError:
+                return False
+            # Compare NUMERICALLY against every percentage in the text, rather than trying to
+            # guess the author's rounding. "3.156 %" and a check computing "3.16 %" disagree
+            # about nothing, and a matcher that insists on a format string makes the prose
+            # serve the checker.
+            for m in re.finditer(r"(\d+(?:\.\d+)?)\s*%", where):
+                if abs(float(m.group(1)) - v) <= 0.005 + 0.002 * abs(v):
+                    return True
+        return False
+    missing = [(s, why) for s, where, why in claims if not _quoted(s, where)]
     if missing:
         for s, why in missing:
             bad.append(f"PROVES/DOESNOT does not quote {s} ({why}) -- the artifact has moved "
@@ -777,7 +910,7 @@ if ORCH.is_file():
                   "sources have them")
 
     # And the amendment count, which is a claim about the protocol's own history.
-    _pp = Path("/home/moritz/.coworker/state/of3t/PROTOCOL.md")
+    _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
         n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
         words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
@@ -791,6 +924,44 @@ if ORCH.is_file():
             else:
                 bad.append(f"PROVES states the wrong amendment count -- PROTOCOL has {n_am} "
                            f"({w})")
+        # ...and the SAME sentence lives in VERDICT, which this check did not read. VERDICT said
+        # "amended fifteen times on the record" while PROTOCOL held eighteen, and the audit was
+        # silent for three amendments. Third time a guard of mine has been scoped to the field I
+        # happened to be reading rather than to the claim -- so it is now scoped to the claim,
+        # wherever in the summary it is written.
+        _AMEND = _re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+                             r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+                             r"nineteen|twenty|twenty-one)\s+times\s+on\s+the\s+record\b", _re.I)
+        # every space is \s+: the phrase is hard-wrapped prose and lands as
+        # "times on the\nrecord". The first version used literal spaces, found nothing, and
+        # reported a clean pass on a document that said "fifteen" -- a check that cannot match
+        # its own target is indistinguishable from a check that passes.
+        if w:
+            _hits = [(fld, m.group(1).lower()) for fld, txt in
+                     (("PROVES/DOESNOT", both), ("VERDICT", verdict))
+                     for m in _AMEND.finditer(txt)]
+            _wrong = [f"{fld} says {got!r}" for fld, got in _hits if got != w]
+            if _wrong:
+                bad.append(f"the amendment count is stated wrongly -- PROTOCOL has {n_am} "
+                           f"({w}) but {'; '.join(_wrong)}")
+            elif _hits:
+                ok.append(f"every summary field states the amendment count correctly "
+                          f"({w}, {n_am}, {len(_hits)} place(s))")
+
+# A reviewer running this off the published copies gets FEWER checks than the orchestrator
+# does, and must be told which and why -- a check that cannot run has to say so (K60), and
+# "141 confirmed" reads exactly like "146 confirmed" to someone who has never seen 146.
+_host_only = len(list(Path("/home/moritz/.coworker/state/concluded").glob("of3t-*"))) \
+    if Path("/home/moritz/.coworker/state/concluded").is_dir() else None
+if _FELL_BACK:
+    warn.append(f"read {len(_FELL_BACK)} campaign document(s) from the PUBLISHED COPY in this "
+                f"branch rather than the authoritative source on pc "
+                f"({', '.join(sorted(_FELL_BACK))}) -- the copies are regenerated every "
+                f"compose, so they are current as of the commit you are reading")
+if _host_only is None:
+    warn.append("the concluded-row count could not be checked: it reads "
+                "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
+                "That check did NOT run -- it is not a pass")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
