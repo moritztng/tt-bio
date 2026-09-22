@@ -79,11 +79,7 @@ def main() -> int:
         ttnn.deallocate(t)
 
     # ---- af2.tri_att: AF2PairBlock's two TriangleAttentions -------------------------------
-    report["sites"]["af2.tri_att"] = {
-        "selector_start": None, "selector_end": None,
-        "note": "resolved at construction; the block needs the full AF2 pair-block weight set, "
-                "so only the selector is read here",
-    }
+    report["sites"]["af2.tri_att"] = {"selector_start": None}
     try:
         tri = T.TriangleAttention(
             D, H, False, synth(
@@ -95,8 +91,21 @@ def main() -> int:
             ckc, scale_pair_bias=False, fp32_softmax=True, bias_in_matmul="o",
             l1_padded_plan=True, softmax_site="af2.tri_att")
         report["sites"]["af2.tri_att"]["selector_start"] = tri._softmax_f64
+        mid = dict(T.HOST_F64_SOFTMAX_STATS)
+        z = ttnn.from_torch(torch.randn(1, S, S, Z) * 0.1, layout=ttnn.TILE_LAYOUT,
+                            device=dev, dtype=ttnn.bfloat16)
+        zo = tri(z)
+        aft = dict(T.HOST_F64_SOFTMAX_STATS)
+        report["sites"]["af2.tri_att"].update({
+            "arrivals": (aft["refused"] + aft["declined"] + aft["served"]
+                         - mid["refused"] - mid["declined"] - mid["served"]),
+            "refused": aft["refused"] - mid["refused"],
+            "tail": aft["tail"] - mid["tail"],
+            "out_shape": [int(d) for d in zo.shape],
+        })
+        ttnn.deallocate(zo)
     except Exception as exc:                                             # noqa: BLE001
-        report["sites"]["af2.tri_att"]["construction_error"] = repr(exc)[:300]
+        report["sites"]["af2.tri_att"]["error"] = repr(exc)[:400]
 
     report["after"] = dict(T.HOST_F64_SOFTMAX_STATS)
     report["selected_per_site"] = dict(T.HOST_F64_SOFTMAX_SITES)

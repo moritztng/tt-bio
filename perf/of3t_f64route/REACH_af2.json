@@ -26,17 +26,24 @@
   },
   "af2.tri_att": {
    "selector_start": true,
-   "selector_end": null,
-   "note": "resolved at construction; the block needs the full AF2 pair-block weight set, so only the selector is read here"
+   "arrivals": 1,
+   "refused": 1,
+   "tail": 1,
+   "out_shape": [
+    1,
+    64,
+    64,
+    128
+   ]
   }
  },
  "after": {
   "served": 0,
   "declined": 0,
-  "refused": 1,
+  "refused": 2,
   "elements": 0,
   "selected": 2,
-  "tail": 1,
+  "tail": 2,
   "served_taped": 0,
   "served_raw": 0
  },
@@ -44,5 +51,5 @@
   "af2.msa": 1,
   "af2.tri_att": 1
  },
- "reach": "host f64 softmax: reached -- 2 sites selected, 0 served, 1 refused, 0 declined"
+ "reach": "host f64 softmax: reached -- 2 sites selected, 0 served, 2 refused, 0 declined"
 }
