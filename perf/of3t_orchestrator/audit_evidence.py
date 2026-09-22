@@ -1816,6 +1816,33 @@ if ORCH.is_file():
 
     _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000,
              "DIRECTIVE-STATUS": 12000}
+
+    # D190, pass 340: a field that is DELETED must be reported as deleted, not as staleness.
+    # Every content check below locates its field with a lookahead to the NEXT field heading
+    # (`^PROVES:(.*?)(?=^DOESNOT:)`), so when `DOESNOT:` stopped existing the search returned
+    # None, the quoted-figure check saw an empty haystack, and the compose reported four lines
+    # of "PROVES/DOESNOT does not quote 0.0121 -- the artifact has moved and the summary Moritz
+    # reads has not". Each was literally true and all four pointed at the wrong thing: the
+    # artifacts had not moved, 56,734 characters of DOESNOT had been spliced out of the source
+    # doc. A missing field degrades into "nothing is quoted", which is the one failure mode
+    # indistinguishable from a summary that was never updated. So: presence first, content
+    # after, and a distinct sentence for each.
+    # NOT simply `_CAPS`: `DIRECTIVE-STATUS` is in that dict for its 12,000-char cap and stopped
+    # being a top-level field somewhere before pass 313 -- it now reads `DIRECTIVE-STATUS,` at
+    # offset 136,593, i.e. as a section INSIDE `PASSLOG:` (which starts at 102,245), which is the
+    # right place for it. Demanding it back would move a field boundary through 34 KB of history.
+    # The list here is what the document owes as a heading today.
+    _OWED = ("PROVES", "DOESNOT", "GAP", "VERDICT", "PASSLOG")
+    _missing = [_f for _f in _OWED if not _re.search(rf"^{_f}:", _o, _re.M)]
+    if _missing:
+        bad.append("summary field(s) absent from the state doc entirely, which the content "
+                   "checks below would otherwise report as staleness: " + ", ".join(_missing)
+                   + " -- restore from the published mirror in "
+                     "perf/of3t_orchestrator/record/ORCHESTRATOR.md, do not re-author")
+    else:
+        ok.append(f"all {len(_OWED)} owed summary field(s) are present as headings "
+                  "(probe: deleting one fires; an empty one does not)")
+
     _over = []
     for _f, _cap in _CAPS.items():
         _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)

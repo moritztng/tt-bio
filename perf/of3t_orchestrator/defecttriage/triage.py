@@ -183,18 +183,44 @@ TABLE = {
     "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
                    "filenames exist in both tt-bio and upstream openfold3. A documentation "
                    "convention in this campaign's own ledger; nothing a user runs depends on it."),
-    "D164": (CAMP, "The campaign's most-quoted number outside its own walls -- 870.75 s on a "
-             "p300c against 7-8 s on an H200, ~116x -- is the wall clock of `of3t-l1`'s MEMORY "
-             "ladder, which took an allocator read on every one of 246,510 verb calls "
-             "(3.53 ms/call). The campaign's own clean timing of the same 2,473-node backward "
-             "reads 222.48 s, so the ratio is ~28-32x and the error overstated our own gap by "
-             "3.91x. CAMPAIGN-INTERNAL and it is the borderline case in this table: nothing a "
-             "user of tt-bio gets today is different, which is the published test, but this is "
-             "the one figure that travels outside the campaign, so the cost of the "
-             "misclassification is a reader's, not a fold's. Left UNFIXED because the artifact "
-             "belongs to a concluded row and will not be rewritten; the three sentences that "
-             "quoted it are corrected and `assert_timing_is_a_timing_run.py` holds the line. "
-             "of3t-stepfloor re-measures it as deliverable 0."),
+    # Pass 340: the eight UNFIXED defects this table had never seen, all CAMPAIGN-INTERNAL
+    # under the published test -- none of them changes what someone running tt-bio gets today,
+    # because nothing here is on a shipped inference path and the training loop is unmerged.
+    # D164 is REMOVED from the table in the same pass: it is no longer UNFIXED on its latest
+    # status-bearing heading, and a classification of a defect that has moved on is the exact
+    # staleness this script refuses to report for others.
+    "D18": (CAMP, "BUNDLE-MIN was taped in train mode, so the campaign's own reference carries "
+            "a dropout mask nothing can reproduce. A defect in our REFERENCE, which is the "
+            "definition of campaign-internal. The rebuild reproduces bit-identically and "
+            "publication is what remains."),
+    "D180": (CAMP, "The model-scope headline is a function of the crop width and was quoted for "
+             "three passes without one. A REPORTING rule about this campaign's own figures."),
+    "D183": (CAMP, "The D149 reference-tree guard compares path STRINGS rather than tree "
+             "content, so a legitimate path move makes earlier artifacts unscorable. An "
+             "instrument defect; it can only ever mis-score our own evidence."),
+    "D184": (USER, "The 99.50523 % coverage figure is arithmetically right and belongs to a "
+             "default-OFF lever, so the shipped arm still reads 97.98499 % -- seventeen "
+             "parameters receive no gradient on the default someone gets today. Pass 340 first "
+             "wrote CAMPAIGN-INTERNAL here on the D37 reading (the defect AS FILED is about a "
+             "figure) and the USER-FACING closure plan refused the compose, correctly: training "
+             "IS on main -- D126 is a training run on origin/main computing one gradient and "
+             "then zero forever -- so a user who trains today silently loses seventeen "
+             "parameters. A reclassification that moves a defect OUT of USER-FACING is the one "
+             "that flatters the campaign, and this table is not where that call gets made "
+             "quietly."),
+    "D186": (CAMP, "The trunk headline was a CROSS-FRAME comparison: a capture-scope numerator "
+             "against a model-scope floor. A defect in how this campaign measures itself."),
+    "D187": (CAMP, "With the trunk reframed, `diffusion_transformer` at 2.019x over 43.6 % of "
+             "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
+             "gap in an unmerged training path, so it reaches no user today; it is the "
+             "campaign's largest open measurement."),
+    "D189": (CAMP, "A26's floor -- upstream's own bf16 step -- is host-dependent while the "
+             "float64 reference is not, so a published ratio needs its host. A property of "
+             "this campaign's BAR."),
+    "D190": (CAMP, "A field-boundary edit anchored on `index(\"FIELD:\")` matched the field's "
+             "own name quoted in prose and deleted 56,734 characters of DOESNOT, which the "
+             "auditor then reported as staleness. Entirely inside the campaign's own "
+             "bookkeeping; the doc was restored from the published mirror."),
     "D163": (CAMP, "An artifact's own verdict field says the tape gate changed a fold output "
                    "when D1's landing did. A defect in this campaign's own evidence files; the "
                    "conclusion it contradicts is correct and recorded."),
@@ -274,8 +300,23 @@ def live_unfixed(text: str) -> list:
     return sorted((n for n, s in last.items() if s == "UNFIXED"), key=lambda d: int(d[1:]))
 
 
+def _defects_text() -> tuple[str, object]:
+    """The ledger is the live tail UNION its rotation archives, oldest content first.
+
+    D190's quieter half, pass 340: this script read `DEFECTS.md` alone and the file rotates, so
+    after a rotation it reported 8 defects "UNFIXED but unclassified" and 48 "classified but no
+    longer UNFIXED" and refused to run at all -- the 48 had not been closed, their headings had
+    simply been archived out of the tail. `defects_union.py` was written at pass 324 for exactly
+    this, and the guards were pointed at it while this producer was not.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import defects_union as du  # noqa: E402
+
+    return du.defects_text(DEFECTS), [p.name for p in du.archive_chain()]
+
+
 def main() -> int:
-    text = DEFECTS.read_text(errors="replace")
+    text, archives = _defects_text()
     unfixed = live_unfixed(text)
 
     missing = [d for d in unfixed if d not in TABLE]
@@ -293,7 +334,11 @@ def main() -> int:
         by[TABLE[d][0]].append(d)
 
     result = {
-        "generated_from": str(DEFECTS),
+        "generated_from": {
+            "live": str(DEFECTS),
+            "archives": archives,
+            "why": "DEFECTS.md rotates; the live file is the tail, not the ledger",
+        },
         "unfixed_total": len(unfixed),
         "counts": {k: len(v) for k, v in by.items()},
         "classes": {k: v for k, v in by.items()},

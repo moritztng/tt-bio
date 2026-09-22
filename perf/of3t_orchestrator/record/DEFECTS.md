@@ -2663,3 +2663,103 @@ host term of up to the 6 % order.
 artifact records the host that produced the FLOOR, not only the arm. `of3t-hostleg`'s
 `SEVENTEEN.json` shows the shape for the arm half (`"host": "qb1 (tt-quietbox) card 1, Blackhole
 p150a"`); the floor half has never had one.
+
+### D189 UPDATE, pass 340. Still **UNFIXED**, but now bounded — and my pass-339 finding 2 was too strong.
+
+**Correction first. The floor IS attributable, by three records that converge.** Pass 339 said the
+A26 floor's producing host was "not recoverable from the artifacts". That is wrong, and I stopped
+one field short of seeing it. The charter's bar-bearing artifact
+`perf/of3t_modelboundary/MODEL_withtrunk_n384.json` carries a top-level **`"host": "tt-quietbox2"`**
+— I listed its keys, quoted `bars` out of it, and did not read the key next to them. Its bf16 input
+is `/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt`, a qb2 home directory,
+and `fleet.log:118653` reads `launched of3t-refprec on qb2-cpu-of3t-refprec`. Three independent
+records, one answer: **qb2**.
+
+What survives is narrower and still worth fixing: refprec's own outputs do not self-attribute
+(`REFPREC.json` has exactly one key, `arms`), and a `host` field on the scoring artifact records
+the host that **scored**, which is not by construction the host that **produced the dump**. Here
+they coincide and that is checkable — but only because a path happened to carry a home directory.
+
+**The host term on the bar is not a percent-level nuisance. At crop 64 it is a 2.0797x swing in the
+floor's lower bound, and it swings toward LENIENCY.** Derived from D189's own three numbers, no new
+run. With `f64 = 1.8714981803225077`, `qb1 = 1.9851095175279738`, `qb2 = 2.1115345382360076`:
+
+    ||g_bf16|| / ||g_f64||    qb1  1.0299058646915684     qb2  1.0621953361011056
+    reverse triangle ineq.    F >= 0.029905864691568418   F >= 0.062195336101105614
+    ratio of the two lower bounds                              2.0797036548701033
+
+The bar is `sqrt(2) * F / R` (`of3t_wholemodel/model_scope.py:228`; recomputed exactly:
+sqrt(2)*0.10592054683439786/1.0165697057473722 = 0.14735268326440318). F is the floor, so **the
+host whose bf16 is sloppier hands the port a bigger bar**. A26 is in principle passable by choosing
+which box the reference runs on, with the port untouched.
+
+**Mind the axis — the same data gives 6.37 %, 3.14 %, or 108 %.** D189's headline "6.0 %" is on the
+**squared gradient norm at crop 64**: 6.3687 % in `||g||^2`, 3.1352 % in `||g||`, and 107.97 % in
+the floor's lower bound. It is not a distance, and it is not at model scope. Quote the one that
+matches the claim being made.
+
+**Bounded: D189 is not why GRADIENTS is red.** Clause 1 reads
+`renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2 = 0.5201243840984896` against the bar
+`0.14735268326440318` — failing by **3.5298x**. Granting the crop-64 host swing at face value on
+the bar (2.08x) still leaves it failing by ~1.70x. So D189 is a defect about what a published ratio
+*means*, not the cause of the red clause. Where it does bite is any ratio sitting near 1.0 — the
+frame-matched **0.9565x** — which is the independent, measured argument for `of3t-frame384` having
+pre-registered a **band** (0.70–1.30) rather than a point: the band is wider than the host term.
+
+**Not previously stated, and it runs the other way: GRADIENTS clause 2 passes.**
+`renorm_vs_FLOAT64.n_over_per_tensor_bar = 3311` against
+`UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar = 3478`. **Our renorm arm puts fewer tensors over
+the per-tensor bar than upstream's own bf16 recipe does.** The campaign's narrative is carried by
+the failing mass-weighted clause; the per-tensor clause has been green against upstream's own
+reference and no summary says so.
+
+**What it still owes, unchanged:** a bar-bearing artifact records the host that produced the FLOOR
+as a field, not as an inference from a path. `of3t-frame384` commit `1ed6fca90` does exactly this
+for its own scorer ("the scorer records the host that produced the FLOOR, not only the arm"), so
+the fix exists and needs porting to the model-scope producer.
+
+### D190. A field-boundary edit anchored on `index("FIELD:")` matches the field's own name quoted in PROSE, and the auditor reports the resulting DELETION as staleness. FOUND by `of3t-orchestrator`, pass 340, self-inflicted. **UNFIXED** in general; the guard for the second half is built.
+
+**What I did.** To re-stamp `VERDICT:` I spliced the state doc with
+`t[:t.index('VERDICT:')] + new + t[t.index('PASSLOG:', i):]`. The first `VERDICT:` in the document
+is not the field — it is a PASSLOG sentence at line 344 reading *"This doc lost `DOESNOT:`,
+`GAP:`, `VERDICT:` and the ENDGAME"*, an entry about an EARLIER pass losing these very fields. The
+splice landed there and deleted everything to the next `PASSLOG:`, taking **`DOESNOT:` (56,734
+characters)** with it. The document's own record of the failure was the string that caused it to
+happen again.
+
+**Why no guard caught it, and this is the part worth keeping.** The compose did not go silent — it
+printed four lines, all true and all pointing at the wrong thing:
+
+    DRIFT PROVES/DOESNOT does not quote 0.0121 -- the artifact has moved and the summary has not
+    DRIFT PROVES/DOESNOT does not quote 1.804e-07 -- the artifact has moved and the summary has not
+    DRIFT DOESNOT does not say the repairs are a CONFIGURATION rather than the shipped port
+    DRIFT summary field(s) have accreted: PROVES is 20608 chars against a 20000 cap
+
+Every content check locates its field by a lookahead to the NEXT heading
+(`^PROVES:(.*?)(?=^DOESNOT:)`). With `DOESNOT:` gone the search returns `None`, the haystack is
+empty, and **"the field does not quote X" is indistinguishable from "the field was deleted"** —
+the checks degrade into the one failure mode that reads as ordinary staleness. I nearly went
+looking for moved artifacts. Note also the fourth line: PROVES appeared to breach its cap only
+because its terminator had vanished, so a cap fired on a field that had not changed by one
+character — the same wrong-field diagnosis recorded at pass 198 for the hyphen case.
+
+**Fixed for the reporting half** (`audit_evidence.py`): presence is asserted before content, over
+`PROVES, DOESNOT, GAP, VERDICT, PASSLOG`, with its own sentence naming the mirror to restore from.
+Break control run: deleting `DOESNOT:` fires it, an EMPTY `DOESNOT:` does not (emptiness is the
+content checks' job, not this one's). **Still UNFIXED in general**: nothing stops the next
+prose-anchored splice, and the real rule is that a field edit must anchor on a heading matched at
+line start with `re.M`, never on `str.index`.
+
+**A second field was already gone and no guard had ever looked.** `DIRECTIVE-STATUS` is carried in
+the auditor's `_CAPS` at a 12,000-char cap, and the cap loop skips a field it cannot find
+(`if _m and len(...) > _cap`). It now reads `DIRECTIVE-STATUS,` — a COMMA — at offset 136,593,
+inside `PASSLOG:` (which begins at 102,245). That is the right place for it and it is not being
+restored as a field; but it stopped being one without a word, which is D190's class one level
+quieter: **a check that skips what it cannot find cannot report a disappearance.**
+
+**Recovery.** The doc was rebuilt from the published mirror
+`perf/of3t_orchestrator/record/ORCHESTRATOR.md` at pass 339's commit `af370f9b8` — the reason that
+mirror exists — then the VERDICT replacement was re-applied against a heading matched at line
+start. Diff against the mirror is now confined to the VERDICT block and the pass-340 PASSLOG
+entry; `PROVES` is back to 17,669 and `DOESNOT` to 56,734, both byte-for-byte.
