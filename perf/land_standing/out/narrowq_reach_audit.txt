@@ -1,0 +1,8 @@
+142 census cells, 9 models, ['p150a', 'p300c']
+
+nesso1       NOT narrow-q's -- dark at inert rung(s) [256, 512, 768, 1024, 1280, 1536], where the lever cannot fire
+opendde      NOT narrow-q's -- dark at inert rung(s) [768], where the lever cannot fire
+openfold3    NOT narrow-q's -- dark at inert rung(s) [1280, 1536], where the lever cannot fire
+rf3          CANDIDATE -- dark only at firing rung(s) [896], p150a 1088 calls/fold, p300c 1088 calls/fold
+
+narrow-q's reach is exactly the CANDIDATE rows above. Everything else is a different fill_preconditions term wearing the same reject name.
