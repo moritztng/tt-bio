@@ -875,6 +875,9 @@ echo "--- a timing figure comes from a timing run (D164)"
   { echo "COMPOSE: the D164 guard's own negative control does not fire -- the guard is not a guard"; exit 1; }
 
 echo "--- digest claims name their hardware (D155)"
+echo "--- published ratios are frame-matched (D218)"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_frame_matched_ratios.py . ) || \
+  { echo "COMPOSE: a published ratio is not frame-matched -- see D218"; exit 1; }
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/assert_digest_claims_name_their_card.py . ) || \
   { echo "COMPOSE: a digest claim cannot be attributed to healthy hardware -- see D155"; exit 1; }
 
