@@ -1,0 +1,116 @@
+{
+ "what": "the reference's own trunk gradient read by torch.autograd.grad on one block's parameters instead of by p.grad after a full backward",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "blocks": [
+  47,
+  46
+ ],
+ "loss": 1.267624369070698,
+ "reference": {
+  "path": "/home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt",
+  "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "is": "the full-model float64 backward on batch_step003, num_recycles 0"
+ },
+ "injected_arm": {
+  "path": "/home/ttuser/of3t_twoside/ctrl_f64.pt",
+  "sha256": "5d7a5b7bcf735f20b8199937d64f566d09d10eebabea3399a6b8ee737fa2ae04",
+  "is": "of3t-twoside's injected float64 replay through ref_grad.py"
+ },
+ "cotangent_reread": {
+  "cot_s_norm": 5.599999708545341e-05,
+  "cot_z_norm": 0.0007601379094210722,
+  "bit_identical_to_the_hook": {
+   "s": true,
+   "z": true
+  }
+ },
+ "seconds_autograd_grad": 135.23557353019714,
+ "per_block": {
+  "47": {
+   "autograd_grad_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.0392623414001263e-15,
+    "norm_ratio_arm_over_ref": 0.9999999999999992,
+    "cos": 1.0000000000000002,
+    "best_scalar_a_star": 1.0000000000000007,
+    "residual_after_best_scalar_frac_of_ref": 0.0,
+    "ref_squared_norm": 0.10960555905607547,
+    "arm_squared_norm": 0.10960555905607532,
+    "worst_rel_l2": 0.48061390670371634,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+   },
+   "injected_replay_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7849281738435908,
+    "norm_ratio_arm_over_ref": 1.6790846854374895,
+    "cos": 0.9538569348402678,
+    "best_scalar_a_star": 0.5680814929187077,
+    "residual_after_best_scalar_frac_of_ref": 0.3002614658212563,
+    "ref_squared_norm": 0.10960555905607547,
+    "arm_squared_norm": 0.30901373453131736,
+    "worst_rel_l2": 1.272982515280693,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+   },
+   "autograd_grad_vs_injected_replay": {
+    "n_tensors": 57,
+    "n_bit_identical": 16,
+    "rel_l2_as_is": 0.46747384491752264,
+    "norm_ratio_arm_over_ref": 0.5955625756537986,
+    "cos": 0.9538569348402676,
+    "best_scalar_a_star": 1.6016065713886396,
+    "residual_after_best_scalar_frac_of_ref": 0.30026146582125657,
+    "ref_squared_norm": 0.30901373453131736,
+    "arm_squared_norm": 0.10960555905607532,
+    "worst_rel_l2": 0.5628603931595654,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+   }
+  },
+  "46": {
+   "autograd_grad_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 4.1031090433915236e-15,
+    "norm_ratio_arm_over_ref": 1.0000000000000027,
+    "cos": 0.9999999999999999,
+    "best_scalar_a_star": 0.9999999999999971,
+    "residual_after_best_scalar_frac_of_ref": 1.2555769721141804e-08,
+    "ref_squared_norm": 0.04401528956295111,
+    "arm_squared_norm": 0.04401528956295135,
+    "worst_rel_l2": 0.9682923901168013,
+    "worst_tensor": "pairformer_stack.blocks.46.attn_pair_bias.layer_norm_z.bias"
+   },
+   "injected_replay_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.1438341288340046,
+    "norm_ratio_arm_over_ref": 2.1113127006379697,
+    "cos": 0.9826315174289372,
+    "best_scalar_a_star": 0.46541259242745897,
+    "residual_after_best_scalar_frac_of_ref": 0.1855675105057573,
+    "ref_squared_norm": 0.04401528956295111,
+    "arm_squared_norm": 0.19620437346208242,
+    "worst_rel_l2": 1.2644667939948906,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.pair_transition.layer_norm.weight"
+   },
+   "autograd_grad_vs_injected_replay": {
+    "n_tensors": 57,
+    "n_bit_identical": 16,
+    "rel_l2_as_is": 0.5417644333254719,
+    "norm_ratio_arm_over_ref": 0.47363898284599687,
+    "cos": 0.9826315174289371,
+    "best_scalar_a_star": 2.07464240279487,
+    "residual_after_best_scalar_frac_of_ref": 0.18556751050575707,
+    "ref_squared_norm": 0.19620437346208242,
+    "arm_squared_norm": 0.04401528956295135,
+    "worst_rel_l2": 0.7103875256791264,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.tri_mul_out.layer_norm_in.weight"
+   }
+  }
+ }
+}

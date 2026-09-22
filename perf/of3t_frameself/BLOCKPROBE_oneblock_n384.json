@@ -1,0 +1,164 @@
+{
+ "what": "the reference's own trunk gradient read by torch.autograd.grad on one block's parameters instead of by p.grad after a full backward",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "blocks": [
+  47
+ ],
+ "loss": 1.267624369070698,
+ "reference": {
+  "path": "/home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt",
+  "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "is": "the full-model float64 backward on batch_step003, num_recycles 0"
+ },
+ "injected_arm": {
+  "path": "/home/ttuser/of3t_twoside/ctrl_f64.pt",
+  "sha256": "5d7a5b7bcf735f20b8199937d64f566d09d10eebabea3399a6b8ee737fa2ae04",
+  "is": "of3t-twoside's injected float64 replay through ref_grad.py"
+ },
+ "cotangent_reread": {
+  "cot_s_norm": 5.599999708545341e-05,
+  "cot_z_norm": 0.0007601379094210722,
+  "bit_identical_to_the_hook": {
+   "s": true,
+   "z": true
+  }
+ },
+ "seconds_autograd_grad": 127.70994138717651,
+ "one_block_standalone": {
+  "what": "the probed block replayed on its own, on the boundary the real forward handed it and the cotangent the real backward put on its output, in this same process",
+  "block": 47,
+  "n_tensors": 57,
+  "seconds": 13.210120677947998,
+  "forward_reproduces_the_real_block_output": {
+   "s": {
+    "name": "block_out_s",
+    "present": true,
+    "shape": [
+     1,
+     384,
+     384
+    ],
+    "bit_identical": true,
+    "norm_mine": 2548915.665702611,
+    "norm_theirs": 2548915.665702611,
+    "rel_l2": 0.0
+   },
+   "z": {
+    "name": "block_out_z",
+    "present": true,
+    "shape": [
+     1,
+     384,
+     384,
+     128
+    ],
+    "bit_identical": true,
+    "norm_mine": 15590107.181956384,
+    "norm_theirs": 15590107.181956384,
+    "rel_l2": 0.0
+   }
+  },
+  "standalone_replay_vs_autograd_grad": {
+   "n_tensors": 57,
+   "n_bit_identical": 16,
+   "rel_l2_as_is": 0.7849281738435927,
+   "norm_ratio_arm_over_ref": 1.6790846854374906,
+   "cos": 0.9538569348402676,
+   "best_scalar_a_star": 0.5680814929187072,
+   "residual_after_best_scalar_frac_of_ref": 0.3002614658212565,
+   "ref_squared_norm": 0.10960555905607532,
+   "arm_squared_norm": 0.30901373453131736,
+   "worst_rel_l2": 1.2729825152806977,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+  },
+  "standalone_replay_vs_grads_f64_043": {
+   "n_tensors": 57,
+   "n_bit_identical": 0,
+   "rel_l2_as_is": 0.7849281738435908,
+   "norm_ratio_arm_over_ref": 1.6790846854374895,
+   "cos": 0.9538569348402678,
+   "best_scalar_a_star": 0.5680814929187077,
+   "residual_after_best_scalar_frac_of_ref": 0.3002614658212563,
+   "ref_squared_norm": 0.10960555905607547,
+   "arm_squared_norm": 0.30901373453131736,
+   "worst_rel_l2": 1.272982515280693,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+  },
+  "input_cotangent": {
+   "in_s": {
+    "name": "din_s",
+    "present": true,
+    "shape": [
+     1,
+     384,
+     384
+    ],
+    "bit_identical": true,
+    "norm_mine": 1.2679075029397424e-05,
+    "norm_theirs": 1.2679075029397424e-05,
+    "rel_l2": 0.0
+   },
+   "in_z": {
+    "name": "din_z",
+    "present": true,
+    "shape": [
+     1,
+     384,
+     384,
+     128
+    ],
+    "bit_identical": false,
+    "norm_mine": 0.0005083278038663214,
+    "norm_theirs": 0.00030085507552087443,
+    "rel_l2": 0.9284581553131634
+   }
+  }
+ },
+ "per_block": {
+  "47": {
+   "autograd_grad_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.0392623414001263e-15,
+    "norm_ratio_arm_over_ref": 0.9999999999999992,
+    "cos": 1.0000000000000002,
+    "best_scalar_a_star": 1.0000000000000007,
+    "residual_after_best_scalar_frac_of_ref": 0.0,
+    "ref_squared_norm": 0.10960555905607547,
+    "arm_squared_norm": 0.10960555905607532,
+    "worst_rel_l2": 0.48061390670371634,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+   },
+   "injected_replay_vs_grads_f64_043": {
+    "n_tensors": 57,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7849281738435908,
+    "norm_ratio_arm_over_ref": 1.6790846854374895,
+    "cos": 0.9538569348402678,
+    "best_scalar_a_star": 0.5680814929187077,
+    "residual_after_best_scalar_frac_of_ref": 0.3002614658212563,
+    "ref_squared_norm": 0.10960555905607547,
+    "arm_squared_norm": 0.30901373453131736,
+    "worst_rel_l2": 1.272982515280693,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+   },
+   "autograd_grad_vs_injected_replay": {
+    "n_tensors": 57,
+    "n_bit_identical": 16,
+    "rel_l2_as_is": 0.46747384491752264,
+    "norm_ratio_arm_over_ref": 0.5955625756537986,
+    "cos": 0.9538569348402676,
+    "best_scalar_a_star": 1.6016065713886396,
+    "residual_after_best_scalar_frac_of_ref": 0.30026146582125657,
+    "ref_squared_norm": 0.30901373453131736,
+    "arm_squared_norm": 0.10960555905607532,
+    "worst_rel_l2": 0.5628603931595654,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+   }
+  }
+ }
+}
