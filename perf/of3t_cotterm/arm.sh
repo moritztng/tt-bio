@@ -43,6 +43,7 @@ timeout 4200 python3 perf/of3t_cotterm/armapb.py \
   --ln-capture "$(seq -s, 0 47)" --ln-out "$LN" \
   --boundary "$B" --cap-last "$C" --out "$OUT" \
   --report "$REP" --arm flipped --crop "$CROP" 2>&1 \
+  | tee "$O/raw_${TAG}_${SCOPEARG}.log" \
   | grep -E '^\{|^CLASS_CENSUS|OUR GRADIENT|discovery|Traceback|rror|FAILED|placed' | tail -30
 rc=${PIPESTATUS[0]}
 E=$(date +%s)
