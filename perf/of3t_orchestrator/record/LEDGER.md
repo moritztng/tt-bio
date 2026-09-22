@@ -2342,3 +2342,94 @@ shares belong where a reader meets them — so the prose moved rather than the c
 distance-to-go paragraph now sits directly under the header, ahead of the counts. **Widening
 the window to fit my preamble would have been moving a check to accommodate writing**, which is
 the same act as moving a bar to accommodate a number.
+
+---
+
+### R178. The repoint is EXECUTED — the charter's failing clause now grades a defensible number — and the remaining excess is an ANGLE that no rescaling can reach (pass 412, zero card)
+
+**THE REPOINT IS DONE.** The GRADIENTS clause's artifact moves from
+`perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json` to
+`perf/of3t_recut/MODEL_RECUT_composed3660_n384.json`, verified in the COMPOSED tree — not in my
+worktree, where `perf/of3t_recut/` does not exist and the generator reported "artifact absent"
+for the new clause AND for COVERAGE, which is what caught me checking in the wrong tree.
+
+    artifact   perf/of3t_recut/MODEL_RECUT_composed3660_n384.json
+    clause     0.220725 against bars.A26_reachable_bar_vs_their_bf16   FAIL
+    the other three checks                                             PASS
+    n_met      2 of 3
+
+**All four pre-registered conditions were met before it was executed**, and the fourth by
+elimination: the artifact carries every contract key with `injection.convention`
+**graph-cut-external** (`n_scopes` 6, `n_injected` 1, disagreeing injected scopes refused) and a
+restamp control reading **`n_leaves_differing: 0`** with `keys_added: ["injection"]`; the
+repaired injection reproduces frameself's break control at 3.0392623414001244e-15 against
+3.0392623414001263e-15; the legacy flag reaches the cross-host floor; and the linearity shortcut
+was withdrawn rather than validated, so no shortcut remains in the reading. **No bar moved** —
+99.2594, the A26 bar and the keyed inequality are unchanged, and all five of `CLAUSE.json`'s
+levels re-derive at rel_difference 0.0.
+
+**And the campaign now knows what the remaining gap IS, in the space it is graded in.**
+`of3t-recutfin` re-took the split in vs-upstream-bf16 rather than carrying the float64 one
+across — which was the right call and it matters:
+
+    space              rel        r          cos        angle     magnitude share
+    vs-upstream-bf16   0.7768254  0.9978645  0.6976277  45.763    0.2749 %
+    vs-float64         0.6221485  1.0545841  0.8178953  35.125    8.773 %
+
+**A factor of 31.92 between the two magnitude shares on the same arm and the same 2,736
+tensors**, both splits exact (`rel^2 = 1 + r^2 - 2 r cos` reconstructs every reading to 7.1e-16).
+They describe two different differences. **R175's refusal to carry the float64 split into the
+graded space is vindicated by a factor of thirty-two** — carrying it would have reported 8.8 %
+magnitude where the graded space says 0.27 %.
+
+**The answer, and I re-derived all four legs before recording them.** The trunk must fall
+**1.7414134679108282x**:
+
+- **By magnitude: NO, and not marginally.** At `r = 1` the reading is 0.7776533, **1.7432692x**
+  the allowance — *worse* than today, because at cos 0.6976 the optimal scale is below one, not
+  above. The best ANY rescaling can achieve is `sin(angle)` = **0.7164605**, still
+  **1.6060930x**. **No scalar exists that reaches the allowance.**
+- **By direction: YES, and it need not be perfect.** cos **0.6976277 -> 0.9002917** at today's
+  norm ratio suffices, closing the angle from 45.763 to 25.804 degrees — **43.61 % of it**. A
+  perfect direction would read 0.0021355, **0.004787x** the allowance.
+
+**The magnitude is already right to 0.21 %. The whole of the remaining excess is an angle** —
+and the campaign has spent most of its life chasing a magnitude that the double count was
+manufacturing.
+
+---
+
+### R179. The double count was a MAGNITUDE error; removing it OPENED the angle by ten degrees, and my own "cos 0.9841" was from the wrong reading (pass 413, zero card)
+
+`of3t-recutfin` concluded GO at 01:17 and its last measurement corrects the story — including a
+sentence of mine. Both rows of this table are vs-upstream-bf16 over the same 2,736 tensors on
+the same frame, differing only in the injected functional, **so the comparison crosses
+nothing**:
+
+    functional        rel         r           cos        angle     magnitude share
+    double-counted    0.9969600   1.6232598   0.8134998  35.561    62.52 %
+    repaired          0.7768254   0.9978645   0.6976277  45.763    0.2749 %
+
+**The double count was a MAGNITUDE error — r 1.6233 -> 0.9979, magnitude share 62.52 % ->
+0.27 % — and the repair removed nearly all of it. The angle did not follow. It OPENED by ten
+degrees**, because a large nearly-parallel duplicate inflates the magnitude and flatters the
+cosine at the same time. What is left is the part the repair never addressed.
+
+**My correction.** R175, R178 and `of3t-angle`'s brief all said the pre-repair trunk read as "a
+near-constant scale of **1.7460** at cos **0.9841**". Those are the *model-frame float64
+control's* per-block statistics, not the graded-space reading, and I carried them into sentences
+about the graded space. In vs-upstream-bf16 the pre-repair arm reads cos **0.8134998** at
+**35.561 degrees**. **The qualitative claim survives — it WAS a magnitude story and the repair
+removed it — but the two numbers I attached to it were from a different measurement**, which is
+`a-reference-is-part-of-the-measurements-identity` in its quietest form: not a wrong reference
+for a ratio, but the right ratio quoted with another reading's scalars.
+
+**`of3t-angle` dispatched**, qb2, one card, onto the question this leaves. The campaign's best
+trunk result is the exact softmax at 1.0525x against the shipped 1.7373x — **and every one of
+those readings was taken on the double-counted functional, where 62.52 % of the error was
+magnitude.** A lever that closes a magnitude error is worth nothing on a functional that is
+0.27 % magnitude and 99.7 % angle. **So: does the exact softmax close the ANGLE, or did it only
+ever close the magnitude?** If the latter, the campaign's best result evaporates on the repaired
+functional and D245's two failed shippable installs stop mattering; if the former, it is the
+only lever known to move what is left. The brief carries A42, the no-shortcut-on-device rule,
+and the requirement to report both spaces because their magnitude shares differ **31.92x**.
