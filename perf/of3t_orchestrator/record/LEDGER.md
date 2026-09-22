@@ -1976,3 +1976,44 @@ D232 and D233 now carry that cross-reference in `DEFECTS.md`; D227 is in the rot
 carries it here. **A concluded row's verdict needs a catcher, and so does a defect whose
 instrument is repaired after it is filed** — the entry does not update itself, and the next
 reader has no way to know.
+
+---
+
+### R170. D242 is CLOSED at model scope: the repaired injection reproduces the reference's whole trunk at 1.6952505222168708e-14, which is the capture's own witness (pass 404, zero card)
+
+`of3t-recut`'s `N384_CONTROLS.json`, read from the artifact on qb2:
+
+    injection.convention               graph-cut-external
+    graph_cut.is_cut                   False, pair [z_out, s_out], by a walk of the grad_fn DAG
+    duplicate_share_of_hooked_cot_z    0.9966278794626707
+    block 47, 57 tensors               3.0392623414001244e-15   bar 1e-12   CLEARS
+    ALL 2,736 TRUNK TENSORS            1.6952505222168708e-14   bar 1e-12   CLEARS
+      norm ratio                       0.999999999999999
+      cos                              1.0000000000000002
+      residual after the best scalar   0.0
+      ref squared norm                 0.599115204802637  against arm 0.5991152048026359
+
+**This is the whole trunk, not one block, and it is 59x under the bar.** `of3t-frameself`
+proved the repair at block 47; this closes it at model scope.
+
+**And the number is not merely small, it is the RIGHT small number.** The capture's own witness —
+its full-model backward scored against `grads_f64_043.pt` over the same 2,736 tensors — reads
+**1.6952505222168705e-14**. The repaired injection reads **1.6952505222168708e-14**. They agree
+to fifteen significant figures. **The repaired injection is indistinguishable from the capture's
+own backward**, which is the strongest form this claim can take: not "close to the reference"
+but "as close as the reference's own run is".
+
+**A42 was taken exactly, one pass after it was written.** `COTANGENTS.json` banks the handoff for
+the device arms: `cot_external.pt` (sha256 `1d15a8dc…`, 152,176,717 B) with
+`correction_from: ref_f64_model_n384_corrected.pt` and `convention: graph-cut-external` — **one
+correction, sourced from the arm that defines the boundary, not self-computed per arm** — and
+`cot_delta_only.pt` (sha256 `33be05b1…`) for R161's `g(cot_s,cot_z) - g(0,delta)` shortcut. Both
+carry digests, so a scorer can assert two arms shared them, which is the half of A42 that a
+shape check cannot do. `hooked_over_external` 11.747073892846307.
+
+**Where the campaign now stands.** The instrument is fixed with the correct convention as the
+default and the legacy path reachable and controlled; the A/A floor reproduces the published
+artifact from relocated inputs to the last digit; the frame reproduces its own reference at the
+float64 floor; and the corrected cotangent is banked with digests for the device arms.
+**What remains for the clause is the device re-score, the composition, and reading pass 394's
+pre-registered ladder — and no new bar may be written for any of it.**

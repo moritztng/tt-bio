@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R169 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R170 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R170** D242 CLOSED at model scope — the repaired injection reproduces the reference's whole
+  trunk at **1.6952505222168708e-14**, the capture's own witness value, against a 1e-12 bar
 - **R169** the ten defects on the stamper's default are all correctly campaign-internal; the
   review found D227/D232/D233's DIAGNOSIS undercut by R160, with no catcher
 - **R168** recut's A/A is clean from RELOCATED inputs, six contract keys to the last digit;
@@ -1713,3 +1715,26 @@ the duplicate. D232 and D233 now carry that cross-reference in `DEFECTS.md`.
 
 **A concluded row's verdict needs a catcher, and so does a defect whose instrument is repaired
 after it is filed.** The entry does not update itself and the next reader has no way to know.
+
+## Pass 404 — the frame reproduces its own reference, over the whole trunk
+
+`of3t-recut`'s corrected injection at n384 reads **1.6952505222168708e-14** over **all 2,736
+trunk tensors** against a 1e-12 bar — norm ratio 0.999999999999999, cos 1.0000000000000002,
+residual after the best scalar exactly 0.0. Block 47 alone reads 3.0392623414001244e-15,
+reproducing frameself's break control to the last digit. **This closes D242 at model scope
+rather than at one block.**
+
+**And it is the right small number, not merely a small one.** The capture's own witness — its
+full-model backward against `grads_f64_043.pt` over the same 2,736 tensors — is
+1.6952505222168705e-14. The repaired injection is 1.6952505222168708e-14. Fifteen significant
+figures. **The repaired injection is indistinguishable from the capture's own backward**, which
+is the strongest form the claim can take.
+
+**A42 was taken exactly, one pass after it was written.** `COTANGENTS.json` banks
+`cot_external.pt` with `correction_from` the float64 reference and `convention:
+graph-cut-external` — one correction, one source, not self-computed per arm — plus
+`cot_delta_only.pt` for R161's linearity shortcut, both with sha256s so a scorer can assert two
+arms shared them. That is the half of A42 a shape check cannot do.
+
+What remains for the clause is the device re-score, the composition, and reading the
+pre-registered ladder. No new bar for any of it.
