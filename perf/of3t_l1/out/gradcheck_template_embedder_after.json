@@ -1,0 +1,20 @@
+{
+ "module": "template_embedder",
+ "shape": [
+  1,
+  76,
+  76,
+  128
+ ],
+ "bar": 0.2,
+ "grad_norm": 33.375044186259,
+ "best_rel": 0.020024998902262208,
+ "best_eps": 0.1,
+ "control_rel": 0.34668333260150813,
+ "aiclk": [
+  1350,
+  1350,
+  6
+ ],
+ "verdict": "PASS"
+}
