@@ -1,0 +1,106 @@
+{
+ "defect": "D237",
+ "what": "the GRADIENTS clause is unsatisfiable as gated: a bit-exactly perfect trunk still fails, because the artifact's pairformer_stack term is scored across two boundaries whose own float64 references disagree at 1.8417 (cos 0.365).",
+ "host": "pc",
+ "device_involved": false,
+ "note": "CPU only, no device op, no timing claim: nothing here needs a clock.",
+ "inputs": {
+  "graded": {
+   "path": "/tmp/of3t/of3t-orchestrator/graded3660.json",
+   "sha256": "15487d253868598f3dd37c8732edf088d0275bfc3dd5b2f816eff8e8f51ce901"
+  },
+  "frame": {
+   "path": "perf/of3t_frame384/FRAME_N384.json",
+   "sha256": "4a10ba888e0436b7450dd27b6c3b49e2fc50508c8a520473a4d9b0a7ce16fbb6"
+  }
+ },
+ "clause": "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2 <= bars.A26_reachable_bar_vs_their_bf16",
+ "control_composition_reproduces_published_headline": {
+  "published": 0.5171166332757559,
+  "composed": 0.5171166332757559,
+  "rel_difference": 0.0,
+  "note": "the scorer's identity form, weights = each section's own ref_sq"
+ },
+ "boundary_check": {
+  "ours_trunk_sq_norm": 2.6472829615291342,
+  "local_f64_trunk_sq_norm": 1.8714981803225017,
+  "model_f64_trunk_sq_norm": 0.5991152048026372,
+  "ours_over_model_ref": 4.418654276018937,
+  "ours_over_local_ref": 1.4145260675983917,
+  "verdict": "our trunk arm is on the LOCAL (capture-driven, injected-cotangent) boundary, not the model boundary"
+ },
+ "identity_check": {
+  "graded_artifact_x_t": 2.0151163033431088,
+  "frame384_trunk_section_cross_frame": 2.0151163033431088,
+  "bit_identical": true
+ },
+ "bar": {
+  "value": 0.15210099830945006,
+  "built_from": "sqrt(2)*floor/r, both upstream-vs-upstream on the MODEL boundary -- the bar is frame-clean; the numerator is not"
+ },
+ "trunk": {
+  "x_t_as_measured": 2.0151163033431088,
+  "x_t_admissible_by_the_clause": 0.44608901561034203,
+  "A26_perfect_level": 0.4212097971234601,
+  "model_frame_floor": 0.3147698293887927,
+  "model_frame_r": 1.0568409490651478,
+  "required_factor_on_the_artifact": 4.517296397863581,
+  "boundary_gap_alone_over_the_whole_allowance": 4.12844332563037
+ },
+ "contamination_split": {
+  "ref_f64_n384_vs_model_f64_BOTH_FLOAT64": 1.8416532191335382,
+  "cos": 0.36514237707207725,
+  "ours_vs_local_f64_frame_matched": 0.8354121633458239,
+  "upstream_own_bf16_in_frame_floor": 0.37393839211303687,
+  "ours_over_their_own_bf16_in_frame": 2.2340903768268046,
+  "pct_of_cross_frame_error_mass_that_is_boundary_mismatch": 82.93443192367282,
+  "pct_that_is_our_trunk_error": 17.065568076327185
+ },
+ "as_measured": {
+  "x_t": 2.0151163033431088,
+  "model_reading": 0.5171166332757559,
+  "x_bar": 3.399824057851876,
+  "passes": false
+ },
+ "best_possible_artifact_ours_bit_exact": {
+  "triangle_lower": {
+   "x_t": 1.5268833897447456,
+   "model_reading": 0.3975172985817359,
+   "x_bar": 2.613508806648234,
+   "passes": false
+  },
+  "quadrature": {
+   "x_t": 1.868359340447756,
+   "model_reading": 0.4809973036090038,
+   "x_bar": 3.162354678503904,
+   "passes": false
+  },
+  "triangle_upper": {
+   "x_t": 2.156423048522331,
+   "model_reading": 0.5519934868153276,
+   "x_bar": 3.629124679985957,
+   "passes": false
+  }
+ },
+ "projection_if_the_trunk_arm_were_frame_matched": {
+  "IS_A_PROJECTION_NOT_A_MEASUREMENT": true,
+  "assumption": "a frame-matched trunk arm lands at the same multiple of upstream's own bf16 that the in-frame arm measures. The model boundary carries a real cotangent with 3.12x less trunk gradient mass, so our error there could be relatively larger or smaller. This is exactly what the missing run measures and is why it is a projection.",
+  "cases": {
+   "at_the_in_frame_multiple": {
+    "assumed_multiple_of_upstreams_own_bf16": 2.2340903768268046,
+    "x_t": 0.6654021566584541,
+    "model_reading": 0.19635234908555793,
+    "x_bar": 1.290933992991146,
+    "passes": false
+   },
+   "with_the_measured_lever_ceiling_1.8563x": {
+    "assumed_multiple_of_upstreams_own_bf16": 1.2035044733141584,
+    "x_t": 0.35845213801456716,
+    "model_reading": 0.13665542601472533,
+    "x_bar": 0.8984518677300154,
+    "passes": true
+   }
+  }
+ },
+ "remedy": "produce our trunk device arm ON the model boundary (the real cotangent from batch_step003) so pairformer_stack is frame-matched like the other ten sections. This is not a clause repair: it can equally show the trunk is worse. Until it exists the clause can be neither passed nor failed honestly."
+}
