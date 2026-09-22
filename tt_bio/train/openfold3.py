@@ -229,6 +229,12 @@ class OpenFold3Forward:
         self._device = device
         self._model = None
         self._registered = False
+        #: Token-scope coordinates to hand the confidence heads INSTEAD of running the
+        #: rollout. `None` runs it. The only switch on this forward, and it exists because
+        #: `diffusion_rollout` is a coverage path: a path is covered when a parameter
+        #: gradient moves against an arm with it OFF.
+        self.repr_coords_in = None
+        self.rollout_ran = None
 
     @property
     def device(self):
@@ -308,10 +314,29 @@ class OpenFold3Forward:
             x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=d)
 
         tok = f["token_mask"].float()
-        pair_mask_d = ft((tok[:, None] * tok[None, :]).reshape(n_token, n_token, 1).unsqueeze(0))
+        # TWO pair masks, because the two consumers want different ranks and neither is
+        # wrong: the Pairformer multiplies a [1, N, N] mask into a contraction, the diffusion
+        # module a [1, N, N, 1] one into a channel-carrying pair. Passing one to the other
+        # lands in ttnn.permute with input_rank != dims.size(), deep inside a
+        # TriangleMultiplication chunk.
+        pm = tok[:, None] * tok[None, :]
+        pair_mask_pf = ft(pm.unsqueeze(0))
+        pair_mask_dm = ft(pm.reshape(n_token, n_token, 1).unsqueeze(0))
         attn_mask_d = ft(((1.0 - tok) * -1e9).reshape(1, 1, 1, n_token))
 
-        # ---- the taped forward.
+        # ---- the taped forward, in two blocks with the rollout raw between them.
+        #
+        # The rollout CANNOT be inside the tape, and `ag.no_grad()` is not enough to put it
+        # there. `no_grad` stops the tape differentiating, not wrapping: the hook still
+        # returns a `Tensor` because a registered parameter is on the tape whatever the
+        # activations are, and the sampler's own `ttnn.to_torch` -- the host EDM step it
+        # takes every rollout step -- then meets a taped tensor and refuses, correctly.
+        #
+        # Two blocks is the honest shape rather than a workaround. Upstream detaches the
+        # rollout (`model.py:381`), so the gradient genuinely does not cross it, and the tape
+        # built by the first block survives the second being opened: `tape()` restores the
+        # module-level `ttnn` name and drops the raw-handle map, and neither touches the node
+        # graph or the registered leaves.
         with ag.tape():
             s_input_d = ag.Tensor(ft(s_input.unsqueeze(0)))
             relpos_d = ag.Tensor(ft(relpos.unsqueeze(0)))
@@ -322,45 +347,61 @@ class OpenFold3Forward:
                 ag.Tensor(ft(msa_feat.unsqueeze(0))), s_input_d,
                 template_slots=template_slots)
 
-            # ---- the rollout. `no_grad` is upstream's own arrangement, not a shortcut:
-            # `model.py:381` wraps `sample_diffusion` in `torch.no_grad()` and trains the
-            # confidence heads on what it returns. The shipped sampler is called unchanged.
-            with ag.no_grad():
-                dm_aux = build_dm_device_aux(
-                    dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
-                    atom_to_token_index=aux["atom_to_token_index"],
-                    npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-                    zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-                    invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-                    atom_to_token_mean=aux["atom_to_token_mean"],
-                    token_mask=tok, n_atom=n_atom, n_token=n_token,
-                    nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
-                schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
-                xl0, rots, trans, noise, ts, ctau = m._gen_rollout(
-                    schedule, n_atom, self.seed)
-                xl_d = m.sampler(
-                    ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
-                    ft(tok.reshape(1, n_token)), pair_mask_d,
-                    ft(tok.reshape(n_token, 1).unsqueeze(0)),
-                    dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
-                    dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"],
-                    dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"],
-                    dm_aux["mean_d"], dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
-                    n_atom, dm_aux["NP"] if "NP" in dm_aux else aux["NP"], aux["nb"],
-                    n_token, n_token, schedule, rots, trans, noise, ts, ctau, m.step_scale)
-                xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
+        # ---- the structure the confidence heads score. Raw, no tape open.
+        #
+        # `repr_coords_in` short-circuits the rollout with a structure the caller supplies,
+        # and that is the ROLLOUT-OFF arm. Every other tensor in this forward is identical
+        # between the two, so a parameter gradient that differs differs because of the
+        # structure the rollout produced, which is the whole of the rollout's reach into a
+        # gradient once upstream has detached it.
+        rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
+               else f["start_atom_index"]).long()
+        real = torch.nonzero(tok > 0, as_tuple=True)[0]
+        if self.repr_coords_in is not None:
+            repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
+            self.rollout_ran = False
+        else:
+            dm_aux = build_dm_device_aux(
+                dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+                atom_to_token_index=aux["atom_to_token_index"],
+                npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
+                zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
+                invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
+                atom_to_token_mean=aux["atom_to_token_mean"],
+                token_mask=tok, n_atom=n_atom, n_token=n_token,
+                nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
+            schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
+            xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
+            xl_d = m.sampler(
+                ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
+                ft(tok.reshape(1, n_token)), pair_mask_dm,
+                ft(tok.reshape(n_token, 1).unsqueeze(0)),
+                dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
+                dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
+                dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
+                dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
+                n_atom, aux["NP"], aux["nb"], n_token, n_token,
+                schedule, rots, trans, noise, ts, ctau, m.step_scale)
+            xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
+            self.rollout_coords = xl
+            self.rollout_ran = True
+            # Atom scope -> token scope, on the CROP's axis. The representative index is the
+            # real tokens' first atoms; padded rows stay at the origin and the pair mask
+            # drops them.
+            repr_x = torch.zeros(n_token, 3)
+            repr_x[real] = xl[rep]
+        self.repr_coords = repr_x
 
-            # ---- the confidence heads, on the rolled-out structure. `forward_device` is
-            # their own training entry point and it returns the distogram head with them.
-            rep = f["ground_truth"]["start_atom_index"].long() \
-                if "ground_truth" in f else f["start_atom_index"].long()
-            oh_d = m.confidence_head.distance_onehot(xl[rep])
+        # ---- the confidence heads, on that structure. `forward_device` is their own
+        # training entry point and it returns the distogram head with them.
+        with ag.tape():
+            oh_d = m.confidence_head.distance_onehot(repr_x)
             out = m.confidence_head.forward_device(
                 s_input_d, s_trunk, z_trunk, ag.Tensor(oh_d),
                 use_zij_trunk_embedding=True,
-                pair_mask_d=pair_mask_d, attn_mask_d=attn_mask_d)
+                pair_mask_d=pair_mask_pf, attn_mask_d=attn_mask_d)
 
-        self.rollout_coords = xl
+
         return {"distogram_logits": out["distogram_logits"],
                 "plddt_logits": out["plddt_logits"],
                 "pde_logits": out["pde_logits"],
