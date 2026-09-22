@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R165 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R166 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R166** my own repoint condition was tighter than a floor the campaign had measured;
+  recut's legacy control PASSES at the cross-host float64 floor 9.13806068751445e-14
 - **R165** this field was a 41 KB transcription of the ledger file beside it; cut to an index,
   160,815 -> 122,966 bytes, nothing lost
 - **R164** the re-score would have landed while GRADIENTS still read the stale artifact; the
@@ -1604,3 +1606,32 @@ its size; a field that restates a neighbouring file does not.**
 Worth recording rather than doing silently, because the duplication was mine and I built it one
 reasonable entry at a time. Transcription does not feel like duplication while you are doing it,
 which is why it needs a periodic measurement rather than a rule.
+
+## Pass 400 — the condition I pre-registered two passes ago was unsatisfiable
+
+`of3t-recut` produced corrected-injection artifacts within fifteen minutes of dispatch, and its
+`LEGACY_REPRODUCES_THE_BANKED_ARM` control reads "the flag does NOT reproduce the banked arm"
+at 9.138060687514453e-14 on `all_bit_identical: False`.
+
+**It passes.** `FRAME_CEIL_HF.json`'s own cross-host control already measured that number —
+9.13806068751445e-14, 0 of 2736 bit-identical, losses -0.3073181442478611 against
+-0.3073181442478619, python 3.10.12 on qb1 against 3.12.3 on qb2, no device either side. The
+same number and the same two losses. The banked arm is qb1's and recut is on qb2.
+
+**R164's condition 3 was mine and it was unsatisfiable.** I wrote "reproduces a banked number
+exactly"; the row read that as bit-identity, reasonably; and it is a bar tighter than a floor
+the campaign had already measured — written by me in the same document whose whole purpose is
+to fix conditions before the number exists so they cannot be moved to fit an answer. Amended to
+the measured floor, which the arm already meets. Cheap only because it was caught before it
+blocked the repoint: a pre-registered condition is exactly the kind that gets enforced without
+being re-examined.
+
+The row is also asked to change the verdict string. A control that passes must not read as one
+that failed — the mirror of R148.
+
+Recorded rather than asked about: **A41's graph-cut assertion is implemented and firing** one
+pass after it was written (`is_cut: False`, pair `[z_out, s_out]`, walk of the `grad_fn` DAG),
+and `CHECKPOINT_IS_INERT` is 2,736 of 2,736 bit-identical. And one caution — at crop 64 the
+duplicate is 98.62 % of `cot_z` by norm but the remainder only 1.1999x smaller, against 99.66 %
+and 11.7471x at n384, so the geometry is crop-dependent and the n384 figure is the one the
+clause needs.

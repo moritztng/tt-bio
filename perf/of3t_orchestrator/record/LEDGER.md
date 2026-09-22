@@ -1802,3 +1802,53 @@ $12.83/pass. At 400 passes this campaign is exactly the shape that lesson descri
 duplication was mine: I wrote both copies, one entry at a time, each time reasonably.
 **Transcription does not feel like duplication while you are doing it, which is why it needs a
 periodic measurement rather than a rule.**
+
+---
+
+### R166. My own repoint condition was tighter than a floor the campaign had already measured, and `of3t-recut`'s legacy control PASSES (pass 400, zero card)
+
+`of3t-recut` produced its first corrected-injection artifacts within fifteen minutes of
+dispatch. `C64_CONTROLS.json` reports `LEGACY_REPRODUCES_THE_BANKED_ARM` verdict **"the flag
+does NOT reproduce the banked arm"** on `all_bit_identical: False`, at `mass_weighted_rel_l2`
+**9.138060687514453e-14**.
+
+**That is not a failure, and the bar was mine.** `perf/of3t_trunkceiling/FRAME_CEIL_HF.json`'s
+`controls.CROSSHOST_qb1_vs_the_banked_c64_artifact` already measured that exact number:
+
+    mass_weighted_rel_l2   9.13806068751445e-14      recut: 9.138060687514453e-14
+    bit_identical          0 of 2736                 recut: 0 of 2736
+    qb1_loss               -0.3073181442478611       recut legacy loss: -0.3073181442478611
+    banked_loss            -0.3073181442478619       recut banked loss: -0.3073181442478619
+
+**The same number and the same two losses.** Its own description: *"both sides CPU float64,
+upstream 0.4.3, same tree, same boundary, same cotangent, same torch 2.8.0+cpu; python 3.10.12
+on qb1 against 3.12.3 on qb2. No device on either side."* The banked c64 arm was built on qb1
+and recut runs on qb2. **The legacy flag reproduces the banked arm to the campaign's own
+cross-host float64 floor. It is not bit-identical across two Python versions, and nothing in
+this campaign is.**
+
+**R164's condition 3 is amended and the error is mine.** I wrote *"reproduces a banked number
+exactly"*; the row reasonably read that as bit-identity; and it is a bar tighter than a floor
+this campaign had already measured — `a-bar-that-rounds-a-measured-ceiling-up-is-unsatisfiable`,
+written by me **in the same document that fixes conditions in advance so they cannot be moved
+to fit an answer.** Amended bar: **9.13806068751445e-14 mass-weighted or better with the loss
+pair matching**, which is satisfiable, evidence-backed, and already met. Caught before it
+blocked a repoint, which is the only reason it was cheap — a pre-registered condition is
+exactly the kind that gets enforced without being re-examined.
+
+**And the row is asked to change its verdict string**, because *"the flag does NOT reproduce
+the banked arm"* reads as a failed control to anyone who does not chase the number. **A control
+that passes must not read as one that failed** — the mirror of R148, where a check that passed
+sat above prose saying it did not fire.
+
+**Two things recut did that are right, recorded rather than asked about.** `DEFAULT_MOVES`
+shows **A41's assertion implemented and firing** — `is_cut: False`, ancestor/descendant pair
+`[z_out, s_out]`, `checked_by: "walk of the grad_fn DAG over the injected outputs"` — one pass
+after A41 was written, which is the check that makes this defect class unfileable twice. And
+`CHECKPOINT_IS_INERT` is **2,736 of 2,736 bit-identical at rel_l2 0.0**.
+
+**One number not to carry across.** At crop 64 the duplicate is **98.62 %** of the hooked
+`cot_z` by norm while the true external cotangent is only **1.1999x** smaller; at n384 the
+duplicate was 99.66 % and the remainder **11.7471x** smaller. The correction is large in norm at
+both crops and far less parallel at 64, so **the geometry is crop-dependent** and the n384
+figure is the one the clause needs.
