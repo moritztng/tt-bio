@@ -1,0 +1,31 @@
+{
+ "model": "opendde",
+ "size": 507,
+ "site_default_opendde_refiner": true,
+ "accurate_softmax_ab_env": null,
+ "bucket_multiple_of_32": false,
+ "runs": [
+  {
+   "arm": "probe",
+   "fold_s": 86.21,
+   "error": null,
+   "n_tokens": 507,
+   "plddt": 0.735695,
+   "sha256": {
+    "cdk2x2_507.cif": "9225aaa0a5edc5ae32b677687c717795324fe692573864ae177fb9136b0fd12c"
+   },
+   "probe": {
+    "calls": 488,
+    "rows": 3996672,
+    "bound": 488,
+    "rows_floor_binds": 3996448,
+    "rows_overshot": 0,
+    "rows_fully_masked": 224,
+    "worst_row_overshoot": -0.0,
+    "worst_dmin": -203423744.0,
+    "nonfinite_out": 0
+   }
+  }
+ ],
+ "n_tokens": 507
+}

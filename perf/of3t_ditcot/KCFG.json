@@ -1,0 +1,109 @@
+{
+ "VERDICT": "All four are INERT. Every arm is bit-identical to its baseline under the pull, every LoFi break control on the same sites moves the reading, and every A/A is bit-identical. Giving these four reductions precise_config() changes no gradient bit anywhere, so D55 can close them and no further card pass is owed.",
+ "arm": "RENORM (TT_BIO_SOFTMAX_BW_RENORM default-ON, autograd.py env_flag(..., True); the flag is not set by any runner here)",
+ "census_note": "The D55 census line numbers are stale and one entry names an expression that no longer exists: it cites attention:inner as ttnn.sum(ttnn.multiply(dp, p), ...) at autograd.py:987, but D56 folded that into the shared softmax_bw_inner, whose single reduction is now also the one taped_ttnn._v_softmax reaches. Targets are resolved by enclosing function plus expression, never by line. Today autograd.py has 14 ttnn reductions, 9 unconfigured.",
+ "inference_reachability": "All four are inside backward rules. T1 layer_norm.make.bw, T2 _taped_layer_norm.make.bw and T3 triangle_attention.make.bw are literal def bw closures; T4 is softmax_bw_inner, whose only two callers are autograd.py:1190 (inside triangle_attention.make.bw) and taped_ttnn.py:226 (inside a bw closure). No inference fold can execute any of them.",
+ "reach": {
+  "diffusion_scope": {
+   "T1": 0,
+   "T2": 163,
+   "T3": 0,
+   "T4": 30
+  },
+  "note": "T1 is the explicit-call twin of T2; production dispatches the intercepted one via _TAPED[layer_norm], so layer_norm.make.bw runs 0 times against _taped_layer_norm.make.bw at 1440 on the trunk and 163 on the diffusion scope. T3 sits inside triangle_attention, reached only through the fused-SDPA verb taped_ttnn._v_sdpa, which neither boundary exercises (tri_attn_fw = 0), and is further gated on bias_bcast. Both were therefore measured at op level instead, where they do fire.",
+  "trunk_scope": {
+   "T1": 0,
+   "T2": 816,
+   "T3": 0,
+   "T4": 240
+  },
+  "why_T1_T3_zero": {
+   "layer_norm_bw": 0,
+   "layer_norm_fw": 0,
+   "taped_layer_norm_fw": 1440,
+   "tri_attn_bias_bcast": 0,
+   "tri_attn_bias_none": 0,
+   "tri_attn_bias_not_bcast": 0,
+   "tri_attn_bias_shape0": [],
+   "tri_attn_fw": 0
+  }
+ },
+ "results": {
+  "T1_isolated": {
+   "AA_bit_identical": "3/3",
+   "compared": 3,
+   "lofi_max_rel": 0.002536930005304051,
+   "lofi_moved": "2/3",
+   "pull_bit_identical": "3/3",
+   "pull_max_rel": 0.0,
+   "verdict": "INERT, break control moved"
+  },
+  "T3_isolated": {
+   "AA_bit_identical": "4/4",
+   "compared": 4,
+   "lofi_max_rel": 0.005094655718979738,
+   "lofi_moved": "3/4",
+   "pull_bit_identical": "4/4",
+   "pull_max_rel": 0.0,
+   "verdict": "INERT, break control moved"
+  },
+  "diffusion_scope": {
+   "AA_bit_identical": "547/547",
+   "compared": 547,
+   "lofi_max_rel": 15.570935749972849,
+   "lofi_moved": "546/547",
+   "pull_bit_identical": "547/547",
+   "pull_max_rel": 0.0,
+   "verdict": "INERT, break control moved"
+  },
+  "trunk_scope": {
+   "AA_bit_identical": "2736/2736",
+   "compared": 2736,
+   "lofi_max_rel": 146.52787903478307,
+   "lofi_moved": "2732/2736",
+   "pull_bit_identical": "2736/2736",
+   "pull_max_rel": 0.0,
+   "verdict": "INERT, break control moved"
+  }
+ },
+ "scoring": "arm against arm, bit-exact. No reference is involved, so D141 does not touch these numbers. Instrument floor is exactly 0 by construction.",
+ "targets": [
+  {
+   "configured_before": false,
+   "end_lineno": 836,
+   "line_now": 836,
+   "qual": "layer_norm.make.bw",
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "target": "T1",
+   "verb": "mean"
+  },
+  {
+   "configured_before": false,
+   "end_lineno": 1847,
+   "line_now": 1847,
+   "qual": "_taped_layer_norm.make.bw",
+   "src": "mean = ttnn.mean(xv, dim=-1, keepdim=True)",
+   "target": "T2",
+   "verb": "mean"
+  },
+  {
+   "configured_before": false,
+   "end_lineno": 1199,
+   "line_now": 1199,
+   "qual": "triangle_attention.make.bw",
+   "src": "dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)",
+   "target": "T3",
+   "verb": "sum"
+  },
+  {
+   "configured_before": false,
+   "end_lineno": 124,
+   "line_now": 124,
+   "qual": "softmax_bw_inner",
+   "src": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+   "target": "T4",
+   "verb": "sum"
+  }
+ ],
+ "what": "D55 deliverable 2: the four still-unconfigured reductions, pulled together, with a LoFi break control."
+}
