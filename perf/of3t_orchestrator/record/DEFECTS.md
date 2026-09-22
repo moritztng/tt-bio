@@ -2482,3 +2482,35 @@ new rows): upstream's own bf16 backward driven from the SAME capture, giving a f
 denominator. It is upstream's code under bf16 autocast from a saved boundary — CPU work, no card —
 and it is the one number that would let GRADIENTS be read honestly. Until it exists, quote the
 frame-matched block result and say the model-scope clause is cross-frame.
+
+### D186 UPDATE, pass 336. Both sides of the frame-matched comparison already exist at crop 64, and the table is now published in one place
+
+`of3t-apbback`'s `REFAUDIT.json` carries **four** references, not two, and `REF_LOCAL_bf16`
+(`/home/ttuser/of3t_trunkg043/ref_bf16auto_c64.pt`, 2,736 trunk tensors) is upstream's own bf16
+backward **driven from the same capture**. So the frame-matched denominator I called missing at
+pass 335 exists at crop 64 — `of3t-trunkg043` produced it and nothing had put the two readings
+side by side:
+
+    FRAME-MATCHED, both scored against REF_LOCAL_f64
+      ours   0.3833065668   floor  0.4007237405   ->  0.9565x   INSIDE the bar
+    CROSS-FRAME, our capture-driven arm against the MODEL-frame floor
+      ours   1.7043040668   floor  0.3147698294   ->  5.4144x   the campaign's headline
+
+**The floor 0.3147698294 is exactly the A26 denominator this campaign quotes**, so the bar has
+always been the model-frame floor and it was paired with a local-frame numerator. The 5.41x and
+the 0.9565x are the same device tensors; only the reference differs.
+
+**And the two rows that appeared to disagree never did.** `apbgrad_scope_RENORM_c64` and
+`padshape_RENORM_w64` give identical readings to ten digits against both references —
+0.3833065668 and 1.7043040668. The 4.45x between their published figures is the reference alone.
+
+Published as `perf/of3t_orchestrator/frames/FRAME_TABLE.json`, read from apbback's artifact with
+nothing recomputed, because this arithmetic was scattered across one row's artifacts and three of
+my defect entries and a reader had no single place to check it.
+
+**What is still genuinely missing, stated narrowly.** Both local references are **c64** dumps.
+GRADIENTS' clause reads model scope at **crop 384**, where our arm is still capture-driven and
+upstream's bf16 arm is full-model — so that clause remains cross-frame and its 3.53x is not a
+clean reading of the port. Closing it needs upstream 0.4.3 run from the SAME capture at crop 384,
+float64 and bf16 autocast: upstream's own code from a saved boundary, CPU work, no card. That is
+one row's worth of work and it is the campaign's highest-value remaining measurement.
