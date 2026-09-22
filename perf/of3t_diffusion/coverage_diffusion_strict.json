@@ -1,0 +1,340 @@
+{
+ "label": "diffusion_module strict",
+ "sites": {
+  "add_|taped": {
+   "openfold3_diffusion_transformer.py:179": 24,
+   "tenstorrent.py:9865": 66
+  },
+  "add|taped": {
+   "eltwise_fusion.py:106": 31,
+   "eltwise_fusion.py:82": 30,
+   "openfold3_atom_transformer.py:182": 6,
+   "openfold3_atom_transformer.py:202": 6,
+   "openfold3_diffusion_decoder.py:85": 1,
+   "openfold3_diffusion_module.py:113": 1,
+   "openfold3_diffusion_module.py:138": 1,
+   "openfold3_diffusion_module.py:148": 1,
+   "openfold3_diffusion_module.py:342": 1,
+   "openfold3_diffusion_module.py:351": 1,
+   "openfold3_diffusion_module.py:378": 1,
+   "openfold3_diffusion_module.py:413": 1,
+   "openfold3_diffusion_transformer.py:227": 24
+  },
+  "deallocate|taped": {
+   "openfold3_atom_transformer.py:106": 8,
+   "openfold3_atom_transformer.py:131": 2,
+   "openfold3_atom_transformer.py:185": 12,
+   "openfold3_atom_transformer.py:203": 6,
+   "openfold3_atom_transformer.py:210": 12,
+   "openfold3_atom_transformer.py:212": 6,
+   "openfold3_atom_transformer.py:215": 18,
+   "openfold3_atom_transformer.py:221": 58,
+   "openfold3_diffusion_decoder.py:101": 1,
+   "openfold3_diffusion_decoder.py:105": 1,
+   "openfold3_diffusion_decoder.py:72": 1,
+   "openfold3_diffusion_decoder.py:83": 1,
+   "openfold3_diffusion_decoder.py:86": 1,
+   "openfold3_diffusion_decoder.py:92": 1,
+   "openfold3_diffusion_decoder.py:98": 1,
+   "openfold3_diffusion_module.py:101": 1,
+   "openfold3_diffusion_module.py:112": 1,
+   "openfold3_diffusion_module.py:114": 1,
+   "openfold3_diffusion_module.py:124": 1,
+   "openfold3_diffusion_module.py:137": 1,
+   "openfold3_diffusion_module.py:139": 1,
+   "openfold3_diffusion_module.py:149": 1,
+   "openfold3_diffusion_module.py:298": 1,
+   "openfold3_diffusion_module.py:326": 1,
+   "openfold3_diffusion_module.py:341": 2,
+   "openfold3_diffusion_module.py:343": 2,
+   "openfold3_diffusion_module.py:345": 1,
+   "openfold3_diffusion_module.py:352": 1,
+   "openfold3_diffusion_module.py:369": 1,
+   "openfold3_diffusion_module.py:374": 1,
+   "openfold3_diffusion_module.py:379": 1,
+   "openfold3_diffusion_module.py:385": 1,
+   "openfold3_diffusion_module.py:393": 1,
+   "openfold3_diffusion_module.py:400": 1,
+   "openfold3_diffusion_module.py:405": 2,
+   "openfold3_diffusion_module.py:415": 1,
+   "openfold3_diffusion_transformer.py:178": 24,
+   "openfold3_diffusion_transformer.py:194": 24,
+   "openfold3_diffusion_transformer.py:204": 48,
+   "openfold3_diffusion_transformer.py:206": 24,
+   "openfold3_diffusion_transformer.py:209": 24,
+   "openfold3_diffusion_transformer.py:212": 48,
+   "openfold3_diffusion_transformer.py:221": 24,
+   "openfold3_diffusion_transformer.py:226": 48,
+   "openfold3_diffusion_transformer.py:228": 24,
+   "openfold3_diffusion_transformer.py:234": 24,
+   "openfold3_diffusion_transformer.py:236": 48,
+   "openfold3_diffusion_transformer.py:238": 24,
+   "openfold3_diffusion_transformer.py:241": 24,
+   "openfold3_diffusion_transformer.py:243": 24,
+   "tenstorrent.py:9867": 48,
+   "tenstorrent.py:9868": 48
+  },
+  "embedding|taped": {
+   "openfold3_atom_transformer.py:107": 8,
+   "openfold3_diffusion_decoder.py:76": 1,
+   "openfold3_diffusion_module.py:105": 1,
+   "openfold3_diffusion_module.py:128": 1,
+   "openfold3_diffusion_module.py:327": 1
+  },
+  "experimental.nlp_create_qkv_heads|taped": {
+   "openfold3_diffusion_transformer.py:192": 24
+  },
+  "from_torch|none": {
+   "openfold3_atom_transformer.py:82": 84,
+   "openfold3_diffusion_transformer.py:307": 1
+  },
+  "get_memory_view|none": {
+   "tenstorrent.py:4288": 1
+  },
+  "layer_norm|taped": {
+   "openfold3_atom_transformer.py:123": 2,
+   "openfold3_diffusion_decoder.py:99": 1,
+   "openfold3_diffusion_module.py:117": 1,
+   "openfold3_diffusion_module.py:371": 1,
+   "openfold3_diffusion_module.py:391": 1,
+   "openfold3_diffusion_module.py:93": 1,
+   "openfold3_diffusion_transformer.py:170": 24,
+   "tenstorrent.py:9806": 66,
+   "tenstorrent.py:9855": 66
+  },
+  "linear|nested": {
+   "ops.py:148": 289
+  },
+  "linear|taped": {
+   "openfold3_atom_transformer.py:88": 66,
+   "openfold3_diffusion_decoder.py:102": 1,
+   "openfold3_diffusion_decoder.py:67": 1,
+   "openfold3_diffusion_module.py:119": 1,
+   "openfold3_diffusion_module.py:145": 1,
+   "openfold3_diffusion_module.py:248": 7,
+   "openfold3_diffusion_module.py:95": 1,
+   "openfold3_diffusion_transformer.py:162": 216,
+   "tenstorrent.py:9812": 66,
+   "tenstorrent.py:9820": 66
+  },
+  "matmul|taped": {
+   "openfold3_diffusion_module.py:367": 1,
+   "tenstorrent.py:2920": 60
+  },
+  "multiply_|taped": {
+   "tenstorrent.py:9864": 66
+  },
+  "multiply|taped": {
+   "eltwise_fusion.py:106": 31,
+   "eltwise_fusion.py:82": 30,
+   "openfold3_atom_transformer.py:113": 8,
+   "openfold3_atom_transformer.py:194": 6,
+   "openfold3_atom_transformer.py:201": 6,
+   "openfold3_atom_transformer.py:209": 6,
+   "openfold3_atom_transformer.py:213": 6,
+   "openfold3_diffusion_decoder.py:82": 1,
+   "openfold3_diffusion_module.py:111": 1,
+   "openfold3_diffusion_module.py:136": 1,
+   "openfold3_diffusion_module.py:333": 1,
+   "openfold3_diffusion_module.py:353": 1,
+   "openfold3_diffusion_module.py:413": 1,
+   "openfold3_diffusion_module.py:414": 1,
+   "openfold3_diffusion_module.py:416": 1,
+   "openfold3_diffusion_transformer.py:220": 24,
+   "openfold3_diffusion_transformer.py:225": 24,
+   "openfold3_diffusion_transformer.py:235": 24,
+   "openfold3_diffusion_transformer.py:240": 24
+  },
+  "pad|taped": {
+   "tenstorrent.py:1053": 3
+  },
+  "permute|taped": {
+   "openfold3_atom_transformer.py:129": 6,
+   "openfold3_atom_transformer.py:179": 6,
+   "openfold3_atom_transformer.py:188": 6,
+   "openfold3_atom_transformer.py:96": 18,
+   "openfold3_diffusion_transformer.py:175": 24,
+   "openfold3_diffusion_transformer.py:201": 24,
+   "openfold3_diffusion_transformer.py:215": 24,
+   "openfold3_diffusion_transformer.py:217": 24
+  },
+  "relu|taped": {
+   "openfold3_diffusion_module.py:337": 1,
+   "openfold3_diffusion_module.py:339": 1,
+   "openfold3_diffusion_module.py:348": 1,
+   "openfold3_diffusion_module.py:349": 1,
+   "openfold3_diffusion_module.py:350": 1
+  },
+  "reshape|taped": {
+   "openfold3_atom_transformer.py:104": 8,
+   "openfold3_atom_transformer.py:109": 8,
+   "openfold3_atom_transformer.py:129": 6,
+   "openfold3_atom_transformer.py:134": 2,
+   "openfold3_atom_transformer.py:170": 6,
+   "openfold3_atom_transformer.py:192": 6,
+   "openfold3_atom_transformer.py:196": 6,
+   "openfold3_atom_transformer.py:199": 6,
+   "openfold3_atom_transformer.py:95": 18,
+   "openfold3_diffusion_decoder.py:74": 1,
+   "openfold3_diffusion_decoder.py:79": 1,
+   "openfold3_diffusion_module.py:103": 1,
+   "openfold3_diffusion_module.py:108": 1,
+   "openfold3_diffusion_module.py:126": 1,
+   "openfold3_diffusion_module.py:133": 1,
+   "openfold3_diffusion_module.py:318": 1,
+   "openfold3_diffusion_module.py:324": 1,
+   "openfold3_diffusion_module.py:329": 1,
+   "openfold3_diffusion_transformer.py:216": 24
+  },
+  "slice|taped": {
+   "openfold3_atom_transformer.py:224": 2,
+   "openfold3_diffusion_decoder.py:107": 1,
+   "openfold3_diffusion_module.py:376": 1
+  },
+  "softmax|taped": {
+   "openfold3_atom_transformer.py:183": 6,
+   "openfold3_diffusion_transformer.py:208": 24
+  },
+  "to_layout|taped": {
+   "openfold3_atom_transformer.py:104": 8,
+   "openfold3_atom_transformer.py:110": 8,
+   "openfold3_atom_transformer.py:128": 6,
+   "openfold3_atom_transformer.py:130": 6,
+   "openfold3_atom_transformer.py:133": 2,
+   "openfold3_atom_transformer.py:135": 2,
+   "openfold3_atom_transformer.py:169": 6,
+   "openfold3_atom_transformer.py:171": 6,
+   "openfold3_atom_transformer.py:187": 6,
+   "openfold3_atom_transformer.py:189": 6,
+   "openfold3_atom_transformer.py:191": 6,
+   "openfold3_atom_transformer.py:193": 6,
+   "openfold3_atom_transformer.py:195": 6,
+   "openfold3_atom_transformer.py:197": 6,
+   "openfold3_atom_transformer.py:199": 6,
+   "openfold3_atom_transformer.py:200": 6,
+   "openfold3_atom_transformer.py:223": 2,
+   "openfold3_atom_transformer.py:225": 2,
+   "openfold3_atom_transformer.py:94": 18,
+   "openfold3_atom_transformer.py:97": 18,
+   "openfold3_diffusion_decoder.py:106": 1,
+   "openfold3_diffusion_decoder.py:108": 1,
+   "openfold3_diffusion_decoder.py:74": 1,
+   "openfold3_diffusion_decoder.py:79": 1,
+   "openfold3_diffusion_module.py:103": 1,
+   "openfold3_diffusion_module.py:108": 1,
+   "openfold3_diffusion_module.py:126": 1,
+   "openfold3_diffusion_module.py:132": 1,
+   "openfold3_diffusion_module.py:317": 1,
+   "openfold3_diffusion_module.py:319": 1,
+   "openfold3_diffusion_module.py:324": 1,
+   "openfold3_diffusion_module.py:330": 1,
+   "openfold3_diffusion_module.py:375": 1,
+   "openfold3_diffusion_module.py:377": 1,
+   "openfold3_diffusion_transformer.py:174": 24,
+   "openfold3_diffusion_transformer.py:176": 24
+  },
+  "to_memory_config|taped": {
+   "tenstorrent.py:9869": 66
+  },
+  "to_torch|raw": {
+   "openfold3_diffusion_transformer.py:291": 1
+  },
+  "typecast|taped": {
+   "openfold3_atom_transformer.py:103": 8,
+   "openfold3_atom_transformer.py:112": 8,
+   "openfold3_diffusion_decoder.py:71": 1,
+   "openfold3_diffusion_decoder.py:81": 1,
+   "openfold3_diffusion_module.py:100": 1,
+   "openfold3_diffusion_module.py:110": 1,
+   "openfold3_diffusion_module.py:123": 1,
+   "openfold3_diffusion_module.py:135": 1,
+   "openfold3_diffusion_module.py:323": 1,
+   "openfold3_diffusion_module.py:332": 1,
+   "openfold3_diffusion_transformer.py:207": 24,
+   "openfold3_diffusion_transformer.py:210": 24
+  },
+  "unsqueeze|taped": {
+   "openfold3_diffusion_module.py:338": 1,
+   "openfold3_diffusion_module.py:340": 1,
+   "openfold3_diffusion_transformer.py:191": 24
+  }
+ },
+ "totals": {
+  "nested": 289,
+  "none": 86,
+  "raw": 1,
+  "taped": 2456
+ },
+ "verbs": {
+  "add": {
+   "taped": 105
+  },
+  "add_": {
+   "taped": 90
+  },
+  "deallocate": {
+   "taped": 681
+  },
+  "embedding": {
+   "taped": 12
+  },
+  "experimental.nlp_create_qkv_heads": {
+   "taped": 24
+  },
+  "from_torch": {
+   "none": 85
+  },
+  "get_memory_view": {
+   "none": 1
+  },
+  "layer_norm": {
+   "taped": 163
+  },
+  "linear": {
+   "nested": 289,
+   "taped": 426
+  },
+  "matmul": {
+   "taped": 61
+  },
+  "multiply": {
+   "taped": 197
+  },
+  "multiply_": {
+   "taped": 66
+  },
+  "pad": {
+   "taped": 3
+  },
+  "permute": {
+   "taped": 132
+  },
+  "relu": {
+   "taped": 5
+  },
+  "reshape": {
+   "taped": 99
+  },
+  "slice": {
+   "taped": 4
+  },
+  "softmax": {
+   "taped": 30
+  },
+  "to_layout": {
+   "taped": 194
+  },
+  "to_memory_config": {
+   "taped": 66
+  },
+  "to_torch": {
+   "raw": 1
+  },
+  "typecast": {
+   "taped": 72
+  },
+  "unsqueeze": {
+   "taped": 26
+  }
+ }
+}
