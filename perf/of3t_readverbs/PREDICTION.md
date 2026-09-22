@@ -133,3 +133,34 @@ computed against MY baseline, with both printed.
   verb shares, and the excess is then not located in any single verb class at all.
 * narrowing-cast count ZERO in blocks 44, 4 and 0 — the class has nothing to make exact there,
   the census says so, and the row moves to the next class by share without spending the arm.
+
+---
+
+## Amendment, before the first device arm: the `nocast` arm
+
+Added while writing the instrument and committed before any device run of this row, so no
+number exists that could have motivated it. Nothing above is changed and no threshold moves;
+this registers one more arm against the SAME two falsifiers.
+
+`route` and `routef32` pay a host round trip per substitution, so at padded 384 they are
+affordable only at the three blocks this row targets, which is 3 of 48 and therefore a reach
+of about 6 % of the class. That is a real limit of the protocol, not of the claim.
+
+`_identity_grad`'s entire arithmetic is one line, and it is a cast. So the exact VJP for that
+verb can be computed ON DEVICE by omitting the cast, at no host cost, which means it runs at
+every block:
+
+    nocast   `_VERBS["typecast"]` and the four `cast=False` placement verbs re-registered with
+             a backward that re-layouts the cotangent and hands it to `add_grad` UNCHANGED.
+             Value-identical to `refroute.identity_vjp` by construction, and `fdroute.py`
+             validates that map against central finite differences.
+
+It is read against the same two falsifiers, `R44` for leg A and `F` for leg B, with the same
+thresholds. Its reach is the whole `_identity_grad` class rather than three blocks of it, so it
+is the arm that decides whether the narrowing cast is the carrier; `route` at blocks 44, 4 and 0
+is what keeps this row's reading in the same table as `all`, `allref` and `allref2`.
+
+`nocast` does not reach `_sliced`, which has no cast to omit. `_sliced` is covered by `route`
+and `routef32` and by the census's own per-firing scoring, which compares the shipped
+contribution against `refroute.sliced_vjp` on the same cotangent and therefore tests the index
+arithmetic at every sampled firing without substituting anything.
