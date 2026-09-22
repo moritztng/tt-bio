@@ -1852,3 +1852,61 @@ the files are patched.**
 **The general shape**: an instruction is not a control. The campaign has learned this for numbers
 — a bar in prose is not a gate — and this is the same thing for provenance. A guard that can only
 fire after the fact protects the reader, not the artifact.
+
+### D236. Every inference A/B this campaign published reports `softmax_calls_per_fold 0` for both arms, and the zero is an instrument artifact — the census hook was in the wrong process. FOUND by `of3t-f64route`, pass 374. FIXED in the census; the affected artifacts stand on their digests.
+
+Verified against the composition rather than taken from the row's report:
+
+    perf/of3t_d137ab/INFERENCE_AB_openfold3.json      softmax_calls_per_fold {"off": 0, "on": 0}
+    perf/of3t_d137digest/INFERENCE_AB_openfold3.json  softmax_calls_per_fold {"off": 0, "on": 0}
+
+and the row names `of3t-fwdkcfg` and itself alongside them. **The census is an `atexit` hook
+injected into the LAUNCHER through `sitecustomize`, while `HOST_F64_SOFTMAX_STATS` lives in
+whichever process built the model — so the hook reads a module it imported itself and finds
+zeros.**
+
+**This is D225's shape for the second time**, and the row says so: *"a counter that reads zero
+because nothing arrived, indistinguishable from one that reads zero because it is looking in the
+wrong place."* D225 was a selector that never reached its sites; this is a counter that never
+reached its process. Both reported silence as evidence.
+
+**What it does and does not invalidate, stated carefully.** Those A/Bs concluded that inference
+is byte-identical with the path present and off. **The digests are unaffected** — a byte-identical
+fold is byte-identical whatever a counter says — and the structural argument is untouched:
+`site_softmax` reaches the host implementation only when `ops.host_softmax_hook()` is non-None,
+and only `autograd.install` fills it. **What is void is the corroborating reach evidence**: "0
+served" was never a measurement of the fold, so any sentence resting on it should rest on the
+digest and the structure instead. No verdict moves, and the campaign has been slightly more
+confident than its instruments earned when it called inference reach *measured*.
+
+**Fixed where it can be trusted.** `TT_BIO_CAPACITY_CENSUS` already dumps per PID at exit for
+exactly this reason, and now carries `HOST_F64_SOFTMAX_STATS`, the site flags that process
+resolved, and the reach verdict. `HOST_F64_SOFTMAX_STATS` also gains a counter separating
+arrivals through `_fp32_softmax_attention` from arrivals through `site_softmax` — both are
+arrivals, and apart they say which route a model actually took, which is the question D225 could
+not answer.
+
+**The general lesson, now twice-paid**: a zero is only evidence if the counter is demonstrably in
+the path. Publish the census from the process that did the work, or publish nothing.
+
+### D236 UPDATE — D225 is NOT void by this, and the reason is a positive control that already exists.
+
+The obvious worry on reading D236 is that D225's headline — `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer`
+reading **0 served / 0 declined / 0 refused**, the whole basis for *"the lever was never on the
+route"* — is the same wrong-process zero. It is not, and the discriminator is in
+`of3t-trunkceiling`'s own artifacts rather than in an argument.
+
+**The same counter read 5,285 on a different arm of the same row.** With the host float64 softmax
+installed at the taped verb, `HOST_F64_SOFTMAX_STATS` recorded **5,285 host float64 softmaxes
+over 6.5569554432e10 elements**; with the site selector set instead, the same counter in the same
+row read zero. **A counter that reads 5,285 in one arm and 0 in another is demonstrably in the
+path**, so its zero is a real zero.
+
+The affected instrument is a different one: the `INFERENCE_AB_*.json` writers, whose
+`softmax_calls_per_fold` comes from an `atexit` hook injected into the **launcher** through
+`sitecustomize` while the stats object lives in the process that built the model. Those never had
+a non-zero reading to calibrate against, which is exactly why the defect survived four rows.
+
+**The rule that separates the two cases, and it is cheap**: a zero is evidence only if the same
+counter has been seen non-zero under a condition you control. `of3t-trunkceiling` had that
+control by accident — two arms, one of which fired. The inference A/Bs never did.

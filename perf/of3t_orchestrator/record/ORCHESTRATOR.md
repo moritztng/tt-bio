@@ -353,7 +353,9 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               **1.8563207917912123x** of the **1.9537473059622292x** needed — **95.01 % of the
               required factor, 5.25 % left** — the biggest of them being the host float64
               softmax at **1.8556x** (trunk 1.029395337772341 -> **0.5547455957585244**), which
-              had **never been on the route** (D225: 0 served / 0 declined / 0 refused;
+              had **never been on the route** (D225: 0 served / 0 declined / 0 refused — a REAL zero,
+              because the same counter read **5,285** on the arm where the lever was installed at
+              the verb, which is the control the inference A/Bs never had (D236);
               unreachable at eight sites across three models; **`of3t-f64route` has now landed the route
               on its branch** — the gate moved into `host_softmax_or_none`, `TriangleAttention`
               takes a `softmax_site`, and `HOST_F64_SOFTMAX_STATS` gained a `selected` counter
@@ -477,7 +479,7 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred fourteen** of3t files. **Two hundred thirty-five defects filed**, **89 UNFIXED** (5
+concluded, three live; `state/concluded` holds **one hundred fourteen** of3t files. **Two hundred thirty-six defects filed**, **89 UNFIXED** (5
 scope-excluded, 6 USER-FACING, 78 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
@@ -1726,3 +1728,41 @@ reference direction error — belonged to nobody. Dispatched as **`of3t-cotterm`
 What it must not re-derive is listed with numbers: the op is exonerated at L = 0.005544, the
 activation at 1.7e-03 to 1.5e-02 masked, fixing the op buys 0.0394 %, and the leaf perfect still
 fails at 1.2949x.
+
+## Pass 374 — every inference A/B this campaign published counted softmax calls in the wrong process
+
+**D236, `of3t-f64route`.** Verified against the composition rather than taken from the row's
+report:
+
+    perf/of3t_d137ab/INFERENCE_AB_openfold3.json      softmax_calls_per_fold {"off": 0, "on": 0}
+    perf/of3t_d137digest/INFERENCE_AB_openfold3.json  softmax_calls_per_fold {"off": 0, "on": 0}
+
+with `of3t-fwdkcfg` and `of3t-f64route` itself alongside. The census is an `atexit` hook injected
+into the **launcher** through `sitecustomize`, while `HOST_F64_SOFTMAX_STATS` lives in whichever
+process built the model — **so the hook reads a module it imported itself and finds zeros.**
+
+**This is D225's shape for the second time**: *"a counter that reads zero because nothing arrived,
+indistinguishable from one that reads zero because it is looking in the wrong place."* D225 was a
+selector that never reached its sites; this is a counter that never reached its process.
+
+**What it voids and what it does not.** Those A/Bs concluded inference is byte-identical with the
+path present and off. **The digests are unaffected**, and the structural argument is untouched —
+`site_softmax` reaches the host implementation only when `ops.host_softmax_hook()` is non-None and
+only `autograd.install` fills it. What is void is the **corroborating reach evidence**: "0 served"
+was never a measurement of the fold. No verdict moves, and the campaign has been slightly more
+confident than its instruments earned whenever it called inference reach *measured* rather than
+*argued*.
+
+**D225 survives, and by a control rather than an argument.** The same counter read **5,285** host
+float64 softmaxes on the arm where the lever was installed at the taped verb, and zero on the
+selector arm of the same row. **A counter that reads 5,285 in one arm and 0 in another is
+demonstrably in the path.** The inference A/Bs never had such an arm, which is exactly why the
+defect survived four rows.
+
+**The rule that separates the two cases is cheap enough to adopt**: a zero is evidence only if the
+same counter has been seen non-zero under a condition you control.
+
+Fixed where it can be trusted — `TT_BIO_CAPACITY_CENSUS` already dumps per PID at exit and now
+carries `HOST_F64_SOFTMAX_STATS`, the site flags that process resolved, and the reach verdict,
+plus a counter separating arrivals through `_fp32_softmax_attention` from those through
+`site_softmax`, which is the question D225 could not answer.
