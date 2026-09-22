@@ -1,0 +1,130 @@
+{
+ "what": "of3t-recut job 4: where the corrected trunk reading lands on of3t-modelframe's ladder.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recut",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads two committed artifacts",
+ "LADDER_APPLIES_UNCHANGED": {
+  "what": "each pre-registered level, re-derived on the RESCORED artifact's own section table. Only pairformer_stack moved between the two artifacts, so the levels must come back unchanged -- if they do not, the ladder is being read on a different composition than the one it was registered on",
+  "worst_rel_difference_over_the_five_levels": 0.0,
+  "verdict": "the ladder applies unchanged"
+ },
+ "RECOMPOSITION_CONTROL": {
+  "headline": 0.22072451195864032,
+  "recomposed": 0.22072451195864032,
+  "rel_difference": 0.0
+ },
+ "CORRECTED": {
+  "trunk_vs_upstream_bf16": 0.7768254196709333,
+  "trunk_vs_float64": 0.6221485227575493,
+  "multiple_of_upstreams_own_bf16": 1.976518918492322,
+  "cos_vs_float64": 0.8178953379770566,
+  "norm_ratio_vs_float64": 1.054584096168068,
+  "clause": {
+   "value": 0.22072451195864032,
+   "bar": 0.15210099830945006,
+   "x_bar": 1.4511706984958472,
+   "clears": false
+  },
+  "trunk_allowance": 0.44608901561034203,
+  "x_allowance": 1.7414134679108282,
+  "share_of_the_models_error_mass": 0.7835130357121737
+ },
+ "ON_THE_DOUBLE_COUNTED_FUNCTIONAL_IT_READ": {
+  "trunk_vs_upstream_bf16": 0.9969599833682794,
+  "trunk_vs_float64": 0.9349175217825587,
+  "multiple_of_upstreams_own_bf16": 2.970162431380236,
+  "clause_x_bar": 1.7814428090278143,
+  "source": "perf/of3t_modelframe/CLAUSE.json, withdrawn at of3t-frameself pass 389 and explained at of3t-orchestrator pass 395"
+ },
+ "LEVELS": {
+  "bit_exact_float64_trunk": {
+   "trunk_reading_it_stands_for": 0.0,
+   "clause_value_reproduced_here": 0.1026990533692057,
+   "clause_value_as_preregistered": 0.1026990533692057,
+   "rel_difference": 0.0,
+   "x_bar": 0.6752030197741641,
+   "clears": true,
+   "corrected_trunk_is_at_or_below_it": false
+  },
+  "upstreams_own_floor_here": {
+   "trunk_reading_it_stands_for": 0.3147698293887927,
+   "clause_value_reproduced_here": 0.12967067993359122,
+   "clause_value_as_preregistered": 0.12967067993359122,
+   "rel_difference": 0.0,
+   "x_bar": 0.8525301041731214,
+   "clears": true,
+   "corrected_trunk_is_at_or_below_it": false
+  },
+  "section_A26_level": {
+   "trunk_reading_it_stands_for": 0.4212097971234601,
+   "clause_value_reproduced_here": 0.1475459165605533,
+   "clause_value_as_preregistered": 0.1475459165605533,
+   "rel_difference": 0.0,
+   "x_bar": 0.9700522560698159,
+   "clears": true,
+   "corrected_trunk_is_at_or_below_it": false
+  },
+  "projection_from_the_in_frame_multiple": {
+   "trunk_reading_it_stands_for": 0.6654021566584541,
+   "clause_value_reproduced_here": 0.19635234908555793,
+   "clause_value_as_preregistered": 0.19635234908555793,
+   "rel_difference": 0.0,
+   "x_bar": 1.290933992991146,
+   "clears": false,
+   "corrected_trunk_is_at_or_below_it": false
+  },
+  "the_frame_mismatch_alone": {
+   "trunk_reading_it_stands_for": 1.8416532191335382,
+   "clause_value_reproduced_here": 0.47443757904241024,
+   "clause_value_as_preregistered": 0.47443757904241024,
+   "rel_difference": 0.0,
+   "x_bar": 3.1192272523890026,
+   "clears": false,
+   "corrected_trunk_is_at_or_below_it": true
+  }
+ },
+ "MULTIPLE": {
+  "measured_on_this_boundary": 1.976518918492322,
+  "in_frame_projection_was": 2.2340903768268046,
+  "ratio_measured_over_projected": 0.8847085771434525,
+  "projection_alive": true,
+  "what_near_means": "within 15 % of 2.2340903768268046. Outside that the projection is dead and the campaign must stop carrying it."
+ },
+ "THE_PREREGISTERED_LEVER_CEILING": {
+  "divisor": 1.8563207917912123,
+  "what": "clause.py carries it as `projected_trunk_reading_with_the_lever_ceiling`. It is a projection this campaign already registered, NOT a measured lever, and no arm here exercises it",
+  "corrected_trunk_under_it": 0.4184758491668642,
+  "clause_there": 0.14705299668262864,
+  "x_bar_there": 0.9668115154868921,
+  "clears_there": true
+ },
+ "WHAT_THE_REPAIR_MOVED": {
+  "clause_x_bar": {
+   "double_counted": 1.7814428090278143,
+   "corrected": 1.4511706984958472
+  },
+  "excess_over_the_bar": {
+   "double_counted": 0.7814428090278143,
+   "corrected": 0.45117069849584723,
+   "fraction_removed": 0.4226439948213939
+  },
+  "trunk_vs_upstream_bf16": {
+   "double_counted": 0.9969599833682794,
+   "corrected": 0.7768254196709333,
+   "fraction_removed": 0.2208058170535696
+  },
+  "trunk_vs_float64": {
+   "double_counted": 0.9349175217825587,
+   "corrected": 0.6221485227575493,
+   "fraction_removed": 0.3345418090236121
+  }
+ },
+ "VERDICT": {
+  "clause_clears": false,
+  "x_bar": 1.4511706984958472,
+  "highest_clearing_level_the_corrected_trunk_reaches": null,
+  "reading": "the corrected trunk reads 0.7768254196709333 against upstream's own bf16, which is 1.74141x the pre-registered allowance of 0.446089015610342. It sits between the projection level (0.665402, which already fails at 1.29093x bar) and the frame mismatch alone (1.84165). The clause reads 0.2207245119586403 at 1.45117x the 0.1521009983094501 bar and does not clear. The repair took it from 1.781442809027814x, removing 42.26 % of the excess over the bar; the rest is ours."
+ }
+}
