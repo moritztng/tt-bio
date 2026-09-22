@@ -2977,3 +2977,52 @@ Whether that is one phenomenon is not established and is not claimed.
 **`msa_module` is measured at 10.903x but has no upstream comparison**, because there is no upstream
 bf16 arm for that boundary anywhere in the campaign. So D58's two legs are now: diffusion
 re-explained, msa priced but uncompared.
+
+### D208. TRAJECTORY's clause is REPOINTED to a reference-derived bar of 89.2106 % with a coupled-scope requirement, and no artifact emits the coupled field. **UNFIXED** — the condition reads NOT MET on both new clauses.
+
+`of3t-trajwiden` proposed this and I checked it before making it, because **the bar moves 10.05
+points toward passing** and that is the direction that needs a reason.
+
+**What the clause now reads**, against `perf/of3t_refatom/traj_refatom.json`:
+
+    steps >= 20                                  20                       MET
+    scope.pct_of_model_sq_grad_norm >= 89.2106   88.83498302148425    NOT MET by 0.376
+    scope.coupled is True                        key absent           NOT MET
+    per_step moves (d_theirs, d_ours)            19 of 19 fitted rungs    MET
+
+**Why the old bar was unsatisfiable rather than demanding.** 99.2594 % is the ceiling on what the
+**STATIC single-step** instrument could measure — 100 minus the 0.74055 % applied on the host after
+a `ttnn.to_torch`. A trajectory needs four things where the static instrument needs one: a taped
+device forward **and** backward at scope, a captured 0.4.3 boundary whose cotangent is complete,
+upstream's module runnable standalone at arbitrary weights for 20 steps, and 20 affordable
+optimizer steps on both sides. **Giving two instruments of different reach the same number made the
+weaker one unsatisfiable** — D181 from the other direction, where that rule forbids coupled clauses
+reading different scopes and this was one number read by two scopes.
+
+**The four things I checked before lowering a bar toward passing:**
+
+1. **It does not let the campaign declare success.** 88.83498 against 89.2106 leaves it unmet by
+   0.376 points, and the coupled clause fails outright. Two substantive failures.
+2. **The bar is a measured property of the REFERENCE.** 89.2106 % is the share of upstream's own
+   float64 gradient mass inside `diffusion_module`, summed from `grads_f64_043.pt` in
+   `SECTION_MASS_MEASURED.json`. It would read the same if our port did not exist.
+3. **Nothing is lost by the swap.** Pass 346 declined this repoint on the suspicion that a
+   `clauses` block would be dropped. The `moves` check reads `per_step`, and the new artifact
+   carries all 20 entries with both norms, 19 non-zero each (k=1 is the AF3 warmup no-op). Checked,
+   not assumed.
+4. **What would raise the bar is named**: a capture spanning more than one section AND a taped
+   whole-model device forward+backward. The reference half exists and is digest-pinned
+   (`bundle_min_043`); the device half does not.
+
+**`scope.coupled` is required and unemitted, which is the defect this entry carries.** A UNION of
+per-section trajectories would satisfy a scope number while testing none of the coupling: every
+boundary the campaign holds is a frozen capture of upstream's r = 0 step, so an `aux_heads`
+trajectory reads upstream's step-0 trunk outputs at every k, never our step-k ones. The proposing
+row **killed its own pass-1 number of 97.9849 %** on exactly that ground, which is why the proposal
+is worth taking.
+
+**One mechanical note.** I first wrote the clause with an `==` operator, which `charter_evidence.py`
+does not have — its break control raised `KeyError: '=='` and refused to publish rather than
+emitting an artifact with an unevaluated clause. The vocabulary already had `is`, doing strict
+equality with a type check. The guard refusing to publish on an operator it cannot evaluate is the
+right failure.

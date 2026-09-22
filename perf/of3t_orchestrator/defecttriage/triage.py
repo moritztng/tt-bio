@@ -215,6 +215,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D208": (CAMP, "TRAJECTORY's clause is repointed to a reference-derived bar of 89.2106 % with "
+             "a coupled-scope requirement, and no artifact emits scope.coupled. The condition "
+             "reads NOT MET on both new clauses. Campaign-internal: it is our own charter's "
+             "wording and no shipped number moves."),
     "D207": (CAMP, "Adding eight tensors to the trajectory's scored set also moved the 573 shared "
              "tensors -- rel_d 2.2469e-01 against the shipped arm's 2.5643e-01 at k=20, in the "
              "FLATTERING direction, unexplained. A scope gain carrying an unattributed accuracy "
