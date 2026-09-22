@@ -33,6 +33,9 @@ Run it alone on the box. Every fold here is the measurement.
 import argparse, json, os, shutil, signal, statistics as st, subprocess, sys, time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+import card_recovery  # noqa: E402  (hand a wedged card back before the next open)
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
@@ -88,7 +91,15 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
             except ProcessLookupError:
                 pass
             proc.wait()
-            return {"error": f"fold WEDGED: no exit in {timeout_s:.0f}s, process group killed"}
+            # Killing the group is half the recovery; the card is left un-reinitialisable and the
+            # NEXT cell's device open is what hard-resets the host. This harness used to do the
+            # other half -- narrowq_retake.sh ran `tt-smi -r` between attempts -- and a rewrite
+            # that dropped the retry loop dropped the reset with it. qb2 died 62 s later, at
+            # 2026-09-22 20:45:36Z. See perf/land_standing/wedge_kill_hard_resets_the_host.md.
+            verdict = card_recovery.reset_after_kill(card_recovery.visible_card())
+            return {"error": f"fold WEDGED: no exit in {timeout_s:.0f}s, process group killed; "
+                             f"card reset {verdict}",
+                    "card_reset": verdict}
     wall = time.monotonic() - t0
     if rc != 0:
         tail = "".join(log.read_text(errors="replace").splitlines(True)[-3:]).strip()
