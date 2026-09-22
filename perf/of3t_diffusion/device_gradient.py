@@ -54,6 +54,24 @@ def main() -> int:
                         "written to a sidecar unconditionally either way; this only controls "
                         "the duplicate copy, kept so the reports that already carry it stay "
                         "comparable.")
+    p.add_argument("--dump-grads", default="", dest="dump_grads",
+                   help="write the compared device gradient tensors themselves to this .pt, "
+                        "keyed by full checkpoint name. Without it this instrument publishes "
+                        "only rel_l2/norm_ratio/cos against the one reference it was run "
+                        "against, so the gradient cannot afterwards be compared to anything "
+                        "else -- including upstream's own bf16 training gradient.")
+    p.add_argument("--permute-cot", action="store_true", dest="permute_cot",
+                   help="negative control: seed structure k's backward with structure k+1's "
+                        "cotangent, so every sample is paired with the wrong one while the "
+                        "forward, the weights and the arithmetic are untouched. A comparison "
+                        "that cannot tell this apart from the real run is not measuring "
+                        "agreement with anything.")
+    p.add_argument("--softmax-f64", action="store_true", dest="softmax_f64",
+                   help="AMENDMENT 3's BOUND, not a lever: compute every softmax the tape sees, "
+                        "forward and backward, on the host in float64. of3t-adaln's rule "
+                        "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
+                        "reaches all 24 DiT blocks and both atom transformers. What is left "
+                        "after it is what the softmax cannot explain.")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -176,6 +194,38 @@ def main() -> int:
         fp32_dest_acc_en=True, packer_l1_acc=True)
     act = ttnn.float32
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=act)
+
+    # AMENDMENT 3's bound. of3t-adaln's `host_f64_rule` verbatim, plus a fire counter: the
+    # shim caches its wrapper, so a patch that does not drop it is a silent no-op, and that is
+    # exactly how the first sandwich arm reported two identical columns. An arm that reads the
+    # same as the shipped one because nothing fired is not a bound, so the count is published
+    # and a zero count is a hard failure.
+    softmax_calls = [0]
+    if a.softmax_f64:
+        from tt_bio import taped_ttnn as TT
+
+        def host_f64_softmax(shipped, args, kwargs):
+            softmax_calls[0] += 1
+            x = TT._wrap(args[0])
+            dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+            y64 = torch.softmax(ttnn.to_torch(x.value).double(), dim=dim)
+            y0 = ttnn.from_torch(y64.float(), layout=x.value.layout, device=dev,
+                                 dtype=x.value.dtype)
+
+            def make():
+                def bw(g):
+                    g64 = ttnn.to_torch(g).double()
+                    d = y64 * (g64 - (g64 * y64).sum(dim=dim, keepdim=True))
+                    x.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=dev,
+                                               dtype=g.dtype))
+                return bw
+
+            return TT._tape(y0, [x], make)
+
+        TT._VERBS["softmax"] = host_f64_softmax
+        TT._SHIM.__dict__.pop("softmax", None)
+        print(f"[{time.perf_counter()-t0:.0f}s] float64 softmax bound installed on the tape verb",
+              flush=True)
 
     aux = build_dm_device_aux(
         dev, ft, cl0=cl0, plm0=plm0, atom_mask=atom_mask, atom_to_token_index=a2t,
@@ -307,7 +357,8 @@ def main() -> int:
             plm0=ag.Tensor(aux["plm0_d"], requires_grad=True),
             rl_noisy=ag.Tensor(ft(rl_pad.unsqueeze(0)), requires_grad=True),
             xl_noisy=ag.Tensor(ft(xl_k.unsqueeze(0)), requires_grad=True))
-        seed = ft(cot[0, k].float().unsqueeze(0))
+        cot_k = (which[(which.index(k) + 1) % len(which)]) if a.permute_cot else k
+        seed = ft(cot[0, cot_k].float().unsqueeze(0))
         tk0 = time.perf_counter()
         try:
             with device_dtype_override(act), ag.tape():
@@ -371,6 +422,16 @@ def main() -> int:
             gt = gt.t().contiguous()
         rows[nm] = gt
 
+    if a.dump_grads:
+        d = os.path.dirname(a.dump_grads)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        # Full checkpoint names, so the file drops straight into any comparison that uses the
+        # upstream naming; `rows` is keyed relative to the `diffusion_module` sub-dict.
+        torch.save({f"diffusion_module.{nm}": g.cpu() for nm, g in rows.items()}, a.dump_grads)
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(rows)} device gradient tensors to "
+              f"{a.dump_grads}", flush=True)
+
     tot_ref_sq = sum(float(v.double().pow(2).sum()) for v in ref_grad.values() if v is not None)
     cmp_rows, worst, worst_n = [], -1.0, None
     sq_cmp = 0.0
@@ -416,6 +477,10 @@ def main() -> int:
            "over_5e-2": sum(1 for d, _, _ in cmp_rows if d > 5.0e-2),
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
+           "softmax_f64_bound": bool(a.softmax_f64),
+           "softmax_calls_intercepted": softmax_calls[0],
+           "cotangent_permuted": bool(a.permute_cot),
+           "grads_dumped_to": a.dump_grads or None,
            "per_tensor_dumped": bool(a.dump_per_tensor),
            # PROVENANCE. This instrument scores against a captured boundary and against a
            # checkpoint, and until now recorded neither in its output. `device_gradient_043pt`
@@ -447,6 +512,10 @@ def main() -> int:
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10", "per_tensor")},
                      indent=1, default=str), flush=True)
     print("wrote", path, "and", side, flush=True)
+    if a.softmax_f64 and softmax_calls[0] == 0:
+        print("FAILED: --softmax-f64 intercepted 0 softmax calls, so this arm is the shipped "
+              "arm under another name", flush=True)
+        return 3
     return 1 if err is not None else 0
 
 

@@ -1,0 +1,39 @@
+{
+ "what": "a source audit of every reduction in the tape's backward rules, prompted by the handoff list. It finds one consistent pattern: the reductions that sit INSIDE a near-cancellation are the ones that do not get the precise kernel config, while their neighbours in the same rule do.",
+ "status": "LEAD FROM SOURCE, NOT A MEASUREMENT. My last two source-based hypotheses for this defect were refuted by measurement. This one is filed with a named, cheap, decisive test rather than a claim.",
+
+ "the_pattern": {
+  "precise_config docstring (autograd.py:42)": "'A backward accumulates over the reduction axis and again over fan-in, and bf16 accumulation is how a gradient turns into noise. EVERY OP HERE DEFAULTS TO IT.' HiFi4, fp32_dest_acc_en, packer_l1_acc.",
+  "reductions that DO get it": [
+   "autograd.py:499 (an axis sum)",
+   "autograd.py:536 `_sum_leading` -- and it records the measurement that motivated it: cosine 0.379 against float64, 0.999995 after",
+   "autograd.py:678 / 1605 -- the layer_norm backward's VARIANCE reduction"
+  ],
+  "reductions that DO NOT, and what each one feeds": [
+   {"site": "taped_ttnn.py:200", "code": "inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+    "feeds": "x.grad = y * (g - inner) -- the softmax backward. A NEAR-CANCELLATION: for a flat cotangent, inner ~ g and the difference is the small variation between them."},
+   {"site": "autograd.py:708", "code": "the same softmax rule, duplicated", "feeds": "same"},
+   {"site": "autograd.py:949", "code": "inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)",
+    "feeds": "ds = p * (dp - inner) -- the chunked attention's softmax backward. The two MATMULS three lines either side of it both pass `cfg`; the reduction between them does not."},
+   {"site": "autograd.py:689, 690 and 1616, 1617", "code": "dn_mean = ttnn.mean(dnorm, ...); dn_norm_mean = ttnn.mean(dnorm * norm, ...)",
+    "feeds": "dx = (dnorm - dn_mean - norm * dn_norm_mean) * rstd -- TWO subtractions of comparable quantities, and the variance reduction three lines above DOES get the config."},
+   {"site": "autograd.py:958", "code": "dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True))", "feeds": "a bias gradient"}
+  ],
+  "reading": "this is not one missing argument. In every case the surrounding ops in the same rule got the config and the reduction inside the cancellation did not, so the docstring's 'every op here defaults to it' is false in exactly the places where it matters most. A reduction feeding a WEIGHT gradient got fixed (with a measurement recorded); the reductions feeding the ACTIVATION gradient dx did not."
+ },
+
+ "why_it_fits_the_observed_failure": [
+  "AMPLIFIED, NOT MISCOUNTED -- of3t-conditioning's strongest constraint. A cancellation is the one construct in the backward that amplifies: if |g - inner| is 1 % of |g|, a bf16 inner (8 mantissa bits) loses two of its three digits and dx is ~100 % wrong.",
+  "PER-BLOCK VARIATION, qualitative not graded -- norm ratio 0.71 to 19.24, cos -0.80 to +0.998. The amplification factor is 1/(relative spread of the cotangent across keys), which varies per block with how flat g is and how sharp the attention is. Nothing about a fixed wrong factor does that.",
+  "SIGN FLIPS at blocks 0 and 6 (alpha -1.49, -1.59). A cancellation residual can land on the wrong side of zero; a wrong scale cannot.",
+  "THE ATTENTION PATH FAILS AND THE TRANSITION PATH DOES NOT. The transition has NO SOFTMAX. This is the single cleanest fit: the two AdaLN instances differ 59x, and a softmax sits on one side of that difference and not the other.",
+  "THE AdaLN OP GRADCHECKS CLEAN IN ISOLATION (18 arms, worst 2.552e-02) AND FAILS IN SITU. Its own parameter-gradient rules go through `_sum_leading`, which IS precise. What reaches it in situ is a cotangent that has come back through the softmax, which is not.",
+  "D49: `fp32_softmax` is the campaign's ONLY gradient-parity lever, moving five of seven pairformer blocks. The same softmax, the same rule."
+ ],
+ "what_it_does_not_explain": "the two failure patterns of3t-conditioning separated -- at blocks 0/5/6/7/12 the gain is damaged while linear_g reads 0.19..0.72, but at block 8 the whole gate track fails together while the shift branch holds at 0.817. A single imprecise cotangent arriving at the AdaLN output should damage the gain and both linears together. Either there are two causes, or the gate and shift branches have different sensitivity to the same bad cotangent. Unresolved, and it is the reason this is a lead.",
+
+ "the_test_and_it_is_two_lines": "add `compute_kernel_config=precise_config()` to `taped_ttnn.py:200` and re-run the diffusion arm at --structs all. If the leaf's mass-weighted 10.6980 moves, that is it. Interleave the arms (A/B/A) rather than running them in sequence. The change is BACKWARD-ONLY -- the tape does not run in inference -- so it cannot move a shipped digest, which makes the A/B cheap and the blast radius zero for inference. It is still not to be merged: it is on a path five models share and a precision change to a training backward is release-gated.",
+ "the_control_that_must_accompany_it": "a precision fix that changes nothing would be indistinguishable from a fix that was never applied. Assert the flag reaches the kernel -- run the same arm with a DELIBERATELY WRONG config (LoFi, fp32_dest_acc_en off) and show the number gets WORSE. If neither direction moves, the reduction is not the lever and this lead is refuted.",
+
+ "provenance": "source read 2026-09-20 pass 154 by of3t-orchestrator on pc against wk/of3t (tt_bio/taped_ttnn.py, tt_bio/autograd.py). No device opened, no run made. Observations from of3t-conditioning's concluded state doc and perf/of3t_orchestrator/ONE_LEAF_IS_THE_DEFECT.json."
+}
