@@ -1,12 +1,15 @@
 {
  "pin": "none",
  "rc": 0,
- "seconds": 26.4,
+ "seconds": 24.2,
  "pin_reach": {
   "pin": "none",
   "queried": 0,
   "replaced": 0,
   "returned": {}
+ },
+ "route_census": {
+  "_fp32_softmax_attention q [64, 4, 64, 32]": 384
  },
  "env": {
   "TT_BIO_TRIATT_SDPA_HIFI_AB": "",
