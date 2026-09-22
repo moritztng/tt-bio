@@ -8,104 +8,20 @@
  "seed": 20260922,
  "host": "tt-quietbox2",
  "card": "1",
- "commit": "5feca4f411bbb6cd2b7852af6f5be1778c712c49",
+ "commit": "248c2605e29b6e0943c085f0b189464bae8206be",
  "padded_width": 384,
  "real_tokens": 56,
  "pdb_id": "5nw3",
- "params_reachable": 3952,
- "loss": 0.1342802552371707,
- "weights": {
-  "bond": 0.0,
-  "smooth_lddt": 4.0,
-  "mse": 4.0,
-  "distogram": 0.03,
-  "resolved": 0.0001,
-  "plddt": 0.0001,
-  "pae": 0.0001,
-  "pde": 0.0001
- },
- "breakdown": {
-  "bond": {
-   "value": null,
-   "weight": 0.0,
-   "contribution": 0.0,
-   "skipped": "weight is zero in this stage"
-  },
-  "smooth_lddt": {
-   "value": null,
-   "weight": 4.0,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_dist']"
-  },
-  "mse": {
-   "value": null,
-   "weight": 4.0,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
-  },
-  "distogram": {
-   "value": 4.451829139528296,
-   "weight": 0.03,
-   "contribution": 0.13355487418584885
-  },
-  "resolved": {
-   "value": 7.253810513218386,
-   "weight": 0.0001,
-   "contribution": 0.0007253810513218386
-  },
-  "plddt": {
-   "value": null,
-   "weight": 0.0001,
-   "contribution": 0.0,
-   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
-  },
-  "pae": {
-   "value": null,
-   "weight": 0.0001,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
-  },
-  "pde": {
-   "value": null,
-   "weight": 0.0001,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
-  }
- },
- "seeded_outputs": [
-  "distogram_logits",
-  "resolved_logits"
- ],
- "forward_s": 8.855527090999203,
- "backward_s": 479.0824870460001,
- "step_s": 487.9380141369993,
- "params_with_grad": 2498,
- "params_nonzero_grad": 2489,
- "squared_gradient_norm": 9.785634443843449,
- "by_section": {
-  "input_glue": {
-   "n": 5,
-   "sq": 0.0586938328215179
-  },
-  "trunk": {
-   "n": 2314,
-   "sq": 6.775973617677438
-  },
-  "confidence_head": {
-   "n": 179,
-   "sq": 2.9509669933444918
-  }
- },
- "grad_dump": "/home/ttuser/of3t_trainfwd/grad_full_n384.pt",
- "ok": true,
+ "ok": false,
+ "error": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/perf/of3t_trainfwd/trainfwd_run.py\", line 136, in main\n    outputs = fwd(batch)\n              ^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/train/openfold3.py\", line 444, in __call__\n    xl_den = s.dm(\n             ^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_module.py\", line 300, in __call__\n    return self._post_encoder(\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_module.py\", line 386, in _post_encoder\n    ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/openfold3_diffusion_transformer.py\", line 302, in __call__\n    tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-trainfwd/tt_bio/taped_ttnn.py\", line 1049, in call\n    raise NotImplementedError(\nNotImplementedError: ttnn.to_torch has no tape entry, and it was handed a taped tensor. Add one to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of everything upstream of this call, silently.\n",
  "aiclk_during": {
   "0": {
    "min": 800,
    "max": 1350,
    "median": 1350,
-   "n": 159
+   "n": 4
   }
  },
- "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 159 samples, polled DURING the work",
- "total_s": 490.7417809970002
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 4 samples, polled DURING the work",
+ "total_s": 9.606062333999944
 }

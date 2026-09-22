@@ -56,6 +56,7 @@ half its terms.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -235,6 +236,10 @@ class OpenFold3Forward:
         #: gradient moves against an arm with it OFF.
         self.repr_coords_in = None
         self.rollout_ran = None
+        #: Run upstream's one-step denoise arm, which is what puts a gradient on the
+        #: diffusion module and what `mse` / `smooth_lddt` / `bond` are seeded off.
+        self.denoise = True
+        self.denoise_sigma = None
 
     @property
     def device(self):
@@ -291,6 +296,7 @@ class OpenFold3Forward:
                                            derive_relpos, derive_template_feat,
                                            ref_atom_embed, run_input_atom_encoder)
         from ..openfold3_data import make_openfold3_msa_features
+        from ..openfold3_sample_diffusion import fourier_noise_emb
         from ..openfold3_weights import _sub
         import ttnn
 
@@ -357,19 +363,19 @@ class OpenFold3Forward:
         rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
                else f["start_atom_index"]).long()
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
+        dm_aux = build_dm_device_aux(
+            dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+            atom_to_token_index=aux["atom_to_token_index"],
+            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
+            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
+            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
+            atom_to_token_mean=aux["atom_to_token_mean"],
+            token_mask=tok, n_atom=n_atom, n_token=n_token,
+            nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
         else:
-            dm_aux = build_dm_device_aux(
-                dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
-                atom_to_token_index=aux["atom_to_token_index"],
-                npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-                zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-                invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-                atom_to_token_mean=aux["atom_to_token_mean"],
-                token_mask=tok, n_atom=n_atom, n_token=n_token,
-                nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
             schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
             xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
             xl_d = m.sampler(
@@ -392,6 +398,75 @@ class OpenFold3Forward:
             repr_x[real] = xl[rep]
         self.repr_coords = repr_x
 
+        # ---- the one-step denoise. THIS is what trains the diffusion module.
+        #
+        # Upstream's diffusion objective is not the rollout: it draws a noise level from the
+        # log-normal `sample_noise_level`, noises the GROUND TRUTH at it, denoises once, and
+        # takes the weighted MSE against the truth. The rollout is detached and feeds the
+        # confidence heads; this arm is differentiated and feeds `mse`, `smooth_lddt` and
+        # `bond`. Two separate uses of the same module, and conflating them is how a training
+        # forward ends up with a diffusion module that never receives a gradient.
+        #
+        # `pred_xyz` has to come back on the TOKEN axis, because every other label the
+        # objective reads is token-scope and `af3_loss` gives them one `true_xyz`. The
+        # representative-atom gather is a one-hot matmul rather than an index: `ag.matmul` is
+        # taped, indexing is not, and the one-hot is exact.
+        pred = {}
+        if self.denoise:
+            s = m.sampler
+            rng = np.random.default_rng(self.seed)
+            sigma = float(losses.sample_noise_level(rng))
+            amask = aux["atom_mask"].float()
+            xl_true = (f["ground_truth"]["atom_positions"].float()
+                       * amask[:, None])
+            xl_noisy = xl_true + sigma * torch.from_numpy(
+                rng.standard_normal((n_atom, 3))).float()
+            xl_noisy = xl_noisy * amask[:, None]
+            rl_noisy = xl_noisy / math.sqrt(sigma * sigma + m.sigma_data ** 2)
+            n_emb = fourier_noise_emb(sigma, m.sigma_data, s.fourier_w, s.fourier_b)
+
+            one_hot = torch.zeros(n_token, n_atom)
+            one_hot[real, rep] = 1.0
+
+            with ag.tape():
+                # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
+                # copy of it. `OF3_DIFFUSION_FP32_DEVICE` (default on) builds the diffusion
+                # weights in fp32 against a bf16 trunk; driving `dc`/`dm` directly without
+                # this hands fp32 weights bf16 activations. Measured, before the fix was in:
+                # the squared gradient norm read 4.87e+11 against upstream's model
+                # denominator of 10.279642678524981, with every loss VALUE sane -- a forward
+                # that looks healthy and a backward that is not.
+                c = s.to_act_dtype
+                si = s.dc.single(c(s_trunk), c(s_input_d),
+                                 c(ag.Tensor(ft(n_emb.reshape(1, 1, 256)))),
+                                 c(ft(tok.reshape(n_token, 1).unsqueeze(0))))
+                zij = s.dc.pair(c(z_trunk), c(relpos_d), c(pair_mask_dm))
+                xl_den = s.dm(
+                    c(s_trunk), si, zij,
+                    c(ag.Tensor(dm_aux["cl0_d"])), c(ag.Tensor(dm_aux["plm0_d"])),
+                    c(ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"])))),
+                    c(ag.Tensor(ft(xl_noisy.unsqueeze(0)))),
+                    c(dm_aux["amc_d"]), c(dm_aux["amc_na_d"]),
+                    dm_aux["idx_tt"], dm_aux["flat_tt"],
+                    c(dm_aux["zij_mask_d"]), dm_aux["kidx_tt"], dm_aux["valid_d"],
+                    c(dm_aux["mb_d"]), c(dm_aux["pm_d"]), c(dm_aux["mean_d"]),
+                    c(dm_aux["tok_pad_tt"]), c(dm_aux["tok_col_pad_tt"]),
+                    n_atom, aux["NP"], aux["nb"], n_token, n_token, sigma, m.sigma_data,
+                    cache={})
+                pred_xyz = ag.matmul(ag.Tensor(ft(one_hot.unsqueeze(0))), xl_den)
+                pred["pred_xyz"] = pred_xyz
+                pred["pred_dist"] = ag.pairwise_distance(pred_xyz)
+            self.denoise_sigma = sigma
+            # The EDM loss weighting, written back onto the caller's batch. This is the
+            # SECOND quantity the objective reads from the batch that the batch cannot know:
+            # `losses.mse` takes it as `per_sample_scale` and `af3_loss` reads
+            # `b.get("edm_scale")`, but sigma is DRAWN HERE, per forward, so a featuriser has
+            # nothing to emit. Without it the diffusion term is unweighted and its gradient is
+            # wrong by the EDM factor -- on one draw that took the squared gradient norm from
+            # 9.79 to 3.7e+11 and nothing said so. Same shape of gap as pLDDT's label, and the
+            # same proposal: the fix belongs in the objective, not in a per-model adapter.
+            batch["edm_scale"] = float(losses.edm_scale(sigma, m.sigma_data))
+
         # ---- the confidence heads, on that structure. `forward_device` is their own
         # training entry point and it returns the distogram head with them.
         with ag.tape():
@@ -402,7 +477,8 @@ class OpenFold3Forward:
                 pair_mask_d=pair_mask_pf, attn_mask_d=attn_mask_d)
 
 
-        return {"distogram_logits": out["distogram_logits"],
+        return {**pred,
+                "distogram_logits": out["distogram_logits"],
                 "plddt_logits": out["plddt_logits"],
                 "pde_logits": out["pde_logits"],
                 "pae_logits": out["pae_logits"],
