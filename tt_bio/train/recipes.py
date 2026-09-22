@@ -47,7 +47,7 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
-               checkpoint_every=100, tokens=None, weights=None):
+               checkpoint_every=100, tokens=None, weights=None, model=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -62,6 +62,12 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     ``forward(batch) -> {name: device tensor}`` is the SHIPPED forward, handed in rather than
     constructed here: the training path calls the same forward inference calls, and the way to
     guarantee that is to not have a second one to call.
+
+    ``model`` is the built model object, and passing it is strongly preferred: discovery
+    then WALKS it, so the optimizer owns every device weight the model reaches rather than the
+    weights its routed ``ops.linear`` call sites pass. Leave it out and discovery is the
+    call-site census, which cannot see a weight a module fused in its own ``__init__`` --
+    measured at 2119 of 2531 on OpenFold3's trunk.
 
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
@@ -102,8 +108,13 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # and trains a different model -- which the launcher's master-hash check catches at
         # the end of the run rather than at the start of it. Training the weights themselves
         # initialises nothing, so there the seed reaches the batch order only.
+        # `model` is the BUILT model, and handing it over is what makes the parameter set
+        # every weight it reaches instead of the weights its four routed `ops.linear` call
+        # sites happen to pass. Without it discovery falls back to the call-site census, which
+        # is blind to every weight a module fuses in its own `__init__`.
         installed, params = trainable(forward, cfg, dataset.device,
-                                      dataset.batch(first.per_chip[dp_rank]), rng=seed)
+                                      dataset.batch(first.per_chip[dp_rank]),
+                                      model=model, rng=seed)
         opt = AdamW(params, lr=lr, data_parallel=dp,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps))
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
@@ -136,6 +147,11 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                     # Empty on one chip, and the optimizer refuses a wide axis without it
                     # rather than stepping on one replica's gradient.
                     opt.step(replicas=launcher.replicas(params))
+                    # The optimizer replaced each leaf's value with a new device tensor; this
+                    # puts those tensors back where the walk found them, so the next forward
+                    # reads what the optimizer moved. A no-op for a call-site census, whose
+                    # hook hands the forward the leaf itself.
+                    params.rebind()
                     last = {"step": batch.step, "loss": total, "breakdown": breakdown,
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}
