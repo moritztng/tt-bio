@@ -1228,3 +1228,41 @@ into the in-frame reading — that is D214/D218's mistake and this entry is not 
 `diffusion_transformer` carries **43.62 %** of the mass at 1.823x with no owner. It improved this
 pass by accident rather than by work, and a movement the other way eats the margin before the
 trunk ever gets there.
+
+### D221 UPDATE — the "second unowned object" was already measured, and I nearly dispatched a duplicate against a figure a concluded row told the campaign to stop quoting.
+
+D215 and D221 (above) name `diffusion_transformer` at 2.019x and then 1.823x same-reference on
+43.62 % of the mass as a second, unowned accuracy object. Before dispatching a row for it I
+checked who had measured it. **`of3t-ditgap` had, and concluded PARTIAL with the answer:**
+
+> *"The **2.019x is a floor ratio and should stop being quoted as a defect size** — this section's
+> floor is 0.5458x the model-wide 0.10592054683439786, and our absolute 0.116702 is 1.1018x that
+> model-wide floor, so a material part of 2.019x is that upstream's bf16 is unusually ACCURATE on
+> the diffusion transformer rather than that we are unusually bad. In A26's own form the number is
+> **1.3501x**, not 2.019x, and that is the figure a decision should use."*
+
+My own recomputation on the graded 3,660 artifact agrees: the section reads **0.112302** against
+an A26-perfect level of **0.080188**, i.e. **1.400x over**, against ditgap's section-local
+1.3501x. Two instruments, one answer, and it is **not** a 1.8x defect.
+
+**So no row is dispatched.** The object is characterised, the repair candidate is named with its
+test (`of3t-ditgap`: the pad axis — 56 real tokens in 384 means 85.4 % of every token-axis
+reduction is pad — and the cheap pad0 diffusion arm does not exist because
+`perf/of3t_modelboundary/pad0_score.sh:31` points its pad0 arm at the same
+`device_grads_043all_renorm.pt` and varies only the pairformer leg), and that row explicitly
+flagged it as a hypothesis fitted to its own evidence rather than a mechanism. Spending a card to
+rediscover 1.35x would be the duplicate `duplicate-check-grep-state-verdicts-not-just-task-names`
+exists to prevent.
+
+**What survives from D221, because it is new and it is a risk rather than a defect.** With the
+trunk at A26-perfect the clause reads 0.9701x, and **`diffusion_transformer` has 1.1161x of
+headroom** — it may worsen from 0.112302 to 0.125338 before the clause fails. If it were also at
+A26-perfect the clause would read **0.9073x**, tripling the margin from 3.0 % to 9.3 %. That is
+worth knowing and it is not worth a card today: the clause passes with the section as measured,
+and it improved this pass rather than worsening.
+
+**The lesson, and it is the one the campaign keeps paying for from the other side.** I found an
+alarming ratio and was one command from dispatching against it. The ratio was a **floor ratio** —
+big because the reference is unusually good there, not because we are bad — which is D215's own
+finding applied in the direction that does not flatter us. A concluded row had said so and the
+summary had not absorbed it.
