@@ -1,0 +1,10 @@
+{
+ "samples": 25,
+ "window_start": "2026-09-22T06:02:24Z",
+ "window_end": "2026-09-22T06:26:30Z",
+ "median_mhz": 1350,
+ "min_mhz": 800,
+ "max_mhz": 1350,
+ "samples_below_1200_mhz": 1,
+ "log": "/home/ttuser/of3t_runs/trajwide/aiclk_trajfull.log"
+}

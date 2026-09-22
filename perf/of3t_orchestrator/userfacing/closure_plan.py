@@ -54,6 +54,54 @@ PLAN = {
     # leaves the trunk at 5.4139x upstream's own bf16, carried by the attention-pair-bias and the
     # single transition. That residual is the trunk's real object and is not yet a plan item
     # because it has no owner -- when it gets one it belongs here.
+    "D184": {
+        "needs": MERGE,
+        "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
+        "closes_when": ("`TT_BIO_OF3_DEVICE_REFATOM` stops being default-off. `of3t-hostleg` wired "
+                        "both legs and measured them: the `all` arm reads mass-weighted rel_l2 "
+                        "0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 "
+                        "per-tensor bar, worst 1.175005e-01, and its inference default is "
+                        "byte-identical to the base tree on both models that execute the changed "
+                        "path. Nothing further is measurable until it lands"),
+        "evidence_held": ("the shipped arm reads rel_l2 exactly 1.00000000 on all seventeen -- the "
+                          "A16 zero-model signature, so the default computes no gradient for them "
+                          "at all. The arm ladder is shipped 1.00000000, refatom 0.71215816, all "
+                          "0.05013681, break 0.82521107. CORRECTED at pass 358 (D212): this field "
+                          "said landing the flag takes GRADIENTS' coverage to 99.50523155277438 %, "
+                          "crediting all seventeen. `of3t-covdefault` measured the key-set diff and "
+                          "the flag reaches EIGHT -- 97.98499306866148 % + 0.7530394291090192 = "
+                          "98.73803249777050 %, which is 0.52 points SHORT of the 99.2594 % bar. "
+                          "The other nine cannot enter the reading at all: `input_embedder` reads "
+                          "n_compared 0 of 98 in the boundary artifact. And the flag is now a "
+                          "measured inference regression (+198.476 ms cold, +50.231 ms warm on "
+                          "openfold3), so the coverage route does not run through it -- it runs "
+                          "through the TRAINING ADAPTER, which `tt_bio/train/` confines to training "
+                          "by construction. Row `of3t-refcov`"),
+        "would_a_row_help": False,
+        "asked": ("not yet asked. It belongs with D126 in one merge question rather than as a "
+                  "separate ask: both are built, measured, release-gated and waiting only on "
+                  "Moritz"),
+    },
+    "D210": {
+        "needs": RELEASE,
+        "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",
+        "closes_when": ("the pad lanes are masked out of the optimizer's parameter set, or a "
+                        "measurement establishes they are harmless. Masking is a model change on "
+                        "the SHARED diffusion path, so it owes an inference A/B against an A/A "
+                        "floor on every model that executes it -- which is what makes this a "
+                        "release item rather than a one-line fix"),
+        "evidence_held": ("`of3t-trajfull` found it outside its own scored set: our fused `qkv_w` "
+                          "pads head_dim 48 -> 64 and the pad columns are registered leaves. They "
+                          "are exactly 0.0 at `w_0` and reach 3.494e-04 by k = 20. The mechanism is "
+                          "Adam's scale invariance -- a numerically tiny device-backward gradient "
+                          "in a lane that should have none still takes a full lr-sized step. It "
+                          "moves no number the campaign quotes, because the pad columns are outside "
+                          "the reference's parameter space and are sliced off before v is used, "
+                          "which is exactly why it sat unnoticed"),
+        "would_a_row_help": True,
+        "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
+                  "has not been built"),
+    },
     "D10": {
         "needs": MERGE,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
@@ -104,18 +152,6 @@ PLAN = {
         "asked": ("pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the "
                   "composition since pass 274, verified backward-only by AST, and not merged"),
     },
-    "D30": {
-        "needs": CARD,
-        "one_line": "the diffusion module's backward costs 19.6x the forward it is taken at",
-        "closes_when": ("the cause of the backward-over-forward amplification is located. D58 "
-                        "already moved this from a diffusion-module property to a property of the "
-                        "tape, and of3t-ditcot is measuring the same object one level down"),
-        "evidence_held": ("forward median 8.34e-03, gradient median 1.6588e-01, ratio 19.6x over 48 "
-                          "structures against the rebuilt 0.4.3 reference"),
-        "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D58", "D129"],
-    },
     "D58": {
         "needs": CARD,
         "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
@@ -127,18 +163,25 @@ PLAN = {
         "row": "of3t-ditcot",
         "shares_object_with": ["D30", "D129"],
     },
-    "D129": {
+    "D205": {
         "needs": CARD,
-        "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",
-        "closes_when": ("of3t-ditcot names the op carrying the flat 2.28x cotangent excess and it is "
-                        "repaired or shown to be a floor. Separately, the 0.4.3 ratio needs OUR arm "
-                        "at the 0.4.3 capture, which no artifact holds and which needs a lease"),
-        "evidence_held": ("isolation 1.5217e-03 (456x under the reading), input exact to 1.98e-08, "
-                          "substitution reproduces the reference gradient at 8.877e-09; the 0.4.3 "
-                          "bar is 2.2530588761e-01, 0.73 % from the 0.5.0 one"),
-        "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D30", "D58"],
+        "one_line": "512 is the largest crop that RUNS; 544, 576, 640 and 768 all refuse",
+        "closes_when": ("the CONTIGUITY wall is addressed or documented as the shipped limit. 640 "
+                        "and 768 die with the card full, but 544 and 576 die on contiguity with "
+                        "6.30 GB and 6.67 GB still free -- 576 refused a 2,717,908,992 B buffer "
+                        "inside ttnn::concat -> tilize_with_val_padding, short by 77,930,560 B "
+                        "per bank at 88.45 %% occupancy. A capacity extrapolation cannot see that "
+                        "wall; the row's own 2.08 fit said 576 would clear with 14 %% of margin. "
+                        "Closing it is an allocator or a chunking question, not more memory"),
+        "evidence_held": ("544/576/640/768 all measured to refuse, the 544 fixture built for the "
+                          "purpose; the 576 refusal reproduces byte for byte across card 0 and "
+                          "card 1 (29,970,916,352 B high-water, 5,622 allocations, identical "
+                          "per-bank largest-free-block); every refused rung's high-water is a "
+                          "LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile "
+                          "counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every "
+                          "even count measured keeps it"),
+        "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
+                 "(D204: nothing checked that it ever was)",
     },
     # D55's BACKWARD half closed at pass 311 and the entry stays, rewritten to its forward half.
     # Not removed: `of3t-ditcot`'s commit subject reads "D55 closed" and it is not, it is half.

@@ -1,0 +1,12 @@
+{
+  "what": "of3t-apbleaf: A/A on the CAPTURE itself, not on the file bytes.",
+  "a": "/home/ttuser/of3t_apbleaf/ln_CAPA_n384.pt",
+  "b": "/home/ttuser/of3t_apbleaf/ln_CAPB_n384.pt",
+  "sites_compared": 48,
+  "fields_per_site": 6,
+  "tensors_compared": 288,
+  "tensors_that_moved": 0,
+  "bit_identical": true,
+  "worst_relative_move": 0.0,
+  "worst": null
+}

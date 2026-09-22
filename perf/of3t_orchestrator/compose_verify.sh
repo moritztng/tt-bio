@@ -288,6 +288,17 @@ _ASSERT
         # A `.gitignore` in the same merge is unioned first, since that rule is already settled.
         _left=""
         for _f in $_u; do
+          # The chain below is re-run while the file still carries markers and the last pass
+          # changed something. A file can hold two INDEPENDENT conflicts with two different
+          # correct resolutions -- pass 358, `tt_bio/autograd.py` on of3t-gradients: the
+          # `__slots__` union and the softmax box/helper shape -- and every resolver was
+          # written against a file with one hunk, so a resolvable pair stopped the compose.
+          # A pass that resolves nothing breaks the loop, so this cannot spin.
+          _prev=""
+          while grep -q '^<<<<<<< ' "$_f" 2>/dev/null; do
+            _sig=$(md5sum "$_f" | cut -d' ' -f1)
+            [ "$_sig" = "$_prev" ] && break
+            _prev="$_sig"
           if [ "$_f" = ".gitignore" ]; then
             git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
             git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
@@ -300,20 +311,32 @@ _ASSERT
             # Moritz's ruling and 48 folds over four targets, with 1UBQ identified as the earlier
             # reading's own target. The resolver takes the row's side, keeps the superseded reasoning
             # in the file, and refuses if either goes missing.
-            git add "$_f"
+            :
           elif [ "$r" = "d116" ] && "$PY" "$HERE/resolve_d116_softmax_inner.py" "$_f"; then
             # d116 unified the softmax-backward inner term across its two identical call sites
             # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
             # HEAD's box read and `__all__`, take d116's helper call and its new name. The
             # resolver refuses the moment the hunk stops having that exact shape.
-            git add "$_f"
+            :
           elif "$PY" "$HERE/resolve_prose_only_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             # Both sides differ only in comments and docstrings -- a row based on an older
             # wk/of3t reflowed a comment, or carries a wording main has since sharpened. HEAD's
             # prose wins, and the safety is checked not argued: both sides are reconstructed,
             # parsed, stripped of docstrings and compared as ASTs, so any executable difference
             # anywhere refuses and stops the compose.
-            git add "$_f"
+            :
+          elif "$PY" "$HERE/resolve_addadd_test_file.py" "$_f" "origin/wk/of3t-$r"; then
+            # Two rows wrote a test file with the same NAME and different contracts. A
+            # filename collision is not a disagreement: HEAD keeps the path, the row's suite
+            # lands beside it, and neither is lost. Refuses unless the conflict is genuinely
+            # add/add and both sides parse.
+            :
+          elif "$PY" "$HERE/resolve_slots_union.py" "$_f" "origin/wk/of3t-$r"; then
+            # `__slots__` unioned, with the property collision refused rather than unioned
+            # blind: D126 turned `value` into a property over `_value`, and a row based on a
+            # pre-D126 main still declares the bare slot. A slot and a property of the same
+            # name collide silently, whichever is defined later winning.
+            :
           elif "$PY" "$HERE/resolve_softmax_inner_box.py" "$_f" "origin/wk/of3t-$r"; then
             # The BOX memory policy against D56's shared `softmax_bw_inner`, in either
             # orientation. Two repairs on the same three lines, neither aware of the other, and
@@ -321,12 +344,14 @@ _ASSERT
             # alone leaves `y` unbound and the backward raises NameError the first time it runs,
             # which a collection-only compose cannot see. Generalises d116's literal, whose
             # orientation flipped the moment D56 landed on main.
-            git add "$_f"
+            :
           elif "$PY" "$HERE/resolve_kwarg_tail_conflict.py" "$_f" "origin/wk/of3t-$r"; then
-            git add "$_f"
+            :
           else
-            _left="$_left $_f"
+            break
           fi
+          done
+          if grep -q '^<<<<<<< ' "$_f" 2>/dev/null; then _left="$_left $_f"; else git add "$_f"; fi
         done
         if [ -n "$_left" ]; then
           echo "CONFLICT merging of3t-$r, and these are not keyword-argument tails:"

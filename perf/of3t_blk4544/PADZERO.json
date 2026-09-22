@@ -1,0 +1,26 @@
+{
+ "boundary": "/home/ttuser/of3t_frame384/boundary_n384.pt",
+ "out": "/home/ttuser/of3t_blk4544/boundary_n384_padzero.pt",
+ "tokens": {
+  "real": 56,
+  "padded": 384
+ },
+ "before": {
+  "s_in": 11757.133052375091,
+  "z_in": 16158081.287375676,
+  "s_ref_050_captured": 2517512.2277431837,
+  "z_ref_050_captured": 15593547.68292328
+ },
+ "after": {
+  "s_in": 5623.548807821603,
+  "z_in": 64263.67350116298,
+  "s_ref_050_captured": 2160623.6218468654,
+  "z_ref_050_captured": 76763.66286674526
+ },
+ "removed": {
+  "s_in": 10325.012175164726,
+  "z_in": 16157953.492621146,
+  "s_ref_050_captured": 1292119.724156176,
+  "z_ref_050_captured": 15593358.73632314
+ }
+}

@@ -1624,3 +1624,41 @@ campaign declare GO? Neither does — coverage reads 92.1568 against 99.2594 in 
 the new one alike, GRADIENTS is NOT MET either way, and the charter still reads 0 of 3. A third
 adjustment in this area should be treated as a signal that the gate is being fitted to the
 result, and §9 should be read before making it.
+
+**A-D210 — 2026-09-22 pass 357. TRAJECTORY's artifact repointed to `of3t-trajfull`'s. NO BAR
+MOVED. A number existed, and this is the first amendment in §9 that flips a condition to MET.**
+
+`perf/of3t_refatom/traj_refatom.json` (581 of 761 tensors, 88.83498302148425 %, no `scope.coupled`)
+→ `perf/of3t_trajfull/traj_trajfull.json` (761 of 761, **89.21058020840096 %**, `scope.coupled`
+emitted from six computed checks). Same instrument family, same reference bank, same denominator
+10.279642678524981, same bars. TRAJECTORY goes NOT MET → MET and the charter 1 of 3 → 2 of 3.
+
+Because it flips a verdict, the orchestrator verified it against the artifact rather than the row's
+report: percentage recomputed from the artifact's own two sums; the `moves` clause read directly
+off `per_step` (19 of 20 rungs non-zero on both sides, zero rungs where theirs moves and ours does
+not); the 180 added tensors confirmed to be a scoring map by reading the row's three commits
+individually rather than diffing against a moving branch tip; the new instrument options confirmed
+default-off; and the inflation failure mode shown not to reach the clause, because a wrong name map
+makes `rel_d` worse while the added 0.3755971869 % is a property of the reference's own gradient
+mass. **GRADIENTS remains NOT MET on two clauses, so this does not let the campaign declare GO.**
+
+**A-D211 — 2026-09-22 pass 357. A magnitude clause for TRAJECTORY was CONSIDERED AND DECLINED.
+A NUMBER ALREADY EXISTED, which is the whole reason it was declined.**
+
+At pass 357 `of3t-trajfull` reached the exact 761-tensor / 89.21058020840096 % scope at which
+`of3t-trajbar`'s `bar_bf16mixed_all` measures upstream's OWN bf16-mixed twenty-step loop, so the
+two became comparable for the first time. Scored: **1.2707x at k = 20, worst 1.3677x over
+k = 2..20**, reference side bit-identical at all twenty rungs.
+
+**No clause was added.** §3's founding rule is that a tolerance chosen after seeing the result is
+not evidence, and this result predates any bar that could be written for it. Recording the number
+in `PROVES:`, `DOESNOT:` and `VERDICT:` as a MEASUREMENT, while the gate continues to grade only
+shape, scope and coupling, is the honest arrangement: the reader gets the magnitude and the gate
+does not get a grade it did not earn in advance.
+
+**Note the direction, because §9's own warning is about the other one.** At a factor of 1.0 this
+clause would FAIL, so adding it would have made TRAJECTORY not-MET — declining it is therefore the
+flattering direction, and that is the thing to be suspicious of here. The defence is that the
+objection is the same either way: a bar written after its number is not a bar, whichever way it
+would have gone. If a future pass wants this graded, the clause must be argued from the reference's
+own properties (as A26 is for gradients) and not from the value we happen to read.

@@ -1526,8 +1526,14 @@ if ORCH.is_file():
         _n_disp = len(list(_WS.glob("of3t-*.txt")))
         _n_conc = len([d for d in _CON.iterdir()
                        if "of3t" in d.name and "of3t-orchestrator" not in d.name])
-        _rm = _re.search(r"^ROWS:\s*\*\*([a-z-]+) dispatched, ([a-z-]+) concluded",
-                         ORCH.read_text(), _re.M)
+        # D201, pass 347: the class name must allow a SPACE. The word list this check compares
+        # against renders 100 as "one hundred", while this pattern was `[a-z-]+` -- so at exactly
+        # one hundred dispatched rows the two halves of ONE check became unsatisfiable: the
+        # opening-form half rejected "one hundred dispatched" and the census half demanded it.
+        # A guard whose own two clauses disagree reports a defect that does not exist and hides
+        # the count it was built to audit.
+        _rm = _re.search(r"^ROWS:\s*\*\*([a-z][a-z -]*[a-z]) dispatched, ([a-z][a-z -]*[a-z]) "
+                         r"concluded", ORCH.read_text(), _re.M)
         if _rm is None:
             bad.append("ROWS does not open with '**<word> dispatched, <word> concluded**', so "
                        "the census cannot be checked against the briefs on disk")
@@ -1897,6 +1903,123 @@ if ORCH.is_file():
 
     _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000,
              "DIRECTIVE-STATUS": 12000}
+
+    # D190, pass 340: a field that is DELETED must be reported as deleted, not as staleness.
+    # Every content check below locates its field with a lookahead to the NEXT field heading
+    # (`^PROVES:(.*?)(?=^DOESNOT:)`), so when `DOESNOT:` stopped existing the search returned
+    # None, the quoted-figure check saw an empty haystack, and the compose reported four lines
+    # of "PROVES/DOESNOT does not quote 0.0121 -- the artifact has moved and the summary Moritz
+    # reads has not". Each was literally true and all four pointed at the wrong thing: the
+    # artifacts had not moved, 56,734 characters of DOESNOT had been spliced out of the source
+    # doc. A missing field degrades into "nothing is quoted", which is the one failure mode
+    # indistinguishable from a summary that was never updated. So: presence first, content
+    # after, and a distinct sentence for each.
+    # NOT simply `_CAPS`: `DIRECTIVE-STATUS` is in that dict for its 12,000-char cap and stopped
+    # being a top-level field somewhere before pass 313 -- it now reads `DIRECTIVE-STATUS,` at
+    # offset 136,593, i.e. as a section INSIDE `PASSLOG:` (which starts at 102,245), which is the
+    # right place for it. Demanding it back would move a field boundary through 34 KB of history.
+    # The list here is what the document owes as a heading today.
+    # D192, pass 341: a DIGEST quoted in a summary field must be corroborated by a row that
+    # measured it, not only by the document that introduced it.
+    #
+    # `24f0aee7525f1042` was published at pass 330 in this row's own trajrecover/RECOVERY.json
+    # as the identity of the two 0.4.3 reference trees, and from there it propagated into
+    # DEFECTS.md, ORCHESTRATOR.md twice and GAP, where it sat for eleven passes as the
+    # campaign's quoted tree identity. It is not reproducible under any rule in the tree. The
+    # correct value, `1b27f5754b32b8e3`, is carried by SEVEN artifacts across five namespaces
+    # including perf/refpath.py and compose_verify.sh -- so the two were distinguishable the
+    # whole time by counting who else had measured it.
+    #
+    # "Appears in a committed artifact" is NOT the rule and would have passed: the wrong value
+    # did appear in one, my own. The rule is CORROBORATION -- at least one carrier outside
+    # perf/of3t_orchestrator/, i.e. a row that took the measurement. The campaign's own
+    # tree_digest.py says it outright: "a digest quoted without its rule cannot be reproduced".
+    _dg = _re.compile(r"\b(?=[0-9a-f]{12,}\b)(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b")
+
+    def _carriers(tok):
+        """Namespaces outside this row's own that carry `tok` in a committed artifact."""
+        out = set()
+        for _p in (ROOT / "perf").rglob("*"):
+            if not _p.is_file() or _p.suffix not in (".json", ".py", ".md", ".txt", ".sh"):
+                continue
+            _rel = _p.relative_to(ROOT).as_posix()
+            if _rel.startswith("perf/of3t_orchestrator/"):
+                continue
+            try:
+                if tok in _p.read_text(errors="replace"):
+                    out.add(_rel.split("/")[1] if "/" in _rel[5:] else _rel)
+            except OSError:
+                continue
+        return out
+
+    # Same exemption shape as the D164 seconds guard: the text that RETIRES a bad value has to
+    # quote it, so a digest inside a paragraph naming D192 is being documented, not asserted.
+    # Deliberately narrow -- the paragraph must name the defect, not merely hedge -- and tested
+    # both ways below, because an exemption that swallows the case is a guard that reports clean.
+    _uncorrob = []
+    for _f in ("PROVES", "DOESNOT", "GAP", "VERDICT"):
+        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
+        if not _m:
+            continue
+        _body = _m.group(1)
+        for _para in _body.split("\n\n"):
+            _retires = "D192" in _para
+            for _tok in sorted(set(_dg.findall(_para))):
+                if _carriers(_tok) or _retires:
+                    continue
+                _uncorrob.append(f"{_f} quotes {_tok}, carried by no artifact outside "
+                                 f"perf/of3t_orchestrator/ and not in a paragraph naming D192")
+    if _uncorrob:
+        bad.append("digest(s) quoted in a summary field with no row behind them: "
+                   + "; ".join(_uncorrob) + " -- a value only this row has written is not a "
+                     "measurement, it is a transcription (D192)")
+    else:
+        ok.append("every digest quoted in a summary field is corroborated by a row outside "
+                  "this namespace (probe: a fabricated digest fires; a real one does not)")
+
+    # D204, pass 349: a CONCLUDED row whose findings never reach the ledger is invisible.
+    # I absorb rows I dispatched and rows that report while I am watching; one that concludes
+    # during a pass spent elsewhere can sit for a hundred passes and nothing says so. Measured
+    # when this was written: 8 of 99 concluded of3t rows were named NOWHERE in the DEFECTS union,
+    # and the worst case was a row that IS named while its concluding STOP verdict -- refuting a
+    # chartered figure and closing a defect -- was not absorbed at all. So naming is a weak test
+    # and this is a RATCHET rather than a bar: the number may fall, never rise.
+    # Absorbing the six unnamed rows in the same pass took this to 0, so the ratchet is set
+    # there: from now on ANY concluded row whose findings never reach the ledger fires.
+    _ABSORB_FLOOR = 0
+    _conc_dir = Path("/home/moritz/.coworker/state/concluded")
+    if _conc_dir.is_dir():
+        try:
+            import defects_union as _du
+            _led = _du.defects_text()
+        except Exception:
+            _led = None
+        if _led:
+            _unnamed = sorted(p.name for p in _conc_dir.iterdir()
+                              if p.name.startswith("of3t-")
+                              and not p.name.startswith("of3t-orchestrator")
+                              and p.name not in _led)
+            if len(_unnamed) > _ABSORB_FLOOR:
+                bad.append(f"{len(_unnamed)} concluded of3t rows are named nowhere in the DEFECTS "
+                           f"union, against a ratchet of {_ABSORB_FLOOR}: "
+                           + ", ".join(_unnamed[:12]) + " -- a concluded row's findings have to "
+                           "reach the ledger or they are lost (D204)")
+            else:
+                ok.append(f"concluded-row absorption ratchet holds: {len(_unnamed)} unnamed "
+                          f"against {_ABSORB_FLOOR} (probe: an unabsorbed row raises it; "
+                          "naming one lowers it)")
+
+    _OWED = ("PROVES", "DOESNOT", "GAP", "VERDICT", "PASSLOG")
+    _missing = [_f for _f in _OWED if not _re.search(rf"^{_f}:", _o, _re.M)]
+    if _missing:
+        bad.append("summary field(s) absent from the state doc entirely, which the content "
+                   "checks below would otherwise report as staleness: " + ", ".join(_missing)
+                   + " -- restore from the published mirror in "
+                     "perf/of3t_orchestrator/record/ORCHESTRATOR.md, do not re-author")
+    else:
+        ok.append(f"all {len(_OWED)} owed summary field(s) are present as headings "
+                  "(probe: deleting one fires; an empty one does not)")
+
     _over = []
     for _f, _cap in _CAPS.items():
         _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
