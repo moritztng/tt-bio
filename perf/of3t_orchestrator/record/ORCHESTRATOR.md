@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md`, thirty-seven amendments. **New at pass 379: A37, a boundary on what this campaign may publish as a target.** A projection may be published as a PREDICTION, never as a TARGET; it carries its own falsifier and its frame; and **no row's bar, allowance or done-check may be derived from one.** Twice in two passes I published a projected clause reading as the aim and twice it was wrong — 0.8986x from a lever whose forward and backward were different functions (R129), then 1.0674x carried across a frame change and measured at 1.7814x, outside its own band (R130). D214/D218 already barred dividing an in-frame ratio into another frame's threshold; A37 bars multiplying one into it, which is the form both took. **A34** (pass 378) remains the live precondition §3z: both sides of a per-parameter comparison must be on the SAME BOUNDARY — same batch, same entry activations, same incoming cotangent — recorded by digest and ASSERTED. `of3t-modelframe` is the first arm built to it. Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md`, thirty-eight amendments. **New at pass 379: A38 — where a falsifier's behaviour under its own hypothesis can be simulated more cheaply than the experiment it gates, simulate it BEFORE dispatch; a falsifier the true hypothesis also satisfies is not one (R131). And A37, a boundary on what this campaign may publish as a target.** A projection may be published as a PREDICTION, never as a TARGET; it carries its own falsifier and its frame; and **no row's bar, allowance or done-check may be derived from one.** Twice in two passes I published a projected clause reading as the aim and twice it was wrong — 0.8986x from a lever whose forward and backward were different functions (R129), then 1.0674x carried across a frame change and measured at 1.7814x, outside its own band (R130). D214/D218 already barred dividing an in-frame ratio into another frame's threshold; A37 bars multiplying one into it, which is the form both took. **A34** (pass 378) remains the live precondition §3z: both sides of a per-parameter comparison must be on the SAME BOUNDARY — same batch, same entry activations, same incoming cotangent — recorded by digest and ASSERTED. `of3t-modelframe` is the first arm built to it. Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -57,7 +57,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R130 and K1-K18**. New at pass 379: **R130** — the frame fix was necessary and NOT sufficient. The boundary mismatch was worth 1.9085x of the published 0.5171166332757559 and the clause still fails at 1.7814x, so the remaining gap is ours; hot-spot patching is refuted as a route (the top twelve leaves, 96.71 % of the trunk's error mass, at upstream's own bf16 level still read 1.0340x); and the carrier has a module class, the LayerNorm affine leaves at 93.80 % of the trunk's excess. **R128** — the charter's one open clause was UNSATISFIABLE by any artifact for fifty-nine passes because every guard checked OUR ARM rather than the comparison; **R129** — a lever reading is not a target until its forward and its backward are the same function. Earlier entries name how it was verified. R1: **`openfold3/tests/test_training_full.py` does not exist** — I downloaded
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R131 and K1-K18**. New at pass 379: **R131** — the trunk's observed 3-4.6x is a **~2 mantissa-bit deficit** (a 22-bit accumulator reads 3.928 against the 4.000 the deficit predicts), bf16 accumulation is excluded at 65,237x, and the K-ratio falsifier I had pre-registered was invalid because a precision difference is flat in K by construction (slope +0.0155 over a 2,300x span). **R130** — the frame fix was necessary and NOT sufficient. The boundary mismatch was worth 1.9085x of the published 0.5171166332757559 and the clause still fails at 1.7814x, so the remaining gap is ours; hot-spot patching is refuted as a route (the top twelve leaves, 96.71 % of the trunk's error mass, at upstream's own bf16 level still read 1.0340x); and the carrier has a module class, the LayerNorm affine leaves at 93.80 % of the trunk's excess. **R128** — the charter's one open clause was UNSATISFIABLE by any artifact for fifty-nine passes because every guard checked OUR ARM rather than the comparison; **R129** — a lever reading is not a target until its forward and its backward are the same function. Earlier entries name how it was verified. R1: **`openfold3/tests/test_training_full.py` does not exist** — I downloaded
 and extracted the 0.4.3 sdist; `find . -name 'test_training*'` returns nothing, and no upstream
 test trains end-to-end. It was the charter's cheapest and most credible artifact and it is
 fictional. R2: our loss weight table does **not** cover OpenFold3 — `train/losses.py:63` has two
@@ -77,7 +77,10 @@ ROWS: **one hundred eighteen dispatched, one hundred fifteen concluded**, stampe
 `perf/of3t_orchestrator/stamp_row_counts.py`, which is the only thing that may edit these
 numbers; the exact file count and its reconciliation are in `VERDICT:`, stated once. **One live, one dispatched this pass.**
 
-- **`of3t-lnreduce`** — dispatched **this pass**, and it is the critical path. The LayerNorm
+- **`of3t-lnreduce`** — dispatched **this pass** (launched qb1-card0 17:26) and it is the
+  critical path. **Its brief, its TASKS line and its gate were all AMENDED at 18:0x, together,
+  because the falsifier I gave it was invalid** (R131, A38) — a decision that reaches only a
+  state doc does not reach a running row. The LayerNorm
   affine reduction is the trunk's carrier: `dW = sum_positions(dy*xhat)` over heavily cancelling
   sums, which is the one mechanism consistent with all three exclusions already paid for
   (`of3t-vjpln`'s 690 exact float64 substitutions moving R44 the WRONG way, `of3t-trunkact`'s
@@ -480,16 +483,19 @@ carry 93.80 %** of the excess with a width-invariant signature: `attn_pair_bias.
 42.00 % of the error mass, `pair_stack.pair_transition.layer_norm` 32.41 % at 4.5815x upstream's
 own level, `tri_att_start.layer_norm` 3.3080x. **Hot-spot patching cannot close it** — the top
 twelve leaves at upstream's own bf16 level still leave the clause at 1.0340x — so the lever has
-to move the whole stack. Three rows converge on the mechanism and it is not any single op's
-arithmetic: `of3t-vjpln` made 690 backward substitutions in blocks 45/44 exact in float64 and the
-ratio moved the **wrong way**, and `of3t-apbleaf` measured a cotangent residue of 1.1745x
-becoming a gradient residue of 2.4044x. The carrier is what the backward **reads** and how a
-cancelling reduction amplifies it, which is what `of3t-lnreduce` is dispatched this pass to
-settle.
+to move the whole stack. Three rows exclude any single op's arithmetic: `of3t-vjpln` made 690
+backward substitutions exact in float64 and the ratio moved the **wrong way**. The carrier is
+the cancelling reduction, and `of3t-lnreduce` is dispatched on it.
 
 **Outside the trunk we are better than upstream's own bf16 step.** Ten sections pool to
 0.1026990533692057 against the 0.15210099830945006 bar, **0.6752x, passing alone**, spread
 0.005x to 1.823x, seven of eleven strictly better than their own bf16 (D221).
+
+**The 3-4.6x now has a mechanism with a number on it** (R131, CPU simulation, no card): it maps
+to a **~2 mantissa-bit deficit** — a 22-bit accumulator reads **3.928** against the 4.000 the
+deficit predicts — and **bf16 accumulation is excluded at 65,237x**. TT fp32 being short of IEEE
+fp32 is Moritz's mechanism with "a few bits" measured at about two, and it makes the trunk defect
+and the unreachable on-device softmax **one** mechanism, not two.
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** The per-pass
 narrative, including the superseded CEIL_HF projection and its correction, is in PASSLOG.

@@ -1770,3 +1770,32 @@ its own falsifier and a named frame.** Concretely, in any of3t document:
 what made `of3t-modelframe` worth dispatching ahead of everything else, and its falsification is
 a result. The defect is publishing one in `VERDICT:` beside measurements, where a later reader
 cannot tell which is which. Projections belong in the dispatching brief and in PASSLOG.
+
+
+---
+
+**A38 — 2026-09-22, raised by `of3t-orchestrator` from R131, §3 gains one sentence on
+pre-registration. No tolerance moves and no number existed when this was written.**
+
+§3 has required a pre-registered falsifier since pass 1, and A37 (this same pass) made it
+mandatory beside any published projection. Neither said the falsifier may itself be wrong.
+
+`of3t-lnreduce` was dispatched with one that was. *"Flat in K and the accumulation hypothesis is
+dead"* reads the one statistic a precision difference makes invariant: measured, the slope of
+log2(ratio) against log2(K) is **+0.0155** for a 2-bit-short accumulator over a 2,300x span of K,
+while each side's own absolute error runs at **+0.50**. The test would have killed a true
+hypothesis and the row would have reported an honest refutation of nothing.
+
+**The rule. Where a falsifier's behaviour under the hypothesis can be simulated more cheaply than
+the experiment it gates, simulate it before dispatch.** Not a proof, and not always possible —
+but here it cost four minutes of CPU numpy against a row holding a card, and the asymmetry is
+the whole argument. Concretely, before a brief goes out with a two-sided pre-registration:
+
+- **Ask what the statistic does under the hypothesis being TRUE**, not only under it being false.
+  A falsifier that the true hypothesis also satisfies is not one.
+- **Prefer a statistic the mechanism moves.** The amended ladder reads each side's absolute error
+  against the cancellation factor, which the mechanism does move, instead of their ratio, which
+  it does not.
+- **If it is caught late, amend the brief, the queue line and the row's gate together, in the
+  same pass.** A correction that reaches only the state doc does not reach a running row — the
+  campaign has paid for that once already.

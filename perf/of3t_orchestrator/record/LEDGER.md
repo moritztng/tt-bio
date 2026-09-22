@@ -1324,3 +1324,40 @@ Three things this bought that are worth more than the clause reading:
   field, which is what caught it.
 
 Dispatched on it: `of3t-lnreduce`, pre-registered two-sided against the real-position count K.
+
+### R131. I gave a live row a falsifier that would have killed a true hypothesis, and found it by simulating the test after dispatching it instead of before. From `of3t-orchestrator`, pass 379.
+
+`of3t-lnreduce` went out at 17:26 with this pre-registration: *the ratio ours/upstream is graded
+by the real-position count K, or it is flat in K and the accumulation hypothesis is dead.*
+
+**A pure accumulator-precision difference is flat in K by construction.** Measured, not argued:
+`perf/of3t_orchestrator/lnladder/ladder_shape.py`, 160 trials per rung, K from 64 to 147,456,
+sequential accumulation rounded to m significand bits after every add, `math.fsum` reference,
+float64 throughout, no torch and no device. Slope of log2(ratio) against log2(K):
+
+    2 bits short of IEEE fp32   +0.0155     median ratio 3.928   bit deficit predicts 4.000
+    5 bits short                +0.0270     median ratio 33.845  predicts 32.000
+    bf16                        +0.0125     median ratio 65,237  predicts 65,536
+
+Flat, over a 2,300x span. What IS graded is each side's own absolute error, at slope +0.4997,
++0.5142, +0.5027 and +0.4872 — sqrt(K) on every rung, which is the cancellation factor growing
+8.8 to 501.1 over the same span. **The ladder was reading the one statistic the mechanism makes
+invariant.**
+
+Three things fall out that are worth more than the correction:
+
+- **The observed 3-4.6x is a ~2 mantissa-bit deficit.** A 22-bit accumulator against IEEE's 24
+  reads 3.928. So Moritz's mechanism — Tenstorrent's fp32 is not IEEE fp32, it is a few mantissa
+  bits short — now has a number on it, and "a few" is about two. The row has a falsifiable
+  prediction: measure ~22 bits, or the precision story is wrong.
+- **bf16 accumulation is excluded by four orders of magnitude**, 65,237x against an observed 3x.
+  We are not accumulating in bf16 while upstream accumulates in fp32.
+- **Same silicon ceiling, second site.** This is why no on-device softmax config reached the bar
+  either, and it makes the trunk defect and the softmax defect one mechanism rather than two.
+
+**The process lesson, which is the durable one.** The simulation cost four minutes on CPU with
+numpy and no card, and it invalidated the test before the row spent card time on it — but I ran
+it *after* dispatch. **A pre-registered falsifier is itself a claim and it can be checked before
+it is published.** Where the check is this cheap, not running it is the defect. The brief, the
+TASKS line and the row's gate were all amended in the same pass, together, because a decision in
+a state doc does not reach a running row.
