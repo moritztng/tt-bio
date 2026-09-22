@@ -1,0 +1,37 @@
+{
+ "what": "D78: the model-norm check is a relative tolerance, controlled in both directions. Both honest spellings pass, a real denominator error fails.",
+ "expected": 10.279642678524985,
+ "tolerance": 1e-12,
+ "cases": [
+  {
+   "case": "the other recorded spelling, ...986",
+   "value": 10.279642678524986,
+   "relative": 1.728033643728887e-16,
+   "passes": true
+  },
+  {
+   "case": "the spelling this run measured, ...981",
+   "value": 10.279642678524981,
+   "relative": 3.456067287457774e-16,
+   "passes": true
+  },
+  {
+   "case": "1e-13 relative drift",
+   "value": 10.279642678526011,
+   "relative": 9.988034460752967e-14,
+   "passes": true
+  },
+  {
+   "case": "1e-11 relative drift",
+   "value": 10.27964267862778,
+   "relative": 9.999957892894696e-12,
+   "passes": false
+  },
+  {
+   "case": "a genuinely wrong denominator, 1 %",
+   "value": 10.382439105310235,
+   "relative": 0.01000000000000005,
+   "passes": false
+  }
+ ]
+}
