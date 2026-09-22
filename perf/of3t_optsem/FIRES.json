@@ -1,0 +1,67 @@
+{
+ "source": "/home/moritz/.coworker/scratch/of3t-reference/upstream",
+ "confidence_loss_names": [
+  "plddt",
+  "pde",
+  "experimentally_resolved",
+  "pae"
+ ],
+ "default_loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "experimentally_resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "datasets": {
+  "weighted-pdb": {
+   "sampling_weight": 0.5,
+   "confidence_weight_sum": 0.0004,
+   "disables_confidence_head": false
+  },
+  "long-monomer-distillation": {
+   "sampling_weight": 0.495,
+   "confidence_weight_sum": 0.0,
+   "disables_confidence_head": true
+  },
+  "short-monomer-distillation": {
+   "sampling_weight": 0.005,
+   "confidence_weight_sum": 0.0,
+   "disables_confidence_head": true
+  },
+  "disordered-pdb": {
+   "sampling_weight": 0.02,
+   "confidence_weight_sum": 0.0,
+   "disables_confidence_head": true
+  },
+  "RNA-monomer-distillation": {
+   "sampling_weight": 0.05,
+   "confidence_weight_sum": 0.0,
+   "disables_confidence_head": true
+  }
+ },
+ "p_sample_disables_confidence_head": 0.5327102803738318,
+ "global_batch_per_optimizer_step": 256,
+ "global_batch_terms": {
+  "devices": 8,
+  "num_nodes": 32,
+  "batch_size": 1,
+  "accumulate_grad_batches": 1
+ },
+ "p_zero_participation_step_by_global_batch": {
+  "1": 0.5327102803738318,
+  "2": 0.28378024281596653,
+  "4": 0.08053122621268892,
+  "8": 0.006485278395319275,
+  "16": 4.205883586479495e-05,
+  "32": 1.768945674301762e-09,
+  "64": 3.1291687986309153e-18,
+  "128": 9.791697370325244e-36,
+  "256": 9.587733739203432e-71
+ },
+ "p_zero_participation_step_at_shipped_scale": 9.587733739203432e-71,
+ "resolution_exclusion_share_of_weighted_pdb_needed_for_1e-06": 0.8875719449025032
+}

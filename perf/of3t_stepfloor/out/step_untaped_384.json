@@ -1,0 +1,405 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "1",
+  "--samples",
+  "4",
+  "--reps",
+  "3",
+  "--no-tape",
+  "--no-optimizer",
+  "--out",
+  "perf/of3t_stepfloor/out/step_untaped_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "renorm": null,
+  "commit": "9e5e6014d5c6cdc9ff641fd18889665e94d42858",
+  "branch": "wk/of3t-stepfloor",
+  "started_utc": "2026-09-21T17:14:22Z",
+  "loadavg_start": [
+   22.9892578125,
+   23.74658203125,
+   20.6279296875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 13
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work",
+  "loadavg_end": [
+   23.58154296875,
+   23.84423828125,
+   20.76171875
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 1,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": false
+ },
+ "build_fold_s": 6.55,
+ "prep_to_sampler_s": 9.67,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.372,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 896,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 275,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": null,
+  "params": 0
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "stats_after": {
+   "applied": 0,
+   "declined": 0
+  },
+  "applied_during_reps": 0,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 1.213,
+   "trunk_s": 1.213,
+   "dram_after_trunk": 1583084544,
+   "diffusion_s": 2.204,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     1.818,
+     0.118,
+     0.073,
+     0.077
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 2061155328,
+   "losses_s": 2.788,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 2.779,
+    "value_claimed": false
+   },
+   "roots_taped": 0,
+   "seed_upload_s": 0.0,
+   "tape_nodes": 0,
+   "backward_s": 0.0,
+   "backward_note": "UNTAPED ARM -- no backward exists to run. Not a zero cost and not a failure",
+   "params_with_grad": "0 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 2061155328,
+   "optimizer_s": 0.0,
+   "optimizer_note": "--no-optimizer",
+   "step_s_UNTAPED": 6.205,
+   "step_s": null
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 1.267,
+   "trunk_s": 1.267,
+   "dram_after_trunk": 2061155328,
+   "diffusion_s": 0.404,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.171,
+     0.071,
+     0.079,
+     0.078
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 2061155328,
+   "losses_s": 2.595,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 2.591,
+    "value_claimed": false
+   },
+   "roots_taped": 0,
+   "seed_upload_s": 0.0,
+   "tape_nodes": 0,
+   "backward_s": 0.0,
+   "backward_note": "UNTAPED ARM -- no backward exists to run. Not a zero cost and not a failure",
+   "params_with_grad": "0 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 2061155328,
+   "optimizer_s": 0.0,
+   "optimizer_note": "--no-optimizer",
+   "step_s_UNTAPED": 4.266,
+   "step_s": null
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 1.21,
+   "trunk_s": 1.21,
+   "dram_after_trunk": 2061155328,
+   "diffusion_s": 0.372,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0153,
+     0.0987,
+     86.3515
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.164,
+     0.07,
+     0.081,
+     0.054
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 2061155328,
+   "losses_s": 2.791,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 2.787,
+    "value_claimed": false
+   },
+   "roots_taped": 0,
+   "seed_upload_s": 0.0,
+   "tape_nodes": 0,
+   "backward_s": 0.0,
+   "backward_note": "UNTAPED ARM -- no backward exists to run. Not a zero cost and not a failure",
+   "params_with_grad": "0 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 2061155328,
+   "optimizer_s": 0.0,
+   "optimizer_note": "--no-optimizer",
+   "step_s_UNTAPED": 4.373,
+   "step_s": null
+  }
+ ],
+ "cold_s": 6.205,
+ "steady": {
+  "n": 2,
+  "values_s": [
+   4.266,
+   4.373
+  ],
+  "median_s": 4.319,
+  "min_s": 4.266,
+  "max_s": 4.373,
+  "spread_s": 0.107
+ }
+}
