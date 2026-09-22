@@ -148,6 +148,13 @@ def main() -> int:
     ap.add_argument("--tag", default="")
     ap.add_argument("--every", type=float, default=5.0)
     ap.add_argument("--steps", type=int, default=20)
+    ap.add_argument("--warmup", type=int, default=None,
+                    help="PROTOCOL S7 runs the trajectory TWICE: the shipped configuration, "
+                         "and one with warmup_no_steps scaled down so the 20 steps produce a "
+                         "usable dynamic range for the growth law. Neither is optional and no "
+                         "arm in this campaign had the scaled one. warmup_no_steps is a knob "
+                         "upstream exposes, so this is a configuration change and not a change "
+                         "to the update rule.")
     a = ap.parse_args()
 
     out = os.path.join("perf", "of3t_trajretake", f"traj_retake_{a.arm}{a.tag}.json")
@@ -177,6 +184,8 @@ def main() -> int:
     os.makedirs(stats, exist_ok=True)
     env["TT_BIO_RENORM_STATS_DIR"] = stats
     cmd = [PY, HARNESS, "--arm", a.arm, "--steps", str(a.steps), "--out", out]
+    if a.warmup is not None:
+        cmd += ["--warmup", str(a.warmup)]
 
     # Read the tree BEFORE the child runs. The child WRITES into the tree, so a status taken
     # afterwards lists the artifact in its own dirty list, and a stamp that cannot tell "the tree
@@ -244,6 +253,22 @@ def main() -> int:
         "note": "recorded for attribution. This row's claims are trajectory and parity, not "
                 "throughput, so no number here is divided by a clock.",
     }
+    # A null clock has two readings and they are not the same fact: the child never touched a
+    # card (the `aa` arm is upstream against upstream on the CPU), or the sampler could not JOIN
+    # its device index to the telemetry table. The second happens when the DRIVER inherits
+    # TT_VISIBLE_DEVICES: its own `tt-smi -s` then enumerates one card and calls it index 0,
+    # while `pid_on_device` reports the child on the card's real number, and the join silently
+    # misses. The driver sets TT_VISIBLE_DEVICES for the CHILD and must not carry it itself.
+    # Say which reading applies rather than leaving a null that looks like an idle card.
+    if not my:
+        art["aiclk_during"]["why_no_samples"] = (
+            "child never appeared on a device in tt-smi's process table; this arm runs on the "
+            "CPU and no AICLK applies" if not devs else
+            "UNJOINED: the child was seen on device %s but the telemetry table enumerated only "
+            "%s. The driver inherited TT_VISIBLE_DEVICES, so its own tt-smi saw a filtered "
+            "device list and the indices do not refer to the same chip. Re-run the driver "
+            "WITHOUT TT_VISIBLE_DEVICES in its environment -- it sets it for the child."
+            % (devs, sorted(per_dev)))
     live = (art.get("flag_reach") or {}).get("_SOFTMAX_BW_RENORM")
     art["d56"] = {
         "softmax_bw_renorm_asked": (None if a.renorm == "unset" else a.renorm == "1"),
