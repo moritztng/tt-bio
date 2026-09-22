@@ -657,9 +657,10 @@ concluded 2026-09-21.
     D30/D58       the ~20x tape amplification of3t-tapeamp    dispatched pass 350; of3t-ditref
                                                               concluded without locating it
     D129          re-price the denominator   UNOWNED         of3t-ditcot REFUTED the 2.28x: the
-                                                              reference cannot hold the 48
-                                                              per-block layer_norm_z; 6.62x is
-                                                              architecture (absorbed pass 349)
+                                                              reference BUILDER's module cannot
+                                                              hold the 48 per-block layer_norm_z;
+                                                              6.62x is architecture. The pinned
+                                                              bundle DOES hold them (checked 351)
     D55           forward fold A/B            UNOWNED         of3t-fwdkcfg NO-GO on flipping a
                                                               default; backward half closed
     D32           D56's step-scope ON/OFF     of3t-stepfloor  CLOSED at pass 318, 94.3x
@@ -819,7 +820,7 @@ precision on mass already inside the bar, another softmax configuration, or call
 gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random cosine is a
 missing term, not rounding.
 
-VERDICT: PARTIAL, re-stamped pass 350, 2026-09-22 — **still working, which is what PARTIAL means.**
+VERDICT: PARTIAL, re-stamped pass 351, 2026-09-22 — **still working, which is what PARTIAL means.**
 **Ninety-nine** of3t rows concluded, **two hundred six defects** filed, **76 UNFIXED**, counted
 over the UNION of `DEFECTS.md` and its archives because the live file holds only the tail. The exit
 criterion is machine-readable and reads **0 of 3** (`state/of3t/CHARTER_EVIDENCE.json`, regenerated
@@ -840,26 +841,28 @@ on the trunk's share (D186).
     COVERAGE    11 of 11 paths FIRE on a real end-to-end step; 8 of 8 loss terms -- not yet
                 composed, the row is live and owes the byte-identical fold (D199)
 
-**What is verified, and it is the larger part.** The update rule's four state-free factors — LR
-schedule, clipping, optimizer, EMA — are exact or at 1e-06 under an injected drive. **Outside the
+**What is verified, and it is the larger part.** The update rule's four state-free factors are
+exact or at 1e-06 under an injected drive. **Outside the
 pairformer trunk the gradient is at upstream's own accuracy**: 0.083010 against float64 over
-92.1568 % of the mass, **1.1031x** upstream's own bf16, inside the A26 bar. The twenty-step
-trajectory tracks upstream to **1.4553x**, sub-linear, over 88.0819 % (D182).
+92.1568 % of the mass, **1.1031x** upstream's own bf16 — and its denominator is verified to carry
+the checkpoint's per-block layout, so `of3t-ditcot`'s architecture defect does not reach it. The twenty-step trajectory tracks upstream to
+**1.4553x**, sub-linear, over 88.0819 % (D182).
 
 **The trunk FAILS frame-matched at the width we report (D191), and it is now the campaign's only
 large accuracy object.** Frame-matched at 384: ours **0.8354121633** against upstream's own bf16
 floor **0.3739383921** is **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373; at 64
 the same scorer reads 1.0251x. The floor moves **1.0000022x** with width where our arm moves
 **2.1795x**, so the movement is ours. Growth 0.5510 mw², denominator width-invariant to
-3.20e-15. **RELOCATED pass 347**: a **per-block factor of ~2.9x on the SINGLE track's
-cotangent**, not a leaf effect. Both shape-keyed sites, pinned, account for **+0.0067 %** and
-**exactly 0.0** of a 2.1795x growth; the single-track site never executes.
+3.20e-15. **RELOCATED pass 347**: a **per-block factor of ~2.9x on the SINGLE
+track's cotangent**, not a leaf effect. Both shape-keyed sites, pinned, account for **+0.0067 %**
+and **exactly 0.0**; the single-track site never executes. `of3t-tapeamp` owns the successor.
 The **93.80 % on LayerNorm affine is the CARRIER** — the named leaf's excess over its worst sibling
-is width-INVARIANT (2.6233→2.5399) while the whole upstream group grows together (1.6948–3.1275x),
-its worst sibling moving by the same factor. The leaf's own wrongness, norm ratio **7.3729 at cos
--0.0057**, is a separate width-independent object. Next: the taped single-track attention in `tt_bio/autograd.py`.
-The softmax backward remains a DIFFERENT object at **0.1232 %**.
-**D187 is LOCATED and smaller than filed**: `diffusion_transformer` reads **1.3501x** in A26's own form, not 2.019x, which was a floor ratio — a precision floor where upstream's own bf16 misses the per-tensor bar on 369 of 456 against our 354.
+is width-INVARIANT while the whole upstream group grows together, its worst sibling moving by the
+same factor; the leaf's own wrongness (norm ratio **7.3729 at cos -0.0057**) is a separate
+width-independent object. The softmax backward is a DIFFERENT object at **0.1232 %**. **D187 is
+LOCATED and smaller than filed**: `diffusion_transformer` reads **1.3501x** in A26's own form, not
+2.019x, which was a floor ratio — and a precision floor, upstream's own bf16 missing the per-tensor
+bar on 369 of 456 against our 354.
 
 **Two things wait on Moritz.** **D126**, ask **9760**, open — his reply went to BindCraft 2 and
 did not answer it: on `origin/main` a training run computes one gradient then exactly zero forever,

@@ -2669,3 +2669,35 @@ to nothing and the run continues) and in `firing != code`. **Where two callers m
 boundary, the boundary belongs to neither of them.** And if an arm reports a squared gradient norm
 eleven orders off its own denominator, that is a configuration fault to find before it is a
 finding: no model produces 4.87e+11 against 10.2796 by being inaccurate.
+
+### D129 UPDATE 2, pass 351 — scoping my own pass-349 sentence, and clearing the campaign's main POSITIVE claim against it.
+
+Pass 349 absorbed `of3t-ditcot` with the sentence *"the diffusion reference cannot be built in the
+checkpoint's architecture"*. That is true of the thing the row measured and **ambiguous about which
+reference**, which matters because one reading would invalidate this campaign's largest positive
+result. Both halves checked this pass rather than assumed.
+
+**What ditcot actually measured.** *"Loading `of3-p2-155k.pt` the way every diffusion reference
+BUILDER does gives `missing_total 3` and `unexpected_total 48`"* — all 48 unexpected keys
+`attention_pair_bias.layer_norm_z`. That reference module has exactly **1** `layer_norm_z` site,
+all-ones, `max|w-1| = 0.0`, where ours runs **24 trained tensors** at mean 0.276-0.568, std
+0.130-0.224. So the defect is in the **module the diffusion reference builders construct**, not in
+every artifact with "reference" in its name. The row refused to form a transport ratio against that
+denominator, per A27, rather than publish one.
+
+**And the pinned bundle is NOT that module.** Checked directly on qb2:
+`/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt`, sha256 `1d4ea9225f…`, holds **4,170**
+tensors, **143** `layer_norm_z` entries, **28** of them under `diffusion_module`, spanning **24
+distinct `diffusion_transformer.blocks.N` indices**. It carries the per-block layout.
+
+**So the campaign's main positive claim stands, and it is worth saying that it was the claim most
+worth attacking.** `MODEL_shipped.json`'s 92.1568 % of the mass at **1.1031x** upstream's own bf16
+— "outside the pairformer trunk the gradient is at upstream's own accuracy" — is scored against
+that bundle over four scopes (`diffusion`, `cond`, `aux`, `msa`, 907 tensors). Its denominator can
+express the checkpoint's architecture, so ditcot's 6.62x does not reach it. **Unchanged, now for a
+measured reason rather than by omission.**
+
+**The correction I owe on my own entry:** "the diffusion reference" is not one object, and pass
+349's sentence should have said *the reference builder's module*. A defect scoped to a builder read
+as scoped to every reference would have put the campaign's best result in doubt for no reason —
+the mirror image of the flattering direction, and the same imprecision either way.
