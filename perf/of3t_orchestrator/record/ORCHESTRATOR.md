@@ -360,7 +360,11 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               on its branch** — the gate moved into `host_softmax_or_none`, `TriangleAttention`
               takes a `softmax_site`, and `HOST_F64_SOFTMAX_STATS` gained a `selected` counter
               bumped at CONSTRUCTION so an unreached selector reports itself; the measurements
-              it owes are the agreement with 0.5547455957585244 and the inference A/B) and which
+              it owes are the agreement with 0.5547455957585244 and the inference A/B; its per-site
+              census now reads openfold3 **623 arrivals, 440 via the tail**, rf3 **33, all 33
+              via the tail — its whole reach**, and protenix-v2 **183, none via the tail**,
+              which makes protenix-v2 a model where the changed path provably does not execute
+              and therefore a negative control for the A/B) and which
               is **additive with the shipped renorm**, not substitutable (D226). The softmax
               axis is now closed in both tracks, forward and backward, at **1.0004x** for the
               last of it.
@@ -1798,3 +1802,36 @@ the stamper owns, so the numbers come from disk rather than from prose.
 A/Bs, so I checked whether `PROVES:`, `DOESNOT:` or `VERDICT:` rested on it. They do not — the
 only inference claim in the summary fields is *"inference byte-identical twice"*, which is a
 digest and unaffected. The correction stays in the ledger where it belongs.
+
+## Pass 376 — the route fix's reach, censused per site, and a negative control nobody had to build
+
+`of3t-f64route` folded each model once with `TT_BIO_HOST_F64_SOFTMAX_AB=all` on qb1 card 3,
+reading the per-PID capacity dump D236 fixed so the count comes from the process that folded:
+
+    model         arrivals   via the tail   via site_softmax
+    openfold3          623            440                183
+    rf3                 33             33                  0
+    protenix-v2        183              0                183      0 fp32_softmax calls
+
+**RF3 gains its whole reach** — for that model the host float64 softmax was not under-reaching,
+it was **entirely** unreachable, which is categorically worse than the OpenFold3 trunk case D225
+was written from. OpenFold3 gains 440 of 623.
+
+**And `protenix-v2` is a negative control nobody had to construct.** It buckets its token axis at
+128 aa, so it never enters `_fp32_softmax_attention` and the change provably cannot touch it. A
+byte-identical fold there is a stronger statement than a digest match on a model that did change,
+and I told the row to lead its INFERENCE field with it.
+
+The per-site decomposition matches the four sites the brief named exactly: OpenFold3's pairformer
+**168** per token is `48 trunk x 3 + confidence 4 x 3 + msa 4 x 2 + template 2 x 2`.
+
+**One methodological thing worth keeping.** The three models first reported an identical **195**
+total, which looks exactly like a counter bug. The row decomposed per token rather than assuming
+either way and found three AF3-family stacks with the same 48 trunk and 24 DiT block counts — a
+real coincidence. Its own phrasing is the transferable part: **"a total cannot locate a site."**
+That is D236's lesson from the other direction, where a total of zero could not distinguish
+*never arrived* from *counted in the wrong process*, and the pair is worth more than either.
+
+Still owed on that row and gating it: `ROUTE_HF` against `CEIL_HF`'s **0.5547455957585244**,
+which D234 established is comparable across board classes with no correction, and the inference
+A/B with its A/A floor first.
