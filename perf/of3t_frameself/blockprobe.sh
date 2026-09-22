@@ -31,6 +31,6 @@ nice -n 5 "$PY" perf/of3t_modelframe/capture_model_frame.py \
   --expect-loss 1.267624369070698 \
   --blockprobe "$BLOCKS" \
   --blockprobe-injected /home/ttuser/of3t_twoside/ctrl_f64.pt \
-  --out-dir "$O" --threads "$THREADS" --tag blockprobe_n384 2>&1 \
+  --out-dir "$O" --threads "$THREADS" --tag ${TAG:-blockprobe_n384} 2>&1 \
   | grep -vE "UserWarning|warnings.warn|^  from openfold3|Consider using tensor.detach"
 echo "=== blockprobe exit ${PIPESTATUS[0]} $(date -u +%FT%TZ) ==="

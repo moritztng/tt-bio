@@ -461,6 +461,24 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag,
         }
         for prm, g in zip(bp, keep):
             prm.grad = g
+        # the whole defect, as one block's boundary. D242 now has a 13-second reproducer that
+        # needs no model forward: load this, run the block, and the 1.679 is back.
+        dp = out_dir / f"ONEBLOCK_{tag}.pt"
+        torch.save({"block": bi,
+                    "in_s": blk["in_s"].detach().to(torch.float64).clone(),
+                    "in_z": blk["in_z"].detach().to(torch.float64).clone(),
+                    "kwargs_tensor": {k: v.detach().clone()
+                                      for k, v in blk["kwargs"].items() if torch.is_tensor(v)},
+                    "kwargs_other": {k: v for k, v in blk["kwargs"].items()
+                                     if not torch.is_tensor(v)},
+                    "cot_s": c["cot_s"], "cot_z": c["cot_z"],
+                    "out_s": blk["out_s"].detach().to(torch.float64).clone(),
+                    "out_z": blk["out_z"].detach().to(torch.float64).clone(),
+                    "real_grad": {n: g.clone() for n, g in real_one.items() if g is not None},
+                    "real_din_s": real_in[0].detach().to(torch.float64).clone(),
+                    "real_din_z": real_in[1].detach().to(torch.float64).clone()}, dp)
+        oneblock["reproducer"] = {"path": str(dp), "bytes": dp.stat().st_size,
+                                  "sha256": sha256_file(dp)}
 
     rg = load(ref_grads)
     inj = load(injected)
