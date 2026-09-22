@@ -1,0 +1,106 @@
+{
+ "what": "of3t-orchestrator pass 393: two user-facing defects were missing from the user-facing list for ~35 passes, and the invariant protecting the rest was run by nothing.",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; reads committed files and runs one card-free test file",
+ "user_facing_unfixed": [
+  "D10",
+  "D184",
+  "D205",
+  "D210",
+  "D24",
+  "D32",
+  "D55",
+  "D58"
+ ],
+ "n": 8,
+ "audit_covers_all_of_them": true,
+ "not_covered": [],
+ "by_surface": {
+  "D10": {
+   "surface": "INFERENCE, shipped selector",
+   "why": "the confidence head mis-ranks diffusion samples, measured end to end through the production CLI. Served 0.775 A shipped against 0.760 A repaired, best-of-5 0.679 A, seed floor 0.226 A over 28 pairs -- the repair's gain is inside the floor.",
+   "triage_class": "USER-FACING",
+   "triage_why": "The confidence head mis-ranks diffusion samples on the SHIPPED selector, measured end to end through the production CLI on 1UBQ."
+  },
+  "D184": {
+   "surface": "TRAINING",
+   "why": "seventeen parameters receive no gradient on the shipped default. A gradient is not part of a fold.",
+   "triage_class": "USER-FACING",
+   "triage_why": "The 99.50523 % coverage figure is arithmetically right and belongs to a default-OFF lever, so the shipped arm still reads 97.98499 % -- seventeen parameters receive no gradient on the default someone gets today. Pass 340"
+  },
+  "D205": {
+   "surface": "INFERENCE, but a REFUSAL",
+   "why": "512 aa is the largest crop that runs; 544, 576, 640 and 768 refuse. A user asking for 640 gets an error, not a wrong structure. It is a documented limit and it is real, but it is not a wrong answer.",
+   "triage_class": "USER-FACING",
+   "triage_why": "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity extrapolation cannot see. A capability limit someone using tt"
+  },
+  "D210": {
+   "surface": "TRAINING",
+   "why": "14.2M fused-QKV pad lanes are stepped by Adam. The pad columns are sliced off before v is used, and R152 measured their one other route -- the global-norm clip -- inert on the trajectory at 12.5703x of headroom.",
+   "triage_class": "USER-FACING",
+   "triage_why": "14.2M fused-QKV pad lanes are in the optimizer's parameter set and Adam steps them; upstream does not have them. USER-FACING because a user who trains gets them. R152 measured their one route into other parameters' updat"
+  },
+  "D24": {
+   "surface": "INFERENCE, shipped selector",
+   "why": "two of the ranking rule's four terms are identically zero on a single chain. Measured INERT for monomers: with iptm and disorder both 0 all four rules reduce to a positive multiple of pTM and serve identical RMSDs sample for sample. Real for complexes and unmeasured there.",
+   "triage_class": "USER-FACING",
+   "triage_why": "On a single chain OpenFold3's ranking rule has two of its four terms identically zero -- the shipped default, machine-checked in rank_rule.py."
+  },
+  "D32": {
+   "surface": "TRAINING TAPE",
+   "why": "twenty-one sites in nine shipped modules route down a different, unfused path WHILE A TAPE IS OPEN. An inference fold opens none.",
+   "triage_class": "USER-FACING",
+   "triage_why": "Twenty-one sites in nine shipped modules route down a different, unfused path while a tape is open, so a training step is a materially different execution."
+  },
+  "D55": {
+   "surface": "TRAINING TAPE",
+   "why": "tt_bio's OWN TAPE gives precise_config() to some reductions and withholds it from four. Reached only through the tape.",
+   "triage_class": "USER-FACING",
+   "triage_why": "tt_bio's own tape gives precise_config() to the reductions feeding weight gradients and withholds it from four sitting inside near-cancellations."
+  },
+  "D58": {
+   "surface": "TRAINING TAPE",
+   "why": "its own triage says USER-FACING 'because the tape is shipped training code'. The forward-to-gradient factor is a training quantity.",
+   "triage_class": "USER-FACING",
+   "triage_why": "The forward-to-gradient factor is 11.026x (diffusion) and 10.903x (msa_module) at the repaired denominator, not the ~20x first filed. of3t-tapeamp REFUTED the 'belongs to the tape' half on the diffusion leg: 69.53 %% of "
+  }
+ },
+ "THE_CLAIM": {
+  "inference_path_defects": [
+   "D10",
+   "D24"
+  ],
+  "is_empty": false,
+  "statement": "the tracked UNFIXED user-facing set is EIGHT, not six. Two of them (D10, D24) are on the shipped inference selector and were missing from the list for about thirty-five passes; five reach the training tape and one is a capacity refusal.",
+  "and_what_the_two_cost": "both repairs are built. D10's gain is 0.015 A against a 0.226 A seed floor, and D24's is measured INERT for a single chain. Their consequence is bounded; their existence is not in question.",
+  "what_it_is_not": "a proof that no other such defect exists. It is a statement about the tracked set, and three user-facing items were already fixed and shipped by pass 363.",
+  "nothing_is_reclassified": "all six stay USER-FACING. A user who TRAINS is hit by five of them. This adds a distinction, it does not remove a label (reclassifying-out-of-user-facing-is-the-flattering-direction)."
+ },
+ "THE_SUPPORT_WAS_WEAKER_THAN_IT_READS": {
+  "the_invariant": "inference never imports the training stack, so it never opens a tape -- which is what makes the five training-path defects unreachable from a fold, and is also Moritz's hard stop of 2026-09-21",
+  "pinned_by": "tests/test_training_opt_in.py, five tests",
+  "cited_by_name_as_enforcement_in": [
+   "tt_bio/ops.py:59",
+   "tt_bio/autograd.py:905"
+  ],
+  "executed_by": "nothing, until this pass",
+  "evidence": {
+   ".github/workflows/ci.yml": "ran exactly one test file, tests/test_packaging_smoke.py",
+   "scripts/": "no gate script references test_training_opt_in",
+   "and_its_runtime_leg": "needs ttnn, which neither this host nor ubuntu-latest has, so it would skip even if the file were run"
+  },
+  "so": "a test nothing runs gates nothing, and two source comments were treating it as enforcement."
+ },
+ "THE_FIX": {
+  "added_to_ci": "a 'Training-is-opt-in invariants' step running tests/test_training_opt_in.py",
+  "why_it_is_safe_on_a_ttnn_less_runner": "pure AST plus stdlib; measured here at 3 passed, 2 skipped, 0 failed",
+  "the_two_skips": {
+   "runtime leg": "importing tt_bio.autograd needs ttnn -- and its AST half runs and asserts before the skip, so 'skipped' undercounts what was checked",
+   "fork census": "the fork is gone, which is the goal"
+  },
+  "sibling_checked_and_rejected": "tests/test_host_f64_softmax_defaults.py is NOT card-free -- 37 cases FAIL rather than skip on a ttnn-less host, so it stays out of CI",
+  "and_a_stale_docstring": "the module docstring described perf/ptxft/tape_block.py as re-implementing four shipped modules 'today' while the test's own skip reason read 'the fork is gone'. The file does not exist. Corrected."
+ },
+ "WHAT_STILL_COVERS_THE_SOFTMAX_HALF_INDEPENDENTLY": "compose_verify.sh checks live every pass that the host float64 softmax opens only on an installed tape (4 negative probes fired, positive control clean) and that no float64 softmax symbol exists on origin/main while the probe finds 6 files on wk/of3t. That specific claim was never resting on the unrun test; the general import-inertness invariant was.",
+ "DOESNOT": "this fixes no defect and moves no verdict. It says which surface each user-facing item reaches, that the inference-wrong-answer class is empty in the tracked set, and that the invariant carrying that conclusion was run by nothing until now."
+}

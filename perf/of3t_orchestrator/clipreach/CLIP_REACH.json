@@ -1,0 +1,166 @@
+{
+ "what": "of3t-orchestrator pass 388: does D210's pad-lane gradient reach the UPDATE RULE?",
+ "defect": "D210",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads a committed steplog and computes no timing",
+ "source": {
+  "steplog": "perf/of3t_trajfull/steplog_trajfull.json",
+  "arm": "trajfull",
+  "side": "ours",
+  "n_steps": 20,
+  "complete": true
+ },
+ "the_route_the_triage_does_not_mention": {
+  "where": "tt_bio/train/optim.py:218-226 computes one global gradient norm over self.params -- our FUSED tensors, pad lanes included -- and clip_coef (:447-455) turns it into one scalar multiplying every parameter's update",
+  "so": "gnorm_ours^2 = gnorm_theirs^2 + ||pad gradients||^2, and whenever clipping binds our coefficient is smaller than theirs and every parameter's update is scaled differently. Slicing v does not close this route."
+ },
+ "DOES_IT_FIRE": {
+  "clip_threshold": 10.0,
+  "grad_norm_min": 0.5219903431953333,
+  "grad_norm_max": 0.7955289728502993,
+  "worst_step": 8,
+  "headroom_at_the_worst_step": 12.57025242483755,
+  "n_steps_where_the_batch_clip_binds": 0,
+  "n_per_sample_coefficients_that_bind": 0,
+  "n_per_sample_coefficients_checked": 80,
+  "verdict": "NO. The clip coefficient is exactly 1.0 at every one of the 20 steps and every one of the per-sample coefficients, and the closest the gradient norm comes to the threshold is a factor of 12.5703. On this trajectory the pad lanes cannot reach another parameter's update through clipping, because clipping multiplies by one."
+ },
+ "WHAT_THAT_LICENSES_AND_WHAT_IT_DOES_NOT": {
+  "licenses": "D210's triage claim survives the one mechanism that could have broken it. Nothing the campaign quotes moves, and the 20-step trajectory's 1.2707x at k = 20 is unaffected.",
+  "does_not_license": "'confined' without its condition. Clipping is inert here BECAUSE this batch's gradient norm sits 12.6x below the threshold, not because the pad lanes are outside the norm. They are inside it. A batch whose gradient norm exceeds 10 puts 14.2M parameters upstream does not have into the scalar that sets every real parameter's step.",
+  "so_the_honest_statement_of_D210": "the pad lanes move no number on the measured trajectory because the clip is identically 1.0 there; they enter the update rule through the global-norm clip on any batch where clipping binds, and our norm is taken over a parameter set 14.2M larger than theirs."
+ },
+ "AND_A_POSITIVE_RESULT_FOR_THE_PROTOCOL'S_CENTRAL_DESIGN": {
+  "observation": "the 20-step trajectory exercises the clipping factor at coefficient 1.0 and nowhere else, so a trajectory-only proof would have zero coverage of clipping while looking fully covered.",
+  "why_it_is_not_a_hole_here": "PROTOCOL's factorisation verifies the clipping as a PURE FUNCTION over its whole domain under an injected drive, exactly because a real batch never happens to hit the corner cases -- clip_coef is recorded agreeing with their real compute_global_norm to 8.51e-08 across eight STRADDLING cases (optim.py:447-455). This is the first measurement showing the trajectory could not have covered it, which is the argument for the factorisation stated as a number rather than as a design preference.",
+  "what_the_factorisation_still_cannot_see": "the composition. Both sides' clip_coef is the same function; the ARGUMENT is not, because the two global norms are taken over different parameter sets. That is D210 and no function-level check reaches it."
+ },
+ "THE_CHEAP_MEASUREMENT_THIS_NOW_OWES": {
+  "ask": "emit ||pad gradients||^2 / gnorm^2 per step alongside grad_norm in the existing steplog. It is a slice and a dot product over tensors the optimizer already has in hand, no extra backward and no extra device time.",
+  "what_it_buys": "the exact size of the divergence -- gnorm_ours / gnorm_theirs -- so D210's repair can be measured against a number instead of argued against a structure, and a bound on how far a binding batch would separate the two clip coefficients.",
+  "not_dispatched_as_a_row_this_pass": "both card-capable rows are live on D242 and D245 and this is not on the critical path; a third row contending for the same two hosts would cost more than it returns."
+ },
+ "per_step": [
+  {
+   "k": 1,
+   "grad_norm": 0.7157321105277967,
+   "clip": 1.0,
+   "headroom": 13.9717079238289
+  },
+  {
+   "k": 2,
+   "grad_norm": 0.7157321103725143,
+   "clip": 1.0,
+   "headroom": 13.971707926860148
+  },
+  {
+   "k": 3,
+   "grad_norm": 0.7292993469936985,
+   "clip": 1.0,
+   "headroom": 13.71179069503048
+  },
+  {
+   "k": 4,
+   "grad_norm": 0.7240524882068164,
+   "clip": 1.0,
+   "headroom": 13.811153421716613
+  },
+  {
+   "k": 5,
+   "grad_norm": 0.7440877193220823,
+   "clip": 1.0,
+   "headroom": 13.439275693342612
+  },
+  {
+   "k": 6,
+   "grad_norm": 0.7620228577933809,
+   "clip": 1.0,
+   "headroom": 13.122965929076443
+  },
+  {
+   "k": 7,
+   "grad_norm": 0.7740667928152603,
+   "clip": 1.0,
+   "headroom": 12.91878180645144
+  },
+  {
+   "k": 8,
+   "grad_norm": 0.7903952954640128,
+   "clip": 1.0,
+   "headroom": 12.65189716764364
+  },
+  {
+   "k": 9,
+   "grad_norm": 0.7955289728502993,
+   "clip": 1.0,
+   "headroom": 12.57025242483755
+  },
+  {
+   "k": 10,
+   "grad_norm": 0.7823056097569204,
+   "clip": 1.0,
+   "headroom": 12.782728227025267
+  },
+  {
+   "k": 11,
+   "grad_norm": 0.7201087961686592,
+   "clip": 1.0,
+   "headroom": 13.886790514440357
+  },
+  {
+   "k": 12,
+   "grad_norm": 0.6734025235372108,
+   "clip": 1.0,
+   "headroom": 14.849959200438638
+  },
+  {
+   "k": 13,
+   "grad_norm": 0.6379129830307185,
+   "clip": 1.0,
+   "headroom": 15.676119260796504
+  },
+  {
+   "k": 14,
+   "grad_norm": 0.6010219516709386,
+   "clip": 1.0,
+   "headroom": 16.638327389204964
+  },
+  {
+   "k": 15,
+   "grad_norm": 0.5776199442534953,
+   "clip": 1.0,
+   "headroom": 17.312421600891575
+  },
+  {
+   "k": 16,
+   "grad_norm": 0.5560123589936514,
+   "clip": 1.0,
+   "headroom": 17.98521172820581
+  },
+  {
+   "k": 17,
+   "grad_norm": 0.5454078133552933,
+   "clip": 1.0,
+   "headroom": 18.334904185697336
+  },
+  {
+   "k": 18,
+   "grad_norm": 0.5462222101573744,
+   "clip": 1.0,
+   "headroom": 18.307567532120046
+  },
+  {
+   "k": 19,
+   "grad_norm": 0.5277464717626631,
+   "clip": 1.0,
+   "headroom": 18.948492382336905
+  },
+  {
+   "k": 20,
+   "grad_norm": 0.5219903431953333,
+   "clip": 1.0,
+   "headroom": 19.157442528123386
+  }
+ ],
+ "DOESNOT": "this measures one 20-step trajectory on one batch. It does not bound the pad lanes' share of the gradient norm, it does not repair D210, and it merges nothing."
+}

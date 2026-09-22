@@ -1,0 +1,62 @@
+{
+ "what": "of3t-orchestrator pass 394: the clause's allowance is 1.4172x upstream's own bf16, and it was already pre-registered.",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; reads committed artifacts and computes no timing",
+ "source": "perf/of3t_modelframe/CLAUSE.json",
+ "THE_LADDER_IS_ALREADY_PREREGISTERED": {
+  "levels": {
+   "bit_exact_float64_trunk": {
+    "clause_value": 0.1026990533692057,
+    "x_bar": 0.6752030197741641,
+    "clears": true
+   },
+   "upstreams_own_floor_here": {
+    "clause_value": 0.12967067993359122,
+    "x_bar": 0.8525301041731214,
+    "clears": true
+   },
+   "section_A26_level": {
+    "clause_value": 0.1475459165605533,
+    "x_bar": 0.9700522560698159,
+    "clears": true
+   },
+   "projection_from_the_in_frame_multiple": {
+    "clause_value": 0.19635234908555793,
+    "x_bar": 1.290933992991146,
+    "clears": false
+   },
+   "the_frame_mismatch_alone": {
+    "clause_value": 0.47443757904241024,
+    "x_bar": 3.1192272523890026,
+    "clears": false
+   }
+  },
+  "so": "the conditional answer to 'if D242 is repaired, does GRADIENTS pass?' exists and is yes for any trunk at or better than its A26 section level. The clause is satisfiable; what is missing is one input, not a bar."
+ },
+ "THE_ALLOWANCE_AS_A_MULTIPLE_OF_UPSTREAMS_OWN_BF16": {
+  "trunk_allowance_for_the_clause_to_clear": 0.44608901561034203,
+  "upstreams_own_bf16_floor_for_the_trunk_here_vs_float64": 0.3147698293887927,
+  "allowance_as_a_multiple_of_that_floor": 1.417191147183768,
+  "both_are": "trunk readings against float64 in the published frame's pooling, so this is a like-for-like quotient inside ONE frame",
+  "read": "our trunk may be up to 1.4172x upstream's own bf16 and the clause still clears. That is the cleanest statement of the target this campaign has."
+ },
+ "A_PREDICTION_AND_NOT_A_TARGET": {
+  "a37": "a projection may be published as a PREDICTION, never as a TARGET; it carries its own falsifier and its frame; and no bar, allowance or done-check may be derived from one",
+  "the_prediction": "if our trunk's multiple over upstream's own bf16 transfers across the frame repair, the clause misses",
+  "our_multiple_D242_immune": 1.7997765325758555,
+  "its_frame": "the of3t-modelframe frame, two-sided, both legs on one injected cotangent, separator 2.0 pre-registered in commit 2520681ed before the arm ran",
+  "the_allowance_multiple": 1.417191147183768,
+  "its_frame_": "the published frame's pooling",
+  "why_the_comparison_is_NOT_made_as_a_verdict": "it sets an in-frame multiple against a threshold-multiple from a different frame, which is the form D214 and D218 bar and how R129 and R130 were published wrong in two consecutive passes.",
+  "shortfall_IF_it_transferred": 1.2699603269131046,
+  "falsifier": "measure the trunk's rel_l2 against float64 on the REPAIRED frame and read the ladder. That settles it with no new bar and no projection."
+ },
+ "FOR_SCALE_the_frame_effect_on_this_very_multiple": {
+  "published_cross_frame_multiple_of_upstreams_own_bf16": 6.8606547391424275,
+  "the_in_frame_two_sided_multiple": 1.7997765325758555,
+  "ratio": 3.811948102981096,
+  "read": "the frame is worth 3.81x on the one quantity the campaign most wants to know, which is why no cross-frame comparison here is worth making and why D242 is the critical path rather than a bookkeeping item."
+ },
+ "THE_ONE_LINE_THAT_FOLLOWS_THE_REPAIR": "compute the trunk's rel_l2 against float64 on the repaired frame, then read the ladder above. Do not write a new bar: a bar re-derived after the frame moves is how A37 came to be written.",
+ "DOESNOT": "this measures nothing new and moves no verdict. It assembles the campaign's own pre-registered ladder into the target statement it never made, and records one comparison deliberately NOT made and why."
+}
