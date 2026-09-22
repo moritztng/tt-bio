@@ -266,6 +266,15 @@ class Tensor:
         want, got = tuple(self.value.shape), tuple(grad.shape)
         if want != got:
             raise ValueError(f"gradient shape {got} does not match value shape {want}")
+        # A parent receives its cotangent in ITS OWN layout. Closures compute in whatever
+        # layout their output arrived in, and most of the tape is tiled end to end so this
+        # never came up; a row-major activation -- `ttnn.embedding`'s table, the atom
+        # broadcasts either side of it -- sends a row-major gradient up a chain of tiled
+        # ops, and the throw lands in the first matmul or concat that sees it, several
+        # closures away from the one that produced it. Enforcing the invariant here costs
+        # a comparison per contribution and removes the whole class.
+        if grad.layout != self.value.layout:
+            grad = ttnn.to_layout(grad, self.value.layout)
         if self.grad is None:
             self.grad = grad
             return

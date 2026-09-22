@@ -1,0 +1,131 @@
+{
+ "NP": 448,
+ "accumulation_probe": [
+  0.0010945221923401292
+ ],
+ "atoms": 422,
+ "best10": [
+  [
+   "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   0.5886578165674979
+  ],
+  [
+   "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   0.8137919944191117
+  ],
+  [
+   "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   0.8446272160110361
+  ],
+  [
+   "diffusion_transformer.blocks.18.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.8636164592972927
+  ],
+  [
+   "diffusion_transformer.blocks.5.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.8858711046104316
+  ],
+  [
+   "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+   0.8872385747943444
+  ],
+  [
+   "diffusion_transformer.blocks.3.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.8917056621560148
+  ],
+  [
+   "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+   0.892315864709943
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.bias",
+   0.8940534321244152
+  ],
+  [
+   "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.8981484488097238
+  ]
+ ],
+ "bisect": {
+  "0": {
+   "ai_into_dit": 0.0026259512880580068,
+   "ai_out_of_dit": 0.2531278632523251,
+   "ai_out_of_dit_real": 0.2531278632523251,
+   "ai_out_of_dit_real_ournorm": 90285.25884586104,
+   "ai_out_of_dit_real_rows": 384,
+   "ai_out_of_dit_real_theirnorm": 93579.59867792146,
+   "cl_encoder": "n/a",
+   "plm_encoder": 0.0032457287274902723,
+   "ql_encoder": 0.0024598618827963454,
+   "rl_update_decoder": 0.40392749308751363
+  }
+ },
+ "compared": 523,
+ "device_weights_named": 547,
+ "device_weights_reachable": 870,
+ "error": null,
+ "forward_rel": [
+  0.594503758361401
+ ],
+ "forward_rel_median": 0.594503758361401,
+ "median_rel": 0.999813256934902,
+ "n_struct_total": 48,
+ "nb": 14,
+ "over_5e-2": 523,
+ "reference_tensors": 738,
+ "share_of_diffusion_sq_norm": 0.6547415477988402,
+ "structures_asked": [
+  0
+ ],
+ "structures_done": [
+  0
+ ],
+ "tokens": 384,
+ "weights_with_grad": 547,
+ "weights_without_grad": 0,
+ "worst10": [
+  [
+   "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+   1.726655210797997
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+   1.7457336144377071
+  ],
+  [
+   "diffusion_transformer.blocks.0.conditioned_transition.linear_g.bias",
+   1.7489193895706463
+  ],
+  [
+   "diffusion_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+   1.7748370477164501
+  ],
+  [
+   "diffusion_transformer.blocks.1.conditioned_transition.linear_g.bias",
+   1.775945153319292
+  ],
+  [
+   "diffusion_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias",
+   1.9488690147486476
+  ],
+  [
+   "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   1.9761808830393892
+  ],
+  [
+   "diffusion_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight",
+   2.139906958717645
+  ],
+  [
+   "diffusion_transformer.blocks.1.conditioned_transition.linear_out.weight",
+   2.3239359963686286
+  ],
+  [
+   "diffusion_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight",
+   2.6537128619192107
+  ]
+ ],
+ "worst_rel": 2.6537128619192107,
+ "worst_tensor": "diffusion_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight",
+ "zero_model_median": 1.0
+}
