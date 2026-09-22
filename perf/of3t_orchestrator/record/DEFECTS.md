@@ -1406,3 +1406,55 @@ against `p.grad`, and `id(p)` collisions across `named_parameters`, which dedupe
 **The general lesson, filed as PROTOCOL A40.** A frame's gating control is a precondition of the
 frame, not a later check on it. This control was cheap, was specified, and was owed at the moment
 the first ratio was published from the frame. It ran two passes later.
+
+### D243. `tt-bio finetune`'s fit planner was model-blind: one flat `FORWARD_OOM` table holding Protenix-v2's two measurements gated every model, so OpenFold3 at 512 aa was refused on another model's number for a crop it is measured to RUN, and 544/576/640/768 came back UNMEASURED when all four are measured to refuse. **FIXED** — found by `of3t-orchestrator` at pass 382 by code read, no card; fix, docs and an 11-case regression test with a firing break control on `wk/of3t-orchestrator`. RELEASE-GATED, unmerged.
+
+**User-facing, and reachable today.** `tt-bio finetune` is a shipped subcommand
+(`pyproject.toml` → `tt_bio.main:cli`, lazy-loaded at `main.py:1694`), documented in `README.md`
+and `docs/training.md`, and OpenFold3 has a registered training adapter
+(`tt_bio/train/openfold3.py:524`). Nothing about this was hypothetical.
+
+**The chain, every link read rather than inferred.**
+
+    tt_bio/train/cli.py:219        fit = plan(tokens=tokens or 256, chips=..., global_batch=...)
+                                   -- no model argument passed, and none accepted
+    tt_bio/train/dryrun.py:99      def plan(*, tokens, chips=1, ...)
+                                   -- the string "model" appeared nowhere in the module
+    tt_bio/train/dryrun.py:56-59   FORWARD_OOM = {384: (4.14, 75_497_472),
+                                                  512: (7.15, 536_870_912)}
+                                   -- sourced to train-r5, a PROTENIX training row
+    tt_bio/train/cli.py:221-225    verdict == "refused" -> ClickException, the run never starts
+
+**Wrong in both directions.** `of3t-crop768` (concluded 2026-09-21, Blackhole, median 1350 MHz
+polled DURING every rung, forward *and* backward peaks on the taped training path) measured
+OpenFold3's real frontier: **512 runs and is the largest that does; 544, 576, 640 and 768
+refuse.** So the shipped planner
+
+- **refused** `--model openfold3 --tokens 512`, a configuration measured to work, and
+- returned **UNMEASURED** — which permits the run — at 544, 576, 640 and 768, four
+  configurations measured to fail.
+
+The three OpenFold3 refusals are not one wall: 640 and 768 die with the card full (23,710,208 B
+and 6,231,552 B free device-wide), while **576 dies with 6,671,522,304 B still free**, refused
+for contiguity inside `ttnn::concat`, short by 77,930,560 B per bank and reproducing byte for
+byte on cards 0 and 1. A capacity extrapolation cannot locate that frontier — the row's own 2.08
+fit predicted 576 would clear with 14 % margin — which is why these belong in a table and not in
+a slope.
+
+**Why it survived.** The refusal message named the measurement but never the MODEL it was taken
+on: *"the forward OOMs at 512 aa today: 7.15 GB allocated..."* reads as a property of the crop.
+`docs/training.md:181-187` repeated the two numbers with no model attached, so the docs agreed
+with the code and both were wrong in the same way. This is
+`shape-keyed-dispatch-table-silently-gates-by-model` on the training path.
+
+**The fix, on `wk/of3t-orchestrator`.** `FORWARD_OOM_BY_MODEL`, keyed by model, each entry
+carrying the row that measured it; `plan(model=...)` consults only that model's table; **a model
+with no entry gets no refusal from it**, because borrowing a neighbour's wall is what produced
+the defect. `LARGEST_MEASURED_TO_FIT` keeps a measured memory fit separate from a measured step
+time and reports the first even when the second is missing, so OpenFold3 at 512 aa now answers
+UNMEASURED *and says the memory fits up to 512 aa*, rather than throwing away the one fact a
+user needs. Docs restated per model. `tests/test_training_fit_is_per_model.py`, 11 cases, both
+directions, and the break control was run: re-merging the two tables reproduces the refusal at
+512 and the test fails, so it is not passing vacuously.
+
+**Not merged.** It changes which runs start, so it is release-gated and stays on the branch.
