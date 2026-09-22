@@ -39,16 +39,23 @@ MIT-licensed and credited in the top-level LICENSE.
    License:       Apache-2.0 — Copyright ByteDance (code and model parameters).
 
 5. tt_bio/_vendor/openfold3/ — OpenFold3 host-side data pipeline: the query
-   schema, CCD/ligand lookup, tokenization, and structure / reference-conformer /
-   MSA / template featurization (no neural compute; that runs on Tenstorrent via
-   tt_bio.openfold3*).
+   schema, CCD/ligand lookup, tokenization, structure / reference-conformer /
+   MSA / template featurization, and the Lightning Dataset/DataModule training
+   framework with its LMDB dataset caches (no neural compute; that runs on
+   Tenstorrent via tt_bio.openfold3*).
    Source:        github.com/aqlaboratory/openfold-3, PyPI `openfold3` 0.4.3
    License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory
                   (tt_bio/_vendor/openfold3/LICENSE)
-   Modifications: only the query-to-features path is included; the Lightning
-                  Dataset/DataModule framework, the LMDB training dataset caches,
-                  and the S3 template-cache build pipeline are dropped, and the
-                  memory_profiler import was made lazy.
+   Modifications: core/utils/relpos.py is taken from 0.4.5, which added the
+                  cyclic-offset helpers; everything else is 0.4.3. Imports are
+                  rewritten to the tt_bio._vendor namespace. 15 modules differ
+                  from upstream: seven are import plumbing, eight carry
+                  behavioural changes that are flag-gated and default to
+                  upstream behaviour (see docs/openfold3-vendor.md).
+                  memory_profiler, lmdb, boto3 and kalign are imported lazily
+                  so inference does not require the training-only deps.
+                  scripts/of3_port/vendor_of3_training.py regenerates the training
+                  half and verifies it with --check.
 
 6. tt_bio/openfold3*.py — OpenFold3 (AlphaFold3-family) on-device model. Like
    Protenix-v2 this is an INDEPENDENT ttnn reimplementation; no upstream compute
