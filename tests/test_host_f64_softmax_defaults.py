@@ -498,3 +498,49 @@ def test_no_inference_fold_has_a_route_to_the_exact_softmax():
     assert "environ" not in body and "env_flag" not in body, (
         "the exact softmax grew an environment variable; that is the shape the site selector "
         "already has and the reason this install exists")
+
+
+def test_an_unrelated_uninstall_does_not_remove_the_exact_softmax():
+    """`uninstall()` is not this lever's private teardown, and two callers already use
+    `install()`/`uninstall()` as a scoped pair around something far narrower than a step:
+    `train/lora.py:608-615` brackets the DISCOVERY forward and `train/recipes.py:211` the fit.
+
+    Tearing down on ANY `uninstall()` made the lever collateral damage of whichever pair closed
+    first. Measured, not hypothesised: the packaged arm came back 0.702981502944001 -- the
+    device-softmax control to sixteen digits -- with all 1,742 of its exact softmaxes spent in
+    the discovery forward and none in the step that was scored.
+    """
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+    import ttnn
+
+    with ag.exact_softmax():
+        assert ttnn.softmax is ag._exact_softmax_raw
+        # Exactly what `walked_weights` does around the discovery forward.
+        prev = ops.grad_hook()
+        ag.install()
+        try:
+            assert ttnn.softmax is ag._exact_softmax_raw
+        finally:
+            ag.uninstall()
+        assert ttnn.softmax is ag._exact_softmax_raw, (
+            "an unrelated install/uninstall pair removed the exact softmax")
+        ops.set_grad_hook(prev)
+    assert ttnn.softmax is not ag._exact_softmax_raw
+
+
+def test_install_exact_softmax_is_still_undone_by_its_own_uninstall():
+    """The other direction, so the ownership fix does not simply leak the lever."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+    import ttnn
+
+    was = ttnn.softmax
+    prev = ag.install(exact_softmax=True)
+    try:
+        assert ttnn.softmax is ag._exact_softmax_raw
+    finally:
+        ag.uninstall()
+        ops.set_grad_hook(prev)
+    assert ttnn.softmax is was
+    assert not ag.exact_softmax_installed()
