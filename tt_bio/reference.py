@@ -12,6 +12,7 @@ from torch import nn, Tensor
 from torch.nn import Module
 
 from tt_bio.data import const
+from tt_bio.envflags import env_flag
 
 # Import from the fused boltz2.py
 from tt_bio.boltz2 import (
@@ -814,6 +815,11 @@ from tt_bio.data import const
 
 
 
+#: D174's gate, read from the same variable the device path reads. OFF by default: this
+#: changes numerics on a shared inference path, so it is release-gated.
+_MASK_TRANS = env_flag("TT_BIO_MASK_TRANS", False)
+
+
 class PairformerLayer(nn.Module):
     """Pairformer module."""
 
@@ -895,7 +901,13 @@ class PairformerLayer(nn.Module):
             use_kernels=use_cuequiv_attn or use_kernels,
         )
 
-        z = z + self.transition_z(z)
+        # D174: upstream masks both transition outputs (`_mask_trans=True`, hard-coded at
+        # seven call sites). This reference shared our port's omission, which is the trap of
+        # verifying against a reference that holds the same misunderstanding. Both masks come
+        # from the two this layer already receives, so no caller signature moves.
+        trans_mask_z = pair_mask.unsqueeze(-1) if _MASK_TRANS and pair_mask is not None else None
+        trans_mask_s = mask.unsqueeze(-1) if _MASK_TRANS and mask is not None else None
+        z = z + self.transition_z(z, mask=trans_mask_z)
 
         # Compute sequence stack
         with torch.autocast("cuda", enabled=False):
@@ -903,7 +915,7 @@ class PairformerLayer(nn.Module):
             s = s.float() + self.attention(
                 s=s_normed, z=z.float(), mask=mask.float(), k_in=s_normed
             )
-            s = s + self.transition_s(s)
+            s = s + self.transition_s(s, mask=trans_mask_s)
             s = self.s_post_norm(s)
 
         return s, z

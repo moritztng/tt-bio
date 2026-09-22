@@ -73,7 +73,7 @@ def main():
 
     from openfold3.projects.of3_all_atom.config.model_config import model_config as C
     from openfold3.projects.of3_all_atom.model import OpenFold3 as RefOpenFold3
-    from openfold3.core.utils.tensor_utils import tensor_tree_map
+    from tt_bio.openfold3_batch import map_batch_tensors
 
     torch.manual_seed(0)
     np.random.seed(0)
@@ -159,10 +159,7 @@ def main():
     ref_dm = ref.diffusion_module
     ref_dc = ref_dm.diffusion_conditioning
 
-    perm = batch.pop("ref_space_uid_to_perm", None)
-    batch = tensor_tree_map(lambda t: t.unsqueeze(1), batch)
-    if perm is not None:
-        batch["ref_space_uid_to_perm"] = perm
+    batch = map_batch_tensors(batch, lambda t: t.unsqueeze(1))
     si_input_r = s_input.unsqueeze(0).unsqueeze(0)
     si_trunk_r = si_trunk_h.unsqueeze(0).unsqueeze(0)
     zij_trunk_r = zij_trunk_h.unsqueeze(0).unsqueeze(0)

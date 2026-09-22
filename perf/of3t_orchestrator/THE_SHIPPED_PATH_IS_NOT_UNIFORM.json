@@ -1,0 +1,46 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "38.1862 % of OpenFold3's gradient mass ALREADY agrees with upstream's own bf16 training step as well as an independent bf16 reimplementation could -- on the shipped path, with no precision change. diffusion_conditioning reads 0.7363x the reachable bar and msa_module 0.9474x. The diffusion arm, 51.1358 %, fails at 91.31x and the entire factor is the softmax; with that computed accurately the total reaches 89.3220 %.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Shipped-path figures from of3t-direct (conditioning, msa_module -- 'our device gradient against upstream's arm4 bf16 autocast step', no bound applied) and of3t-residual (the diffusion arm on the D86-corrected instrument). Each scope against ITS OWN floor and norm ratio.",
+ "shipped_path": [
+  {
+   "mass_pct": 36.9462,
+   "measured": 0.06463839,
+   "note": "passes because our error is 7.95x SMALLER than upstream's own; an independent bf16 port of upstream's accuracy would read 1.414x threshold and fail this scope",
+   "reachable_bar": 0.087783,
+   "scope": "diffusion_module.diffusion_conditioning",
+   "threshold": 0.0620715,
+   "verdict": "PASS",
+   "x_reachable": 0.7363,
+   "x_threshold": 1.0414
+  },
+  {
+   "mass_pct": 1.24,
+   "measured": 0.2260014,
+   "reachable_bar": 0.23856,
+   "scope": "msa_module",
+   "threshold": 0.1686838,
+   "verdict": "PASS",
+   "x_reachable": 0.9474,
+   "x_threshold": 1.3398
+  },
+  {
+   "mass_pct": 51.1358,
+   "measured": 7.426217,
+   "note": "the entire factor is the softmax: with it computed in float64 the same arm reads 7.777580e-02 = 0.9563x the reachable bar. That bound is a host computation on a tape verb, not a shippable lever -- of3t-softmax returned NO-GO on every shipped precision lever at +46 % per op.",
+   "scope": "diffusion device arm (547 tensors)",
+   "threshold": 0.05750945,
+   "verdict": "FAIL",
+   "x_reachable": 91.309,
+   "x_threshold": 129.13
+  }
+ ],
+ "totals": {
+  "note": "the increment is exactly the diffusion arm. Nothing else changes between the two figures.",
+  "shipped_inside_the_reachable_bar_pct": 38.1862,
+  "with_an_accurate_softmax_pct": 89.322
+ },
+ "what": "the SHIPPED path's position against the bar a bf16 port can actually reach (A26), separated from the float64-softmax bound. The campaign had been quoting the shipped path as a single failure at 129x; it is not uniform.",
+ "what_it_does_not_say": "nothing here rescues the diffusion arm, which is 51.1358 % of the model and fails on the shipped path by 91.31x on accuracy. Nor does it touch the 8.3732 % void under A18 (aux_heads and the pairformer trunk, whose forwards disagree) or the 2.3048 % with no direct reading. And it is one batch, one r = 0 step.",
+ "why_this_is_not_a_contradiction_of_of3t_direct": "of3t-direct reported conditioning as 'DOES NOT SURVIVE' at 1.0414x, and that is correct against the threshold it was scored on -- what a port reads if it EQUALS float64. A26 established that threshold is unreachable for any bf16 port and that the reachable bar is sqrt(2) times it. Both statements are true of the same measurement and A25 requires a verdict to say WHICH BAR it is against. This artifact says: against the reachable bar, on the shipped path, conditioning passes at 0.7363x."
+}

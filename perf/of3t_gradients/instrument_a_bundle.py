@@ -147,6 +147,25 @@ def main() -> int:
                          "1/64): then both the scale and the unscale are exact in binary "
                          "floating point and in bf16, and the instrument contributes no "
                          "rounding of its own to a test about rounding.")
+    ap.add_argument("--dump-grads", default="", dest="dump_grads",
+                    help="write the compared device gradient tensors themselves to this .pt, "
+                         "keyed by FULL checkpoint name (pairformer_stack.blocks.i.<leaf>), in "
+                         "their layout and at their scale. Without it this instrument publishes "
+                         "only rel_l2/norm_ratio/cos against the one reference it was run "
+                         "against, so the gradient cannot afterwards be compared to anything "
+                         "else -- including upstream's own bf16 training step, which is the "
+                         "only reference that answers whether the trunk reproduces the gradient "
+                         "OF3 actually trains with. Fourth time this campaign has been blocked "
+                         "by a summary-only result file.")
+    ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED",
+                    help="break control. Permute the captured cotangent across the REAL token "
+                         "positions (the 56 the single mask keeps) with this seed, leaving the "
+                         "weights, the forward, the masks and the arithmetic untouched. "
+                         "Permuting all 384 positions instead would move cotangent mass onto "
+                         "padded rows the mask then kills, which breaks the run by emptying it "
+                         "rather than by mispairing it. A comparison that cannot tell this "
+                         "apart from the real run is not measuring agreement with anything.")
+    ap.add_argument("--zero-pad", action="store_true", help="D28, quantitatively. Zero the PAD token positions of the captured input on BOTH sides instead of poisoning them. At this crop-64 boundary 99.76 %% of the pair input's squared mass sits on padded positions at block 0, so a LayerNorm weight gradient -- which sums over every position -- is formed almost entirely out of pad. The NaN discriminator cannot separate the sides because both propagate it; this can, because it changes the function identically on both sides and asks whether the DISAGREEMENT survives.")
     ap.add_argument("--nan-pad", action="store_true",
                     help="D28 discriminator. Poison the PAD token positions of the captured "
                          "input with NaN and report how many parameter gradients come back NaN "
@@ -156,6 +175,41 @@ def main() -> int:
                          "in the forward. A mask-clean forward does not imply a mask-clean "
                          "backward. NaN in the parameter gradients means the pad reaches the "
                          "weights and every crop-64 figure inherits it.")
+    ap.add_argument("--bijection-bias-prescale", action="store_true",
+                    dest="bijection_bias_prescale",
+                    help="scale_pair_bias=True folds sqrt(head_dim) into the device's "
+                         "attn_pair_bias.linear_z.weight (tenstorrent.py:8177), so the by-value "
+                         "bijection stops recognising it and the one tensor the convention acts "
+                         "on goes UNREACHED -- 0.60 %% of the trunk's reference gradient mass, "
+                         "and 0.51 %% of it in block 47 alone. This matches the bijection "
+                         "against the PRE-SCALED weight and returns the extracted gradient to "
+                         "checkpoint coordinates: w_device = c*w, so dL/dw = c*dL/dw_device. "
+                         "Inert when the arm runs scale_pair_bias=False, where c is 1.0. The "
+                         "uncorrected norm ratio is recorded beside the corrected one so the "
+                         "factor is visible rather than asserted.")
+    ap.add_argument("--forward-reference", default="",
+                    help="A18, IN THIS PROCESS. Score the taped device forward against this "
+                         "reference's own s/z outputs (ref_grad.py --forward-out), both tracks, "
+                         "masked, with the padding fraction beside each. `forward_rel` above "
+                         "compares against the CAPTURED 0.5.0 block-47 output, which is a "
+                         "different question once the reference revision is in dispute; a "
+                         "gradient scored against a 0.4.3 reference needs its forward scored "
+                         "against the same one, and carrying that number in from another "
+                         "process is what `of3t-auxgrad` had to undo.")
+    ap.add_argument("--dump-input-grads", default="", dest="dump_input_grads",
+                    help="write dL/ds_in and dL/dz_in -- the cotangent this scope hands to "
+                         "whatever precedes it -- to this .pt. `input_grad_ours` publishes "
+                         "their NORMS only, which cannot say whether the chain is turned the "
+                         "right way; with the tensors the chain error gets a rel_l2, a norm "
+                         "ratio and a cosine like every other quantity. Over ONE block both "
+                         "sides are driven by the same captured cotangent, so this separates "
+                         "a backward that carries the cotangent wrongly from one that carries "
+                         "it correctly and forms the WEIGHT gradients wrongly. They are "
+                         "different defects and the parameter gradients alone conflate them.")
+    ap.add_argument("--dump-forward", default="", dest="dump_forward",
+                    help="write the taped device forward outputs to this .pt, so the A18 "
+                         "reading can be re-scored against another reference without re-running "
+                         "the device.")
     a = ap.parse_args()
 
     import numpy as np
@@ -246,6 +300,38 @@ def main() -> int:
             single_mask = single_mask[:, :c].contiguous()
         if pair_mask is not None:
             pair_mask = pair_mask[:, :c, :c].contiguous()
+    if a.permute_cot:
+        if single_mask is None:
+            raise SystemExit("--permute-cot needs the single mask to know which rows are real")
+        real = torch.nonzero(single_mask.reshape(-1) > 0).reshape(-1)
+        gperm = torch.Generator().manual_seed(a.permute_cot)
+        order = real[torch.randperm(int(real.numel()), generator=gperm)]
+        idx = torch.arange(int(single_mask.shape[-1]))
+        idx[real] = order
+        cot_s = cot_s[:, idx].contiguous()
+        cot_z = cot_z[:, idx][:, :, idx].contiguous()
+        perm_rep = {"seed": a.permute_cot, "real_positions_permuted": int(real.numel()),
+                    "fixed_points": int((order == real).sum()),
+                    "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
+                    "what": "the same cotangent, paired with the wrong token positions"}
+        print(f"[{time.perf_counter()-t0:.0f}s] BREAK CONTROL: cotangent permuted over "
+              f"{int(real.numel())} real positions, {int((order == real).sum())} fixed",
+              flush=True)
+    else:
+        perm_rep = None
+
+    if a.zero_pad:
+        if single_mask is None:
+            raise SystemExit("--zero-pad needs the single mask to know which rows are pad")
+        pad = (single_mask.reshape(-1) <= 0)
+        s_in = s_in.clone(); z_in = z_in.clone()
+        s_in[:, pad] = 0.0
+        z_in[:, pad, :] = 0.0
+        z_in[:, :, pad] = 0.0
+        rep["zero_pad"] = {"pad_rows": int(pad.sum()), "real_rows": int((~pad).sum()),
+                           "s_in_norm": float(s_in.norm()), "z_in_norm": float(z_in.norm())}
+        print(f"[{time.perf_counter()-t0:.0f}s] zero-pad: {int(pad.sum())} pad rows cleared",
+              flush=True)
     if a.nan_pad:
         if single_mask is None:
             raise SystemExit("--nan-pad needs the single mask to know which rows are pad")
@@ -266,6 +352,7 @@ def main() -> int:
                     "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
                     "single_mask_sum": None if single_mask is None else float(single_mask.sum()),
                     "source": "their own activations at this block, from the bundle's own step"}
+    rep["permuted_cotangent"] = perm_rep
     print(f"[{time.perf_counter()-t0:.0f}s] probe N={N} |s|={float(s_in.norm()):.4g} "
           f"|z|={float(z_in.norm()):.4g} |cot_z|={float(cot_z.norm()):.4g}", flush=True)
 
@@ -394,6 +481,24 @@ def main() -> int:
     rep["masks"] = {"pair_mask_sum": float(pm.sum()), "single_mask_sum": float(sm.sum()),
                     "real_tokens": int(sm.sum().item())}
 
+    # See --bijection-bias-prescale. `c_s // no_heads_pair_bias` is the attention-pair-bias
+    # head dim, the same expression the T.Pairformer construction above passes.
+    _APB_KEY = "attn_pair_bias.linear_z.weight"
+    _bias_c = (c_s // no_heads_pair_bias) ** 0.5 if spb else 1.0
+    rep["bijection_bias_prescale"] = {
+        "enabled": bool(a.bijection_bias_prescale), "scale_pair_bias": spb,
+        "head_dim": c_s // no_heads_pair_bias, "factor": _bias_c,
+        "tensors": sorted(k for k in atoms if k.endswith(_APB_KEY))[:3],
+        "rule": "w_device = c*w so dL/dw = c*dL/dw_device"}
+    if a.bijection_bias_prescale:
+        # The card holds bf16(bf16(w) * c), not bf16(w * c): `torch_to_tt` rounds to bf16 first
+        # and `ttnn.multiply_` rounds again. Offering bf16(w*c) is 2.7e-03 away, inside
+        # `bijection_device.APPROX_BAR` but outside the exact-fingerprint index, so the candidate
+        # is built the way the device built it and the match stays exact.
+        for _k in list(atoms):
+            if _k.endswith(_APB_KEY):
+                atoms[_k] = atoms[_k].to(torch.bfloat16).to(torch.float32) * _bias_c
+
     before = device_weights(mod)
     ours = walked_weights(lambda: mod(fts(s_in), ft(z_in), ft(pm), ft(attn), ft(attn)), None, mod)
     after = device_weights(mod)
@@ -469,8 +574,74 @@ def main() -> int:
               f"z {rep['forward_rel']['z']:.3e} (masked s {rep['forward_rel']['s_masked']:.3e} "
               f"z {rep['forward_rel']['z_masked']:.3e})", flush=True)
 
+        if a.dump_forward:
+            d = os.path.dirname(a.dump_forward)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            torch.save({"s": s_ours, "z": z_ours, "single_mask": sm, "pair_mask": pm,
+                        "crop": a.crop, "scale_pair_bias": spb}, a.dump_forward)
+            rep["forward_dumped_to"] = a.dump_forward
+        if a.forward_reference:
+            fr = torch.load(a.forward_reference, map_location="cpu", weights_only=False)
+            s_r = fr["s"].to(torch.float64)
+            z_r = fr["z"].to(torch.float64)
+            real = int(sm.sum())
+
+            def _sc(o, r, m):
+                o, r = (o * m).flatten(), (r * m).flatten()
+                on, rn = float(o.norm()), float(r.norm())
+                return {"rel": float((o - r).norm() / (rn + 1e-300)),
+                        "ratio": (on / rn) if rn else None,
+                        "cos": (float(torch.dot(o, r)) / (on * rn)) if (on and rn) else None,
+                        "verdict": ("PASS" if float((o - r).norm() / (rn + 1e-300))
+                                    <= PER_TENSOR_BAR else "FAIL")}
+
+            rep["a18_vs_reference"] = {
+                "reference": a.forward_reference,
+                "rule": "A18: the forward is confirmed in the SAME process that takes the "
+                        "gradient. A disagreeing forward invalidates the gradient taken at it; "
+                        "an agreeing one removes mis-wiring from the list and bounds nothing.",
+                "bar": PER_TENSOR_BAR,
+                "tokens": N, "real_tokens": real,
+                "padding_fraction_single": 1.0 - real / N,
+                "padding_fraction_pair": 1.0 - float(pm.sum()) / (N * N),
+                "s_masked": _sc(s_ours, s_r, msk),
+                "z_masked": _sc(z_ours, z_r, pmk),
+                "s_padded_scope": _sc(s_ours, s_r, torch.ones_like(msk)),
+                "z_padded_scope": _sc(z_ours, z_r, torch.ones_like(pmk))}
+            _A = rep["a18_vs_reference"]
+            print(f"[{time.perf_counter()-t0:.0f}s] A18 vs {a.forward_reference}: "
+                  f"s_masked {_A['s_masked']['rel']:.6e} ({_A['s_masked']['verdict']}) "
+                  f"r {_A['s_masked']['ratio']:.6f} cos {_A['s_masked']['cos']:.6f} | "
+                  f"z_masked {_A['z_masked']['rel']:.6e} ({_A['z_masked']['verdict']}) "
+                  f"r {_A['z_masked']['ratio']:.6f} cos {_A['z_masked']['cos']:.6f} | "
+                  f"padding {_A['padding_fraction_single']:.6f} single / "
+                  f"{_A['padding_fraction_pair']:.6f} pair", flush=True)
+
     # ---- the bijection, by value against the built model -------------------------------------
     dev_all = {p: ttnn.to_torch(t).to(torch.float32) for p, t in device_weights(mod).items()}
+    if a.bijection_bias_prescale:
+        _probe = []
+        for _dp, _dv in sorted(dev_all.items()):
+            if not _dp.endswith("attention_pair_bias.z_weight"):
+                continue
+            _j = int(_dp.split(".")[1]) + i
+            _w = sd[f"pairformer_stack.blocks.{_j}.attn_pair_bias.linear_z.weight"].float()
+            _d = _dv.reshape(-1).double()
+            for _tag, _c in (("bf16(bf16(w)*c)",
+                              (_w.to(torch.bfloat16).float() * _bias_c).to(torch.bfloat16)
+                              .float().T.reshape(-1).double()),
+                             ("bf16(w*c)",
+                              (_w * _bias_c).to(torch.bfloat16).float().T.reshape(-1).double())):
+                _probe.append({"device_path": _dp, "candidate": _tag,
+                               "rel_l2": float((_d - _c).norm() / (_c.norm() + 1e-300)),
+                               "bit_identical": bool(torch.equal(_d, _c))})
+            if len(_probe) >= 6:
+                break
+        rep["bijection_bias_prescale"]["device_weight_probe"] = _probe
+        for _x in _probe:
+            print(f"    z_weight probe {_x['device_path']} vs {_x['candidate']}: "
+                  f"rel {_x['rel_l2']:.6e} identical {_x['bit_identical']}", flush=True)
     if not a.stack:
         b = device_bijection(dev_all, atoms)
         placements, per_device = b["placements"], b["per_device"]
@@ -533,6 +704,17 @@ def main() -> int:
             for k in ("ds_in_norm", "dz_in_norm"):
                 d0, r0 = og.get(k), ref_ig.get(k)
                 og[k.replace("_norm", "_ratio")] = (d0 / r0) if (d0 and r0) else None
+        if a.dump_input_grads:
+            _d = os.path.dirname(a.dump_input_grads)
+            if _d:
+                os.makedirs(_d, exist_ok=True)
+            torch.save({"ds_in": (ttnn.to_torch(sa.grad).to(torch.float64)
+                                  if sa.grad is not None else None),
+                        "dz_in": (ttnn.to_torch(za.grad).to(torch.float64)
+                                  if za.grad is not None else None),
+                        "first_block": i, "blocks": nb, "crop": a.crop,
+                        "cot_scale": a.cot_scale}, a.dump_input_grads)
+            og["dumped_to"] = a.dump_input_grads
         rep["input_grad_ours"] = og
         if ref_ig:
             print(f"[{time.perf_counter()-t0:.0f}s] D38 input-gradient ratio: "
@@ -577,9 +759,11 @@ def main() -> int:
         band = gd.narrow(pl["axis"], pl["start"], pl["length"])
         if pl["layout"].endswith("transposed"):
             band = band.T
+        if a.bijection_bias_prescale and key.endswith(_APB_KEY) and _bias_c != 1.0:
+            band = band * _bias_c
         return band.contiguous(), None
 
-    rows, absent = [], []
+    rows, absent, dumped = [], [], {}
     for key, ref in g_ref.items():
         full = pre + key
         mine, why = our_grad_for(key)
@@ -612,6 +796,7 @@ def main() -> int:
         #   r  > 1, c ~ 1 -> an inflated copy
         #   c ~ 0         -> noise, and the gradient carries no signal at all
         rn, mn = float(np.linalg.norm(r)), float(np.linalg.norm(m))
+        dumped[full] = torch.from_numpy(m.copy())
         rows.append({"their_tensor": full, "key": key,
                      "device": [p["device_path"] for p in placements[key]],
                      "rel_l2": rel_l2(m, r),
@@ -622,6 +807,16 @@ def main() -> int:
                      "cos": (float((m * r).sum() / (mn * rn)) if (mn and rn) else None),
                      "zero_model_rel": 1.0,
                      "ref_is_zero": bool(np.max(np.abs(r)) == 0.0)})
+    if a.dump_grads:
+        d = os.path.dirname(a.dump_grads)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        torch.save({k: v.cpu() for k, v in dumped.items()}, a.dump_grads)
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(dumped)} device gradient tensors to "
+              f"{a.dump_grads}", flush=True)
+        rep["grads_dumped_to"] = a.dump_grads
+        rep["grads_dumped"] = len(dumped)
+
     rows.sort(key=lambda d: -d["rel_l2"])
     rel = [d["rel_l2"] for d in rows]
     rep["per_parameter"] = rows

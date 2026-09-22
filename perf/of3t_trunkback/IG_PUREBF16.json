@@ -1,0 +1,83 @@
+{
+ "what": "The CHAIN error: dL/ds_in and dL/dz_in, ours against float64, at each scope.",
+ "scopes": {
+  "PURE_0_47": {
+   "ours": "/home/ttuser/of3t_trunkback/REF043_PUREBF16_48_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF043_F64_48_ig.pt",
+   "first_block": 0,
+   "blocks": 48,
+   "ds_in": {
+    "rel_l2": 1.2193900130981108,
+    "norm_ratio": 0.9187712837764557,
+    "cos": 0.1944056557691348,
+    "ref_norm": 0.037143394274914046,
+    "our_norm": 0.03412628404177783,
+    "magnitude_share": 0.004437454483777542,
+    "direction_share": 0.9955625455162225,
+    "best_rescaled_rel_l2": 0.9809212205906103
+   },
+   "dz_in": {
+    "rel_l2": 0.40414699197665765,
+    "norm_ratio": 0.9985900336768672,
+    "cos": 0.9182182889822417,
+    "ref_norm": 0.001245290320482581,
+    "our_norm": 0.0012435345030681773,
+    "magnitude_share": 1.217135074952975e-05,
+    "direction_share": 0.9999878286492506,
+    "best_rescaled_rel_l2": 0.3960747073198749
+   }
+  },
+  "PURE_W0_24": {
+   "ours": "/home/ttuser/of3t_trunkback/REF_w0_24_purebf16_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_w0_24_ig.pt",
+   "first_block": 0,
+   "blocks": 24,
+   "ds_in": {
+    "rel_l2": 1.756078883125919,
+    "norm_ratio": 1.6575655424705382,
+    "cos": 0.20020640717339108,
+    "ref_norm": 0.005084581532809242,
+    "our_norm": 0.008428027146666633,
+    "magnitude_share": 0.14021357212928257,
+    "direction_share": 0.8597864278707175,
+    "best_rescaled_rel_l2": 0.9797537417773521
+   },
+   "dz_in": {
+    "rel_l2": 0.0858058638780126,
+    "norm_ratio": 0.9971079152761577,
+    "cos": 0.9963121934902311,
+    "ref_norm": 0.0009086724213138301,
+    "our_norm": 0.0009060444636851716,
+    "magnitude_share": 0.0011360255180698968,
+    "direction_share": 0.9988639744819442,
+    "best_rescaled_rel_l2": 0.08580217423051849
+   }
+  },
+  "PURE_B47": {
+   "ours": "/home/ttuser/of3t_trunkback/REF_b47_purebf16_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkback/REF_b47_f64_ig.pt",
+   "first_block": 47,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.057162712577321736,
+    "norm_ratio": 1.0022408380264904,
+    "cos": 0.9983723700779539,
+    "ref_norm": 1.1858396231175985e-05,
+    "our_norm": 1.1884968976383994e-05,
+    "magnitude_share": 0.0015367218720689956,
+    "direction_share": 0.9984632781279883,
+    "best_rescaled_rel_l2": 0.057031663704727224
+   },
+   "dz_in": {
+    "rel_l2": 0.021907822863955664,
+    "norm_ratio": 0.9990235598856951,
+    "cos": 0.9997602662807122,
+    "ref_norm": 0.00041173952875163817,
+    "our_norm": 0.0004113374897591201,
+    "magnitude_share": 0.0019865192790771966,
+    "direction_share": 0.9980134807205105,
+    "best_rescaled_rel_l2": 0.02189543254469626
+   }
+  }
+ }
+}

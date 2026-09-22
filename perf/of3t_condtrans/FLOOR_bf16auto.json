@@ -1,0 +1,19 @@
+{
+ "DTYPE_PROBE": {
+  "dit_block0_linear_out_dtype": "torch.bfloat16",
+  "probed_module": "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g"
+ },
+ "all_738_mass_weighted_vs_f64": 0.3019911479394176,
+ "backward_seconds": 27.782404899597168,
+ "cap": "/home/ttuser/of3t_diffusion_cap",
+ "ckpt": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "compared": 738,
+ "forward_seconds": 12.47238826751709,
+ "out": "/tmp/of3t/condtrans/floor_bf16auto.pt",
+ "policy": "bf16auto",
+ "upstream_pkg": "/home/ttuser/of3t_gradients/of3pkg (openfold3 0.5.0)",
+ "what": "Upstream 0.5.0's OWN bf16 gradient for the diffusion module, at the boundary our arm is scored at.",
+ "worst_rel": 2.035875489188958,
+ "worst_tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+ "xl_dtype": "torch.float32"
+}

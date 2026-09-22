@@ -1,0 +1,24 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 182 -- a DUPLICATE-CHECK result, no new measurement",
+ "why_this_exists": "at pass 182 I was about to dispatch a row to measure the trunk's BACKWARD under scale_pair_bias=True, believing it unmeasured. It is measured. This file closes the question so no later pass spends a row on it, and records why I nearly did.",
+
+ "the_closed_question": {
+  "forward_48_blocks_single_track": {"shipped_False": 0.1065338, "pre_scaled_True": 0.01655263,
+    "effect": "pre-scaling IMPROVES the forward 6.44x and takes it UNDER the 5.0e-02 bar"},
+  "backward_48_block_chain": {"shipped_False": 5.367727, "pre_scaled_True": 8.855764,
+    "effect": "pre-scaling DEGRADES the gradient 1.65x"},
+  "source": "of3t-trunkgrad, perf/of3t_trunkgrad/SCORE_043_c64.json, against upstream 0.4.3 float64. Not prose -- the figure is in the artifact.",
+  "verdict": "CLOSED. The bias-scale convention is not the backward's cause, and flipping it for the forward's sake would make the backward worse."
+ },
+
+ "the_statement_worth_keeping": "the forward and the backward ORDER THE TWO CONVENTIONS OPPOSITELY. There is no setting of scale_pair_bias under which the trunk's forward and its gradient both agree with upstream 0.4.3. So the trunk's forward gap and its backward gap are NOT one defect seen twice -- they are two, and the product decision already taken against flipping the default (0.463 A cost at rank 0, of3t-confhead) happens to be the choice that also keeps the gradient less bad.",
+
+ "what_it_does_to_the_pass_181_arithmetic": "the compounding result stands and is now better constrained. The per-block backward error of 4.125325e-02 compounds to 5.9615 over 48 blocks against a measured 5.351880, so the mechanism is an operator MULTIPLYING the arriving cotangent. This file removes the most obvious candidate for that multiplier: it is not the missing 1/sqrt(head_dim) on the pair bias, because supplying it makes the chain worse, not better.",
+
+ "the_near_miss_and_the_general_form": {
+  "what_I_did": "I listed every backward arm of3t-trunkback published and read `scale_pair_bias` out of each bundle. All fourteen said False. I concluded the convention had never been measured against a gradient.",
+  "why_that_was_wrong": "the pre-scaled backward arm was not of3t-trunkback's. It was of3t-trunkgrad's, one row earlier, on a different branch. Every flag I read was correctly False; the arm I wanted was simply somewhere else.",
+  "the_general_form": "ABSENCE FROM ONE ROW'S ARTIFACTS IS NOT ABSENCE FROM THE CAMPAIGN. Enumerating one row's outputs exhaustively feels like a complete search and is not one -- thirty-eight rows have published here. The campaign already records `duplicate-check-grep-state-verdicts-not-just-task-names` for the task-name version of this; this is the artifact-flag version.",
+  "what_actually_caught_it": "re-reading the DISPATCH LINE of the row I was about to base the new one on. It said, in its own brief, `do not flip D1 looking for relief -- the forward and gradient order the conventions oppositely`. The answer had been written into the brief of the row that produced it."
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "a": "/home/ttuser/of3t_f64softmax/device_grads_043all_sitef64.pt",
+ "a16_zero_model_vs_float64": 1.0,
+ "a16_zero_model_vs_their_step": 1.0,
+ "b": "/home/ttuser/of3t_softgrad/device_grads_043all_sm64.pt",
+ "bit_identical_tensors": 547,
+ "largest_absolute_difference": 0.0,
+ "of": 547,
+ "scope_tensors": 547,
+ "worst_tensor": null
+}
