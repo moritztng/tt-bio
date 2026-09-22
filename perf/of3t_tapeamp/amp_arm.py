@@ -182,6 +182,12 @@ def main() -> int:
     ap.add_argument("--match-scope", default="",
                     help="a *_per_tensor.json from our own device arm; its tensor names become "
                          "the matched scope the ratio is also reported on")
+    ap.add_argument("--break-cot", action="store_true", dest="break_cot",
+                    help="roll the cotangent's structure axis by one before the backward. The "
+                         "forward does not read the cotangent, so this moves the gradient half "
+                         "of the ratio and leaves the forward half bit-identical -- which is "
+                         "exactly the control a ratio needs: it shows the numerator responds "
+                         "while pinning that the denominator is not what responded.")
     ap.add_argument("--tag", required=True)
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--dump", default="")
@@ -286,8 +292,9 @@ def main() -> int:
           f"(min {min(fwd):.6e}, max {max(fwd):.6e})", flush=True)
 
     names, params = zip(*[(n, p) for n, p in dm.named_parameters()])
+    cot_used = torch.roll(cot, 1, dims=1) if a.break_cot else cot
     t1 = time.time()
-    g = torch.autograd.grad(xl, tuple(params), grad_outputs=cot.to(xl.dtype),
+    g = torch.autograd.grad(xl, tuple(params), grad_outputs=cot_used.to(xl.dtype),
                             allow_unused=True, retain_graph=False)
     t_bwd = time.time() - t1
     load1 = os.getloadavg()
@@ -320,6 +327,9 @@ def main() -> int:
         "loadavg_before_forward": load0, "loadavg_after_backward": load1,
         "forward_seconds": t_fwd, "backward_seconds": t_bwd,
         "xl_dtype": str(xl.dtype), "DTYPE_PROBE": probe,
+        "break_cot": bool(a.break_cot),
+        "cot_norm": float(cot.double().norm()),
+        "cot_used_norm": float(cot_used.double().norm()),
         "FORWARD": {"statistic": "per structure k, rel_l2(xl[0,k], S['xl_out'][0,k]); the same "
                                  "statistic as perf/of3t_diffusion/device_gradient.py:751",
                     "n_structures": len(fwd), "median": fwd_med,

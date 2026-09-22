@@ -18,8 +18,9 @@ CAP=/home/ttuser/of3t_hostleg/diffcap043
 MATCH="$W/perf/of3t_ditref/device_gradient_r043_ours_per_tensor.json"
 POLICY=$1
 TAG=${2:-$1}
+EXTRA=${3:-}
 echo "=== amp_arm $POLICY tag $TAG cap $CAP OMP=$OMP_NUM_THREADS host=$(hostname) $(date -u +%FT%TZ) ==="
 nice -n 5 "$PY" perf/of3t_tapeamp/amp_arm.py --policy "$POLICY" --expect-version 0.4.3 \
-  --cap "$CAP" --tag "$TAG" --match-scope "$MATCH" \
+  --cap "$CAP" --tag "$TAG" --match-scope "$MATCH" $EXTRA \
   --report "$W/perf/of3t_tapeamp/AMP_${TAG}.json"
 echo "=== amp_arm $TAG exit $? $(date -u +%FT%TZ) ==="
