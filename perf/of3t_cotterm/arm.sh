@@ -38,7 +38,7 @@ TT_BIO_SOFTMAX_BW_RENORM=${OC_RENORM:-1} \
 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \
 TT_BIO_LEASE_HOLDER=worker:of3t-cotterm OMP_NUM_THREADS=8 \
 timeout 4200 python3 perf/of3t_cotterm/armapb.py \
-  --apb-out "$APB" --real-rows 56 \
+  --apb-out "$APB" --real-rows 56 --apb-blocks "${OC_APB_BLOCKS:-}" \
   --lever none --class-scope ALL --census-out "$CEN" \
   --ln-capture "$(seq -s, 0 47)" --ln-out "$LN" \
   --boundary "$B" --cap-last "$C" --out "$OUT" \

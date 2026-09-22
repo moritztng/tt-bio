@@ -46,7 +46,14 @@ def main() -> int:
     ap.add_argument("--real-rows", type=int, default=0,
                     help="slice the stored pair-track activation to the first R rows/columns; "
                          "the bias projection is always stored at full width")
+    ap.add_argument("--apb-blocks", default="",
+                    help="capture the APB boundary only at these blocks; empty means all 48. "
+                         "Capturing all 48 is refused a 1,207,959,552 B DRAM buffer at 243 s, "
+                         "twice, in `taped_ttnn.py:908` -- the same buffer `autograd._retire`'s "
+                         "docstring records missing by 3.26 MB at this width. A narrower "
+                         "capture is a smaller denominator, declared, not a different question")
     a, rest = ap.parse_known_args()
+    SEL = {int(x) for x in a.apb_blocks.split(",") if x.strip()}
     t0 = time.perf_counter()
 
     import torch
@@ -95,7 +102,7 @@ def main() -> int:
     def apb_call(self, s, z, keys_indexing=None, seq_mask=None, bias_precomputed=False):
         STATE["apb_calls"] += 1
         i = getattr(self, "_cotterm_blk", None)
-        taped = isinstance(s, ag.Tensor) and i is not None
+        taped = isinstance(s, ag.Tensor) and i is not None and (not SEL or i in SEL)
         if taped:
             STATE["taped_calls"] += 1
             try:
@@ -141,10 +148,12 @@ def main() -> int:
     sites = {i: e for i, e in sorted(CAP.items())
              if all(k in e for k in ("a", "bias", "do"))}
     torch.save({"sites": sites, "host": os.uname().nodename, "real_rows": a.real_rows,
+                "apb_blocks": sorted(SEL) or list(range(48)),
                 "state": STATE, "errors": ERR, "trees": TREES}, a.apb_out)
     print(json.dumps({"apb_out": a.apb_out, "sites": len(sites),
                       "host": os.uname().nodename, "state": STATE, "trees": TREES,
-                      "missing": [i for i in range(48) if i not in sites],
+                      "apb_blocks": sorted(SEL) or list(range(48)),
+                      "missing": [i for i in (sorted(SEL) or range(48)) if i not in sites],
                       "errors": ERR[:4],
                       "seconds": round(time.perf_counter() - t0, 1)}), flush=True)
     return rc
