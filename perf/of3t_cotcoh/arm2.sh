@@ -34,7 +34,7 @@ PYTHONPATH=$W \
 TT_BIO_SOFTMAX_BW_RENORM=1 \
 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-cotcoh \
 OMP_NUM_THREADS=6 \
-timeout 2400 python3 perf/of3t_cotcoh/arm2.py --lever "$LEV" \
+timeout 5400 python3 perf/of3t_cotcoh/arm2.py --lever "$LEV" \
   --cot-out "$O/cot2_${LEV}.pt" \
   --report perf/of3t_cotcoh/ARM2_${LEV}.json \
   -- --boundary "$B" --cap-last "$C" \
