@@ -55,10 +55,13 @@ sequences:
       templates: ./templates.npz
 ```
 
-Ranking follows the OF3 rule: `0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash`. Every
-sample is written; the top-ranked one is `<name>.cif`. Note that this differs from the
-`confidence_score` the other tt-bio fold models report, so the values are not
-comparable across models.
+Ranking follows the OF3 rule: `0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash`, with
+pLDDT taking ipTM's weight on a single chain, where ipTM is zero by construction and
+the rule would otherwise reduce to `0.2 pTM`. Every sample is written; the top-ranked
+one is `<name>.cif`. RF3, Protenix-v1/v2 and OpenDDE rank on the same rule and pass 0
+for the disorder and clash terms, which they do not compute, so their scores are
+comparable with this one. Boltz-2 and BoltzGen keep their own published rule and are
+not comparable with either.
 
 ## What is and isn't supported
 

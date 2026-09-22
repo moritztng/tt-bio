@@ -1,0 +1,27 @@
+{
+ "rows": [
+  {
+   "n_atom": 512,
+   "ms_best_of_3": 2.44
+  },
+  {
+   "n_atom": 1024,
+   "ms_best_of_3": 11.02
+  },
+  {
+   "n_atom": 2048,
+   "ms_best_of_3": 61.66
+  },
+  {
+   "n_atom": 4096,
+   "ms_best_of_3": 224.14
+  },
+  {
+   "n_atom": 8192,
+   "ms_best_of_3": 749.57
+  }
+ ],
+ "exponent_full_ladder": 2.066,
+ "exponent_top_two_rungs": 1.742,
+ "host_quiet": "NO -- absolute ms are an upper bound"
+}

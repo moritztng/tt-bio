@@ -1,0 +1,63 @@
+{
+ "WHY_THE_DATA_FIELDS_ARE_SUFFIXED": "Nulled at pass 180. This artifact carries WITHDRAWN and its data fields still read as live -- a stamp in one field does not stop the numbers being consumed out of another. Every structured field is renamed with a _SUPERSEDED suffix so it cannot be picked up by name; content kept verbatim for audit. Renamed: the_measurement, what_this_establishes_and_what_it_does_not. Current answer: THE_ANSWER.json.",
+ "WITHDRAWN": {
+  "the_meta_lesson": "a quantity that swings four orders of magnitude under defensible choices is not a measurement of anything. The tell was available before I published: I should have asked what the estimate was SENSITIVE to -- input distribution and denominator -- and seen that both were free parameters I had picked. The first variant agreeing with the observation to 0.81x was coincidence, and coincidence that confirms is the most expensive kind.",
+  "the_three_answers": [
+   {
+    "coherent_48_vs_observed": "0.81x",
+    "note": "what I published as 'sufficient'",
+    "per_block": 0.004712263,
+    "variant": "random weights, delta/||attn||"
+   },
+   {
+    "coherent_48_vs_observed": "134.71x",
+    "per_block": 0.7840342,
+    "variant": "REAL weights, delta/||attn||"
+   },
+   {
+    "coherent_48_vs_observed": "3083x",
+    "per_block": 17.94471,
+    "variant": "REAL weights, delta/||z|| (right denominator)"
+   }
+  ],
+  "what_is_still_owed": "the decisive arm, unchanged: upstream's own 0.4.3 PairFormerBlock against the SAME captured boundary, with the real inputs. of3t-foldab owes it. No amount of synthetic-input arithmetic substitutes for it, which is the lesson here.",
+  "what_this_does_NOT_touch": "D90's withdrawal of the product-defect escalation, which rests on the SOURCE READING: 0.4.3's TriangleAttention has no transpose_bias parameter and its caller passes none, while 0.5.0's caller passes True. That is definitive about the revisions differing and about which one our port implements. It was never a magnitude argument.",
+  "what_was_wrong": "I compared ||delta attn|| / ||attn out|| -- a change in the BLOCK'S OUTPUT relative to that output -- against of3t-trunkfwd's 2.793661e-01, which is a change in z, the RESIDUAL STREAM. base_blocks.py does z = add(z, ps_dropout_row_layer(tri_att_end(z, ...))), so the comparable per-block quantity is ||delta attn|| / ||z||. Different denominators. This is D84's lesson recurring, and I did it in the same pass I wrote D84 up.",
+  "why_even_the_corrected_one_is_not_usable": "with a random N(0,1) input the module's output norm is 1.6558e+04 against an input norm of 7.2345e+02 -- 23x. A residual block whose output is 23x its input would explode over 48 blocks, so the random input is nothing like the real residual stream and the ratio is meaningless whichever denominator is used. Fixing the denominator does not fix the input distribution."
+ },
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "WITHDRAWN. The composition arithmetic in the retired headline is not sound: the same underlying measurement yields 0.81x, 135x or 3083x of the observed 2.793661e-01 depending on two defensible choices I made, and the version I published first was the one that looked like confirmation. What SURVIVES is that the orientation change is a real, material functional difference -- on the REAL of3-p2-155k weights the two orientations give cos 0.692650 between the block's outputs -- and that the revisions differ at all, which is the source reading D90 actually rests on.",
+ "headline_RETIRED": "one block's orientation change is 4.712263e-03, and accumulated coherently over 48 blocks that is 2.2619e-01 against the observed 2.793661e-01 -- 0.81x. A random walk would give 3.26e-02, 0.12x, far too small. The orientation difference is sufficient; no port defect is needed to explain the observation.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Script committed as perf/of3t_orchestrator/orientation_is_sufficient.py; 0.5.0 tree at ~/.coworker/scratch/of3t-data/up0.5.0.",
+ "the_first_attempt_was_VACUOUS_and_that_is_recorded": "my first arm compared the two orientations on a freshly constructed TriangleAttention and got nan. TriangleAttention ZERO-INITIALISES its output projection, so both arms emitted exactly 0.0 and the ratio was 0/0. An arm that cannot differ is not evidence -- the campaign has filed that class twice already (the power-of-two scale test, and arm2-vs-arm3 in D69) -- so it is fixed by giving every parameter non-degenerate values, and the script asserts both arm norms are non-zero before reporting anything.",
+ "the_measurement_SUPERSEDED": {
+  "composition": [
+   {
+    "model": "fully coherent, n^1.0",
+    "predicted": 0.22619,
+    "x_observed": 0.81
+   },
+   {
+    "model": "trunkfwd's measured exponent 0.925",
+    "predicted": 0.16919,
+    "x_observed": 0.61
+   },
+   {
+    "model": "random walk, n^0.5",
+    "predicted": 0.032648,
+    "x_observed": 0.12
+   }
+  ],
+  "control": "the same arm run twice is bit-identical, max abs diff 0.000e+00, so the module is deterministic and the contrast is the flag.",
+  "observed_by_of3t_trunkfwd": 0.2793661,
+  "per_block_cos": 0.999989,
+  "per_block_rel_l2": 0.004712263,
+  "setup": "0.5.0's own TriangleAttention, float64, c_z=128 c_hidden=32 heads=4, N=64, one module, one input, identical weights -- transpose_bias=False (0.4.3's only behaviour) against transpose_bias=True (what 0.5.0's caller passes). The flag is isolated to a single permute_final_dims call, so this is exactly the revision difference and nothing else."
+ },
+ "what": "a measurement, not a source reading, of whether the 0.4.3 -> 0.5.0 ending-node bias orientation change is QUANTITATIVELY SUFFICIENT to explain of3t-trunkfwd's 2.793661e-01 over 48 composed blocks. D90's withdrawal of my product-defect escalation rested on reading the two release trees; this checks the magnitude.",
+ "what_this_establishes_and_what_it_does_not_SUPERSEDED": {
+  "does_not_establish": "that our port is correct in every other respect, and it is not the decisive arm. Random weights are not the checkpoint and one block shape is not the real configuration, so 0.81x is indicative, not exact. The decisive measurement is still upstream's own 0.4.3 PairFormerBlock against the same captured boundary, which of3t-foldab owes.",
+  "establishes": "the orientation change is a real, non-trivial functional difference whose magnitude, accumulated over 48 blocks the way trunkfwd measured the accumulation to behave, lands within 1.2x of the observed disagreement. Combined with the source reading -- 0.4.3 has no transpose_bias parameter at all -- the revision mismatch is a sufficient explanation."
+ },
+ "why_the_coherent_model_is_the_right_one": "of3t-trunkfwd measured the accumulation exponent INDEPENDENTLY at 0.925 before the flip and 0.584 after -- near-coherent collapsing to near-random-walk, which it identified as the signature of removing a systematic per-block bias. A per-block orientation difference is exactly such a bias. Two facts derived from different measurements agree."
+}

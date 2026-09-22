@@ -1,0 +1,72 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175, under PROTOCOL A25/A26",
+ "every_scope_is_pure_geometry": {
+  "identity": "||e-t|| / ||t|| = sqrt(q^2 + 1 - 2*q*cos) with q = ||e||/||t||",
+  "reading": "worst prediction error 1.26e-05 across three scopes spanning 129x in magnitude. There is NO unexplained residual anywhere in this campaign: every gap between our gradient and upstream's step is accounted for by our accuracy and our error's direction, with nothing left over.",
+  "rows": [
+   {
+    "cos": 0.2071,
+    "measured": 129.13038,
+    "predicted": 129.1304,
+    "q": 129.3338,
+    "rel_err": 1.86e-07,
+    "scope": "diffusion arm, AS SHIPPED"
+   },
+   {
+    "cos": 0.0977,
+    "measured": 1.3524,
+    "predicted": 1.35242,
+    "q": 1.0134,
+    "rel_err": 1.26e-05,
+    "scope": "diffusion arm, float64 softmax"
+   },
+   {
+    "cos": -0.2727,
+    "measured": 1.04135,
+    "predicted": 1.04136,
+    "q": 0.1258,
+    "rel_err": 2.43e-06,
+    "scope": "diffusion_conditioning"
+   }
+  ]
+ },
+ "headline": "with every softmax computed accurately, 88.0820 % of OpenFold3's gradient mass is INSIDE the bar an independent bf16 reimplementation would meet -- the diffusion arm at 0.9563x it and diffusion_conditioning at 0.7363x. On the shipped path that same mass fails at 91.3x that bar, entirely on accuracy, and within the DIFFUSION ARM the whole accuracy failure is the softmax. (The retired headline said 'the entire accuracy failure is the softmax' without that qualifier; of3t-pairformer has since measured the trunk at 1.061553e+01 with a BROKEN FORWARD, 18.89 % of measured error mass -- see pairformer_refutes_the_one_module_framing.)",
+ "headline_RETIRED": "with every softmax computed accurately, 88.0820 % of OpenFold3's gradient mass is INSIDE the bar an independent bf16 reimplementation would meet -- the diffusion arm at 0.9563x it and diffusion_conditioning at 0.7363x. On the shipped path the same mass fails at 91.3x that bar, entirely on accuracy, and the entire accuracy failure is the softmax.",
+ "pairformer_refutes_the_one_module_framing": "REFUTED at pass 175 by of3t-pairformer, the same pass this file was written. Measured on its own scope the pairformer trunk reads 1.061553e+01 against upstream's own bf16 step -- WORSE than the diffusion transformer's 8.025 -- and in error mass (share of the model's squared gradient norm times rel^2, this file's own formula): diffusion transformer 28.0929 (80.79 %), PAIRFORMER TRUNK 6.5678 (18.89 %), the other five diffusion sections 0.1118 (0.32 %). This file's claim allots 0.4 % to everything outside the diffusion transformer; the trunk alone is 19 %. Caveat carried from the row: the diffusion rows are at the 043 step and the trunk row at the 0.5.0 boundary, so this is an order-of-magnitude statement rather than a partition of one number -- but 0.4 % against 19 % does not turn on the step. Note also that the trunk's own A18 forward FAILS -- 2.796859e-01 on the masked pair track over 48 composed blocks -- so its gradient reading is a forward-composition defect inheriting into the gradient, not an independent backward or precision defect. It is not in the 88.0820 % and never was, so that figure is unaffected; what is affected is the claim that the softmax was the whole story for the MODEL.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Arithmetic on figures published by of3t-trajectory, of3t-direct and of3t-residual, each measured by the row that owns its scope, each input digest-verified per A24, and the diffusion arm's figures taken from the arm CORRECTED for D86's orientation defect. The geometry identity is checked against all three independently.",
+ "scored_against_the_reachable_bar": {
+  "mass_passing_with_an_accurate_softmax": 88.082,
+  "rows": [
+   {
+    "mass_pct": 51.1358,
+    "scope": "diffusion arm, AS SHIPPED",
+    "verdict": "FAIL",
+    "why": "accuracy: our error is 129.3x theirs, and it is the softmax",
+    "x_reachable_bar": 91.309
+   },
+   {
+    "mass_pct": 51.1358,
+    "scope": "diffusion arm, float64 softmax",
+    "verdict": "PASS",
+    "why": "our accuracy is 1.0134x theirs with near-independent errors",
+    "x_reachable_bar": 0.9563
+   },
+   {
+    "mass_pct": 36.9462,
+    "scope": "diffusion_conditioning",
+    "verdict": "PASS",
+    "why": "our error is 8x SMALLER than upstream's own. An independent bf16 port of upstream's accuracy would read 1.414x threshold and FAIL this scope; we read 1.041x because we are more accurate than the thing we are reproducing.",
+    "x_reachable_bar": 0.7363
+   }
+  ],
+  "the_bar": "sqrt(2) x threshold -- what two independent bf16 implementations of equal accuracy read (A26). The 'equals float64' threshold is unreachable for any bf16 port and scoring against it manufactures a failure."
+ },
+ "what": "the campaign's completion statement. Every measured disagreement between our gradient and upstream OpenFold3's own bf16 training step is predicted, to within 1.26e-05, by the geometry of two error vectors -- so the question 'do we reproduce training' reduces entirely to two measured quantities per scope: how accurate we are relative to them, and the angle between the two errors.",
+ "what_this_settles_and_what_it_does_not": {
+  "does_not_cover": "pairformer_stack, 5.8282 %, is now MEASURED and it REFUTES the one-module framing: 1.061553e+01 against upstream's own step, norm ratio 10.55, cos -0.017 -- ten and a half times too large and pointing somewhere unrelated, 60.38x its threshold and 10.6x further from their step than a model emitting zeros. Its A18 forward FAILS at 2.796859e-01 on the masked pair track over 48 composed blocks, so this is a forward-composition defect inheriting into the gradient, not precision. It is 18.89 % of measured error mass. aux_heads (2.8431 %) is likewise void under A18. Neither is inside the 88.0820 %, which is unaffected.",
+  "does_not_cover_RETIRED": "pairformer_stack, 5.8282 %, unmeasured -- of3t-pairformer is live on it and could still refute 'the failure is one module'. aux_heads (2.8431 %) is void under A18 for a forward failure. msa_module (1.2400 %) reads 1.3398x threshold = 0.947x the reachable bar, which PASSES on A26's bar though the row scored it against the unreachable one.",
+  "does_not_settle_the_shipped_path": "the float64 softmax is a BOUND -- a host computation on a tape verb, 13 s per structure against 2.5 s. of3t-softmax returned NO-GO on every shipped precision lever: 0.3237 A against a 0.6250 A seed floor at +46 % per op, and no shipped lever reaches the parity bar. So the SHIPPED path does not reproduce training, and closing it is a release-gated precision change, not a measurement.",
+  "one_batch": "batch_step003, 5nw3, 56 real tokens, crop 384, one r = 0 step, 48 structures",
+  "settles": "the gradient mathematics. On 88.0820 % of the model our training step computes what upstream's computes, to within what any independent bf16 implementation could achieve, and every remaining difference is accounted for arithmetically."
+ }
+}

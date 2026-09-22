@@ -1,0 +1,58 @@
+{
+ "as_of": "2026-09-20 pass 176",
+ "boundary": "real 0.4.3 trunk entry, 5nw3/56 tok padded 384",
+ "weights": "of3-p2-155k.pt, identical tensors into both stacks, 2736 loaded, strict=True",
+ "CONTROL_050_tboff_vs_043": {
+  "s": {
+   "rel_vs_t": 0.0,
+   "rel_vs_e": 0.0,
+   "norm_ratio_e_over_t": 1.0,
+   "cos_err_vs_t": 0.0,
+   "abs_l2": 0.0
+  },
+  "z": {
+   "rel_vs_t": 0.0,
+   "rel_vs_e": 0.0,
+   "norm_ratio_e_over_t": 1.0,
+   "cos_err_vs_t": 0.0,
+   "abs_l2": 0.0
+  }
+ },
+ "control_exactly_zero": true,
+ "REVISION_050_vs_043_fp32": {
+  "s": {
+   "rel_vs_t": 0.0387806352311332,
+   "rel_vs_e": 0.039282847367391516,
+   "norm_ratio_e_over_t": 0.9872154853857361,
+   "cos_err_vs_t": -0.3469453623330917,
+   "abs_l2": 98848.39135796369
+  },
+  "z": {
+   "rel_vs_t": 0.005374144660129897,
+   "rel_vs_e": 0.005373251445430746,
+   "norm_ratio_e_over_t": 1.000166233556762,
+   "cos_err_vs_t": 0.02824759436561158,
+   "abs_l2": 83789.69130818333
+  }
+ },
+ "UPSTREAM_OWN_BF16": {
+  "s": {
+   "rel_vs_t": 0.01496833860003941,
+   "rel_vs_e": 0.015113767828169457,
+   "norm_ratio_e_over_t": 0.990377698679545,
+   "cos_err_vs_t": -0.6472349950294822,
+   "abs_l2": 38152.96431058422
+  },
+  "z": {
+   "rel_vs_t": 0.0196067979177397,
+   "rel_vs_e": 0.01962397106874155,
+   "norm_ratio_e_over_t": 0.9991248890990668,
+   "cos_err_vs_t": -0.054416904723985,
+   "abs_l2": 305694.7010111991
+  }
+ },
+ "R_in_bf16_units": {
+  "s": 2.5908443326523285,
+  "z": 0.27409598868092155
+ }
+}
