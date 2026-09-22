@@ -1450,3 +1450,42 @@ cotangent arriving at the affine leaves, produced upstream in the backward chain
 magnitude as an identification of its cause. The factor was 3-4.6x each time; the cause was not
 in it. **A magnitude constrains a mechanism, it does not name one** — and in all three cases a
 direct measurement existed and was cheap.
+
+### R134. The trunk's excess is an ENTRY condition, not per-block compounding — and upstream accumulates FASTER than we do. From `of3t-orchestrator`, pass 379, from a committed artifact at zero card cost.
+
+`of3t-modelframe`'s `ATTRIBUTION.json` already carried the answer to `of3t-cotcoh`'s central
+question and nobody had read it that way. It enumerates twelve blocks (79.55 % of the trunk's
+error mass) with our rel_l2 **and upstream's own at the same block**, which is enough to compare
+the two accumulation rates. The backward enters at 47 and descends to 0.
+
+    blk    ours     upstream   over_upstream
+     47   0.9603    0.2308       4.1613     <- entry
+     46   0.9618    0.1499       6.4151
+      4   2.8089    1.6706       1.6814
+      0   1.4667    0.7440       1.9712     <- end of the descent
+
+**Ours grows 2.93x through the descent; upstream's own grows 7.24x.** Per block of descent, in
+log2: ours **+0.0178**, theirs **+0.0343**. **Our excess over upstream shrinks at −0.0165 per
+block** — mean `over_upstream` 3.7585 at the entry blocks against 2.7580 at the deep ones.
+
+**Two consequences.**
+
+- **The defect is established at or near where the trunk's backward begins**, not compounded
+  along it. That is a prior *against* **D240** — the fan-out-keyed cotangent dtype I filed an
+  hour earlier — as the explanation for the excess across the stack, because a dtype policy
+  would compound. It leaves D240 live only at the entry.
+- **Our per-block accumulation is BETTER than upstream's**, which is the same shape as
+  `of3t-lnreduce`'s finding that we are 13x better than upstream's bf16 at the affine op given
+  the same inputs. Two independent readings now say our arithmetic is not the problem and our
+  *inputs* are.
+
+**Caveats, stated because this is a prior and not a finding.** Twelve of 48 blocks chosen by
+mass is not a uniform sample; block 11 is an outlier at 4.6214; and `over_upstream` is high at
+46/47 substantially because **upstream is very accurate there** (0.1499, 0.2308) rather than
+because we are bad, which is why both absolute curves are reported beside the ratio.
+`of3t-cotcoh` is told to test it over all 48 rather than inherit it.
+
+**The pass's own pattern, named once.** Four things I proposed this pass have been moved against
+by evidence — two projections, one mechanism, and now the scope of one candidate. Every time,
+the evidence was cheap and already available. **The orchestrator's edge is not proposing
+mechanisms; it is finding the measurement that already exists before a row pays for a new one.**
