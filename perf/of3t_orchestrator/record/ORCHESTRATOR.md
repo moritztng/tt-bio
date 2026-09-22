@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R171 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R172 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R172** my own linearity shortcut looked unsafe on the device by 9.18 % from bf16's nominal
+  epsilon; the arms' own `cotangent_on_device` blocks put it at **0.014 %**, 637x smaller
 - **R171** I amended one clause of a four-part pre-registered condition at R166 and did not
   audit its siblings; two of the other three had the same flaw. Three of four now MET
 - **R170** D242 CLOSED at model scope — the repaired injection reproduces the reference's whole
@@ -1766,3 +1768,26 @@ vocabulary before any number is known is still honest; amending after is not.
 And when one clause of a multi-part condition is amended, **audit its siblings in the same
 pass**. This is the second appearance of that family in this campaign — the first was R156,
 where retracting one mechanism revived a control I had declared blind.
+
+## Pass 406 — a risk I raised against my own shortcut, closed by a field the row records on every arm
+
+The device `(0, delta)` arm landed, driven by `cot_delta_only.pt` at the digest
+`COTANGENTS.json` banked, with `cot_s_norm` exactly 0.0 — R161's shortcut executing with A42's
+chain intact.
+
+I then raised a concern against my own design: the subtraction reconstructs
+`g(Q(cot_hooked)) − g(Q(delta))` where a direct run gives `g(Q(cot_hooked − delta))`, and since
+the duplicate is 99.6628 % of the hooked cotangent by norm, the external cotangent they bracket
+is 11.7471x smaller and any quantisation lands against the small quantity. From bf16's nominal
+epsilon that is **9.18 %** — enough to make the shortcut useless on the device.
+
+**It is wrong by 637x, and the artifacts already held the measurement.** Both arms bank a
+`cotangent_on_device` block — added for exactly this question — giving round-trips of 2.9059e-06
+and 9.3992e-06 relative, a combined **9.3295e-09** absolute, which is **0.01442 %** of the
+external cotangent.
+
+**A quantisation bound taken from a dtype's epsilon is an upper bound on a harness nobody has
+measured.** Once the harness is instrumented, the epsilon is the wrong number to reason from —
+the same mistake as asserting a roofline instead of measuring it, in precision's costume. The
+row is told to run R161's end-to-end control anyway, and told that 0.014 % is the expected
+disagreement so a sub-0.1 % result is not read as a defect.

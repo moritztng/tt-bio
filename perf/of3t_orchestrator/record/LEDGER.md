@@ -2058,3 +2058,46 @@ retracting one mechanism revived a control I had declared blind.
 and `N384_CONTROLS`), 2 MET (6.489e-16 agreement, 329x under the bar), 3 MET (R166, the
 cross-host floor), 4 pending the device arm. The composed artifact's per-scope stamp (R168) is
 the remaining piece of condition 1.
+
+---
+
+### R172. My own linearity shortcut looked unsafe on the device by 9.18 %; the artifacts already held the measurement, and it is 0.014 % (pass 406, zero card)
+
+R161's shortcut is `g_corrected = g(cot_s, cot_z) - g(0, delta)`, and the device arm for it
+landed: `DEV_RENORM_MODEL_N384_DELTA.json`, driven by `cot_delta_only.pt` at sha256
+`33be05b1…` — **the digest COTANGENTS.json banked**, so A42's chain holds — with
+`probe/cot_s_norm` exactly **0.0** and `cot_z_norm` 0.0007575746327655109, i.e. precisely
+`(0, delta)`, and `shipped_config` equal to `arm_config` on all six kwargs.
+
+**The concern I raised against my own design.** The subtraction reconstructs
+`g(Q(cot_hooked)) - g(Q(delta))` where `Q` is the device's cotangent round-trip, while a direct
+run gives `g(Q(cot_hooked - delta))`. Those differ, and the two cotangents are nearly equal —
+the duplicate is 99.6628 % of the hooked one by norm — so the external cotangent they bracket is
+**11.7471x smaller** and any quantisation error is measured against the *small* quantity.
+Reasoning from bf16's nominal epsilon (2^-8, 3.906e-3) gives an error of **9.18 %** of the
+external cotangent. That would have made the shortcut useless on the device.
+
+**It is wrong, and the artifacts already contained what settles it.** Both arms bank a
+`cotangent_on_device` block — a field added for exactly this question, whose own note reads *"a
+ratio away from 1 would mean the harness rescales a track on the way in"*:
+
+    banked hooked arm   ref 0.0007601379094210722  dev 0.0007601401183388326  rel 2.9059e-06
+    delta arm           ref 0.0007575746327655109  dev 0.0007575817533478665  rel 9.3992e-06
+    worst-case combined absolute 9.3295e-09
+    as a share of the external cotangent (6.4709e-05)      0.01442 %
+
+**So the shortcut is safe on the device to 0.014 %, not unsafe by 9.18 % — the nominal-epsilon
+bound overstated it by 637x.** The harness does not round-trip the injected cotangent at bf16
+precision, and it says so in a field it records on every arm.
+
+**The lesson, and it is one this campaign already has in another costume.** I was about to
+escalate a precision risk derived from a **dtype's name** rather than from a measurement —
+`roofline-roof-must-be-measured-not-asserted` applied to precision instead of bandwidth, and
+`your-own-worktree-already-holds-the-answer-grep-it-before-spending-device-time` applied to a
+risk instead of a result. **A quantisation bound taken from a dtype's epsilon is an upper bound
+on a harness nobody has measured; once the harness is instrumented, the epsilon is the wrong
+number to reason from.**
+
+R161's end-to-end control still stands and should still be run — this bounds the shortcut, it
+does not replace its control. But the row should not read a sub-0.1 % disagreement between the
+subtraction and a direct `cot_external.pt` run as a defect: **0.014 % is the expected size.**
