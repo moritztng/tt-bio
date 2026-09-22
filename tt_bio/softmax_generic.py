@@ -365,6 +365,10 @@ _SMALL_OK = env_flag("RFD3_SOFTMAX_BF16_SMALL", False)
 
 def eligible(x, dtype) -> bool:
     """Only the shape family this module transcribes: rank-4, fp32 in, bf16 out, tile-aligned W."""
+    from . import ops
+    if ops.taping():
+        return False   # generic_op has no backward; the composed path runs instead
+
     if not _ENABLED:
         return False
     if dtype != ttnn.bfloat16 or x.dtype != ttnn.float32:
@@ -506,6 +510,10 @@ def softmax_pv_fused(x, vv, dtype, ckc):
     Declining is the default-safe answer and the caller runs the shipped pair. Nothing here
     widens what `softmax_bf16` already covers; it only removes the trip to DRAM between the two.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the composed path runs instead
+
     if not _PV_ENABLED:
         return None
     v = pv_classify(x, vv, dtype, ckc)
