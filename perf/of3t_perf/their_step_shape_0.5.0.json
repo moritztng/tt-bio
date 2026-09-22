@@ -1,0 +1,71 @@
+{
+ "source": "/tmp/of3t/up050/openfold3-0.5.0",
+ "architecture_defaults": {
+  "no_samples": 48,
+  "no_mini_rollout_steps": 20,
+  "no_mini_rollout_samples": 1,
+  "num_recycles": 3
+ },
+ "grad_scoping": {
+  "only_final_trunk_cycle_has_grad": true,
+  "mini_rollout_under_no_grad": true,
+  "recycles_sampled_per_training_step": true,
+  "train_diffusion_skipped_when_confidence_only": true,
+  "runner_asserts_per_rank_batch_1": true
+ },
+ "facts_not_found": [],
+ "stages": {
+  "initial_training": {
+   "token_budget": 384,
+   "_overridden": [
+    "token_budget",
+    "batch_size"
+   ],
+   "batch_size": 1,
+   "no_samples": 48,
+   "no_mini_rollout_steps": 20,
+   "no_mini_rollout_samples": 1,
+   "num_recycles": 3
+  },
+  "finetune_1": {
+   "token_budget": 640,
+   "_overridden": [
+    "token_budget",
+    "batch_size",
+    "no_samples"
+   ],
+   "batch_size": 1,
+   "no_samples": 32,
+   "no_mini_rollout_steps": 20,
+   "no_mini_rollout_samples": 1,
+   "num_recycles": 3
+  },
+  "finetune_2": {
+   "token_budget": 768,
+   "_overridden": [
+    "token_budget",
+    "batch_size",
+    "no_samples"
+   ],
+   "batch_size": 1,
+   "no_samples": 32,
+   "no_mini_rollout_steps": 20,
+   "no_mini_rollout_samples": 1,
+   "num_recycles": 3
+  },
+  "finetune_3": {
+   "token_budget": 768,
+   "_overridden": [
+    "token_budget",
+    "batch_size",
+    "train_confidence_only"
+   ],
+   "batch_size": 1,
+   "no_samples": 48,
+   "no_mini_rollout_steps": 20,
+   "no_mini_rollout_samples": 1,
+   "num_recycles": 3,
+   "train_confidence_only": true
+  }
+ }
+}
