@@ -302,7 +302,7 @@ proposal belongs in PROTOCOL §9 as an amendment recording that a number already
 honest reading until then is: TRAJECTORY is MET on the three properties its clause names, and the
 fourth property is measured at 1.2707x rather than graded.
 
-**It does not prove the trunk.** 5.8282 % of the model's gradient mass is measured at 6.402x
+**It does not prove the trunk.** 5.8282 % of the model's gradient mass is measured at 2.2341x in frame (6.402x cross-frame as published, D214) and at 6.402x
 upstream's own bf16 and is the campaign's one large open accuracy object.
 
 **The 2.0150 % that is unread on the shipped arm is a wiring gap, not a limit** — `of3t-readable-
@@ -318,11 +318,19 @@ rotation took it and a number a reader treats as the claim must sit in the field
 
 GAP: **GRADIENTS, and after this pass it is two things rather than the one the doc was claiming.**
 
-    accuracy  0.520124 against its own A26 bar 0.147353, 3.5298x over, at 97.98499 % coverage.
-              ALL of it is `pairformer_stack` at 6.402x upstream's own bf16; the other nine
-              sections are 0.945x-2.176x and the counterfactual lands at 0.1240 (0.841x, passes).
-              Owner: `of3t-trunkact`, dispatched pass 357 onto the
-              FORWARD activations, which is what `of3t-blk4544` excluded the backward in favour of.
+    accuracy  0.520124 against its own A26 bar 0.147353, **3.5298x over as published, and that
+              figure is CROSS-FRAME** (D214, pass 359). ALL of it is `pairformer_stack`. The
+              quoted 6.402x divides ours-vs-their-bf16 by theirs-vs-float64, and both sides sit
+              in a frame `of3t-frame384` measured as unreadable: the two float64 references
+              disagree at 1.8416532191 rel L2, cos 0.36514, no device op on either path.
+              **In frame the trunk reads 1.0293953378, i.e. 2.2341x upstream's own bf16, and the
+              clause reads 0.2785749654 — 1.8905x the bar, still failing.** Re-pooled from the
+              arm's own `ref_sq`, control reproducing the published headline at relative
+              difference 0.0. The load-bearing number for the live rows: **the trunk must reach
+              <= 0.4361680548 against upstream's own bf16**, 0.828x its own scope's in-frame A26
+              bar of 0.5268825373 — so hitting that scope bar leaves the clause at 1.1219x and
+              failing. Factor still to find: **2.360x**. Owner: `of3t-vjpln`; `of3t-trunkact` and
+              `of3t-blk4544` have concluded.
     coverage  97.98499 % against 99.2594 % on the SHIPPED arm, and **the bar stands** (D212,
               pass 358). `of3t-covdefault` NO-GO'd flipping `TT_BIO_OF3_DEVICE_REFATOM` on a real
               inference A/B (+198.476 ms cold / +50.231 ms warm on openfold3) and proposed
@@ -359,14 +367,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 79 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 80 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        9  D10, D24, D32, D55, D56, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  65  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D207, D208, D209, D211
+    CAMPAIGN-INTERNAL  66  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D207, D208, D209, D211, D214
 
 The nine USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`; eight are built and waiting on a merge, and
@@ -387,8 +395,8 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred eight rows dispatched, one
-hundred five concluded, three live; `state/concluded` holds **one hundred seven** of3t files. **Two hundred thirteen defects filed**, **79 UNFIXED** (5
-scope-excluded, 9 USER-FACING, 65 campaign-internal) over the UNION of `DEFECTS.md` and its
+hundred five concluded, three live; `state/concluded` holds **one hundred seven** of3t files. **Two hundred fourteen defects filed**, **80 UNFIXED** (5
+scope-excluded, 9 USER-FACING, 66 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
 historical markers and not rows, so **one hundred five rows have concluded**. Recounted from
@@ -413,7 +421,9 @@ that loop at k = 20 and never above **1.3677x**. Outside the pairformer trunk th
 sections between 0.945x and 2.176x of upstream's own bf16 step, most of them at or below 1.1x.
 
 **What fails, and it is one object.** The trunk at n384 reads **2.0151** against upstream's own
-**0.3148** on the same reference — **6.402x** — and at 5.8282 % of the model's gradient mass that
+**0.3148** — but not on the same reference and not in the same frame, so **6.402x is not the
+distance** (D214). In frame it is **2.2341x**, the clause reads 1.8905x the bar rather than
+3.5298x, and the trunk must reach <= 0.4361680548 from 1.0293953378 — **2.360x** to find — and at 5.8282 % of the model's gradient mass that
 one section is the entire difference between GRADIENTS passing and failing. It is localised to a
 STEP created in the backward of blocks 45 and 44, it is 100 % ours (the float64 reference is
 bit-identical across both widths at all 49 rungs), softmax is refuted as the carrier, and the
@@ -423,8 +433,8 @@ LayerNorm affine leaves carry 93.80 % of it with an excess that is width-invaria
 OpenFold3 training step reproduces upstream's step per-parameter over 92.16 % of the gradient mass
 at upstream's own bf16 accuracy, with full loss-term and path coverage and a coupled twenty-step
 weight trajectory over the diffusion module that stays within 1.27x of upstream's own bf16 loop —
-and one section, the pairformer trunk at 5.83 % of the mass, is 6.4x upstream's own error and is
-not reproduced.* Everything in that sentence is a
+and one section, the pairformer trunk at 5.83 % of the mass, is **2.23x** upstream's own error
+in frame and is not reproduced.* Everything in that sentence is a
 measurement in a committed artifact; nothing in it is the shipped default.
 
 
@@ -1249,3 +1259,57 @@ well-measured number, which is exactly what made it credible; `of3t-trajwiden` k
 97.9849 % bar on this same ground and the campaign still nearly took it a second time. **When a row
 prices "the only route" to a bar, check that the route it priced is the route the code takes.** A
 cost measured on the wrong route is a true number about the wrong thing.
+
+
+---
+
+## Pass 359 — the trunk's headline is cross-frame, and the bar the live rows were aiming at is too loose to close the clause
+
+Three things, all recomputed from artifacts rather than read off a row's prose.
+
+**D214, and it corrects my own `GAP:`.** The graded artifact's trunk section compares a
+capture-driven crop-384 walk against the full-model float64 gradient. `of3t-frame384` measured
+those two float64 references against each other over the same 2,736 tensors: **1.8416532191** rel
+L2 at cos **0.36514**, no device op on either path. The other nine sections do not have this. And
+the published 6.402x is cross-REFERENCE too — ours-vs-their-bf16 over theirs-vs-float64;
+same-reference it is 6.861x. **In frame the trunk is 2.2341x upstream's own bf16.**
+
+**The correction does not save the clause, and the number `of3t-frame384` proposed for it is off.**
+That row said the in-frame clause reads 0.3092307842 (2.0986x). It composed from the published
+float64 mass shares, which the artifact's own reconciliation records as 3.68 % wrong; the arm's
+own `ref_sq` reproduces the headline exactly. Re-pooled, with a control hitting the published
+0.5201243840984896 at relative difference **0.0** before any rung:
+
+    trunk section reads                          model scope     vs bar 0.1473526833
+    2.0151163033  today, cross-frame             0.5201243841    3.5298x  fails
+    1.0293953378  in frame                       0.2785749654    1.8905x  fails
+    0.5268825373  its own in-frame A26 bar       0.1653149249    1.1219x  FAILS
+    0.3147698294  upstream's own bf16            0.1259060033    0.8545x  passes
+    0.0000000000  exact                          0.0973798898    0.6609x  passes
+
+**The third row is the finding.** A trunk that hits the bar derived for its own scope still leaves
+GRADIENTS failing. **The clause needs the trunk at <= 0.4361680548**, 0.828x that scope bar. From
+1.0293953378 in frame the factor still to find is **2.360x** — not 4.62x, and not the 13.0x or
+6.4x earlier passes recorded. Robust: over a 6x band on the trunk's weight the clause reads
+1.4395x to 2.9541x the bar and the threshold moves 0.5990 to 0.2791, failing at every point, so
+only the magnitude turns on the weight. Both live briefs were dispatched quoting the old target
+and are amended in place.
+
+**No verdict flips**, which is what makes publishing a correction in the flattering direction
+defensible here: GRADIENTS failed before it and fails after it. What moved is the distance and
+the target.
+
+**Also: `of3t-vjpln`'s brief told it its own card was excluded.** The dispatcher put it on qb1
+card 2 and my constraint list said cards 2 and 3 are not for decisive measurements. Checked, not
+carried forward: no live cardblock on qb1; `aer_dev_correctable`, `aer_dev_nonfatal` and
+`aer_dev_fatal` all read 0 on all four Tenstorrent functions with an empty `dmesg | grep -i aer`;
+and `of3t-blk4544` took the baseline this row differences against on cards 2/1/3. Corrected in the
+brief, with the honest caveat that clean counters since boot are the absence of a symptom rather
+than proof, so blk4544's A/A determinism floor stays the row's actual evidence.
+
+**The lesson, and the campaign has now paid for it twice in two passes.** Pass 358 refused a bar
+priced on a route the code does not take; this pass corrected a distance measured across two
+frames. Both are the same shape: **a number that is arithmetically correct about the wrong pair of
+objects.** `of3t-frame384` published the frame measurement and proposed the correction, and it sat
+unabsorbed while four rows and my own summary went on quoting the cross-frame figure — absorption
+is pull, not push, and the pull has to be a recomputation, not a read.
