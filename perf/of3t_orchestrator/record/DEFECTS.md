@@ -1910,3 +1910,32 @@ a non-zero reading to calibrate against, which is exactly why the defect survive
 **The rule that separates the two cases, and it is cheap**: a zero is evidence only if the same
 counter has been seen non-zero under a condition you control. `of3t-trunkceiling` had that
 control by accident — two arms, one of which fired. The inference A/Bs never did.
+
+### D225 UPDATE — the route fix's reach is now censused per site and per model, and RF3 gains ALL of its reach. `of3t-f64route`, pass 376.
+
+One fold per model with `TT_BIO_HOST_F64_SOFTMAX_AB=all` on qb1 card 3, read from the per-PID
+capacity dump that D236 fixed, so the count comes from the process that folded:
+
+    model         arrivals   via the tail   via site_softmax
+    openfold3          623            440                183
+    rf3                 33             33                  0
+    protenix-v2        183              0                183      0 fp32_softmax calls
+
+**RF3 gains its whole reach here** — 0 via `site_softmax`, 33 via the tail — so for that model
+the host float64 softmax was not merely under-reaching, it was **entirely** unreachable.
+OpenFold3 gains **440 of 623**. And **protenix-v2 is an untouched control**: it buckets its token
+axis at 128 aa so it never enters the `_fp32_softmax_attention` tail at all, which makes it a
+model that must not move by one byte when the change lands — a natural negative control for the
+inference A/B rather than one that had to be constructed.
+
+**The per-site decomposition matches the brief's four sites exactly.** OpenFold3's pairformer
+count of **168** per token is `48 trunk x 3 + confidence 4 x 3 + msa 4 x 2 + template 2 x 2`.
+
+**And a suspicious coincidence was investigated rather than assumed.** The three models reported
+an identical **195** total, which looks exactly like a counter bug. Decomposed per token it is
+not: they are three AF3-family stacks with the same 48 trunk and 24 DiT block counts. The row's
+own conclusion is the transferable part — *"a total cannot locate a site"* — and it is the same
+lesson D236 paid for from the other direction, where a total of zero could not distinguish "never
+arrived" from "looking in the wrong process".
+
+`reach_report.py` reads the per-PID dump, so the report can be rebuilt without re-folding.
