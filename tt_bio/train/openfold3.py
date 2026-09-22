@@ -236,9 +236,25 @@ class OpenFold3Forward:
         #: gradient moves against an arm with it OFF.
         self.repr_coords_in = None
         self.rollout_ran = None
-        #: Run upstream's one-step denoise arm, which is what puts a gradient on the
-        #: diffusion module and what `mse` / `smooth_lddt` / `bond` are seeded off.
-        self.denoise = True
+        #: Run upstream's one-step denoise arm -- what puts a gradient on the diffusion
+        #: module and what `mse`, `smooth_lddt` and `bond` are seeded off.
+        #:
+        #: **OFF by default, because its backward overflows.** It runs end to end and the
+        #: forward is sane (loss 9.310687, every term value in range), but three of the 3400
+        #: parameter gradients come back non-finite, and they are the same three every time:
+        #: `sampler.dc.w_lin_z`, `sampler.dc.w_lin_s`, `sampler.dc.w_lin_n` -- the diffusion
+        #: conditioning's input projections, whose dW reduces over the whole token-pair axis
+        #: (147,456 terms at padded width 384). The remaining 3,397 are finite but the trunk
+        #: reaches max|g| 1.7e+05 in the MSA module.
+        #:
+        #: The seeds are NOT the cause and that is measured, not assumed: the largest is
+        #: `pred_xyz` at |g| 11.5669, and `losses.mse` already applies upstream's own
+        #: stop-gradient Kabsch, so a misaligned prediction cannot inflate it (checked --
+        #: the seed norm is identical for a structure rotated 1.1 rad and translated 12 A).
+        #: The amplification is inside the diffusion backward. Turning this on trains a
+        #: gradient with infinities in it, which is wrong rather than imprecise, so it is a
+        #: flag rather than a default until that is root-caused.
+        self.denoise = False
         self.denoise_sigma = None
 
     @property
