@@ -1,0 +1,158 @@
+{
+ "backward_seconds": 112.31880521774292,
+ "breakdown": {
+  "confidence_loss": 0.0008269634261447702,
+  "diffusion_loss": 1.5445824319680206,
+  "distogram_loss": 2.857794861542796,
+  "experimentally_resolved_loss": 0.024195682726382676,
+  "loss": 1.6311432393241485,
+  "mse_loss": 2.043219258677082,
+  "pae_loss": 2.9946791425818775,
+  "pde_loss": 2.0360840413051786,
+  "plddt_loss": 3.214675603742801,
+  "scaled_distogram_loss": 0.0857338439299831,
+  "smooth_lddt_loss": 0.32655888409933304
+ },
+ "bundle_dir": "/home/ttuser/of3t/bundle_min",
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "missing": [
+   "version_tensor",
+   "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+   "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
+  ],
+  "n_loaded": 4935,
+  "n_missing": 3
+ },
+ "draws": {
+  "n_python_random": 2,
+  "n_torch_randn": 45,
+  "num_recycles": 0
+ },
+ "forward": {
+  "bundle_loss": 1.6422035029890711,
+  "drawn_recycles": 0,
+  "loss": 1.6311432393241485,
+  "rel": 0.006735014049593242,
+  "seconds": 307.30444622039795
+ },
+ "hashes": {
+  "batch_step003.pt": {
+   "bytes": 100822382,
+   "declared": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "draws_recycles0.pt": {
+   "bytes": 525598,
+   "declared": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "match": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "grad_presence_r0.json": {
+   "bytes": 342321,
+   "declared": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "match": true,
+   "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f"
+  },
+  "grads_f64_r0.pt": {
+   "bytes": 2947812293,
+   "declared": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+   "match": true,
+   "sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113"
+  }
+ },
+ "instrument": "capture of the diffusion-module boundary of BUNDLE-MIN's r = 0 step",
+ "manifest": "origin/wk/of3t-reference:perf/of3t_reference/bundle_min/MANIFEST.json",
+ "manifest_commit": "89a24748420b98e51df44cd2a89667370e8b6487",
+ "no_samples": 48,
+ "reference": {
+  "fd_max_rel": 0.0011677594003422732,
+  "file": "grads_f64_r0.pt",
+  "global_norm": 3.707776369277739,
+  "loss": 1.6422035029890711,
+  "n_parameters": 4147,
+  "num_recycles": 0
+ },
+ "replay": {
+  "mismatches": [],
+  "n_mismatch": 0,
+  "randn_consumed": 45,
+  "random_consumed": 2
+ },
+ "saved": {
+  "bytes": 1981171917,
+  "cot_norm": 0.020382664633048112,
+  "file": "/home/ttuser/of3t_diffusion_cap/diffusion_boundary.pt",
+  "kwarg_shapes": {
+   "atom_mask": [
+    1,
+    1,
+    422
+   ],
+   "si_input": [
+    1,
+    1,
+    384,
+    449
+   ],
+   "si_trunk": [
+    1,
+    1,
+    384,
+    384
+   ],
+   "t": [
+    1,
+    48
+   ],
+   "token_mask": [
+    1,
+    1,
+    384
+   ],
+   "xl_noisy": [
+    1,
+    48,
+    422,
+    3
+   ],
+   "zij_trunk": [
+    1,
+    1,
+    384,
+    384,
+    128
+   ]
+  },
+  "n_grad": 738,
+  "out_shape": [
+   1,
+   48,
+   422,
+   3
+  ]
+ },
+ "their_build_disabled": {
+  "disabled": true,
+  "n_nn_dropout_modules": 61,
+  "n_of3_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "vs_bundle": {
+  "absent_either_side": 0,
+  "bundle_total_sq_norm": 13.747605604574419,
+  "compared": 738,
+  "median_rel": 0.06430527567863464,
+  "share_of_bundle_sq_norm": 0.9120843789859574,
+  "sq_norm_bundle": 12.538976320392127,
+  "sq_norm_here": 12.669297799949941,
+  "what": "D19's reach into this row's scope: their model on CPU float64 at a replayed forward, against the bundle's own diffusion entries. Not this row's number.",
+  "worst_rel": 0.49004380279258375,
+  "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+ }
+}
