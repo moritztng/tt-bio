@@ -1,0 +1,216 @@
+{
+ "changed": [
+  "tt_bio/train/optim.py AdamW.step",
+  "tt_bio/train/objectives.py _TERMS['mse'] and _OPTIONAL"
+ ],
+ "feature_vocabulary": {
+  "af2": {
+   "distinct_string_keys": 121,
+   "entity_keys_present": [],
+   "entity_weighting_reaches_losses_mse": false,
+   "evidence": "4 shipped modules, string keys read and written",
+   "modules": 4,
+   "molecule_type_keys": {},
+   "own_name_for_the_same_fact": null
+  },
+  "boltz-2": {
+   "distinct_string_keys": 378,
+   "entity_keys_present": [],
+   "entity_weighting_reaches_losses_mse": false,
+   "evidence": "1 shipped modules, string keys read and written",
+   "modules": 1,
+   "molecule_type_keys": {
+    "mol_type": {
+     "first": "tt_bio/boltz2.py:1049",
+     "uses": 10
+    }
+   },
+   "own_name_for_the_same_fact": [
+    "mol_type"
+   ]
+  },
+  "boltzgen": {
+   "distinct_string_keys": 1041,
+   "entity_keys_present": [],
+   "entity_weighting_reaches_losses_mse": false,
+   "evidence": "58 shipped modules, string keys read and written",
+   "modules": 58,
+   "molecule_type_keys": {
+    "mol_type": {
+     "first": "tt_bio/boltzgen/data/cropper.py:241",
+     "uses": 88
+    }
+   },
+   "own_name_for_the_same_fact": [
+    "mol_type"
+   ]
+  },
+  "openfold3": {
+   "distinct_string_keys": 389,
+   "entity_keys_present": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ],
+   "entity_weighting_reaches_losses_mse": true,
+   "evidence": "of3t-reference's frozen batch, the real artifact",
+   "modules": 5,
+   "molecule_type_keys": {
+    "is_dna": {
+     "first": "tt_bio/worker.py:1561",
+     "uses": 1
+    },
+    "is_protein": {
+     "first": "tt_bio/worker.py:1560",
+     "uses": 1
+    },
+    "is_rna": {
+     "first": "tt_bio/worker.py:1560",
+     "uses": 1
+    },
+    "molecule_type": {
+     "first": "tt_bio/worker.py:1415",
+     "uses": 1
+    }
+   },
+   "own_name_for_the_same_fact": [
+    "molecule_type"
+   ]
+  },
+  "protenix-v2": {
+   "distinct_string_keys": 281,
+   "entity_keys_present": [],
+   "entity_weighting_reaches_losses_mse": false,
+   "evidence": "4 shipped modules, string keys read and written",
+   "modules": 4,
+   "molecule_type_keys": {
+    "mol_type": {
+     "first": "tt_bio/protenix_data.py:512",
+     "uses": 2
+    }
+   },
+   "own_name_for_the_same_fact": [
+    "mol_type"
+   ]
+  }
+ },
+ "frozen_of3_batch_keys": {
+  "entity_keys": [
+   "is_dna",
+   "is_rna",
+   "is_ligand"
+  ],
+  "n": 45
+ },
+ "inference_reach": {
+  "af2": {
+   "module": "tt_bio.af2",
+   "reaches_the_changed_code": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "boltz-2": {
+   "module": "tt_bio.boltz2",
+   "reaches_the_changed_code": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "boltzgen": {
+   "module": "tt_bio.boltzgen",
+   "reaches_the_changed_code": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "openfold3": {
+   "module": "tt_bio.openfold3_fold",
+   "reaches_the_changed_code": false,
+   "tt_bio_train_modules_loaded": []
+  },
+  "protenix-v2": {
+   "module": "tt_bio.protenix",
+   "reaches_the_changed_code": false,
+   "tt_bio_train_modules_loaded": []
+  }
+ },
+ "runtime": {
+  "_reference_endpoints": {
+   "batch": "24 tokens, 2 of them ligand, synthetic",
+   "rel_seed": 0.7926201631181012,
+   "rel_value": 0.27207731016383413,
+   "value_unweighted": 0.7362503711405741,
+   "value_weighted": 1.011440337580743
+  },
+  "af2": {
+   "mse_value": 0.7362503711405741,
+   "seed_norm": 0.8089775936814603,
+   "without": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  },
+  "boltz-2": {
+   "mse_value": 0.7362503711405741,
+   "seed_norm": 0.8089775936814603,
+   "without": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  },
+  "boltzgen": {
+   "mse_value": 0.7362503711405741,
+   "seed_norm": 0.8089775936814603,
+   "without": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  },
+  "openfold3": {
+   "mse_value": 1.011440337580743,
+   "seed_norm": 1.7538504146391936,
+   "without": null
+  },
+  "protenix-v2": {
+   "mse_value": 0.7362503711405741,
+   "seed_norm": 0.8089775936814603,
+   "without": [
+    "is_dna",
+    "is_rna",
+    "is_ligand"
+   ]
+  }
+ },
+ "training_reach": {
+  "adamw_construction_sites": [
+   {
+    "file": "tt_bio/train/recipes.py",
+    "kwargs": [
+     "data_parallel",
+     "lr",
+     "schedule"
+    ],
+    "line": 118
+   }
+  ],
+  "models_the_cli_admits": [
+   "protenix-v2",
+   "openfold3"
+  ],
+  "note": "one recipe, one scheduled AdamW, so every model's training step reads the schedule at the same line; the fix cannot be per-model and the census is what makes that a measurement rather than an assumption",
+  "recipes": [
+   "default"
+  ],
+  "sites_passing_a_schedule": [
+   {
+    "file": "tt_bio/train/recipes.py",
+    "kwargs": [
+     "data_parallel",
+     "lr",
+     "schedule"
+    ],
+    "line": 118
+   }
+  ],
+  "step_code_object": "/home/moritz/.coworker/wt/of3t-updaterule/tt_bio/train/optim.py:180"
+ },
+ "what": "the other four models, one measurement each, for D11 and D12"
+}
