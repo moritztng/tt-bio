@@ -14,8 +14,9 @@ untouched. It is also why of3t-cotcoh's own premise -- "the cotangent entering b
 backward IS the reference's own float64 cotangent, exact by construction" -- does not hold, and
 that is reported rather than used.
 
-Depth is `47 - b`: block 47 is the first block the backward traverses, so depth 1 is "after one
-block", which is the index the 0.1100 is quoted at.
+Depth is `48 - b`: block 47 is the FIRST block the backward traverses, so block 47 is depth 1,
+"after one block", which is the index of3t-cotcoh quotes the 0.1100 at. Getting this off by one
+puts "after one block" on block 46 and publishes the wrong number.
 
     curvescore.py --f64 cot_curve_f64.pt --bf16 cot_curve_bf16.pt --out CURVE.json
 """
@@ -94,7 +95,7 @@ def main() -> int:
             g1 = arm["sites"][k]["g"].to(torch.float64)
             n0 = float(torch.linalg.vector_norm(g0))
             d = float(torch.linalg.vector_norm(g1 - g0))
-            rows.append({"block": b, "depth_blocks_traversed": 47 - b,
+            rows.append({"block": b, "depth_blocks_traversed": 48 - b,
                          "rel_l2": (d / n0) if n0 > 0 else None,
                          "ref_norm": n0,
                          "norm_ratio": (float(torch.linalg.vector_norm(g1)) / n0)
@@ -108,7 +109,7 @@ def main() -> int:
             "site": FAM[fam], "n_blocks": len(rows),
             "after_one_block_depth1_block47": d1,
             "max_over_depth": mx,
-            "at_depth_48_block0": next((v for k, v in vals if k == 48), None),
+            "at_full_depth_48_block0": next((v for k, v in vals if k == 48), None),
             "spearman_rel_l2_against_depth": spearman([k for k, _ in vals],
                                                       [v for _, v in vals]),
             "theirs_over_ours_at_depth_1": (d1 / a.ours_after_one_block) if d1 else None,
@@ -119,7 +120,7 @@ def main() -> int:
     a.out.write_text(json.dumps(out, indent=1))
     for fam, v in out["per_family"].items():
         print(f"family {fam} ({v['site']}): depth1 {v['after_one_block_depth1_block47']!r} "
-              f"max {v['max_over_depth']!r} depth48 {v['at_depth_48_block0']!r} "
+              f"max {v['max_over_depth']!r} depth48 {v['at_full_depth_48_block0']!r} "
               f"spearman {v['spearman_rel_l2_against_depth']!r}")
         print(f"   theirs/ours at depth 1 = {v['theirs_over_ours_at_depth_1']!r} "
               f"(ours {a.ours_after_one_block} from of3t-cotcoh)")
