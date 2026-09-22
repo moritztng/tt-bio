@@ -1684,3 +1684,34 @@ the honest line is *repair proven at one block, campaign not yet re-scored*, and
 Artifact `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`, verdict field: *"MECHANISM CONFIRMED:
 removing the double-counted s_out <- z_out route brings the injection to 3.03926e-15 of the
 reference, from 0.784928"*.
+
+---
+
+### R163. `of3t-frameself` concluded GO having solved D242, which left the re-score unowned on the critical path; `of3t-recut` dispatched (pass 397)
+
+`of3t-frameself` concluded **GO** at 23:57 on 2026-09-22. It root-caused D242, proved the
+repair at **3.0392623414001263e-15** against a 1e-12 bar, and banked a **13.2 s** one-block
+reproducer. That is the right verdict and the row earned it.
+
+**But solving a defect and repairing the instrument are two things, and its conclusion left the
+second unowned.** `perf/of3t_trunkg043/ref_grad.py:201` is unchanged, no arm has been re-scored,
+and every `MATCHED/` reading in the campaign is still on the old functional. **Nothing in
+`PROVES:` may move until that is done**, so the re-score is the critical path and it had no
+owner for the length of one pass. `of3t-recut` is dispatched onto it — qb2, one card, gate
+entry and brief on all three hosts, namespace `perf/of3t_recut/`, carrying R161's four
+decisions as instructions rather than as reading.
+
+**D242's own entry was also stale in a way that matters**, and is corrected: it still read
+plain **UNFIXED** with *"`of3t-frameself` dispatched to close it"* — a row that had concluded.
+It now reads **ROOT-CAUSED, REPAIR PROVEN, STILL UNFIXED**, carries the break control's numbers,
+names `of3t-recut` as the owner, and says explicitly why it stays unfixed: *the line is still
+live and no arm has been re-scored.* **A defect whose mechanism is proven is not a defect that
+is fixed, and the distinction has to survive in the heading a reviewer reads** — this is the
+fourth instance of the R148/R154/R157 family and the first where the rot would have been in the
+flattering direction on the campaign's own headline defect.
+
+**The sequencing.** `of3t-recut` and `of3t-verbinstall` are disjoint: recut owns the model-frame
+trunk and the ladder, verbinstall owns the softmax install and D245, and recut's brief forbids
+re-scoring verbinstall's arms. recut takes qb2, which frameself had just freed; verbinstall
+holds qb1.
+

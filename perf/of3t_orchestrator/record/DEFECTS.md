@@ -1051,7 +1051,11 @@ residency on the training path only.
 
 ---
 
-### D242. The model frame does not reproduce its own reference: an injected float64 trunk on its own captured boundary and cotangent reads 0.7945 against a bar pre-registered at 1e-12, so every cross-frame trunk ratio the campaign has published is a reading of the harness. **UNFIXED** — found by `of3t-twoside` at pass 381 running the control D241 made gating, CPU only; `of3t-frameself` dispatched to close it.
+### D242. The model frame does not reproduce its own reference, and the cause is a DOUBLE COUNT in the injection: `(s_out, z_out)` is not a graph cut, so the captured `cot_z` replays the `s_out <- z_out` route twice. **ROOT-CAUSED, REPAIR PROVEN, STILL UNFIXED** — found by `of3t-twoside` at pass 381 running the control D241 made gating; root-caused and proven by `of3t-frameself`, which concluded GO at pass 396; `of3t-recut` dispatched to land the repair in the instrument and re-score.
+
+**Pass 396, the break control.** `z_out` is an ancestor of `s_out` — the last block's `attn_pair_bias` reads the `z` its own `pair_stack` just produced — so a hook and `torch.autograd.grad(loss, z_out)` both correctly report a TOTAL derivative that already contains the route through `s_out`, and `(s_out*cot_s).sum() + (z_out*cot_z).sum()` adds it again. Subtracting `autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)` from `cot_z` takes block 47 from **0.7849281738435908** to **3.0392623414001263e-15** against `grads_f64_043.pt`, norm ratio 0.9999999999999992, cos 1.0000000000000002, residual after the best scalar exactly **0.0**, under the 1e-12 bar fixed in commit 2520681ed, for 16.65 s — and bit for bit what `--blockprobe`'s loss-driven `autograd.grad` reads at the same block. The duplicate was **99.6628 %** of the captured `cot_z` by norm; the true external cotangent is **11.7471x smaller**. `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`.
+
+**Why it stays UNFIXED.** The mechanism is proven and the repair is demonstrated at one block, but the line is still live: `perf/of3t_trunkg043/ref_grad.py:201` has not been changed and no arm has been re-scored, so every `MATCHED/` reading remains on the old functional. It closes when the corrected injection is the default and the trunk's corrected reading has been read against `CLAUSE.json`'s pre-registered ladder. See LEDGER R160-R162 and PROTOCOL A41.
 
 **Campaign-internal, and it is the campaign's critical path.**
 
