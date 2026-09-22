@@ -30,9 +30,10 @@ import pathlib
 import re
 import sys
 
-#: Follows the charter. Repointed with it at pass 361; if the two ever diverge this guard
+#: Follows the charter. Repointed with it at pass 361 and again at pass 379, onto
+#: of3t-modelframe's frame-matched artifact (see the charter spec's own note); if the two ever diverge this guard
 #: checks an artifact the gate does not grade, which is a silent way to be green.
-ART = "perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json"
+ART = "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json"
 SUMMARY = pathlib.Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
 
 #: Withdrawn at pass 361 (D218), with what to say instead. A live doc may still DISCUSS them --
