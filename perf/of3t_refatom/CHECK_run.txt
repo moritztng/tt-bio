@@ -1,0 +1,186 @@
+discovery: 988 device weights walked, 856 carry a checkpoint name, 988 slots
+forward rel at level 0: 2.930663e-02
+[6s] our k= 1 lr=0.000000e+00 grad_norm=0.1395823389633129 resolves=988/988 rebound=988 spread=[1]
+{
+ "what": "of3t-refatom deliverable 1: the discovery check, run BEFORE the 0.93 h device arm. Four assertions from NEXT_ACTION_REFATOM.json, bars fixed in this file before the run.",
+ "bars_fixed_before_the_run": {
+  "n_refatom_params": 8,
+  "grad_resolved_after_one_backward": 8,
+  "tape_resolves_after_step": 988,
+  "of_walked": 988,
+  "function_cos_min": 0.99999,
+  "function_norm_ratio_tol": 0.001,
+  "function_rel_l2_max": 0.005
+ },
+ "verdict": "FAIL",
+ "checks": {
+  "1_eight_in_parameter_set": {
+   "want": 8,
+   "got": 8,
+   "paths": [
+    "ref_atom_feature_embedder.w_inv_sq",
+    "ref_atom_feature_embedder.w_ref_charge",
+    "ref_atom_feature_embedder.w_ref_chars",
+    "ref_atom_feature_embedder.w_ref_element",
+    "ref_atom_feature_embedder.w_ref_mask",
+    "ref_atom_feature_embedder.w_ref_offset",
+    "ref_atom_feature_embedder.w_ref_pos",
+    "ref_atom_feature_embedder.w_valid"
+   ],
+   "checkpoint_names": [
+    "atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+   ],
+   "pass": true
+  },
+  "2_each_resolves_a_gradient": {
+   "want": 8,
+   "got": 8,
+   "participating": [
+    "ref_atom_feature_embedder.w_inv_sq",
+    "ref_atom_feature_embedder.w_ref_charge",
+    "ref_atom_feature_embedder.w_ref_chars",
+    "ref_atom_feature_embedder.w_ref_element",
+    "ref_atom_feature_embedder.w_ref_mask",
+    "ref_atom_feature_embedder.w_ref_offset",
+    "ref_atom_feature_embedder.w_ref_pos",
+    "ref_atom_feature_embedder.w_valid"
+   ],
+   "participation_total": 988,
+   "walked_total": 988,
+   "every_walked_parameter_participated": true,
+   "pass": true
+  },
+  "3_tape_resolves_after_step": {
+   "want": 988,
+   "got": 988,
+   "of_walked_want": 988,
+   "of_walked_got": 988,
+   "rebound": 988,
+   "pass": true
+  },
+  "4_place_moved_not_function": {
+   "bars": {
+    "function_cos_min": 0.99999,
+    "function_norm_ratio_tol": 0.001,
+    "function_rel_l2_max": 0.005
+   },
+   "pass": false
+  }
+ },
+ "function": {
+  "cl_device_vs_host_f64": {
+   "rel_l2": 0.0007898925189585369,
+   "cos": 0.9999999266007056,
+   "norm_ratio": 0.9993091794404949,
+   "n": 54016
+  },
+  "cl_device_vs_host_f32": {
+   "rel_l2": 0.0007898925189585369,
+   "cos": 0.9999999266007056,
+   "norm_ratio": 0.9993091794404949,
+   "n": 54016
+  },
+  "cl_host_f32_vs_host_f64": {
+   "rel_l2": 0.0,
+   "cos": 0.9999999999999842,
+   "norm_ratio": 1.0,
+   "n": 54016
+  },
+  "plm_device_vs_host_f64": {
+   "rel_l2": 0.0012405999501642628,
+   "cos": 0.9999998533038362,
+   "norm_ratio": 0.998883745796857,
+   "n": 917504
+  },
+  "plm_device_vs_host_f32": {
+   "rel_l2": 0.0012405999501642628,
+   "cos": 0.9999998533038362,
+   "norm_ratio": 0.998883745796857,
+   "n": 917504
+  },
+  "plm_host_f32_vs_host_f64": {
+   "rel_l2": 0.0,
+   "cos": 0.99999999999998,
+   "norm_ratio": 1.0,
+   "n": 917504
+  },
+  "note": "the device leg pads the atom axis to NP by padding its own inputs; all eight linears are bias-free, so the pad rows are zero either way and the comparison is over the first n_atom rows",
+  "n_atom": 422,
+  "NP": 448
+ },
+ "the_prize_rederived": {
+  "names": [
+   "atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight"
+  ],
+  "n": 8,
+  "pct_of_model_sq_grad_norm": 0.7530394291090196,
+  "model_sq_norm": 10.279642678524981,
+  "per_tensor_pct": {
+   "atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight": 2.1477923046035273e-07,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight": 0.05224327439816468,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight": 0.0037658821673878335,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight": 0.010938144606952856,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight": 0.012674777384289277,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight": 1.3691411134547734e-05,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight": 0.6734034330383528,
+   "atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight": 1.1323507211310437e-08
+  }
+ },
+ "step_row": {
+  "k": 1,
+  "lr": 0.0,
+  "grad_norm": 0.1395823389633129,
+  "clip": 1.0,
+  "per_sample": true,
+  "per_sample_clip_coefs": [
+   1.0
+  ],
+  "rebound": 988,
+  "tape_resolves_after_step": 988,
+  "of_walked": 988,
+  "participation_spread": [
+   1
+  ],
+  "wall_s": 4.842364549636841
+ },
+ "host": "tt-quietbox2",
+ "card": {
+  "TT_VISIBLE_DEVICES": "0",
+  "TT_BIO_LEASE_CARDS": "0"
+ },
+ "aiclk_before": {
+  "sampled": true,
+  "at_utc": "2026-09-22T04:11:40Z",
+  "aiclk_mhz_per_device": [],
+  "aiclk_reg_per_device": [
+   "0x320"
+  ]
+ },
+ "aiclk_after": {
+  "sampled": true,
+  "at_utc": "2026-09-22T04:11:56Z",
+  "aiclk_mhz_per_device": [
+   1350
+  ],
+  "aiclk_reg_per_device": [
+   "0x546"
+  ]
+ },
+ "aiclk_note": "sampled immediately before and after the taped level on this host. The check makes no throughput claim, so no number here is divided by a clock; the reading is recorded for attribution.",
+ "reference_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "sha2
+wrote perf/of3t_refatom/CHECK.json: FAIL
