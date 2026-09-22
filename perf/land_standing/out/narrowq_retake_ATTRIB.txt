@@ -1,0 +1,26 @@
+1212 samples, 2026-09-22T02:10:38Z -> 2026-09-22T02:36:12Z
+
+=== rf3 @ 896 aa (arm 'off' = fallback forced ON, arm 'on' = shipped default) ===
+arm  rep    rt_s clk_med la_med  foreign >20%CPU
+off    1   103.0    1350   6.84  
+on     1   104.1    1350   2.60  
+off    2    94.4    1350   1.42  
+on     2   105.1    1350   2.46  /usr/bin/python3 /home/ttuser/.local/bin/tt-sm
+off    3    94.8    1350   3.05  /usr/bin/python3 /home/ttuser/.local/bin/tt-sm
+on     3   112.5    1350   4.51  
+off    4   104.0    1350   7.61  
+on     4   111.4    1350   6.26  
+  A/A floor +9.707 %   A/B +9.454 %   INSIDE THE FLOOR
+  r(loadavg, runtime) within this cell = +0.476
+
+=== rf3 @ 768 aa (arm 'off' = fallback forced ON, arm 'on' = shipped default) ===
+arm  rep    rt_s clk_med la_med  foreign >20%CPU
+off    1    74.5    1350   6.23  
+on     1    76.9    1350   6.04  
+off    2    75.0    1350   6.11  
+on     2    76.5    1350   5.92  
+  A/A floor +0.669 %   A/B +2.609 %   outside the floor
+  r(loadavg, runtime) within this cell = -0.839
+
+legs with a genuinely foreign process above 20 % CPU: 2 of 12
+A leg sharing the host with another row's fold is not a timing measurement.
