@@ -61,14 +61,24 @@ def leg(tree, rung, card, workdir, tag):
     wall = time.monotonic() - t0
     stop.set()
     t.join(timeout=5)
-    rs = None
+    rs, rs_err = None, None
     for j in d.rglob("results.json"):
         try:
-            rs = json.loads(j.read_text()).get("runtime_s", rs)
-        except Exception:
-            pass
+            doc = json.loads(j.read_text())
+            # tt_bio writes results.json as a LIST of per-target records. The first
+            # version called .get() straight on it, so every leg raised AttributeError
+            # into a bare except and scored None while still printing a row. Accept
+            # both shapes and keep the error when neither yields a runtime.
+            recs = doc if isinstance(doc, list) else [doc]
+            for rec in recs:
+                if isinstance(rec, dict) and rec.get("runtime_s") is not None:
+                    rs = rec["runtime_s"]
+        except Exception as e:
+            rs_err = repr(e)
+    if rs is None and rs_err is None:
+        rs_err = "no results.json under " + str(d)
     return {"tree": tree, "rung": rung, "rc": p.returncode, "wall": round(wall, 3),
-            "runtime_s": rs,
+            "runtime_s": rs, "runtime_err": rs_err,
             "aiclk_median": (round(statistics.median(clk), 1) if clk else None),
             "aiclk_n": len(clk), "aiclk_min": (min(clk) if clk else None),
             "aiclk_err": (errs[0] if errs else None),
