@@ -1277,3 +1277,42 @@ selector is an environment variable on call sites shared with every model's infe
 an inference fold by construction.
 
 Evidence `perf/of3t_orchestrator/softmaxarm/SOFTMAX_ARM_TABLE.json`. See LEDGER R149.
+
+### D246. A global `install()`/`uninstall()` pair whose owner is a constant STRING cannot distinguish two callers, so turning the exact softmax on via `install(exact_softmax=True)` is still torn down by an unrelated bracket — the cell the ownership fix did not cover and the two new tests do not reach. **UNFIXED** — found by `of3t-orchestrator` at pass 414 auditing `of3t-verbinstall`'s landed `27d24c6b3`, no card; filed to that row as an amendment. **SHIPPED-CODE defect, not campaign-internal** (`tt_bio/autograd.py`).
+
+`27d24c6b3` correctly fixed D245's sibling failure — R176's inert package install, where
+`train/lora.py:608-615`'s discovery bracket closed first and took the lever with it. The repair
+is `_EXACT_SOFTMAX_OWNER`: record who turned it on, and only that owner takes it out.
+
+**The owner is a constant string rather than a caller identity.** There are exactly two tokens:
+`exact_softmax()` records `"exact_softmax"` (`tt_bio/autograd.py:1101`) and
+`install(exact_softmax=True)` records `"install"` (`:2129`). `uninstall()` passes `"install"`
+(`:2141`). So the guard at `:1064` — `if owner is not None and _EXACT_SOFTMAX_OWNER != owner:
+return` — discriminates between the two *APIs*, not between two *callers of the same API*:
+
+    caller A: install(exact_softmax=True)   -> OWNER = "install"
+    caller B: install()                     -> (does not touch OWNER)
+    caller B: uninstall()                   -> _uninstall_exact_softmax("install")
+                                            -> "install" == "install" -> TEARS IT DOWN
+
+which is bit-for-bit the pre-fix failure, on the entry point `exact_softmax()`'s own docstring
+(`:1093`) advertises as "the same thing without the block". **The fix is what made that sentence
+false**, so the docstring now actively routes a reader onto the unprotected path.
+
+**Why it is not caught.** The 2x2 is {on via CM, on via install} x {foreign teardown, own
+teardown}. `test_an_unrelated_uninstall_does_not_remove_the_exact_softmax` pins CM + foreign;
+`test_install_exact_softmax_is_still_undone_by_its_own_uninstall` pins install + own. **Those are
+the two safe cells**, and together they read as "both directions" — the phrasing is what hides
+the gap. install + foreign is untested and broken; CM + own is tested implicitly.
+
+**Severity: latent, not live.** No production caller uses `install(exact_softmax=True)` — the arm
+at `perf/of3t_verbinstall/pkgarm.py:45` uses the context manager, owner `"exact_softmax"`, which
+is why R176's measured failure genuinely is repaired and the row's claim stands. This is filed
+because the unprotected path is *documented as equivalent* to the protected one, not because it
+currently fires.
+
+**The fix is not another token.** Any constant name has this defect; nesting two pairs is
+indistinguishable from one caller undoing itself. It needs a per-call identity — a handle
+returned by `install()` and required by `uninstall()`, or a depth count so nesting is *counted*
+rather than *named*. If the pair is judged not worth saving, the honest repair is to withdraw the
+docstring's equivalence claim instead. Either way the third test closes the 2x2 by test.
