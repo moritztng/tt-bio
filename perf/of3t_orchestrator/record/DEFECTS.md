@@ -2979,3 +2979,82 @@ arithmetic is the error CEILING.json itself made.
 **Recorded so the next reader does not re-derive it:** any row quoting CEILING.json must state
 whether its own arm uses checkpointing, and CEILING.json's projection applies only to the
 no-checkpointing path.
+
+### D187 UPDATE, pass 345. **LOCATED and REFRAMED**, still **UNFIXED** but much smaller than filed: in A26's own form the section reads **1.3501x**, not 2.019x; it is a precision FLOOR, not a wrong computation; and it is a separate object from the trunk's.
+
+`of3t-ditgap` (commit `8cd3ab2d2`, qb2, CPU only, no card) answered every question the brief asked
+and reduced the defect in the process.
+
+**The frame question first, and it comes out clean.** The DiT leg is capture-driven while both
+references are full-model runs — the exact shape of D186 — so this could have been a fourth framing
+defect. It is not: `FRAME_f64_vs_f64.json` reads the capture's own float64 against the model-scope
+float64 bundle at **mass-weighted rel L2 exactly 0.0 over 552 of 552 tensors**, against an
+instrument floor of 7.418e-05. The row checked that `grad_f64` is genuinely computed
+(`capture_diffusion_boundary.py:163`, `torch.autograd.grad` on a replayed forward) before believing
+a zero, on the grounds that bit-exact agreement between two arms is first evidence they are ONE
+arm. That is the right instinct and it is why the zero can be trusted. **D187 is real arithmetic.**
+
+**The headline was a floor ratio.** From `SIGNATURE.json`, all in-frame at padded width 384:
+
+    ours vs float64                    0.11670185505910508
+    upstream's own bf16 vs float64     0.057809234623039614   <- the section's OWN floor
+    ours / floor                       2.018740705011757      <- the 2.019x this campaign quoted
+    ours vs upstream's bf16 (A26 form) 0.1085812825721296
+    A26 bar, section-local             0.08042203419214203
+    A26 MULTIPLE                       1.3501434484075632
+
+The section's floor is **0.5458x** the model-wide one, so quoting `ours/floor` against a model-wide
+intuition inflated it. In A26's own form — the form every other claim in this campaign uses — the
+section is **1.3501x its bar**.
+
+**It is a precision floor, not a wrong computation, and the comparison that settles it is against
+upstream itself.** `norm_ratio` runs 0.8009–1.1998 at worst `cos` **0.959708**. Upstream's own bf16
+misses the 0.05 per-tensor bar on **369 of 456** tensors where we miss on **354** — we are over the
+bar on FEWER tensors than upstream's own recipe. Set that beside the trunk's worst tensor at
+`norm_ratio` 7.3729, `cos` **-0.0057**: those are different phenomena and the campaign was treating
+them as one backlog.
+
+**Not the trunk's object.** Same leaf class, different leaves (the DiT AdaLN has no bias leaf),
+different error geometry, different creation site. D191 and D187 are confirmed separate — which is
+the question the brief asked precisely because this campaign has twice assumed two findings were
+one and been wrong.
+
+**It is a broad per-block factor, not one op.** `layer_norm_a.layer_norm_s.weight` reads 2.4608x
+upstream's own bf16 and its worst cotangent-sharing sibling reads 2.2910x, so the named leaf is
+only **1.0741x its worst sibling** while the whole sub-block sits at 1.4161x–2.2910x and those
+leaves hold 94.2520 % of the section's reference mass. Depth arc 1.0292 at block 0, 1.7834 at
+block 8, 0.5471 at block 23.
+
+**Two findings nobody asked for, both kept.** `SECTION_ATTRIBUTION.json` scores 456 of 552 tensors
+in this section — the 96 absent are our fused-QKV leaves at 0.2715 % of the model's squared norm,
+which is a gap in MY artifact and is now on the record. And `diffcap043` is now in
+`perf/of3t_orchestrator/crops/CROPS.json` at padded width 384, 56 real tokens, with the mask key
+`token_mask` rather than `single_mask` — the row extended the table instead of starting a second
+one, which is what the brief asked for.
+
+**Still UNFIXED**: 1.3501x is inside no bar. Repair needs a card and is not dispatched; the row
+names a pad-axis hypothesis with its test and explicitly does NOT file it as a mechanism.
+
+### D195. A difference-of-absolute-errors decomposition locates the CARRIER, not the cause — and this campaign has now used it as a locator twice. FOUND by `of3t-ditgap`, pass 345. **UNFIXED** as a method rule.
+
+The instrument is correct and I asked two rows for it, for a good reason: a SHARE moves when its
+denominator collapses (`of3t-lnaffine`'s leaf went 0.150 % → 28.313 % of the error mass while its
+absolute error FELL 0.946x), so differencing numerators is the right defence against that.
+
+**But it points at whatever holds the reference mass.** In D187 the decomposition put 97.7612 % of
+the absolute-error difference on LayerNorm affine across 3 of 19 leaf families — and the named leaf
+turned out to be **1.0741x its worst cotangent-sharing sibling**, with the whole sub-block at
+1.4161x–2.2910x. The leaves it named hold 94.2520 % of the section's reference mass. They are where
+the error is REPORTED, not where it is made. `of3t-lnaffine` had already reached the same shape in
+the trunk by a different route.
+
+**The separating question is cheap and neither of my briefs asked it: is the named leaf worse than
+the leaves beside it?** If it is ~1x its siblings, the object is a per-block or per-sub-block
+factor and the leaf is a carrier. If it is many times its siblings, the leaf is the site.
+
+**Where this bites next.** D191's location — 93.80 % LayerNorm affine, 74.58 % in blocks 44/4/0 —
+came from exactly this instrument and the sibling test has NOT been run there. Two things say D191
+is not merely a carrier: its worst tensor reads `norm_ratio` 7.3729 at `cos` **-0.0057**, which is
+not a floor signature, and the growth is a WIDTH difference where the reference mass is constant to
+3.20e-15. But "not merely a carrier" is an argument, not a measurement. `of3t-shapekey`'s brief is
+amended this pass to run the sibling comparison before attributing anything.

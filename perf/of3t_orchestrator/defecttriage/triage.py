@@ -214,6 +214,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D195": (CAMP, "A difference-of-absolute-errors decomposition locates the CARRIER, not the "
+             "cause: it points at whatever holds the reference mass. In D187 the named leaf was "
+             "1.0741x its worst cotangent-sharing sibling. A method rule for this campaign's own "
+             "attribution, so campaign-internal; no shipped number moves."),
     "D194": (CAMP, "TRAJECTORY's scope clause was treated as blocked by CEILING.json's 678.731 GB "
              "projection for the 48-block float64 stack; of3t-frame384 ran that object at 24.881 "
              "GB peak RSS, 27.3x less, with per-block activation checkpointing proved inert. The "
