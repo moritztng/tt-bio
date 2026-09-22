@@ -64,13 +64,17 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R175 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R176 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
-text, evidence and artifact path is in the LEDGER file; entries before R149 are in
-`state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
+text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
+`state/archive/` once rotated — **the newest `of3t-LEDGER.*.md` there by mtime holds whatever
+left the tail most recently**, and the rule rather than a filename is named here on purpose:
+naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R176** the PACKAGE install fires only half of itself — `verb` 0, `raw` 1742 — and the arm
+  is bit-identical to the no-lever baseline, so the best trunk number still has no shippable path
 - **R175** with the double count removed the trunk's error is **97 % DIRECTION** (35.13 deg)
   and the magnitude is within 5.5 %; the repoint is blocked on one missing key
 - **R174** the CORRECTED clause reads **1.4511706984958472x** the bar — still FAILING, improved
@@ -1890,3 +1894,32 @@ needs. The one-line ask that closes it: bank cos and norm ratio against upstream
 — the scorer already computes that comparison and reports the decomposition for only one of the
 two. With both, the campaign can say whether the remaining 1.7414x is reachable by magnitude,
 by direction, or by neither.
+
+## Pass 410 — the shippable install fires only the half that is worth nothing
+
+`of3t-verbinstall`'s package arm landed and reads **0.702981502944001** against float64 and
+**0.9153623104186986** against upstream's bf16 — **bit-identical, to sixteen digits, to CTRL_B,
+the arm with no exact softmax at all.** Its own counter says which half is missing: `verb` **0**,
+`raw` **1742** over 21.9 G elements.
+
+The verb half is where the win lives. `CEIL_HF` (verb only) is 0.5547455957585244 and
+`CEIL_HF3` (verb + module-wide) is 0.5545352626143085, so module-wide is worth **0.0002** and
+verb is worth the other 0.36. A package install delivering only `raw` delivers nothing
+measurable, which is exactly what the score shows.
+
+**So D245 is worse than filed.** It was "the site-selector install is 34.25 % worse"; now the
+tape-gated package install — which R161 argued was both more accurate and structurally safer
+for Moritz's inference hard stop — is **inert on the half that matters**. The campaign's best
+trunk number, 1.0525x, still has no shippable path, and there are now two failed attempts at
+one. Whether `exact_softmax()` never installs at the verb (a design gap) or installs and is
+never reached (D225's reach family) is the row's to settle, and its counter separates the two by
+construction. **The campaign's status must not meanwhile claim a shippable lever.**
+
+**And the row lost 230 minutes of card time to a defect worth filing beyond this campaign**:
+`tenstorrent._assert_local_dispatch` — a startup probe whose own docstring says a bad bring-up
+should "fail HERE, at startup" — **hangs instead, with no timeout, while every cheap liveness
+signal reads green.** Two arms, 115 minutes each, nothing computed. The row added a bounded
+pre-flight for itself; the probe still has none.
+
+Also fixed this pass: my LEDGER index named one archive file by name, which the next rotation
+would have falsified. It now names the rule.

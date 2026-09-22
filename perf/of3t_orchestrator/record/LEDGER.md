@@ -2244,3 +2244,52 @@ bf16 alongside the float64 pair. The scorer already computes both comparisons; i
 decomposition for only one of them. With both, the same exact decomposition can be done in the
 space the clause lives in, and the campaign can say for the first time whether the remaining
 1.7414x is reachable by magnitude, by direction, or by neither.
+
+---
+
+### R176. The PACKAGE install fires only half of itself: `verb` reads 0, and the arm is bit-identical to the no-lever baseline (pass 410, zero card)
+
+`of3t-verbinstall`'s package arm landed. `FRAME_PKG_HF3.json`, the tape-gated install of the
+consistent softmax arm, reads
+
+    ours vs float64          0.702981502944001       identical to CTRL_B, the SHIPPED device softmax
+    ours vs upstream bf16    0.9153623104186986      identical to CTRL_B
+    floor                    0.37393839211303687
+
+**Bit-identical to the arm with no exact softmax at all**, to sixteen digits. And the row's own
+`EXACT_SOFTMAX_PKG_HF3.json` — a counter it banked because D225 taught this campaign that a
+lever can read zero — says which half is missing:
+
+    verb   0            the taped verb: exact forward AND exact Jacobian
+    raw    1742         the module-wide ttnn.softmax, 21,856,518,144 elements
+
+**The verb half never fired.** That is where essentially all of the win lives: `CEIL_HF`
+(verb only) reads 0.5547455957585244 and `CEIL_HF3` (verb + module-wide) reads
+0.5545352626143085, so the module-wide half is worth **0.0002** and the verb half is worth the
+other 0.36. A package install that delivers only `raw` therefore delivers nothing measurable,
+which is exactly what the score shows.
+
+**What this does to D245.** D245 was *"the shippable site-selector install is 34.25 % worse
+against float64 than the harness verb install."* It is now worse than that: **the tape-gated
+package install, which R161 argued was both the more accurate and the structurally safer answer
+to Moritz's inference hard stop, is INERT on the half that matters.** The campaign's best trunk
+number — 1.0525x, `CEIL_HF3` — still has no shippable path, and now there are two failed
+attempts at one rather than one.
+
+**Not yet diagnosed, and the two candidates are different problems.** Either
+`tt_bio.autograd.exact_softmax()` patches only `ttnn.softmax` module-wide and never installs at
+the taped verb — a design gap, one line — or it installs and the verb is never reached at
+runtime — D225's reach family, and a harder question. `installed_from` records
+`install(exact_softmax=True)`, and the counter separates the two by construction, so the row
+can settle it without a new instrument. **It is the row's to diagnose; the campaign's status
+must not meanwhile claim a shippable lever.**
+
+**And the row lost 230 minutes of card time to an infrastructure defect worth filing beyond
+this campaign.** Its state doc: *"two arms, 115 minutes each, nothing computed —
+`tenstorrent._assert_local_dispatch` hangs instead of failing, and every cheap liveness signal
+says the job is healthy. It probes a freshly-opened chip with one trivial 32x32 add so that a
+bad bring-up 'fails HERE, at startup' — its own docstring. It has no timeout."* **A startup
+probe whose purpose is to fail fast, and which instead hangs forever while every liveness check
+reads green, is a fleet-wide defect** — the `chip-holder-at-100pct-cpu-can-be-a-corpse` family,
+and it will cost every card row that meets it. The row added a bounded pre-flight for itself
+(`b77e89f27`); **the underlying probe still has no timeout.**
