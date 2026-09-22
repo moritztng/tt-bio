@@ -411,11 +411,32 @@ On a 56-token OpenFold3 batch with two ligand tokens, supplying the three flags 
 0.233 and the gradient it seeds 0.764. Deriving them from a `mol_type` column instead gives
 the same loss and the same gradient, bit for bit.
 
+## What the recipe pins, and where it differs from Adam's defaults
+
+`finetune` reproduces OpenFold3's optimizer setup rather than the library defaults it would
+otherwise inherit. Three of those differ, all three are arguments, and none of them shows up
+in a loss curve or a gradient norm:
+
+| argument | recipe | library default | why |
+|---|---|---|---|
+| `betas` | `(0.9, 0.95)` | `(0.9, 0.999)` | OpenFold3 sets `beta2: 0.95`. Adam's usual 0.999 is a second-moment horizon twenty times longer and it changes the size of every update. |
+| `weight_decay` | `0.0` | `0.01` | OpenFold3 builds a plain `torch.optim.Adam`. Any decay moves every weight whose gradient is zero. |
+| `plateau_until` | `50000` | `None` | Selects AlphaFold 2's schedule, which holds the rate flat before decaying. `None` selects Protenix's, which decays from step zero. |
+
+Pass your own if you are training against a different recipe. `plateau_until=None` is the one
+to reach for first: it is the whole difference between the two AlphaFold-family schedules, and
+over 200,005 steps they disagree at exactly one of them.
+
+**The loop runs one sample at a time.** Per-sample clipping needs each sample's own gradient,
+so `finetune` does one forward and one backward per index in the batch and accumulates, rather
+than one forward over the whole micro-batch. At `--global-batch 8` on one chip that is eight
+forwards per step. It is the same arithmetic upstream does and the reason is below.
+
 ## Gradient clipping: two things to pass, or you train a different rule
 
 `AdamW` clips on the global norm at `clip_norm=10.0`, which is upstream's own value. Two
-arguments decide whether that is the same rule the reference applies, and both default to the
-simpler behaviour rather than the reference's:
+things decide whether that is the same rule the reference applies. `finetune` does both for
+you; at Tier 2 you own the loop, so you own them:
 
 * **`disabled=` the parameter names this sample does not activate.** They are excluded from the
   global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
@@ -428,10 +449,68 @@ simpler behaviour rather than the reference's:
   sample's contribution, so it changes the direction of the accumulated update, not just its
   length. Measured at 1.948e-01 relative over three samples with one 200x outlier.
   `per_sample_clipping: True` at `clip_val 10.0` is upstream's shipped default. `step()` then
-  consumes what was accumulated and does not clip again.
+  divides each parameter's accumulated gradient by the number of samples that actually
+  activated it, and does not clip again.
 
 Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
 `perf/of3t_leaves/clip_equiv.py`.
+
+## The host float64 softmax: for when fp32 is not fp32
+
+`TT_BIO_HOST_F64_SOFTMAX_AB` moves a softmax off the card and computes it on the host in
+float64. It is off everywhere and it is a training lever: what it buys is gradient fidelity.
+
+The reason it exists is that a Tenstorrent fp32 is a few mantissa bits short of an IEEE one, and
+a softmax is where that shows. On `[1,16,384,384]` fp32, scored against a float64 softmax of the
+same values on one Blackhole processor of a p300c at 1350 MHz:
+
+| softmax | error vs float64 | ms/call |
+| --- | --- | --- |
+| the op's own default | 2.029e-02 | 0.0545 |
+| `TT_BIO_SOFTMAX_PRECISE_AB` | 1.646e-03 | 0.0790 |
+| `TT_BIO_ACCURATE_SOFTMAX_AB` | 5.156e-04 | 0.2576 |
+| `TT_BIO_HOST_F64_SOFTMAX_AB` | 2.082e-08 | 9.0966 |
+
+A real fp32 softmax lands around 1e-7, so the first three are all four or more orders of
+magnitude away from it and no configuration closes that: it is the silicon. OpenFold3 trains in
+IEEE fp32 on GPU, so the round trip is not overshooting them, it is the route to what they
+already do.
+
+What it is worth. On the OpenFold3 diffusion module's gradient over 547 parameters, 51.1358 % of
+the model's squared gradient norm, against upstream's own bf16 training step, it takes the
+mass-weighted relative error from 7.426217e+00 to 7.777580e-02 — 95.5x of the gap. Against an
+exact float64 reference it reads 5.930664e-02, which is 1.013x what upstream's own bf16 step
+reaches against the same reference. It is not free: 167x on the softmax alone, and 1.47x on the
+whole gradient arm, because the softmax is a small share of what the step runs.
+
+Syntax is the one the other per-site softmax flags use. A bare token turns one construction site
+on, a `-` prefix turns it off, and `all` / `-all` move every site without a token of its own:
+
+    TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
+    TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+
+The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` and
+`protenix.atom_transformer`.
+
+Predictions are untouched. With the flag unset, OpenFold3, Protenix-v2 and OpenDDE each write a
+structure byte-identical to the one they wrote before this path existed, same card and same seed.
+
+**You already have the cheap fix.** `TT_BIO_SOFTMAX_BW_RENORM` is on by default. It divides the
+softmax backward's inner sum by the row sum, two extra ops and no change to any forward. It
+exists because `d_logits = y(g - Σ g·y)` is only row-sum-free when the row sums to one, and
+`ttnn.softmax` returns rows that miss it by up to 3.9e-02. On the same OpenFold3 gradient it reads 1.057023e-01 against upstream's bf16 step
+for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
+cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
+softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
+pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+bit-identical gradient.
+
+Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
+branch on the flag is inside a backward closure, checked by AST rather than by reading, and a
+fold on OpenFold3, Protenix-v2 and OpenDDE writes the same structure with it on and off, same
+card and same seed. A prediction never imports the module the branch lives in at all. It
+costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
+interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
 
 ## Opt-in, and inert when off
 

@@ -1,0 +1,136 @@
+{
+ "a": "/tmp/of3t/ditcot/kcfg_base1.pt",
+ "b": "/tmp/of3t/ditcot/kcfg_lofi.pt",
+ "compared": 547,
+ "bit_identical": 1,
+ "moved": 546,
+ "bit_identical_frac": 0.0018281535648994515,
+ "max_rel": 15.570935749972849,
+ "top_moved": [
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 15.570935749972849,
+   "max_abs": 0.23563385009765625
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 1.5004866996977415,
+   "max_abs": 0.044036865234375
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.bias",
+   "rel": 1.1990772325063523,
+   "max_abs": 0.0053253173828125
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.weight",
+   "rel": 1.0602244381980315,
+   "max_abs": 0.0011767745018005371
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 1.0565873817124396,
+   "max_abs": 0.03318023681640625
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.9321438525593092,
+   "max_abs": 0.02834320068359375
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.8555761903526307,
+   "max_abs": 0.021387100219726562
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.7937946074049813,
+   "max_abs": 0.02701568603515625
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.48590506114151344,
+   "max_abs": 0.0023956298828125
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.4715727757792903,
+   "max_abs": 0.0038084983825683594
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.41944416893483555,
+   "max_abs": 0.026927947998046875
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "rel": 0.41672559139722365,
+   "max_abs": 0.004180908203125
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.bias",
+   "rel": 0.40757472111669774,
+   "max_abs": 9.2262402176857e-05
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.weight",
+   "rel": 0.40293575719691554,
+   "max_abs": 9.763240814208984e-05
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.linear_g.bias",
+   "rel": 0.3281133728796701,
+   "max_abs": 0.000537872314453125
+  }
+ ],
+ "host": "qb2",
+ "card": 0,
+ "aiclk_mhz_during": null,
+ "reemit": {
+  "what": "provenance added; comparison fields recomputed from the same dumps and unchanged field for field",
+  "why": "D155 / AMENDMENT 1: a bit_identical claim that does not name its host cannot be attributed to healthy hardware",
+  "by": "perf/of3t_ditref/reemit_cmp_provenance.py",
+  "at": "2026-09-21T19:30:50Z",
+  "reemit_ran_on": "tt-quietbox2",
+  "fields_reproduced": [
+   "a",
+   "b",
+   "compared",
+   "bit_identical",
+   "moved",
+   "bit_identical_frac",
+   "max_rel",
+   "top_moved"
+  ],
+  "numbers_unchanged": true,
+  "card_evidence": {
+   "run_kcfg.sh": "TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0, literal in the script",
+   "run_kcfg_trunk.sh": "TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0, literal in the script",
+   "opiso.py": "tt_bio.tenstorrent.get_device() under of3t-ditcot's card-0 lease grant; tt-bio refuses a card outside the grant and refuses an unpinned open"
+  },
+  "aiclk_note": "of3t-ditcot captured no AICLK on these arms, so none is recorded rather than reconstructed. These twelve are bit-equality comparisons of dumps already on disk, not timings: no clock-dependent number is claimed here. The arms' own A/A (CMP_AA, CMP_t1_AA, CMP_t3_AA, CMP_trunk_AA) is the hardware-health control -- a degraded card breaks bit-identity, it does not manufacture it.",
+  "inputs": {
+   "a": {
+    "path": "/tmp/of3t/ditcot/kcfg_base1.pt",
+    "bytes": 1256225140,
+    "mtime_utc": "2026-09-21T17:31:06Z"
+   },
+   "b": {
+    "path": "/tmp/of3t/ditcot/kcfg_lofi.pt",
+    "bytes": 1256224587,
+    "mtime_utc": "2026-09-21T17:33:12Z"
+   }
+  },
+  "loadavg_start": [
+   0.31298828125,
+   0.4951171875,
+   2.3251953125
+  ],
+  "loadavg_end": [
+   0.3681640625,
+   0.50390625,
+   2.31787109375
+  ],
+  "recompute_seconds": 2.8
+ }
+}

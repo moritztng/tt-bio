@@ -1,0 +1,737 @@
+{
+ "instrument": "instrument A at aux_heads scope, 0.4.3 boundary",
+ "boundary": {
+  "file": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+  "n_tokens": 384,
+  "n_tokens_real": 56,
+  "use_zij_trunk_embedding": true
+ },
+ "bars": {
+  "per_tensor": 0.05,
+  "mass_weighted": 0.02,
+  "a26_reachable_per_tensor": 0.07071067811865477,
+  "a26_reachable_mass_weighted": 0.028284271247461905
+ },
+ "arm": {
+  "mask": true,
+  "name": "M (masked)",
+  "token_mask_equals_repr_x_mask": true,
+  "padding_fraction": 0.8541666666666666
+ },
+ "bijection": {
+  "n_taped": 180,
+  "n_unmapped": 48,
+  "unmapped": [
+   [
+    "blocks.0.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.0.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.1.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.2.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_start._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_multiplication_end._gp_gout_cache.(32, 4, ('p_a', 'g_a', 'p_b', 'g_b'))",
+    [
+     128,
+     640
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_start.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.bias_weight",
+    [
+     128,
+     4
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkv_weight",
+    [
+     128,
+     384
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvg_weight",
+    [
+     128,
+     512
+    ],
+    "built inline, not via torch_to_tt"
+   ],
+   [
+    "blocks.3.triangle_attention_end.qkvgb_weight",
+    [
+     128,
+     544
+    ],
+    "built inline, not via torch_to_tt"
+   ]
+  ],
+  "inverse_worst": [
+   "pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+   0.005669813059511369
+  ]
+ },
+ "shipped_forward": {
+  "rows": [
+   {
+    "arm": "masked",
+    "head": "plddt_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0020550708930021475,
+    "norm_ratio": 1.0000117172249396,
+    "cos": 0.9999978884351981,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 587.0462147270265,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 344623.2582253289,
+    "diff_sq": 1.4554189426180122,
+    "dot": 344618.4925585924
+   },
+   {
+    "arm": "masked",
+    "head": "experimentally_resolved_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038656476999654192,
+    "norm_ratio": 1.0024804872499007,
+    "cos": 0.9999956156677093,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 102.55847475401572,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 10518.240743870098,
+    "diff_sq": 0.15639965613832219,
+    "dot": 10492.168937135179
+   },
+   {
+    "arm": "masked",
+    "head": "pae_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038241492884047877,
+    "norm_ratio": 1.000759667244899,
+    "cos": 0.9999929818197281,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1620.054311980592,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 2624575.973766776,
+    "diff_sq": 38.323859285267574,
+    "dot": 2622565.27708098,
+    "rel_l2_padded_scope": 0.005752360600883589
+   },
+   {
+    "arm": "masked",
+    "head": "pde_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.002457701805341246,
+    "norm_ratio": 1.0010490303386252,
+    "cos": 0.9999975326715179,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 3934.968185088774,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 15483974.617659938,
+    "diff_sq": 93.33190474638924,
+    "dot": 15467710.316218473,
+    "rel_l2_padded_scope": 0.00323517487354411
+   },
+   {
+    "arm": "masked",
+    "head": "distogram_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 1.3976191315377513e-07,
+    "norm_ratio": 0.9999999969112721,
+    "cos": 0.9999999999999751,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40409.16284527044,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632900441.8555334,
+    "diff_sq": 3.189608522634101e-05,
+    "dot": 1632900446.8991296,
+    "rel_l2_padded_scope": 1.905026563547229e-07
+   },
+   {
+    "arm": "unmasked",
+    "head": "plddt_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.3650479026256241,
+    "norm_ratio": 0.7517932322174165,
+    "cos": 0.952345027483853,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 441.3322000419697,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 194774.11079388458,
+    "diff_sq": 45923.40927373711,
+    "dot": 246732.9419154731
+   },
+   {
+    "arm": "unmasked",
+    "head": "experimentally_resolved_logits",
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.3313193772510705,
+    "norm_ratio": 0.6984407870855153,
+    "cos": 0.9865167017758036,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 71.45378163518143,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 5105.642909968199,
+    "diff_sq": 1148.907126915818,
+    "dot": 7211.4946565543905
+   },
+   {
+    "arm": "unmasked",
+    "head": "pae_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.5174367694393983,
+    "norm_ratio": 0.6710625268309575,
+    "cos": 0.8811281045102577,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1086.3324889921275,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 1180118.276639783,
+    "diff_sq": 701639.6678294104,
+    "dot": 1549535.7565324216,
+    "rel_l2_padded_scope": 0.18178868142329638
+   },
+   {
+    "arm": "unmasked",
+    "head": "pde_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.30153913253388104,
+    "norm_ratio": 0.7508598078734756,
+    "cos": 0.9807853524626645,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 2951.5132285224227,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 8711430.338142298,
+    "diff_sq": 1404944.3249445572,
+    "dot": 11379012.67993973,
+    "rel_l2_padded_scope": 0.08852442647819125
+   },
+   {
+    "arm": "unmasked",
+    "head": "distogram_logits",
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 1.3976191315377513e-07,
+    "norm_ratio": 0.9999999969112721,
+    "cos": 0.9999999999999751,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40409.16284527044,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632900441.8555334,
+    "diff_sq": 3.189608522634101e-05,
+    "dot": 1632900446.8991296,
+    "rel_l2_padded_scope": 1.905026563547229e-07
+   }
+  ],
+  "worst_masked": {
+   "arm": "masked",
+   "head": "experimentally_resolved_logits",
+   "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+   "name": "experimentally_resolved_logits",
+   "leaf": "head output projections",
+   "rel_l2": 0.0038656476999654192,
+   "norm_ratio": 1.0024804872499007,
+   "cos": 0.9999956156677093,
+   "ref_norm": 102.30470922717292,
+   "our_norm": 102.55847475401572,
+   "ref_sq": 10466.253530056401,
+   "our_sq": 10518.240743870098,
+   "diff_sq": 0.15639965613832219,
+   "dot": 10492.168937135179
+  },
+  "worst_unmasked": {
+   "arm": "unmasked",
+   "head": "pae_logits",
+   "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+   "name": "pae_logits",
+   "leaf": "head output projections",
+   "rel_l2": 0.5174367694393983,
+   "norm_ratio": 0.6710625268309575,
+   "cos": 0.8811281045102577,
+   "ref_norm": 1618.8245439992772,
+   "our_norm": 1086.3324889921275,
+   "ref_sq": 2620592.90425447,
+   "our_sq": 1180118.276639783,
+   "diff_sq": 701639.6678294104,
+   "dot": 1549535.7565324216,
+   "rel_l2_padded_scope": 0.18178868142329638
+  },
+  "n_over_bar_masked": 0,
+  "n_over_bar_unmasked": 4,
+  "auxfind_published_masked_worst": 0.003865648,
+  "auxfind_published_unmasked_worst": 0.5174368
+ },
+ "forward": {
+  "rows": [
+   {
+    "head": "plddt_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     50
+    ],
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "plddt_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.004957509565240912,
+    "norm_ratio": 0.9964680820303882,
+    "cos": 0.9999939273235292,
+    "ref_norm": 587.0393362550751,
+    "our_norm": 584.9659614744868,
+    "ref_sq": 344615.18231079873,
+    "our_sq": 342185.17608376907,
+    "diff_sq": 8.469573249577053,
+    "dot": 343395.94441065914
+   },
+   {
+    "head": "experimentally_resolved_logits",
+    "layout": "atom-gathered",
+    "shape": [
+     422,
+     2
+    ],
+    "scope": "atom-gathered, 422 of 8832 slots, 0 padding on the atom axis",
+    "name": "experimentally_resolved_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.005052371041859388,
+    "norm_ratio": 0.99709599103026,
+    "cos": 0.9999914285158099,
+    "ref_norm": 102.30470922717292,
+    "our_norm": 102.00761543393057,
+    "ref_sq": 10466.253530056401,
+    "our_sq": 10405.553606516689,
+    "diff_sq": 0.2671663303346914,
+    "dot": 10435.769985121378
+   },
+   {
+    "head": "pae_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.0547088700288758,
+    "name": "pae_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.004577801088024359,
+    "norm_ratio": 1.000541958572372,
+    "cos": 0.9999896743242355,
+    "ref_norm": 1618.8245439992772,
+    "our_norm": 1619.7018798380639,
+    "ref_sq": 2620592.90425447,
+    "our_sq": 2623434.179550958,
+    "diff_sq": 54.91783359734744,
+    "dot": 2621986.082985916
+   },
+   {
+    "head": "pde_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.03405907125853965,
+    "name": "pde_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.0038437471832206797,
+    "norm_ratio": 1.0019618048477552,
+    "cos": 0.9999945478390012,
+    "ref_norm": 3930.8446098366344,
+    "our_norm": 3938.556159847984,
+    "ref_sq": 15451539.346681729,
+    "our_sq": 15512224.624276496,
+    "diff_sq": 228.28710562351608,
+    "dot": 15481767.841926288
+   },
+   {
+    "head": "distogram_logits",
+    "layout": "pair",
+    "shape": [
+     384,
+     384,
+     64
+    ],
+    "scope": "pair, real 56x56 block of 384x384, 85.4167 % padded",
+    "rel_l2_padded_scope": 0.0028277270060162256,
+    "name": "distogram_logits",
+    "leaf": "head output projections",
+    "rel_l2": 0.003479065043983219,
+    "norm_ratio": 0.9999104154733865,
+    "cos": 0.9999939515240538,
+    "ref_norm": 40409.16297008335,
+    "our_norm": 40405.54293434783,
+    "ref_sq": 1632900451.942759,
+    "our_sq": 1632607899.819426,
+    "diff_sq": 19764.453297483342,
+    "dot": 1632744293.654442
+   }
+  ],
+  "worst_head": "experimentally_resolved_logits",
+  "worst_rel_l2": 0.005052371041859388,
+  "n_over_bar": 0,
+  "n_heads": 5,
+  "a18_first_clause": "PASS -- every head inside the 5.0e-02 bar, so the gradient below is taken at an agreeing forward (necessary, not sufficient)"
+ }
+}

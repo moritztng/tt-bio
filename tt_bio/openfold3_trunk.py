@@ -41,6 +41,8 @@ Fully-device scope (see docs/openfold3-port.md):
 """
 from __future__ import annotations
 
+import os
+
 import ttnn
 
 from .tenstorrent import (Module, Pairformer, accurate_softmax_site,
@@ -133,6 +135,13 @@ class OF3Trunk(Module):
         # ours describes the bias following the pair transpose, theirs describes
         # undoing it. No weights change, so the checkpoint has to select it.
         tri_att_end_bias_follows_pair = not is_openbind(state_dict)
+        # Measurement lever, of3t-foldab. Unset -- the only state any shipped path is in --
+        # leaves the line above untouched; "1"/"0" force the orientation so a seeded fold A/B
+        # can attribute an Angstrom delta to this flag alone. Nothing else reads the variable
+        # and no default moves with it. RELEASE-GATED: branch only.
+        _forced = os.environ.get("TT_BIO_OF3_TRI_END_BIAS_FOLLOWS_PAIR")
+        if _forced is not None:
+            tri_att_end_bias_follows_pair = _forced == "1"
         # openfold3 adds both pair biases UNSCALED (q is pre-scaled by 1/sqrt(d) in the
         # reference Attention), and the two kernels under this one layer need opposite flags
         # to deliver that. `AttentionPairBias` folds the bias inside its own score scale, so
@@ -150,9 +159,21 @@ class OF3Trunk(Module):
         # looser of two sample modes (D10), not a worse ensemble, so the fix must ship with a
         # selector fix or not at all. `of3t-confhead` owns that pair. Flipping this one token
         # is the whole lever, and `compose_verify.sh` asserts it stays False.
+        #
+        # What that costs at the ACTIVATION level, which the fold-level reading above cannot
+        # see: this one token IS the trunk's A18 single-track failure, all of it. Against
+        # upstream 0.4.3's float64 forward on the captured boundary the shipped trunk reads
+        # 1.065338e-01 masked at crop 64 and 1.061989e-01 at N=384, both over the 5.0e-02 bar;
+        # with the bias pre-scaled it reads 1.655263e-02 and 1.855062e-02, both under it, and
+        # the pair track is bit-identical either way because tri_att_scale_pair_bias does not
+        # move. In float64 the pre-scaled convention reproduces upstream's single-track update
+        # to 4.2e-16, so this is a convention and not a precision cost. It hides until the last
+        # blocks only because that is where q.k collapses and the bias stops being negligible:
+        # |bias|/|q.k| is 0.0039 at block 8 and 0.0302 at block 45, and the block-45 update is
+        # 78.0 % wrong against upstream's 0.9 % bf16 floor. Measured in perf/of3t_trunkcliff.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, tri_att_scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=True, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
             # Default ON. 34.138 -> 22.574 s at 512 aa, 1.5123x, 11.564 s, on A/A floors of

@@ -1,0 +1,57 @@
+{
+ "SUPERSEDED": "its pairformer row is WITHDRAWN; superseded by THE_ANSWER.json",
+ "WHY_THE_DATA_FIELDS_ARE_SUFFIXED": "Nulled at pass 180. This artifact was SUPERSEDED and said so, but its data fields still read as live -- a stamp in one field does not stop the numbers being consumed out of another, by a reader or by a script. Every structured field is renamed with a _SUPERSEDED suffix so it cannot be picked up by name; the content is kept verbatim for audit. Renamed: scoreboard, what_this_does_not_say. Current answer: THE_ANSWER.json.",
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "88.0820 % of OpenFold3's gradient mass has a direct reading against upstream's own training step. With every softmax computed in float64 we are 1.823x LESS accurate than that step on the 51.1358 % diffusion scope and 7.95x MORE accurate on the 36.9462 % conditioning scope. The shipped path is 129x less accurate on the diffusion scope and that entire factor is the softmax. (The retired headline also claimed pairformer at 2.09x; WITHDRAWN -- see pairformer_claim_withdrawn.)",
+ "headline_RETIRED": "88.0820 % of OpenFold3's gradient mass now has a direct reading against upstream's own training step. With every softmax computed in float64, we are 1.823x LESS accurate than that step on the 51.1358 % diffusion scope and 7.95x MORE accurate on the 36.9462 % conditioning scope. The shipped path is 129x less accurate on the diffusion scope, and that entire factor is the softmax.",
+ "internal_consistency_check": "of3t-direct reported conditioning's geometry in ABSOLUTE norms (ours 0.015328, theirs 0.121864, ratio 7.95x) while its threshold used RELATIVE ones. Those reconcile: 0.015328 / (0.121864 / 6.253168e-02) = 7.8652e-03, which reproduces the published 7.865385e-03 relative reading. And the cosine derived here from the three relative figures is -0.2727, matching the row's independently measured -0.2727. Two derivations meeting is the check that neither is a normalisation slip -- the mistake D76 is filed for.",
+ "pairformer_claim_withdrawn": "WITHDRAWN at pass 175, the same pass it was published. The two pairformer device figures fail a subset-consistency test: block 47 is 64.9 % of the 7-block set's reference mass, so its error mass cannot exceed the set's -- yet 0.20129^2 x 0.010662 = 4.32e-04 against the set's 0.14053^2 x 0.016440 = 3.25e-04, i.e. 1.33x. The bf16 column PASSES the same test (0.399), so the defect is in the DEVICE column. of3t-refprec has no device gradient of its own and quoted those figures from other rows; it annotated the scope mismatch explicitly on the diffusion and msa_module rows ('over its own 547 / 51.1358 %') and not on the pairformer rows. At least one pairformer device figure is therefore not a mass-weighted rel_l2 over the stated set, and neither is comparable across columns until its scope is established. Establishing it needs a device pairformer gradient at MODEL scope, which does not exist: of3t_gradients/cap holds only blocks 0, 23 and 47 as boundaries.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Arithmetic on published figures from of3t-trajectory (wk/of3t-trajectory) and of3t-direct (wk/of3t-direct f2d29c403); no new measurement. Each scope uses ITS OWN floor and norm ratio -- section floors span 3.1012e-02 to 7.0855e-02, so the whole-model 5.852018e-02 cannot be borrowed, which is the defect of3t-direct fixed in agreement.py.",
+ "scoreboard_SUPERSEDED": [
+  {
+   "accuracy_ratio": 129.343,
+   "agreement_ratio": 129.14,
+   "cos_error_vectors": 0.207,
+   "mass_pct": 51.1358,
+   "ours_vs_ideal": 7.569163,
+   "ours_vs_their_step": 7.426742,
+   "reading": "genuinely far less accurate than upstream, not merely misdirected. Accuracy and agreement agree to 0.2 %, which is what it looks like when magnitude dominates and direction is irrelevant.",
+   "scope": "diffusion device arm, 547 tensors, AS SHIPPED",
+   "theirs_vs_ideal": 0.05852018,
+   "threshold": 0.05750945
+  },
+  {
+   "accuracy_ratio": 1.823,
+   "agreement_ratio": 2.04,
+   "cos_error_vectors": 0.045,
+   "mass_pct": 51.1358,
+   "ours_vs_ideal": 0.106681,
+   "ours_vs_their_step": 0.1172914,
+   "reading": "removing everything the softmax can contribute takes us from 129x less accurate to 1.823x less accurate. The residual error is essentially ORTHOGONAL to upstream's (cos +0.045), so the 2.04x agreement gap is that residual magnitude and not a direction problem.",
+   "scope": "the same scope with the float64-softmax BOUND",
+   "theirs_vs_ideal": 0.05852018,
+   "threshold": 0.05750945
+  },
+  {
+   "accuracy_ratio": 0.126,
+   "agreement_ratio": 1.0414,
+   "cos_error_vectors": -0.273,
+   "mass_pct": 36.9462,
+   "ours_vs_ideal": 0.007865385,
+   "ours_vs_their_step": 0.06463839,
+   "reading": "we are 7.95x MORE ACCURATE than the training step we are reproducing, and fail agreement by 4.1 % anyway, purely because the two errors are anti-aligned and so add. This is the A25 case: a failure against the reference that is not a failure of accuracy.",
+   "scope": "diffusion_conditioning, 26 tensors",
+   "theirs_vs_ideal": 0.06253168,
+   "threshold": 0.06207149
+  }
+ ],
+ "the_two_columns_come_apart": "on the shipped diffusion arm accuracy 129.343x and agreement 129.14x are the same number; on conditioning they are 0.126x and 1.0414x -- opposite sides of 1. A single figure cannot carry both, which is why A25 requires three distances and the cosine.",
+ "what": "the campaign's answer stated under PROTOCOL A25: for every scope with a DIRECT reading against upstream OpenFold3's own bf16 training gradient, both the accuracy column (how far each side sits from the float64 ideal) and the agreement column (how far we sit from their step), plus the cosine between the two error vectors, which decides whether our error nests inside theirs or adds to it.",
+ "what_still_stands": "What stands with the pairformer rows withdrawn: the diffusion device-arm scope is 129.343x LESS accurate than upstream's own bf16 step -- of3t-trajectory measured BOTH columns on the SAME 547 tensors (7.569163 vs 5.852018e-02), the only row where one instrument did that; diffusion_conditioning is 7.95x MORE accurate (of3t-direct, same 26 tensors, capture verified bit-identical to the bundle's float64 over all 26); and msa_module is ~1.10x MORE accurate with a 0.7 % scope caveat refprec itself flagged, its bf16 side corroborated to 0.1 % by of3t-direct's independently measured floor 1.787604e-01. The claim that the port beats upstream's bf16 step on PAIRFORMER is NOT established.",
+ "what_this_does_not_say_SUPERSEDED": {
+  "coverage": "11.9180 % of the model still has no direct reading, and 0.74055 % of that can never have one -- it sits on a weight the shipped path applies on the host. pairformer_stack (5.8282 %) has only 7 of 48 blocks measured at all.",
+  "not_a_shippable_result": "the float64 softmax is a host computation installed on a tape verb -- a BOUND, not a lever. of3t-softmax returned NO-GO on every shipped precision lever: 0.3237 A against a 0.6250 A seed floor at +46 % per op, and no shipped lever reaches the parity bar. This artifact locates the error; it does not close it.",
+  "scope": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures. Nothing establishes that these factors hold at another batch or with recycling.",
+  "still_running": "of3t-direct owes aux_heads (2.8431 %) and msa_module (1.2400 %); of3t-refprec owes the fp32 arm's run-to-run floor (D80), which is what 3.117006e-05 has to be read against."
+ }
+}

@@ -28,7 +28,7 @@ import torch
 import ttnn
 
 from perf import clocksample
-from tt_bio.autograd import precise_config
+from tt_bio.autograd import host_f64_softmax_values, precise_config
 from tt_bio.tenstorrent import _accurate_softmax
 
 
@@ -43,6 +43,11 @@ ARMS = {
     "none": lambda x, cfg: ttnn.softmax(x, dim=-1),
     "precise": lambda x, cfg: ttnn.softmax(x, dim=-1, compute_kernel_config=cfg),
     "accurate": lambda x, cfg: _accurate_softmax(x, cfg),
+    # of3t-f64softmax's path, on the same shapes and in the same harness, so its cost and its
+    # accuracy come from one run like the other three. This is the FORWARD round trip: under a
+    # tape the backward pays a second one, and the both-ways figure is the scope cost in
+    # perf/of3t_f64softmax/COST_ON_THE_REAL_ARM.json rather than anything here.
+    "host_f64": lambda x, cfg: host_f64_softmax_values(x, -1)[1],
 }
 
 
@@ -98,7 +103,12 @@ def main():
     ap.add_argument("--out", default="perf/of3t_softmax/softmax_cost_qb2c0.json")
     ap.add_argument("--iters", type=int, default=30)
     ap.add_argument("--rounds", type=int, default=6)
-    ap.add_argument("--shapes", default="")
+    ap.add_argument("--shapes", default="",
+                    help="comma-separated AxBxCxD, optionally @fp32 or @bf16 (default fp32). "
+                         "The dtype is part of the shape here: the lever buys 11-12x on an "
+                         "fp32 input and 1.96x on a bf16 one for more cost, so a rung without "
+                         "its dtype prices nothing")
+    ap.add_argument("--card", type=int, default=0, help="the PHYSICAL card, for the record")
     a = ap.parse_args()
 
     # OF3's own softmax shapes. The diffusion-transformer site at 384 tokens is the one
@@ -113,8 +123,10 @@ def main():
         ((1, 16, 1024, 1024), "fp32", 8.0),
     ]
     if a.shapes:
-        shapes = [(tuple(int(v) for v in s.split("x")), "fp32", 8.0)
-                  for s in a.shapes.split(",")]
+        shapes = []
+        for s in a.shapes.split(","):
+            dims, _, dt = s.partition("@")
+            shapes.append((tuple(int(v) for v in dims.split("x")), dt or "fp32", 8.0))
 
     # A lone p300 chip is a CUSTOM cluster and ttnn.open_device aborts without a mesh
     # graph descriptor. Use the engine's own resolver so this harness opens the card the
@@ -136,7 +148,7 @@ def main():
     finally:
         pass
 
-    out = {"host": "qb2", "card": 0, "board": "p300c",
+    out = {"host": "qb2", "card": a.card, "board": "p300c",
            "clock_aiclk_during": clock, "clock_line": clk.line(0),
            "results": results}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)

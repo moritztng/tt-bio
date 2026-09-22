@@ -1,0 +1,11 @@
+{
+  "what": "the frame-matched n384 reference backward does not fit on qb2 without activation checkpointing",
+  "host": "tt-quietbox2", "cores": 16, "mem_total_gb": 249,
+  "command": "perf/of3t_trunkg043/ref_grad.py --tree /home/ttuser/of3t_trunk043ref/of3pkg043 --boundary /home/ttuser/of3t_trunk043ref/boundary_n384.pt --cap-last /home/ttuser/of3t_gradients/cap/block47_boundary.pt --policy f32 --crop 384 --threads 8",
+  "outcome": "SIGKILL by the kernel OOM killer after about 2 minutes",
+  "exit_code": 137,
+  "kernel": "Out of memory: Killed process 778544 (python) total-vm:233568960kB, anon-rss:228244044kB",
+  "anon_rss_gb": 228.2,
+  "why": "48 PairFormerBlocks at 384 tokens keep every triangle intermediate live for the backward; the upstream tree is run without activation checkpointing, which is fine at crop 64 (7.0 s, f64) and is not at crop 384",
+  "next": "run it one block at a time. /home/ttuser/of3t_gradients/cap/block47_boundary.pt already holds block 47's own input boundary and the output cotangent, so a SINGLE-block float64 reference at n384 is affordable and is the discriminating arm: if block 47's float64 gradient from the captured boundary disagrees with grads_f64_043.pt's block 47, the capture is the mismatch and no op inside the block can be the cause."
+}

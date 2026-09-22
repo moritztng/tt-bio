@@ -1,0 +1,1216 @@
+{
+ "generated": "2026-09-21T14:55:22Z",
+ "host": "tt-quietbox2",
+ "what": "What the four no-config forward sites cost NOW that the backward is corrected.",
+ "seconds": 7.2,
+ "cases": [
+  {
+   "token": "openfold3.diffusion_transformer",
+   "site": "openfold3_diffusion_transformer.py:211",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 4800,
+   "std": 3.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9955876525960746,
+     "rowsum_rmsdev": 0.008774741976077055,
+     "y_rel_l2": 0.018606835231182214,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.017423566453955992,
+      "renorm_rule_f64": 0.01696712339941712,
+      "shipped_device": 0.0175434562541277,
+      "renorm_device": 0.01695270362241439
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1126757114280645e-16,
+      "shipped_rule_f64": 0.003915359677763426,
+      "renorm_rule_f64": 4.9221886342663245e-17,
+      "shipped_device": 0.004029376499921229,
+      "renorm_device": 0.00027737325635226665
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9995853200422301,
+     "rowsum_rmsdev": 0.0005999834812741255,
+     "y_rel_l2": 0.0005465462481808309,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0007658643838738185,
+      "renorm_rule_f64": 0.0007106009245598139,
+      "shipped_device": 0.0010314365582195046,
+      "renorm_device": 0.000894828795726763
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1126757114280645e-16,
+      "shipped_rule_f64": 0.0002937180362552488,
+      "renorm_rule_f64": 5.419124894873239e-17,
+      "shipped_device": 0.0004888257751185297,
+      "renorm_device": 0.00029154217516880274
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 34.044392936763764,
+    "d_gain_shipped": 17.008759399038286,
+    "d_gain_renorm": 18.945192313179557,
+    "rowsum": 14.624972603317353
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.423812848667822
+  },
+  {
+   "token": "openfold3.diffusion_transformer",
+   "site": "openfold3_diffusion_transformer.py:211",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 4800,
+   "std": 12.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9848462706871196,
+     "rowsum_rmsdev": 0.02072940816585762,
+     "y_rel_l2": 0.02390178148245621,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0787800859858938,
+      "renorm_rule_f64": 0.01586713090791411,
+      "shipped_device": 0.07977148171849455,
+      "renorm_device": 0.015924258474511517
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1080807193346368e-16,
+      "shipped_rule_f64": 0.01893736223315949,
+      "renorm_rule_f64": 1.3345993280650383e-16,
+      "shipped_device": 0.01918114736994375,
+      "renorm_device": 0.00025065092476116727
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9996644249301777,
+     "rowsum_rmsdev": 0.00040766811706486765,
+     "y_rel_l2": 0.00037990048029910774,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0013882174947958577,
+      "renorm_rule_f64": 0.0007271833764054213,
+      "shipped_device": 0.002447110373932144,
+      "renorm_device": 0.0014246495888902476
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1080807193346368e-16,
+      "shipped_rule_f64": 0.0003553500991860765,
+      "renorm_rule_f64": 1.4266171854085917e-16,
+      "shipped_device": 0.0006621799014974645,
+      "renorm_device": 0.0003446990331999685
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 62.91590224797183,
+    "d_gain_shipped": 32.59823609439961,
+    "d_gain_renorm": 11.177666844319212,
+    "rowsum": 50.84873527786619
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.442216791845948
+  },
+  {
+   "token": "openfold3.diffusion_transformer",
+   "site": "openfold3_diffusion_transformer.py:211",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 4800,
+   "std": 3.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9958686703444904,
+     "rowsum_rmsdev": 0.008272977331865562,
+     "y_rel_l2": 0.01840744042998053,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.018339686859164595,
+      "renorm_rule_f64": 0.01646957871869274,
+      "shipped_device": 0.01846987250668961,
+      "renorm_device": 0.01647022999227128
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2032609422069068e-16,
+      "shipped_rule_f64": 0.004351084783300337,
+      "renorm_rule_f64": 5.3146035143258173e-17,
+      "shipped_device": 0.004444069565322204,
+      "renorm_device": 0.0002842902854259159
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9996020235207107,
+     "rowsum_rmsdev": 0.0006019047115052468,
+     "y_rel_l2": 0.00056061834422155,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0007836808507694634,
+      "renorm_rule_f64": 0.0007015251659848042,
+      "shipped_device": 0.0009945165174022426,
+      "renorm_device": 0.0008980617244487457
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2032609422069068e-16,
+      "shipped_rule_f64": 0.0002991801433699892,
+      "renorm_rule_f64": 5.333809839497043e-17,
+      "shipped_device": 0.00046514953874172375,
+      "renorm_device": 0.00027543462532635956
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 32.834174300058436,
+    "d_gain_shipped": 18.571710156141407,
+    "d_gain_renorm": 18.3397527629642,
+    "rowsum": 13.744662857309178
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4295467280078493
+  },
+  {
+   "token": "openfold3.diffusion_transformer",
+   "site": "openfold3_diffusion_transformer.py:211",
+   "shape": [
+    1,
+    16,
+    96,
+    96
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 4800,
+   "std": 12.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9850727632404007,
+     "rowsum_rmsdev": 0.020516072589556764,
+     "y_rel_l2": 0.02356408739257401,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.07762103772190425,
+      "renorm_rule_f64": 0.01809859685875958,
+      "shipped_device": 0.0785120618549454,
+      "renorm_device": 0.01816653906412536
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.9450342100563865e-16,
+      "shipped_rule_f64": 0.017800024993534336,
+      "renorm_rule_f64": 1.2453879126586653e-16,
+      "shipped_device": 0.018008044565781003,
+      "renorm_device": 0.0002465021845212284
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.999659948477297,
+     "rowsum_rmsdev": 0.000429734050504022,
+     "y_rel_l2": 0.00039125826753187536,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0014273867282291828,
+      "renorm_rule_f64": 0.0008221448280117009,
+      "shipped_device": 0.002398241742376855,
+      "renorm_device": 0.0014245797059477187
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.9450342100563865e-16,
+      "shipped_rule_f64": 0.00034509886758895853,
+      "renorm_rule_f64": 1.3923934636177165e-16,
+      "shipped_device": 0.0006177457915950554,
+      "renorm_device": 0.0003177570448199571
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 60.226426756986726,
+    "d_gain_shipped": 32.73734272389633,
+    "d_gain_renorm": 12.752209643503136,
+    "rowsum": 47.7413241177749
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4197014950123004
+  },
+  {
+   "token": "openfold3.atom_transformer",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 1200,
+   "std": 3.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9968280241083365,
+     "rowsum_rmsdev": 0.007865442573976603,
+     "y_rel_l2": 0.006955452340671391,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.008512308345568298,
+      "renorm_rule_f64": 0.008557104372878052,
+      "shipped_device": 0.008580202649237497,
+      "renorm_device": 0.008553761560318361
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2295378481023841e-16,
+      "shipped_rule_f64": 0.0035784024372607984,
+      "renorm_rule_f64": 5.4464514252977235e-17,
+      "shipped_device": 0.0036627405597177633,
+      "renorm_device": 0.00026506124692209906
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.000498971442447,
+     "rowsum_rmsdev": 0.000782764125937748,
+     "y_rel_l2": 0.001083800639206045,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0012490494784015802,
+      "renorm_rule_f64": 0.0008006255277431789,
+      "shipped_device": 0.0011189992110991365,
+      "renorm_device": 0.0009951973417690813
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2295378481023841e-16,
+      "shipped_rule_f64": 0.0004755533784143799,
+      "renorm_rule_f64": 5.461806814583767e-17,
+      "shipped_device": 0.00042219550261460515,
+      "renorm_device": 0.0002675209529881282
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 6.417649232765461,
+    "d_gain_shipped": 7.667746826031805,
+    "d_gain_renorm": 8.59504060281455,
+    "rowsum": 10.048292088697648
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4203437674140145
+  },
+  {
+   "token": "openfold3.atom_transformer",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 1200,
+   "std": 12.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9964428251283015,
+     "rowsum_rmsdev": 0.005410067324005907,
+     "y_rel_l2": 0.005043240020906155,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.01783106074461802,
+      "renorm_rule_f64": 0.007169329065404643,
+      "shipped_device": 0.01874649312202641,
+      "renorm_device": 0.007258994830541427
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1693653005593683e-16,
+      "shipped_rule_f64": 0.004382958451780875,
+      "renorm_rule_f64": 1.4284225990616352e-16,
+      "shipped_device": 0.004622800326473568,
+      "renorm_device": 0.00035055833549742547
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0003155327591366,
+     "rowsum_rmsdev": 0.0006739380938675359,
+     "y_rel_l2": 0.0007182755067746927,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0022558695803211078,
+      "renorm_rule_f64": 0.0006479277062054867,
+      "shipped_device": 0.002091230654819221,
+      "renorm_device": 0.0013814452411522724
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1693653005593683e-16,
+      "shipped_rule_f64": 0.0005861530624022904,
+      "renorm_rule_f64": 1.4942838682986672e-16,
+      "shipped_device": 0.0005382008102808558,
+      "renorm_device": 0.0003175388922538629
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 7.021316992350275,
+    "d_gain_shipped": 8.964335463821408,
+    "d_gain_renorm": 5.25463812411895,
+    "rowsum": 8.027543439426454
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.423455681286436
+  },
+  {
+   "token": "openfold3.atom_transformer",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 1200,
+   "std": 3.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9967483945179831,
+     "rowsum_rmsdev": 0.00804962204028278,
+     "y_rel_l2": 0.006921946237206608,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.008400871448107935,
+      "renorm_rule_f64": 0.008544194006081094,
+      "shipped_device": 0.008448639637490676,
+      "renorm_device": 0.008540893658864743
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2246108491839315e-16,
+      "shipped_rule_f64": 0.0034491806240238136,
+      "renorm_rule_f64": 5.731790534835192e-17,
+      "shipped_device": 0.003521071507467462,
+      "renorm_device": 0.00026271471622028186
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0005038555391699,
+     "rowsum_rmsdev": 0.0007932426644413584,
+     "y_rel_l2": 0.001073486240695383,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0011105260269501408,
+      "renorm_rule_f64": 0.0008220858881434232,
+      "shipped_device": 0.0010462301253876033,
+      "renorm_device": 0.000999669407122493
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2246108491839315e-16,
+      "shipped_rule_f64": 0.00043523397767652636,
+      "renorm_rule_f64": 5.758514072083754e-17,
+      "shipped_device": 0.00039515810023039565,
+      "renorm_device": 0.000261248397290042
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 6.448099635373723,
+    "d_gain_shipped": 8.075316732406893,
+    "d_gain_renorm": 8.543718151232968,
+    "rowsum": 10.147742174145073
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4165994352836375
+  },
+  {
+   "token": "openfold3.atom_transformer",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "float32",
+   "calls_per_of3_ubq_fold": 1200,
+   "std": 12.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9962980459181022,
+     "rowsum_rmsdev": 0.005997406234742879,
+     "y_rel_l2": 0.005338328764330432,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.019018085534900402,
+      "renorm_rule_f64": 0.010163484741199352,
+      "shipped_device": 0.019811371207006254,
+      "renorm_device": 0.010219384161256876
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.131249428648482e-16,
+      "shipped_rule_f64": 0.004639537720707422,
+      "renorm_rule_f64": 1.4446769643144935e-16,
+      "shipped_device": 0.004863126756203441,
+      "renorm_device": 0.00034004428734309584
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0003103867251426,
+     "rowsum_rmsdev": 0.0006823120596716247,
+     "y_rel_l2": 0.0007275771379457766,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.002336255063395949,
+      "renorm_rule_f64": 0.0006136434361634442,
+      "shipped_device": 0.002117105793343743,
+      "renorm_device": 0.0013611767885089885
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.131249428648482e-16,
+      "shipped_rule_f64": 0.0006220843797602421,
+      "renorm_rule_f64": 1.5669848488657545e-16,
+      "shipped_device": 0.000561010887119213,
+      "renorm_device": 0.00031762367241666364
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 7.337130987104045,
+    "d_gain_shipped": 9.357761557922103,
+    "d_gain_renorm": 7.507756705468823,
+    "rowsum": 8.78982886163443
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4188527843975771
+  },
+  {
+   "token": "openfold3.atom_transformer [host prep]",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 3,
+   "std": 3.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9941341567622599,
+     "rowsum_rmsdev": 0.010395264711562322,
+     "y_rel_l2": 0.009482357031203108,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.011549324211444363,
+      "renorm_rule_f64": 0.011031319416580112,
+      "shipped_device": 0.011909620224083602,
+      "renorm_device": 0.011644525440742372
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2295378481023841e-16,
+      "shipped_rule_f64": 0.004875586200556924,
+      "renorm_rule_f64": 5.0923415250401694e-17,
+      "shipped_device": 0.005047186559328402,
+      "renorm_device": 0.0018614668334645608
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.007020983569349,
+     "rowsum_rmsdev": 0.007747965806462398,
+     "y_rel_l2": 0.008663698789871476,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.010775506829739108,
+      "renorm_rule_f64": 0.007622655847427975,
+      "shipped_device": 0.01171404275139694,
+      "renorm_device": 0.009259578928375218
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2295378481023841e-16,
+      "shipped_rule_f64": 0.004443909543322779,
+      "renorm_rule_f64": 5.2374625164718354e-17,
+      "shipped_device": 0.0047626209944456,
+      "renorm_device": 0.0019903747360506137
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 1.094492925156713,
+    "d_gain_shipped": 1.01669598419925,
+    "d_gain_renorm": 1.2575653310820303,
+    "rowsum": 1.3416766376139495
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4203437674140145
+  },
+  {
+   "token": "openfold3.atom_transformer [host prep]",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 3,
+   "std": 12.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9937939609479753,
+     "rowsum_rmsdev": 0.007900820709887272,
+     "y_rel_l2": 0.007559100232723837,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.025830693095677086,
+      "renorm_rule_f64": 0.009945668726825762,
+      "shipped_device": 0.026579874409867168,
+      "renorm_device": 0.013221751168926219
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1693653005593683e-16,
+      "shipped_rule_f64": 0.006489086565640154,
+      "renorm_rule_f64": 1.3290993653094072e-16,
+      "shipped_device": 0.006695446024157326,
+      "renorm_device": 0.002418504434918951
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0042372055949018,
+     "rowsum_rmsdev": 0.005542133638418172,
+     "y_rel_l2": 0.00535095182657481,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.01741307024151272,
+      "renorm_rule_f64": 0.0060287563736201215,
+      "shipped_device": 0.018738017926689735,
+      "renorm_device": 0.012177762556143458
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.1693653005593683e-16,
+      "shipped_rule_f64": 0.004765747728683052,
+      "renorm_rule_f64": 1.6192410882373653e-16,
+      "shipped_device": 0.005095113159102715,
+      "renorm_device": 0.0027535216084548218
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 1.4126646020587483,
+    "d_gain_shipped": 1.418499785508679,
+    "d_gain_renorm": 1.0857290990828268,
+    "rowsum": 1.4255918794737532
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.423455681286436
+  },
+  {
+   "token": "openfold3.atom_transformer [host prep]",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 3,
+   "std": 3.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.993937880763788,
+     "rowsum_rmsdev": 0.01047951731607678,
+     "y_rel_l2": 0.0096360226281744,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.011095036355488488,
+      "renorm_rule_f64": 0.010881258064282693,
+      "shipped_device": 0.011433464562371397,
+      "renorm_device": 0.011329406255873715
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2246108491839315e-16,
+      "shipped_rule_f64": 0.00468023565993395,
+      "renorm_rule_f64": 5.23074194792914e-17,
+      "shipped_device": 0.004869873009585145,
+      "renorm_device": 0.0017684310670845887
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0070005193366196,
+     "rowsum_rmsdev": 0.007751679845398111,
+     "y_rel_l2": 0.008546118525372149,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.010014062940119705,
+      "renorm_rule_f64": 0.007874306673199556,
+      "shipped_device": 0.011010878093339291,
+      "renorm_device": 0.009462732937080635
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2246108491839315e-16,
+      "shipped_rule_f64": 0.004236087828384813,
+      "renorm_rule_f64": 5.2772328092042666e-17,
+      "shipped_device": 0.004631856790796865,
+      "renorm_device": 0.0020167954373580066
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 1.127532060264141,
+    "d_gain_shipped": 1.0383789980644447,
+    "d_gain_renorm": 1.1972657720771491,
+    "rowsum": 1.35190275205936
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4165994352836375
+  },
+  {
+   "token": "openfold3.atom_transformer [host prep]",
+   "site": "openfold3_atom_transformer.py:186",
+   "shape": [
+    1,
+    19,
+    4,
+    32,
+    128
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 3,
+   "std": 12.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9937240811868705,
+     "rowsum_rmsdev": 0.008162740636555341,
+     "y_rel_l2": 0.007674167972110779,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.025781372901150765,
+      "renorm_rule_f64": 0.01122621483302973,
+      "shipped_device": 0.026270432194634468,
+      "renorm_device": 0.014120175427859897
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.131249428648482e-16,
+      "shipped_rule_f64": 0.006645705590004397,
+      "renorm_rule_f64": 1.3613596109611803e-16,
+      "shipped_device": 0.006807880042938966,
+      "renorm_device": 0.0024160215088631465
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 1.0042281430180038,
+     "rowsum_rmsdev": 0.005580200746334976,
+     "y_rel_l2": 0.005431013561845889,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.01788880346886339,
+      "renorm_rule_f64": 0.005674232822296427,
+      "shipped_device": 0.019469542304890015,
+      "renorm_device": 0.01180138553543817
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.131249428648482e-16,
+      "shipped_rule_f64": 0.004990481473132438,
+      "renorm_rule_f64": 1.6231868716294802e-16,
+      "shipped_device": 0.00537456771574422,
+      "renorm_device": 0.002717458845741486
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 1.4130268475158232,
+    "d_gain_shipped": 1.3493091816563312,
+    "d_gain_renorm": 1.1964845471286971,
+    "rowsum": 1.4628041189945638
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4188527843975771
+  },
+  {
+   "token": "AttentionPairBias site_softmax",
+   "site": "tenstorrent.py:8604",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 3.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9934574130615997,
+     "rowsum_rmsdev": 0.011961209549892044,
+     "y_rel_l2": 0.022811493507454365,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.020156390090275075,
+      "renorm_rule_f64": 0.020154321813240134,
+      "shipped_device": 0.020182961833845204,
+      "renorm_device": 0.020231427813813912
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2905624615184074e-16,
+      "shipped_rule_f64": 0.004622958171642813,
+      "renorm_rule_f64": 5.2767159230627076e-17,
+      "shipped_device": 0.004787659915046447,
+      "renorm_device": 0.0015647534235392166
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9997138695632194,
+     "rowsum_rmsdev": 0.0008664472630370625,
+     "y_rel_l2": 0.0017221602128303993,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0016603643826118457,
+      "renorm_rule_f64": 0.0014743271907262036,
+      "shipped_device": 0.003660541183810544,
+      "renorm_device": 0.003721653907409237
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.2905624615184074e-16,
+      "shipped_rule_f64": 0.000425666565162876,
+      "renorm_rule_f64": 5.3589881578460304e-17,
+      "shipped_device": 0.001327683376947144,
+      "renorm_device": 0.0013500914404397059
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 13.245860250111859,
+    "d_gain_shipped": 5.513655172931337,
+    "d_gain_renorm": 5.436138963254018,
+    "rowsum": 13.804890453419782
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.416144679983087
+  },
+  {
+   "token": "AttentionPairBias site_softmax",
+   "site": "tenstorrent.py:8604",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 12.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9854924084196867,
+     "rowsum_rmsdev": 0.02021574910583553,
+     "y_rel_l2": 0.02421234143423912,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.07576782385410784,
+      "renorm_rule_f64": 0.017372132237622528,
+      "shipped_device": 0.07607575405042724,
+      "renorm_device": 0.01915676212397458
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.6139155157944223e-16,
+      "shipped_rule_f64": 0.018937478848099158,
+      "renorm_rule_f64": 1.500726797520539e-16,
+      "shipped_device": 0.019026515906934428,
+      "renorm_device": 0.002437895541721056
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9999346624679806,
+     "rowsum_rmsdev": 0.0010858637970333593,
+     "y_rel_l2": 0.0012446735410425061,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.003459983669572025,
+      "renorm_rule_f64": 0.001448870943298607,
+      "shipped_device": 0.007547036539640944,
+      "renorm_device": 0.007626286402329457
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.6139155157944223e-16,
+      "shipped_rule_f64": 0.0009096058148071334,
+      "renorm_rule_f64": 1.6993529576697656e-16,
+      "shipped_device": 0.0021008788045410393,
+      "renorm_device": 0.0021260644784276504
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 19.452764629317574,
+    "d_gain_shipped": 10.080215413141037,
+    "d_gain_renorm": 2.5119384603918267,
+    "rowsum": 18.617205179016086
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4153355024584175
+  },
+  {
+   "token": "AttentionPairBias site_softmax",
+   "site": "tenstorrent.py:8604",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 3.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9936676692985748,
+     "rowsum_rmsdev": 0.011934253093997989,
+     "y_rel_l2": 0.022957459456246478,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.019881276517901465,
+      "renorm_rule_f64": 0.01982674054264172,
+      "shipped_device": 0.01989540342137243,
+      "renorm_device": 0.019972997387611907
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.244860096559981e-16,
+      "shipped_rule_f64": 0.004894969040958091,
+      "renorm_rule_f64": 5.3433031140497586e-17,
+      "shipped_device": 0.004999621751797933,
+      "renorm_device": 0.0015519610304338739
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9997383155706038,
+     "rowsum_rmsdev": 0.00085468507752286,
+     "y_rel_l2": 0.0017261237238363938,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.001633884161580234,
+      "renorm_rule_f64": 0.001453219138466542,
+      "shipped_device": 0.003554364481408136,
+      "renorm_device": 0.003658779891077009
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.244860096559981e-16,
+      "shipped_rule_f64": 0.0004300019270980414,
+      "renorm_rule_f64": 5.396295287126178e-17,
+      "shipped_device": 0.0012761152855087121,
+      "renorm_device": 0.001312108915099586
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 13.30000806965471,
+    "d_gain_shipped": 5.597457302265875,
+    "d_gain_renorm": 5.458922914800595,
+    "rowsum": 13.963333873322233
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4162705617002682
+  },
+  {
+   "token": "AttentionPairBias site_softmax",
+   "site": "tenstorrent.py:8604",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 12.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9853688702315759,
+     "rowsum_rmsdev": 0.020289808919399903,
+     "y_rel_l2": 0.024203093992337006,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.07624868635430986,
+      "renorm_rule_f64": 0.016942202556331335,
+      "shipped_device": 0.07629812475201884,
+      "renorm_device": 0.018935129922751627
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.6864253228351093e-16,
+      "shipped_rule_f64": 0.018890890240504714,
+      "renorm_rule_f64": 1.4996657318153547e-16,
+      "shipped_device": 0.01890010129677865,
+      "renorm_device": 0.0025050212629360354
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9999541078859805,
+     "rowsum_rmsdev": 0.0010892973309302714,
+     "y_rel_l2": 0.0012537977178785132,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0035306197268277573,
+      "renorm_rule_f64": 0.001441242683632109,
+      "shipped_device": 0.0077793402096395115,
+      "renorm_device": 0.00786103712045842
+     },
+     "dx_rowsum_rms": {
+      "reference": 2.6864253228351093e-16,
+      "shipped_rule_f64": 0.000918939885690668,
+      "renorm_rule_f64": 1.6627929082798832e-16,
+      "shipped_device": 0.0021250854555128124,
+      "renorm_device": 0.0021487486854149342
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 19.303826803329823,
+    "d_gain_shipped": 9.807788667922834,
+    "d_gain_renorm": 2.4087317783391176,
+    "rowsum": 18.626511185951582
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4150613261120455
+  },
+  {
+   "token": "ConfidenceHeadsDevice._reduce",
+   "site": "tenstorrent.py:13082",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 3.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9936152635635485,
+     "rowsum_rmsdev": 0.010735665961075851,
+     "y_rel_l2": 0.020131827149775672,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.020335970950142387,
+      "renorm_rule_f64": 0.017795007149054614,
+      "shipped_device": 0.02050729284794848,
+      "renorm_device": 0.018078053319296492
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1835663070632498e-16,
+      "shipped_rule_f64": 0.0057048161831572495,
+      "renorm_rule_f64": 4.910641066675321e-17,
+      "shipped_device": 0.005866042884655234,
+      "renorm_device": 0.0019478405502911594
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9997292450185434,
+     "rowsum_rmsdev": 0.0010494696991702702,
+     "y_rel_l2": 0.0016877066674484142,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0019181041453749863,
+      "renorm_rule_f64": 0.001493878648407771,
+      "shipped_device": 0.00408762484458505,
+      "renorm_device": 0.0042545604249755896
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1835663070632498e-16,
+      "shipped_rule_f64": 0.0006442141614096004,
+      "renorm_rule_f64": 4.944222415794011e-17,
+      "shipped_device": 0.0016595767439534417,
+      "renorm_device": 0.001719805086840539
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 11.92851076438081,
+    "d_gain_shipped": 5.0169214709404795,
+    "d_gain_renorm": 4.249100145146068,
+    "rowsum": 10.229610220822634
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4254129624276073
+  },
+  {
+   "token": "ConfidenceHeadsDevice._reduce",
+   "site": "tenstorrent.py:13082",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 12.0,
+   "seed": 20260921,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9831154788812747,
+     "rowsum_rmsdev": 0.022146836873038343,
+     "y_rel_l2": 0.025413792223593135,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.08994613709570067,
+      "renorm_rule_f64": 0.017348469361676753,
+      "shipped_device": 0.09016031718987516,
+      "renorm_device": 0.019477095746380447
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.9371476986911693e-16,
+      "shipped_rule_f64": 0.02079545488511031,
+      "renorm_rule_f64": 1.2295338250505015e-16,
+      "shipped_device": 0.020851547969330704,
+      "renorm_device": 0.002426476458986612
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9999628789933488,
+     "rowsum_rmsdev": 0.0010665784913647248,
+     "y_rel_l2": 0.0011959678076356617,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.003833673229549976,
+      "renorm_rule_f64": 0.0014436274571462688,
+      "shipped_device": 0.008290700279825444,
+      "renorm_device": 0.008394108394247575
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.9371476986911693e-16,
+      "shipped_rule_f64": 0.0009299244692459567,
+      "renorm_rule_f64": 1.4131124571996213e-16,
+      "shipped_device": 0.0020973129765909098,
+      "renorm_device": 0.0021260031723200103
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 21.249562121437272,
+    "d_gain_shipped": 10.874873550702455,
+    "d_gain_renorm": 2.320329310940036,
+    "rowsum": 20.76437604203014
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4255945089855149
+  },
+  {
+   "token": "ConfidenceHeadsDevice._reduce",
+   "site": "tenstorrent.py:13082",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 3.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9936132166995384,
+     "rowsum_rmsdev": 0.010736675733584996,
+     "y_rel_l2": 0.02013477113071506,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.020439773377846596,
+      "renorm_rule_f64": 0.017778738807536613,
+      "shipped_device": 0.02065781754705053,
+      "renorm_device": 0.018059052469510974
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1890967311151004e-16,
+      "shipped_rule_f64": 0.00573061328027993,
+      "renorm_rule_f64": 4.914444867897282e-17,
+      "shipped_device": 0.0059117111949957635,
+      "renorm_device": 0.0019302006539410673
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.9997285942601558,
+     "rowsum_rmsdev": 0.0010472588173880393,
+     "y_rel_l2": 0.001682583002652678,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.0019207545979261164,
+      "renorm_rule_f64": 0.001493150947234774,
+      "shipped_device": 0.004111788041082888,
+      "renorm_device": 0.0042504112915966565
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.1890967311151004e-16,
+      "shipped_rule_f64": 0.0006470536917831083,
+      "renorm_rule_f64": 4.9414548114821006e-17,
+      "shipped_device": 0.0016656515788295388,
+      "renorm_device": 0.001715128281484638
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 11.966584173839605,
+    "d_gain_shipped": 5.024047285669435,
+    "d_gain_renorm": 4.248777643051842,
+    "rowsum": 10.252170290017956
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4253842014269278
+  },
+  {
+   "token": "ConfidenceHeadsDevice._reduce",
+   "site": "tenstorrent.py:13082",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "storage": "bfloat16",
+   "calls_per_of3_ubq_fold": 0,
+   "std": 12.0,
+   "seed": 7,
+   "arms": {
+    "none": {
+     "rowsum_mean": 0.9830902740186668,
+     "rowsum_rmsdev": 0.02217425519359889,
+     "y_rel_l2": 0.02546197942654074,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.09001129093694611,
+      "renorm_rule_f64": 0.01705801552652165,
+      "shipped_device": 0.09014976712289069,
+      "renorm_device": 0.019195753635229785
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.937530414439249e-16,
+      "shipped_rule_f64": 0.02092738379225334,
+      "renorm_rule_f64": 1.2354717303750844e-16,
+      "shipped_device": 0.020965844101837033,
+      "renorm_device": 0.002423464651437877
+     }
+    },
+    "precise_config()": {
+     "rowsum_mean": 0.999969261928432,
+     "rowsum_rmsdev": 0.001062668151379111,
+     "y_rel_l2": 0.0011926194293191922,
+     "dx_rel_l2": {
+      "shipped_rule_f64": 0.00380074945540926,
+      "renorm_rule_f64": 0.001449882667353506,
+      "shipped_device": 0.008207721038471325,
+      "renorm_device": 0.008301345474992857
+     },
+     "dx_rowsum_rms": {
+      "reference": 1.937530414439249e-16,
+      "shipped_rule_f64": 0.0009241559763112276,
+      "renorm_rule_f64": 1.4150063066347274e-16,
+      "shipped_device": 0.002086751382079252,
+      "renorm_device": 0.0021107325333335485
+     }
+    }
+   },
+   "what_the_config_buys": {
+    "forward": 21.34962654522217,
+    "d_gain_shipped": 10.983532054798118,
+    "d_gain_renorm": 2.312366554681463,
+    "rowsum": 20.866584892773492
+   },
+   "AA_bit_identical": true,
+   "break_control_reference_flipped": 1.4248513843985968
+  }
+ ]
+}

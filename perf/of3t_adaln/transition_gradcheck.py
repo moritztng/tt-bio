@@ -28,9 +28,12 @@ import os
 import sys
 import time
 
+_PERF = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PERF not in sys.path:
+    sys.path.append(_PERF)
+import refpath                                                            # noqa: E402
+
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
-REF_PKG = "/home/ttuser/of3t_rebase/of3pkg043"
-REF_DEPS = "/home/ttuser/of3t_gradients/pylibs"
 CAP = "/home/ttuser/of3t_diffusion_cap/sub_boundary.pt"
 OUT = "perf/of3t_adaln"
 PER_TENSOR_BAR = 5.0e-02
@@ -59,9 +62,9 @@ def main() -> int:
     # the real module and must address the shim by hand.
     tt = taped_ttnn()
 
-    sys.path.insert(0, REF_DEPS)
-    sys.path.insert(0, REF_PKG)
+    refpath.install()
     import openfold3
+    print(f"REF_TREE resolved: {refpath.assert_resolved()}", flush=True)
     from openfold3.core.model.layers.diffusion_transformer import DiffusionTransformer
 
     want = [int(x) for x in a.blocks.split(",")]
