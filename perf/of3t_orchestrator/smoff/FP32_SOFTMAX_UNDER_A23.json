@@ -1,0 +1,31 @@
+{
+ "what": "D49's fp32_softmax lever restated under PROTOCOL A23 -- the same seven measured pairformer blocks, weighted by the share of the model's gradient each actually holds. No new run; the per-block numbers are unchanged, only the denominator.",
+
+ "headline": "By count the lever improves 5 of 7 blocks and takes 3 across the median bar. By MASS it moves the measured set from 0.14053 to 0.13707 -- a ratio of 0.9754, a 2.5 % improvement -- because block 47 alone is 64.86 % of the measured set's mass and its ratio is 1.009, very slightly worse. Excluding block 47 the mass-weighted ratio is 0.5353: the lever genuinely halves the error everywhere except the one block that holds two thirds of the mass.",
+
+ "per_block": {
+  "0":  {"mass_pct_of_model": 0.12631, "pct_of_measured_set": 7.68,  "on": 0.01214, "off": 0.00949, "ratio": 0.782},
+  "8":  {"mass_pct_of_model": 0.08845, "pct_of_measured_set": 5.38,  "on": 0.03025, "off": 0.01297, "ratio": 0.429},
+  "16": {"mass_pct_of_model": 0.07500, "pct_of_measured_set": 4.56,  "on": 0.02162, "off": 0.01399, "ratio": 0.647},
+  "23": {"mass_pct_of_model": 0.07514, "pct_of_measured_set": 4.57,  "on": 0.01919, "off": 0.01513, "ratio": 0.788},
+  "32": {"mass_pct_of_model": 0.06123, "pct_of_measured_set": 3.72,  "on": 0.09679, "off": 0.01679, "ratio": 0.173},
+  "40": {"mass_pct_of_model": 0.15164, "pct_of_measured_set": 9.22,  "on": 0.02118, "off": 0.02127, "ratio": 1.004},
+  "47": {"mass_pct_of_model": 1.06624, "pct_of_measured_set": 64.86, "on": 0.20129, "off": 0.20311, "ratio": 1.009}
+ },
+
+ "statistics_three_ways": {
+  "on":  {"mass_weighted": 0.14053, "unweighted_mean": 0.05749, "median_of_blocks": 0.02162},
+  "off": {"mass_weighted": 0.13707, "unweighted_mean": 0.04182, "median_of_blocks": 0.01513},
+  "off_over_on": {"mass_weighted": 0.9754, "median_of_blocks": 0.6998}
+ },
+ "and_before_any_lever": "the trunk's mass-weighted rel is 0.14053 against a median-of-blocks of 0.02162 -- the statistic the campaign has been quoting understates its own arm by 6.5x, with the lever off or on. That is A23's point, measured on the campaign's own data.",
+
+ "excluding_block_47": {"on": 0.02840, "off": 0.01521, "ratio": 0.5353,
+   "reading": "the lever is real and it is not small -- it halves the mass-weighted error across the other six blocks. What it does not do is touch the block that dominates the mass, which is also the block the campaign already knew was its worst (rel 0.201, pair track x1.183, single x0.887)."},
+
+ "scope_of_even_this_restatement": "the seven measured blocks hold 1.64401 % of the model's squared gradient norm between them -- 28.21 % of the 48-block trunk, and 1.6 % of the model. A mass-weighted number over a 1.6 % scope is still a 1.6 % scope. The other 41 blocks are unmeasured at this config.",
+
+ "what_changes_and_what_does_not": "D49's measurement stands exactly as taken and its verification stands. What changes is the sentence attached to it: 'the campaign's first lever that improves gradient parity' is true in the weak sense and overstates the effect on the gradient AS A VECTOR by roughly 20x. The honest statement is: fp32_softmax=False halves the mass-weighted gradient error across six of seven measured trunk blocks and leaves the seventh -- which holds two thirds of the measured mass -- unchanged. The forward A/B D49 asks for is still the right next step, and the decision it feeds is now better specified.",
+
+ "provenance": "computed 2026-09-20 pass 151 by of3t-orchestrator on pc, CPU only, from smoff/FP32_SOFTMAX_LEVER.json (unchanged) and BLOCK_MASS_PROFILE.json. Default remains fp32_softmax=True; nothing is flipped by this file."
+}
