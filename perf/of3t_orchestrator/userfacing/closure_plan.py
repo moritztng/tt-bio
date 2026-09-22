@@ -54,6 +54,27 @@ PLAN = {
     # leaves the trunk at 5.4139x upstream's own bf16, carried by the attention-pair-bias and the
     # single transition. That residual is the trunk's real object and is not yet a plan item
     # because it has no owner -- when it gets one it belongs here.
+    "D184": {
+        "needs": MERGE,
+        "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
+        "closes_when": ("`TT_BIO_OF3_DEVICE_REFATOM` stops being default-off. `of3t-hostleg` wired "
+                        "both legs and measured them: the `all` arm reads mass-weighted rel_l2 "
+                        "0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 "
+                        "per-tensor bar, worst 1.175005e-01, and its inference default is "
+                        "byte-identical to the base tree on both models that execute the changed "
+                        "path. Nothing further is measurable until it lands"),
+        "evidence_held": ("the shipped arm reads rel_l2 exactly 1.00000000 on all seventeen -- the "
+                          "A16 zero-model signature, so the default computes no gradient for them "
+                          "at all. The arm ladder is shipped 1.00000000, refatom 0.71215816, all "
+                          "0.05013681, break 0.82521107. Landing it also takes GRADIENTS' coverage "
+                          "from 97.98499306866148 % to 99.50523155277438 %, past the 99.2594 % bar, "
+                          "with the two tensor sets verified disjoint (intersection 0, same "
+                          "denominator, same float64 digest)"),
+        "would_a_row_help": False,
+        "asked": ("not yet asked. It belongs with D126 in one merge question rather than as a "
+                  "separate ask: both are built, measured, release-gated and waiting only on "
+                  "Moritz"),
+    },
     "D10": {
         "needs": MERGE,
         "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
