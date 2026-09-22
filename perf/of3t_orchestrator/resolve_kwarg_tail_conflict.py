@@ -167,7 +167,12 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
             mod = ast.parse(textwrap.dedent(text))
         except SyntaxError:
             return None
-        if not mod.body or not all(isinstance(n, (ast.Import, ast.ImportFrom)) for n in mod.body):
+        # An EMPTY side is a valid "no imports here" side, not a rejection. of3t-apbback forked
+        # before `from .protenix import ConfidenceHead` was added to openfold3_fold.py, so its
+        # side of that hunk is empty and HEAD's is one import; requiring a non-empty body made
+        # this rule decline a one-line conflict and stop the whole compose. Unioning with an
+        # empty side just keeps the other side, which drops nothing.
+        if any(not isinstance(n, (ast.Import, ast.ImportFrom)) for n in mod.body):
             return None
         return [ln for ln in text.splitlines() if ln.strip()]
 
