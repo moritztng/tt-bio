@@ -85,6 +85,12 @@ def main() -> int:
     ap.add_argument("--pad-scale", type=float, default=1.0, metavar="K",
                     help="multiply the boundary's pad rows/columns by K, nothing else")
     ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED")
+    ap.add_argument("--pf-set", action="append", default=[], metavar="KEY=VAL",
+                    help="override one Pairformer construction kwarg on top of the spied "
+                         "shipped configuration. Applied AFTER --arm, recorded in the "
+                         "report's arm_config and in the saved tensor's config, so an arm "
+                         "cannot claim a configuration it did not construct. Booleans take "
+                         "0/1/true/false; anything else is passed as a string.")
     a = ap.parse_args()
     t0 = time.perf_counter()
 
@@ -147,6 +153,24 @@ def main() -> int:
     kw = dict(shipped_kw)
     if a.arm == "flipped":
         kw["scale_pair_bias"] = True
+    # of3t-trunkceiling. The accuracy levers this campaign has to price are construction kwargs,
+    # not environment variables, and a hardcoded arm per combination is how a lever catalogue
+    # stops matching the code. Unknown keys are refused rather than ignored: a typo that lands
+    # in **kw silently would read as a lever that bought nothing.
+    pf_set = {}
+    for item in a.pf_set:
+        k, _, v = item.partition("=")
+        if not _:
+            raise SystemExit(f"--pf-set {item!r} is not KEY=VAL")
+        lv = v.strip().lower()
+        pf_set[k] = (True if lv in ("1", "true", "yes", "on")
+                     else False if lv in ("0", "false", "no", "off") else v)
+    import inspect as _inspect
+    _sig = set(_inspect.signature(T.Pairformer.__init__).parameters)
+    _bad = sorted(set(pf_set) - _sig)
+    if _bad:
+        raise SystemExit(f"--pf-set names kwargs Pairformer does not take: {_bad}")
+    kw.update(pf_set)
     print(f"[{time.perf_counter()-t0:.0f}s] arm={a.arm} config {kw}", flush=True)
 
     b = torch.load(a.boundary, map_location="cpu", weights_only=False)
@@ -207,7 +231,7 @@ def main() -> int:
            "shipped_config": {"source": "tt_bio/openfold3_trunk.py OF3Trunk.__init__, read by "
                                         "spying on the Pairformer constructor",
                               "kwargs": shipped_kw},
-           "arm_config": kw, "s_input_dtype": str(s_dtype),
+           "arm_config": kw, "pf_set": pf_set, "s_input_dtype": str(s_dtype),
            "probe": {"s_in_norm": float(s_in.norm()), "z_in_norm": float(z_in.norm()),
                      "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm())}}
 

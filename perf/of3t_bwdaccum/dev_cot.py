@@ -36,6 +36,9 @@ The levers, each named for what it does to `dW = sum_t g_t * xhat_t`:
   dx_fp32     the ACTIVATION gradient path (dnorm, its two means, dx) in fp32 -- D55's four
               withheld configs, the half that propagates rather than the half that lands
   all         every one of the above
+  ceiling     of3t-trunkceiling:  AND  together.  predates the softmax
+              lever and does not include it, so the two could not be read as one arm, which is
+              the arm a ceiling needs -- every fp32 island in the taped backward at once.
   lofi        the control: LoFi, fp32_dest_acc_en off, on the same reductions. It must make
               the reading WORSE or no flag reached the kernel.
 """
@@ -52,7 +55,7 @@ sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_trunkg043"))
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_gradients"))
 
 LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dxcfg", "dx_fp32", "all", "lofi",
-          "softmax_fp32")
+          "softmax_fp32", "ceiling")
 
 
 def main() -> int:
@@ -163,7 +166,7 @@ def main() -> int:
 
     # ---- 3. the LayerNorm backward, with the levers -------------------------------------
     lev = a.lever
-    on = (lambda n: lev == "all" or lev == n)
+    on = (lambda n: lev in ("all", "ceiling") or lev == n)
     CAPTURED = []
     # D121 REACH. A lever that never runs and a lever that runs and is inert are different
     # results, and no output comparison can tell them apart. `dxcfg_applied` counts the
@@ -330,7 +333,7 @@ def main() -> int:
             out.box = box
         return out
 
-    if lev == "softmax_fp32":
+    if lev in ("softmax_fp32", "ceiling"):
         for v in ("softmax", "softmax_in_place"):
             if v in tt._VERBS:
                 tt._VERBS[v] = _v_softmax_fp32
