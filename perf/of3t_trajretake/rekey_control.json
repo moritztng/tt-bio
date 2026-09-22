@@ -1,0 +1,26 @@
+{
+ "what_this_controls": "whether traj_retake_shipped.json's 26-of-26 is CAUSED by the _PARAMS re-key in the value setter, or merely coincides with it",
+ "rekey_site": "tt_bio/autograd.py value setter, _PARAMS[id(new)] = self",
+ "arms": [
+  {
+   "arm": "through the value setter (shipped since 965c24f52)",
+   "registered_before_replace": true,
+   "resolves_after_replace": true,
+   "stale_key_still_present": false
+  },
+  {
+   "arm": "around the setter (the pre-965c24f52 program)",
+   "registered_before_replace": true,
+   "resolves_after_replace": false,
+   "stale_key_still_present": false
+  }
+ ],
+ "control_moves_the_reading": true,
+ "tree": {
+  "branch": "wk/of3t-trajretake",
+  "commit": "a22a8276df5ec0eb29bf5d0650d08596fb2ede15",
+  "host": "tt-quietbox2",
+  "card": "1",
+  "dirty_paths": []
+ }
+}
