@@ -1,0 +1,109 @@
+{
+  "what": "Our arm against upstream's own bf16 step, per section, with an attribution for every outlier. A faithful bf16 reproduction should read near 1.0x; this spans 0.010x to 6.861x.",
+  "why": "The model-scope arm is STITCHED from five legs produced by five harnesses in four rows (see MODEL_withtrunk_n384.json `arms`), each driven from its own boundary. D186 proved the pairformer leg is cross-frame. This table asks the same of every other leg and records what is explained and what is not.",
+  "read_this_way": "a ratio near 1.0 is the signature of reproducing upstream's arithmetic. Far ABOVE 1.0 means we are worse; far BELOW means we are not doing what they do -- which can be deliberate (higher precision) and is still a divergence from 'reproduce their step'.",
+  "sections": [
+    {
+      "section": "diffusion_module.diffusion_transformer",
+      "n_tensors": 456,
+      "pct_of_model_mass": 43.622,
+      "ours_vs_float64": 0.11670185505910514,
+      "upstream_bf16_vs_float64": 0.057809234623039614,
+      "ours_over_upstream": 2.0187407050117585,
+      "status": "UNEXPLAINED and now the largest",
+      "why": "2.019x on 43.622 % of the mass. With the trunk reframed by D186 this is the campaign's biggest unexplained accuracy gap. D56 is live on this arm and D172 resolved its old 8.1943 as a pre-D56 reading; the residual 2.019x has no owner."
+    },
+    {
+      "section": "diffusion_module.diffusion_conditioning",
+      "n_tensors": 26,
+      "pct_of_model_mass": 36.946,
+      "ours_vs_float64": 0.007865384774093603,
+      "upstream_bf16_vs_float64": 0.0625316770492112,
+      "ours_over_upstream": 0.1257824057381941,
+      "status": "KNOWN, already raised in the charter",
+      "why": "of3t-direct retracted it at 1.0414x while it was ~8x more accurate than upstream's own step, failing only because the two errors are anti-aligned. The charter asks this as a protocol question: what should 'reproduce' mean when our answer is closer to the float64 ideal than theirs."
+    },
+    {
+      "section": "pairformer_stack",
+      "n_tensors": 2736,
+      "pct_of_model_mass": 5.828,
+      "ours_vs_float64": 2.1595271217352767,
+      "upstream_bf16_vs_float64": 0.3147698293887927,
+      "ours_over_upstream": 6.8606547391424355,
+      "status": "CROSS-FRAME, proven",
+      "why": "D186: our arm is capture-driven and this denominator is a full-model run. Frame-matched at c64 the same tensors read 0.9565x. The 6.861x is the frame."
+    },
+    {
+      "section": "diffusion_module.atom_attn_enc",
+      "n_tensors": 48,
+      "pct_of_model_mass": 4.735,
+      "ours_vs_float64": 0.07270331718701939,
+      "upstream_bf16_vs_float64": 0.07085536297456792,
+      "ours_over_upstream": 1.026080654094098,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    },
+    {
+      "section": "aux_heads",
+      "n_tensors": 180,
+      "pct_of_model_mass": 2.843,
+      "ours_vs_float64": 0.0022990915588583824,
+      "upstream_bf16_vs_float64": 0.23936995453970616,
+      "ours_over_upstream": 0.009604762482740975,
+      "status": "EXPLAINED, deliberate precision divergence",
+      "why": "openfold3_confidence.py runs the confidence s-path on HOST in fp32 (LN + AttentionPairBias + Transition) where upstream uses bf16, so being 100x closer to float64 is expected. It also means this section is NOT reproducing upstream's arithmetic -- it is doing something more accurate, which is a labelling question and not a defect."
+    },
+    {
+      "section": "diffusion_module.atom_attn_dec",
+      "n_tensors": 40,
+      "pct_of_model_mass": 1.284,
+      "ours_vs_float64": 0.01977466391000519,
+      "upstream_bf16_vs_float64": 0.04999987600533138,
+      "ours_over_upstream": 0.3954942589836955,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    },
+    {
+      "section": "msa_module",
+      "n_tensors": 154,
+      "pct_of_model_mass": 1.232,
+      "ours_vs_float64": 0.08915364271771352,
+      "upstream_bf16_vs_float64": 0.17876037263599862,
+      "ours_over_upstream": 0.49873269675518583,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    },
+    {
+      "section": "diffusion_module.layer_norm_s",
+      "n_tensors": 1,
+      "pct_of_model_mass": 0.983,
+      "ours_vs_float64": 0.038629282080920736,
+      "upstream_bf16_vs_float64": 0.03101235199459842,
+      "ours_over_upstream": 1.245609558657434,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    },
+    {
+      "section": "diffusion_module.layer_norm_a",
+      "n_tensors": 1,
+      "pct_of_model_mass": 0.267,
+      "ours_vs_float64": 0.009411755498138248,
+      "upstream_bf16_vs_float64": 0.03697010744965473,
+      "ours_over_upstream": 0.2545774450603104,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    },
+    {
+      "section": "diffusion_module.linear_s",
+      "n_tensors": 1,
+      "pct_of_model_mass": 0.244,
+      "ours_vs_float64": 0.08605977261218019,
+      "upstream_bf16_vs_float64": 0.06544195859945386,
+      "ours_over_upstream": 1.3150549655599457,
+      "status": "UNEXPLAINED, small mass",
+      "why": "no attribution recorded; the mass is small enough that it has never been chased"
+    }
+  ],
+  "the_residual": "With the trunk's 6.861x understood as the frame and both low outliers explained, diffusion_transformer at 2.019x over 43.622 % of the mass is the campaign's largest UNEXPLAINED accuracy gap and has no owner.",
+  "source": "perf/of3t_modelboundary/sidecar_modelboundary/{renorm,UPSTREAM_BF16}_vs_FLOAT64.json, 3,643 tensors"
+}

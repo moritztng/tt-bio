@@ -2514,3 +2514,44 @@ upstream's bf16 arm is full-model — so that clause remains cross-frame and its
 clean reading of the port. Closing it needs upstream 0.4.3 run from the SAME capture at crop 384,
 float64 and bf16 autocast: upstream's own code from a saved boundary, CPU work, no card. That is
 one row's worth of work and it is the campaign's highest-value remaining measurement.
+
+### D187. With the trunk reframed, the campaign's largest UNEXPLAINED accuracy gap is `diffusion_transformer` at 2.019x over 43.6 % of the mass, and it has no owner. FOUND by `of3t-orchestrator`, pass 337. **UNFIXED.**
+
+The model-scope arm is **stitched from five legs produced by five harnesses in four rows** — its
+own `arms` block lists `diffusion=`, `cond=`, `aux=`, `msa=` and `pairformer_stack=` pointing at
+five different dumps, each driven from its own boundary. D186 proved the pairformer leg is
+cross-frame. This asks the same of every other leg, and the answer is not uniform:
+
+    section                              mass%   ours/upstream-bf16   status
+    diffusion_module.diffusion_transformer 43.622%   2.019x   UNEXPLAINED, and now the largest
+    diffusion_module.diffusion_conditioning 36.946%  0.126x   KNOWN, the charter already asks it
+    pairformer_stack                        5.828%   6.861x   CROSS-FRAME, proven (D186)
+    diffusion_module.atom_attn_enc          4.735%   1.026x   near 1.0
+    aux_heads                               2.843%   0.010x   EXPLAINED, host-fp32 confidence path
+    diffusion_module.atom_attn_dec          1.284%   0.395x   unexplained, small mass
+    msa_module                              1.232%   0.499x   unexplained, small mass
+
+**A faithful bf16 reproduction should read near 1.0x.** This spans **0.010x to 6.861x**, about
+700x, which is the tell that the legs are not all measuring the same thing.
+
+**Both low outliers are explained, and I checked before filing rather than after.** `aux_heads` at
+0.010x is `openfold3_confidence.py` running the confidence s-path on HOST in fp32 where upstream
+uses bf16 — being 100x closer to float64 is expected, and it is worth saying that this section is
+therefore **not reproducing upstream's arithmetic** but doing something more accurate, which is a
+labelling question rather than a defect. `diffusion_conditioning` at 0.126x is already in the
+charter: `of3t-direct` retracted it at 1.0414x while being ~8x more accurate than upstream's own
+step, failing only because the two errors are anti-aligned.
+
+**So the residual is `diffusion_transformer`: 2.019x over 43.622 % of the mass, unexplained, and
+with no owner.** D172 resolved its old 8.1943 as a pre-D56 reading and D56 is live on this arm; the
+2.019x that remains is what nobody has chased. It is now the largest single accuracy object in the
+campaign, ahead of the trunk, whose 6.861x is the frame.
+
+**And a caution on reading the aggregate at all.** `MODEL_withtrunk_n384.json`'s own
+`reconciliation` block records that a scope's reading divides by `||g_bf16||` on that scope while
+the campaign's mass share is a share of `||g_float64||^2`, giving a **3.3 %** published-versus-exact
+difference. A stitched aggregate over legs with different frames, different precisions and a known
+weighting mismatch is not one measurement, and the model-scope headline should be read as a
+summary of the table above rather than as a number in its own right.
+
+Published as `perf/of3t_orchestrator/sections/SECTION_ATTRIBUTION.json`.
