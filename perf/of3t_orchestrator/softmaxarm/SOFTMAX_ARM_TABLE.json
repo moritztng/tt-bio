@@ -1,0 +1,205 @@
+{
+ "what": "the four host-float64-softmax install arms on the of3t-frame384 frame, one scorer, one float64 reference, one upstream-bf16 reference. Read from the source artifacts by perf/of3t_orchestrator/softmaxarm/softmax_arm_table.py.",
+ "frame": "boundary_n384.pt / block47_boundary.pt, padded 384, 56 real tokens",
+ "references": {
+  "float64": "REF_LOCAL_f64_n384, built on qb1 CPU by of3t-frame384",
+  "upstream_bf16": "REF_LOCAL_bf16_n384, upstream's own bf16 autocast on the same boundary",
+  "the_floor_their_bf16_vs_float64": 0.37393839211303687
+ },
+ "A26_in_frame_bar": {
+  "value": 0.5268825372815341,
+  "read_from": "MATCHED/A26_style_reachable_bar_for_this_scope of all seven frame artifacts, asserted equal across them"
+ },
+ "arms": {
+  "CTRL_B": {
+   "what": "the shipped device softmax, `--lever all` (the fp32 LayerNorm-backward islands only)",
+   "argv_lever": "--lever all",
+   "env_selector": "<unset>",
+   "board": "qb1 (tt-quietbox) card 3, p150a Blackhole -- NOT the p300c the 1.0293953378 and 0.5547455957585244 arms were built on; CTRL_B is the same-board control",
+   "vs_float64": 0.702981502944001,
+   "vs_float64_norm_ratio": 0.9986557379467267,
+   "vs_upstream_bf16": 0.9153623104186986,
+   "multiple_of_the_A26_in_frame_bar": 1.737317609996219,
+   "host_f64_softmax_census": {
+    "served": 0,
+    "declined": 6755,
+    "refused": 0,
+    "elements": 0,
+    "selected": 3
+   }
+  },
+  "CEIL_B": {
+   "what": "CTRL_B's arm on the other board class -- D234's cross-board control",
+   "argv_lever": "--lever all",
+   "env_selector": "<unset>",
+   "board": "qb2 (tt-quietbox2) card 0, p300c Blackhole (subsystem_device 0x0046, read from sysfs) -- the same host and board class the 1.0293953378 arm was built on",
+   "vs_float64": 0.702981502944001,
+   "vs_float64_norm_ratio": 0.9986557379467267,
+   "vs_upstream_bf16": 0.9153623104186986,
+   "multiple_of_the_A26_in_frame_bar": 1.737317609996219,
+   "host_f64_softmax_census": {
+    "served": 0,
+    "declined": 0,
+    "refused": 0,
+    "elements": 0
+   }
+  },
+  "VERB_HF": {
+   "what": "`--lever ceiling_hf`: exact softmax installed at the taped VERB",
+   "argv_lever": "--lever ceiling_hf",
+   "env_selector": "<unset>",
+   "board": "qb1 (tt-quietbox) card 2, p150a Blackhole -- NOT the p300c the 1.0293953378 and 0.5547455957585244 arms were built on; CTRL_B is the same-board control",
+   "vs_float64": 0.4179981990834974,
+   "vs_float64_norm_ratio": 0.9103235090176437,
+   "vs_upstream_bf16": 0.5547455957585244,
+   "multiple_of_the_A26_in_frame_bar": 1.0528828657346485,
+   "host_f64_softmax_census": {
+    "served": 5285,
+    "declined": 6197,
+    "refused": 0,
+    "elements": 65569554432,
+    "selected": 3,
+    "tail": 6197,
+    "served_taped": 5285,
+    "served_raw": 0
+   }
+  },
+  "CEIL_HF": {
+   "what": "VERB_HF's arm on the other board class",
+   "argv_lever": "--lever ceiling_hf",
+   "env_selector": "<unset>",
+   "board": "qb2 (tt-quietbox2) card 0, p300c Blackhole (subsystem_device 0x0046, read from sysfs) -- the same host and board class the 1.0293953378 arm was built on",
+   "vs_float64": 0.4179981990834974,
+   "vs_float64_norm_ratio": 0.9103235090176437,
+   "vs_upstream_bf16": 0.5547455957585244,
+   "multiple_of_the_A26_in_frame_bar": 1.0528828657346485,
+   "host_f64_softmax_census": {
+    "served": 5285,
+    "declined": 0,
+    "refused": 0,
+    "elements": 65569554432
+   }
+  },
+  "CEIL_HF3": {
+   "what": "`--lever ceiling_hf3`: ceiling_hf AND `ttnn.softmax` replaced module-wide, so the chunked backward's recompute is exact too. THE CONSISTENT ARM.",
+   "argv_lever": "--lever ceiling_hf3",
+   "env_selector": "<unset>",
+   "board": "qb2 (tt-quietbox2) card 0, p300c Blackhole (subsystem_device 0x0046, read from sysfs) -- the same host and board class the 1.0293953378 arm was built on",
+   "vs_float64": 0.41752141981218177,
+   "vs_float64_norm_ratio": 0.9101913210326925,
+   "vs_upstream_bf16": 0.5545352626143085,
+   "multiple_of_the_A26_in_frame_bar": 1.0524836626308578,
+   "host_f64_softmax_census": {
+    "served": 5901,
+    "declined": 0,
+    "refused": 0,
+    "elements": 65569554432
+   }
+  },
+  "ROUTE_HF": {
+   "what": "`--lever all` + the site selector TT_BIO_HOST_F64_SOFTMAX_AB=pairformer: of3t-f64route's route",
+   "argv_lever": "--lever all",
+   "env_selector": "pairformer",
+   "board": "qb1 (tt-quietbox) card 2, p150a Blackhole -- NOT the p300c the 1.0293953378 and 0.5547455957585244 arms were built on; CTRL_B is the same-board control",
+   "vs_float64": 0.5605347900452246,
+   "vs_float64_norm_ratio": 0.9531257715719912,
+   "vs_upstream_bf16": 0.7734340172378431,
+   "multiple_of_the_A26_in_frame_bar": 1.4679439201541933,
+   "host_f64_softmax_census": {
+    "served": 7442,
+    "declined": 0,
+    "refused": 0,
+    "elements": 86973087744,
+    "selected": 148
+   }
+  },
+  "ROUTE_HF2": {
+   "what": "ROUTE_HF repeated on a different card of the same host -- the route's own A/A",
+   "argv_lever": "--lever all",
+   "env_selector": "pairformer",
+   "board": "qb1 (tt-quietbox) card 3, p150a Blackhole -- NOT the p300c the 1.0293953378 and 0.5547455957585244 arms were built on; CTRL_B is the same-board control",
+   "vs_float64": 0.5605347900452246,
+   "vs_float64_norm_ratio": 0.9531257715719912,
+   "vs_upstream_bf16": 0.7734340172378431,
+   "multiple_of_the_A26_in_frame_bar": 1.4679439201541933,
+   "host_f64_softmax_census": {
+    "served": 7442,
+    "declined": 0,
+    "refused": 0,
+    "elements": 86973087744,
+    "selected": 148,
+    "tail": 7451,
+    "served_taped": 5757,
+    "served_raw": 1685
+   }
+  }
+ },
+ "CROSS_BOARD": {
+  "what": "the same arm on p150a (qb1) and p300c (qb2). D234 established this for the shipped arm; this is the second instance and it is on the lever arm.",
+  "shipped_qb1_CTRL_B_vs_qb2_CEIL_B": [
+   0.9153623104186986,
+   0.9153623104186986
+  ],
+  "verb_qb1_VERB_HF_vs_qb2_CEIL_HF": [
+   0.5547455957585244,
+   0.5547455957585244
+  ],
+  "identical": true,
+  "so": "a cross-board reading on this frame needs no correction, twice demonstrated, which is what lets CEIL_HF3 (qb2) be compared to ROUTE_HF (qb1) directly."
+ },
+ "THE_CONSISTENCY_CORRECTION_IS_0.11_PERCENT": {
+  "question_handed_up_by_of3t_f64route": "'the campaign's softmax ceiling needs re-deriving ... which of the two is the right TARGET is a campaign decision and not this row's'",
+  "its_premise": "that 0.5547455957585244 came from an arm whose forward and Jacobian used different softmax implementations, and that its own 0.7734340172378431 was the consistent measurement of the same thing.",
+  "the_consistent_arm_already_existed": "--lever ceiling_hf3, dev_cot.py:54-58 and :398-401, measured by of3t-trunkceiling as CEIL_HF3 on the same frame.",
+  "ceiling_hf_vs_float64": 0.4179981990834974,
+  "ceiling_hf3_vs_float64": 0.41752141981218177,
+  "the_correction_against_float64": -0.0011406251805893275,
+  "ceiling_hf_vs_upstream_bf16": 0.5547455957585244,
+  "ceiling_hf3_vs_upstream_bf16": 0.5545352626143085,
+  "the_correction_against_upstream_bf16": -0.0003791524364034071,
+  "and_the_direction": "the consistent arm is BETTER, on both references. The choice of3t-f64route asked the campaign to make does not exist: nothing is traded and the correction is four hundredths of a percent.",
+  "reach_evidence_for_the_module_wide_patch": "ceiling_hf3 IS ceiling_hf plus one line (dev_cot.py:398-401, `ttnn.softmax = _raw_host_f64`). The scorer is deterministic -- two board classes reproduce the same arm to sixteen digits -- so a non-zero delta between the two arms IS the proof the patch fired. Its own counter SMRAW is printed to stdout by dev_cot.py:446-447 and is not banked in the report, which is an owed fix, not a gap in this reading."
+ },
+ "THE_ROUTE_INSTALL_IS_THE_WORSE_ARM": {
+  "route_vs_float64": 0.5605347900452246,
+  "verb_vs_float64": 0.4179981990834974,
+  "consistent_vs_float64": 0.41752141981218177,
+  "route_is_worse_than_the_consistent_arm_by": 0.34252942111898377,
+  "route_vs_upstream_bf16": 0.7734340172378431,
+  "consistent_vs_upstream_bf16": 0.5545352626143085,
+  "worse_against_upstream_bf16_by": 0.3947427140909945,
+  "it_is_not_a_target_question": "against float64 there is no reference-sharing argument to make -- float64 has no error to share -- and float64 ranks the arms the same way upstream's bf16 does. A lever that makes MORE softmaxes exact and moves the gradient FARTHER from the true gradient is a defect, not a target.",
+  "it_is_reproducible": "ROUTE_HF (qb1 card 2) and ROUTE_HF2 (qb1 card 3) agree to sixteen digits, so the 34 % is deterministic and not noise.",
+  "what_the_route_adds": {
+   "verb_arm": {
+    "served": 5285,
+    "declined": 6197,
+    "refused": 0,
+    "elements": 65569554432,
+    "selected": 3,
+    "tail": 6197,
+    "served_taped": 5285,
+    "served_raw": 0
+   },
+   "route_arm": {
+    "served": 7442,
+    "declined": 0,
+    "refused": 0,
+    "elements": 86973087744,
+    "selected": 148
+   },
+   "read": "the route serves 1,685 RAW calls the verb serves none of, and 472 more taped ones. A raw serve is an exact FORWARD with no tape node (autograd.py:920-935), so its Jacobian is whatever the surrounding region already was."
+  },
+  "MECHANISM_CANDIDATE_not_established": "`autograd.triangle_attention`'s chunked backward recomputes its own `ttnn.softmax` inside `_scores`, which neither the verb patch nor a site selector can reach (dev_cot.py:50-53, :383-386). Serving the pair track's FORWARD exact through the site while its recompute stays on the card evaluates the Jacobian at activations the forward did not produce. That is the inconsistency of3t-f64route named, located in the other arm.",
+  "FALSIFIER_two_sided": "run the route arm with raw serves suppressed (serve taped calls only). ~0.4180 against float64 means the raw serves are the carrier and the mechanism stands; ~0.5605 means the 472 extra taped serves carry it and the mechanism dies."
+ },
+ "WHAT_THE_CEILING_IS": {
+  "quote_this": 0.5545352626143085,
+  "as_a_multiple_of_the_A26_in_frame_bar": 1.0524836626308578,
+  "what_the_campaign_has_been_quoting": 1.0528828657346485,
+  "the_route_number_of3t_f64route_offered_instead": 1.4679439201541933,
+  "the_shipped_baseline": 1.737317609996219,
+  "so": "the ceiling does NOT need re-deriving. It moves from 1.0529x to 1.0525x when the consistent arm is quoted instead of the verb arm, and it stays a measurement of an unmerged branch whose inference A/B is still owed."
+ },
+ "DOESNOT": "this is one gradient reading at one captured boundary at padded N=384 on the of3t-frame384 frame. It does not touch D242, it names no root cause for the route's 34 %, and it merges nothing. It says which number the campaign should quote as its softmax ceiling and that the install being prepared to land is not the arm that produced it."
+}
