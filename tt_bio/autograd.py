@@ -927,6 +927,12 @@ def host_f64_softmax(x, dim: int = -1):
     y64, y = host_f64_softmax_values(v, dim)
     stats["served"] += 1
     stats["elements"] += int(y64.numel())
+    # An exact FORWARD and an exact JACOBIAN are two claims, and `served` is only the first.
+    # A raw ttnn tensor gets the float64 softmax and no tape node, so the gradient path through
+    # that softmax is whatever the surrounding region already was; a taped one gets the float64
+    # Jacobian as well. An arm that serves more calls than another and moves the gradient less
+    # is telling you the split moved, and no other counter here can see it.
+    stats["served_raw" if xt is None else "served_taped"] += 1
     if xt is None:
         return y
 
