@@ -34,7 +34,8 @@ and only when, all four hold:
      `graph_cut_correct`;
   2. recut's CONTROL reproduces **3.0392623414001263e-15** at block 47 through the FIXED
      `ref_grad.py` — the fix is that fix;
-  3. recut's `--legacy-total-cotangent` reproduces a banked number exactly — the flag is real;
+  3. recut's `--legacy-total-cotangent` reproduces the banked arm **to the campaign's measured
+     cross-host float64 floor**, not bit-identically — see the AMENDED clause below;
   4. the linearity shortcut's end-to-end control passes on one arm — `g(cot_s,cot_z) - g(0,delta)`
      reproduces a full re-run.
 
@@ -104,8 +105,11 @@ def main() -> int:
                 "2_control_forward": "recut reproduces 3.0392623414001263e-15 at block 47 "
                                      "through the FIXED ref_grad.py, not through frameself's "
                                      "bespoke break control",
-                "3_control_legacy": "--legacy-total-cotangent reproduces a banked number "
-                                    "exactly -- a flag that merely exists has tested nothing",
+                "3_control_legacy": "--legacy-total-cotangent reproduces the banked arm to "
+                                    "9.13806068751445e-14 mass-weighted or better, with the "
+                                    "loss pair matching the cross-host control's own "
+                                    "-0.3073181442478611 / -0.3073181442478619. NOT "
+                                    "bit-identity -- see AMENDED_AT_PASS_400.",
                 "4_control_shortcut": "g(cot_s,cot_z) - g(0,delta) reproduces a full re-run on "
                                       "one arm",
             },
@@ -120,6 +124,37 @@ def main() -> int:
             "changed": "only the file the clause reads",
             "and_if_it_does_not_clear": "CLAUSE.json's five pre-registered levels say where it "
                                         "sits, and no bar is re-derived to meet it.",
+        },
+        "AMENDED_AT_PASS_400_because_my_own_condition_was_unsatisfiable": {
+            "what_I_wrote": "condition 3 said --legacy-total-cotangent must reproduce a banked "
+                            "number EXACTLY, and of3t-recut reasonably read that as bit-identity",
+            "why_that_cannot_be_met": "the banked c64 arm was built on qb1 and recut runs on "
+                                      "qb2. The campaign has ALREADY measured that difference "
+                                      "and named it: FRAME_CEIL_HF.json's "
+                                      "CROSSHOST_qb1_vs_the_banked_c64_artifact control reads "
+                                      "mass_weighted_rel_l2 9.13806068751445e-14, bit_identical "
+                                      "0 of 2736, on 'both sides CPU float64, upstream 0.4.3, "
+                                      "same tree, same boundary, same cotangent, same torch "
+                                      "2.8.0+cpu; python 3.10.12 on qb1 against 3.12.3 on qb2. "
+                                      "No device on either side.'",
+            "and_recut_reproduced_it_to_fifteen_digits": {
+                "recut_legacy_vs_banked": 9.138060687514453e-14,
+                "the_campaigns_crosshost_floor": 9.13806068751445e-14,
+                "recut_loss_legacy": -0.3073181442478611,
+                "crosshost_control_qb1_loss": -0.3073181442478611,
+                "recut_loss_banked": -0.3073181442478619,
+                "crosshost_control_banked_loss": -0.3073181442478619,
+                "read": "the same number and the same two losses. The legacy flag reproduces "
+                        "the banked arm to the floor; it is not bit-identical across two Python "
+                        "versions, and nothing in this campaign is.",
+            },
+            "so_the_amended_bar": "9.13806068751445e-14 mass-weighted or better, with the loss "
+                                  "pair matching. Satisfiable, evidence-backed, and already met.",
+            "the_class_this_belongs_to": "a-bar-that-rounds-a-measured-ceiling-up-is-"
+                                         "unsatisfiable. I wrote a bar tighter than a floor the "
+                                         "campaign had already measured, in the same document "
+                                         "that tells rows not to. Caught before it blocked a "
+                                         "repoint, which is the only reason it is cheap.",
         },
         "controls_this_rests_on": CONTROLS,
         "DOESNOT": "this predicts nothing about whether the corrected reading clears. It fixes "
