@@ -2743,3 +2743,56 @@ own cotangent and replayed draws, while this forward seeds from our loss and dra
 Scoring across that would be exactly the cross-frame error this campaign has already paid for once.
 The row had the most attractive deliverable in the campaign within reach and **refused to form it**,
 on D186's grounds, against its own interest.
+
+### D197 UPDATE 2, pass 352. TRAJECTORY's coupled scope is **88.83498302148425 %**, the projection confirmed to 5.7e-07 — and the shared tensors moved too, in the flattering direction. Still **UNFIXED**.
+
+`of3t-refatom` executed the change `of3t-trajwiden` specified, and ran D203's trap-check first.
+
+**Neither silent failure is present, and the check was committed before it ran** (`26b7fb834`, its
+result then committed pass-and-fail together at `717bf1d20`). It drives `build_ours`/`run_ours`
+unchanged over a one-level one-step partition — the real arm's program, not a replica — for
+**4.84 s**, about **0.3 %** of what it protects:
+
+    1  the eight in the parameter set      PASS   8 of 8, ref_atom_feature_embedder.w_*
+    2  each resolves a gradient            PASS   8 of 8 participating, 988 of 988 overall
+    3  tape_resolves_after_step            PASS   988 = 980 + 8, of_walked 988, rebound 988
+    4  place moved, not function           FAIL   cos and rel L2 pass, norm ratio misses
+
+**581 is the honest 581.** D203 warned that a silent failure would also score 581 tensors instead
+of 573; assertions 1-3 are what separate the two, and they were run before the 0.93 h rather than
+inferred from the result.
+
+**Assertion 4 failed and the bar was not moved.** `plm` norm ratio 0.9988837 against a 1.0e-3
+tolerance — 12 % over — while cosine reads 1 − 1.5e-7 over 917,504 elements and rel L2 1.241e-3.
+The row's proposed mechanism (a `compute_kernel_config=None` matmul on bf16-truncated operands) is
+**refuted by its own control**: truncation overstates the device's norm bias 4.2x on both legs and
+nearest-rounding gets `plm`'s sign wrong. What survives is bracketing — the device sits between two
+**width** variants of one function, 1.8x finer than nearest bf16 and 4.2x coarser than fp32 — which
+answers assertion 4's actual question without re-scoring the bar.
+
+    coupled scope   88.08194359237523 %  ->  88.83498302148425 %   (581 of 761 tensors)
+    points added    0.75303942911        projected 0.75304, confirmed to 5.7e-07
+    resolves        988 of 988 walked at every one of the 20 rungs
+    cost            1620.85 s, 81.04 s/rung   (the 3335.86 s estimate was a shared board pair)
+
+**Against the 99.2594 % bar it still misses**, by 10.417 points.
+
+### D207. Adding tensors to a scored set also moved the shared tensors' trajectory, in the flattering direction, and nothing explains it. FLAGGED by `of3t-refatom`, pass 352. **UNFIXED.**
+
+The widening was expected to be **additive**: eight more tensors, the other 573 unchanged. They did
+not stay unchanged. At k=20 the shared set reads `rel_d` **2.246887e-01** against the shipped arm's
+**2.564253e-01**, and worst per-tensor **3.454769e-01** against **8.110072e-01** — on a *different*
+tensor.
+
+**The row reported it as unexplained precisely because it improves the number**, which is the
+correct instinct and the reason this is a defect entry rather than a footnote. A scope gain that
+quietly carries an unattributed accuracy change is two results presented as one, and the direction
+means nothing would have prompted the question.
+
+**What separates it:** the host-leg arm re-scored over the same 581 names. Not run; not owned.
+
+**The general rule, which is new and belongs in PROTOCOL's vicinity:** *a change that ADDS tensors
+to a scored set must be shown purely additive on the tensors it did not add*, or the gain and the
+movement must be reported as two findings. Same family as D181 (a clause repair that lets you
+declare success) and D195 (an instrument that names a carrier), and it arrived the same way all
+three did — from a row checking the result it wanted to be true.

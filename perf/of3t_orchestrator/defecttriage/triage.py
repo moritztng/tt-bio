@@ -214,6 +214,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D207": (CAMP, "Adding eight tensors to the trajectory's scored set also moved the 573 shared "
+             "tensors -- rel_d 2.2469e-01 against the shipped arm's 2.5643e-01 at k=20, in the "
+             "FLATTERING direction, unexplained. A scope gain carrying an unattributed accuracy "
+             "change is two results presented as one. Campaign-internal: our own measurement."),
     "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
              "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
              "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
