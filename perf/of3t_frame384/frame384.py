@@ -100,7 +100,27 @@ def main() -> int:
     ap.add_argument("--c64-bf16-ckpt", default="")
     ap.add_argument("--c64-banked", required=True,
                     help="the artifact of3t-trunkg043 banked on qb2, for the cross-host control")
+    ap.add_argument("--ref-f64-report", required=True,
+                    help="ref_grad.py's own report for the float64 arm; the probe (real tokens "
+                         "against padded tokens, and both input norms) is lifted from it rather "
+                         "than re-derived, so the two files cannot disagree")
+    ap.add_argument("--refs-built-on", required=True, metavar="HOST",
+                    help="the host that produced the LOCAL float64 reference AND the floor. "
+                         "D189: upstream's own bf16 autocast arm differs 6.0 %% between qb1 and "
+                         "qb2 on this boundary while the float64 arm agrees to 2e-16, so a bar "
+                         "is a host-dependent claim and D155's rule applies to it as much as to "
+                         "a digest. The campaign's own 0.3147698293887927 floor records no host.")
+    ap.add_argument("--arm-built-on", required=True, metavar="HOST",
+                    help="the host and card the DEVICE arm was produced on, which is not this one")
+    ap.add_argument("--model-ref-built-on", required=True, metavar="HOST")
     ap.add_argument("--blocks", type=int, default=48)
+    ap.add_argument("--crop", type=int, default=384,
+                    help="the crop every figure in the output is labelled with (D180)")
+    ap.add_argument("--reproduces", type=float, default=2.159527121735274,
+                    help="the campaign's own published cross-frame figure at this crop, which "
+                         "the CROSSFRAME block is a reproduction control for")
+    ap.add_argument("--reproduces-from", default="perf/of3t_ditmodel/TRUNK_D174.json "
+                                                 "stats.MASKON_vs_FLOAT64")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -109,7 +129,28 @@ def main() -> int:
            "device_involved": False,
            "note": "every arm in this file is CPU. The device arm was banked by "
                    "of3t-modelboundary on qb2 and is scored, not re-run, here.",
-           "crop": 384, "controls": {}, "digests": {}}
+           "crop": a.crop, "controls": {}, "digests": {},
+           "hosts": {"scored_on": os.uname().nodename,
+                     "local_float64_reference_and_the_floor_built_on": a.refs_built_on,
+                     "device_arm_built_on": a.arm_built_on,
+                     "model_frame_float64_built_on": a.model_ref_built_on,
+                     "why": "D189. The floor is host-dependent at the percent level and the "
+                            "float64 reference is not, so the ratio below is only quotable "
+                            "with the host that produced its DENOMINATOR beside it."}}
+
+    with open(a.ref_f64_report) as fh:
+        f64rep = json.load(fh)
+    probe = f64rep.get("probe", {})
+    out["float64_reference_run"] = {
+        "report": a.ref_f64_report, "policy": f64rep.get("policy"),
+        "tree": f64rep.get("tree"), "blocks": f64rep.get("blocks"),
+        "crop": f64rep.get("crop"), "checkpointed": f64rep.get("checkpointed"),
+        "threads": f64rep.get("threads"),
+        "boundary": f64rep.get("boundary"), "boundary_sha256": f64rep.get("boundary_sha256"),
+        "cotangent_from": f64rep.get("cotangent_from"),
+        "cotangent_sha256": f64rep.get("cotangent_sha256"),
+        "seconds_forward_backward": f64rep.get("seconds_forward_backward"),
+        "peak_rss_gb": f64rep.get("peak_rss_gb"), "probe": probe}
 
     d = sha256_file(a.ref_model_f64)
     out["digests"]["REF_MODEL_f64"] = {"path": a.ref_model_f64, "sha256": d,
@@ -174,6 +215,13 @@ def main() -> int:
             "loss": meta.get("loss")}
     missing = [k for k in keys if k not in ours]
     out["scope"] = {"reference_tensors": len(keys), "ours_absent": len(missing),
+                    "real_tokens": probe.get("real_tokens"),
+                    "padded_tokens": probe.get("tokens"),
+                    "what_crop_names_here": "the boundary is the SAME 56-residue target in both "
+                                            "the c64 and the n384 dumps; the axis this row calls "
+                                            "crop is the PADDED width, 64 against 384. Every "
+                                            "figure is labelled with it (D180) and nothing here "
+                                            "claims a different target was folded.",
                     "absent": missing[:8],
                     "share_of_the_trunks_squared_gradient_norm": 1.0,
                     "what": "every tensor of the 48-block stack carries a reference gradient and "
@@ -232,8 +280,8 @@ def main() -> int:
     xf = score(ours, model, kx); xf.pop("_rows")
     out["CROSSFRAME_ours_vs_grads_f64_043"] = {
         **summarise(xf),
-        "reproduces": 2.159527121735274,
-        "published_in": "perf/of3t_ditmodel/TRUNK_D174.json stats.MASKON_vs_FLOAT64",
+        "reproduces": a.reproduces,
+        "published_in": a.reproduces_from,
         "what": "the campaign's own crop-384 trunk figure, recomputed here through this row's "
                 "scorer on the same banked device tensors. It is a reproduction control: if it "
                 "does not come back, the arm or the scorer is not the published one."}
