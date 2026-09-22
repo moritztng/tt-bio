@@ -8,7 +8,7 @@ from torch import nn
 from typing import Callable, Mapping
 from math import pi, prod
 from functools import lru_cache, partial
-from types import MappingProxyType
+from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
 from . import ops
 from . import reblock_permute as _reblock
@@ -5899,6 +5899,14 @@ class Module:
             os.replace(tmp, path)  # atomic publish
         return ttnn.to_device(host, self.device)
 
+    def device_weights(self) -> dict:
+        """`{path: tensor}` for every device tensor this module reaches.
+
+        Call it after the forward that materialises the lazily fused weights, never straight
+        after `__init__` -- see the notes above `walk_device_weights`.
+        """
+        return device_weights(self)
+
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
@@ -5921,6 +5929,75 @@ class Module:
         return ttnn.squeeze(
             ttnn.experimental.nlp_concat_heads(ctx, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1
         )
+
+
+# ------------------------------------------------------------------- weight discovery
+#
+# Hooking `Module.torch_to_tt` finds what the LOADER produced and nothing a module derived for
+# itself. `TriangleMultiplication` cuts its in-projection out of host torch and pushes the
+# pieces with `ttnn.from_torch` (`_gp_in_chunks`), so the tensor its forward multiplies never
+# passes through the loader, and a tape handed the loader's set sees a constant there. Measured
+# on OpenFold3's trunk: 2119 tensors from the loader against 2531 reachable from the built
+# model, and 0 of one triangle multiplication's 8 weights was an autograd leaf while the
+# backward completed without a word. So discovery walks the built model instead.
+#
+# It lives here rather than in the training package because `Module.__init__` is Protenix's,
+# Boltz-2's, BoltzGen's, AF2's and OpenFold3's alike, and nothing below knows which model it
+# is walking.
+#
+# WALK AFTER A FORWARD, NEVER BEFORE. `_gp_cache`, `_gp_bias_cache` and `_gp_gout_cache` are
+# filled on the first call at a given chunk width, so a walk of a freshly built model misses
+# exactly the fused in-projections that motivate the walk. One untaped forward materialises
+# them, and that is the same one inference a call-site census already spends.
+
+#: Values a walk must not descend into. A module object's `vars()` is its whole namespace, so
+#: one `self.np = numpy` attribute would walk the caller's dependency tree.
+_WALK_OPAQUE = (type, ModuleType, FunctionType, MethodType, BuiltinFunctionType,
+                str, bytes, torch.Tensor)
+
+
+def walk_device_weights(obj, prefix: str = "", _seen=None, _depth: int = 0):
+    """`(path, owner, key, tensor)` for every device tensor reachable from `obj`.
+
+    `owner` and `key` come back with the tensor because a parameter the optimizer moves has to
+    be written back where it was found: `AdamW.step` replaces the leaf's value with a fresh
+    device tensor, and a model still holding the old handle reads the checkpoint's weights for
+    the rest of the run, with real gradients and a loss curve that falls.
+
+    Depth 12, not the four `perf/ptx_integrate/step.py` walks: a trunk nests trunk ->
+    pairformer -> blocks -> block -> submodule -> cache -> tensor, and a depth that stops short
+    reports a denominator too small in the one place the answer matters.
+    """
+    _seen = set() if _seen is None else _seen
+    if _depth > 12 or id(obj) in _seen:
+        return
+    _seen.add(id(obj))
+    if isinstance(obj, dict):
+        items = list(obj.items())
+    elif isinstance(obj, (list, tuple)):
+        items = list(enumerate(obj))
+    elif hasattr(obj, "__dict__"):
+        items = list(vars(obj).items())
+    else:
+        return
+    for key, value in items:
+        path = f"{prefix}{key}"
+        if isinstance(value, ttnn.Tensor):
+            yield path, obj, key, value
+        elif isinstance(value, _WALK_OPAQUE):
+            continue
+        elif isinstance(value, (list, tuple, dict)) or hasattr(value, "__dict__"):
+            yield from walk_device_weights(value, path + ".", _seen, _depth + 1)
+
+
+def device_weights(model) -> dict:
+    """`{path: tensor}` for every device tensor reachable from `model`. The DENOMINATOR.
+
+    A leaf count with no denominator cannot show a shortfall: 2119 looks like a healthy number
+    and 2119 of 2531 is a gap you can act on. Every claim about what a tape reaches is reported
+    against this.
+    """
+    return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
 def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
