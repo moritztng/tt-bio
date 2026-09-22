@@ -1,0 +1,64 @@
+{
+ "statistic": "rho = max_abs_rel / rel_l2, where instrument A defines max_abs_rel = max|m-r| / max|r| (instrument_a_bundle.py:535) and rel_l2 = ||m-r||/||r||. Writing m = r + e, rho = (||e||_inf/||e||_2) * (||r||_2/||r||_inf): the ratio of the two peakiness factors.",
+ "why_it_discriminates": "for a PURE SCALE m = c*r the error e = (c-1)r has exactly the reference's own peakiness, so rho == 1 EXACTLY for every tensor, whatever c is. For an error that is not proportional to the reference, rho == 1 is a coincidence, not a consequence.",
+ "arms": {
+  "block0_tbshipped": {
+   "n": 51,
+   "rho_median": 1.0203622656242541,
+   "rho_q1": 0.8529516726875689,
+   "rho_q3": 1.298915576499569,
+   "iqr_width": 0.44596390381200013,
+   "pct_within_10pct_of_1": 27.45098039215686,
+   "pct_within_25pct_of_1": 62.745098039215684
+  },
+  "block0_tboff": {
+   "n": 51,
+   "rho_median": 0.9560554594733012,
+   "rho_q1": 0.8169017475521199,
+   "rho_q3": 1.1176910779671905,
+   "iqr_width": 0.3007893304150706,
+   "pct_within_10pct_of_1": 39.21568627450981,
+   "pct_within_25pct_of_1": 64.70588235294117
+  },
+  "block23_tbshipped": {
+   "n": 51,
+   "rho_median": 0.9931100970325016,
+   "rho_q1": 0.8425689864676861,
+   "rho_q3": 1.1342701890054756,
+   "iqr_width": 0.29170120253778953,
+   "pct_within_10pct_of_1": 41.1764705882353,
+   "pct_within_25pct_of_1": 70.58823529411765
+  },
+  "block47_tbshipped": {
+   "n": 51,
+   "rho_median": 1.031130100058633,
+   "rho_q1": 1.0050241419798798,
+   "rho_q3": 1.0693581685268734,
+   "iqr_width": 0.0643340265469936,
+   "pct_within_10pct_of_1": 72.54901960784314,
+   "pct_within_25pct_of_1": 90.19607843137256
+  },
+  "block47_tboff": {
+   "n": 51,
+   "rho_median": 1.010048373137033,
+   "rho_q1": 0.9870580827436917,
+   "rho_q3": 1.0651418454170896,
+   "iqr_width": 0.0780837626733979,
+   "pct_within_10pct_of_1": 70.58823529411765,
+   "pct_within_25pct_of_1": 84.31372549019608
+  },
+  "block47_spboff_tbshipped": {
+   "n": 52,
+   "rho_median": 1.000044046140481,
+   "rho_q1": 0.9013920129845995,
+   "rho_q3": 1.1420692795828389,
+   "iqr_width": 0.2406772665982394,
+   "pct_within_10pct_of_1": 50.0,
+   "pct_within_25pct_of_1": 84.61538461538461
+  }
+ },
+ "reading": "At block 47 rho sits tightly on 1 -- IQR [1.005, 1.069], width 0.064, and 72 % of tensors inside +-10 % -- on BOTH transpose_bias arms. At blocks 0 and 23 the IQR widths are 0.446, 0.301 and 0.291, four to seven times wider, with only 27-41 % inside +-10 %. So block 47 carries the pure-scale signature and blocks 0 and 23 do not: their error is spread differently from the reference, which is what precision noise looks like.",
+ "this_is_the_third_independent_line": "D34: the median is uniform across op families within a block. D35: rel_l2 clusters at IQR/median 0.142 at block 47 against 1.486 and 1.851 at blocks 0 and 23. D36 (here): rho sits on 1 at block 47 and is dispersed at blocks 0 and 23. Three statistics, none of which requires a new run, all saying block 47's error is a common multiplicative factor rather than accumulated per-op error.",
+ "honest_limit": "rho == 1 is NECESSARY for a pure scale and not SUFFICIENT -- any error whose peakiness happens to match the reference's gives rho ~ 1. And rho says nothing about the SIGN or SIZE of the factor, which is still the [0.056, 1.944] interval of D35. The two floats D35 asks for (device_norm and cos) remain the thing that settles it.",
+ "small_detail_not_over-fitted": "rho median at block 47 shipped is 1.031, slightly ABOVE the 1.0 a perfect scale gives, so the error is marginally spikier than the reference. Noted, not explained."
+}
