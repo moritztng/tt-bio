@@ -1689,3 +1689,43 @@ cover the constraint.
 adopt it, and "the orchestrator decides" is only a safeguard if the orchestrator then decides.
 The campaign has a ratchet for concluded rows whose findings never reach the ledger (D204); it
 had none for a row's guard that never reaches the gate.
+
+### D231. R44, the falsifier three rows shared, is a SINGLE-TRACK metric — and the campaign has now measured its blindness twice without recording what that invalidates. FOUND at pass 370 by the orchestrator, from `of3t-readverbs`' on-path control. UNFIXED as a scope statement.
+
+`R44` is `ds` at rung 44. `ds` is the single-track cotangent, so **R44 cannot report anything a
+mechanism does on the pair track**, and two rows have now measured exactly that:
+
+  * **`of3t-blk4544`**, in its own words: *"ds is exactly 0.0 at all 49 rungs for both pins. That
+    is not the pins being inert — they visibly move dz — it is `R44` being unable to see them: dz
+    is an OUTPUT of the pair-track backward, not an input to ds."* It called this *"an instrument
+    defect in the pre-registration, reported rather than repaired after the fact."*
+  * **`of3t-readverbs`**, pass 370, with an on-path control rather than an inference. D64 doubles
+    the cotangent at all 960 `_identity_grad` sites (coarsened 960 of 960, `pert_failed` 0, qb1
+    card 1, AICLK n=8 median 1350). Against `cot_B64`: **50 of 98 tensors bit-identical, 48
+    differing, and the split is exactly by track.** All 49 `ds` rungs bit-identical; 48 of 49 `dz`
+    rungs differ on every element and compound with depth — rung 11 rel_l2 **1.076e+37**, rung 8
+    **8.288e+39**, the last eight overflowing. *"R44 could not have moved for it at any width."*
+
+**What that control also settles, and it is the good half**: the sites propagate, so
+`nocast`'s bit-identity is a measurement of the verb rather than of an unreached lever. D228's
+refutation stands on leg B and on the bit-identity, and the row reports R44 as **blind** rather
+than as a passing number. That is the discipline working.
+
+**What nobody has recorded is the scope of the damage.** `of3t-vjpln` refuted the layer-norm and
+linear backwards with **R44 = 2.206861** against a 1.90 line, over **690 substitutions at padded
+384** — and those verbs fire on **both** tracks. R44 reports the single-track half. So that
+refutation is **sound for the single track and blind for the pair track**, and nothing in the
+campaign says so.
+
+**Why it matters right now rather than as bookkeeping.** The carrier is `attn_pair_bias.
+layer_norm_a` at blocks 44 and 4 and `single_transition.layer_norm` at block 0 (D229). Both of
+those are on the **single** track — `openfold3_weights.py:15` lists `AttentionPairBias` as
+`mha.*`/`layer_norm_a`/`layer_norm_z`/`linear_z`, so `layer_norm_a` normalises `a` and
+`layer_norm_z` normalises `z`. **So R44 can see the carrier, and vjpln's refutation does bind
+where it matters.** What is NOT established is anything about `layer_norm_z` — the carrier's
+pair-track sibling in the same module — and that is now the only place a shared-LayerNorm
+mechanism could hide from every arm the campaign has run.
+
+**The rule to carry**: `R44` is a single-track instrument. Any refutation read off it is scoped to
+`ds`, and a pair-track claim needs `dz` or a bit-identity. Two rows discovered this independently;
+it belongs in the protocol rather than in two verdicts.

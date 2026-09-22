@@ -373,9 +373,12 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               96.3496 % of block 4's but **0.0177 %** of block 0's, whose carrier is
               **`single_transition.layer_norm`** at **14.8674 %** of the trunk's error mass.
               Same op, different site — so the hypothesis is **`dW = sum_t g_t xhat_t` coming
-              out systematically too small wherever it appears in the trunk**, and the cheap
-              discriminator is whether the deficit is the SAME factor at both sites (one
-              mechanism) or not (two bugs). **The tape-verb axis is closed** (D228,
+              out systematically too small wherever it appears in the trunk**, and the
+              discriminator is whether the deficit is the same factor across sites. **It is now
+              three-way** (D231): both named carriers are on the SINGLE track, so
+              `attn_pair_bias.layer_norm_z` — the same op in the same module on the PAIR track —
+              is the control the hypothesis needs, and **no arm has ever tested it**, because
+              `R44` is `ds` at rung 44 and three rows used it as their falsifier. **The tape-verb axis is closed** (D228,
               `of3t-readverbs`): both route classes are already exact — `_sliced` 0.0 at 114 of
               117 firings, `_identity_grad` 0.0 except at 384 narrowing casts moving ~1.6e-3,
               under bf16's 3.9e-3 unit roundoff, all 98 tensors bit-identical across four arms.
@@ -422,14 +425,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 85 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 86 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        6  D32, D55, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  74  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227
+    CAMPAIGN-INTERNAL  75  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225, D227, D231
 
 **Six** USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`. **Three closed this pass and it was verified
@@ -466,8 +469,8 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred thirty defects filed**, **85 UNFIXED** (5
-scope-excluded, 6 USER-FACING, 74 campaign-internal) over the UNION of `DEFECTS.md` and its
+concluded, three live; `state/concluded` holds **one hundred thirteen** of3t files. **Two hundred thirty-one defects filed**, **86 UNFIXED** (5
+scope-excluded, 6 USER-FACING, 75 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
 historical markers and not rows, so **one hundred eleven rows have concluded**. Recounted from
@@ -1571,3 +1574,41 @@ the separate default-off probes. Two independent checks on the hard stop, both g
 
 **The general shape**: the campaign has a ratchet for a concluded row's findings that never reach
 the ledger (D204). It had none for a row's GUARD that never reaches the gate.
+
+
+## Pass 370 — the falsifier three rows shared is single-track, and the one site it cannot see is the carrier's own sibling
+
+**D231.** `of3t-readverbs` pushed an on-path control that settles two things at once. D64 doubles
+the cotangent at all 960 `_identity_grad` sites — coarsened 960 of 960, `pert_failed` 0, qb1 card
+1, AICLK n=8 median 1350 — and against `cot_B64`, **50 of 98 tensors are bit-identical, 48 differ,
+and the split is exactly by track**: all 49 `ds` rungs bit-identical, 48 of 49 `dz` rungs
+differing on every element and compounding with depth to rel_l2 **1.076e+37** at rung 11.
+
+The good half: the sites propagate, so `nocast`'s bit-identity measures the verb rather than an
+unreached lever, and D228's refutation stands on leg B and the bit-identity. The row reports R44
+as **blind** rather than as a passing number — which is the discipline working on its own
+falsifier.
+
+**The half nobody had recorded is the scope.** `R44` is `ds` at rung 44, a **single-track**
+metric, and it is the falsifier `of3t-blk4544`, `of3t-vjpln` and `of3t-readverbs` all used.
+blk4544 measured the blindness on its pair pins and called it *"an instrument defect in the
+pre-registration"*; readverbs has now measured it again independently. So **`of3t-vjpln`'s
+R44 = 2.206861 refutation of the layer-norm and linear backwards is sound for the single track
+and blind for the pair track**, over 690 substitutions that fired on both — and nothing in the
+campaign said so.
+
+**Why that is load-bearing today rather than bookkeeping.** Both of the carrier's sites —
+`attn_pair_bias.layer_norm_a` at blocks 44 and 4, `single_transition.layer_norm` at block 0 — are
+on the single track, so vjpln's refutation *does* bind where the error lives. What it says nothing
+about is **`attn_pair_bias.layer_norm_z`**, the same op in the same module on the pair track: the
+carrier's own sibling, and the one place a shared-LayerNorm mechanism could still hide from every
+instrument this campaign has run.
+
+So `of3t-apbleaf`'s discriminator is now three-way: the same factor at all three sites means one
+mechanism in the shared backward that everything so far is blind to; the same at the two
+single-track sites only means a narrower object; all three different kills the hypothesis. Told
+it to read `layer_norm_z` on `dz` or on bit-identity, never on R44.
+
+**The rule belongs in the protocol, not in two verdicts**: R44 is a single-track instrument, any
+refutation read off it is scoped to `ds`, and a pair-track claim needs `dz` or a bit-identity.
+Two rows discovered that independently.
