@@ -10,6 +10,12 @@ W=/home/ttuser/.coworker/wt/of3t-f64route
 O=/tmp/of3t/of3t-f64route
 cd "$W"
 M=$1; CARD=$2; FIX=${3:-perf/size512/fixtures/cdk2x2_128.yaml}
+# A fresh workdir per invocation, and this is not hygiene. `tt-bio predict` returns in ~3 s
+# when its --out_dir already holds the answer, so a second run over the same workdir exits 0,
+# re-digests the PREVIOUS run's .cif and reports six stable byte-identical digests with a
+# 0.13 s A/A floor for six folds that never happened. Caught only because 3.04 s is not a 40 s
+# fold; nothing in the report itself says so.
+rm -rf "$O/inf_$M"
 export TT_VISIBLE_DEVICES=$CARD
 export TT_BIO_LEASE_CARDS=$CARD
 export TT_BIO_LEASE_HOLDER=worker:of3t-f64route

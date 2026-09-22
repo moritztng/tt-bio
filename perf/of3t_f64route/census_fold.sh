@@ -14,7 +14,10 @@ O=/tmp/of3t/of3t-f64route
 cd "$W"
 M=$1; CARD=$2; FIX=${3:-perf/size512/fixtures/cdk2x2_128.yaml}
 C=$O/census_$M
-rm -rf "$C"; mkdir -p "$C"
+# The out_dir goes too: `tt-bio predict` short-circuits on an existing answer, so a
+# re-run would fold nothing and write a census of zeros that reads like an unreached
+# route -- the exact confusion this census exists to remove.
+rm -rf "$C" "$O/censusout_$M"; mkdir -p "$C"
 S=$(date +%s)
 env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-f64route \
     TT_BIO_HOST_F64_SOFTMAX_AB=all TT_BIO_CAPACITY_CENSUS="$C" PYTHONPATH="$W" \

@@ -1,0 +1,41 @@
+{
+ "model": "openfold3",
+ "env": "TT_BIO_HOST_F64_SOFTMAX_AB=all",
+ "processes": 2,
+ "per_process": [
+  {
+   "pid_file": "capacity_2775871.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 0,
+    "elements": 0,
+    "selected": 0,
+    "tail": 0
+   },
+   "sites": {},
+   "reach": "host f64 softmax: not selected at any construction site",
+   "fp32_softmax_calls": 0,
+   "fp32_softmax_tail_invocations": 0
+  },
+  {
+   "pid_file": "capacity_2776291.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 623,
+    "elements": 0,
+    "selected": 195,
+    "tail": 440
+   },
+   "sites": {
+    "pairformer": true,
+    "openfold3.atom_transformer": true,
+    "openfold3.diffusion_transformer": true
+   },
+   "reach": "host f64 softmax: reached -- 195 sites selected, 0 served, 623 refused, 0 declined",
+   "fp32_softmax_calls": 440,
+   "fp32_softmax_tail_invocations": 440
+  }
+ ]
+}

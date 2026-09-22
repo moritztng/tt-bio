@@ -1,0 +1,41 @@
+{
+ "model": "rf3",
+ "env": "TT_BIO_HOST_F64_SOFTMAX_AB=all",
+ "processes": 2,
+ "per_process": [
+  {
+   "pid_file": "capacity_2782962.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 0,
+    "elements": 0,
+    "selected": 0,
+    "tail": 0
+   },
+   "sites": {},
+   "reach": "host f64 softmax: not selected at any construction site",
+   "fp32_softmax_calls": 0,
+   "fp32_softmax_tail_invocations": 0
+  },
+  {
+   "pid_file": "capacity_2783409.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 33,
+    "elements": 0,
+    "selected": 195,
+    "tail": 33
+   },
+   "sites": {
+    "diffusion_transformer.atom": true,
+    "pairformer": true,
+    "diffusion_transformer.token": true
+   },
+   "reach": "host f64 softmax: reached -- 195 sites selected, 0 served, 33 refused, 0 declined",
+   "fp32_softmax_calls": 33,
+   "fp32_softmax_tail_invocations": 33
+  }
+ ]
+}

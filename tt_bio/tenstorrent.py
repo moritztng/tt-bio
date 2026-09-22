@@ -3139,6 +3139,7 @@ if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
                         "host_f64_softmax": HOST_F64_SOFTMAX_STATS,
                         "host_f64_softmax_sites": dict(
                             _SITE_FLAG_SEEN.get("TT_BIO_HOST_F64_SOFTMAX_AB", {})),
+                        "host_f64_softmax_selected_per_site": dict(HOST_F64_SOFTMAX_SITES),
                         "host_f64_softmax_reach": host_f64_softmax_reach()}, fh)
 
     _atexit_cap.register(_capacity_census_dump)
@@ -3606,6 +3607,13 @@ def softmax_ckc(token: str, default: bool = False):
 HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
                           "selected": 0, "tail": 0}
 
+#: Construction sites that selected the host float64 softmax, COUNTED per token. `_SITE_FLAG_SEEN`
+#: records the last answer per token and `selected` records the total, and neither can say which
+#: site the total came from -- three different models each read `selected 195`, which is not a
+#: number any of them should share. A per-token count is what makes the reach census a statement
+#: about the eight sites rather than about their sum.
+HOST_F64_SOFTMAX_SITES: dict = {}
+
 
 def host_f64_softmax_reach() -> str:
     """Whether the host float64 softmax a construction site SELECTED ever reached a call.
@@ -3713,6 +3721,7 @@ def host_f64_softmax_site(token: str, default: bool = False) -> bool:
     on = _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
     if on:
         HOST_F64_SOFTMAX_STATS["selected"] += 1
+        HOST_F64_SOFTMAX_SITES[token] = HOST_F64_SOFTMAX_SITES.get(token, 0) + 1
         _arm_host_f64_reach_warning()
     return on
 

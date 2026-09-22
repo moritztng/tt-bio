@@ -1,0 +1,41 @@
+{
+ "model": "protenix-v2",
+ "env": "TT_BIO_HOST_F64_SOFTMAX_AB=all",
+ "processes": 2,
+ "per_process": [
+  {
+   "pid_file": "capacity_2788366.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 0,
+    "elements": 0,
+    "selected": 0,
+    "tail": 0
+   },
+   "sites": {},
+   "reach": "host f64 softmax: not selected at any construction site",
+   "fp32_softmax_calls": 0,
+   "fp32_softmax_tail_invocations": 0
+  },
+  {
+   "pid_file": "capacity_2788448.json",
+   "host_f64_softmax": {
+    "served": 0,
+    "declined": 0,
+    "refused": 183,
+    "elements": 0,
+    "selected": 195,
+    "tail": 0
+   },
+   "sites": {
+    "protenix.atom_transformer": true,
+    "pairformer": true,
+    "protenix.token_dit": true
+   },
+   "reach": "host f64 softmax: reached -- 195 sites selected, 0 served, 183 refused, 0 declined",
+   "fp32_softmax_calls": 0,
+   "fp32_softmax_tail_invocations": 0
+  }
+ ]
+}
