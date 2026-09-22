@@ -1,0 +1,88 @@
+{
+ "what": "what CHECK.json assertion 4's norm-ratio miss is. Host arithmetic only.",
+ "device_reading_being_explained": {
+  "cl_vs_host_f64": {
+   "rel_l2": 0.0007898925189585369,
+   "cos": 0.9999999266007056,
+   "norm_ratio": 0.9993091794404949,
+   "n": 54016
+  },
+  "plm_vs_host_f64": {
+   "rel_l2": 0.0012405999501642628,
+   "cos": 0.9999998533038362,
+   "norm_ratio": 0.998883745796857,
+   "n": 917504
+  }
+ },
+ "host_arms": {
+  "fp32": {
+   "cl_vs_host_f64": {
+    "rel_l2": 0.0,
+    "cos": 0.9999999999999835,
+    "norm_ratio": 1.0
+   },
+   "plm_vs_host_f64": {
+    "rel_l2": 0.0,
+    "cos": 0.9999999999999791,
+    "norm_ratio": 1.0
+   }
+  },
+  "bf16_truncated_operands": {
+   "cl_vs_host_f64": {
+    "rel_l2": 0.003237176218160298,
+    "cos": 0.9999989831494417,
+    "norm_ratio": 0.9970928500133055
+   },
+   "plm_vs_host_f64": {
+    "rel_l2": 0.0055066760160069625,
+    "cos": 0.9999952702001738,
+    "norm_ratio": 0.995427567987743
+   }
+  },
+  "bf16_nearest_operands": {
+   "cl_vs_host_f64": {
+    "rel_l2": 0.00141737668467669,
+    "cos": 0.9999990073013239,
+    "norm_ratio": 0.9998455135705535
+   },
+   "plm_vs_host_f64": {
+    "rel_l2": 0.00223338341586701,
+    "cos": 0.9999975653100963,
+    "norm_ratio": 1.0003419889441856
+   }
+  }
+ },
+ "norm_bias_vs_float64": {
+  "device": {
+   "cl_vs_host_f64": -0.0006908205595050898,
+   "plm_vs_host_f64": -0.0011162542031429856
+  },
+  "fp32": {
+   "cl_vs_host_f64": 0.0,
+   "plm_vs_host_f64": 0.0
+  },
+  "bf16_truncated_operands": {
+   "cl_vs_host_f64": -0.0029071499866945016,
+   "plm_vs_host_f64": -0.004572432012256988
+  },
+  "bf16_nearest_operands": {
+   "cl_vs_host_f64": -0.0001544864294464876,
+   "plm_vs_host_f64": 0.00034198894418557835
+  }
+ },
+ "verdict": {
+  "truncation_reproduces_the_device": {
+   "cl_vs_host_f64": false,
+   "plm_vs_host_f64": false
+  },
+  "nearest_does_not": {
+   "cl_vs_host_f64": true,
+   "plm_vs_host_f64": true
+  }
+ },
+ "reads": "the truncated-operand arm does NOT account for the device reading; the miss is unexplained and belongs to the orchestrator",
+ "compute_kernel_config": "None, for every module on this arm: OF3DiffusionConditioning(_sub(dmsd,'diffusion_conditioning'), None), OF3DiffusionModule(dmsd, None), and RefAtomFeatureEmbedder(rafe_sd, None). Not changed here.",
+ "bar_not_moved": "CHECK.json's function_norm_ratio_tol stays 1.0e-3 and assertion 4 stays FAIL. This file explains the miss; it does not re-score it.",
+ "host": "tt-quietbox2",
+ "card": "none -- host arithmetic"
+}

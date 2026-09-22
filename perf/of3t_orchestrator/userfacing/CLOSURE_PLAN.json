@@ -1,11 +1,10 @@
 {
  "by_need": {
   "CARD": [
-   "D30",
    "D32",
    "D55",
    "D58",
-   "D129"
+   "D205"
   ],
   "MERGE": [
    "D10",
@@ -23,18 +22,6 @@
    "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
    "would_a_row_help": false
   },
-  "D129": {
-   "closes_when": "of3t-ditcot names the op carrying the flat 2.28x cotangent excess and it is repaired or shown to be a floor. Separately, the 0.4.3 ratio needs OUR arm at the 0.4.3 capture, which no artifact holds and which needs a lease",
-   "evidence_held": "isolation 1.5217e-03 (456x under the reading), input exact to 1.98e-08, substitution reproduces the reference gradient at 8.877e-09; the 0.4.3 bar is 2.2530588761e-01, 0.73 % from the 0.5.0 one",
-   "needs": "CARD",
-   "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",
-   "row": "of3t-ditcot",
-   "shares_object_with": [
-    "D30",
-    "D58"
-   ],
-   "would_a_row_help": true
-  },
   "D184": {
    "asked": "not yet asked. It belongs with D126 in one merge question rather than as a separate ask: both are built, measured, release-gated and waiting only on Moritz",
    "closes_when": "`TT_BIO_OF3_DEVICE_REFATOM` stops being default-off. `of3t-hostleg` wired both legs and measured them: the `all` arm reads mass-weighted rel_l2 0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 per-tensor bar, worst 1.175005e-01, and its inference default is byte-identical to the base tree on both models that execute the changed path. Nothing further is measurable until it lands",
@@ -43,6 +30,13 @@
    "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
    "would_a_row_help": false
   },
+  "D205": {
+   "closes_when": "the CONTIGUITY wall is addressed or documented as the shipped limit. 640 and 768 die with the card full, but 544 and 576 die on contiguity with 6.30 GB and 6.67 GB still free -- 576 refused a 2,717,908,992 B buffer inside ttnn::concat -> tilize_with_val_padding, short by 77,930,560 B per bank at 88.45 %% occupancy. A capacity extrapolation cannot see that wall; the row's own 2.08 fit said 576 would clear with 14 %% of margin. Closing it is an allocator or a chunking question, not more memory",
+   "evidence_held": "544/576/640/768 all measured to refuse, the 544 fixture built for the purpose; the 576 refusal reproduces byte for byte across card 0 and card 1 (29,970,916,352 B high-water, 5,622 allocations, identical per-bank largest-free-block); every refused rung's high-water is a LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every even count measured keeps it",
+   "needs": "CARD",
+   "one_line": "512 is the largest crop that RUNS; 544, 576, 640 and 768 all refuse",
+   "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 (D204: nothing checked that it ever was)"
+  },
   "D24": {
    "asked": "pin 9629, together with D10 -- ANSWERED 2026-09-21",
    "closes_when": "the same as D10: the decision is made and the merge is not",
@@ -50,18 +44,6 @@
    "needs": "MERGE",
    "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
    "would_a_row_help": false
-  },
-  "D30": {
-   "closes_when": "the cause of the backward-over-forward amplification is located. D58 already moved this from a diffusion-module property to a property of the tape, and of3t-ditcot is measuring the same object one level down",
-   "evidence_held": "forward median 8.34e-03, gradient median 1.6588e-01, ratio 19.6x over 48 structures against the rebuilt 0.4.3 reference",
-   "needs": "CARD",
-   "one_line": "the diffusion module's backward costs 19.6x the forward it is taken at",
-   "row": "of3t-ditcot",
-   "shares_object_with": [
-    "D58",
-    "D129"
-   ],
-   "would_a_row_help": true
   },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
@@ -104,13 +86,12 @@
  "user_facing": [
   "D10",
   "D24",
-  "D30",
   "D32",
   "D55",
   "D56",
   "D58",
-  "D129",
-  "D184"
+  "D184",
+  "D205"
  ],
  "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
 }
