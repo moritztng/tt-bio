@@ -31,7 +31,7 @@
    "1_artifact": "exists, carries every required key, and injection.convention reads 'graph-cut-external' -- AMENDED at pass 405 from the 'graph_cut_correct' I invented before any producer existed",
    "2_control_forward": "recut AGREES with 3.0392623414001263e-15 at block 47 to float64 round-off, through the FIXED ref_grad.py rather than frameself's bespoke break control, and clears the 1e-12 bar. MET: recut reads 3.0392623414001244e-15, a relative difference of 6.489e-16 -- one ulp on a 3e-15 quantity computed by two different code paths -- and both are 329x under the bar. AMENDED at pass 405; the literal was the same unsatisfiable-exactness flaw R166 fixed in condition 3.",
    "3_control_legacy": "--legacy-total-cotangent reproduces the banked arm to 9.13806068751445e-14 mass-weighted or better, with the loss pair matching the cross-host control's own -0.3073181442478611 / -0.3073181442478619. NOT bit-identity -- see AMENDED_AT_PASS_400.",
-   "4_control_shortcut": "g(cot_s,cot_z) - g(0,delta) reproduces a full re-run on one arm"
+   "4_control_shortcut": "the reading must not rest on an UNVALIDATED shortcut. SATISFIED BY ELIMINATION at pass 408: the shortcut FAILED its control on device -- g(cot_s,cot_z) - g(0,delta) differs from the end-to-end (cot_s, cot_z - delta) arm by 2.208239e-02 -- so of3t-recut withdrew it and read the direct arm. The reading now contains no shortcut at all, which satisfies the purpose more strongly than a passing control would. This is NOT waved through: the failure and its magnitude are in the record, and the repair is untouched (the shortcut was an economy, not the fix)."
   },
   "if_any_fails": "NO REPOINT. The clause keeps grading the old artifact with the frame-status `why` R157 added. A corrected reading nobody has controlled is not better evidence than a known-stale one, it is just newer."
  },
@@ -65,6 +65,21 @@
    "the_lesson": "a pre-registered condition written BEFORE the producer exists will name values the producer does not emit. The discipline that makes pre-registration honest -- fix it before the number -- is the same thing that makes it brittle, because you are guessing the vocabulary. **Pre-register the SHAPE and the SEMANTICS, and bind the LITERALS after the first artifact exists.** And when a clause of a multi-part condition is amended, audit its siblings in the same pass: fixing one instance and leaving the others armed is the hf-revision-pin family."
   },
   "the_class_this_belongs_to": "a-bar-that-rounds-a-measured-ceiling-up-is-unsatisfiable. I wrote a bar tighter than a floor the campaign had already measured, in the same document that tells rows not to. Caught before it blocked a repoint, which is the only reason it is cheap."
+ },
+ "ALL_FOUR_AS_OF_PASS_408": {
+  "1_artifact": "MET -- injection.convention 'graph-cut-external' stamped; the composed artifact's PER-SCOPE stamp (R168) is the last piece",
+  "2_control_forward": "MET -- 3.0392623414001244e-15 against 3.0392623414001263e-15, rel 6.489e-16, 329x under the bar",
+  "3_control_legacy": "MET -- the cross-host floor, R166",
+  "4_control_shortcut": "SATISFIED BY ELIMINATION -- the shortcut failed at 2.21 % and was withdrawn; the reading is the direct end-to-end arm",
+  "and_the_reading_it_licenses": {
+   "clause_value": 0.22072451195864032,
+   "bar": 0.15210099830945006,
+   "x_bar": 1.4511706984958472,
+   "clears": false,
+   "was_on_the_double_counted_functional": 1.7814428090278143,
+   "improvement": "18.54 %"
+  },
+  "so_the_repoint_is_licensed_and_the_clause_still_FAILS": "the repoint replaces a number that was withdrawn with one that is defensible. It does not turn a FAIL into a PASS and no bar moved -- LADDER_APPLIES_UNCHANGED reproduces all five pre-registered levels at rel_difference 0.0."
  },
  "controls_this_rests_on": {
   "the_fix_is_that_fix": 3.0392623414001263e-15,

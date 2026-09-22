@@ -124,8 +124,16 @@ def main() -> int:
                                     "loss pair matching the cross-host control's own "
                                     "-0.3073181442478611 / -0.3073181442478619. NOT "
                                     "bit-identity -- see AMENDED_AT_PASS_400.",
-                "4_control_shortcut": "g(cot_s,cot_z) - g(0,delta) reproduces a full re-run on "
-                                      "one arm",
+                "4_control_shortcut": "the reading must not rest on an UNVALIDATED shortcut. "
+                                      "SATISFIED BY ELIMINATION at pass 408: the shortcut FAILED "
+                                      "its control on device -- g(cot_s,cot_z) - g(0,delta) "
+                                      "differs from the end-to-end (cot_s, cot_z - delta) arm by "
+                                      "2.208239e-02 -- so of3t-recut withdrew it and read the "
+                                      "direct arm. The reading now contains no shortcut at all, "
+                                      "which satisfies the purpose more strongly than a passing "
+                                      "control would. This is NOT waved through: the failure and "
+                                      "its magnitude are in the record, and the repair is "
+                                      "untouched (the shortcut was an economy, not the fix).",
             },
             "if_any_fails": "NO REPOINT. The clause keeps grading the old artifact with the "
                             "frame-status `why` R157 added. A corrected reading nobody has "
@@ -189,6 +197,27 @@ def main() -> int:
                                          "campaign had already measured, in the same document "
                                          "that tells rows not to. Caught before it blocked a "
                                          "repoint, which is the only reason it is cheap.",
+        },
+        "ALL_FOUR_AS_OF_PASS_408": {
+            "1_artifact": "MET -- injection.convention 'graph-cut-external' stamped; the "
+                          "composed artifact's PER-SCOPE stamp (R168) is the last piece",
+            "2_control_forward": "MET -- 3.0392623414001244e-15 against 3.0392623414001263e-15, "
+                                 "rel 6.489e-16, 329x under the bar",
+            "3_control_legacy": "MET -- the cross-host floor, R166",
+            "4_control_shortcut": "SATISFIED BY ELIMINATION -- the shortcut failed at 2.21 % and "
+                                  "was withdrawn; the reading is the direct end-to-end arm",
+            "and_the_reading_it_licenses": {
+                "clause_value": 0.22072451195864032,
+                "bar": 0.15210099830945006,
+                "x_bar": 1.4511706984958472,
+                "clears": False,
+                "was_on_the_double_counted_functional": 1.7814428090278143,
+                "improvement": "18.54 %",
+            },
+            "so_the_repoint_is_licensed_and_the_clause_still_FAILS":
+                "the repoint replaces a number that was withdrawn with one that is defensible. "
+                "It does not turn a FAIL into a PASS and no bar moved -- LADDER_APPLIES_UNCHANGED "
+                "reproduces all five pre-registered levels at rel_difference 0.0.",
         },
         "controls_this_rests_on": CONTROLS,
         "DOESNOT": "this predicts nothing about whether the corrected reading clears. It fixes "
