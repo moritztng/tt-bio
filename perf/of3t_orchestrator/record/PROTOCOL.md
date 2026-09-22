@@ -1923,3 +1923,44 @@ because it is one replay of the same function.
 **And a reviewer's rule, from how this got through.** When a producer's comment explains why a
 check is impossible, that is the place to look hardest. The comment was load-bearing: it is the
 reason no successor asked for the control.
+
+---
+
+## A41 — 2026-09-22, pass 395. A MULTI-OUTPUT COTANGENT INJECTION IS ONLY VALID IF THE OUTPUTS ARE A GRAPH CUT.
+
+D242 cost this campaign fifteen passes, disqualified its headline clause and sent four
+mechanisms to their deaths, and it is one line: `perf/of3t_trunkg043/ref_grad.py:201` builds
+`loss = (s_out * cot_s).sum() + (z_out * cot_z).sum()` on outputs where **`z_out` is an ancestor
+of `s_out`**. A hook or `autograd.grad` returns the TOTAL derivative at each output, so `cot_z`
+already contains the route through `s_out`, and the surrogate adds it a second time. With
+`L = f(a, b)`, `a = s_out(theta, b)`, `b = z_out(theta)`:
+
+    surrogate   ga.da/dtheta + df/db.db/dtheta + 2.ga.(da/db).(db/dtheta)
+    truth       ga.da/dtheta + df/db.db/dtheta + 1.ga.(da/db).(db/dtheta)
+
+**THE RULE.** Before injecting cotangents at more than one output, establish that no output is
+reachable from another — that the set is a cut. State it in the artifact with the evidence, not
+as an assumption. Where it is not a cut, inject the PARTIAL derivative at each output
+(`df/db`, obtained by subtracting the routes through the other outputs) or inject at one output
+only.
+
+**WHY IT HID.** Every cheap check passes under a double count. The forward is bit-exact, because
+the surrogate touches only the backward. The cotangent is confirmed by as many instruments as
+you like, because it is the correct total derivative — three instruments agreed here, four times.
+The reference is confirmed, because it is right. The replay reproduces the original graph
+bit-for-bit, because both run the same wrong surrogate. **Every premise of the syllogism holds
+and the conclusion still fails, which is the signature: when that happens the defect is in the
+QUESTION being asked, not in any of the things being checked.**
+
+**ITS COROLLARY FOR COMPARISONS, AND THIS ONE IS LOAD-BEARING.** A double count is common-mode
+between two arms driven by the same injection, so the quotient stays a like-for-like comparison —
+but of two arms computing **the same wrong functional**, not of two gradients. A common-mode
+defect does not cancel in a `rel_l2`. So a ratio survives as a comparison and does NOT survive as
+a statement about the true gradient, and the distinction has to be carried in the wording. The
+campaign's `MATCHED/` versus `CROSSFRAME_` naming separated exactly these two classes for
+fifteen passes before anyone could say why.
+
+**AND THE CHEAP PRECAUTION THAT WOULD HAVE CAUGHT IT ON DAY ONE.** An injected boundary owes a
+one-line reachability assertion: for each pair of injected outputs, check that neither appears in
+the other's `grad_fn` ancestry. It costs a graph walk, it needs no model run, and it is now
+required of any row that injects at more than one tensor.

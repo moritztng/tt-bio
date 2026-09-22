@@ -1526,3 +1526,63 @@ number and a table lookup, and that **no new bar may be written** — a bar re-d
 frame moves is how A37 came to be written.
 
 Artifact `perf/of3t_orchestrator/ladderread/LADDER_READ.json`.
+
+---
+
+### R160. D242 is a DOUBLE COUNT at `ref_grad.py:201`, it reaches every injected arm the campaign has run, and the sort is already in the artifact names (pass 395, zero card)
+
+`of3t-frameself` root-caused D242 with `--graphdrive`, the arm pass 387 asked for, and the
+pre-registered falsifier fired on its second value **bit for bit**: `||dL/dz_in||` on the
+ORIGINAL graph is **0.0014907294032500784**, the OVERCOUNTS branch. The arm also reproduces the
+injected replay on **2,736 of 2,736** trunk tensors at rel_l2 0.0 — so the replay's fresh
+forward was never the defect and the reconstruction concern dies by measurement.
+
+**The mechanism, which I re-derived independently before recording it.** The last block's
+`attn_pair_bias` reads the `z` its own `pair_stack` just produced, so **`z_out` is an ancestor
+of `s_out` and `(s_out, z_out)` is not a graph cut**. With `L = f(a,b)`, `a = s_out(theta,b)`,
+`b = z_out(theta)`, the hook gives `gb = df/db + ga.da/db` — the TOTAL derivative, already
+containing the route through `s_out` — so the surrogate `ga.a + gb.b` differentiates to
+`ga.da/dtheta + df/db.db/dtheta + 2.ga.(da/db).(db/dtheta)` against the truth's single copy.
+**One extra copy of the s_out <- z_out route**, and it predicts every reading that looked like a
+separate puzzle: 768 s-branch tensors bit-identical, 1,968 pair-branch inflated, `ds_in` exact
+while `dz_in` takes 1.756x, near-constant over 48 blocks because the duplication is structural,
+and nearly parallel to the truth, which is the 0.948-0.998 cos and the ten degrees.
+
+**The line is `perf/of3t_trunkg043/ref_grad.py:201`, so the reach is every arm the campaign has
+driven through `ref_grad.py`** — the frame384 softmax ladder included, not just the model frame.
+
+**What it invalidates, sorted from the artifacts' own `refs` block rather than from prose.**
+`REF_LOCAL_f64_n384` carries `policy: "f64"` and `REF_LOCAL_bf16_n384` `policy: "bf16auto"` —
+both `ref_grad.py` arms, both double-counting — while `REF_MODEL_f64` carries `policy: null` and
+is `grads_f64_043.pt`, a real full-model backward that does not. So **every `MATCHED/` reading
+survives** (R149's softmax table, the 1.0525x ceiling, D245's 34.25 %, the A/A floors, the two
+cross-board controls, twoside's two-sided 1.7997765325758555) and **every
+`CROSSFRAME_ours_vs_grads_f64_043` reading is invalid** — which is exactly where frameself's
+pass-389 sort already put them. **Nothing new is retracted; what this adds is the reason.**
+
+**The campaign's `MATCHED/` versus `CROSSFRAME_` naming has separated valid from invalid
+comparisons for fifteen passes, protected by a convention it could not justify.** It can now.
+
+**And a caveat on the surviving class sharper than the old one.** A common-mode defect does NOT
+cancel in a rel_l2: both sides read `truth + extra`, so the quotient compares two arms computing
+**the same wrong functional**, and that functional is the gradient plus one duplicated `s <- z`
+route — the pair-bias coupling. Those readings are taken on a functional that over-weights
+exactly the pair path. Valid as comparisons; not yet statements about the true gradient. R151's
+operating-point caveat, now with a mechanism.
+
+**The path is short and needs no new instrument**: the break control frameself is running IS the
+repair (`cot_z - autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)`); then one line
+in `ref_grad.py`; then re-score the banked arms with the banked scorer; then read pass 394's
+pre-registered ladder. No new capture, no new device time, **no new bar**.
+
+**PROTOCOL A41 records the standing rule**: a multi-output cotangent injection is valid only if
+the outputs form a graph cut, and an injected boundary owes a one-line reachability assertion
+that no injected output appears in another's `grad_fn` ancestry. **Why it hid is the
+transferable part** — every cheap check passes under a double count. The forward is bit-exact
+because the surrogate touches only the backward; the cotangent is confirmed by as many
+instruments as you like because it IS the correct total derivative; the reference is confirmed
+because it is right; the replay matches the original graph because both run the same wrong
+surrogate. **When every premise holds and the conclusion still fails, the defect is in the
+QUESTION, not in anything being checked.**
+
+Artifact `perf/of3t_orchestrator/doublecount/BLAST_RADIUS.json`. Delivered as Amendment 9.
