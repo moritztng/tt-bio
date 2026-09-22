@@ -2361,3 +2361,76 @@ about.
 silently"* dropped. With the router's last resort being "latest open", a backlog that size makes
 any swipe-less reply ambiguous. That is the fleet's hygiene rather than this campaign's, and it is
 recorded here because it bears on whether the D126 answer lands on the D126 question.
+
+### D178 UPDATE, pass 333. **FIXED.** `of3t-trajretake` concluded GO and the `moves` clause is met at all 19 live rungs
+
+Re-taken on a tree that names itself. `tape_resolves_after_step` reads **26 of 26 at all 20
+steps** against the stale artifact's 0 of 26, with a re-key break control showing the `_PARAMS`
+re-key is what causes it, and **ours moves at every one of the 19 rungs where theirs does**,
+against an exactly-zero A/A floor and a pinned zero baseline. The charter now reads
+`perf/of3t_trajretake/traj_retake_shipped.json`, on the row's own explicit handback: *"stale on
+both D126 and D56 and should be superseded by `traj_retake_shipped.json` rather than re-read"*.
+
+**TRAJECTORY's only remaining miss is scope**, 36.94617946669957 % against 99.2594 %, and the row
+left it there rather than widening it, which is what its brief asked.
+
+**Two things it delivered beyond the re-take.** The growth law now carries the movement
+precondition D178 asked for, and replaying it over the stale artifact flips those rows from
+`sub-linear` to **`undefined`** — the field that read as a pass on a constant zero no longer can.
+And the scaled-warmup arm PROTOCOL §7 calls non-optional exists for the first time in this
+campaign.
+
+**Its second handback, which retires a claim rather than adding one: D56 is INERT at this
+boundary, 0 inner calls.** So any statement resting on D56 at `diffusion_module.diffusion_conditioning`
+rests on nothing. Recorded here because this campaign has twice built on a D56 arm that was not
+the arm it thought (D172, D175).
+
+### D186. The trunk's headline failure was a CROSS-FRAME comparison. Frame-matched it reads 0.9565x its floor. FOUND by `of3t-apbback`, pass 334, absorbed by `of3t-orchestrator`. **UNFIXED** — the arithmetic it invalidates is published in several places.
+
+`of3t-apbback` named the op and then showed the op is worth nothing where the campaign reads it.
+Both halves matter and the second is larger.
+
+**The op, and it is well controlled.** Substituting ONLY the softmax backward in block 47 recovers
+**51.55 %** of the block's error mass, where substituting **all 112 taped ops** recovers **51.48 %**
+— one op is the whole recoverable error. Leaving it out while substituting everything else reads
+**−109.89 %**, worse than doing nothing. The all-float64 arm ran FIRST and the null is
+**bit-identical to the untouched arm on 57 of 57 parameter gradients**, max absolute difference
+exactly 0.0, with operand matching 240 of 240 by identity and 0 by shape fallback.
+
+**And the frame, which is the finding.** That repair moves the model-level reading from
+**0.860514 to 0.860908** — it does not move it — because the capture's own float64 gradient, with
+**no device op and no bf16 anywhere on its path**, is already **0.865188** from `grads_f64_043.pt`
+at r 0.6366 and cos 0.5298. No arithmetic inside the block can reach that distance.
+
+**The control that settles it:** upstream 0.4.3's OWN float64 backward on that boundary reads
+**1.8416532191335360** against `grads_f64_043.pt`, which is **1.0806x WORSE than our device arm's
+1.7043**. Upstream's own float64 code scoring worse than our bf16 device arm is not a statement
+about our stack; it is a statement about the comparison.
+
+**So `5.4139x upstream's own bf16` has a numerator and a denominator from different frames.** The
+denominator 0.3147698293887927 is upstream's bf16 FULL MODEL against upstream's float64 full
+model, where the frame cancels. Our arm's frame does not cancel.
+
+**Frame-matched, at crop 64, the trunk backward reads 0.38330656678074404 against a floor of
+0.4007237404807558 — 0.9565x, INSIDE the bar.** Which is the figure D116 reported and this
+campaign has spent many passes treating as superseded.
+
+**What this invalidates, and it is published in several places.** `of3t-padshape`'s COST field
+prices removing the width dependence as 0.532795 → 0.423374; **that prize does not exist as
+stated**, because the width-64 endpoint is a crop-64 arm scored against a crop-384 reference.
+`of3t-apbgrad`'s 0.38330656678074404 and `of3t-padshape`'s 1.7043040667627918 are **the same
+device tensors, identical to 17 digits through one scorer**, and the 4.45x between them is the
+reference alone. The per-block spread (1.268 at block 47, 4.947 at 46, 0.807 to 2.053 elsewhere)
+rules out error accumulating down the stack.
+
+**What is NOT yet established, and must not be assumed.** The frame-matched reading is at **crop
+64 and block scope**. The model-scope 0.532795 at crop 384 is still a cross-frame number, and
+re-deriving it frame-matched is a measurement nobody has made. Until then the campaign should
+quote neither 5.03x nor 0.9565x as *the* model-scope answer — the first is cross-frame, the
+second is out of scope for it.
+
+**The class.** `parity-gate-reproduces-committed-checks-verdict-not-value` and
+`which-tree-is-the-claim-about`, applied to REFERENCES rather than to trees: two float64
+references that disagree by 0.865 at cos 0.5298 are not interchangeable, and a ratio built from
+one of each measures their difference. **A reference is part of the measurement's identity** and
+belongs in the artifact beside the digest.
