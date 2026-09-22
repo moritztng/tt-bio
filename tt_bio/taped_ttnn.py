@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 import sys
 import types
@@ -41,7 +42,8 @@ from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
-__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
+__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn",
+           "forget_shim_bindings"]
 
 # ---------------------------------------------------------------------------------------
 # The shipped forward, taped where it computes.
@@ -112,7 +114,11 @@ def _identity_grad(shipped, args, kwargs, cast=False):
             x.add_grad(ttnn.typecast(g, src_dtype) if cast and g.dtype != src_dtype else g)
         return bw
 
-    return _tape(out_v, [x], make)
+    # `bw` closes over the source dtype and layout, not over the source: nothing here reads
+    # `x.value`, so the value is dead the moment the shipped forward deallocates it. This is
+    # the verb that holds OpenFold3's bf16 attention scores and one of its two dead fp32
+    # copies of them.
+    return _tape(out_v, [x], make, reads=())
 
 
 _VERBS["linear"] = _taped_linear
@@ -183,6 +189,25 @@ def _v_matmul(shipped, args, kwargs):
     return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
 
 
+# `d_logits = y * (g - sum_j g_j y_j)` has EXACTLY zero row sums when `sum_j y_j = 1`, and the
+# attention backward downstream of it depends on that: `dq_i = sum_j d_logits_ij k_j` is
+# `sum_j d_logits_ij (k_j - kbar)` precisely because the row sums vanish, so it never sees the
+# mean of k. `ttnn.softmax` on a bf16 tensor does not give rows that sum to one -- measured
+# 2.4e-02 rms on the OpenFold3 trunk's token attention at crop 64 -- and the residual row sum
+# then multiplies kbar, which is large, and lands in dq as a term the gradient does not contain.
+# Dividing `inner` by the row sum is the same expression whenever the row sums to one, and makes
+# the row sums of d_logits vanish identically when it does not. Measured against an upstream
+# 0.4.3 float64 reference, block 15 of the trunk: the module's own output cotangent goes from
+# 33.29x the reference in norm to 0.64x. It touches NO forward, so no shipped inference result
+# can move. ON by default since 2026-09-21 (ask 9629); `perf/of3t_d56renorm/` has the proof
+# that it cannot reach a fold.
+#
+# An ALIAS, not a parse. This used to be its own `os.environ.get` and `autograd` has another,
+# which meant one environment variable with two defaults -- flip one and the host float64
+# backward keeps the other. The name stays because harnesses read it.
+_SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM
+
+
 @_verb("softmax", "softmax_in_place")
 def _v_softmax(shipped, args, kwargs):
     """`softmax_in_place` is taped out of place. The backward reads y, which the in-place
@@ -203,9 +228,16 @@ def _v_softmax(shipped, args, kwargs):
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    out = _tape(y0, [x], make)
+    # The backward reads y and only y, so x is not pinned. Under `softmax_in_place` the
+    # shipped forward wrote the result over x and will never deallocate it -- there is
+    # nothing left to call `free` -- so the taped-out-of-place form has to release the
+    # destination itself, exactly as the in-place binaries do. AFTER `_tape`, which is what
+    # sets the pins.
+    out = _tape(y0, [x], make, reads=("out",))
     if out.node is not None:
         out.box = box
+    if shipped is ttnn.softmax_in_place:
+        x.free()
     return out
 
 
@@ -253,6 +285,19 @@ _VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
                            reads_output=True)
 _VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
 _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
+# of3t-trunkceiling, NOT SHIPPED -- stays on wk/of3t-trunkceiling. Without it the 5-op
+# `_accurate_softmax` chain cannot be taped at all: its -60 floor is a `ttnn.clamp` and the tape
+# raises on the first taped tensor handed to it, so the accurate-softmax lever is catalogued as
+# reaching the trunk and RAISES on the training path. Measured, not argued: a 2-block trunk arm
+# with TT_BIO_ACCURATE_SOFTMAX_AB=openfold3.trunk dies with "ttnn.clamp has no tape entry"
+# after 102 leaves register.
+#
+# The rule needs no bounds. `clamp` is the identity exactly where it did not clip, so `x == y`
+# IS the mask -- for either bound, for None, and at the boundary itself, which is what torch's
+# `(x >= min) & (x <= max)` does. On the -60 floor the mask is 1 everywhere a weight exceeds
+# exp(-60) = 8.8e-27, so on a live row this is the identity, and on a fully-masked row it
+# correctly stops the gradient of a value the forward replaced.
+_VERBS["clamp"] = _unary(lambda xv, y: ttnn.eq(xv, y))
 
 
 # A fused eltwise activation, and its derivative from whichever of (input, output) is
@@ -273,6 +318,18 @@ _FUSED_UNARY = {}
 # (forward, derivative) pair the plain entries are.
 _FUSED_UNARY_PARAM: dict = {}
 
+# Fused unaries whose DERIVATIVE is a constant, so neither the operand nor the activated
+# operand is read in the backward. Only these let a binary verb leave its operand unpinned.
+_FUSED_UNARY_CONST: set = set()
+
+
+def _act_const(kwargs, key) -> bool:
+    """True when the single fused unary on this operand has a constant derivative."""
+    acts = list(kwargs.get(key) or ())
+    if len(acts) != 1:
+        return False
+    return getattr(acts[0], "op_type", None) in _FUSED_UNARY_CONST
+
 
 def _register_fused_unary():
     u = getattr(ttnn, "UnaryOpType", None)
@@ -287,6 +344,7 @@ def _register_fused_unary():
         # the constant.
         _FUSED_UNARY_PARAM[u.MUL_UNARY_SFPU] = lambda c: (
             lambda x: ttnn.multiply(x, c), lambda x, y: c)
+        _FUSED_UNARY_CONST.add(u.MUL_UNARY_SFPU)
     if hasattr(u, "SIGMOID"):
         _FUSED_UNARY[u.SIGMOID] = (
             ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
@@ -415,7 +473,7 @@ def _activation(kwargs, key, probe=None):
         f"read 4.88x high.")
 
 
-def _binary(grad_a, grad_b, scalar, out_of_place=None):
+def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -423,6 +481,13 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
     An in-place verb (`add_`, `multiply_`) is taped OUT of place. That is the memory cost
     the tape pays for a residual: the pre-update tensor stays live because the producer's
     backward reads it. It is one tensor per residual, not per layer.
+
+    ``needs`` says which operand VALUES the rules read, and it is a property of the rules
+    rather than of the call. `_MUL` reads both, because each side's gradient is the other
+    side's value; `_ADD` and `subtract` read neither, and the default is the conservative
+    answer for anything that has not said. A fused unary adds its own read, unless its
+    derivative is a constant -- which `MUL_UNARY_SFPU`, the score scale OpenFold3's
+    fp32-softmax tail rides on the add, is.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -451,10 +516,17 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                     a.add_grad(scalar(g, f))
                 return bw
 
-            return _tape(out_v, [a], make_s)
+            return _tape(out_v, [a], make_s, reads=() if not any(needs) else None)
         b = _wrap(raw_b)
         fa = _activation(kwargs, "input_tensor_a_activations", a.value)
         fb = _activation(kwargs, "input_tensor_b_activations", b.value)
+        # An operand is read in the backward if a rule reads it, or if a non-constant fused
+        # unary sits on it. Everything else is dead the moment the shipped forward is done,
+        # and naming it here is what lets `_tape` leave it unpinned.
+        reads_a = needs[0] or (fa is not None and not _act_const(kwargs,
+                                                                 "input_tensor_a_activations"))
+        reads_b = needs[1] or (fb is not None and not _act_const(kwargs,
+                                                                 "input_tensor_b_activations"))
         out_v = shipped(a.value, b.value, **kw)
         def make():
             def bw(g):
@@ -464,9 +536,12 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                 # The binary op sees the ACTIVATED operands, so the binary rule is
                 # evaluated on those and the unary derivative is applied after. Recomputed
                 # rather than retained: the fused forward never materialised them, and
-                # holding two extra tensors is what the L1 budget cannot take.
-                ea = fa[0](av) if fa else av
-                eb = fb[0](bv) if fb else bv
+                # holding two extra tensors is what the L1 budget cannot take. An operand no
+                # rule reads is not recomputed either -- `add_(x, y, MUL_UNARY(c))` used to
+                # pay a full-sized multiply in the backward to build an `ea` that `_ADD`
+                # then ignored.
+                ea = (fa[0](av) if fa else av) if reads_a else None
+                eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
                     da = grad_a(g, ea, eb)
                     da = ttnn.multiply(da, fa[1](av, ea)) if fa else da
@@ -477,7 +552,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                     b.add_grad(_reduce_to(db, bv.shape))
             return bw
 
-        out = _tape(out_v, [a, b], make)
+        out = _tape(out_v, [a, b], make,
+                    reads=tuple(i for i, r in enumerate((reads_a, reads_b)) if r))
         if inplace:
             # An in-place verb is a free of its destination plus a write, and the tuned
             # forward budgets the next kernel's L1 against that free. Taping it out of
@@ -513,10 +589,11 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
 _ADD = (lambda g, av, bv: g, lambda g, av, bv: g, lambda g, f: g)
 _MUL = (lambda g, av, bv: ttnn.multiply(g, bv), lambda g, av, bv: ttnn.multiply(g, av),
         lambda g, f: ttnn.multiply(g, f))
-_VERBS["add"] = _binary(*_ADD)
-_VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add)
+_VERBS["add"] = _binary(*_ADD, needs=(False, False))
+_VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add, needs=(False, False))
 _VERBS["subtract"] = _binary(
-    lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g)
+    lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g,
+    needs=(False, False))
 _VERBS["multiply"] = _binary(*_MUL)
 _VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply)
 _VERBS["divide"] = _binary(
@@ -999,6 +1076,19 @@ _SHIMMED: list = []
 _NEVER_SHIM = (__name__, "tt_bio.autograd")
 
 
+def forget_shim_bindings(*names: str) -> None:
+    """Drop `_SHIM`'s cached binding for these verb names, so the next call re-resolves it.
+
+    `_Ttnn.__getattr__` caches a closure that captured BOTH the tape entry out of `_VERBS` and
+    the shipped callable off `ttnn`, so a swap of either one afterwards is invisible at any
+    call site that has already been through the shim once. `_SHIM` is a module singleton and
+    outlives any one `tape()`, so this is not a first-tape problem -- it is the second tape in
+    a process, where a lever installed between the two reads as perfectly inert.
+    """
+    for n in names:
+        _SHIM.__dict__.pop(n, None)
+
+
 def taped_ttnn():
     """The proxy itself, for a caller outside `tt_bio` that wants to address it directly --
     a verification script, mostly. A shipped module never needs this; it writes `ttnn.`."""
@@ -1116,6 +1206,34 @@ def _v_pad(shipped, args, kwargs):
         return bw
 
     return _tape(out_v, [x], make)
+
+
+@_verb("typecast")
+def _v_typecast(shipped, args, kwargs):
+    """Change dtype. The backward casts the gradient back to the INPUT's dtype.
+
+    Needed because a dtype boundary inside the model is a real edge of the graph, not
+    bookkeeping: OpenFold3 runs its diffusion half in fp32 against a bf16 trunk
+    (`OF3_DIFFUSION_FP32_DEVICE`, default on), so a training forward that crosses that
+    boundary crosses it through this verb. Without an entry here the tape raises, and the
+    alternative -- casting outside the tape -- silently hands fp32 weights bf16 activations.
+
+    `add_grad` already promotes and re-lays-out what it accumulates, so the cast here is the
+    dtype the PARENT's value carries, nothing more.
+    """
+    x = _wrap(args[0])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    src = x.value.dtype
+
+    def make():
+        def bw(g):
+            x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
+        return bw
+
+    # `reads=()`: neither the input nor the output is read by the backward, only its dtype,
+    # which is captured above.
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("sum")

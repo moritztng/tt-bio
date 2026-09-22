@@ -3154,7 +3154,18 @@ if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
         with open(os.path.join(d, f"capacity_{os.getpid()}.json"), "w") as fh:
             _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
                         "fp32_softmax": FP32_SOFTMAX_STATS,
-                        "opm_small_depth": OPM_SMALL_DEPTH_STATS}, fh)
+                        "opm_small_depth": OPM_SMALL_DEPTH_STATS,
+                        # The host float64 softmax's reach, taken in the process that FOLDED.
+                        # Every INFERENCE_AB artifact this campaign has written reads 0 calls,
+                        # on every row and both arms, because that census is an atexit hook in
+                        # the launcher and these counters live wherever the model ran. A
+                        # per-pid dump is the census that cannot miss it, and this instrument
+                        # already had the shape.
+                        "host_f64_softmax": HOST_F64_SOFTMAX_STATS,
+                        "host_f64_softmax_sites": dict(
+                            _SITE_FLAG_SEEN.get("TT_BIO_HOST_F64_SOFTMAX_AB", {})),
+                        "host_f64_softmax_selected_per_site": dict(HOST_F64_SOFTMAX_SITES),
+                        "host_f64_softmax_reach": host_f64_softmax_reach()}, fh)
 
     _atexit_cap.register(_capacity_census_dump)
 
@@ -3607,6 +3618,195 @@ def softmax_ckc(token: str, default: bool = False):
     return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
 
 
+# Calls served by the host float64 softmax, so an arm cannot silently decline. `declined` counts
+# calls that reached `site_softmax` with the site off and `refused` those that reached it with
+# the site on and no tape open to serve them, which is what makes "the flag fired and nothing
+# happened" readable instead of invisible. `served` and `elements` are bumped by
+# `autograd.host_f64_softmax`, which is where the round trip is.
+# `selected` is the one that is NOT a call: it is bumped by `host_f64_softmax_site` at
+# CONSTRUCTION, and it exists because the other four cannot tell an unreached selector from an
+# unused one. D225 is what that costs -- eight construction sites selected this lever and
+# `_fp32_softmax_attention` never consulted it, so the census read 0 served / 0 declined /
+# 0 refused, which is exactly what a model nobody ran reads. `host_f64_softmax_reach()` compares
+# the two halves and says which of the two happened.
+HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
+                          "selected": 0, "tail": 0, "served_taped": 0, "served_raw": 0}
+
+#: Construction sites that selected the host float64 softmax, COUNTED per token. `_SITE_FLAG_SEEN`
+#: records the last answer per token and `selected` records the total, and neither can say which
+#: site the total came from -- three different models each read `selected 195`, which is not a
+#: number any of them should share. A per-token count is what makes the reach census a statement
+#: about the eight sites rather than about their sum.
+HOST_F64_SOFTMAX_SITES: dict = {}
+
+
+def host_f64_softmax_reach() -> str:
+    """Whether the host float64 softmax a construction site SELECTED ever reached a call.
+
+    `served`, `declined` and `refused` all require the call to arrive. A selector wired to a
+    branch that never consults it therefore reads zero in all three, which is indistinguishable
+    from a process that never built the model -- the reporting gap D225 hid in for the whole
+    campaign. `selected` counts construction sites, so the pair separates the cases.
+
+    `served_taped` and `served_raw` split `served` by whether the call created a tape node.
+    Both get the float64 forward; only the taped one gets the float64 JACOBIAN, because a raw
+    ttnn tensor has no node to hang a backward on. Two arms can serve the same number of calls
+    and differ entirely in how much of the gradient they moved, and this is the only counter
+    that sees it.
+
+    `tail` counts arrivals through `_fp32_softmax_attention`'s own reduction, the route that
+    did not exist before D225 was fixed; `declined + refused + served - tail` is what
+    `site_softmax` carries. Both are arrivals. Keeping them apart is what lets a census say
+    WHICH route a model took rather than only that it took one.
+
+    REACHED means `served or refused`: a call that arrived with the site ON. `declined` is not
+    the same claim -- it counts a call that arrived with the site OFF, which says the route
+    exists but not that this selector is on it -- so it is reported beside the verdict rather
+    than folded into it. Read `declined` when the verdict says NEVER REACHED: a large number
+    there means the route works and the selector named a site the model did not build, and a
+    zero means nothing arrived at all.
+
+    One impurity, stated rather than hidden: `selected` is bumped wherever the site flag
+    resolves True, and a census that probes `host_f64_softmax_site(token, True)` to record what
+    a site WOULD answer bumps it without constructing anything. `perf/of3t_f64route/arm.py`
+    does exactly that and reads `selected 3` on an arm with the variable unset.
+    """
+    s = HOST_F64_SOFTMAX_STATS
+    if not s["selected"]:
+        return "host f64 softmax: not selected at any construction site"
+    if s["served"] or s["refused"]:
+        return ("host f64 softmax: reached -- %d sites selected, %d served, %d refused, "
+                "%d declined" % (s["selected"], s["served"], s["refused"], s["declined"]))
+    return ("host f64 softmax NEVER REACHED: %d construction sites selected it and no call "
+            "arrived at the gate WITH A SITE ON (%d arrived with one off). The selector is "
+            "answering True for a site whose softmax does not consult it."
+            % (s["selected"], s["declined"]))
+
+
+def _warn_if_host_f64_never_reached() -> None:
+    s = HOST_F64_SOFTMAX_STATS
+    if s["selected"] and not (s["served"] or s["refused"]):
+        print(host_f64_softmax_reach(), file=sys.stderr)
+
+
+_HOST_F64_REACH_ARMED = [False]
+
+
+def _arm_host_f64_reach_warning() -> None:
+    """Report an unreached selector at exit, once, and only in a process that selected one.
+
+    A counter nobody reads closes nothing, and the census that would have caught D225 is run
+    by instruments rather than by the fold. Off unless a site actually turned the lever on, so
+    a shipped inference process registers nothing and prints nothing.
+    """
+    if _HOST_F64_REACH_ARMED[0]:
+        return
+    _HOST_F64_REACH_ARMED[0] = True
+    import atexit
+    atexit.register(_warn_if_host_f64_never_reached)
+
+
+def host_f64_softmax_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` computes its softmax on the host in float64.
+
+    Tenstorrent's fp32 is a few mantissa bits short of IEEE fp32, and a softmax is where that
+    shows. Measured on this card at [1,16,384,384] fp32 against a float64 softmax on the same
+    values (`perf/of3t_softmax/softmax_cost_qb2c0.json`): the op's own default reads 2.029e-02,
+    `precise_config()` 1.646e-03, and the 5-op `_accurate_softmax` chain 5.156e-04. A true fp32
+    softmax reads ~1e-7. Nothing on the card is within four orders of magnitude of that, so the
+    gap is the silicon's and no configuration closes it.
+
+    This site flag is the route that does: the scores go to the host, softmax runs there in
+    float64, and the result comes back in the tensor's own dtype, layout and memory config. The
+    round trip is the softmax and nothing else -- every op before and after it stays on the card.
+
+    It buys GRADIENT fidelity and it is a training-path lever. On the OF3 diffusion module's
+    gradient over 547 tensors at full scope it takes the mass-weighted rel_l2 against upstream's
+    own bf16 training step from 7.426217e+00 to 7.777580e-02, and against a float64 reference to
+    5.930664e-02, which is 1.013x what upstream's own bf16 step reaches against the same
+    reference. It costs 166.8x on the softmax alone and 1.47x on the whole gradient arm
+    (`perf/of3t_f64softmax/`). Inference does not want it and does not get it: OFF at every site,
+    and a fold with the path present and off is byte-identical to one without it, measured by
+    digest on OpenFold3, Protenix-v2 and OpenDDE.
+
+    Reach for ``TT_BIO_SOFTMAX_BW_RENORM`` before this. Two ops in the softmax backward get
+    1.057023e-01 on the same gradient for 1.049x, which is 99.6 % of what the round trip buys at
+    a tenth of the cost; what this path still has over it is the FORWARD, which no backward fix
+    can reach. The two compose, and on this path the renormalisation is exactly a no-op because a
+    float64 softmax already sums to one.
+
+    Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
+    ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
+    reaches, so it stays A/B-able without a checkout. Selecting a site is not enough to open the
+    path: the gate also needs a tape open, so the variable cannot move an inference fold whatever
+    it is set to.
+
+    WHERE IT REACHES. Two routes, one gate (`host_softmax_or_none`). `site_softmax` is the route
+    for a site whose softmax is `ttnn.softmax`, and `_fp32_softmax_attention`'s tail is the route
+    for every site that sets ``fp32_softmax`` -- the whole OpenFold3 triangle path, AF2's, RF3's
+    atom stacks. The second route did not exist until `of3t-f64route`: eight construction sites
+    selected this lever and the tail never consulted it, so the census read 0 served / 0 declined
+    / 0 refused, which is what an unused lever reads too (D225). `host_f64_softmax_reach()` is
+    the counter that tells those apart now.
+    """
+    on = _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
+    if on:
+        HOST_F64_SOFTMAX_STATS["selected"] += 1
+        HOST_F64_SOFTMAX_SITES[token] = HOST_F64_SOFTMAX_SITES.get(token, 0) + 1
+        _arm_host_f64_reach_warning()
+    return on
+
+
+def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
+    """The softmax a construction site runs: ``ttnn.softmax``, or the host float64 one.
+
+    With ``host_f64`` False this IS ``ttnn.softmax(x, dim=dim, **kw)`` and nothing else, which is
+    what makes the path bit-identical when off. With it True the kernel arguments -- a compute
+    kernel config, ``numeric_stable`` -- describe a kernel that does not run, so they are
+    dropped: the host computes the softmax exactly and has no use for either.
+
+    The site selector does not on its own open the path. ``TT_BIO_HOST_F64_SOFTMAX_AB`` is an
+    environment variable, these call sites are shared with every model's inference, and the path
+    costs a host round trip per softmax for gradient fidelity inference has no use for. So the
+    implementation lives in `tt_bio.autograd` and the call goes through the hook
+    `autograd.install` fills: with no tape open `ops.host_softmax_hook()` is None, this is
+    `ttnn.softmax` exactly as if the selector were unset, and the refusal is counted rather than
+    silent. `tests/test_host_f64_softmax_defaults.py` holds both directions.
+
+    Off, the selector costs nothing but the argument test it already was: nothing is imported
+    and no hook is read.
+    """
+    host = host_softmax_or_none(host_f64)
+    if host is not None:
+        return host(x, dim)
+    return ttnn.softmax(x, dim=dim, **kw)
+
+
+def host_softmax_or_none(host_f64: bool, tail: bool = False):
+    """`site_softmax`'s gate on its own: the host float64 softmax, or None for the device.
+
+    `site_softmax` is the form for a site whose device implementation is `ttnn.softmax`. The
+    fp32-softmax attention tail runs `ttnn.softmax_in_place` or the 5-op `_accurate_softmax`
+    chain, and both CONSUME their input where the host route returns a new tensor and leaves
+    the input alive. A site that has to own that difference asks the gate directly instead of
+    passing its implementation in, and the census is the same counters either way, so one
+    reading covers every site.
+
+    ``tail`` says the call came through `_fp32_softmax_attention` rather than `site_softmax`,
+    so a census can tell the two routes apart. It changes no behaviour.
+    """
+    HOST_F64_SOFTMAX_STATS["tail"] += tail
+    if host_f64:
+        from . import ops
+        host = ops.host_softmax_hook()
+        if host is not None:
+            return host
+        HOST_F64_SOFTMAX_STATS["refused"] += 1
+    else:
+        HOST_F64_SOFTMAX_STATS["declined"] += 1
+    return None
+
+
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
 
@@ -3671,6 +3871,27 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     ttnn.deallocate(m)
     if xf is not x:
         ttnn.deallocate(xf)
+    # `ttnn.max` TRUNCATES its result to bf16 (round toward zero), so on a negative row it
+    # comes back ABOVE the true maximum and `d` is negative everywhere -- including at the
+    # element that IS the maximum. On a fully-masked row at -1e9 the overshoot is exactly
+    # 1_755_648 (-1e9 truncates to -998_244_352), every exponent underflows, the sum is 0 and
+    # the divide is 0/0. Measured: 114_688 non-finite entries on OpenFold3's atom-encoder
+    # block-sparse attention, exactly the masked rows, where the fused kernel is finite on the
+    # same input (perf/of3t_softgrad/FULLY_MASKED_ROW_OVERFLOW.json).
+    #
+    # -60 and not -88: exp(-88) is subnormal in fp32 and flushes to zero, so a clamp there
+    # leaves the 0/0 in place -- measured, both thresholds, same file. The floor turns a
+    # fully-masked row into the uniform distribution, which is what softmax of a constant row
+    # is, and it perturbs a live row by at most exp(-60) = 8.8e-27 per weight on entries whose
+    # weight was already below that.
+    #
+    # Written as the returning form, not `output_tensor=d`: `ttnn.clamp` is reached exactly once
+    # in this tree (protenix.py, the distogram floor) and only ever that way, so the in-place
+    # kwarg is unverified here and a TypeError inside a shipped softmax is a worse failure than
+    # the transient second buffer this costs.
+    dc = ttnn.clamp(d, -60.0, None)
+    ttnn.deallocate(d)
+    d = dc
     ttnn.exp(d, output_tensor=d)
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
@@ -3693,6 +3914,7 @@ def _fp32_softmax_attention(
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
     accurate_softmax: bool = False,
+    host_f64: bool = False,
     l1_padded_plan: bool | None = None,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
@@ -3778,7 +4000,8 @@ def _fp32_softmax_attention(
             FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
             return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                                  out_dtype, bias_scale_inv, sh, l1_key, free=free,
-                                                 accurate_softmax=accurate_softmax)
+                                                 accurate_softmax=accurate_softmax,
+                                                 host_f64=host_f64)
         FP32_SOFTMAX_STATS["blocked"] += 1
         parts = []
         # the bias is the same tensor in every block, so its fp32 copy is made once per call
@@ -3794,7 +4017,8 @@ def _fp32_softmax_attention(
                                                            compute_kernel_config, out_dtype,
                                                            bias_scale_inv, sh, l1_key, bias_f,
                                                            free=free,
-                                                           accurate_softmax=accurate_softmax))
+                                                           accurate_softmax=accurate_softmax,
+                                                           host_f64=host_f64))
                 for t in (qs, ks, vs):
                     ttnn.deallocate(t)
         except Exception:
@@ -3826,7 +4050,8 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None, free=False, accurate_softmax=False):
+                                  bias_f=None, free=False, accurate_softmax=False,
+                                  host_f64=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -3841,7 +4066,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         try:
             attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard,
                                          bias_f, accurate_softmax,
-                                         compute_kernel_config)
+                                         compute_kernel_config, host_f64)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
@@ -3852,7 +4077,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             attn_bf = None
     if attn_bf is None:
         attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
-                                     accurate_softmax, compute_kernel_config)
+                                     accurate_softmax, compute_kernel_config, host_f64)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
@@ -3860,7 +4085,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
 
 
 def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
-                       accurate_softmax=False, compute_kernel_config=None):
+                       accurate_softmax=False, compute_kernel_config=None, host_f64=False):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -3901,8 +4126,16 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         if own:
             ttnn.deallocate(bias_f)
         try:
-            if accurate_softmax:
-                acc = _accurate_softmax(attn)
+            host = host_softmax_or_none(host_f64, tail=True)
+            if host is not None:
+                # The host route is the only one here that does not consume its input, so this
+                # is the one place the tail owns the free. Both device implementations below
+                # write over `attn` or deallocate it themselves.
+                exact = host(attn, -1)
+                ttnn.deallocate(attn)
+                attn = exact
+            elif accurate_softmax:
+                acc = _accurate_softmax(attn, sm_ckc)
                 ttnn.deallocate(attn)
                 attn = acc
             else:
@@ -3916,9 +4149,17 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = (_accurate_softmax(sc) if accurate_softmax
-                else ttnn.softmax(sc, dim=-1,
-                                  compute_kernel_config=sm_ckc))  # fp32 reduction
+        if accurate_softmax:
+            host = host_softmax_or_none(host_f64, tail=True)
+            attn = host(sc, -1) if host is not None else _accurate_softmax(sc, sm_ckc)
+        else:
+            # `ttnn.softmax` IS this branch's device implementation, so it is `site_softmax`
+            # verbatim: host_f64 off, the call below is byte for byte the one that ships.
+            # `tail` is counted here instead of inside, because `site_softmax` is reached from
+            # both routes and only this arrival is the tail's.
+            HOST_F64_SOFTMAX_STATS["tail"] += 1
+            attn = site_softmax(sc, dim=-1, host_f64=host_f64,
+                                compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
@@ -7529,11 +7770,17 @@ class TriangleAttention(Module):
         bias_in_matmul: str | None = None,
         l1_padded_plan: bool | None = None,
         sdpa_ragged_pad: bool = False,
+        softmax_site: str = "default",
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # The construction site this attention answers to for the host float64 softmax, read
+        # the same way `AttentionPairBias` reads it. Triangle attention is the biggest softmax
+        # in the stack and it takes `_fp32_softmax_attention` at every site that sets
+        # `fp32_softmax`, so without this the lever is selected and never called (D225).
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         # Bytes per core to keep free when the ending variant's pair transpose asks for L1,
         # instead of the multiplicative headroom. 0 keeps the headroom rule. See
         # TRANSPOSE_L1_RESERVE_PER_CORE: it is what makes the 768 aa transpose L1-resident.
@@ -7854,6 +8101,7 @@ class TriangleAttention(Module):
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
                         accurate_softmax=self.accurate_softmax,
+                        host_f64=self._softmax_f64,
                         l1_padded_plan=self.l1_padded_plan,
                     )
             else:
@@ -8215,9 +8463,16 @@ class AttentionPairBias(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
         self.accurate_softmax = accurate_softmax
-        # None is the op's own kernel default, which is what this site shipped with; see
-        # `softmax_precise_site` for what the other answer costs and buys.
+        # OFF, and `of3t-softmax` decided that: the config moves protenix-v2's delivered
+        # structure 2.2151 A, inside its own 4.1346 A seed floor but 6.8x OpenFold3's move under
+        # the same lever, so it is two decisions rather than one. The only reader here is the
+        # `fp32_raw_matmul_attention` branch of `__call__`, where the scores are fp32 because
+        # ttnn's SDPA refuses fp32 inputs; every other instance sets this and never reads it.
+        # On that branch the config is worth 12.50x accuracy against float64 for 1.55x cost at
+        # [1,16,128,128] and 0.91 ms of a 32 s fold (perf/of3t_fwdkcfg/), so what holds it off
+        # is the Angstrom move on a shipped model, not the price.
         self._softmax_ckc = softmax_ckc(softmax_site)
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -8334,6 +8589,7 @@ class AttentionPairBias(Module):
                 out_dtype=_dtype(),
                 bias_scale_inv=1.0 / self._bias_scale,
                 accurate_softmax=self.accurate_softmax,
+                host_f64=self._softmax_f64,
             )
         if self.dtype != ttnn.float32:
             return _sdpa_masked(
@@ -8558,7 +8814,8 @@ class AttentionPairBias(Module):
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
-                attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc)
+                attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                    host_f64=self._softmax_f64)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
@@ -8693,6 +8950,36 @@ class AttentionPairBias(Module):
         return x
 
 
+# D174. Upstream OpenFold3 zeroes the output of EVERY transition on padded positions:
+# `core/model/layers/transition.py` ends `_transition` with `x = self.linear_out(x) * mask`, and
+# `projects/of3_all_atom/model.py` passes `_mask_trans=True` at seven call sites, hard-coded, so
+# it is not a knob the reference could have been run without. Our port passes no mask to any
+# transition and had no parameter to pass one through.
+#
+# On a padded row the pair representation is zero, so the transition's LayerNorm emits its
+# normalised part as zero and the MLP passes its own biases through: a nonzero update,
+# independent of the pad's contents, added into the residual and compounded over 48 blocks.
+# `of3t-modelboundary` measured both halves of that signature on the trunk -- bit-exact
+# invariance to pad VALUES (`--pad-scale 0`, 0 of 2,736 tensors moved) and a gradient norm that
+# tracks pad EXTENT (12.3912543630 at 8 pad rows against 43.2103398400 at 328, 3.487164x).
+#
+# OFF by default. This changes inference numerics on a path five models execute, so it is
+# release-gated and carries an inference fold A/B before it can ship. Set TT_BIO_MASK_TRANS=1
+# for the masked arm.
+_MASK_TRANS = env_flag("TT_BIO_MASK_TRANS", False)
+
+# The negative control for the lever above, and the reason it is a flag rather than a harness
+# edit: an all-ones mask is the ONE input that must leave every number bit-identical to the
+# unmasked arm. If it does not, the lever is not the mask and nothing measured with it means
+# what it says. Only read when _MASK_TRANS is on.
+_MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
+
+# Reached only from the masked branch, and counted so "the lever fired" is a reading rather
+# than an argument -- `a-lever-can-fire-and-be-inert` has both halves. A harness reads this out
+# of the loaded module after the run.
+MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -8709,8 +8996,34 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
-                 ) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
+                 mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """`mask` zeroes the output on padded positions, the way upstream's `_mask_trans` does.
+
+        It broadcasts against `x`, so it carries x's rank with 1 in the channel axis: [1,S,S,1]
+        on the pair track, [1,S,1] on the single track. None reproduces today's output byte for
+        byte, which is what every caller outside the OpenFold3 path passes.
+
+        Applied once to the assembled result rather than inside `swiglu`. The multiply is
+        elementwise and every chunking path below is row- or column-local, so masking the chunks
+        and masking the assembly write the same bytes; masking here leaves the chunk arithmetic
+        and its L1 budgets untouched.
+        """
+        out = self._swiglu_all(x, memory_config)
+        if mask is None:
+            return out
+        masked = ttnn.multiply(out, mask)
+        if not ops.taping():
+            # Under a tape the multiply's backward reads its operands, and freeing the
+            # unmasked result here is what made the first masked arm die 10 s in with
+            # `TT_THROW @ ttnn/core/tensor/storage.cpp:60` -- a tensor with no storage. The
+            # inference path has no backward and keeps the free, which is where the bytes
+            # matter: the pair-track result is 48 MB at 384 aa.
+            ttnn.deallocate(out)
+        return masked
+
+    def _swiglu_all(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
+                    ) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
@@ -9065,16 +9378,15 @@ class PairformerLayer(Module):
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
-        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer has
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer holds
         # two kernels that do different things with it, so one value cannot serve both.
-        # `AttentionPairBias` folds the bias inside the score scale -- (q@k^T + z) * d**-0.5 --
-        # so a bias the reference adds UNSCALED has to arrive pre-baked by sqrt(d), which is
-        # what scale_pair_bias=True does. `TriangleAttention` adds it outside the scale, so the
-        # same reference convention wants False there. OpenFold3 is the model that needs both,
-        # and before the split its single False left the token pair bias at 1/sqrt(24) = 0.204
-        # of the reference value in every fold. `None` follows `scale_pair_bias`, so every
-        # other caller is byte-identical. LEDGER K34: a flag named after the reference rather
-        # than the kernel is right at whichever of its sites happens to match.
+        # `AttentionPairBias` adds the bias INSIDE its score scale -- (q@k^T + z) * d**-0.5 -- so
+        # a reference that adds z unscaled to an already-scaled q needs z to arrive pre-baked by
+        # sqrt(d), which is what scale_pair_bias=True does. `TriangleAttention` scales q@k^T alone
+        # and divides the bake back out before its add, so the same reference convention wants
+        # False there. OpenFold3 is the model that needs both, and one shared False left its token
+        # pair bias at 1/sqrt(24) = 0.204 of the reference value in all 48 trunk blocks. `None`
+        # follows `scale_pair_bias`, so every caller that does not name it is unchanged.
         tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
@@ -9115,6 +9427,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -9151,6 +9467,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -9178,7 +9498,11 @@ class PairformerLayer(Module):
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
+        trans_mask_z: ttnn.Tensor | None = None, trans_mask_s: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
+        """`trans_mask_z` / `trans_mask_s` are upstream's `pair_trans_mask` / `single_trans_mask`
+        (D174), already shaped to broadcast. `Pairformer` builds them once per stack call rather
+        than once per block; a caller that passes neither computes exactly what it does today."""
         z_update = self.triangle_multiplication_start(z, mask)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
@@ -9199,7 +9523,7 @@ class PairformerLayer(Module):
         # immediately, so assembling the row blocks into L1 removes the write and the read.
         z_update = self.transition_z(
             z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
-            if _RESIDUAL_L1 else None)
+            if _RESIDUAL_L1 else None, mask=trans_mask_z)
         z = ttnn.add_(z, z_update)
         ttnn.deallocate(z_update)
         if self.transform_s:
@@ -9218,7 +9542,7 @@ class PairformerLayer(Module):
             ttnn.deallocate(s_norm)
             s = self._s_residual(s, s_update)
 
-            s_update = self.transition_s(self._s_compute(s))
+            s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
         return s, z
 
@@ -9303,6 +9627,30 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        # D174, once per stack call rather than once per block: 48 blocks would otherwise pay
+        # for the same two tensors 48 times, and `ttnn.unsqueeze` on a [1,S,S] pair mask is not
+        # a view -- it pads the last axis from 1 to 32 and writes a real tensor.
+        #
+        # The single-track mask is derived rather than passed, because a pair mask in this model
+        # family is always the outer product m[:,:,None] * m[:,None,:] (the same fact
+        # `PairformerModule` relies on when it recovers the 1-D mask from the diagonal), and
+        # then max_j m_i m_j = m_i exactly. Reducing with `max` keeps it a device op with no
+        # host round trip. The 3-D guard excludes the affinity pair mask, which is a cross-chain
+        # mask and NOT an outer product; that path is Boltz-2's and is not what D174 is about.
+        trans_mask_z = trans_mask_s = None
+        if not _MASK_TRANS:
+            MASK_TRANS_STATS["declined_off"] += 1
+        elif mask is None or len(mask.shape) != 3:
+            MASK_TRANS_STATS["declined_rank"] += 1
+        else:
+            trans_mask_z = ttnn.unsqueeze(mask, -1)
+            trans_mask_s = ttnn.max(mask, dim=-1, keepdim=True)
+            if _MASK_TRANS_ONES:
+                trans_mask_z = ttnn.ones_like(trans_mask_z)
+                trans_mask_s = ttnn.ones_like(trans_mask_s)
+                MASK_TRANS_STATS["ones"] += 1
+            MASK_TRANS_STATS["stacks"] += 1
+            MASK_TRANS_STATS["blocks"] += len(self.blocks)
         for i, block in enumerate(self.blocks):
             # Through the seam, so a tape can checkpoint the block and inference cannot tell.
             # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
@@ -9310,9 +9658,14 @@ class Pairformer(Module):
             # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
             s, z = ops.checkpoint_segment(
                 lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
-                                          extra_attn_bias),
+                                          extra_attn_bias, trans_mask_z, trans_mask_s),
                 s, z)
             dram_peak(f"pairformer block {i} done")
+        if trans_mask_z is not None and not ops.taping():
+            # Same reason as in `Transition.__call__`: the tape's backward still reads both
+            # masks after this call returns, so only the inference path may free them.
+            ttnn.deallocate(trans_mask_z)
+            ttnn.deallocate(trans_mask_s)
         return s, z
 
 

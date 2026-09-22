@@ -1,0 +1,58 @@
+{
+  "what": "Upstream's own 48-block pairformer stack, differentiated over the captured trunk boundary.",
+  "tree": "/home/ttuser/of3t_refprec/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_refprec/of3pkg043/openfold3/__init__.py",
+  "policy": "f64",
+  "blocks": 48,
+  "crop": 384,
+  "dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "load": {
+    "tensors_loaded": 2736,
+    "missing": [],
+    "unexpected": []
+  },
+  "dtype_policy": "every parameter and every activation float64; checkpoint upcast once at load; no cast on the path",
+  "boundary": "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "boundary_sha256": "583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2",
+  "cotangent_from": "/tmp/of3t/of3t-frameself/cot_zonly_n384.pt",
+  "cotangent_sha256": "491f58645136d1bf7d82a13bd7d42cab7d7cdaa5554129dccf3e3ee89bb6552a",
+  "permuted_cotangent": null,
+  "pad_perturbation": null,
+  "probe": {
+    "s_in_norm": 11757.133052375091,
+    "z_in_norm": 16157800.913600853,
+    "cot_s_norm": 0.0,
+    "cot_z_norm": 0.0007601379094210722,
+    "real_tokens": 56,
+    "tokens": 384
+  },
+  "loss": -0.0036370656846961003,
+  "s_norm": 2548915.665702611,
+  "z_norm": 15590107.181956384,
+  "ds_in_norm": 0.0,
+  "dz_in_norm": 0.0006982919279317385,
+  "gradient": {
+    "tensors": 2736,
+    "with_gradient": 2736,
+    "none": 0,
+    "squared_norm_total": 0.40712799889658896
+  },
+  "seconds_forward_backward": 1959.5364176370003,
+  "checkpointed": true,
+  "threads": 4,
+  "peak_rss_gb": 24.07657241821289,
+  "out": "/home/ttuser/of3t_frameself/split_zonly.pt"
+}

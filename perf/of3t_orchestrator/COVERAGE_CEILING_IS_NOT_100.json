@@ -1,0 +1,50 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "the ceiling on device-measured coverage is 99.2594 %, not 100 %. 0.74055 % of the model's gradient mass is on a weight applied on the host after a ttnn.to_torch, so no device gradient for it exists. Of the 6.1992 % currently unmeasured, 5.4586 % is RECOVERABLE by measurement and 0.74055 % is structural.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Inputs: perf/of3t_orchestrator/SECTION_MASS_MEASURED.json and perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json, both in this commit; the 92.4879 % host-applied share is of3t-auxheads' finding.",
+ "reconciliation": "5.4586 + 0.74055 = 6.19915, which rounds to the 6.1992 % that DISTANCE_TO_GO_BY_MASS.json states as unmeasured. The two artifacts are independently assembled and agree to the last recorded digit, which is the check that this decomposition did not quietly drop or double-count a section -- the failure mode that cost pass 152 a headline when a prefix filter swallowed msa_module_embedder.",
+ "recoverable_unmeasured": {
+  "items": [
+   {
+    "note": "the single largest recoverable piece. 7 blocks are measured, covering 1.64401 % of the section's 5.8282 %. NOT extrapolable to the other 41: a residual stack is coupled, and pass 158 withdrew a headline for exactly that assumption.",
+    "pct": 4.18419,
+    "section": "pairformer_stack (the other 41 of 48 blocks)"
+   },
+   {
+    "note": "52.2644 % in scope, 51.1358 % compared",
+    "pct": 1.1286,
+    "section": "unreached inside the diffusion arm"
+   },
+   {
+    "pct": 0.06015,
+    "section": "input_embedder, the part not host-applied"
+   },
+   {
+    "pct": 0.0612,
+    "section": "msa_module_embedder"
+   },
+   {
+    "pct": 0.0103,
+    "section": "template_embedder"
+   },
+   {
+    "pct": 0.0083,
+    "section": "msa_module (the part its arm did not reach)"
+   },
+   {
+    "pct": 0.0059,
+    "section": "layer_norm_z / layer_norm_s / linear_z / linear_s (top level)"
+   }
+  ],
+  "total_pct": 5.4586
+ },
+ "structural_ceiling": {
+  "ceiling_on_device_measured_coverage_pct": 99.2594,
+  "derivation": "input_embedder is 0.8007 % of the model's squared gradient norm. of3t-auxheads established that 92.4879 % of that SECTION's mass sits on a weight our shipped path applies on the host after a ttnn.to_torch. 0.8007 * 0.924879 = 0.74055 %. The remaining 0.06015 % of input_embedder is in principle measurable.",
+  "pct_unmeasurable_on_device": 0.74055,
+  "what_it_changes": "every statement of the form 'X % measured, Y % to go' in this campaign should be read against 99.2594 %, not 100 %. It does not move any measured number; it moves the target those numbers are approaching.",
+  "why_this_is_not_a_defect": "applying a weight on the host is not doing less of the model's own work -- the weight is applied, and the model's arithmetic is performed. It is a PORT-COVERAGE fact about where, and it means the device-gradient instrument has nothing to read there. Closing it would require porting the op, not fixing a number."
+ },
+ "what": "the ceiling on how much of OpenFold3's gradient mass this campaign could EVER measure on device, and the decomposition of the 6.1992 % that has no reading at its own scope. Full coverage was never available: part of the mass sits on a weight the shipped path applies on the HOST, so there is no device gradient for it to be compared against.",
+ "what_this_is_and_is_not": "this is arithmetic on already-published shares, not a new measurement. It introduces no reading of its own. The shares come from SECTION_MASS_MEASURED.json (exhaustive, 17 sections, 100.0000 %) at BUNDLE-MIN-043's r = 0 step on batch_step003, 5nw3, 56 real tokens, crop 384; per A24 the same batch and reference bind this artifact as they bind the shares it reads. Section shares at another batch or with recycling are not established to be stable."
+}

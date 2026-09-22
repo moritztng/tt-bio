@@ -1,0 +1,79 @@
+{
+ "captures_agree_s_in": {
+  "bit_identical": true,
+  "absdiff": 0.0,
+  "norm": 5623.548807821603
+ },
+ "captures_agree_z_in": {
+  "bit_identical": true,
+  "absdiff": 0.0,
+  "norm": 64263.67350116303
+ },
+ "ref043_f64_agree_s": {
+  "bit_identical": true,
+  "absdiff": 0.0,
+  "norm": 2178093.2982020588
+ },
+ "ref043_f64_agree_z": {
+  "bit_identical": true,
+  "absdiff": 0.0,
+  "norm": 88025.41673887867
+ },
+ "boundaries": {
+  "64": {
+   "path": "/tmp/of3t/of3t-padshape/boundary_w64.pt",
+   "sha256": "5d7163053da6713bf8e46e3ad1560dab3f2401e06662fb80539a2fcff42ed10e",
+   "real": 56,
+   "s_in_norm": 5850.166196032644,
+   "z_in_norm": 1320432.531462332,
+   "s_in_real_norm": 5623.548807821603,
+   "z_in_real_norm": 64263.67350116303
+  },
+  "128": {
+   "path": "/tmp/of3t/of3t-padshape/boundary_w128.pt",
+   "sha256": "5128b6ac87b849e39a2ecf9a451272a1a3bb84830474648d4075214e9364018b",
+   "real": 56,
+   "s_in_norm": 7417.923640697134,
+   "z_in_norm": 4897950.912663915,
+   "s_in_real_norm": 5623.548807821603,
+   "z_in_real_norm": 64263.67350116303
+  },
+  "256": {
+   "path": "/tmp/of3t/of3t-padshape/boundary_w256.pt",
+   "sha256": "455f8e5e4502b5aa95ddc482042f3a81074bfd2e1bb31811ef173c7b3890645a",
+   "real": 56,
+   "s_in_norm": 9829.948340415247,
+   "z_in_norm": 10626153.035074033,
+   "s_in_real_norm": 5623.548807821603,
+   "z_in_real_norm": 64263.67350116303
+  },
+  "384": {
+   "path": "/tmp/of3t/of3t-padshape/boundary_w384.pt",
+   "sha256": "7cf0fc254fe5926a7d4d0e6466509541807432cb771de6520aa61e4072678cc9",
+   "real": 56,
+   "s_in_norm": 11757.133052375091,
+   "z_in_norm": 16158081.287375676,
+   "s_in_real_norm": 5623.548807821603,
+   "z_in_real_norm": 64263.67350116303
+  }
+ },
+ "cotangent": {
+  "s_shape": [
+   1,
+   384,
+   384
+  ],
+  "z_shape": [
+   1,
+   384,
+   384,
+   128
+  ],
+  "s_sum_ALL": -3.218725199566341e-20,
+  "s_sum_REAL": -3.218725199566341e-20,
+  "z_sum_ALL": 2.859119272060528e-06,
+  "z_sum_REAL": 2.8591192720605026e-06,
+  "s_pad_absmax": 0.0,
+  "z_pad_absmax": 0.0
+ }
+}

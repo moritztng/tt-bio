@@ -1,0 +1,19 @@
+{
+  "what": "of3t-cotterm: tensor-by-tensor identity between two files, with the host in the artifact.",
+  "label": "CROSS-CARD: the 48-site LayerNorm operand capture, card 1 against card 2",
+  "host": "tt-quietbox",
+  "board_class": "p150a Blackhole",
+  "card": "1 vs 2",
+  "aiclk_during": "card1 n=114 median=1350; card2 n=107 median=1350",
+  "a": "/tmp/of3t/of3t-cotterm/ln_CAPLO_n384.pt",
+  "b": "/tmp/of3t/of3t-cotterm/ln_CAPHI_n384.pt",
+  "tensors_compared": 288,
+  "only_in_a": [],
+  "only_in_b": [],
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "tensors_that_moved": 0,
+  "bit_identical": true,
+  "worst_relative_move": 0.0,
+  "worst_tensor": null
+}

@@ -5,19 +5,21 @@
 # stack is saturated -- both arms sit above the zero model's 1.0 -- so it is reported but it is
 # not the cut.
 set -uo pipefail
-W=/home/ttuser/of3t_rebase/wt
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$W"
-export PYTHONPATH="/home/ttuser/of3t_rebase/of3pkg043:/home/ttuser/of3t_gradients/ref:/home/ttuser/of3t_gradients/deps:$W/perf/of3t_rebase:$W"
+source "$W/perf/refpath.sh"
+export PYTHONPATH="$(ref_pythonpath "$REF_CODE" "$W/perf/of3t_rebase" "$W")"
 export OMP_NUM_THREADS=4
 CARD=${CARD:-0}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-rebase
 PY=/home/ttuser/tt-bio-dev/env/bin/python
-B=/home/ttuser/of3t_rebase/bundle_min_043
+ref_assert "$PY"
+B=$REF_BUNDLE
 # --scale-pair-bias on, explicitly. wk/of3t flipped the OF3 trunk default from True to False
 # during this row's passes (openfold3_trunk.py:154, of3t-pairbias' "land the mechanism, do not
 # flip the default"), and the arms being replaced were taken at True. `shipped` no longer means
 # what it meant when they were recorded, so the convention is pinned rather than inherited.
-COMMON=(--bundle "$B" --manifest-json "$B/MANIFEST.json" --cap /home/ttuser/of3t_rebase/cap043
+COMMON=(--bundle "$B" --manifest-json "$B/MANIFEST.json" --cap "$REF_CAP"
         --out-dir perf/of3t_rebase --scale-pair-bias on
         --capture-report perf/of3t_rebase/capture_trunk_boundary_043.json)
 

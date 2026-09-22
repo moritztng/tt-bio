@@ -1,0 +1,106 @@
+[
+ {
+  "island": "softmax, fp32 STORAGE",
+  "site": "trunk AttentionPairBias",
+  "shape": [
+   1,
+   16,
+   384,
+   384
+  ],
+  "upstream": "fp32 region in 0.5.0",
+  "arms": {
+   "floor_bf16_out": 0.001624739362978093,
+   "host_fp32 (what upstream gets)": 8.655115186532248e-08,
+   "tt_bf16_default": 0.022816408393149225,
+   "tt_bf16_precise": 0.0017199046003865208,
+   "tt_fp32_default": 0.020379319030935303,
+   "tt_fp32_precise": 0.0005130965428488269
+  }
+ },
+ {
+  "island": "layer_norm, fp32 STORAGE",
+  "site": "single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32",
+  "arms": {
+   "floor_bf16_out": 0.001665539060707333,
+   "host_fp32 (what upstream gets)": 6.360968473972711e-08,
+   "tt_bf16_precise": 0.0019286569510560821,
+   "tt_fp32_precise": 0.0012660382608384697
+  }
+ },
+ {
+  "island": "fp32 REGION (4 ops)",
+  "site": "triangle attention q@kT -> +bias -> softmax -> @v",
+  "shape": [
+   16,
+   4,
+   384,
+   32
+  ],
+  "upstream": "bf16 in 0.4.3 / fp32 region in 0.5.0",
+  "arms": {
+   "floor_bf16_out": 0.0016597413424669818,
+   "up_bf16 region (0.4.3)": 0.007339841742026889,
+   "up_fp32 region (0.5.0, no rounding)": 2.838105558345977e-07,
+   "fp32 ops, bf16 between (island-by-island)": 0.003991579883945154,
+   "tt_bf16_precise": 0.007224466937263824,
+   "tt_fp32_precise": 0.0017090466009876655
+  }
+ },
+ {
+  "island": "softmax BACKWARD dx",
+  "site": "trunk AttentionPairBias",
+  "shape": [
+   1,
+   16,
+   384,
+   384
+  ],
+  "upstream": "bf16 acts / fp32 GRADS (master weights are fp32)",
+  "arms": {
+   "floor_bf16_out": 0.0016584375758869803,
+   "up_bf16 (0.4.3)": 0.0022578960466182966,
+   "up_fp32 (0.5.0, fp32 grads)": 1.4410430274496314e-07,
+   "tt_autograd bf16": 0.003431639202711161,
+   "tt_autograd fp32": 0.0008177856485836018
+  }
+ },
+ {
+  "island": "layer_norm BACKWARD d(gamma)",
+  "site": "D8's worst tensor class",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 grads",
+  "arms": {
+   "floor_bf16_out": 0.0016436132225647376,
+   "up_fp32": 1.2278099521823785e-07,
+   "tt_autograd bf16": 0.003910393787564944,
+   "tt_autograd fp32": 0.0014343771858619319
+  }
+ },
+ {
+  "island": "layer_norm BACKWARD dx",
+  "site": "single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 grads",
+  "arms": {
+   "floor_bf16_out": 0.0016657805986770042,
+   "up_fp32": 7.023563012785665e-08,
+   "tt_autograd bf16": 0.0043282839595659576,
+   "tt_autograd fp32": 0.002090820287292398
+  }
+ }
+]

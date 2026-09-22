@@ -1,0 +1,51 @@
+{
+ "instrument": "of3t-covdefault remedies.py -- every route to the 99.2594 coverage bar with what it costs, so the bar decision is arithmetic and not preference",
+ "bar": 99.2594,
+ "shipped_measured": 97.98499306866148,
+ "points_needed": 1.2744069313385182,
+ "remedies": {
+  "flag_ON_only": {
+   "adds_pct": 0.7530394291090192,
+   "needs": "TT_BIO_OF3_DEVICE_REFATOM default ON. Nothing else.",
+   "costs": "+198.476 ms per cold fold on openfold3 and +192.515 on openbind, +50.231 and +48.185 warm, and the structure moves 0.114391 A / 0.048635 A (perf/of3t_covdefault/AB_FOLD.json)",
+   "reaches": 98.7380324977705,
+   "clears_99_2594": false
+  },
+  "flag_ON_plus_an_input_embedder_arm": {
+   "adds_pct": 1.4935444320373907,
+   "needs": "the flag ON, plus a scored gradient arm for the input embedder -- its section reads n_compared 0 of 98 today, so linear_q.0.weight has nowhere to land even when the flag puts it on the card",
+   "costs": "the same inference regression, plus one new device arm",
+   "reaches": 99.47853750069888,
+   "clears_99_2594": true
+  },
+  "flag_ON_plus_input_embedder_arm_plus_the_other_eight_on_device": {
+   "adds_pct": 1.5202384841128942,
+   "needs": "all of the above, plus moving the input embedder's OWN eight ref-atom linears off openfold3_host_prep.py:301 -- code that does not exist in either arm",
+   "costs": "the same, plus a second device leg on the same once-per-fold call",
+   "reaches": 99.50523155277438,
+   "clears_99_2594": true
+  },
+  "the_four_blocked_classes_nobody_owns": {
+   "adds_pct": 0.49476844722562313,
+   "needs": "instrument and wiring work on code that already exists, per class: FUSED_NOT_SPLIT 0.2715265 %, NO_ARM 0.1105149 %, NOT_A_LEAF_LAZY 0.1045039 %, ARM_RAN_DID_NOT_CARRY 0.0082232 %",
+   "costs": "no inference change",
+   "reaches": 98.4797615158871,
+   "clears_99_2594": false
+  }
+ },
+ "finding": "the bar is reachable, and every route that reaches it requires TT_BIO_OF3_DEVICE_REFATOM ON, which this row measures as a per-fold inference regression on both models of OF3_FAMILY. The charter's own hard constraint is that nothing may change inference's output or slow it down, so the coverage clause as written can only be satisfied by breaking the constraint it sits beside. That is the defect, not the 0.52 points.",
+ "proposal": {
+  "repoint_to": 97.9849,
+  "arithmetic": "the measured ceiling of the shipped arm is 97.98499306866148; a bar that rounds a measured ceiling UP is unsatisfiable by a perfect artifact, so it rounds DOWN, at the four decimals the current bar carries",
+  "and_keep_the_question_alive": "a bar equal to the measured value is a no-regression ratchet, not a proof of coverage. Pair it with the class itemisation below so the 2.0150069313385040 % that is NOT compared stays stated rather than absorbed, and so the number cannot drift down without failing",
+  "uncompared_itemised_pct": {
+   "HOST_APPLIED": 1.5202384841128946,
+   "FUSED_NOT_SPLIT": 0.2715264688736101,
+   "NO_ARM": 0.1105148517671164,
+   "NOT_A_LEAF_LAZY": 0.10450387719530572,
+   "ARM_RAN_DID_NOT_CARRY": 0.008223249389590901
+  },
+  "uncompared_total_pct": 2.015006931338504,
+  "not_this_rows_edit": "proposed only. _of3t_donecheck.py and CHARTER_EVIDENCE belong to the orchestrator; a row that moves its own bar toward passing is the pattern that gate exists to refuse"
+ }
+}

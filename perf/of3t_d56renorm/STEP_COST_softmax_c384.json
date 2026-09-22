@@ -1,0 +1,362 @@
+{
+ "aa_floor_seconds": 1.163e-05,
+ "aa_pairs": [
+  2.824e-05,
+  4.01e-06,
+  2.65e-05,
+  6.294e-05,
+  5.89e-06,
+  4.4e-07,
+  1.478e-05,
+  0.00089231,
+  5.43e-06,
+  1.62e-06,
+  1.667e-05,
+  1.367e-05,
+  4.29e-06,
+  6.9e-06,
+  1.585e-05,
+  9.38e-06,
+  8.49e-06,
+  1.18e-05,
+  2.73e-06,
+  2.472e-05,
+  1.146e-05,
+  5.45e-06,
+  9.875e-05,
+  1.558e-05,
+  8.29e-05,
+  4.1e-06,
+  2.752e-05,
+  8.02e-06,
+  5.672e-05,
+  7.21e-06
+ ],
+ "aiclk_during": {
+  "max": 1350,
+  "median": 1350.0,
+  "min": 1350,
+  "n": 2
+ },
+ "board": "Blackhole p150a",
+ "card": "3",
+ "caveats": [],
+ "counters": {
+  "off": [
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   },
+   {
+    "applied": 0,
+    "declined": 1
+   }
+  ],
+  "on": [
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   },
+   {
+    "applied": 1,
+    "declined": 0
+   }
+  ]
+ },
+ "crop": 384,
+ "delta_seconds": 6.385e-05,
+ "host": "tt-quietbox",
+ "median_off": 0.0007268,
+ "median_on": 0.00079065,
+ "off_seconds": [
+  0.00089489,
+  0.00072726,
+  0.00072154,
+  0.00074343,
+  0.0007268,
+  0.00071062,
+  0.00072681,
+  0.00071556,
+  0.00070208,
+  0.00073707,
+  0.00073422,
+  0.00071597,
+  0.00072149,
+  0.00066698,
+  0.00072684,
+  0.00073227,
+  0.00073912,
+  0.00074787,
+  0.00072606,
+  0.00072599,
+  0.00074184,
+  0.00076012,
+  0.00071944,
+  0.00072498,
+  0.00071978,
+  0.00072943,
+  0.00072295,
+  0.00072972,
+  0.00074008,
+  0.0007199
+ ],
+ "on_seconds": [
+  0.0009819,
+  0.00079639,
+  0.00077646,
+  0.00077397,
+  0.00078513,
+  0.00078375,
+  0.00075046,
+  0.00077319,
+  0.00078332,
+  0.0007944,
+  0.00076995,
+  0.00079428,
+  0.00079135,
+  0.00079352,
+  0.00078481,
+  0.00078114,
+  0.00078618,
+  0.00079581,
+  0.00080399,
+  0.00080989,
+  0.00078354,
+  0.00078885,
+  0.00078341,
+  0.00079935,
+  0.00079612,
+  0.00080109,
+  0.00079012,
+  0.00080763,
+  0.00079119,
+  0.00079844
+ ],
+ "ratio_on_over_off": 1.08785,
+ "reps": 30,
+ "verdict": "PASS"
+}

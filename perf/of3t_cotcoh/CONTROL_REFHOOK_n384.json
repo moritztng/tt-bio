@@ -1,0 +1,10 @@
+{
+ "what": "reference hook control: the hooked float64 arm per-tensor squared gradient norms against the published bundle",
+ "host": "tt-quietbox",
+ "published": "/home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt",
+ "compared": 2736,
+ "unmatched_keys": 0,
+ "worst_relative_squared_norm_difference": 34.99816456023365,
+ "worst_at": "pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.bias",
+ "note": "the hooked arm is driven from of3t-modelframe boundary and cotangent; the published bundle is the full-model float64 backward that boundary was cut from, so this reads whether the hooks changed the function, at the resolution of per-tensor squared norms"
+}

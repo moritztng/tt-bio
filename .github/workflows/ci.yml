@@ -37,3 +37,12 @@ jobs:
           # job pins 3.10.
           python -m pip install pytest tomli
           python -m pytest tests/test_packaging_smoke.py -q
+      # Training must stay opt-in and must not fork the forward. Added 2026-09-22 after an
+      # audit found this file was cited by name in tt_bio/ops.py:59 and
+      # tt_bio/autograd.py:905 as the thing that holds the rule, while nothing executed it:
+      # CI ran only the packaging smoke test and no gate script referenced it. It is pure
+      # AST plus stdlib, needs no card and no ttnn, and runs in about a second; its one
+      # runtime leg skips cleanly where ttnn is absent, which is the case here.
+      - name: Training-is-opt-in invariants
+        run: |
+          python -m pytest tests/test_training_opt_in.py -q -rs

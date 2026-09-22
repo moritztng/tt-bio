@@ -1,0 +1,55 @@
+{
+ "what": "of3t-orchestrator pass 392: the GRADIENTS clause is graded on a frame the campaign withdrew, and DOESNOT is a frame behind that.",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads committed artifacts and computes no timing",
+ "DEFECT_1_the_clause_is_graded_on_a_withdrawn_frame": {
+  "clause": "GRADIENTS",
+  "artifact": "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json",
+  "the_frame": "of3t-modelframe",
+  "that_frame_fails_its_own_gating_control": {
+   "what_the_control_requires": "an injected float64 trunk on the frame's own captured boundary and cotangent must return grads_f64_043.pt's pairformer_stack section to float64 round-off",
+   "bar_preregistered_in": "commit 2520681ed",
+   "bar": 1e-12,
+   "reads": 0.7945281613194305,
+   "orders_over": 11,
+   "defect": "D242"
+  },
+  "the_clause_still_computes": {
+   "numerator": 0.27095922968432157,
+   "bar": 0.15210099830945006,
+   "ratio": 1.7814428090278143
+  },
+  "and_that_ratio_is_listed_as_WITHDRAWN": "of3t-frameself's retraction sort puts the clause's 1.7814428090278143x under CROSS-FRAME AND THEREFORE WITHDRAWN, together with the trunk's 2.9702x, block 47's 4.1613x and of3t-cotcoh's 0.1100",
+  "no_verdict_moves": "the clause is NOT MET either way, and a FAIL cannot manufacture a false GO -- which is why this survived. An unflattering error is still an error, and this one is in the machine-readable file a reviewer reads.",
+  "what_is_NOT_done_here": "the clause is not re-scored and no number is invented. of3t-frameself has the standing instruction not to re-score, and re-scoring on a frame that still fails its own control would be the same defect with a newer figure."
+ },
+ "DEFECT_2_DOESNOT_is_a_frame_behind_and_its_blocker_concluded": {
+  "stale_numbers": [
+   {
+    "key": "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+    "DOESNOT_says": 0.517117,
+    "artifact_reads": 0.27095922968432157
+   },
+   {
+    "key": "stats.renorm_vs_FLOAT64.n_over_per_tensor_bar",
+    "DOESNOT_says": 3314,
+    "artifact_reads": 3312
+   }
+  ],
+  "the_worse_half": {
+   "DOESNOT_says": "the 5.83 % 'awaits of3t-modelframe'",
+   "but": "that row CONCLUDED. It published a clause from a frame whose gating control had not been run; the control then failed by twelve orders of magnitude.",
+   "what_it_awaits_today": "D242's repair, owned by of3t-frameself",
+   "why_the_wording_matters": "'awaits a pending row' reads as routine work in flight; 'sits on a frame that failed its own control' does not, and the second is what is true."
+  },
+  "and_the_framing_is_two_defects_old": "the field is written around D237; D241 found the clause divides two different experiments and D242 found the frame fails its own control."
+ },
+ "THE_PATTERN_THIS_MAKES_THREE_OF": {
+  "R148": "COVERAGE published MET beside prose naming three paths that do not fire",
+  "R154": "TRAJECTORY published MET without the operating point five factors are single-valued or inert at",
+  "R157": "GRADIENTS published a precise FAIL on a frame the campaign had withdrawn",
+  "the_common_shape": "a clause's CHECKS stay live because a script recomputes them, while the PROSE beside them is written once and then rots. All three were fixed the same way -- describe where the evidence lives, or what the artifact's status is, instead of restating a value the check already computes.",
+  "and_the_direction_is_not_always_flattering": "R148 understated us, R157 overstates the distance to go. Rot has no preferred sign, so an audit cannot skip the clauses that look bad."
+ },
+ "DOESNOT": "this moves no verdict, no bar and no measurement. It records that the GRADIENTS clause's artifact sits on a disqualified frame and that DOESNOT quotes superseded values and a concluded blocker, and it fixes both where a reviewer reads them."
+}

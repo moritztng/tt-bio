@@ -1,0 +1,51 @@
+{
+ "pin": "single_plan64",
+ "rc": 0,
+ "seconds": 397.0,
+ "pin_reach": {
+  "pin": "single_plan64",
+  "queried": 384,
+  "replaced": 0,
+  "returned": {
+   "1536x384": {
+    "shipped": [
+     36,
+     108
+    ],
+    "pinned": null
+   }
+  }
+ },
+ "route_census": {
+  "_fp32_softmax_attention q [384, 4, 384, 32]": 384,
+  "_sdpa_masked site=tri_att_hifi q [384, 4, 384, 32]": 384
+ },
+ "env": {
+  "TT_BIO_TRIATT_SDPA_HIFI_AB": "",
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "0",
+  "TT_BIO_LEASE_CARDS": "0"
+ },
+ "site_flags_triatt_hifi_on": "openfold3.trunk",
+ "triatt_fused_hifi_stats": {
+  "served": 0,
+  "declined": 384,
+  "too_short": 0
+ },
+ "triatt_fused_hifi_picks_q_k_kvbf": {},
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 384,
+  "blocks": 6754,
+  "fused": 6765,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 6532,
+  "l1_refused": 11,
+  "l1_cores": 96,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ }
+}

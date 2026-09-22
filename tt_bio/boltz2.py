@@ -1444,13 +1444,18 @@ class Transition(nn.Module):
         init.lecun_normal_init_(self.fc2.weight)
         init.final_init_(self.fc3.weight)
 
-    def forward(self, x: Tensor, chunk_size: int = None) -> Tensor:
+    def forward(self, x: Tensor, chunk_size: int = None,
+                mask: Optional[Tensor] = None) -> Tensor:
         """Perform a forward pass.
 
         Parameters
         ----------
         x: torch.Tensor
             The input data of shape (..., D)
+        mask: Optional[torch.Tensor]
+            Zeroes the output on padded positions, broadcasting against x. Upstream
+            OpenFold3 always does this (`_mask_trans=True`); our port could not, which is
+            D174. None is the shipped behaviour and every non-OpenFold3 caller passes it.
 
         Returns
         -------
@@ -1463,7 +1468,7 @@ class Transition(nn.Module):
         if chunk_size is None or self.training:
             x = self.silu(self.fc1(x)) * self.fc2(x)
             x = self.fc3(x)
-            return x
+            return x if mask is None else x * mask
         else:
             # Compute in chunks
             for i in range(0, self.hidden, chunk_size):
@@ -1475,7 +1480,7 @@ class Transition(nn.Module):
                     x_out = x_chunk @ fc3_slice.T
                 else:
                     x_out = x_out + x_chunk @ fc3_slice.T
-            return x_out
+            return x_out if mask is None else x_out * mask
 
 
 class SingleConditioning(Module):

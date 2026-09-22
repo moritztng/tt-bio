@@ -1,0 +1,261 @@
+{
+ "what": "the per-step cost of a 20-step trajectory at each scope rung, measured on one host at one thread count, with the extrapolation to 20 steps and its residual against the two rungs the campaign has already paid in full.",
+ "host": "tt-quietbox",
+ "host_detail": {
+  "cpu": "x86_64",
+  "cores": 32,
+  "threads_used": 16,
+  "torch": "2.8.0+cpu",
+  "python": "3.10.12",
+  "loadavg_at_start": [
+   3.3115234375,
+   3.54150390625,
+   3.57958984375
+  ]
+ },
+ "reference_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "policy": "float64 on every parameter and every activation, checkpoint upcast at load",
+ "crop": 384,
+ "sha256": {
+  "diffusion_boundary": "ea80f18e651dae517e3cdc0563c8e6b27d9a4c6bd2e32d8066dd7c4c70b060e6",
+  "checkpoint": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "boundary_n384": "8cb3a58669eaadc9a6782d927ff4dd4dc7b706f244e5575709b738c5ccb59aa3"
+ },
+ "diffusion_boundary_path": "/home/ttuser/of3t_hostleg/diffcap043/diffusion_boundary.pt",
+ "diffusion_boundary_path_note": "the capture refpath names on qb2 under of3t_softgrad; this host carries the byte-identical copy under of3t_hostleg, a concluded slug's directory. The digest above is what binds it, not the path.",
+ "model_sq_norm": 10.279642678524981,
+ "anchors": {
+  "diffusion_module.diffusion_conditioning": {
+   "artifact": "perf/of3t_trajretake/traj_retake_shipped.json",
+   "pct_of_model": 36.94617946669957,
+   "steps": 20,
+   "both_sides_s": 129.63047623634338,
+   "host": "tt-quietbox2",
+   "threads": null,
+   "note": "one process, the two sides zipped, so this is the pair"
+  },
+  "diffusion_module": {
+   "artifact": "perf/of3t_trajwiden/traj_widen_shipped.json",
+   "pct_of_model": 88.08194359237523,
+   "steps": 20,
+   "device_s": 3335.8588473796844,
+   "reference_s": 9056.806815862656,
+   "both_sides_s": 12392.66566324234,
+   "host": "tt-quietbox2",
+   "threads": 3,
+   "note": "sides decoupled, each its own process"
+  }
+ },
+ "rungs": {
+  "diffusion_module.diffusion_conditioning": {
+   "rung": "diffusion_module.diffusion_conditioning",
+   "build_s": 0.43588972091674805,
+   "n_parameters": 26,
+   "pct_of_model": 36.94617946669957,
+   "per_level": {
+    "1": {
+     "forward_s": 1.2211947441101074,
+     "backward_s": 0.0197145938873291,
+     "one_fwd_bwd_s": 1.2409093379974365
+    },
+    "12": {
+     "forward_s": 1.6584899425506592,
+     "backward_s": 0.2367255687713623,
+     "one_fwd_bwd_s": 1.8952155113220215
+    }
+   },
+   "accumulation": {
+    "samples_per_step": 4,
+    "levels_per_sample": 12
+   },
+   "ref_per_step_s": 7.580862045288086,
+   "ref_20_step_s": 151.61724090576172,
+   "peak_rss_gb_process_so_far": 12.213462829589844
+  },
+  "diffusion_module": {
+   "rung": "diffusion_module",
+   "build_s": 25.60497260093689,
+   "n_parameters": 761,
+   "pct_of_model": 88.08194359237523,
+   "pct_of_model_is": "the 573 of 761 tensors of3t-trajwide's device arm reaches, not the section's full 89.2106 %",
+   "per_level": {
+    "1": {
+     "forward_s": 3.226804494857788,
+     "backward_s": 11.830298900604248,
+     "one_fwd_bwd_s": 15.057103395462036
+    },
+    "2": {
+     "forward_s": 3.8537635803222656,
+     "backward_s": 13.632943868637085,
+     "one_fwd_bwd_s": 17.48670744895935
+    }
+   },
+   "fit": {
+    "marginal_s_per_noise_level": 2.4296040534973145,
+    "fixed_s_per_call": 12.627499341964722,
+    "from": "two readings, n = 1 and n = 2"
+   },
+   "accumulation": {
+    "samples_per_step": 4,
+    "levels_per_sample": 12
+   },
+   "ref_per_step_s": 167.13099193572998,
+   "ref_20_step_s": 3342.6198387145996,
+   "peak_rss_gb_process_so_far": 14.571517944335938
+  },
+  "pairformer_stack": {
+   "rung": "pairformer_stack",
+   "blocks": {
+    "1": {
+     "forward_s": 3.5691349506378174,
+     "backward_s": 16.271966695785522,
+     "one_fwd_bwd_s": 19.84110164642334,
+     "wall_s": 19.84961986541748,
+     "peak_rss_gb": 24.745243072509766
+    },
+    "2": {
+     "forward_s": 8.30970811843872,
+     "backward_s": 34.783937215805054,
+     "one_fwd_bwd_s": 43.093645334243774,
+     "wall_s": 43.11979293823242,
+     "peak_rss_gb": 25.588878631591797
+    },
+    "4": {
+     "forward_s": 17.296653032302856,
+     "backward_s": 71.62703204154968,
+     "one_fwd_bwd_s": 88.92368507385254,
+     "wall_s": 88.95035672187805,
+     "peak_rss_gb": 25.588878631591797
+    },
+    "8": {
+     "forward_s": 41.80028223991394,
+     "backward_s": 138.62031722068787,
+     "one_fwd_bwd_s": 180.4205994606018,
+     "wall_s": 180.45196652412415,
+     "peak_rss_gb": 25.680709838867188
+    }
+   },
+   "pct_of_model": 5.8282,
+   "boundary": "/home/ttuser/of3t_frame384/boundary_n384.pt",
+   "checkpointed": true,
+   "checkpointing_is_inert": "of3t-trunkg043 ref_grad.py: 2736/2736 bit-identical on both policies at crop 64, max abs diff 0.0",
+   "shapes": {
+    "s": [
+     1,
+     384,
+     384
+    ],
+    "z": [
+     1,
+     384,
+     384,
+     128
+    ],
+    "single_mask": [
+     1,
+     384
+    ],
+    "pair_mask": [
+     1,
+     384,
+     384
+    ]
+   },
+   "fit": {
+    "over_blocks": [
+     1,
+     2,
+     4,
+     8
+    ],
+    "slope_s_per_block": 22.923184699597567,
+    "intercept_s": -2.892184744710505,
+    "r2": 0.9999949722527353,
+    "predicted_48_block_one_fwd_bwd_s": 1097.4206808359727
+   },
+   "held_out_48_block_point": {
+    "artifact": "perf/of3t_frame384/REF_F64_N384.json",
+    "measured_one_fwd_bwd_s": 1629.178281394008,
+    "threads": 16,
+    "peak_rss_gb": 24.88104248046875,
+    "host": "tt-quietbox (qb1), per of3t_frame384/FRAME_N384.json hosts field",
+    "residual_s": -531.7576005580354,
+    "residual_rel": -0.32639620023846405,
+    "why_held_out": "same host, same thread count, same checkpointing. Re-paying it costs 27 min and moves no verdict; using it as the validation point is what makes the ladder an extrapolation with a residual rather than an assertion."
+   },
+   "accumulation": {
+    "samples_per_step": 4,
+    "note": "the pair branch runs on sample 0 alone in the harness's partition, so the per-step multiplier is 1, and 4 is quoted beside it as the cost if every sample ran it"
+   },
+   "ref_per_step_s": 1629.178281394008,
+   "ref_20_step_s": 32583.56562788016,
+   "ref_20_step_s_if_every_sample": 130334.26251152065,
+   "peak_rss_gb_process_so_far": 25.680709838867188
+  }
+ },
+ "elapsed_s": 407.40421175956726,
+ "AUX_AND_MSA_PRICED_pass2": {
+  "where": "perf/of3t_trajwiden/FLOOR_QB2.json, the same floor_screen.py with two rungs added.",
+  "why_a_second_host": "the aux_heads and msa_module captures are 910 MB and 478 MB and live on qb2; qb1's root filesystem is at 99 % with 62 GB free, so the screen went to the data rather than 1.4 GB of the data coming to a nearly-full disk.",
+  "the_cross_host_tie_point": {
+   "rung": "diffusion_module.diffusion_conditioning, 12 noise levels, one fwd+bwd",
+   "qb1_16_threads_s": 1.8952155113220215,
+   "qb2_16_threads_s": 2.2925641536712646,
+   "qb2_over_qb1": 1.2096588171505993,
+   "why": "a second host would otherwise make these rungs incomparable with the qb1 ones. Re-measuring one already-priced rung on the new host costs 14 s and converts the new numbers into the old frame by MEASUREMENT instead of assumption. D189, and this row's own lesson that a reference is part of a measurement's identity.",
+   "caveat": "qb2 has 16 cores against qb1's 32, so at 16 threads qb2 is fully committed and qb1 is half committed. The factor absorbs that along with the clock difference; it is a host-pair conversion, not a clock ratio."
+  },
+  "contention_during_the_qb2_rungs": {
+   "loadavg_at_start": [
+    2.4736328125,
+    2.06201171875,
+    2.04052734375
+   ],
+   "note": "of3t-trainfwd was running two arms on the same 16-core box during the aux and msa rungs and loadavg reached ~25. These two readings are therefore UPPER bounds. That direction is safe for a floor screen and is stated rather than averaged away."
+  },
+  "rungs_in_the_qb1_frame": {
+   "diffusion_module": {
+    "pct_of_model": 88.08194359237523,
+    "ref_per_step_s_qb1": 167.13099193572998,
+    "measured_on": "qb1 directly",
+    "ref_20_step_h_qb1": 0.9285055107540554,
+    "seconds_per_point_of_model_mass": 1.8974489562716417
+   },
+   "aux_heads": {
+    "pct_of_model": 2.8431,
+    "ref_per_step_s_qb1": 164.15154912319605,
+    "ref_per_step_s_qb2_measured": 198.56736874580383,
+    "measured_on": "qb2",
+    "ref_20_step_h_qb1": 0.9119530506844225,
+    "seconds_per_point_of_model_mass": 57.736818656816865
+   },
+   "msa_module": {
+    "pct_of_model": 1.2317,
+    "ref_per_step_s_qb1": 215.70548417194658,
+    "ref_per_step_s_qb2_measured": 260.93004083633423,
+    "measured_on": "qb2",
+    "ref_20_step_h_qb1": 1.1983638009552589,
+    "seconds_per_point_of_model_mass": 175.12826513919507
+   },
+   "pairformer_stack": {
+    "pct_of_model": 5.8282,
+    "ref_per_step_s_qb1": 1629.178281394008,
+    "measured_on": "qb1 directly (frame384's 48-block point)",
+    "ref_20_step_h_qb1": 9.050990452188934,
+    "seconds_per_point_of_model_mass": 279.5336950334594
+   }
+  },
+  "what_this_falsified": {
+   "the_pass_1_prediction": "FLOOR.json said of aux_heads and msa_module: 'Both modules are far smaller than diffusion_module (244 and 227 reference tensors against 761) and neither carries the 48-noise-level sample axis that dominates the diffusion rung, so neither is expected to approach the pairformer rung.'",
+   "measured": "the pairformer comparison holds -- aux is 8.2x and msa 6.2x under it. The implication that they are CHEAP does not. Per step in the qb1 frame: diffusion_module 167.1 s for 88.08 points, aux_heads 164.2 s for 2.84, msa_module 215.7 s for 1.23. msa_module costs 1.29x the ENTIRE diffusion module per step while carrying 1/72nd of its mass.",
+   "the_mechanism": "parameter count is not a cost proxy and neither is mass share. aux_heads' 244 parameters include a whole Pairformer stack (pairformer_embedding.pairformer_stack) applied over a 384x384 pair axis, and msa_module is a 48-block stack over the MSA and pair axes. A section is expensive because of the AXES its ops sweep, not because of how many weights it holds or how much gradient mass they carry.",
+   "cost_per_point_of_model_mass_qb1_s": {
+    "diffusion_module": 1.8974489562716417,
+    "aux_heads": 57.736818656816865,
+    "msa_module": 175.12826513919507,
+    "pairformer_stack": 279.5336950334594
+   },
+   "so": "the diffusion rung is the only rung in the model that is cheap per point of mass. Every other rung is 30x to 92x worse value, and per COUPLED_VS_UNION.json the aux and msa points do not add to the coupled scope at all."
+  }
+ }
+}
