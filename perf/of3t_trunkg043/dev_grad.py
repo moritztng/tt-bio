@@ -166,7 +166,12 @@ def main() -> int:
         pf_set[k] = (True if lv in ("1", "true", "yes", "on")
                      else False if lv in ("0", "false", "no", "off") else v)
     import inspect as _inspect
-    _sig = set(_inspect.signature(T.Pairformer.__init__).parameters)
+    # Over the MRO, not off the class: an instrument that SUBCLASSES Pairformer to get a handle
+    # on the built module is normal here (of3t_bwdaccum/dev_cot.py does exactly that), and its
+    # __init__(*ar, **kw) makes a signature read off the class report three parameters. That
+    # refused every real kwarg while looking like a correct guard.
+    _sig = set().union(*(set(_inspect.signature(c.__init__).parameters)
+                         for c in T.Pairformer.__mro__ if "__init__" in c.__dict__))
     _bad = sorted(set(pf_set) - _sig)
     if _bad:
         raise SystemExit(f"--pf-set names kwargs Pairformer does not take: {_bad}")
