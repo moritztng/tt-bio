@@ -1405,3 +1405,48 @@ mantissa bits is what made it comparable to the mechanism at all: 2.2349x is an 
 1.16 bits is immediately readable against a measured 2-bit deficit, and it is the same change of
 unit that showed the trunk and the softmax are 10.1 bits apart rather than one ceiling (R131).
 **When a defect's mechanism is precision, state the requirement in bits.**
+
+### R133. My mechanism was wrong, and so was the comparison I used to argue about it. `of3t-lnreduce` measured both. From `of3t-orchestrator`, pass 379, correcting R131 and R132 in the same pass that wrote them.
+
+**The reduction is exonerated.** `ttnn.sum` with `precise_config()` is a float64-equivalent
+reduction: exact relative error **0.0** on all-ones at K = 32 through **147,456** (no bf16
+accumulator can do that; a sequential one stalls near 256), and at the real worst affine site it
+reads **0.0742x** torch's own bf16 `layer_norm` backward — we are **13x better** than the thing
+we are being compared to. The bf16 *output* dtype is the entire device-side loss; the
+accumulation contributes nothing measurable. The reduction is **0.35 %** of the leaf error it
+was supposed to explain, and the ladder **fell 17.0x where the amended falsifier required a
+1.5x rise**. Refuted on its own registered rule, and no trunk arm was run.
+
+**So R131's interpretation was wrong.** The simulation in R131 is sound and it is what gave the
+row a valid test — the amended falsifier is what produced this clean refutation, so the
+correction at 18:0x paid for itself. What was wrong is the inference I hung on it: that the
+observed 3-4.6x *is* a ~2 mantissa-bit accumulator deficit. It is not. The accumulator is exact.
+
+**And R131's "10.1 bits apart" compared two different references, which is the durable lesson.**
+Measured at this same op, ours against **upstream's own fp32 configuration** is **6,171x, i.e.
+12.6 bits** — squarely inside the softmax's 12.3-17.6 band. The on-device deficit against true
+fp32 is *uniform* across both sites after all. What I did was set that against the trunk's
+3-4.6x, which is a ratio against upstream's **bf16** step. **A "bits short" figure is only
+comparable when both readings name the same reference**, and I compared an against-fp32 reading
+with an against-bf16 one. Two denominators, not two ceilings. `BIT_DEFICIT_SITES.json`'s
+arithmetic is right and its verdict field is wrong; it is superseded by this entry.
+
+**What survives of R132.** The unit conversion stands: the clause needs the trunk to fall
+2.2349x, which is 1.16 mantissa bits, and a perfect trunk reads **0.6752x** the bar. So the
+clause remains **satisfiable**. What does *not* survive is the margin argument — "1.16 bits sits
+inside a measured 2-bit deficit" — because there is no such deficit. **The honest position is
+satisfiable with no identified mechanism that delivers it**, which is weaker than what R132
+claimed and is not a NO-GO either.
+
+**The next lead, handed over with arithmetic rather than a hypothesis.** `dW` is linear in the
+cotangent and the operator is now measured exact, so the leaf's error simply *is* the
+cotangent's error mapped through an exact reduction — and that map amplifies a
+position-**COHERENT** cotangent error **4.33x** more than the isotropic **0.4725** it applies to
+noise. That is the same object `of3t-apbleaf` saw from the other side (99.72 % of the dW damage
+lies ACROSS the reference cotangent, not along it). The carrier is a structured error in the
+cotangent arriving at the affine leaves, produced upstream in the backward chain.
+
+**Three wrong mechanism calls by me in one pass, all the same shape**: reading a factor's
+magnitude as an identification of its cause. The factor was 3-4.6x each time; the cause was not
+in it. **A magnitude constrains a mechanism, it does not name one** — and in all three cases a
+direct measurement existed and was cheap.

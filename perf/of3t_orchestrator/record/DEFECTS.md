@@ -1183,3 +1183,43 @@ this decisively elsewhere barely touches the trunk**, which is what a boundary m
 and what an arithmetic defect does not. D237 argued this from file provenance and from the
 quadrature split; this is a third, independent line.
 
+
+---
+
+### D239. The trunk's LayerNorm affine excess is NOT the reduction, and the orchestrator's ~2-bit accumulator reading was wrong. **CLOSED** — refuted by measurement at pass 379.
+
+Found by `of3t-lnreduce`, which was dispatched on the hypothesis and refuted it on its own
+pre-registered falsifier rather than rescuing it.
+
+`ttnn.sum(..., compute_kernel_config=precise_config())` in `tt_bio/autograd.py::_sum_leading`,
+reached by every LayerNorm gamma and beta gradient (14,256 calls in 12 signatures over one real
+trunk backward, `SUMCENSUS_n384.json`), is a **float64-equivalent reduction**: relative error
+**exactly 0.0** on all-ones at K = 32, 256, 1,024, 8,192, 32,768 and **147,456**. No bf16
+accumulator can do that; a sequential one stalls near 256. The **bf16 output dtype is the entire
+device-side loss** and the accumulation contributes nothing measurable.
+
+At the real worst affine site, `dW` against a float64 reference validated by central finite
+differences (dW 2.16e-09, dB 1.68e-09, and dx — the one that can actually fail — at 1.43e-07):
+
+    ours (device, precise_config, bf16 out)   2.761490e-03      0.0742x torch's own bf16
+    ours with an fp32 reduction operand       1.143946e-03
+    the device's own prod summed in float64   1.176626e-03
+    torch, bf16 parameters                    3.720964e-02
+    torch, upstream's own configuration       4.474782e-07
+
+**We are 13x better than the bf16 reference we are graded against.** The reduction is **0.35 %**
+of the leaf error it was meant to explain, and the ladder **fell 17.0x** where the falsifier
+required a 1.5x rise.
+
+**Two orchestrator errors it also closes**, both recorded in R133. The reading of the trunk's
+3-4.6x as a ~2 mantissa-bit accumulator deficit was an inference from a magnitude and is
+refuted. And the "the trunk and the softmax are 10.1 bits apart, not one ceiling" comparison set
+an against-fp32 reading beside an against-bf16 one: measured at this same site, ours against
+upstream's own **fp32** is **6,171x = 12.6 bits**, inside the softmax's 12.3-17.6 band. The
+on-device deficit against true fp32 is uniform; the two sites differ in what they are graded
+against, not in their ceiling.
+
+**What it opens.** `dW` is linear in the cotangent and the operator is measured exact, so the
+leaf error IS the cotangent's error mapped through an exact reduction — and that map amplifies a
+position-**COHERENT** cotangent error **4.33x** against the isotropic **0.4725** it applies to
+noise. `of3t-cotcoh` is dispatched on it.
