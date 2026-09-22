@@ -1,0 +1,95 @@
+{
+ "claim": "the float64 reference is now as validated as it can be made, on five independent axes, and every remaining gap in this campaign is therefore OURS.",
+ "axis_1_independent_rebuild_is_BIT_IDENTICAL": {
+  "what": "the finite-difference run rebuilt the reference from scratch in its own process, hours after the frozen bundle was built",
+  "bundle_min_043/grads_f64_043.pt": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "run/out_043_fd/grads_f64.pt": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "bytes": 2947844653,
+  "identical": true,
+  "why_it_matters": "this is the A/A arm the campaign never had. Two independent builds, one sha256. The reference's own reproducibility floor is EXACTLY ZERO, not \"small\"."
+ },
+ "axis_2_finite_differences": {
+  "n_samples": 8,
+  "sections_hit": {
+   "diffusion_module": 5,
+   "pairformer_stack": 1,
+   "aux_heads": 1,
+   "msa_module": 1
+  },
+  "worst_rel": 0.005088,
+  "median_rel": 5.5079999999999994e-05,
+  "best_rel": 2.417e-07,
+  "samples": [
+   {
+    "param": "diffusion_module.diffusion_transformer.blocks.14.conditioned_transition.linear_out.weight",
+    "section": "diffusion_module",
+    "analytic": -2.203064e-06,
+    "fd": -2.203064e-06,
+    "rel": 2.417e-07
+   },
+   {
+    "param": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight",
+    "section": "pairformer_stack",
+    "analytic": -0.0009013419,
+    "fd": -0.0008977458,
+    "rel": 0.00399
+   },
+   {
+    "param": "aux_heads.distogram.linear.weight",
+    "section": "aux_heads",
+    "analytic": 0.001394483,
+    "fd": 0.001394464,
+    "rel": 1.387e-05
+   },
+   {
+    "param": "msa_module.blocks.3.pair_stack.pair_transition.layer_norm.weight",
+    "section": "msa_module",
+    "analytic": -0.00133098,
+    "fd": -0.001324917,
+    "rel": 0.004555
+   },
+   {
+    "param": "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight",
+    "section": "diffusion_module",
+    "analytic": -0.0004870199,
+    "fd": -0.0004870662,
+    "rel": 9.515e-05
+   },
+   {
+    "param": "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "section": "diffusion_module",
+    "analytic": -0.007028066,
+    "fd": -0.007028125,
+    "rel": 8.411e-06
+   },
+   {
+    "param": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias",
+    "section": "diffusion_module",
+    "analytic": -0.04034407,
+    "fd": -0.04013878,
+    "rel": 0.005088
+   },
+   {
+    "param": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.weight",
+    "section": "diffusion_module",
+    "analytic": -0.0008495955,
+    "fd": -0.0008496083,
+    "rel": 1.501e-05
+   }
+  ],
+  "section_mass_share_pct": {
+   "diffusion_module": 89.211,
+   "pairformer_stack": 5.828,
+   "aux_heads": 2.843,
+   "msa_module": 1.24,
+   "input_embedder": 0.801
+  },
+  "coverage_statement": "5 of 8 in diffusion_module, which holds 89.211 % of the gradient mass; one each in pairformer_stack, aux_heads and msa_module -- every section above 1 % of the squared norm got at least one. Under the retired uniform-over-tensors draw diffusion had a 19.9 % chance of ZERO samples and pairformer, with 65.6 % of the tensor COUNT, would have taken most of eight.",
+  "note": "two samples land in diffusion_conditioning -- the sub-module holding 33.61 % of the diffusion magnitude that sits outside our DiffusionModule boundary -- and two land on attention_pair_bias / conditioned_transition layer norms, the family that owns the error tail. Both validate: 5.088e-03 and 1.501e-05, 8.411e-06 and 9.515e-05."
+ },
+ "axis_3_revision": "D22/D23: built at 0.4.3, the revision the checkpoint belongs to, missing=1 (version_tensor) / unexpected=0, upstream's own loader accepts it",
+ "axis_4_replay": "45/45 torch.randn draws and 2/2 python random draws replayed, 0 mismatches, loss bit-identical on replay",
+ "axis_5_boundary_capture": "capture_vs_bundle worst_rel 0.0 at every one of the 7 ladder boundaries",
+ "what_this_licenses": "D22/D23 controlled the reference's REVISION. Axis 2 controls its NUMERICAL CORRECTNESS. Axis 1 controls its REPRODUCIBILITY, exactly. So when the device gradient reads 1.6588e-01 at model scope, or 1.0575 on the one tensor FD validated to 3.990e-03, the disagreement is not the reference's. Every remaining gap is ours.",
+ "what_it_does_NOT_license": "FD validates the reference, not our port. It cannot say WHICH of our stages is wrong -- only that the thing we are measured against is right. And 8 samples is 8 of 4,170 parameters: the coverage claim is \"every section above 1 % of the squared norm was hit\", not \"every tensor was checked\"."
+}
