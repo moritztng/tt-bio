@@ -230,10 +230,6 @@ TABLE = {
              "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
              "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "
              "Campaign-internal: an unlocated gradient defect on an unmerged training path."),
-    "D199": (CAMP, "COVERAGE's diffusion_rollout gap rests on a census reason that is wrong about "
-             "upstream: the rollout runs under torch.no_grad() and is the mini rollout in "
-             "training, so it is not differentiated. The clause needs restating in the sense the "
-             "model has. Campaign-internal: it is about this campaign's own coverage definition."),
     "D198": (CAMP, "run_arms.sh's clock_watch truncates the four-device tt-smi dump to device 0's "
              "AICLK fields, so every aiclk log in of3t-trajwide's runs records card 0 whichever "
              "card the arm held; the shipped arm ran on card 1. Recoverable here because 0 and 1 "

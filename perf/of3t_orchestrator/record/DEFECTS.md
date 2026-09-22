@@ -2701,3 +2701,45 @@ measured reason rather than by omission.**
 349's sentence should have said *the reference builder's module*. A defect scoped to a builder read
 as scoped to every reference would have put the campaign's best result in doubt for no reason —
 the mirror image of the flattering direction, and the same imprecision either way.
+
+### D199 UPDATE, pass 351. **CLOSED**, and COVERAGE with it — the campaign's first met charter condition.
+
+`of3t-trainfwd` concluded at `bdbe43a95`. Coverage goes **9 of 11 to 11 of 11**, loss terms stay
+8 of 8, and `CHARTER_EVIDENCE.json` reads **1 of 3** for the first time in the campaign.
+
+**The precondition I set at pass 348 is met, which is why this composed now and not then.**
+Inference is **byte-identical, verified TWICE** — after the adapter landed and again after the
+sampler refactor — `ubq.cif` `6a8a43ca…` and `ubq_model_1.cif` `62d94b47…` matching base commit
+`16eac05c1` exactly. A coverage win composed while "did you break inference" was outstanding would
+have been the wrong order.
+
+**Composed upgrade-only, and the guard says so.** `merge_coverage.py` takes
+`COVERAGE_TRAINFWD.json` as a third source pinned by sha256 (`0fd2c866bb8eb1e9`), and **refuses**
+if that row reports a path uncovered where `of3t-covpaths` has it covered: two rows disagreeing
+about one path is a finding, not a merge. Both upgraded entries carry `superseded: {was: false}`,
+so the artifact records that these were the two the census confirmed uncovered.
+
+**Three findings the row left behind, all kept.**
+
+*The objective's contract assumes every label is batch-side and two are not.* `plddt`'s label is a
+function of the prediction, and `edm_scale`'s sigma is drawn per forward. That belongs in
+`objectives.af3_loss`, **not** in a per-model adapter — a UNIFIED-not-per-model call made against
+its own convenience.
+
+*What it deliberately did not ship.* The one-step denoise arm is wired and runs, six of eight terms
+firing, but **3 of 3400 parameter gradients come back non-finite** — always
+`sampler.dc.w_lin_z/w_lin_s/w_lin_n`, whose dW reduces over 147,456 token pairs. Defaults off. **The
+seeds are ruled out by measurement rather than argument**: the largest is `pred_xyz` at 11.5669,
+`losses.mse` already applies upstream's stop-gradient Kabsch, and the seed norm is *identical* for a
+structure rotated 1.1 rad and translated 12 Å. The amplification is inside the diffusion backward
+and is not root-caused. That is an unowned object and it looks like `of3t-tapeamp`'s neighbourhood.
+
+*P5 refuted and reported as a miss:* it predicted over 600 s per step and measured **496.9 s**
+(crop 384, AICLK median 1350 sampled during; 20 steps = 2.76 h).
+
+**And P4 HELD, which is the discipline worth recording.** There is still no unstitched model-scope
+gradient and **D187 stays open** — because the pinned float64 reference was taken with upstream's
+own cotangent and replayed draws, while this forward seeds from our loss and draws its own noise.
+Scoring across that would be exactly the cross-frame error this campaign has already paid for once.
+The row had the most attractive deliverable in the campaign within reach and **refused to form it**,
+on D186's grounds, against its own interest.
