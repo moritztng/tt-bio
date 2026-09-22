@@ -1865,15 +1865,23 @@ if ORCH.is_file():
                 continue
         return out
 
+    # Same exemption shape as the D164 seconds guard: the text that RETIRES a bad value has to
+    # quote it, so a digest inside a paragraph naming D192 is being documented, not asserted.
+    # Deliberately narrow -- the paragraph must name the defect, not merely hedge -- and tested
+    # both ways below, because an exemption that swallows the case is a guard that reports clean.
     _uncorrob = []
     for _f in ("PROVES", "DOESNOT", "GAP", "VERDICT"):
         _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_-]+:|\Z)", _o, _re.M | _re.S)
         if not _m:
             continue
-        for _tok in sorted(set(_dg.findall(_m.group(1)))):
-            if not _carriers(_tok):
+        _body = _m.group(1)
+        for _para in _body.split("\n\n"):
+            _retires = "D192" in _para
+            for _tok in sorted(set(_dg.findall(_para))):
+                if _carriers(_tok) or _retires:
+                    continue
                 _uncorrob.append(f"{_f} quotes {_tok}, carried by no artifact outside "
-                                 f"perf/of3t_orchestrator/")
+                                 f"perf/of3t_orchestrator/ and not in a paragraph naming D192")
     if _uncorrob:
         bad.append("digest(s) quoted in a summary field with no row behind them: "
                    + "; ".join(_uncorrob) + " -- a value only this row has written is not a "
