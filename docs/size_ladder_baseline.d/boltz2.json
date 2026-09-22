@@ -3318,7 +3318,7 @@
                 "rejects": {
                   "k_tiles=4": 560
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)"
+                "reason": "declines all 560 calls on k_tiles=4 x560: declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N, so F1 is inert on this model at every size. It reads 0 declined at 512-1024 on this card only because it is not offered there -- `fused_tail`'s one call site (tenstorrent.py:7048) is guarded by `g_out_fused is None` and the gate rides the in-projection at those rungs. Above 1024 g_out stops being fused, so the same inert lever becomes visible as a decline rather than as a dark cell. Falsifier: widening F1_BLOCK_KEYS to cover (4, *) makes served > 0 here and nowhere below 1152, which is the lever working rather than drift"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3598,7 +3598,7 @@
                 "rejects": {
                   "k_tiles=4": 560
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)"
+                "reason": "declines all 560 calls on k_tiles=4 x560: declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N, so F1 is inert on this model at every size. It reads 0 declined at 512-1024 on this card only because it is not offered there -- `fused_tail`'s one call site (tenstorrent.py:7048) is guarded by `g_out_fused is None` and the gate rides the in-projection at those rungs. Above 1024 g_out stops being fused, so the same inert lever becomes visible as a decline rather than as a dark cell. Falsifier: widening F1_BLOCK_KEYS to cover (4, *) makes served > 0 here and nowhere below 1152, which is the lever working rather than drift"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3878,7 +3878,7 @@
                 "rejects": {
                   "k_tiles=4": 560
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)"
+                "reason": "declines all 560 calls on k_tiles=4 x560: declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N, so F1 is inert on this model at every size. It reads 0 declined at 512-1024 on this card only because it is not offered there -- `fused_tail`'s one call site (tenstorrent.py:7048) is guarded by `g_out_fused is None` and the gate rides the in-projection at those rungs. Above 1024 g_out stops being fused, so the same inert lever becomes visible as a decline rather than as a dark cell. Falsifier: widening F1_BLOCK_KEYS to cover (4, *) makes served > 0 here and nowhere below 1152, which is the lever working rather than drift"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4158,7 +4158,7 @@
                 "rejects": {
                   "k_tiles=4": 560
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)"
+                "reason": "declines all 560 calls on k_tiles=4 x560: declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N, so F1 is inert on this model at every size. It reads 0 declined at 512-1024 on this card only because it is not offered there -- `fused_tail`'s one call site (tenstorrent.py:7048) is guarded by `g_out_fused is None` and the gate rides the in-projection at those rungs. Above 1024 g_out stops being fused, so the same inert lever becomes visible as a decline rather than as a dark cell. Falsifier: widening F1_BLOCK_KEYS to cover (4, *) makes served > 0 here and nowhere below 1152, which is the lever working rather than drift"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
