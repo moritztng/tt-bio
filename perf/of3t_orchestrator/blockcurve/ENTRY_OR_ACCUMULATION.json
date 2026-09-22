@@ -1,0 +1,122 @@
+{
+ "instrument": "perf/of3t_orchestrator/blockcurve/entry_or_accumulation.py",
+ "host": "pc",
+ "source": "perf/of3t_modelframe/ATTRIBUTION.json, 12 of 48 blocks = 79.55 % of trunk error mass",
+ "orientation": "the backward ENTERS at block 47 and descends to 0; 'depth' is 47 - block index",
+ "per_block": [
+  {
+   "block": 0,
+   "ours_rel_l2": 1.4666677143075555,
+   "upstream_own_rel_l2": 0.7440435916439786,
+   "over_upstream": 1.9712120778661975,
+   "pct_trunk_error_mass": 5.790040576353571,
+   "pct_trunk_reference_mass": 2.675306819678845
+  },
+  {
+   "block": 4,
+   "ours_rel_l2": 2.8088608168334988,
+   "upstream_own_rel_l2": 1.6705966822799412,
+   "over_upstream": 1.6813518466947484,
+   "pct_trunk_error_mass": 40.470678608616694,
+   "pct_trunk_reference_mass": 5.098418723450772
+  },
+  {
+   "block": 11,
+   "ours_rel_l2": 0.7782966790507236,
+   "upstream_own_rel_l2": 0.1684102229616158,
+   "over_upstream": 4.621433695436135,
+   "pct_trunk_error_mass": 1.0082863266419484,
+   "pct_trunk_reference_mass": 1.654432208765302
+  },
+  {
+   "block": 39,
+   "ours_rel_l2": 0.7038365435408157,
+   "upstream_own_rel_l2": 0.3125255651871416,
+   "over_upstream": 2.2520926987824357,
+   "pct_trunk_error_mass": 1.0574376980660691,
+   "pct_trunk_reference_mass": 2.1216152025995365
+  },
+  {
+   "block": 40,
+   "ours_rel_l2": 0.7469810394649171,
+   "upstream_own_rel_l2": 0.19981540629796055,
+   "over_upstream": 3.738355581806513,
+   "pct_trunk_error_mass": 1.472291815745694,
+   "pct_trunk_reference_mass": 2.622588754384926
+  },
+  {
+   "block": 41,
+   "ours_rel_l2": 1.098268461386571,
+   "upstream_own_rel_l2": 0.21116021868587073,
+   "over_upstream": 5.201114434439913,
+   "pct_trunk_error_mass": 2.6177517890909563,
+   "pct_trunk_reference_mass": 2.15708318712613
+  },
+  {
+   "block": 42,
+   "ours_rel_l2": 0.8860448755001241,
+   "upstream_own_rel_l2": 0.2913129626162652,
+   "over_upstream": 3.041556639095649,
+   "pct_trunk_error_mass": 1.304119954751987,
+   "pct_trunk_reference_mass": 1.6510550628593006
+  },
+  {
+   "block": 43,
+   "ours_rel_l2": 0.8853031983650097,
+   "upstream_own_rel_l2": 0.31699978581653665,
+   "over_upstream": 2.792756455921955,
+   "pct_trunk_error_mass": 1.0275650014987685,
+   "pct_trunk_reference_mass": 1.3031088396474917
+  },
+  {
+   "block": 44,
+   "ours_rel_l2": 1.4267911410972425,
+   "upstream_own_rel_l2": 0.36774856321905364,
+   "over_upstream": 3.8798007220149437,
+   "pct_trunk_error_mass": 2.9668621614679775,
+   "pct_trunk_reference_mass": 1.4485450779543054
+  },
+  {
+   "block": 45,
+   "ours_rel_l2": 0.8933205217265824,
+   "upstream_own_rel_l2": 0.38099769103428494,
+   "over_upstream": 2.3446874948284,
+   "pct_trunk_error_mass": 1.6826561729560423,
+   "pct_trunk_reference_mass": 2.0957342675130017
+  },
+  {
+   "block": 46,
+   "ours_rel_l2": 0.9617915745536137,
+   "upstream_own_rel_l2": 0.14992503373384802,
+   "over_upstream": 6.415149962620776,
+   "pct_trunk_error_mass": 6.536843959637591,
+   "pct_trunk_reference_mass": 7.02363015722509
+  },
+  {
+   "block": 47,
+   "ours_rel_l2": 0.9603319859460044,
+   "upstream_own_rel_l2": 0.23077603036701752,
+   "over_upstream": 4.161315992907619,
+   "pct_trunk_error_mass": 13.619948395913465,
+   "pct_trunk_reference_mass": 14.678717995213887
+  }
+ ],
+ "slope_log2_per_block_of_descent": {
+  "ours": 0.01778949430295939,
+  "upstream_own": 0.03432148571991935,
+  "our_excess_over_upstream": -0.016531991416959955
+ },
+ "endpoints": {
+  "ours_at_47": 0.9603319859460044,
+  "ours_at_4": 2.8088608168334988,
+  "upstream_at_47": 0.23077603036701752,
+  "upstream_at_4": 1.6705966822799412
+ },
+ "mean_over_upstream": {
+  "entry_blocks_39_to_47": 3.7585366647131337,
+  "deep_blocks_0_to_11": 2.7579992066656938
+ },
+ "reading": "BOTH sides accumulate through the descent and UPSTREAM ACCUMULATES FASTER. Ours grows 0.9603 -> 2.8089 from block 47 to block 4, a factor 2.93; upstream's own grows 0.2308 -> 1.6706, a factor 7.24. In log2 per block of descent, ours is +0.0178 and upstream's +0.0343, so our EXCESS over upstream SHRINKS as the backward descends, at -0.0165 per block. Mean over_upstream is 3.7585 at the entry blocks 39-47 and 2.7580 at the deep blocks 0-11.",
+ "what_it_argues": "Our excess is largest where the backward ENTERS and attenuates as it descends, so the defect looks like an ENTRY condition rather than something compounding per block. That is a prior AGAINST any mechanism whose signature is per-block compounding -- including D240, the fan-out-keyed cotangent dtype -- as the explanation for the excess ACROSS the stack. It does not clear D240 at the entry itself.",
+ "caveats": "Twelve of 48 blocks, chosen by mass, so this is not a uniform sample and the 36 unenumerated blocks can move it. Block 11 is an outlier at 4.6214 with worst_rel_l2 18.307. And the ratio is high at 46/47 substantially because UPSTREAM IS VERY ACCURATE THERE (0.1499, 0.2308), not only because we are bad -- which is exactly why both absolute curves are reported beside it. A PRIOR for the walk, not a replacement: of3t-cotcoh should measure all 48."
+}
