@@ -1580,8 +1580,18 @@ if ORCH.is_file():
                     if "of3t" not in n or "of3t-orchestrator" in n:
                         continue
                     slug = n.split(".")[0]          # strip .falseconclude-<date>, .reopened-<date>
-                    if f"wk/{slug}" not in heads:
-                        out.append(slug)
+                    if f"wk/{slug}" in heads:
+                        continue
+                    # A row's work does not have to live on a branch NAMED after it. `of3t-d116`
+                    # has no `wk/of3t-d116` and all eight of its artifacts are in the composition,
+                    # pushed on `wk/of3t-d56-renorm` -- so the old message, "evidence exists only
+                    # on one host's disk", was false and would send a reader chasing nothing while
+                    # hiding a real orphan among the noise. Ask the question the message actually
+                    # makes: is the row's artifact namespace IN the composed tree?
+                    ns = ROOT / "perf" / ("of3t_" + slug[len("of3t-"):].replace("-", ""))
+                    if ns.is_dir() and any(ns.iterdir()):
+                        continue
+                    out.append(slug)
                 return sorted(set(out))
 
             # Break control, every run: a guard that cannot fire has tested nothing, and this file
@@ -1592,9 +1602,9 @@ if ORCH.is_file():
             else:
                 _orphans = _orphaned([d.name for d in _CON.iterdir()], _heads)
                 if _orphans:
-                    bad.append("these rows are CONCLUDED and have no branch on origin, so their "
-                               "evidence exists only on one host's disk and the compose skipped "
-                               "them with a note meant for a LIVE row: " + ", ".join(_orphans))
+                    bad.append("these rows are CONCLUDED, have no branch on origin AND no "
+                               "artifact namespace in the composition, so their evidence exists "
+                               "only on one host's disk: " + ", ".join(_orphans))
                 else:
                     ok.append(f"all {_n_conc} concluded rows have a branch on origin "
                               f"(probe fires)")
