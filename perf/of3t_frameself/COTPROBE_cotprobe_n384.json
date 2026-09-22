@@ -1,0 +1,47 @@
+{
+ "what": "the stack's output cotangent read by torch.autograd.grad instead of by a tensor hook, and every tape node that consumes s_out / z_out",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "published_cotangent": {
+  "path": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+  "sha256": "4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac"
+ },
+ "loss": 1.267624369070698,
+ "tape_nodes_walked_from_the_loss": 3,
+ "consumers_of_the_stack_outputs": {
+  "s_out": {
+   "n": 0,
+   "nodes": []
+  },
+  "z_out": {
+   "n": 0,
+   "nodes": []
+  }
+ },
+ "autograd_grad_vs_the_published_hook": {
+  "s": {
+   "present": true,
+   "bit_identical": true,
+   "norm_autograd_grad": 5.599999708545341e-05,
+   "norm_published_hook": 5.599999708545341e-05,
+   "rel_l2_vs_published_hook": 0.0,
+   "ratio_autograd_over_hook": 1.0
+  },
+  "z": {
+   "present": true,
+   "bit_identical": true,
+   "norm_autograd_grad": 0.0007601379094210722,
+   "norm_published_hook": 0.0007601379094210722,
+   "rel_l2_vs_published_hook": 0.0,
+   "ratio_autograd_over_hook": 1.0
+  }
+ },
+ "seconds_autograd_grad": 166.76320672035217,
+ "verdict": {
+  "s": "the hook and autograd.grad agree bit for bit",
+  "z": "the hook and autograd.grad agree bit for bit"
+ }
+}

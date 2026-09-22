@@ -1,0 +1,111 @@
+{
+ "what": "A34 is satisfied on ONE side of the trunk clause. The bf16 denominator is a different experiment from the numerator, and the instrument that would put them on the same boundary already exists and has never been run on this frame.",
+ "host": "pc",
+ "defect": "D241",
+ "ledger": "R135",
+ "the_asymmetry": {
+  "our_arm_is_injected": {
+   "evidence": [
+    {
+     "file": "perf/of3t_modelframe/runarm.sh",
+     "line": 6,
+     "text": "# thing changed: --boundary and --cap-last point at the pair capture_model_frame.py took from"
+    },
+    {
+     "file": "perf/of3t_modelframe/runarm.sh",
+     "line": 24,
+     "text": "B=$D/boundary_model_n384.pt"
+    },
+    {
+     "file": "perf/of3t_modelframe/runarm.sh",
+     "line": 25,
+     "text": "C=$D/cot_model_n384.pt"
+    },
+    {
+     "file": "perf/of3t_modelframe/runarm.sh",
+     "line": 67,
+     "text": "--boundary \"$B\" --cap-last \"$C\" --out \"$OUT\" \\"
+    }
+   ],
+   "means": "our device trunk is handed the reference's float64 boundary AND the reference's float64 incoming cotangent"
+  },
+  "their_bf16_arm_is_not": {
+   "evidence": [
+    {
+     "file": "perf/of3t_modelframe/score.sh",
+     "line": 49,
+     "text": "--bf16 /home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt \\"
+    }
+   ],
+   "means": "arm4_bf16_autocast is a FULL-MODEL bf16 autocast run. Its trunk was driven by whatever bf16 boundary and bf16 cotangent its own forward and backward produced -- neither is the injected pair"
+  },
+  "direction_of_the_bias": "TOWARDS US. We are handed an exact cotangent and they compute their own, so their reading carries an error ours does not. Every 'Nx upstream' figure on this frame is therefore a LOWER bound on our excess, and the clause's 1.7814x is not explained away by it. What is unknown is the SIZE of the bound."
+ },
+ "why_it_decides_the_campaign": {
+  "if_our_trunk_merely_matched_upstreams_own_bf16_floor": {
+   "trunk_level": 0.3147698293887927,
+   "clause_value": 0.12967067993359122,
+   "x_bar": 0.8525301041731214,
+   "clears": true
+  },
+  "a_perfect_trunk": {
+   "clause_value": 0.1026990533692057,
+   "x_bar": 0.6752030197741641,
+   "clears": true
+  },
+  "bar": 0.15210099830945006,
+  "reading": "the whole failing clause is the distance between our trunk and upstream's own bf16 trunk. That distance has never been measured with both sides on the same boundary."
+ },
+ "the_missing_arm": {
+  "command": "perf/of3t_trunkg043/ref_grad.py --policy bf16auto --boundary <of3t_modelframe>/boundary_model_n384.pt --cap-last <of3t_modelframe>/cot_model_n384.pt --blocks 48",
+  "instrument_already_takes_both_injections": [
+   {
+    "file": "perf/of3t_trunkg043/ref_grad.py",
+    "line": 99,
+    "text": "ap.add_argument(\"--policy\", default=\"f64\", choices=(\"f64\", \"f32\", \"bf16auto\"))"
+   },
+   {
+    "file": "perf/of3t_trunkg043/ref_grad.py",
+    "line": 94,
+    "text": "ap.add_argument(\"--boundary\", required=True)"
+   },
+   {
+    "file": "perf/of3t_trunkg043/ref_grad.py",
+    "line": 95,
+    "text": "ap.add_argument(\"--cap-last\", required=True,"
+   }
+  ],
+  "bf16auto_is_upstreams_own": [
+   {
+    "file": "perf/of3t_trunkg043/ref_grad.py",
+    "line": 12,
+    "text": "bf16auto   float32 parameters under `torch.autocast('cpu', bfloat16)` -- upstream's OWN"
+   }
+  ],
+  "never_run_on_this_frame": "every committed bf16auto arm (REF_BF16AUTO_c64.json and the frame384 family) is on block47_boundary.pt, the capture-driven crop-384 walk D237 refuted",
+  "needs_no_card": true
+ },
+ "what_it_would_settle": {
+  "ours_on_this_frame_vs_float64": 2.159527121735274,
+  "per_block_cotangent_growth_ours": "0.1100 after one block, plateauing near 2 (of3t-cotcoh, measured on this frame)",
+  "per_block_cotangent_growth_theirs": null,
+  "two_sided_test": "if upstream's injected-bf16 trunk also reaches ~0.9 against float64, the trunk excess is the site conditioning plus this asymmetry and the clause may already clear; if it reproduces its un-injected 0.3148, the excess is ours and is real at 2.97x. Those are the only two outcomes and one arm separates them."
+ },
+ "corroborating_entry_reading": {
+  "block_47_is_the_first_block_the_backward_touches": {
+   "block": 47,
+   "ours_rel_l2": 0.9603319859460044,
+   "upstream_own_rel_l2": 0.23077603036701752,
+   "over_upstream": 4.161315992907619,
+   "pct_trunk_error_mass": 13.619948395913465,
+   "pct_trunk_reference_mass": 14.678717995213887
+  },
+  "note": "blocks 47 and 46 hold 20.1568 % of the trunk's error mass before any trunk-internal accumulation can have happened, and upstream reads very low there (0.2308, 0.1499) -- which is exactly what an un-injected reference would do if its own cotangent error had not yet had blocks to grow in."
+ },
+ "model_scope_context": {
+  "ours_vs_upstream_bf16": 0.27095922968432157,
+  "upstream_bf16_vs_float64": 0.10937539968339202,
+  "upstream_f32_vs_float64": 7.381018979951686e-05
+ },
+ "doesnot": "This names a missing control. It does not claim the trunk passes, does not move a tolerance and does not retract the 1.7814x -- which, being a lower bound, still fails. It says the number the campaign is trying to close has never been measured against a like-for-like reference."
+}
