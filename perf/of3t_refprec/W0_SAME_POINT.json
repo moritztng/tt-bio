@@ -1,0 +1,8 @@
+{
+ "n_tensors": 4936,
+ "n_bit_identical_after_fp32_cast": 4936,
+ "n_different": 0,
+ "n_non_float_skipped": 0,
+ "worst_abs_diff": 0.0,
+ "worst_tensor": null
+}
