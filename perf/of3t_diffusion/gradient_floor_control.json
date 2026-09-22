@@ -1,0 +1,54 @@
+{
+ "above_floor": {
+  "median": 0.06444451577321669,
+  "n": 738,
+  "over_5e-2": 491,
+  "sq_norm_share_over_5e-2": 0.6154135858668194,
+  "worst": 0.49004380279258375,
+  "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+ },
+ "below_floor": {
+  "n": 0,
+  "tensors": []
+ },
+ "compared_set": {
+  "n_tensors": 738,
+  "ref_norm_max": 1.1713141202926636,
+  "ref_norm_min": 5.699163921235595e-06,
+  "sq_norm": 12.538976320392138
+ },
+ "control": {
+  "perturbed_at_measured_median": {
+   "epsilon": 0.06444451577321669,
+   "median": 0.09105140993856814,
+   "n": 738,
+   "over_5e-2": 738,
+   "sq_norm_share_over_5e-2": 1.0,
+   "worst": 0.4834060895776933,
+   "worst_tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias"
+  },
+  "shuffled_within_shape": {
+   "median": 1.4573413993491622,
+   "n": 726,
+   "over_5e-2": 726,
+   "sq_norm_share_over_5e-2": 0.8566872008789052,
+   "worst": 3162.9312379568105,
+   "worst_tensor": "diffusion_module.atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.bias"
+  },
+  "zero_model": {
+   "median": 1.0,
+   "n": 738,
+   "over_5e-2": 738,
+   "sq_norm_share_over_5e-2": 1.0,
+   "worst": 1.0,
+   "worst_tensor": "diffusion_module.linear_s.weight"
+  }
+ },
+ "floor": {
+  "abs_norm": 3.5410416998945577e-06,
+  "abs_sq": 1.2538976320392138e-11,
+  "declared": "before the worst case below was read",
+  "rule": "a tensor is compared only if its own squared gradient norm is at least 1e-12 of the compared set's squared norm",
+  "share": 1e-12
+ }
+}
