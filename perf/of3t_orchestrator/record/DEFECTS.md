@@ -2298,3 +2298,135 @@ it is the reason a training forward cannot be `OpenFold3.fold()` with a tape ope
 is owed to establish that. What **remains open** is only the restatement of the clause. That is
 mine to act on, not the row's: the orchestrator repoints conditions, and it is not done this pass
 because the row is live and the restatement should read its result rather than anticipate it.
+
+### D200. Both shape-keyed sites are now REFUTED, so D191's width growth has no named mechanism at all. FOUND by `of3t-shapekey`, pass 347, against the brief I wrote. **UNFIXED** and wide open.
+
+Arm C pinned the pair-track route off (`TT_BIO_TRIATT_SDPA_HIFI_AB=-openfold3.trunk`, 430.3 s on
+qb2 card 0, AICLK min 800 / median 1350 sampled every 4 s during the run). The pin fired and is
+visible in the sidecars:
+
+    site_flags_triatt_hifi_on   C384 "none"                    A384 "openfold3.trunk"
+    triatt_fused_hifi_stats     C384 served 0, declined 0      A384 served 0, DECLINED 384
+    route census                C384 384 calls, _sdpa_masked absent; A384 recorded it 384 times
+
+    ours_384   0.8354121633458236     vs arm A   0.8354121633458237
+    growth     0.5509895585288935     delta against arm A   exactly 0.0
+
+**Bit-identical.** And the reason is sharper than "the pin did nothing": with the fused route ON
+the kernel is attempted 384 times and **declines 384 times on L1**, so the same materialised
+function serves every call either way. The fused route contributes nothing at 384, and arm C is a
+no-op for a different reason than the brief predicted — not because one chunk already ships there,
+but because the kernel that would do the chunking never serves a call.
+
+**With D196, that is both candidates.** The single-track site is never executed; the pair-track
+site cannot change a bit. The shape-keyed-dispatch framing was mine, assembled from
+`of3t-widthattr`'s code reading, and it is spent. The row is now looking where the single track's
+attention actually goes — the tape's own verbs in `tt_bio/autograd.py`.
+
+**A discipline worth copying:** before reading 430.3 s against arm A's 399.7 s as a difference, the
+row established its own timing floor — two byte-identical A64 runs at 24.2 s and 26.4 s, a **9.1 %**
+spread. The 7.7 % between C384 and A384 is inside it, so no timing claim was made.
+
+### D195 UPDATE, pass 347 — the sibling test is answered, and it splits D191 in two. Still **UNFIXED**.
+
+AMENDMENT 1 asked whether the leaf the width-growth decomposition names is actually worse than the
+leaves beside it. `perf/of3t_shapekey/SIBLINGS.json`, 2,736 tensors, references built on qb1 and
+the device arm on qb2 card 0:
+
+    block44.layer_norm_a.weight
+      excess over its worst UPSTREAM sibling, at width  64      2.6233
+      excess over its worst UPSTREAM sibling, at width 384      2.5399
+      how much that excess itself moves with width              0.9682
+      the sub-block's MEDIAN width growth                       2.9456
+      spread across the upstream group (n=6)                    1.8453x, 1.6948 to 3.1275
+
+**So both readings are true and they are about different things.** The named leaf IS a site, not a
+carrier — 2.6x its worst sibling, where D187's named leaf was 1.07x — but **that excess is
+width-invariant** (0.9682), while the whole sub-block grows 2.9456x with width. D191's *width
+growth* is therefore a per-sub-block factor that the LayerNorm affine leaves merely report most
+loudly, and the leaf's 2.6x excess is a separate, width-independent defect sitting underneath it.
+
+The decomposition named the right leaves for the wrong quantity, which is exactly what D195
+predicts a difference-of-absolute-errors reading does.
+
+Correctly excluded rather than quoted: `layer_norm_z.bias` reads `rel_l2` 3.6e+13 at reference
+norms of 6.4e-17, under the campaign's A14 floor, and the artifact lists it as
+`EXCLUDED_no_usable_relative_scale` instead of putting 3.6e+13 in a table.
+
+### D197 UPDATE, pass 347 — the remaining trajectory rungs are reordered by INFORMATION VALUE, and it inverts the obvious order. Still **UNFIXED**.
+
+The obvious order for the rungs still outside TRAJECTORY's 88.0819 % is by mass, which puts
+`pairformer_stack` (+5.8282 pct) first. It is also the most expensive at **11.41 h**.
+`of3t-trajwiden` checked the static readings first — minutes of work — and reordered it:
+
+    rung               pct to add   static grad vs float64   median/tensor   order
+    aux_heads              2.8431       0.0023114566            1.01520      FIRST
+    msa_module             1.2317       0.0891536427            0.02709      SECOND
+    pairformer_stack       5.8282       0.8354121633            0.66298      DEFER
+
+**Why, and it is a real argument rather than a cost dodge.** A trajectory scores `d_k` driven by
+OUR gradient, so a section whose single-step gradient already sits near the zero-gradient baseline
+can only saturate — and that baseline is **exactly 1.0, measured** (`SCORE_c64.json`
+`A16_zero_gradient_baseline`, `exactly_one true`). The diffusion arm supplies the conversion
+factor: static gradient 0.0079 (conditioning) to 0.1167 (transformer) against float64, 20-step
+trajectory 0.2564 — **a trajectory reads about 2.2x the gradient driving it**. Applied to the
+trunk's frame-matched 0.8354, a 20-step trunk trajectory reads at or above saturation, so 11.41 h
+would buy a number that says "saturated" and nothing more. **Deferred on information value, not
+cost.**
+
+**Two corrections to the record while absorbing this.** The row attributes "93.80 % of the trunk's
+single-step gradient on LayerNorm affine" to `of3t-frame384`; it is **`of3t-widthattr`'s**
+(`GROWTH.json`, pass 342) — frame384 produced the 2.2341x frame-matched reading, widthattr the
+decomposition. And that 93.80 % is now known to be a CARRIER location whose *width* mechanism is
+refuted (D200) and whose leaf excess is width-invariant (D195 update), so "what unblocks the trunk
+rung" points at an object that is itself unlocated. The row's ordering argument does not depend on
+either correction.
+
+The row also flags, correctly, that 0.8354 is FRAME-MATCHED (`FRAME_N384.json`
+`MATCHED.ours_vs_REF_LOCAL_f64_n384`) and that the 2.1595 in the same file is the cross-frame
+figure and the wrong number here — D186 being applied by a row rather than by me.
+
+### D191 UPDATE, pass 347. **RELOCATED**, still **UNFIXED**: the growth is a per-block factor of about 2.9x on the SINGLE track's cotangent, and the 93.80 % on LayerNorm affine is the CARRIER. `of3t-shapekey` concluded at `5b75991d0`.
+
+**Every pin leaves it standing.** Arm A re-took both widths with `tri_att_sdpa_hifi` recorded and
+reproduces the banked reading to sixteen digits — ours **0.8354121633458236** at padded 384 against
+a qb1-built bf16 floor of **0.37393839211303703**, ratio **2.234090376826803**,
+`ours_384/ours_64` **2.179488262781703**, growth **0.5509895585288935** mw² over 2736 of 2736
+tensors — which closes the confound `of3t-widthattr` could not: the flag is inert at 64 because
+`_TRIATT_FUSED_HIFI_MIN_S = 128` refuses first, and the banked n384 arm already carried it True.
+
+    arm B   pair-track L1 geometry pinned to the width-64 answer, FIRED 384 of 384,
+            built geometry confirmed equal to A64's (blocked 0, blocks 0, l1_blocks 0)
+              -> moves the growth by +3.689e-05 mw^2 = +0.00670 %,
+                 entirely inside pair_stack; attn_pair_bias and single_transition BIT-IDENTICAL
+    arm C   pair-track fused route pinned off      -> delta exactly 0.0
+    single-track pin  cannot fire: `_fp32_softmax_l1_plan` was queried 384 times and replaced 0,
+            the only class ever asked about being the pair track's 1536x384
+
+So the two sites I named account for **0.0067 %** and **0.0 %** of a 2.1795x growth.
+
+**The row also refuted its own pre-registration, and said so.** It had registered that the fused
+route differs across widths. It does not — the kernel declines all 384 calls either way, and at 384
+it is the **allocator** that refuses, not the `MIN_S` gate. Both readings are in the sidecars.
+
+**Where the object actually is.** The named leaf's excess over its worst cotangent-sharing sibling
+is **width-invariant** in the three blocks holding 74.58 % of the growth — 2.6233→2.5399,
+9.6354→10.3559, 0.2439→0.2082 — while the whole upstream group grows **together**: 1.6948–3.1275x
+in block 44, 1.7203–3.9338x in block 4. Block 44's `layer_norm_a.weight` goes 8.2250 → 24.3992 and
+its worst sibling `mha.linear_q.bias` 3.1353 → 9.6065, **the same factor**.
+
+**`of3t-widthattr`'s 93.80 % on LayerNorm affine is therefore the CARRIER of the width growth, not
+its site**, and the leaf's own wrongness (`norm_ratio` 7.3729 at `cos` -0.0057) is a separate,
+width-independent object. The row flagged that this contradicts how the campaign record reads that
+figure and left the record unedited for me; `VERDICT:` and `GAP:` are corrected this pass.
+
+**The next object is named and it is not a leaf**: the taped single-track attention in
+`tt_bio/autograd.py`, which the route census identified as where `AttentionPairBias`'s attention
+actually goes.
+
+**Cost, AICLK sampled every 4 s during every run on qb2 card 0, median 1350 MHz throughout:** A64
+24.2 s and 26.4 s — which is the **9.1 % A/A wall-clock floor** the row established before reading
+any arm-to-arm time — then A384 401 s, B384 399 s, C384 432 s, D384 349 s. D at **0.870x** A384
+means pinning the shard plan off cost no throughput here, and the row states the limit itself: one
+pair of readings on a taped backward at 56 real tokens padded to 384, not a fold A/B, and neither
+pin is proposed as a fix. `tt_bio/` untouched, nothing merged.

@@ -214,6 +214,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D200": (CAMP, "Both shape-keyed sites are refuted: the single track never executes and the "
+             "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
+             "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "
+             "Campaign-internal: an unlocated gradient defect on an unmerged training path."),
     "D199": (CAMP, "COVERAGE's diffusion_rollout gap rests on a census reason that is wrong about "
              "upstream: the rollout runs under torch.no_grad() and is the mini rollout in "
              "training, so it is not differentiated. The clause needs restating in the sense the "

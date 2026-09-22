@@ -1445,8 +1445,14 @@ if ORCH.is_file():
         _n_disp = len(list(_WS.glob("of3t-*.txt")))
         _n_conc = len([d for d in _CON.iterdir()
                        if "of3t" in d.name and "of3t-orchestrator" not in d.name])
-        _rm = _re.search(r"^ROWS:\s*\*\*([a-z-]+) dispatched, ([a-z-]+) concluded",
-                         ORCH.read_text(), _re.M)
+        # D201, pass 347: the class name must allow a SPACE. The word list this check compares
+        # against renders 100 as "one hundred", while this pattern was `[a-z-]+` -- so at exactly
+        # one hundred dispatched rows the two halves of ONE check became unsatisfiable: the
+        # opening-form half rejected "one hundred dispatched" and the census half demanded it.
+        # A guard whose own two clauses disagree reports a defect that does not exist and hides
+        # the count it was built to audit.
+        _rm = _re.search(r"^ROWS:\s*\*\*([a-z][a-z -]*[a-z]) dispatched, ([a-z][a-z -]*[a-z]) "
+                         r"concluded", ORCH.read_text(), _re.M)
         if _rm is None:
             bad.append("ROWS does not open with '**<word> dispatched, <word> concluded**', so "
                        "the census cannot be checked against the briefs on disk")
