@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R167 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R168 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R168** recut's A/A is clean from RELOCATED inputs, six contract keys to the last digit;
+  the `injection.convention` stamp does not survive composition and must be per scope
 - **R167** the D242 repair is landed and correct (verified from the diff); its
   `--cot-correction` DEFAULT self-corrects per arm and breaks A34 for every scored pair -> A42
 - **R166** my own repoint condition was tighter than a floor the campaign had measured;
@@ -1664,3 +1666,22 @@ A41 makes the injection correct for one arm; A42 makes it the same for two. A41'
 wrong absolute reading, A42's is a wrong ratio — and the ratio is what the clause is made of.
 The defect class that took fifteen passes to find would have been invisible a second time, one
 level up.
+
+## Pass 402 — the A/A passes from relocated inputs, and the stamp stops at the composer
+
+`of3t-recut`'s `AA_FRAMEMATCHED_composed3660_n384.json` reproduces the published artifact on six
+of R164's seven contract keys to the last digit — and does it from relocated inputs, different
+paths for four of the six scopes. Exact agreement from different paths is what an A/A floor is
+for, and it licenses the re-score.
+
+**The seventh key is absent.** The `injection.convention` stamp is in `ref_grad.py`'s report and
+`.pt`, verified last pass, but the composed-3660 scorer is a different writer and the stamp does
+not survive composition. The composed artifact is what the clause reads, so the contract is unmet
+until it does — the same failure mode as R164 one level in: a fix applied to the producer and not
+to the thing the gate reads. **The stamp has to travel as far as the number does.**
+
+**And it must be per scope.** The composition pools five non-injected full-model scopes with one
+injected arm, `pairformer_stack`, the only one D242 touches; a single flag would be false for
+five of six. Per-scope map plus the correction's sha256 for anything injected, and the composer
+refusing a mixed pool — cheap today, because only one scope is injected, and worth having
+because the next person to inject a second will not be thinking about it.

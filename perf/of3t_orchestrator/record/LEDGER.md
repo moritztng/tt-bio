@@ -1900,3 +1900,36 @@ correct for ONE arm; A42 makes it the same for TWO. **A41's failure shows up as 
 reading; A42's shows up only as a wrong RATIO — and the ratio is what this campaign's clause is
 made of.** The same defect class that took fifteen passes to find would have been invisible a
 second time, one level up.
+
+---
+
+### R168. `of3t-recut`'s A/A floor is clean from relocated inputs; the convention stamp does not survive composition, and it has to be per scope (pass 402, zero card)
+
+**The A/A passes and it is worth more than it looks.**
+`AA_FRAMEMATCHED_composed3660_n384.json` reproduces the published artifact on six of R164's
+seven contract keys **to the last digit** — `renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2`
+0.27095922968432157, `n_over_per_tensor_bar` 3312 against 3494, `coverage_total`
+99.50523155277438, `bars.A26_reachable_bar_vs_their_bf16` 0.15210099830945006, same float64
+sha256 — **from relocated inputs**: `/home/ttuser/of3t_covadopt/…` where the published run used
+`/tmp/of3t/of3t-covadopt/…`, and `of3t_modelframe/dev_RENORM_model_n384_nocaptures.pt` where it
+used `of3t_trunkceiling/dev_RENORM_n384_nocaptures.pt`. **Exact agreement from different paths
+is what an A/A floor is for**, and it is what licenses the re-score to proceed.
+
+**The seventh key is absent.** `injection.convention` is stamped in `ref_grad.py`'s report and
+`.pt` — verified at pass 401 — but **the composed-3660 scorer is a different writer and the
+stamp does not survive composition.** The composed artifact is what the clause reads, so R164's
+contract is unmet until it does. **The stamp has to travel as far as the number does**, which is
+the same failure mode as R164 itself one level in: a fix applied to the producer and not to the
+thing the gate reads.
+
+**And it must be PER SCOPE, because only one of the six is injected.** The composition pools
+`diffusion`, `input_embedder`, `cond`, `aux` and `msa` — full-model runs with no injection —
+with `pairformer_stack`, the injected arm and the only scope D242 touches. A single top-level
+flag would be false for five of six. Per-scope map, each reading `graph_cut_external`,
+`legacy_total_cotangent` or `not_injected`, with the correction's sha256 for any injected scope.
+
+**Then the composer must refuse a mixed pool of injected scopes** — A42's digest rule one level
+up. Today only `pairformer_stack` is injected, so the check is cheap and always passes. It is
+worth having because **the next person to inject a second scope will not be thinking about
+this**, and a composed number built from two conventions is meaningless with nothing in it
+saying so.
