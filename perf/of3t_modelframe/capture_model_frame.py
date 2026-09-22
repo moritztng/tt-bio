@@ -357,7 +357,8 @@ def run_cotprobe(cots, loss, published_cot, out_dir, tag):
     }
 
 
-def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag):
+def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag,
+                   blk=None):
     """--blockprobe only: read the REFERENCE's own trunk gradient with a second instrument.
 
     Every premise that would force the injected replay to reproduce `grads_f64_043.pt` has now
@@ -378,11 +379,14 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag)
         for n, prm in model.named_parameters():
             if n.startswith(f"pairformer_stack.blocks.{i}."):
                 names.append(n); params.append(prm)
+    extra = ([blk["in_s"], blk["in_z"]] if blk and "in_s" in blk else [])
     t0 = time.time()
-    got = torch.autograd.grad(loss, [c["s_out_t"], c["z_out_t"]] + params,
+    got = torch.autograd.grad(loss, [c["s_out_t"], c["z_out_t"]] + extra + params,
                               retain_graph=False, allow_unused=True)
     t_probe = time.time() - t0
-    g_s, g_z, gp = got[0], got[1], got[2:]
+    g_s, g_z = got[0], got[1]
+    real_in = got[2:2 + len(extra)]
+    gp = got[2 + len(extra):]
     mine = {n: (g.detach().to(torch.float64) if g is not None else None)
             for n, g in zip(names, gp)}
 
@@ -417,6 +421,47 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag)
                 "ref_squared_norm": r2, "arm_squared_norm": a2,
                 "worst_rel_l2": worst, "worst_tensor": worst_name}
 
+    # ONE BLOCK, standalone, in this same process. Everything that could differ between the
+    # reference's backward and a replay is held fixed here: the same block object, the input the
+    # real forward handed it, the cotangent the real backward put on its output. If this
+    # reproduces the real backward, no single block is the defect.
+    oneblock = None
+    if blk and "in_s" in blk:
+        bi = blk["index"]
+        block = model.pairformer_stack.blocks[bi]
+        bn = [n for n in names if n.startswith(f"pairformer_stack.blocks.{bi}.")]
+        bp = [prm for n, prm in model.named_parameters() if n in set(bn)]
+        keep = [prm.grad for prm in bp]
+        for prm in bp:
+            prm.grad = None
+        si = blk["in_s"].detach().clone().requires_grad_(True)
+        zi = blk["in_z"].detach().clone().requires_grad_(True)
+        t1 = time.time()
+        so, zo = block(si, zi, *blk["args_rest"], **blk["kwargs"])
+        fwd = {"s": tensor_pair("block_out_s", so, blk["out_s"]),
+               "z": tensor_pair("block_out_z", zo, blk["out_z"])}
+        ((so * c["cot_s"]).sum() + (zo * c["cot_z"]).sum()).backward()
+        t_one = time.time() - t1
+        mine_one = {n: (prm.grad.detach().to(torch.float64) if prm.grad is not None else None)
+                    for n, prm in zip(bn, bp)}
+        real_one = {n: g for n, g in zip(names, gp) if n in set(bn)}
+        oneblock = {
+            "what": "the probed block replayed on its own, on the boundary the real forward "
+                    "handed it and the cotangent the real backward put on its output, in this "
+                    "same process",
+            "block": bi, "n_tensors": len(bn),
+            "seconds": t_one,
+            "forward_reproduces_the_real_block_output": fwd,
+            "standalone_replay_vs_autograd_grad": fit(mine_one, real_one, bn),
+            "standalone_replay_vs_grads_f64_043": fit(mine_one, load(ref_grads), bn),
+            "input_cotangent": {
+                k: tensor_pair("d" + k, t.grad, r)
+                for k, t, r in (("in_s", si, real_in[0] if real_in else None),
+                                ("in_z", zi, real_in[1] if len(real_in) > 1 else None))},
+        }
+        for prm, g in zip(bp, keep):
+            prm.grad = g
+
     rg = load(ref_grads)
     inj = load(injected)
     per = {}
@@ -444,6 +489,7 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag)
                 "s": bool(torch.equal(g_s.detach().to(torch.float64), c["cot_s"])),
                 "z": bool(torch.equal(g_z.detach().to(torch.float64), c["cot_z"]))}},
         "seconds_autograd_grad": t_probe,
+        "one_block_standalone": oneblock,
         "per_block": per,
     }
 
@@ -624,6 +670,35 @@ def main() -> int:
     h1 = model.pairformer_stack.register_forward_pre_hook(pre_hook, with_kwargs=True)
     h2 = model.pairformer_stack.register_forward_hook(post_hook, with_kwargs=True)
 
+    # --blockprobe only: the first named block's own boundary, so ONE block can be replayed
+    # standalone against the real backward with everything else held fixed.
+    blk = {}
+    hb = []
+    if a.blockprobe:
+        bi = int(a.blockprobe.split(",")[0])
+        blk["index"] = bi
+
+        def blk_pre(mod, args_, kwargs, _b=blk):
+            if not torch.is_grad_enabled() or "in_s" in _b:
+                return
+            kw = dict(kwargs)
+            if len(args_) >= 2:
+                _b["in_s"], _b["in_z"] = args_[0], args_[1]
+                _b["args_rest"] = args_[2:]
+            else:
+                _b["in_s"], _b["in_z"] = kw.pop("s"), kw.pop("z")
+                _b["args_rest"] = tuple(args_)
+            _b["kwargs"] = kw
+
+        def blk_post(mod, args_, kwargs, output, _b=blk):
+            if not torch.is_grad_enabled() or "out_s" in _b:
+                return
+            _b["out_s"], _b["out_z"] = output
+
+        tgt = model.pairformer_stack.blocks[bi]
+        hb = [tgt.register_forward_pre_hook(blk_pre, with_kwargs=True),
+              tgt.register_forward_hook(blk_post, with_kwargs=True)]
+
     bm.set_rng_state(pinned, model)
     rec = bm.DrawRecorder(replay)
     mode = "removed" if dtype is torch.float64 else "upstream"
@@ -643,8 +718,10 @@ def main() -> int:
             raise SystemExit("--blockprobe needs --ref-grads and --blockprobe-injected")
         blocks = [int(x) for x in a.blockprobe.split(",") if x.strip() != ""]
         rb = run_blockprobe(cots, loss, model, blocks, a.ref_grads, a.blockprobe_injected,
-                            a.out_dir, a.tag)
+                            a.out_dir, a.tag, blk)
         h1.remove(); h2.remove()
+        for h in hb:
+            h.remove()
         a.out_dir.mkdir(parents=True, exist_ok=True)
         rp = a.out_dir / f"BLOCKPROBE_{a.tag}.json"
         rp.write_text(json.dumps(rb, indent=1))
