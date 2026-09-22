@@ -1,0 +1,48 @@
+{
+  "what": "What model scope reads if the pairformer trunk is put at a given level, the other nine",
+  "artifact": "perf/of3t_modelboundary/MODEL_withtrunk_n384.json",
+  "arm": "renorm_vs_UPSTREAM_BF16",
+  "bar_A26_reachable_vs_their_bf16": 0.14735268326440318,
+  "control_repool_of_the_unswapped_sections": {
+    "assembled_headline_in_the_artifact": 0.5201243840984896,
+    "repooled_here": 0.5201243840984896,
+    "rel_difference": 0.0,
+    "exact_enough": true
+  },
+  "trunk_today": {
+    "mass_weighted_rel_l2": 2.0151163033431088,
+    "pct_of_model_mass": 5.8281714991342914,
+    "ref_sq": 0.669159435898655,
+    "upstream_own_bf16_on_this_section_vs_float64": 0.3147698293887927
+  },
+  "rungs": {
+    "trunk_at_upstreams_own_bf16_level": {
+      "trunk_section_rel": 0.3147698293887927,
+      "model_scope": 0.12590600330957347,
+      "over_the_bar": 0.8544534142188186,
+      "passes": true,
+      "why": "the brief's counterfactual: the section reads what upstream's own bf16 step reads against float64 on the same 2,736 tensors"
+    },
+    "trunk_exactly_reproducing_upstreams_bf16": {
+      "trunk_section_rel": 0.0,
+      "model_scope": 0.09737988979330126,
+      "over_the_bar": 0.6608626842482879,
+      "passes": true,
+      "why": "the unreachable limit, quoted so the rung above can be read as an interpolation and not as a ceiling"
+    },
+    "trunk_at_the_A26_bar_itself": {
+      "trunk_section_rel": 0.14735268326440318,
+      "model_scope": 0.10430089643826145,
+      "over_the_bar": 0.707831673829166,
+      "passes": true,
+      "why": "every section at the bar, which is what a uniformly bar-clearing port would read"
+    },
+    "trunk_unchanged": {
+      "trunk_section_rel": 2.0151163033431088,
+      "model_scope": 0.5201243840984896,
+      "over_the_bar": 3.529792417591753,
+      "passes": false,
+      "why": "today, as a check that the swap machinery is inert at 1.0x"
+    }
+  }
+}
