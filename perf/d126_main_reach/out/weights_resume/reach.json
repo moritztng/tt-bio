@@ -1,0 +1,363 @@
+{
+  "tag": "weights_resume",
+  "argv": {
+    "steps": 5,
+    "tokens": 512,
+    "channels": 256,
+    "blocks": 2,
+    "examples": 16,
+    "train": "weights",
+    "lr": 0.003,
+    "seed": 0,
+    "resume_from": "perf/d126_main_reach/out/weights/ckpt/adapter-00000005.safetensors",
+    "break_rekey": false,
+    "tag": "weights_resume",
+    "out": "/home/ttuser/.coworker/wt/d126-main-reach/perf/d126_main_reach/out"
+  },
+  "wall_s": 1.2250992190020042,
+  "git_sha": "9e17ad4184881644eef5e6835a512ecd41b20a10",
+  "has_parameter_for": false,
+  "value_is_property": false,
+  "aiclk_before": [
+    800
+  ],
+  "aiclk_during_card0": {
+    "samples": 2,
+    "min": 800,
+    "max": 1350,
+    "median": 1350
+  },
+  "aiclk_after": [
+    1350
+  ],
+  "error": null,
+  "probe": [
+    {
+      "step_index": 1,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 0,
+      "last_written": 0,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 28.172216767720318,
+      "lr": 0.0015,
+      "clip": 0.35495964277322983,
+      "master_disp": 0.7691270819335495,
+      "device_disp": 0.7696230847638666,
+      "disp_ratio": 1.0006448906064656,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.38399994373321533,
+        "train_d_dp/model.py:30:block": 0.38400161266326904,
+        "train_d_dp/model.py:29:block#1": 0.3840036690235138,
+        "train_d_dp/model.py:30:block#1": 0.3839999735355377,
+        "train_d_dp/model.py:69:__call__": 0.04157485440373421
+      },
+      "stepped_params": 5,
+      "master_sha": 13131854831
+    },
+    {
+      "step_index": 2,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 23.6724701155082,
+      "lr": 0.003,
+      "clip": 0.42243162421182423,
+      "master_disp": 1.7847475044593826,
+      "device_disp": 1.7826452361815772,
+      "disp_ratio": 0.9988220920480053,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.5394010543823242,
+        "train_d_dp/model.py:30:block": 0.5706372261047363,
+        "train_d_dp/model.py:29:block#1": 0.6044319272041321,
+        "train_d_dp/model.py:30:block#1": 0.6183310151100159,
+        "train_d_dp/model.py:69:__call__": 0.06626418232917786
+      },
+      "stepped_params": 5,
+      "master_sha": 13137109634
+    },
+    {
+      "step_index": 3,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 25.00724931515953,
+      "lr": 0.003,
+      "clip": 0.39988404458134247,
+      "master_disp": 2.550505528291463,
+      "device_disp": 2.5507713488551667,
+      "disp_ratio": 1.000104222696542,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.4251684546470642,
+        "train_d_dp/model.py:30:block": 0.45158281922340393,
+        "train_d_dp/model.py:29:block#1": 0.486741304397583,
+        "train_d_dp/model.py:30:block#1": 0.5172135829925537,
+        "train_d_dp/model.py:69:__call__": 0.05629250034689903
+      },
+      "stepped_params": 5,
+      "master_sha": 13141768264
+    },
+    {
+      "step_index": 4,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 37.54960545562425,
+      "lr": 0.003,
+      "clip": 0.2663143827654301,
+      "master_disp": 3.1453718222942504,
+      "device_disp": 3.1457990365285107,
+      "disp_ratio": 1.0001358231262938,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.3576420247554779,
+        "train_d_dp/model.py:30:block": 0.3720429241657257,
+        "train_d_dp/model.py:29:block#1": 0.40437808632850647,
+        "train_d_dp/model.py:30:block#1": 0.44778844714164734,
+        "train_d_dp/model.py:69:__call__": 0.0507037378847599
+      },
+      "stepped_params": 5,
+      "master_sha": 13139698635
+    },
+    {
+      "step_index": 5,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 34.74808107196128,
+      "lr": 0.003,
+      "clip": 0.28778567597130256,
+      "master_disp": 3.6523322263321663,
+      "device_disp": 3.6528259346641736,
+      "disp_ratio": 1.000135176183713,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.3185502290725708,
+        "train_d_dp/model.py:30:block": 0.33455759286880493,
+        "train_d_dp/model.py:29:block#1": 0.37348324060440063,
+        "train_d_dp/model.py:30:block#1": 0.4277843236923218,
+        "train_d_dp/model.py:69:__call__": 0.05000142753124237
+      },
+      "stepped_params": 5,
+      "master_sha": 13134170951
+    }
+  ],
+  "resume": {
+    "meta": {
+      "step": 5,
+      "metric": "loss",
+      "score": 106.10208258105246,
+      "metrics": {
+        "loss": 106.10208258105246
+      },
+      "provenance": {
+        "seed": 0,
+        "git_sha": "9e17ad418488-dirty",
+        "config": {
+          "objective": "af3",
+          "global_batch": 1,
+          "steps": 6,
+          "lr": 0.003,
+          "train": "weights",
+          "chips": 1,
+          "rank": null,
+          "alpha": null,
+          "dp_rank": 0,
+          "rollout": 20,
+          "sites": [
+            "train_d_dp/model.py:29:block",
+            "train_d_dp/model.py:29:block#1",
+            "train_d_dp/model.py:30:block",
+            "train_d_dp/model.py:30:block#1",
+            "train_d_dp/model.py:69:__call__"
+          ]
+        },
+        "aiclk": {},
+        "device_nodes": [],
+        "seconds": null,
+        "deviation_a": null,
+        "bar_a": 0.6,
+        "seed_floor_a": 1.84,
+        "clock_is_artifact": false,
+        "passed": null
+      }
+    },
+    "names": [
+      "train_d_dp/model.py:29:block",
+      "train_d_dp/model.py:29:block#1",
+      "train_d_dp/model.py:30:block",
+      "train_d_dp/model.py:30:block#1",
+      "train_d_dp/model.py:69:__call__"
+    ],
+    "handles_replaced": 5,
+    "registry_resolves_after_load": 0
+  },
+  "history": [
+    {
+      "step": 0,
+      "loss": 96.65878995843646,
+      "breakdown": {
+        "mse": {
+          "value": 96.65878995843646,
+          "weight": 1.0,
+          "contribution": 96.65878995843646
+        }
+      },
+      "grad_norm": 28.172216767720318,
+      "lr": 0.0015,
+      "s": null
+    },
+    {
+      "step": 1,
+      "loss": 96.32568083881836,
+      "breakdown": {
+        "mse": {
+          "value": 96.32568083881836,
+          "weight": 1.0,
+          "contribution": 96.32568083881836
+        }
+      },
+      "grad_norm": 23.6724701155082,
+      "lr": 0.003,
+      "s": 0.005728995998651953
+    },
+    {
+      "step": 2,
+      "loss": 95.29513644389834,
+      "breakdown": {
+        "mse": {
+          "value": 95.29513644389834,
+          "weight": 1.0,
+          "contribution": 95.29513644389834
+        }
+      },
+      "grad_norm": 25.00724931515953,
+      "lr": 0.003,
+      "s": 0.005348277001758106
+    },
+    {
+      "step": 3,
+      "loss": 103.76264713730271,
+      "breakdown": {
+        "mse": {
+          "value": 103.76264713730271,
+          "weight": 1.0,
+          "contribution": 103.76264713730271
+        }
+      },
+      "grad_norm": 37.54960545562425,
+      "lr": 0.003,
+      "s": 0.00515829500000109
+    },
+    {
+      "step": 4,
+      "loss": 102.17200611564388,
+      "breakdown": {
+        "mse": {
+          "value": 102.17200611564388,
+          "weight": 1.0,
+          "contribution": 102.17200611564388
+        }
+      },
+      "grad_norm": 34.74808107196128,
+      "lr": 0.003,
+      "s": 0.005189083000004757
+    }
+  ],
+  "displacement": {
+    "master": 3.6523322263321663,
+    "device": 3.6528259346641736,
+    "ratio": 1.000135176183713
+  },
+  "sites": [
+    "train_d_dp/model.py:29:block",
+    "train_d_dp/model.py:29:block#1",
+    "train_d_dp/model.py:30:block",
+    "train_d_dp/model.py:30:block#1",
+    "train_d_dp/model.py:69:__call__"
+  ],
+  "provenance": {
+    "seed": 0,
+    "git_sha": "9e17ad418488-dirty",
+    "config": {
+      "objective": "af3",
+      "global_batch": 1,
+      "steps": 5,
+      "lr": 0.003,
+      "train": "weights",
+      "chips": 1,
+      "rank": null,
+      "alpha": null,
+      "dp_rank": 0,
+      "rollout": 20,
+      "sites": [
+        "train_d_dp/model.py:29:block",
+        "train_d_dp/model.py:29:block#1",
+        "train_d_dp/model.py:30:block",
+        "train_d_dp/model.py:30:block#1",
+        "train_d_dp/model.py:69:__call__"
+      ],
+      "displacement": {
+        "master": 3.6523322263321663,
+        "device": 3.6528259346641736,
+        "ratio": 1.000135176183713
+      }
+    },
+    "aiclk": {
+      "samples": 1,
+      "median": 1350.0,
+      "min": 1350.0,
+      "max": 1350.0
+    },
+    "device_nodes": [
+      0
+    ],
+    "seconds": 0.04190997600016999,
+    "deviation_a": null,
+    "bar_a": 0.6,
+    "seed_floor_a": 1.84,
+    "clock_is_artifact": false,
+    "passed": null
+  }
+}

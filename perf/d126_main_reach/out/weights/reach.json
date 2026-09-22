@@ -1,0 +1,357 @@
+{
+  "tag": "weights",
+  "argv": {
+    "steps": 6,
+    "tokens": 512,
+    "channels": 256,
+    "blocks": 2,
+    "examples": 16,
+    "train": "weights",
+    "lr": 0.003,
+    "seed": 0,
+    "resume_from": null,
+    "break_rekey": false,
+    "tag": "weights",
+    "out": "/home/ttuser/.coworker/wt/d126-main-reach/perf/d126_main_reach/out"
+  },
+  "wall_s": 1.274582164001913,
+  "git_sha": "9e17ad4184881644eef5e6835a512ecd41b20a10",
+  "has_parameter_for": false,
+  "value_is_property": false,
+  "aiclk_before": [
+    800
+  ],
+  "aiclk_during_card0": {
+    "samples": 2,
+    "min": 800,
+    "max": 800,
+    "median": 800
+  },
+  "aiclk_after": [
+    1350
+  ],
+  "error": null,
+  "probe": [
+    {
+      "step_index": 1,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 0,
+      "last_written": 0,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 17.492521486420443,
+      "lr": 0.0015,
+      "clip": 0.5716728721907282,
+      "master_disp": 0.7691221138933763,
+      "device_disp": 0.7695148409235215,
+      "disp_ratio": 1.0005106172648675,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.3839987814426422,
+        "train_d_dp/model.py:30:block": 0.38399869203567505,
+        "train_d_dp/model.py:29:block#1": 0.38399967551231384,
+        "train_d_dp/model.py:30:block#1": 0.38399848341941833,
+        "train_d_dp/model.py:69:__call__": 0.04157111793756485
+      },
+      "stepped_params": 5,
+      "master_sha": 13127718631
+    },
+    {
+      "step_index": 2,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 18.22664077552309,
+      "lr": 0.003,
+      "clip": 0.5486474509021538,
+      "master_disp": 1.629768580141493,
+      "device_disp": 1.628717905586141,
+      "disp_ratio": 0.9993553228549413,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.5425218939781189,
+        "train_d_dp/model.py:30:block": 0.5310977697372437,
+        "train_d_dp/model.py:29:block#1": 0.5208051800727844,
+        "train_d_dp/model.py:30:block#1": 0.528722882270813,
+        "train_d_dp/model.py:69:__call__": 0.0588039755821228
+      },
+      "stepped_params": 5,
+      "master_sha": 13133916873
+    },
+    {
+      "step_index": 3,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 22.630141880536303,
+      "lr": 0.003,
+      "clip": 0.44188852428719344,
+      "master_disp": 2.258487410798138,
+      "device_disp": 2.2589058637621986,
+      "disp_ratio": 1.0001852801844544,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.44308796525001526,
+        "train_d_dp/model.py:30:block": 0.42094191908836365,
+        "train_d_dp/model.py:29:block#1": 0.4061596095561981,
+        "train_d_dp/model.py:30:block#1": 0.41103506088256836,
+        "train_d_dp/model.py:69:__call__": 0.046971410512924194
+      },
+      "stepped_params": 5,
+      "master_sha": 13139256820
+    },
+    {
+      "step_index": 4,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 28.272841140263534,
+      "lr": 0.003,
+      "clip": 0.35369632469511303,
+      "master_disp": 2.748742519139063,
+      "device_disp": 2.749044090315378,
+      "disp_ratio": 1.0001097124136638,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.38387417793273926,
+        "train_d_dp/model.py:30:block": 0.35447433590888977,
+        "train_d_dp/model.py:29:block#1": 0.34270620346069336,
+        "train_d_dp/model.py:30:block#1": 0.34704169631004333,
+        "train_d_dp/model.py:69:__call__": 0.041039686650037766
+      },
+      "stepped_params": 5,
+      "master_sha": 13140220836
+    },
+    {
+      "step_index": 5,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 28.70396625612927,
+      "lr": 0.003,
+      "clip": 0.34838391011084263,
+      "master_disp": 3.144437873828178,
+      "device_disp": 3.144989420405084,
+      "disp_ratio": 1.000175403871546,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.33713993430137634,
+        "train_d_dp/model.py:30:block": 0.3071959912776947,
+        "train_d_dp/model.py:29:block#1": 0.30141401290893555,
+        "train_d_dp/model.py:30:block#1": 0.31689178943634033,
+        "train_d_dp/model.py:69:__call__": 0.03954862058162689
+      },
+      "stepped_params": 5,
+      "master_sha": 13137070495
+    },
+    {
+      "step_index": 6,
+      "leaves": 5,
+      "leaves_with_grad": 5,
+      "registry_size": 0,
+      "registry_resolves_leaf": 0,
+      "fwd_weight_handles": 5,
+      "fwd_handles_are_current_leaf_values": 5,
+      "fwd_handles_are_last_written": 5,
+      "last_written": 5,
+      "fwd_raw_weights": 0,
+      "tape_order": 11,
+      "tape_nodes": 5,
+      "grad_norm": 28.019068491970156,
+      "lr": 0.003,
+      "clip": 0.3568998021067635,
+      "master_disp": 3.5025527906608818,
+      "device_disp": 3.5030231660100846,
+      "disp_ratio": 1.0001342950063328,
+      "registry_resolves_leaf_after_step": 0,
+      "per_param_master_step": {
+        "train_d_dp/model.py:29:block": 0.3112001419067383,
+        "train_d_dp/model.py:30:block": 0.29383721947669983,
+        "train_d_dp/model.py:29:block#1": 0.2867048382759094,
+        "train_d_dp/model.py:30:block#1": 0.3103247582912445,
+        "train_d_dp/model.py:69:__call__": 0.03896815702319145
+      },
+      "stepped_params": 5,
+      "master_sha": 13134170753
+    }
+  ],
+  "history": [
+    {
+      "step": 0,
+      "loss": 96.15131773160499,
+      "breakdown": {
+        "mse": {
+          "value": 96.15131773160499,
+          "weight": 1.0,
+          "contribution": 96.15131773160499
+        }
+      },
+      "grad_norm": 17.492521486420443,
+      "lr": 0.0015,
+      "s": null
+    },
+    {
+      "step": 1,
+      "loss": 99.16084500230563,
+      "breakdown": {
+        "mse": {
+          "value": 99.16084500230563,
+          "weight": 1.0,
+          "contribution": 99.16084500230563
+        }
+      },
+      "grad_norm": 18.22664077552309,
+      "lr": 0.003,
+      "s": 0.004882859000645112
+    },
+    {
+      "step": 2,
+      "loss": 99.33035964627015,
+      "breakdown": {
+        "mse": {
+          "value": 99.33035964627015,
+          "weight": 1.0,
+          "contribution": 99.33035964627015
+        }
+      },
+      "grad_norm": 22.630141880536303,
+      "lr": 0.003,
+      "s": 0.004733411999040982
+    },
+    {
+      "step": 3,
+      "loss": 102.990125932159,
+      "breakdown": {
+        "mse": {
+          "value": 102.990125932159,
+          "weight": 1.0,
+          "contribution": 102.990125932159
+        }
+      },
+      "grad_norm": 28.272841140263534,
+      "lr": 0.003,
+      "s": 0.004538108998531243
+    },
+    {
+      "step": 4,
+      "loss": 101.1469505499589,
+      "breakdown": {
+        "mse": {
+          "value": 101.1469505499589,
+          "weight": 1.0,
+          "contribution": 101.1469505499589
+        }
+      },
+      "grad_norm": 28.70396625612927,
+      "lr": 0.003,
+      "s": 0.004656656001316151
+    },
+    {
+      "step": 5,
+      "loss": 106.10208258105246,
+      "breakdown": {
+        "mse": {
+          "value": 106.10208258105246,
+          "weight": 1.0,
+          "contribution": 106.10208258105246
+        }
+      },
+      "grad_norm": 28.019068491970156,
+      "lr": 0.003,
+      "s": 0.004605547001119703
+    }
+  ],
+  "displacement": {
+    "master": 3.5025527906608818,
+    "device": 3.5030231660100846,
+    "ratio": 1.0001342950063328
+  },
+  "sites": [
+    "train_d_dp/model.py:29:block",
+    "train_d_dp/model.py:29:block#1",
+    "train_d_dp/model.py:30:block",
+    "train_d_dp/model.py:30:block#1",
+    "train_d_dp/model.py:69:__call__"
+  ],
+  "provenance": {
+    "seed": 0,
+    "git_sha": "9e17ad418488-dirty",
+    "config": {
+      "objective": "af3",
+      "global_batch": 1,
+      "steps": 6,
+      "lr": 0.003,
+      "train": "weights",
+      "chips": 1,
+      "rank": null,
+      "alpha": null,
+      "dp_rank": 0,
+      "rollout": 20,
+      "sites": [
+        "train_d_dp/model.py:29:block",
+        "train_d_dp/model.py:29:block#1",
+        "train_d_dp/model.py:30:block",
+        "train_d_dp/model.py:30:block#1",
+        "train_d_dp/model.py:69:__call__"
+      ],
+      "displacement": {
+        "master": 3.5025527906608818,
+        "device": 3.5030231660100846,
+        "ratio": 1.0001342950063328
+      }
+    },
+    "aiclk": {
+      "samples": 1,
+      "median": 1350.0,
+      "min": 1350.0,
+      "max": 1350.0
+    },
+    "device_nodes": [
+      0
+    ],
+    "seconds": 0.04309002800073358,
+    "deviation_a": null,
+    "bar_a": 0.6,
+    "seed_floor_a": 1.84,
+    "clock_is_artifact": false,
+    "passed": null
+  }
+}
