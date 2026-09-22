@@ -1,0 +1,102 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_TRIATT_NARROW_Q_FALLBACK=1",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "rf3",
+      "rung": 896,
+      "off": [
+        94.2,
+        97.9,
+        104.8,
+        124.5
+      ],
+      "on": [
+        103.9,
+        105.7,
+        119.6,
+        140.1
+      ],
+      "folds": [
+        {
+          "arm": "off",
+          "rep": 1,
+          "slot": 0,
+          "runtime_s": 94.2,
+          "t_start": 1790114862.9861283,
+          "t_end": 1790114965.5625463
+        },
+        {
+          "arm": "on",
+          "rep": 1,
+          "slot": 1,
+          "runtime_s": 103.9,
+          "t_start": 1790114965.562646,
+          "t_end": 1790115078.166593
+        },
+        {
+          "arm": "on",
+          "rep": 2,
+          "slot": 0,
+          "runtime_s": 105.7,
+          "t_start": 1790115078.1667147,
+          "t_end": 1790115193.6617007
+        },
+        {
+          "arm": "off",
+          "rep": 2,
+          "slot": 1,
+          "runtime_s": 97.9,
+          "t_start": 1790115193.6618373,
+          "t_end": 1790115308.9859262
+        },
+        {
+          "arm": "off",
+          "rep": 3,
+          "slot": 0,
+          "runtime_s": 104.8,
+          "t_start": 1790115308.9860568,
+          "t_end": 1790115429.2187572
+        },
+        {
+          "arm": "on",
+          "rep": 3,
+          "slot": 1,
+          "runtime_s": 119.6,
+          "t_start": 1790115429.2188778,
+          "t_end": 1790115566.2721007
+        },
+        {
+          "arm": "on",
+          "rep": 4,
+          "slot": 0,
+          "runtime_s": 140.1,
+          "t_start": 1790115566.2722993,
+          "t_end": 1790115732.4241116
+        },
+        {
+          "arm": "off",
+          "rep": 4,
+          "slot": 1,
+          "runtime_s": 124.5,
+          "t_start": 1790115732.4242136,
+          "t_end": 1790115882.3338404
+        }
+      ],
+      "off_median": 101.35,
+      "on_median": 112.65,
+      "aa_spread_pct": 32.13493120284065,
+      "aa_spread_off_pct": 29.896398618648245,
+      "aa_spread_on_pct": 32.13493120284065,
+      "ab_median_pct": 11.149481993093254,
+      "inside_aa": true
+    }
+  ]
+}
