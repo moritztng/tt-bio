@@ -81,8 +81,8 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **one hundred thirteen dispatched, one hundred nine concluded**, from disk at the END of pass
-360 (113 `of3t-*` briefs including this row's own; 111 markers, 2 of them this row's own
+ROWS: **one hundred fourteen dispatched, one hundred ten concluded**, from disk at the END of pass
+360 (114 `of3t-*` briefs including this row's own; 112 markers, 2 of them this row's own
 historical ones). **`of3t-refcov` concluded GO mid-pass and closed the coverage leg.** Four rows
 live: `of3t-vjpln` (qb1-2, the backward VJPs) and three trunk rows — `of3t-trunkblocks` (qb1-0),
 `of3t-trunkopclass` (qb1-3), `of3t-trunkceiling` (qb2-0) — **dispatched at 12:44 by another
@@ -346,8 +346,23 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               substituted** (D219): 60,144 firings at padded 384, not 11,856, with
               `_identity_grad` 26.50 % and `_sliced` 21.47 % excluded on purpose as data
               movement — the criterion removed the class every later conclusion points at.
-              Owners: `of3t-readverbs` (blocks 44/4/0, the unsearched verbs),
-              `of3t-trunkopclass` (model op classes), `of3t-trunkceiling` (the silicon ceiling).
+              **The LEVER ceiling is measured and it does not close the clause** (D222,
+              `of3t-trunkceiling`, live): every reaching accuracy lever on takes the trunk
+              1.0293953378 -> **0.9153623104**, buying **1.1246x** and landing at **1.7373x**
+              the in-frame A26 bar, with a reproduction control hitting the published shipped
+              reading exactly and an A/A floor of exactly 0.0. **That is a lever ceiling, not a
+              silicon one** — `of3t-readverbs` is building float64 VJPs for the 47.97 % of the
+              backward no lever touches, and a catalogue census cannot bound a mechanism outside
+              the catalogue. **All three census axes have now converged on one object** (D223): blocks 44/4/0 hold
+              76.4502 % of the error mass, the 96 `attn_pair_bias.layer_norm_a` leaves hold
+              56.1174 % of it on 0.8583 % of the reference mass, and the APB op class holds
+              65.3917 % on 7.6004 % — **enrichment 8.604x at cos -0.5781**. Ceilings in frame:
+              **APB perfect 0.6055815531 = 1.1494x, still failing; APB+TRANS 0.2768952061 =
+              0.5255x, passing.** **Not a lever job** — every existing arm on APB removes
+              **-23.6950 %** and all four classes together -45.1125 %. Owners:
+              **`of3t-apbleaf`** (the convergent leaf, dispatched pass 364),
+              `of3t-readverbs` (the tape-verb axis), `of3t-trunkceiling` (the lever ceiling).
+              `of3t-trunkopclass` concluded PARTIAL having closed the op-class axis.
               **The margin is thin, and the risk is characterised rather than open.** 0.9701x
               leaves 3 %, and `diffusion_transformer` at **43.62 %** of the mass has **1.1161x**
               of headroom — it may go 0.112302 -> 0.125338 before the clause fails. It is NOT a
@@ -398,14 +413,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 80 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 82 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        6  D32, D55, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  69  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219
+    CAMPAIGN-INTERNAL  71  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223
 
 **Six** USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`. **Three closed this pass and it was verified
@@ -442,11 +457,11 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred eleven** of3t files. **Two hundred twenty-one defects filed**, **80 UNFIXED** (5
-scope-excluded, 6 USER-FACING, 69 campaign-internal) over the UNION of `DEFECTS.md` and its
+concluded, three live; `state/concluded` holds **one hundred twelve** of3t files. **Two hundred twenty-three defects filed**, **82 UNFIXED** (5
+scope-excluded, 6 USER-FACING, 71 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
-historical markers and not rows, so **one hundred nine rows have concluded**. Recounted from
+historical markers and not rows, so **one hundred ten rows have concluded**. Recounted from
 disk at the end of this pass, not carried forward, and it moved DURING the pass: `of3t-trunkact`
 concluded while these fields were being written.
 
@@ -598,57 +613,20 @@ elsewhere has had nothing watching for it.
 **And GAP was contradicting the gate.** An ENDGAME block read *"condition 1 MET, condition 2 MET,
 condition 3 MET, only 4 and 5 outstanding"* against a five-condition framing retired long ago,
 while `CHARTER_EVIDENCE.json` has read **0 of 3** throughout. It also called `of3t-ditref` *"row
-still live"* and `of3t-fwdkcfg` pending; both concluded on 2026-09-21. Replaced with the live
-reading. **Then I found the block was DUPLICATED** — a second ENDGAME carrying the identical stale
-table further down the same field, so correcting one and stopping would have left the contradiction
-standing in the copy I had not read. Removed, keeping its one unique paragraph. GAP went from
-40,545 to 38,885 characters in the process, which is the smaller point.
+still live"* and `of3t-fwdkcfg` pending; both concluded on 2026-09-21
 
-**What this changes about the work, not just the record.** `of3t-ditref` and `of3t-fwdkcfg`
-concluding means **D30/D58's ~20x tape amplification, D129 and D55's forward arm are UNOWNED** —
-four USER-FACING defects whose closure plan named live owners that are not live. The plan's SET is
-checked against the triage mechanically every compose; its per-item `closes_when` prose is not, so
-it can name ## Pass 350 — a training forward crossed a precision boundary the wrong way, every loss looked sane, and the gradient came out eleven orders off
+---
 
-**`of3t-trainfwd` found D206 and fixed it.** A training forward that drives the diffusion modules
-directly never passes through the typecast `OF3SampleDiffusion.__call__` does inline, so **fp32
-weights met bf16 activations**. Nothing raised. The squared gradient norm read **4.87e+11** against
-the model denominator **10.2796**.
+## ROTATED 2026-09-22T12:00:02Z
 
-**Every loss value looked sane**, and that is the defect rather than a detail of it: the loss is
-built from activations that are each individually plausible, so the forward has no reason to
-complain, and the damage only appears in the number nobody reads until the end of a training step.
-A loss that looks right is not evidence the gradient is right. Fixed as a **shared method both
-callers use** rather than a second inline copy, with `ttnn.typecast` given a tape entry so the
-boundary is differentiable instead of a hole. Where two callers must cross the same boundary, the
-boundary belongs to neither of them.
+This doc reached 101118 bytes over its campaign and was costing
+more to re-read each pass than the passes were worth. The middle is archived verbatim at
+`state/archive/of3t-orchestrator.20260922-140002.md` -- nothing was deleted, and a human can still read it. What follows is the most recent
+work, which is what the next pass needs.
 
-Worth keeping as a reflex: an arm reporting a squared gradient norm **eleven orders** off its own
-denominator is a configuration fault to find, not a finding to write up. No model is that
-inaccurate.
+---
 
-**And the dispatch I owed from last pass went out.** `of3t-tapeamp` takes the **~20x
-forward-to-gradient amplification that belongs to the tape** — `diffusion` at forward 0.85 % /
-gradient 16.6 % = **19.6x**, `msa_module` at 0.82 % / 16.2 % = **19.8x**. Different ops, different
-track, the same factor to two significant figures, which is what moved it from a module property to
-a tape property in the first place. **Four USER-FACING defects wait on it** (D30, D58, and through
-them D129 and D55's forward arm) and all three rows that have owned it concluded without naming it.
-
-The brief writes the spent ground in as spent, because the most expensive mistake available here is
-re-running it: `of3t-ditref` concluded having re-priced the denominator without locating the
-object, and `of3t-ditcot` concluded on STOP after finding the diffusion reference **cannot be built
-in the checkpoint's architecture**, so a per-op attribution against the 0.5.0 reference names an op
-for an architecture difference — which that row refused to do and this one must not undo.
-
-**The first thing it is told to price is a lead that did not exist yesterday.** If the ~20x is a
-D206-class precision-boundary artifact rather than an amplifier, that explains the
-two-significant-figure agreement across unrelated tracks better than any per-op mechanism — because
-a boundary crossed the same way in both tracks is the same boundary. It is cheap to test, and
-ruling it out is worth the hour either way.
-
-Three constraints carried from what the campaign has already paid for: **call census, not route
-reading** (D196); the cotangent per block against the in-frame float64, which is what separates a
-per-block injection from a per-block accumulation; and the A/A and wall-clock floors established
+ floors established
 before any arm is read, as `of3t-shapekey` did. Plus one that is about the record rather than the
 measurement — **say which of the four defects the result closes, narrows or leaves untouched, and
 do not describe a narrowing as a closure**, since the closure plan has already carried a concluded
@@ -1319,3 +1297,65 @@ training fact rather than something a user's fold feels.
 
 **D210 is now the only USER-FACING defect whose repair has not been written** — the 14.2M DiT
 pad-lane parameters that train and should not.
+
+
+## Pass 364 — the lever ceiling came in at 1.7373x, and it is not the ceiling that would end the campaign
+
+Nothing concluded, so I read the three live rows' pushed branches. `of3t-trunkceiling` has its
+headline and it is decision-grade (D222). From `FRAME_CEIL_B.json`, scored on qb1 against
+`of3t-frame384`'s own reference pair, reproduction control hitting the published
+**1.029395337772341** exactly and an A/A determinism floor of **exactly 0.0** over 2736/2736:
+
+    arm                      ours vs their bf16    vs the 0.5268825372815341 in-frame A26 bar
+    shipped                        1.0293953378                        1.9537x
+    every reaching lever on        0.9153623104                        1.7373x
+    what the levers buy                  1.1246x
+
+Its pre-registration, committed before the first arm, predicted 0.72 in a range 0.55 to 0.95
+missing by 1.3x to 2.2x. Measured 0.9154, missing by 1.7373x — inside both.
+
+**Three things I did with it rather than just recording it.**
+
+Its `PREDICTION.md` and commit prose quote the withdrawn cross-frame `0.4361680548` and "2.360x";
+its **artifact** carries the correct in-frame bar and the 1.7373x. Corrected in the brief, and the
+correction favours the row.
+
+`FRAME_CEIL_A` reads **75.5663x the bar** — 38x worse than shipped. At least one lever is
+destructive, so the ceiling is the best arm and not the last one, and the row is told to name
+which lever did it. *A lever can fire and be inert* has a sibling: a lever can fire and be wrong.
+
+And the framing that matters: **this bounds the existing accuracy-flag catalogue, not the
+silicon.** `of3t-readverbs` is writing float64 VJPs for `_identity_grad` and `_sliced`, 47.97 % of
+the taped backward that no lever touches (D219). A catalogue census cannot bound a mechanism
+outside the catalogue, so the row may conclude for the **lever route at this boundary** and not
+for GRADIENTS or the charter.
+
+
+### Pass 364, second half — `of3t-trunkopclass` concluded and the three axes converged
+
+**D223.** The op-class axis is closed, A/A floor 0.000e+00. **APB is the carrier: 65.3917 % of
+our error mass on 7.6004 % of the reference mass, 8.604x enriched at cos -0.5781.** Every arm is
+worse than shipped against float64 as well as bf16 — APB -23.6950 %, all four -45.1125 % — so the
+row's H3 is refuted for every class and **a flag sweep is not the answer here**. That is the
+second instance this pass of a lever that fires and is *wrong* rather than inert.
+
+Re-expressed against the in-frame A26 bar rather than the row's model-pooled form, which
+inherits the cross-frame target I withdrew at D218:
+
+    shipped          1.0293953378   1.9537x   fails
+    every lever on   0.9153623104   1.7373x   fails   (D222)
+    APB perfect      0.6055815531   1.1494x   fails
+    APB + TRANS      0.2768952061   0.5255x   PASSES
+
+So **no single class closes GRADIENTS even perfectly, and APB alone comes within 1.1494x.**
+
+**Three censuses on three axes now name the same object** — blocks 44/4/0 by mass, the 96
+`attn_pair_bias.layer_norm_a` leaves by leaf, the APB class by op class — and it had no owner.
+Dispatched as **`of3t-apbleaf`**, with the measured exclusions, the two instrument traps the row
+asked be filed (`dxcfg` inert at 192 firings, `xhat_fp32` unsound without `dx_fp32`), and an
+explicit instruction not to take `of3t-readverbs`' tape-verb axis.
+
+**Also this pass**: the orphan-evidence guard claimed `of3t-d116`'s evidence exists only on one
+host's disk. All eight of its artifacts are in the composition, pushed on `wk/of3t-d56-renorm` —
+a row's work does not have to live on a branch named after it. The guard now checks the
+composed tree for the row's artifact namespace before claiming loss, and its probe still fires.
