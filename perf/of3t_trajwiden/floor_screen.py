@@ -56,6 +56,14 @@ DIFFCAP_EXPECT = "ea80f18e651dae517e3cdc0563c8e6b27d9a4c6bd2e32d8066dd7c4c70b060
 FRAME = "/home/ttuser/of3t_frame384"
 OUT = "perf/of3t_trajwiden/FLOOR.json"
 
+#: `of3t-auxheads/capture_boundary.py`'s 0.4.3 boundaries for the two rungs FLOOR.json left
+#: unpriced. Each blob carries the module's INPUTS, upstream's own float64 OUTPUTS, the
+#: COTANGENTS that seed a backward, and the module's own float64 parameter gradients from the
+#: same run -- and each self-checked bit-identical against the published reference
+#: (aux_heads 244/244, msa_module 227/227, worst_rel_l2 0.0). They live on qb2.
+AUXCAP = "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt"
+MSACAP = "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt"
+
 #: the campaign's exhaustive section table, `perf/of3t_orchestrator/SECTION_MASS_MEASURED.json`
 MODEL_SQ_NORM = 10.279642678524981
 #: measured 20-step totals this screen's extrapolation has to reproduce, both on qb2
@@ -99,7 +107,18 @@ def main() -> int:
 
     os.environ["OMP_NUM_THREADS"] = os.environ["MKL_NUM_THREADS"] = str(a.threads)
     refpath.install()
-    refpath.require(CKPT, DIFFCAP, f"{FRAME}/boundary_n384.pt", f"{FRAME}/block47_boundary.pt")
+    # Scoped to the rungs actually SELECTED. `require` refusing up front is the right
+    # behaviour (D153: a missing reference path is invisible), but requiring the pairformer
+    # boundary for a run that deselected the pairformer rung refuses on an input it will never
+    # read -- and those files live on qb1 while the aux/msa captures live on qb2.
+    need = [CKPT, DIFFCAP]
+    if not only or "pairformer_stack" in only:
+        need += [f"{FRAME}/boundary_n384.pt", f"{FRAME}/block47_boundary.pt"]
+    if not only or "aux_heads" in only:
+        need += [AUXCAP]
+    if not only or "msa_module" in only:
+        need += [MSACAP]
+    refpath.require(*need)
 
     import torch
     torch.set_num_threads(a.threads)
@@ -122,8 +141,13 @@ def main() -> int:
         "reference_tree": tree,
         "policy": "float64 on every parameter and every activation, checkpoint upcast at load",
         "crop": a.crop,
-        "sha256": {"diffusion_boundary": got, "checkpoint": sha256(CKPT),
-                   "boundary_n384": sha256(f"{FRAME}/boundary_n384.pt")},
+        "sha256": {k: v for k, v in (
+            ("diffusion_boundary", got), ("checkpoint", sha256(CKPT)),
+            ("boundary_n384", sha256(f"{FRAME}/boundary_n384.pt")
+             if os.path.exists(f"{FRAME}/boundary_n384.pt") else None),
+            ("boundary_aux_heads", sha256(AUXCAP) if os.path.exists(AUXCAP) else None),
+            ("boundary_msa_module", sha256(MSACAP) if os.path.exists(MSACAP) else None),
+        ) if v is not None},
         "diffusion_boundary_path": DIFFCAP,
         "diffusion_boundary_path_note":
             "the capture refpath names on qb2 under of3t_softgrad; this host carries the "
@@ -166,6 +190,32 @@ def main() -> int:
 
     def f64(x):
         return x.to(torch.float64) if torch.is_tensor(x) and x.is_floating_point() else x
+
+    def f64_deep(x):
+        """float64 every floating tensor inside a nested structure, leave the rest alone.
+        The captured `batch` is a dict of int32 index tensors beside float64 masks, and
+        casting the indices would change the function."""
+        if torch.is_tensor(x):
+            return f64(x)
+        if isinstance(x, dict):
+            return {k: f64_deep(v) for k, v in x.items()}
+        if isinstance(x, (list, tuple)):
+            return type(x)(f64_deep(v) for v in x)
+        return x
+
+    def _flat_named(out, prefix=""):
+        """(name, tensor) for every floating output, named the way the capture named it."""
+        got = []
+        if torch.is_tensor(out):
+            if out.is_floating_point():
+                got.append((prefix or "out", out))
+        elif isinstance(out, dict):
+            for k, v in out.items():
+                got += _flat_named(v, str(k))
+        elif isinstance(out, (list, tuple)):
+            for i, v in enumerate(out):
+                got += _flat_named(v, str(i))
+        return got
 
     def load_head(mod, head):
         mod.load_state_dict({k[len(head):]: f64(v) for k, v in sd.items()
@@ -320,6 +370,78 @@ def main() -> int:
         return row
 
     rung("pairformer_stack", r_pf)
+
+    # ---- aux_heads and msa_module, the two rungs FLOOR.json priced as "not this pass" -------
+    #
+    # These run from `capture_boundary.py`'s blobs rather than from the diffusion boundary, so
+    # they are driven by upstream's own inputs at their own boundary and seeded by upstream's
+    # own cotangents. Neither carries the 48-noise-level sample axis: the capture records
+    # n_forward_calls = 1 for each, so ONE forward is one step's worth of the model's own work
+    # and the accumulation multiplier is 1, not 4. That is the whole reason these rungs are
+    # cheap and it is a property of the model, not a shortcut taken here.
+    def _cap_rung(name, path, build, n_sub, ckpt_attr=None):
+        def go():
+            B = torch.load(path, map_location="cpu", weights_only=False)
+            row = {"boundary": path, "boundary_sha256": sha256(path),
+                   "n_reference_param_grads": len(B["param_grads"]),
+                   "n_with_gradient": sum(1 for v in B["param_grads"].values()
+                                          if v is not None),
+                   "cotangent_keys": sorted(B["cotangents"]),
+                   "n_forward_calls_in_capture": 1}
+            t1 = time.time()
+            m = build()
+            row["build_s"] = time.time() - t1
+            row["n_parameters"] = sum(1 for p in m.parameters() if p.requires_grad)
+            if ckpt_attr is not None:
+                # Train-time checkpointing, the program a trajectory would run, matching how
+                # the pairformer rung above is priced.
+                setattr(m, ckpt_attr, 1)
+                row["checkpointed"] = {"attr": ckpt_attr, "value": 1}
+            args = [f64_deep(x) for x in B["inputs"]["args"]]
+            kwargs = {k: f64_deep(v) for k, v in B["inputs"]["kwargs"].items()}
+            cots = B["cotangents"]
+            # Seed the backward with upstream's OWN cotangents at this boundary, every one of
+            # them, rather than ones_like: a ones_like cotangent is a different loss and the
+            # cost of the backward it drives is not the cost of the one a trajectory runs.
+            t1 = time.time()
+            out = m(*args, **kwargs)
+            row["forward_s"] = time.time() - t1
+            flat = _flat_named(out)
+            pairs = [(t, f64_deep(cots[k])) for k, t in flat
+                     if k in cots and torch.is_tensor(cots[k])]
+            row["outputs_seeded"] = [k for k, t in flat if k in cots]
+            row["outputs_not_in_cotangents"] = [k for k, t in flat if k not in cots]
+            if not pairs:
+                raise RuntimeError(f"no output matched a cotangent key; outputs were "
+                                   f"{[k for k, _ in flat]}, cotangents {sorted(cots)}")
+            t1 = time.time()
+            torch.autograd.backward([t for t, _ in pairs], [c for _, c in pairs])
+            row["backward_s"] = time.time() - t1
+            row["one_fwd_bwd_s"] = row["forward_s"] + row["backward_s"]
+            row["n_params_with_grad_after_backward"] = sum(
+                1 for p in m.parameters() if p.grad is not None)
+            row["accumulation"] = {"samples_per_step": n_sub,
+                                   "why": "the capture records one forward call for this "
+                                          "section, so one forward is one step"}
+            row["ref_per_step_s"] = n_sub * row["one_fwd_bwd_s"]
+            row["ref_20_step_s"] = 20 * row["ref_per_step_s"]
+            return row
+        rung(name, go)
+
+    def build_aux():
+        from openfold3.core.model.heads.head_modules import AuxiliaryHeadsAllAtom
+        m = AuxiliaryHeadsAllAtom(config=cfg.architecture.heads).to(torch.float64).train()
+        return load_head(m, "aux_heads.")
+
+    _cap_rung("aux_heads", AUXCAP, build_aux, n_sub=1)
+
+    def build_msa():
+        from openfold3.core.model.latent.msa_module import MSAModuleStack
+        m = MSAModuleStack(**cfg.architecture.msa.msa_module).to(torch.float64).train()
+        return load_head(m, "msa_module.")
+
+    _cap_rung("msa_module", MSACAP, build_msa, n_sub=1, ckpt_attr="blocks_per_ckpt")
+
     res["elapsed_s"] = time.time() - t0
     emit()
     print(f"[{time.time()-t0:.0f}s] wrote {a.out}", flush=True)

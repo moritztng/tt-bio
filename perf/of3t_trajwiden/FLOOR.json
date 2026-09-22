@@ -193,5 +193,69 @@
    "peak_rss_gb_process_so_far": 25.680709838867188
   }
  },
- "elapsed_s": 407.40421175956726
+ "elapsed_s": 407.40421175956726,
+ "AUX_AND_MSA_PRICED_pass2": {
+  "where": "perf/of3t_trajwiden/FLOOR_QB2.json, the same floor_screen.py with two rungs added.",
+  "why_a_second_host": "the aux_heads and msa_module captures are 910 MB and 478 MB and live on qb2; qb1's root filesystem is at 99 % with 62 GB free, so the screen went to the data rather than 1.4 GB of the data coming to a nearly-full disk.",
+  "the_cross_host_tie_point": {
+   "rung": "diffusion_module.diffusion_conditioning, 12 noise levels, one fwd+bwd",
+   "qb1_16_threads_s": 1.8952155113220215,
+   "qb2_16_threads_s": 2.2925641536712646,
+   "qb2_over_qb1": 1.2096588171505993,
+   "why": "a second host would otherwise make these rungs incomparable with the qb1 ones. Re-measuring one already-priced rung on the new host costs 14 s and converts the new numbers into the old frame by MEASUREMENT instead of assumption. D189, and this row's own lesson that a reference is part of a measurement's identity.",
+   "caveat": "qb2 has 16 cores against qb1's 32, so at 16 threads qb2 is fully committed and qb1 is half committed. The factor absorbs that along with the clock difference; it is a host-pair conversion, not a clock ratio."
+  },
+  "contention_during_the_qb2_rungs": {
+   "loadavg_at_start": [
+    2.4736328125,
+    2.06201171875,
+    2.04052734375
+   ],
+   "note": "of3t-trainfwd was running two arms on the same 16-core box during the aux and msa rungs and loadavg reached ~25. These two readings are therefore UPPER bounds. That direction is safe for a floor screen and is stated rather than averaged away."
+  },
+  "rungs_in_the_qb1_frame": {
+   "diffusion_module": {
+    "pct_of_model": 88.08194359237523,
+    "ref_per_step_s_qb1": 167.13099193572998,
+    "measured_on": "qb1 directly",
+    "ref_20_step_h_qb1": 0.9285055107540554,
+    "seconds_per_point_of_model_mass": 1.8974489562716417
+   },
+   "aux_heads": {
+    "pct_of_model": 2.8431,
+    "ref_per_step_s_qb1": 164.15154912319605,
+    "ref_per_step_s_qb2_measured": 198.56736874580383,
+    "measured_on": "qb2",
+    "ref_20_step_h_qb1": 0.9119530506844225,
+    "seconds_per_point_of_model_mass": 57.736818656816865
+   },
+   "msa_module": {
+    "pct_of_model": 1.2317,
+    "ref_per_step_s_qb1": 215.70548417194658,
+    "ref_per_step_s_qb2_measured": 260.93004083633423,
+    "measured_on": "qb2",
+    "ref_20_step_h_qb1": 1.1983638009552589,
+    "seconds_per_point_of_model_mass": 175.12826513919507
+   },
+   "pairformer_stack": {
+    "pct_of_model": 5.8282,
+    "ref_per_step_s_qb1": 1629.178281394008,
+    "measured_on": "qb1 directly (frame384's 48-block point)",
+    "ref_20_step_h_qb1": 9.050990452188934,
+    "seconds_per_point_of_model_mass": 279.5336950334594
+   }
+  },
+  "what_this_falsified": {
+   "the_pass_1_prediction": "FLOOR.json said of aux_heads and msa_module: 'Both modules are far smaller than diffusion_module (244 and 227 reference tensors against 761) and neither carries the 48-noise-level sample axis that dominates the diffusion rung, so neither is expected to approach the pairformer rung.'",
+   "measured": "the pairformer comparison holds -- aux is 8.2x and msa 6.2x under it. The implication that they are CHEAP does not. Per step in the qb1 frame: diffusion_module 167.1 s for 88.08 points, aux_heads 164.2 s for 2.84, msa_module 215.7 s for 1.23. msa_module costs 1.29x the ENTIRE diffusion module per step while carrying 1/72nd of its mass.",
+   "the_mechanism": "parameter count is not a cost proxy and neither is mass share. aux_heads' 244 parameters include a whole Pairformer stack (pairformer_embedding.pairformer_stack) applied over a 384x384 pair axis, and msa_module is a 48-block stack over the MSA and pair axes. A section is expensive because of the AXES its ops sweep, not because of how many weights it holds or how much gradient mass they carry.",
+   "cost_per_point_of_model_mass_qb1_s": {
+    "diffusion_module": 1.8974489562716417,
+    "aux_heads": 57.736818656816865,
+    "msa_module": 175.12826513919507,
+    "pairformer_stack": 279.5336950334594
+   },
+   "so": "the diffusion rung is the only rung in the model that is cheap per point of mass. Every other rung is 30x to 92x worse value, and per COUPLED_VS_UNION.json the aux and msa points do not add to the coupled scope at all."
+  }
+ }
 }
