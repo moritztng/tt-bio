@@ -1078,12 +1078,19 @@ def exact_softmax():
     with the tape would leave every recomputed softmax on the card and take the Jacobian at
     activations the forward did not produce. `install(exact_softmax=True)` / `uninstall()` is
     the same thing without the block.
+
+    Nests: an inner block that found the lever already installed leaves it installed, the way
+    `tape()` leaves the shim to the outermost block. Taking it out at the inner `finally` would
+    be a teardown in the middle of the step it is meant to cover, and the arm would read as
+    half-installed with nothing saying so.
     """
+    outer = exact_softmax_installed()
     _install_exact_softmax()
     try:
         yield
     finally:
-        _uninstall_exact_softmax()
+        if not outer:
+            _uninstall_exact_softmax()
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
