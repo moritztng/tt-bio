@@ -1,0 +1,289 @@
+...........F................F........................................... [ 11%]
+..........................................................s..........s.. [ 22%]
+..............................s......................................... [ 34%]
+.................................ssss.FF................................ [ 45%]
+..................................................FF.................... [ 56%]
+........................................................................ [ 68%]
+........................................................................ [ 79%]
+........................................................................ [ 90%]
+..........................................................F              [100%]
+=================================== FAILURES ===================================
+________________ test_a_moved_ceiling_re_runs_the_capacity_gate ________________
+
+    @pytest.mark.skipif(not BASELINE.exists(), reason="no capacity baseline recorded yet")
+    def test_a_moved_ceiling_re_runs_the_capacity_gate():
+        """THE TRIGGER. A ceiling change is exactly what let the production failures ship: the gate's
+        target follows the ceiling, and raising the ceiling without re-running the gate leaves the new
+        size untested. So every recorded cell pins the ceiling table it was measured against.
+    
+        PER CELL, and it used to be per file. `record_baseline` stamps the current fingerprint on the
+        whole file whether the run measured one model or twenty, so `--models boltz2 --record` would
+        have turned this test green while twelve cells still held another engine's numbers -- and the
+        2026-09-07 ceiling move arrived with 800 changed lines of tt_bio/tenstorrent.py, the RF3
+        triangle-attention rewrite and OpenFold3's MSA embedder, every one of which moves DRAM at
+        1536 tokens. The sweep is hours of card time and has to run in stages, so the check that
+        matters is the one that can be satisfied a stage at a time and says what is left.
+        """
+        per_card = cg.read_baseline()
+        assert per_card, "the baseline records no cells"
+        unstamped = sorted(f"{card}/{m}" for card, blk in per_card.items()
+                           for m, c in (blk.get("cells") or {}).items()
+                           if not (c or {}).get("ceilings_fingerprint"))
+        assert not unstamped, (
+            f"these cells record no ceiling fingerprint at all, so nothing can tell whether they are "
+            f"current: {unstamped}. Re-measure and --record them.")
+>       assert not cg.baseline_stale(), (
+            f"tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes "
+            f"tt-bio now advertises have not been capacity-tested: {cg.baseline_stale()}. Re-run\n"
+            f"  TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py "
+            f"--models <them> --record\n"
+            f"This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and "
+            f"three models broke in traffic.")
+E       AssertionError: tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes tt-bio now advertises have not been capacity-tested: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m', 'p300c/boltz2', 'p300c/boltzgen', 'p300c/esmc-300m', 'p300c/esmc-600m', 'p300c/esmc-6b', 'p300c/esmfold2', 'p300c/esmfold2-fast', 'p300c/nesso1', 'p300c/openbind', 'p300c/opendde', 'p300c/opendde-abag', 'p300c/openfold3', 'p300c/protenix-v1', 'p300c/protenix-v2', 'p300c/pxdesign', 'p300c/rf3', 'p300c/rfd3', 'p300c/saprot-1.3b', 'p300c/saprot-35m', 'p300c/saprot-650m']. Re-run
+E           TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py --models <them> --record
+E         This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.
+E       assert not ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...]
+E        +  where ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...] = <function baseline_stale at 0x7dfc26377060>()
+E        +    where <function baseline_stale at 0x7dfc26377060> = cg.baseline_stale
+
+tests/test_capacity_gate.py:161: AssertionError
+__________ test_this_file_does_not_break_the_files_that_run_after_it ___________
+
+    @pytest.mark.skipif(bool(os.environ.get("TT_BIO_CAPACITY_GATE_NO_RECURSE")),
+                        reason="the inner session this guard spawned; it must not spawn its own")
+    def test_this_file_does_not_break_the_files_that_run_after_it():
+        """One pytest session: this file, then the two it used to break. Both halves have to be green.
+    
+        A subprocess because the property is about a fresh interpreter's import state, which cannot be
+        observed from inside the session that already polluted it.
+        """
+        import subprocess
+        for rel in _COLLATERAL:
+            assert (ROOT / rel).exists(), (
+                f"{rel} is gone, so this guard is now vacuous. Re-ground it on a file that reads a "
+                f"tt_bio signature -- grep for `inspect.signature` under tests/.")
+        env = dict(os.environ, TT_BIO_CAPACITY_GATE_NO_RECURSE="1", TT_VISIBLE_DEVICES="",
+                   PYTHONPATH=str(ROOT))
+        r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:randomly", "--tb=no",
+                            "-rf", "tests/test_capacity_gate.py", *_COLLATERAL],
+                           cwd=ROOT, env=env, capture_output=True, text=True, timeout=1800)
+        out = r.stdout + r.stderr
+        assert " passed" in out, f"the inner session did not run at all:\n{out[-4000:]}"
+        broke = [ln for ln in out.splitlines()
+                 if ln.startswith("FAILED") and any(c in ln for c in _COLLATERAL)]
+        assert not broke, (
+            "test_capacity_gate.py ran first and took these down with it, which is the import-state "
+            f"leak coming back: {broke}\nThey pass on their own. See capacity_hook.uninstall().")
+>       assert r.returncode == 0, (
+            "the inner session is red, but not from the pollution this guard is about -- every "
+            f"failure is in test_capacity_gate.py itself:\n{out[-4000:]}")
+E       AssertionError: the inner session is red, but not from the pollution this guard is about -- every failure is in test_capacity_gate.py itself:
+E         ...........F................s........................................... [ 58%]
+E         .....................................s..............                     [100%]
+E         =========================== short test summary info ============================
+E         FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+E         1 failed, 121 passed, 2 skipped in 11.33s
+E         nanobind: leaked 582 instances!
+E          - leaked instance 0x7df755454fc8 of type "ttnn._ttnn.operations.moreh.moreh_softmin_backward_t"
+E          - leaked instance 0x7df755456c58 of type "ttnn._ttnn.operations.experimental.rotary_embedding_llama_t"
+E          - leaked instance 0x7df75545ab30 of type "ttnn._ttnn.operations.unary.tanhshrink_t"
+E          - leaked instance 0x7df75545fca0 of type "ttnn._ttnn.operations.data_movement.nonzero_t"
+E          - leaked instance 0x7df755455f58 of type "ttnn._ttnn.operations.moreh.moreh_adamw_t"
+E          - leaked instance 0x7df7554563e0 of type "ttnn._ttnn.operations.kv_cache.fill_cache_for_user__t"
+E          - leaked instance 0x7df7554609f8 of type "ttnn._ttnn.operations.bernoulli.bernoulli_t"
+E          - leaked instance 0x7df75545c558 of type "ttnn._ttnn.operations.unary_backward.polygamma_bw_t"
+E          - leaked instance 0x7df75545d838 of type "ttnn._ttnn.operations.binary.subalpha_t"
+E          - leaked instance 0x7df75545b238 of type "ttnn._ttnn.operations.unary_backward.hardshrink_bw_t"
+E          - leaked instance 0x7df75545e330 of type "ttnn._ttnn.operations.binary_backward.squared_difference_bw_t"
+E          - leaked instance 0x7df755454160 of type "ttnn._ttnn.operations.pool.grid_sample_t"
+E          - leaked instance 0x7df75545c678 of type "ttnn._ttnn.operations.examples.composite_example_multiple_return_t"
+E          - leaked instance 0x7df75544f950 of type "ttnn._ttnn.operations.experimental.ccl_experimental.neighbor_pad_async_t"
+E          - leaked instance 0x7df755458f08 of type "ttnn._ttnn.operations.experimental.deepseek_moe_post_combine_tilize_t"
+E          - leaked instance 0x7df755459468 of type "ttnn._ttnn.operations.unary.clip_t"
+E          - leaked instance 0x7df75545d8c8 of type "ttnn._ttnn.operations.binary.div_t"
+E          - leaked instance 0x7df755453a98 of type "ttnn._ttnn.operations.reduction.mean_t"
+E          - leaked instance 0x7df75545d5f8 of type "ttnn._ttnn.operations.binary.atan2_t"
+E          - leaked instance 0x7df75545bf28 of type "ttnn._ttnn.operations.unary_backward.tanhshrink_bw_t"
+E          - ... skipped remainder
+E         nanobind: leaked 637 types!
+E          - leaked type "ttnn._ttnn.operations.binary.lt__t"
+E          - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+E          - leaked type "ttnn._ttnn.operations.reduction.var_t"
+E          - leaked type "DispatchCoreAxis"
+E          - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+E          - leaked type "ttnn._ttnn.operations.unary.fill_t"
+E          - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+E          - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+E          - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+E          - leaked type "ttnn._ttnn.operations.ternary.where_t"
+E          - ... skipped remainder
+E         nanobind: leaked 2736 functions!
+E          - leaked function ""
+E          - leaked function "__call__"
+E          - leaked function ""
+E          - leaked function ""
+E          - leaked function ""
+E          - leaked function ""
+E          - leaked function ""
+E          - leaked function "__call__"
+E          - leaked function "__call__"
+E          - leaked function ""
+E          - ... skipped remainder
+E         nanobind: this is likely caused by a reference counting issue in the binding code.
+E         See https://nanobind.readthedocs.io/en/latest/refleaks.html
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'pytest', '-q', '-p', 'no:randomly', '--tb=no'...aused by a reference counting issue in the binding code.\nSee https://nanobind.readthedocs.io/en/latest/refleaks.html').returncode
+
+tests/test_capacity_gate.py:659: AssertionError
+_________ test_every_folding_model_reports_the_depth_it_used[opendde] __________
+
+model = 'opendde'
+
+    @pytest.mark.parametrize("model", sorted(CAPABILITY))
+    def test_every_folding_model_reports_the_depth_it_used(model):
+        """`msa: true` says an alignment was used, not how deep. --max_msa_seqs is only checkable
+        from the outside if the depth is in the row."""
+        from tt_bio.worker import _WorkerState
+    
+        paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
+                 "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+                 "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
+                 "rf3": "_predict_rf3_one"}
+        if model not in paths:
+            pytest.skip(f"{model} has no MSA depth of its own to report")
+>       assert '"msa_depth"' in inspect.getsource(getattr(_WorkerState, paths[model]))
+E       assert '"msa_depth"' in '    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):\n        """OpenDDE protein co-fold: sequence(s)... and the same metrics row.\n        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)\n'
+E        +  where '    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):\n        """OpenDDE protein co-fold: sequence(s)... and the same metrics row.\n        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)\n' = <function getsource at 0x7dfc52280540>(<function _WorkerState._predict_opendde_one at 0x7dfbd4f21620>)
+E        +    where <function getsource at 0x7dfc52280540> = inspect.getsource
+E        +    and   <function _WorkerState._predict_opendde_one at 0x7dfbd4f21620> = getattr(<class 'tt_bio.worker._WorkerState'>, '_predict_opendde_one')
+
+tests/test_input_capabilities.py:381: AssertionError
+_______ test_every_folding_model_reports_the_depth_it_used[opendde-abag] _______
+
+model = 'opendde-abag'
+
+    @pytest.mark.parametrize("model", sorted(CAPABILITY))
+    def test_every_folding_model_reports_the_depth_it_used(model):
+        """`msa: true` says an alignment was used, not how deep. --max_msa_seqs is only checkable
+        from the outside if the depth is in the row."""
+        from tt_bio.worker import _WorkerState
+    
+        paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
+                 "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+                 "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
+                 "rf3": "_predict_rf3_one"}
+        if model not in paths:
+            pytest.skip(f"{model} has no MSA depth of its own to report")
+>       assert '"msa_depth"' in inspect.getsource(getattr(_WorkerState, paths[model]))
+E       assert '"msa_depth"' in '    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):\n        """OpenDDE protein co-fold: sequence(s)... and the same metrics row.\n        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)\n'
+E        +  where '    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):\n        """OpenDDE protein co-fold: sequence(s)... and the same metrics row.\n        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)\n' = <function getsource at 0x7dfc52280540>(<function _WorkerState._predict_opendde_one at 0x7dfbd4f21620>)
+E        +    where <function getsource at 0x7dfc52280540> = inspect.getsource
+E        +    and   <function _WorkerState._predict_opendde_one at 0x7dfbd4f21620> = getattr(<class 'tt_bio.worker._WorkerState'>, '_predict_opendde_one')
+
+tests/test_input_capabilities.py:381: AssertionError
+_ test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/amplify.json] _
+
+source = 'tt_bio/autograd.py', cited = 'perf/of3t_d116/amplify.json'
+
+    @pytest.mark.parametrize("source,cited", sorted(set(_citations())))
+    def test_cited_perf_artifact_exists(source, cited):
+>       assert _resolves(cited), (
+            f"{source} cites {cited}, which is not in the repo. Either commit the "
+            f"artifact or state the measurement without naming a path."
+        )
+E       AssertionError: tt_bio/autograd.py cites perf/of3t_d116/amplify.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+E       assert False
+E        +  where False = _resolves('perf/of3t_d116/amplify.json')
+
+tests/test_perf_citations.py:136: AssertionError
+_ test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/rowsum.json] _
+
+source = 'tt_bio/autograd.py', cited = 'perf/of3t_d116/rowsum.json'
+
+    @pytest.mark.parametrize("source,cited", sorted(set(_citations())))
+    def test_cited_perf_artifact_exists(source, cited):
+>       assert _resolves(cited), (
+            f"{source} cites {cited}, which is not in the repo. Either commit the "
+            f"artifact or state the measurement without naming a path."
+        )
+E       AssertionError: tt_bio/autograd.py cites perf/of3t_d116/rowsum.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+E       assert False
+E        +  where False = _resolves('perf/of3t_d116/rowsum.json')
+
+tests/test_perf_citations.py:136: AssertionError
+___________ test_the_residency_window_is_still_the_projections_only ____________
+
+part = None
+
+    def test_the_residency_window_is_still_the_projections_only(part):
+        """The template embedder ALREADY had a clash of this class (program 173), and it was fixed
+        by freeing the tensor before the block loop rather than by the budget. If the deallocate
+        moves back below the loop, the two PairformerLayers per template are inside the window
+        again and their trimul is a consumer nobody measured.
+        """
+        src = Path(P.__file__).read_text()
+        tpl = src[src.index("def _template("):]
+        tpl = tpl[:tpl.index("\n    def ")]
+        assert tpl.index("ttnn.deallocate(zn)") < tpl.index("for t in range(nt):")
+>       assert "_l1_layer_norm(x, 1.5" in src   # the call these numbers were measured at
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert '_l1_layer_norm(x, 1.5' in '"""Protenix-v2 (ByteDance AF3 reproduction) modules on Tenstorrent.\n\nProtenix-v2 is the same AF3 family as Boltz-2 ...ht"))\n        z = ttnn.add(z, self._lin(token_bonds, "linear_no_bias_token_bond.weight"))\n        return s_init, z\n'
+
+tests/test_template_l1_consumer_margin.py:152: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde]
+FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde-abag]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/amplify.json]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/rowsum.json]
+FAILED tests/test_template_l1_consumer_margin.py::test_the_residency_window_is_still_the_projections_only
+7 failed, 621 passed, 7 skipped in 24.36s
+nanobind: leaked 581 instances!
+ - leaked instance 0x7dfbd4a5ccf8 of type "ttnn._ttnn.operations.binary.pow_t"
+ - leaked instance 0x7dfbd4a5a938 of type "ttnn._ttnn.operations.unary.celu_t"
+ - leaked instance 0x7dfbd4a5d328 of type "ttnn._ttnn.operations.binary.bitwise_and_t"
+ - leaked instance 0x7dfbd4a565d8 of type "ttnn._ttnn.operations.full.moreh_full_t"
+ - leaked instance 0x7dfbd4a5d568 of type "ttnn._ttnn.operations.binary.nextafter_t"
+ - leaked instance 0x7dfbd4a58768 of type "ttnn._ttnn.operations.experimental.topk_router_gpt_t"
+ - leaked instance 0x7dfbd4a5ad28 of type "ttnn._ttnn.operations.unary.std_hw_t"
+ - leaked instance 0x7dfbd4a54e18 of type "ttnn._ttnn.operations.moreh.moreh_norm_backward_t"
+ - leaked instance 0x7dfbd4a607b8 of type "ttnn._ttnn.operations.creation.ones_t"
+ - leaked instance 0x7dfbd4a5dd00 of type "ttnn._ttnn.operations.binary.ldexp__t"
+ - leaked instance 0x7dfbd4a5b0d0 of type "ttnn._ttnn.operations.unary.rdiv_t"
+ - leaked instance 0x7dfbd4a5b8f8 of type "ttnn._ttnn.operations.unary_backward.rad2deg_bw_t"
+ - leaked instance 0x7dfbd4a589a8 of type "ttnn._ttnn.operations.experimental.adaptive_max_pool2d_t"
+ - leaked instance 0x7dfbd4a5e7f8 of type "ttnn._ttnn.operations.complex_unary_backward.angle_bw_t"
+ - leaked instance 0x7dfbd4a5ca70 of type "ttnn._ttnn.operations.quantization.quantize_t"
+ - leaked instance 0x7dfbd4a559f8 of type "ttnn._ttnn.operations.moreh.moreh_dot_backward_t"
+ - leaked instance 0x7dfbd4a54280 of type "ttnn._ttnn.operations.normalization.scale_mask_softmax_t"
+ - leaked instance 0x7dfbd4a5aa10 of type "ttnn._ttnn.operations.unary.reglu_t"
+ - leaked instance 0x7dfbd4a60ad0 of type "ttnn._ttnn.operations.conv.conv_transpose2d_t"
+ - leaked instance 0x7dfbd4a5e018 of type "ttnn._ttnn.operations.binary_backward.div_bw_t"
+ - ... skipped remainder
+nanobind: leaked 636 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2736 functions!
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html

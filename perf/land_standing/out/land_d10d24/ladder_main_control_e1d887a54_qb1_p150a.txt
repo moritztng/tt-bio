@@ -1,0 +1,41 @@
+ladder control on MAIN e1d887a54 protenix-v1 qb1 card 0 start 2026-09-22T10:18:04Z
+rc=1 wall=1618s end 2026-09-22T10:45:02Z
+[release-gate] granted card(s) [0]
+[release-gate] scoring tt_bio from /home/ttuser/mainctl-land-standing/tt_bio (commit e1d887a54)
+
+======================================================================
+[size-ladder] checking for card p150a: protenix-v1 at rungs 256,512,640,768,896,1024,1152,1280,1408,1536
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024,1152,1280,1408,1536, 6 steps / 1 sample, seed 0, single-sequence, card p150a)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa   1152aa   1280aa   1408aa   1536aa  k256->512  k512->768     wall  result
+protenix-v1        10.0s    18.0s    26.1s    35.1s    47.3s    55.8s    76.9s    91.3s   119.5s   138.3s       0.85       1.65    1614s  FAIL (protenix-v1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1152 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline; protenix-v1/1152 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1152 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1280 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline; protenix-v1/1280 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1280 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1408 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline; protenix-v1/1408 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1408 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1536 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline; protenix-v1/1536 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1536 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL protenix-v1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1152 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline
+    FAIL protenix-v1/1152 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1152 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1280 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline
+    FAIL protenix-v1/1280 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1280 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1408 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline
+    FAIL protenix-v1/1408 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1408 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1536 TRIMUL_TAIL_F1: dark (resolved True, served 0, declined 424) with no exemption reason in the baseline
+    FAIL protenix-v1/1536 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1536 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record

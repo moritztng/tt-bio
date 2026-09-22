@@ -178,7 +178,7 @@
                   "window_BufferType.L1": 3842,
                   "back_l1_src_narrow": 1921
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on window_BufferType.L1 x3842, gated_window_BufferType.L1 x1921, back_l1_src_narrow x1921)"
+                "reason": "declines all 7684 calls on window_BufferType.L1 x3842, gated_window_BufferType.L1 x1921, back_l1_src_narrow x1921: the traffic moved to the gated channel and the handful left over is the measured band doing its job. REBLOCK_PERMUTE_GATED serves 1152 calls at every rung here (1344 at 1024) and this wrapper is reached four times, declining on three clauses that are all one band: window_BufferType.L1 and gated_window_BufferType.L1 are an L1 DESTINATION at an N outside the measured [288, 352] window (L1_N_MIN/L1_N_MAX, tt_bio/reblock_permute.py), and back_l1_src_narrow is the backward kernel with an L1 SOURCE at N < 288, which was measured to LOSE -- 0.9918x and 0.9903x at 256 against 1.0086x at 288 on the 11x10 grid. A lever that refuses the shapes it was measured to be slower on is not dark, it is correct [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",

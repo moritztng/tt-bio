@@ -1,0 +1,76 @@
+[release-gate] granted the whole box (unpinned)
+[release-gate] scoring tt_bio from /home/ttuser/tt-bio-dev/tt_bio (commit 56ad6c0e0)
+[release-gate] WARNING: that is NOT the checkout this gate was launched from.
+[release-gate]   launched from : /home/ttuser/.coworker/wt/land-standing (commit f1d1f5ed9)
+[release-gate]   scoring       : /home/ttuser/tt-bio-dev (commit 56ad6c0e0)
+[release-gate] Every verdict below describes the scoring tree. To score the
+[release-gate] checkout instead, re-run with PYTHONPATH=/home/ttuser/.coworker/wt/land-standing.
+
+##############################################################################
+RELEASE GATE — size-ladder fill-reasons
+##############################################################################
+p150a/boltz2            FAIL  0 carried, 4 left
+p150a/esmfold2          FAIL  0 carried, 28 left
+p150a/nesso1            FAIL  1 carried, 1 left
+p150a/openbind          FAIL  0 carried, 8 left
+p150a/opendde           FAIL  0 carried, 4 left
+p150a/protenix-v1       FAIL  0 carried, 4 left
+p150a/protenix-v2       FAIL  0 carried, 4 left
+p150a/rf3               FAIL  0 carried, 2 left
+    FAIL p150a/boltz2 at 1152: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)
+    FAIL p150a/boltz2 at 1280: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)
+    FAIL p150a/boltz2 at 1408: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)
+    FAIL p150a/boltz2 at 1536: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x560)
+    FAIL p150a/esmfold2 at 1152: PAIR_FFN_FILL_ASSEMBLY needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: PAIR_FFN_FUSED_RESIDUAL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: PAIR_FFN_L1_FC1 needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: PAIR_FFN_L1_LN needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: PAIR_FFN_L1_SLICE needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: PAIR_PROJ_MINIMAL_MATMUL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1152: QKV_MM_CONFIG needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_FFN_FILL_ASSEMBLY needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_FFN_FUSED_RESIDUAL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_FFN_L1_FC1 needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_FFN_L1_LN needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_FFN_L1_SLICE needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: PAIR_PROJ_MINIMAL_MATMUL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1280: QKV_MM_CONFIG needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_FFN_FILL_ASSEMBLY needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_FFN_FUSED_RESIDUAL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_FFN_L1_FC1 needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_FFN_L1_LN needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_FFN_L1_SLICE needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: PAIR_PROJ_MINIMAL_MATMUL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1408: QKV_MM_CONFIG needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_FFN_FILL_ASSEMBLY needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_FFN_FUSED_RESIDUAL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_FFN_L1_FC1 needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_FFN_L1_LN needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_FFN_L1_SLICE needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: PAIR_PROJ_MINIMAL_MATMUL needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/esmfold2 at 1536: QKV_MM_CONFIG needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/nesso1 at 1536: PAIR_PROJ_MINIMAL_MATMUL needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x384)
+    FAIL p150a/openbind at 1152: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/openbind at 1152: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/openbind at 1280: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/openbind at 1280: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/openbind at 1408: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/openbind at 1408: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/openbind at 1536: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/openbind at 1536: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424, k_tiles=2 x16)
+    FAIL p150a/opendde at 256: SDPA_WIDE_K needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/opendde at 512: SDPA_WIDE_K needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/opendde at 768: SDPA_WIDE_K needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/opendde at 896: SDPA_WIDE_K needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/protenix-v1 at 1152: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/protenix-v1 at 1280: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/protenix-v1 at 1408: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/protenix-v1 at 1536: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x424)
+    FAIL p150a/protenix-v2 at 1152: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/protenix-v2 at 1280: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/protenix-v2 at 1408: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/protenix-v2 at 1536: TRANSPOSE_L1_RESIDENT needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/rf3 at 1536: FP32_SOFTMAX_L1_GRID needs a reason, TODO: say why this is legitimate at this size
+    FAIL p150a/rf3 at 1536: TRIMUL_TAIL_F1 needs a reason, TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)
+##############################################################################
+REASONS LEFT — each one above is a lever that went dark at this size or declines on a new clause, so it is a human's judgement to write
