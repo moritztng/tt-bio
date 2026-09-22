@@ -1,0 +1,265 @@
+{
+ "backward_seconds": 1129.523737668991,
+ "blocks": [
+  0,
+  23,
+  47
+ ],
+ "breakdown": {
+  "confidence_loss": 0.0008394323598635465,
+  "diffusion_loss": 1.548484174370904,
+  "distogram_loss": 3.0822034093908615,
+  "experimentally_resolved_loss": 0.013281346909691205,
+  "loss": 1.6417897069457148,
+  "mse_loss": 2.075772207684247,
+  "pae_loss": 3.117899729216555,
+  "pde_loss": 2.10813139259109,
+  "plddt_loss": 3.155011341976584,
+  "scaled_distogram_loss": 0.0924661002149474,
+  "smooth_lddt_loss": 0.3276013223707172
+ },
+ "bundle_dir": "/home/ttuser/of3t/bundle_min",
+ "capture_vs_bundle": {
+  "0": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 1.916114488095392,
+   "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight"
+  },
+  "23": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 1.74103475343272,
+   "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_out.layer_norm_in.weight"
+  },
+  "47": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 1.4024545629821998,
+   "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight"
+  }
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "missing": [
+   "version_tensor",
+   "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+   "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
+  ],
+  "n_loaded": 4935,
+  "n_missing": 3,
+  "n_unexpected": 48,
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4"
+ },
+ "draws": {
+  "n_python_random": 2,
+  "n_torch_randn": 45,
+  "num_recycles": 0
+ },
+ "forward": {
+  "drawn_recycles": 0,
+  "loss": 1.6417897069457148,
+  "rel": 0.010444010227994311,
+  "seconds": 383.8906924724579,
+  "their_loss": 1.6591175475821072
+ },
+ "global_norm_bundle": 3.908301894520238,
+ "global_norm_here": 3.8435172156621675,
+ "global_norm_rel": 0.016576170573952862,
+ "hashes": {
+  "batch_step003.pt": {
+   "bytes": 100822382,
+   "declared": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "draws_recycles0.pt": {
+   "bytes": 525598,
+   "declared": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "match": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "grad_presence_recycles0.json": {
+   "bytes": 342321,
+   "declared": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "match": true,
+   "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f"
+  },
+  "grads_f64_recycles0.pt": {
+   "bytes": 2947812293,
+   "declared": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+   "match": true,
+   "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74"
+  }
+ },
+ "instrument": "capture of the pairformer block boundary of BUNDLE-MIN's own step",
+ "manifest": "origin/wk/of3t-reference:perf/of3t_reference/bundle_min/MANIFEST.json",
+ "manifest_commit": "b1c03cb16a0774c6de54b34218d650dfe4d9c15c",
+ "n_blocks": 48,
+ "n_nonzero_here": 4138,
+ "n_parameters_here": 4147,
+ "reference": {
+  "fd_max_rel": 0.0021816730658057296,
+  "file": "grads_f64_recycles0.pt",
+  "global_norm": 3.908301894520238,
+  "loss": 1.6591175475821072,
+  "n_nonzero": 4138,
+  "n_parameters": 4147,
+  "num_recycles": 0
+ },
+ "replay": {
+  "mismatches": [],
+  "n_mismatch": 0,
+  "randn_consumed": 45,
+  "random_consumed": 2
+ },
+ "saved": {
+  "0": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294872,
+   "cot_norms": [
+    3.715760868546308e-05,
+    0.000643287775125217
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/tmp/of3t/of3t-gradients/cap/block0_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  },
+  "23": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294943,
+   "cot_norms": [
+    1.947249948165678e-05,
+    0.000356316860529058
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/tmp/of3t/of3t-gradients/cap/block23_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  },
+  "47": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294943,
+   "cot_norms": [
+    2.9170898001322845e-05,
+    0.0005468646485080505
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/tmp/of3t/of3t-gradients/cap/block47_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  }
+ }
+}

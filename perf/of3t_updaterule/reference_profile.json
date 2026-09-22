@@ -1,0 +1,160 @@
+{
+ "bijection_split": {
+  "fraction_of_gradient_norm_reachable": 0.06543442172265605,
+  "l2_in_mapped": 0.9997495964693568,
+  "l2_in_unmapped": 3.7782700331063985,
+  "largest_mapped": [
+   {
+    "l2": 0.25178081171540506,
+    "tensor": "pairformer_stack.blocks.46.pair_stack.pair_transition.layer_norm.weight"
+   },
+   {
+    "l2": 0.24950134495958412,
+    "tensor": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.bias"
+   },
+   {
+    "l2": 0.1635576651454208,
+    "tensor": "msa_module.blocks.0.outer_product_mean.layer_norm.bias"
+   },
+   {
+    "l2": 0.14046853703615456,
+    "tensor": "pairformer_stack.blocks.40.pair_stack.pair_transition.layer_norm.weight"
+   },
+   {
+    "l2": 0.13609154922338898,
+    "tensor": "pairformer_stack.blocks.17.pair_stack.pair_transition.layer_norm.weight"
+   },
+   {
+    "l2": 0.11248729752877257,
+    "tensor": "msa_module.blocks.0.pair_stack.pair_transition.layer_norm.weight"
+   },
+   {
+    "l2": 0.10829372170876098,
+    "tensor": "msa_module.blocks.1.outer_product_mean.layer_norm.bias"
+   },
+   {
+    "l2": 0.1027750060237385,
+    "tensor": "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight"
+   },
+   {
+    "l2": 0.09875573814725594,
+    "tensor": "pairformer_stack.blocks.42.pair_stack.pair_transition.layer_norm.weight"
+   },
+   {
+    "l2": 0.09518290771822187,
+    "tensor": "msa_module.blocks.3.outer_product_mean.layer_norm.bias"
+   }
+  ],
+  "largest_unmapped": [
+   {
+    "l2": 1.4107731508633552,
+    "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   },
+   {
+    "l2": 1.2613410872346569,
+    "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias"
+   },
+   {
+    "l2": 0.988499321236725,
+    "tensor": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias"
+   },
+   {
+    "l2": 0.8848626922129472,
+    "tensor": "diffusion_module.diffusion_transformer.blocks.11.conditioned_transition.layer_norm.layer_norm_s.weight"
+   },
+   {
+    "l2": 0.7724015900289292,
+    "tensor": "diffusion_module.diffusion_transformer.blocks.6.conditioned_transition.layer_norm.layer_norm_s.weight"
+   },
+   {
+    "l2": 0.7379604076748472,
+    "tensor": "aux_heads.distogram.linear.weight"
+   },
+   {
+    "l2": 0.735981535529556,
+    "tensor": "diffusion_module.atom_attn_enc.noisy_position_embedder.linear_s.weight"
+   },
+   {
+    "l2": 0.7210820626199055,
+    "tensor": "diffusion_module.diffusion_conditioning.layer_norm_s.weight"
+   },
+   {
+    "l2": 0.6767504462395796,
+    "tensor": "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight"
+   },
+   {
+    "l2": 0.6239659279447636,
+    "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.weight"
+   }
+  ],
+  "mapped_by_the_bijection": 3275,
+  "note": "the denominator a gradient claim owes is the gradient, not the tensor count: these two numbers are what makes 3275 of 4935 readable",
+  "their_tensors_with_a_gradient": 4147,
+  "total_l2_over_all_tensors": 3.9083018945202364,
+  "unmapped": 872,
+  "unmapped_by_top_level": {
+   "aux_heads": {
+    "l2": 0.7379604135165589,
+    "tensors": 16
+   },
+   "diffusion_module": {
+    "l2": 3.677568752308188,
+    "tensors": 738
+   },
+   "input_embedder": {
+    "l2": 0.4361041179447526,
+    "tensors": 98
+   },
+   "layer_norm_s": {
+    "l2": 0.036743040947626586,
+    "tensors": 2
+   },
+   "layer_norm_z": {
+    "l2": 0.022996372771934857,
+    "tensors": 2
+   },
+   "linear_s": {
+    "l2": 0.007047154945606476,
+    "tensors": 1
+   },
+   "linear_z": {
+    "l2": 0.008391322222821107,
+    "tensors": 1
+   },
+   "msa_module_embedder": {
+    "l2": 0.11530213167234617,
+    "tensors": 2
+   },
+   "template_embedder": {
+    "l2": 0.027323964608540696,
+    "tensors": 12
+   }
+  }
+ },
+ "declared_sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+ "device": "none opened -- CPU only",
+ "grads_file": "/home/ttuser/of3t/bundle_min/grads_f64_recycles0.pt",
+ "host": "tt-quietbox2",
+ "instrument": "the published float64 gradient, per tensor, against the bijection",
+ "largest_tensor": {
+  "l2": 1.4107731508633552,
+  "mapped": false,
+  "shape": [
+   384
+  ],
+  "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+ },
+ "presence": {
+  "absent": 0,
+  "exactly_zero": 9,
+  "in_file_not_in_published": [],
+  "in_published_not_in_file": [],
+  "published_presence_true": 4147,
+  "set_agrees": true,
+  "tensors_in_file": 4147,
+  "with_a_gradient": 4147
+ },
+ "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+ "sha256_matches": true,
+ "torch": "2.14.0+cu130"
+}
