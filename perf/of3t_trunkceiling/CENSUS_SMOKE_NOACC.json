@@ -1,0 +1,194 @@
+{
+ "what": "the runtime lever census for this arm: counts taken at the call, not at the construction. A lever with 0 in every field did not reach the trunk.",
+ "argv": [
+  "--lever",
+  "ceiling",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_trunk043ref/boundary_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "--out",
+  "/tmp/of3t/of3t-trunkceiling/dev_SMOKE_NOACC.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-trunkceiling/perf/of3t_trunkceiling/DEV_SMOKE_NOACC.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0",
+  "--blocks",
+  "2",
+  "--pf-set",
+  "s_fp32_residual=1"
+ ],
+ "env": {
+  "TT_BIO_HOST_F64_SOFTMAX_AB": "pairformer",
+  "TT_BIO_LEASE_CARDS": "0",
+  "TT_BIO_LEASE_HOLDER": "worker:of3t-trunkceiling",
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_BIO_SOFTMAX_PRECISE_AB": "pairformer"
+ },
+ "site_selectors": {
+  "TT_BIO_HOST_F64_SOFTMAX_AB:pairformer": {
+   "off_default": true,
+   "on_default": true,
+   "env": "pairformer"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "pairformer"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:miniformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "pairformer"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:pairformer": {
+   "off_default": true,
+   "on_default": true,
+   "env": "pairformer"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "pairformer"
+  },
+  "TT_BIO_TRIATT_SDPA_HIFI_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SDPA_RAGGED_PAD_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  }
+ },
+ "wrapped_counters": {
+  "accurate_softmax_chain": 0,
+  "softmax_ckc_calls": 2,
+  "softmax_ckc_precise": 2
+ },
+ "package_stats": {
+  "FP32_SOFTMAX_STATS": {
+   "calls": 16,
+   "blocked": 16,
+   "blocks": 222,
+   "fused": 233,
+   "unfused": 0,
+   "l1": 16,
+   "l1_blocks": 92,
+   "l1_refused": 11,
+   "l1_cores": 96,
+   "l1_free_retired": 0,
+   "l1_free_walked": 0,
+   "l1_padded_diverged": 0,
+   "dram_narrowed": 0
+  },
+  "HOST_F64_SOFTMAX_STATS": {
+   "served": 0,
+   "declined": 0,
+   "refused": 0,
+   "elements": 0
+  },
+  "LATCH_STATS": {
+   "l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "narrow_l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_stage": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "pair_bias_ln_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "bmm_cfg": {
+    "served": 460,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "sdpa_q_chunk": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   }
+  },
+  "MASK_TRANS_STATS": {
+   "stacks": 0,
+   "blocks": 0,
+   "ones": 0,
+   "declined_rank": 0,
+   "declined_off": 2
+  },
+  "OPM_ROW_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0,
+   "join_split": 0
+  },
+  "PAIR_BIAS_STATS": {},
+  "PWA_DEPTH_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0
+  },
+  "TRIATT_FUSED_HIFI_STATS": {
+   "served": 0,
+   "declined": 16,
+   "too_short": 0
+  },
+  "TRIMUL_MM_TRANSPOSE_STATS": {
+   "('four-way-split', 'defer')": 16
+  },
+  "TRIMUL_TAIL_L1_STATS": {
+   "l1": 0,
+   "dram": 0
+  },
+  "SOFTMAX_BW_RENORM_STATS": {
+   "applied": 0,
+   "declined": 0
+  }
+ },
+ "renorm_flag": true,
+ "trunk_math_fidelity": "hifi4"
+}

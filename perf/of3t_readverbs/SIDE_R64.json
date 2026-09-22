@@ -1,0 +1,799 @@
+{
+ "pin": "route",
+ "blocks": "44,4,0",
+ "err_blocks": "44,4,0",
+ "cap": 4,
+ "rc": 0,
+ "host": "qb1",
+ "hostname": "tt-quietbox",
+ "card": "qb1 (tt-quietbox) card 0, p150a Blackhole",
+ "seconds": 40.1,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/of3t-readverbs/tt_bio/__init__.py",
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "0",
+  "TT_BIO_LEASE_CARDS": "0",
+  "RV_PIN": "route",
+  "RV_BLOCKS": "44,4,0",
+  "RV_ERRBLOCKS": "44,4,0"
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 384,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 0,
+  "l1_refused": 0,
+  "l1_cores": 110,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 240,
+  "declined": 0
+ },
+ "pin_blocks": [
+  0,
+  4,
+  44
+ ],
+ "blocks_seen": 48,
+ "nodes_selected": 117,
+ "substitutions": {
+  "identity block0": 20,
+  "identity block4": 20,
+  "identity block44": 20,
+  "sliced block0": 19,
+  "sliced block4": 19,
+  "sliced block44": 19
+ },
+ "substitutions_total": 117,
+ "float32_writeback_tensors": 117,
+ "float32_writeback_lossy": 5,
+ "errors": {},
+ "moved": [],
+ "forward": {
+  "_identity_grad [1, 4, 64, 64]": 288,
+  "_identity_grad [64, 4, 64, 64]": 576,
+  "_identity_grad [64, 64, 128]": 576,
+  "_sliced [1, 16, 64, 24]": 144,
+  "_sliced [1, 64, 64, 128]": 1296,
+  "_taped_layer_norm [1, 64, 384]": 288,
+  "_taped_layer_norm [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [64, 64, 128]": 288,
+  "_taped_linear [1, 64, 1536]": 432,
+  "_taped_linear [1, 64, 384]": 432,
+  "_taped_linear [1, 64, 64, 128]": 720,
+  "_taped_linear [1, 64, 64, 16]": 144,
+  "_taped_linear [1, 64, 64, 512]": 288,
+  "_taped_linear [64, 64, 128]": 288,
+  "_taped_linear [64, 64, 384]": 288,
+  "_taped_linear [64, 64, 4]": 288,
+  "_v_concat [1, 64, 64, 128]": 144,
+  "_v_concat_heads [64, 1, 64, 128]": 288,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 432,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 864,
+  "_v_matmul [1, 128, 64, 64]": 288,
+  "_v_matmul [1, 16, 64, 32]": 144,
+  "_v_matmul [1, 16, 64, 64]": 144,
+  "_v_matmul [1, 64, 64, 512]": 288,
+  "_v_matmul [64, 4, 64, 32]": 288,
+  "_v_matmul [64, 4, 64, 64]": 288,
+  "_v_matmul [64, 64, 128]": 288,
+  "_v_permute [1, 128, 64, 64]": 576,
+  "_v_permute [1, 16, 24, 64]": 144,
+  "_v_permute [1, 16, 64, 64]": 144,
+  "_v_permute [1, 4, 64, 64]": 288,
+  "_v_permute [1, 64, 384]": 144,
+  "_v_permute [64, 4, 32, 64]": 288,
+  "_v_permute [64, 64, 128]": 288,
+  "_v_reshape [1, 1, 64, 1536]": 144,
+  "_v_reshape [1, 384, 64]": 144,
+  "_v_reshape [1, 64, 64, 128]": 288,
+  "_v_reshape [1, 64, 64, 4]": 288,
+  "_v_reshape [64, 1, 64, 384]": 288,
+  "_v_reshape [64, 64, 128]": 576,
+  "_v_softmax [1, 16, 64, 64]": 144,
+  "_v_softmax [64, 4, 64, 64]": 288,
+  "_v_transpose [1, 16, 32, 64]": 144,
+  "_v_transpose [1, 64, 128, 64]": 288,
+  "_v_transpose [1, 64, 64, 128]": 288,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 288,
+  "impl [1, 16, 64, 64]": 432,
+  "impl [1, 4, 64, 64]": 864,
+  "impl [1, 64, 1536]": 144,
+  "impl [1, 64, 384]": 432,
+  "impl [1, 64, 64, 128]": 1584,
+  "impl [1, 64, 64, 512]": 144,
+  "impl [64, 4, 64, 64]": 288,
+  "impl [64, 64, 128]": 288,
+  "silu [1, 64, 1536]": 144,
+  "silu [1, 64, 64, 512]": 144
+ },
+ "backward": {
+  "_identity_grad [1, 4, 64, 64]": 192,
+  "_identity_grad [64, 4, 64, 64]": 384,
+  "_identity_grad [64, 64, 128]": 384,
+  "_sliced [1, 16, 64, 24]": 48,
+  "_sliced [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [1, 64, 384]": 96,
+  "_taped_layer_norm [1, 64, 64, 128]": 528,
+  "_taped_layer_norm [64, 64, 128]": 192,
+  "_taped_linear [1, 64, 1536]": 144,
+  "_taped_linear [1, 64, 384]": 144,
+  "_taped_linear [1, 64, 64, 128]": 480,
+  "_taped_linear [1, 64, 64, 16]": 48,
+  "_taped_linear [1, 64, 64, 512]": 192,
+  "_taped_linear [64, 64, 128]": 192,
+  "_taped_linear [64, 64, 384]": 192,
+  "_taped_linear [64, 64, 4]": 192,
+  "_v_concat [1, 64, 64, 128]": 96,
+  "_v_concat_heads [64, 1, 64, 128]": 192,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 144,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 576,
+  "_v_matmul [1, 128, 64, 64]": 192,
+  "_v_matmul [1, 16, 64, 32]": 48,
+  "_v_matmul [1, 16, 64, 64]": 48,
+  "_v_matmul [1, 64, 64, 512]": 192,
+  "_v_matmul [64, 4, 64, 32]": 192,
+  "_v_matmul [64, 4, 64, 64]": 192,
+  "_v_matmul [64, 64, 128]": 192,
+  "_v_permute [1, 128, 64, 64]": 384,
+  "_v_permute [1, 16, 24, 64]": 48,
+  "_v_permute [1, 16, 64, 64]": 48,
+  "_v_permute [1, 4, 64, 64]": 192,
+  "_v_permute [1, 64, 384]": 48,
+  "_v_permute [64, 4, 32, 64]": 192,
+  "_v_permute [64, 64, 128]": 192,
+  "_v_reshape [1, 1, 64, 1536]": 48,
+  "_v_reshape [1, 384, 64]": 48,
+  "_v_reshape [1, 64, 64, 128]": 192,
+  "_v_reshape [1, 64, 64, 4]": 192,
+  "_v_reshape [64, 1, 64, 384]": 192,
+  "_v_reshape [64, 64, 128]": 384,
+  "_v_softmax [1, 16, 64, 64]": 48,
+  "_v_softmax [64, 4, 64, 64]": 192,
+  "_v_transpose [1, 16, 32, 64]": 48,
+  "_v_transpose [1, 64, 128, 64]": 192,
+  "_v_transpose [1, 64, 64, 128]": 192,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 192,
+  "impl [1, 16, 64, 64]": 144,
+  "impl [1, 4, 64, 64]": 384,
+  "impl [1, 64, 1536]": 48,
+  "impl [1, 64, 384]": 144,
+  "impl [1, 64, 64, 128]": 1056,
+  "impl [1, 64, 64, 512]": 96,
+  "impl [64, 4, 64, 64]": 192,
+  "impl [64, 64, 128]": 192,
+  "silu [1, 64, 1536]": 48,
+  "silu [1, 64, 64, 512]": 96
+ },
+ "route": {
+  "shape_mismatch": 0,
+  "no_parent_grad": 0,
+  "writeback_dtype": {
+   "BFLOAT16->BFLOAT16": 63,
+   "FLOAT32->FLOAT32": 54
+  },
+  "writeback_lossy_f32": 5,
+  "writeback_lossy_store": 24,
+  "per_block": {
+   "_sliced block44": 19,
+   "_identity_grad block44": 20,
+   "_sliced block4": 19,
+   "_identity_grad block4": 20,
+   "_sliced block0": 19,
+   "_identity_grad block0": 20
+  },
+  "moved": [
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 3.3075532656830213e-34
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0014964662251221886
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0018065167654986083
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.001524229294170362
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0015846781473548926
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 2.578405465531418e-11
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0016252301228996066
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0016454993003908827
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0017351646826931138
+   },
+   {
+    "verb": "identity",
+    "block": 44,
+    "rel_moved": 0.0016867168959401864
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 44,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 1.0876936301766231e-31
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 3.4141730771488764e-34
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0017013716882791946
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0017970550863195907
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0015035573346750203
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0015158567046351706
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 1.4462254068578623e-09
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0018569785708245816
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0014416593094074214
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0015458511007429836
+   },
+   {
+    "verb": "identity",
+    "block": 4,
+    "rel_moved": 0.0017006372558328615
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 4,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 2.3727645274780646e-10
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0016360085505647297
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0015630167227534092
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0016389876612661887
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.001552740608547764
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 3.5941116177166226e-10
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0016445444785608118
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0014545630306195198
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0016371491348729048
+   },
+   {
+    "verb": "identity",
+    "block": 0,
+    "rel_moved": 0.0015880946629411002
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   },
+   {
+    "verb": "sliced",
+    "block": 0,
+    "rel_moved": 0.0
+   }
+  ],
+  "substitutions_by_caller_block": {
+   "_identity_grad block0": 20,
+   "_identity_grad block4": 20,
+   "_identity_grad block44": 20,
+   "_sliced block0": 19,
+   "_sliced block4": 19,
+   "_sliced block44": 19
+  },
+  "substitutions_total": 117,
+  "backward_firings_total": 11856,
+  "reach_measured_pct": 0.9868421052631579
+ }
+}

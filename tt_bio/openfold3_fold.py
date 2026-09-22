@@ -279,6 +279,7 @@ class OpenFold3(Module):
         )
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
+        from .protenix import ConfidenceHead
         # pTM and ipTM are a max over ALIGNMENT FRAMES, not over tokens, and a token that
         # has no frame can win that max and set the score a user's structure is ranked by.
         # Upstream builds the mask from the predicted coordinates and zeroes the row

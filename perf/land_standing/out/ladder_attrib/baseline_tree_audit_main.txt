@@ -1,0 +1,20 @@
+scoring tree: e1d887a54
+flip commit 65b1c356e authored 2026-09-19 14:39; reached main at 49080031e 2026-09-19 17:34
+
+baseline           recorded   HIFI   recorded_by        rec_date   tree_flip
+----------------------------------------------------------------------------
+boltz2             False      -      94bb94336          09-20 12:37 False   
+esmfold2-fast      False      -      eb51ce99f          09-20 01:30 False   
+esmfold2           False      -      1d69ad453          09-20 07:34 False   
+nesso1             False      -      40b5f30a8          09-20 12:53 False   
+openbind           False      -      1d69ad453          09-20 07:34 False   
+opendde            False,True -      165313a0d          09-21 07:07 True    
+openfold3          False,True 10     21dffdf00          09-21 17:42 True    
+protenix-v1        False      -      1d69ad453          09-20 07:34 False   
+protenix-v2        False      -      0777271ac          09-20 15:38 False   
+rf3                False      -      3e1bd0a55          09-20 15:31 False   
+
+baselines whose recorded SDPA_WIDE_K disagrees with their recording tree's default: 0
+pre-flip recording trees: 8 (boltz2, esmfold2-fast, esmfold2, nesso1, openbind, protenix-v1, protenix-v2, rf3)
+post-flip recording trees: 2 (opendde, openfold3)
+baselines carrying TRIATT_SDPA_HIFI at all: 1

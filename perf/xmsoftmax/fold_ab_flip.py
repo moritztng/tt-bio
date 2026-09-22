@@ -30,7 +30,7 @@ Protocol, from the p3 pass that got a 20 aa cell wrong twice:
 
 Run it alone on the box. Every fold here is the measurement.
 """
-import argparse, json, os, shutil, statistics as st, subprocess, sys, time
+import argparse, json, os, shutil, signal, statistics as st, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +41,8 @@ STEPS, SEED = 6, 0
 
 
 def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
-             flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all") -> dict:
+             flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all",
+             timeout_s: float = 0.0) -> dict:
     """One fold. arm 'on' = shipped defaults, 'off' = `flag` set to `off_value`.
 
     The flag is a parameter because the protocol above is the general one and nothing in it is
@@ -71,9 +72,23 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
     shutil.rmtree(out_dir, ignore_errors=True)
     t0 = time.monotonic()
     t0_wall = time.time()
+    # `timeout_s` exists because a fold can WEDGE rather than fail. On 2026-09-22 an rf3 896 aa
+    # leg stopped at "trunk 1/10" with its device child spinning at 100 % CPU and sat there
+    # indefinitely; without a bound, one wedge costs the whole unattended cell. The fold gets its
+    # own session so the kill reaches the multiprocessing child that actually holds the card --
+    # killing only the direct child orphans that one and the NEXT fold then cannot open the device.
     with open(log, "w") as fp:
-        rc = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fp,
-                            stderr=subprocess.STDOUT).returncode
+        proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=fp,
+                                stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            rc = proc.wait(timeout=timeout_s or None)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait()
+            return {"error": f"fold WEDGED: no exit in {timeout_s:.0f}s, process group killed"}
     wall = time.monotonic() - t0
     if rc != 0:
         tail = "".join(log.read_text(errors="replace").splitlines(True)[-3:]).strip()
@@ -98,33 +113,52 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
 
 
 def cell(model: str, rung: int, reps: int, workdir: Path,
-         flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all") -> dict:
+         flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all",
+         timeout_s: float = 0.0) -> dict:
     print("\n=== %s @ %d aa ===" % (model, rung), flush=True)
-    warm = one_fold(model, rung, "on", workdir, rep=0, flag=flag, off_value=off_value)
+    warm = one_fold(model, rung, "on", workdir, rep=0, flag=flag, off_value=off_value,
+                    timeout_s=timeout_s)
     if "error" in warm:
         print("  warm-up FAILED: %s" % warm["error"], flush=True)
         return {"model": model, "rung": rung, "error": warm["error"]}
     print("  warm-up (discarded)  %.4fs" % warm["runtime_s"], flush=True)
     off, on, folds = [], [], []
     for rep in range(1, reps + 1):
-        for arm, acc in (("off", off), ("on", on)):
-            r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value)
+        # ALTERNATE the arm order. A fixed off-then-on order puts any position effect --
+        # thermal, allocator state, page cache -- on the same arm in every pair, so it
+        # reproduces across cards and processes and reads as a lever. On 2026-09-22 the
+        # narrow-q 768 aa NEGATIVE CONTROL, a length where the policy function provably
+        # cannot reach the fallback list, read +2.542 % at 3.80x its own A/A floor with the
+        # lever-enabled arm first in both pairs. The same cell had reproduced +9.50 s on two
+        # cards in two processes, which is what a position effect does: reproducing is not
+        # the same as being real. Alternating cancels it instead of confirming it.
+        order = (("off", off), ("on", on)) if rep % 2 else (("on", on), ("off", off))
+        for slot, (arm, acc) in enumerate(order):
+            r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value,
+                         timeout_s=timeout_s)
             if "error" in r:
                 print("  %s rep%d FAILED: %s" % (arm, rep, r["error"]), flush=True)
                 return {"model": model, "rung": rung, "error": r["error"],
                         "off": off, "on": on, "folds": folds}
             acc.append(r["runtime_s"])
-            folds.append({"arm": arm, "rep": rep, "runtime_s": r["runtime_s"],
+            folds.append({"arm": arm, "rep": rep, "slot": slot,
+                          "runtime_s": r["runtime_s"],
                           "t_start": r["t_start"], "t_end": r["t_end"]})
             print("  %-3s rep%d  %.4fs" % (arm, rep, r["runtime_s"]), flush=True)
     # Floor first: the spread of the same-arm reps is what makes the delta a measurement.
-    aa = 100.0 * (max(off) - min(off)) / st.median(off)
+    # Take the WIDER of the two arms' own spreads. Reading it off one arm only can hand back
+    # a floor narrower than the noise the other arm is carrying, which is a floor that clears
+    # a delta it should have refused.
+    aa_off = 100.0 * (max(off) - min(off)) / st.median(off)
+    aa_on = 100.0 * (max(on) - min(on)) / st.median(on)
+    aa = max(aa_off, aa_on)
     ab = 100.0 * (st.median(on) - st.median(off)) / st.median(off)
     verdict = "INSIDE THE FLOOR" if abs(ab) <= aa else "outside the floor"
     print("  A/A floor %+.3f%%   A/B %+.3f%%   %s" % (aa, ab, verdict), flush=True)
     return {"model": model, "rung": rung, "off": off, "on": on, "folds": folds,
             "off_median": st.median(off), "on_median": st.median(on),
-            "aa_spread_pct": aa, "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
+            "aa_spread_pct": aa, "aa_spread_off_pct": aa_off, "aa_spread_on_pct": aa_on,
+            "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
 
 
 def main() -> int:
@@ -136,6 +170,10 @@ def main() -> int:
                     help="Env var the off arm sets. Default: the accurate-softmax sites.")
     ap.add_argument("--off-value", default="-all",
                     help="Value the off arm sets --flag to. Default: -all.")
+    ap.add_argument("--fold-timeout-s", type=float, default=0.0,
+                    help="kill a fold that has not exited in this many seconds, and "
+                         "report it as WEDGED. 0 disables. Size it well above the "
+                         "slowest honest fold in the cell.")
     ap.add_argument("--workdir", default="/tmp/xmflip")
     ap.add_argument("--out", default=str(ROOT / "perf/xmsoftmax/results/fold_ab_flip.json"))
     a = ap.parse_args()
@@ -144,7 +182,8 @@ def main() -> int:
     cells = []
     for rung in [int(r) for r in a.rungs.split(",")]:
         for model in a.models.split(","):
-            cells.append(cell(model, rung, a.reps, workdir, a.flag, a.off_value))
+            cells.append(cell(model, rung, a.reps, workdir, a.flag, a.off_value,
+                              a.fold_timeout_s))
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(
                 {"what": "cost of the shipped accurate-softmax default, per model per rung",

@@ -228,15 +228,17 @@ class Tensor:
         Leaving the key behind on any of those is not a degraded gradient, it is no
         gradient: the model holds a handle the tape has never seen, `parameter_for` returns
         None at every call site, and the next backward reaches zero parameters while the
-        loss curve still falls. Measured on the shipped path as `grad_norm` exactly 0.0
-        from step 2 onward, with `d_k` bit-identical to a model that computes nothing
-        (`of3t-modeltraj`, `perf/of3t_modeltraj/traj_shipped.json`).
+        loss curve still falls. Measured on the OpenFold3 training composition as `grad_norm`
+        exactly 0.0 from step 2 onward, with the weight trajectory bit-identical to a model
+        that computes nothing. (The artifact lives on that branch, so it is deliberately not
+        cited by path here: a citation this tree cannot resolve is one `tests/
+        test_perf_citations.py` fails on, which is the gate working.)
 
         Re-keying HERE rather than at those three call sites is the point. A duty spelled
         out in a docstring and owed by the caller is the form this defect already took:
-        `parameter()` documented it, `train/recipes.py` did not do it, and eighty passes of
-        per-step parity instruments could not see it because an injected gradient never
-        asks the tape to resolve a parameter.
+        `parameter()` documented it, no caller in this tree performed it, and per-step
+        parity instruments could not see it because an injected gradient never asks the
+        tape to resolve a parameter.
         """
         old = self._value
         self._value = new
@@ -925,6 +927,12 @@ def host_f64_softmax(x, dim: int = -1):
     y64, y = host_f64_softmax_values(v, dim)
     stats["served"] += 1
     stats["elements"] += int(y64.numel())
+    # An exact FORWARD and an exact JACOBIAN are two claims, and `served` is only the first.
+    # A raw ttnn tensor gets the float64 softmax and no tape node, so the gradient path through
+    # that softmax is whatever the surrounding region already was; a taped one gets the float64
+    # Jacobian as well. An arm that serves more calls than another and moves the gradient less
+    # is telling you the split moved, and no other counter here can see it.
+    stats["served_raw" if xt is None else "served_taped"] += 1
     if xt is None:
         return y
 
@@ -1579,14 +1587,11 @@ def parameter(raw, requires_grad: bool = True):
     weight, so a 48-block trunk sharing one tensor accumulates into one gradient.
 
     Nothing is owed after an optimizer step. `AdamW.step` replaces `t.value` with a fresh
-    device tensor and `Tensor.value`'s setter carries the registration onto it, so the leaf
-    the model reads after a step is the leaf the tape resolves. That duty used to be the
-    caller's, stated here and performed nowhere, and the run it produced trained for exactly
-    one step.
-
-    Still pass the LEAF and not its value if you do call this again: `parameter(t.value)`
-    over a handle a leaf already owns mints a SECOND leaf over the same weight, the tape
-    accumulates into one and the optimizer steps the other.
+    device tensor, and `Tensor.value`'s setter carries this registration onto the new handle,
+    so the leaf keeps resolving. It was not always so: the duty used to be documented here
+    and owed by the caller, no caller in this tree performed it, and the result was a run
+    whose second step had no gradients at all. Passing the LEAF back is still accepted and
+    still re-keys; passing a bare `t.value` would mint a SECOND leaf over the same weight.
     """
     if isinstance(raw, Tensor):
         _PARAMS[id(raw.value)] = raw
@@ -1653,6 +1658,20 @@ class _no_param_scan:
 # parameter as a parent of every block, so every block gets a node, and 47 of those nodes
 # recompute a segment that touches no parameter and builds no tape.
 _TOUCHED: set = set()
+
+
+def parameter_for(raw):
+    """The leaf `parameter()` registered over this raw handle, or `None`.
+
+    The public form of the one question every coverage check asks: is the tensor the MODEL
+    holds a thing the tape can hand a gradient to? A check that reaches into `_PARAMS`
+    directly is a check that stops agreeing with the tape the first time the tape changes.
+
+    A pure query: unlike `_param` it does not record the handle as touched, so asking cannot
+    change what `checkpoint` decides to recompute.
+    """
+    t = _PARAMS.get(id(raw))
+    return t if t is not None and t.value is raw else None
 
 
 def _param(v):

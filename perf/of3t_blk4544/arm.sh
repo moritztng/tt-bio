@@ -10,7 +10,9 @@ cd "$W"
 O=/home/ttuser/of3t_blk4544
 mkdir -p "$O"
 R=/home/ttuser/of3t_frame384
-CARD=2
+# CARD defaults to this row's grant. The ALWAYS-ON fanout rule widens it onto a sibling
+# card that is genuinely idle; the lease grant is widened on that one command only.
+CARD=${BLK_CARD:-2}
 
 TAG=$1
 WIDTH=$2
@@ -22,6 +24,10 @@ case "$WIDTH" in
   384) CROP=0;  BND=$R/boundary_n384.pt ;;
   *) echo "unknown width $WIDTH"; exit 2 ;;
 esac
+# BLK_BOUNDARY overrides the captured boundary. The pad-zero control is the only caller: the
+# boundary both widths are fed carries 99.9996 % of its z mass on pad cells at padded 384
+# (perf/of3t_blk4544/PADZERO.json), and a correctly masked model must not notice it being gone.
+BND=${BLK_BOUNDARY:-$BND}
 
 OUT=$O/grads_${TAG}.pt
 COT=$O/cot_${TAG}.pt
@@ -43,7 +49,7 @@ echo "=== $TAG start $(date -u +%FT%TZ) host=$(hostname) card=$CARD width=$WIDTH
 source /home/ttuser/tt-bio-dev/env/bin/activate
 BLK_PIN="$PIN" BLK_BLOCKS="$BLOCKS" BLK_SIDECAR="$SIDE" \
 TT_BIO_SOFTMAX_BW_RENORM=1 \
-TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-blk4544 \
+TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=2,$CARD TT_BIO_LEASE_HOLDER=worker:of3t-blk4544 \
 OMP_NUM_THREADS=8 \
 timeout 5400 python3 perf/of3t_blk4544/arm.py --lever none --cot-out "$COT" \
   --boundary "$BND" --cap-last "$R/block47_boundary.pt" --out "$OUT" \

@@ -1,0 +1,22 @@
+{
+  "tag": "opendde__ubq__s1",
+  "model": "opendde",
+  "target": "examples/ubq.yaml",
+  "seed": 1,
+  "card": 0,
+  "board": "p300c",
+  "host": "qb2",
+  "wall_s": 92.4,
+  "score_key": "confidence_score",
+  "scores_by_rank": [
+    0.957448,
+    0.957325,
+    0.957296,
+    0.957287,
+    0.957269
+  ],
+  "rows_in_rank_order": true,
+  "rule_mismatches": [],
+  "served_file": "ubq.cif",
+  "iptm_of_rank0": 0.0
+}

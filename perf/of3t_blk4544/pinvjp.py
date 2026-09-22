@@ -221,6 +221,35 @@ SELECT = {"sm16": _sel_sm16, "sm4": _sel_sm4, "pairattn": _sel_pairattn,
           "paircontract": _sel_paircontract}
 SELECT["identity"] = lambda c, s, d: any(f(c, s, d) for f in
                                          (_sel_sm16, _sel_pairattn, _sel_paircontract))
+# `all` is the same union predicate in EXACT mode: every node any selector sees, pinned to
+# its float64 VJP in one arm. The saturation test the three single-pin refutations point at --
+# if R44 does not move with every taped verb in blocks 45 and 44 exact, the carrier is not a
+# taped verb at all and the next instrument has to be the forward activations they consume.
+SELECT["all"] = SELECT["identity"]
+
+
+def _sel_allref(caller, shp, desc):
+    """Every node this instrument can make exact, whatever its shape: the CEILING, not the union.
+
+    `all` is the union of the four shape selectors and it reaches 816 of the 11856 backward
+    firings in one taped backward, 6.88 %. That is NOT "every taped verb in the block", which is
+    what a saturation test has to be, and the gap is not harmless: 480 firings per backward have
+    an exact float64 VJP available and no selector matches them, among them BOTH of the single
+    track's attention matmuls (`_v_matmul [1, 16, N, N]` and `[1, 16, N, 32]`, 48 each) -- on the
+    one track `R44` can see at all. `sm16` pinned that attention's softmax and left its two
+    matmuls shipped.
+
+    So this predicate selects on the CALLER instead of the shape: every `_v_matmul`, every
+    `_v_softmax`, every `triangle_attention`, which is exactly the key set of `_REF`. 1296 of
+    11856, 10.93 %, and there is no larger arm available without writing a new float64 VJP.
+    The remaining 89.07 % are verbs this instrument has no exact reference for at all
+    (`_taped_linear`, `_taped_layer_norm`, `silu`, the reshape/permute/slice family, `impl`),
+    and that residue is the bound this arm reports rather than erases.
+    """
+    return caller in _REF
+
+
+SELECT["allref"] = _sel_allref
 
 
 # --- the block tag -----------------------------------------------------------------------------
