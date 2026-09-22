@@ -1,0 +1,52 @@
+{
+ "what": "of3t-orchestrator pass 398: the artifact contract the re-score must satisfy, fixed BEFORE the number exists.",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; a contract fixed in advance, it runs nothing",
+ "the_foreseeable_failure": "of3t-recut writes to perf/of3t_recut/ while the GRADIENTS clause is graded on perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json, and nothing connects them. Without this, the re-score lands and the clause still reports the stale FAIL -- R157 a second time.",
+ "why_it_is_fixed_now": "repointing the gate is the orchestrator's job and a repoint decided after seeing the result is a gate moved to fit an answer. Same discipline A37 applies to bars, applied to the gate.",
+ "THE_CONTRACT": {
+  "required_keys": [
+   "inputs.float64.sha256",
+   "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+   "stats.renorm_vs_FLOAT64.n_over_per_tensor_bar",
+   "stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar",
+   "coverage_total.pct_of_model_compared",
+   "bars.A26_reachable_bar_vs_their_bf16",
+   "injection.convention"
+  ],
+  "why_these": "they are the paths the clause's require list already reads, so the repoint is one string and no check is rewritten",
+  "the_one_new_key": {
+   "key": "injection.convention",
+   "values": [
+    "graph_cut_correct",
+    "legacy_total_cotangent"
+   ],
+   "why": "R161's stamp. A corrected artifact that does not say it is corrected is exactly the ambiguity R160 had to untangle retrospectively across fifteen namespaces."
+  }
+ },
+ "THE_REPOINT_CONDITION": {
+  "preregistered": true,
+  "all_four_must_hold": {
+   "1_artifact": "exists, carries every required key, injection.convention reads graph_cut_correct",
+   "2_control_forward": "recut reproduces 3.0392623414001263e-15 at block 47 through the FIXED ref_grad.py, not through frameself's bespoke break control",
+   "3_control_legacy": "--legacy-total-cotangent reproduces a banked number exactly -- a flag that merely exists has tested nothing",
+   "4_control_shortcut": "g(cot_s,cot_z) - g(0,delta) reproduces a full re-run on one arm"
+  },
+  "if_any_fails": "NO REPOINT. The clause keeps grading the old artifact with the frame-status `why` R157 added. A corrected reading nobody has controlled is not better evidence than a known-stale one, it is just newer."
+ },
+ "THE_REPOINT_MOVES_NO_BAR": {
+  "unchanged": [
+   "99.2594",
+   "bars.A26_reachable_bar_vs_their_bf16",
+   "the keyed inequality on n_over_per_tensor_bar"
+  ],
+  "changed": "only the file the clause reads",
+  "and_if_it_does_not_clear": "CLAUSE.json's five pre-registered levels say where it sits, and no bar is re-derived to meet it."
+ },
+ "controls_this_rests_on": {
+  "the_fix_is_that_fix": 3.0392623414001263e-15,
+  "the_bar_it_clears": 1e-12,
+  "linearity_sum_identity_already_measured": 6.435383259300361e-15
+ },
+ "DOESNOT": "this predicts nothing about whether the corrected reading clears. It fixes the artifact's shape and the repoint's condition before the number exists, so that neither is decided by the number."
+}
