@@ -1193,3 +1193,43 @@ directions, and the break control was run: re-merging the two tables reproduces 
 512 and the test fails, so it is not passing vacuously.
 
 **Not merged.** It changes which runs start, so it is release-gated and stays on the branch.
+
+### D244. The charter's COVERAGE clause and its own prose disagreed: both checks reported all-covered while the `why` strings beside them said three of the nineteen items did not fire, stale by fifty passes. **FIXED** — found and fixed by `of3t-orchestrator` at pass 385 by reading the published CHARTER_EVIDENCE against its own artifact, no card. Campaign-internal.
+
+**The reading.** `CHARTER_EVIDENCE.json` publishes the COVERAGE condition as MET on two checks:
+
+    union.*.covered              all True    8 of 8
+    conditional_paths.*.covered  all True   11 of 11
+
+and printed, as the `why` for those same two checks:
+
+    "all 8 of upstream's LossWeights terms fire. 7 do; `bond` has an empty mask on 5nw3"
+    "all 11 conditional paths fire. 9 do as of pass 328; the two that do not are
+     `diffusion_rollout` and `model_forward` ..."
+
+**The checks are right and the prose is stale.** `COVERAGE_MERGED.json` carries per-item evidence
+for every one of the nineteen, and the six the original census called false were upgraded by
+measurement rather than by argument: `templates` and `nucleotide` by mask presence over 34
+datapoints, `bond` by a firing datapoint (4g5j, `finetune_1/weighted-pdb`, crop 256),
+`disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by
+two-armed on/off tests (`ARM_full` against `ARM_norollout`, and `ARM_full` against `ARM_zeroseed`).
+
+**Why it matters even though no verdict moved.** The `why` is the fourth element of a `require`
+tuple and is documentation, so nothing was ever graded wrongly. But this is the charter's own
+published evidence file, and it read *"COVERAGE MET"* directly above prose naming three paths that
+do not fire. **A reviewer cannot accept a condition whose two clauses contradict each other**, and
+coverage is the clause the charter singles out: *"Prove every loss term and every conditional path
+actually fired... This is where reproductions quietly fail and it is not optional."* It is the same
+class as `a-guard-whose-two-clauses-disagree`, here in the artifact the campaign would hand someone
+to check its work. Note the direction: the prose was **more pessimistic** than the check, so this
+never flattered the campaign — it just made the evidence unreadable.
+
+**The fix, and why it is not another count.** The strings now describe **where each item's evidence
+lives** — `carried_by` and `n_pairs_firing` for the loss terms, `census_said` plus the row's
+CONFIRMS/EXTENDS/CONTRADICTS verdict and the instrument for the paths — and say explicitly not to
+restate the count, because a count hard-coded in prose beside a check that computes it is what
+rotted. The six upgrades are named, since that history is what a reviewer actually needs.
+`_of3t_donecheck.py` re-verified on all three hosts after the edit: no row's verdict moved.
+
+**And the sync, which is K19 again.** The gate script is per-host and nothing syncs it, so the edit
+was pushed to qb1 and qb2 and the md5 checked equal on all three rather than assumed.
