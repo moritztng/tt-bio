@@ -65,6 +65,219 @@ def norms(t):
     return None if t is None else float(torch.linalg.vector_norm(t.double()))
 
 
+def score(mine, ref, prefix=PRE):
+    """Mass-weighted relative L2, norm ratio and cosine of two per-tensor gradient dicts, plus
+    the best single scalar a* = argmin_a ||a*mine - ref|| and the residual that survives it.
+
+    The residual answers of3t-frameself step 0 directly: a near-constant ratio at 48
+    independently-parameterised blocks is either one scalar applied once, in which case the
+    residual collapses, or an average of 48 unrelated numbers, in which case it does not.
+    """
+    names = sorted(n for n in ref if n.startswith(prefix) and ref[n] is not None)
+    ref_sq = err_sq = arm_sq = dot = 0.0
+    worst, worst_name = -1.0, None
+    n_bit = n_absent = 0
+    for n in names:
+        r = ref[n].to(torch.float64).reshape(-1)
+        m = mine.get(n)
+        if m is None:
+            n_absent += 1
+            ref_sq += float(torch.linalg.vector_norm(r)) ** 2
+            continue
+        m = m.to(torch.float64).reshape(-1)
+        if torch.equal(m, r):
+            n_bit += 1
+        rn = float(torch.linalg.vector_norm(r))
+        en = float(torch.linalg.vector_norm(m - r))
+        ref_sq += rn ** 2
+        err_sq += en ** 2
+        arm_sq += float(torch.linalg.vector_norm(m)) ** 2
+        dot += float(torch.dot(m, r))
+        rel = en / rn if rn > 0 else (0.0 if en == 0 else float("inf"))
+        if rel > worst:
+            worst, worst_name = rel, n
+    a_star = dot / arm_sq if arm_sq > 0 else None
+    # ||a*m - r||^2 = a*^2 ||m||^2 - 2 a* <m,r> + ||r||^2, and at the optimum that is
+    # ||r||^2 - <m,r>^2/||m||^2 up to round-off. Formed that way to keep it positive.
+    res_sq = max(ref_sq - (dot ** 2 / arm_sq if arm_sq > 0 else 0.0), 0.0)
+    return {
+        "n_tensors": len(names), "n_absent_from_arm": n_absent, "n_bit_identical": n_bit,
+        "mass_weighted_rel_l2": (err_sq / ref_sq) ** 0.5 if ref_sq else None,
+        "norm_ratio_arm_over_reference": (arm_sq / ref_sq) ** 0.5 if ref_sq else None,
+        "cos": dot / (arm_sq * ref_sq) ** 0.5 if arm_sq > 0 and ref_sq > 0 else None,
+        "best_scalar_a_star": a_star,
+        "residual_after_best_scalar_frac_of_reference": (res_sq / ref_sq) ** 0.5 if ref_sq
+        else None,
+        "reference_squared_norm": ref_sq, "arm_squared_norm": arm_sq,
+        "worst_rel_l2": worst if worst >= 0 else None, "worst_tensor": worst_name,
+    }
+
+
+def per_block(mine, ref, n_blocks=48):
+    out = {}
+    for i in range(n_blocks):
+        pre = f"{PRE}blocks.{i}."
+        if any(n.startswith(pre) for n in ref):
+            out[str(i)] = score(mine, ref, pre)
+    return out
+
+
+def tensor_pair(name, mine, theirs, mask=None):
+    """Elementwise agreement of two tensors, and again over the real token rows only. The
+    padded frame is 384 tokens with 56 real ones, so a norm over the whole tensor is 97.9 %
+    pad in z and a match there is not a match on the part that carries the answer."""
+    if mine is None or theirs is None:
+        return {"name": name, "present": False}
+    m, t = mine.to(torch.float64), theirs.to(torch.float64)
+    if m.shape != t.shape:
+        return {"name": name, "present": True, "shape_mismatch": [list(m.shape), list(t.shape)]}
+    d = {"name": name, "present": True, "shape": list(m.shape),
+         "bit_identical": bool(torch.equal(m, t)),
+         "norm_mine": float(torch.linalg.vector_norm(m)),
+         "norm_theirs": float(torch.linalg.vector_norm(t)),
+         "rel_l2": float(torch.linalg.vector_norm(m - t))
+         / max(float(torch.linalg.vector_norm(t)), 1e-300)}
+    if mask is not None:
+        real = mask.reshape(-1) > 0
+        if m.dim() >= 3 and m.shape[1] == real.numel() and m.shape[2] == real.numel():
+            mm, tt = m[:, real][:, :, real], t[:, real][:, :, real]
+        elif m.dim() >= 2 and m.shape[1] == real.numel():
+            mm, tt = m[:, real], t[:, real]
+        else:
+            mm = tt = None
+        if mm is not None:
+            d["real_tokens_only"] = {
+                "bit_identical": bool(torch.equal(mm, tt)),
+                "norm_theirs": float(torch.linalg.vector_norm(tt)),
+                "rel_l2": float(torch.linalg.vector_norm(mm - tt))
+                / max(float(torch.linalg.vector_norm(tt)), 1e-300),
+                "share_of_full_squared_norm": (float(torch.linalg.vector_norm(tt)) ** 2
+                                               / max(float(torch.linalg.vector_norm(t)) ** 2,
+                                                     1e-300)),
+            }
+    return d
+
+
+def run_selftest(model, b, c, grads, a, mode):
+    """Differentiate the REAL `model.pairformer_stack`, in this process, on the captured pair.
+
+    Same module object, same parameter tensors, same call kwargs the model itself used, same
+    boundary, same cotangent. The only thing that changes against the full-model backward is
+    that the cotangent is injected at the stack's outputs instead of arriving from the loss.
+    If THAT reproduces `grads_f64_043.pt`'s trunk section, the captured pair is sound and the
+    defect is in `ref_grad.py`'s reconstructed 48-block loop. If it does not, the pair itself
+    is insufficient and no reconstruction can be blamed.
+    """
+    stack = model.pairformer_stack
+    kw = dict(b.get("call_kwargs_nontensor") or {})
+    # Only the arguments the module actually declares, and only the plain ones -- a repr() of a
+    # non-scalar would be passed as a string.
+    kw = {k: v for k, v in kw.items() if isinstance(v, (int, float, bool, type(None)))}
+    bpc_real = getattr(stack, "blocks_per_ckpt", None)
+    bpc_used = bpc_real if bpc_real is not None else 1
+    note_bpc = ("as the model had it" if bpc_real is not None else
+                "the model had None; forced to 1 because a non-checkpointed 48-block float64 "
+                "backward at 384 tokens does not fit in host memory. Recompute of a block with "
+                "dropout pinned to r=0 is deterministic, and of3t-twoside measured the identity "
+                "at 4 blocks: 0.034117901729881786 plain against 0.0341179017298818 "
+                "checkpointed, which agrees to 1e-16 and is not bit-identical")
+
+    model.zero_grad(set_to_none=True)
+
+    s_in = b["s_in"].detach().clone().requires_grad_(True)
+    z_in = b["z_in"].detach().clone().requires_grad_(True)
+    sm = b["single_mask"].detach().clone()
+    pm = b["pair_mask"].detach().clone()
+    cot_s, cot_z = c["cot_s"], c["cot_z"]
+
+    prev = stack.blocks_per_ckpt
+    stack.blocks_per_ckpt = bpc_used
+    t0 = time.time()
+    policy2 = bm.cast_policy(mode, "cpu")
+    with policy2:
+        s_out, z_out = stack(s=s_in, z=z_in, single_mask=sm, pair_mask=pm, **kw)
+        loss2 = (s_out * cot_s).sum() + (z_out * cot_z).sum()
+    t_f = time.time() - t0
+    t0 = time.time()
+    loss2.backward()
+    t_b = time.time() - t0
+    stack.blocks_per_ckpt = prev
+
+    mine = {}
+    for name, p in model.named_parameters():
+        if name.startswith(PRE):
+            mine[name] = p.grad.detach().to(torch.float64).clone() if p.grad is not None else None
+    n_none = sum(1 for v in mine.values() if v is None)
+
+    ref = None
+    if a.ref_grads:
+        r = torch.load(a.ref_grads, map_location="cpu", weights_only=False, mmap=True)
+        ref = {k: r[k] for k in r if k.startswith(PRE)}
+
+    out = {
+        "what": "the REAL model.pairformer_stack object, differentiated on the captured pair in "
+                "the same process as the capture",
+        "module_state_at_the_taped_call": b.get("module_state"),
+        "call_kwargs_replayed": kw,
+        "call_kwargs_nontensor_at_the_taped_call": b.get("call_kwargs_nontensor"),
+        "blocks_per_ckpt_used": bpc_used, "blocks_per_ckpt_note": note_bpc,
+        "cotangent_hook_firings_outputs": c.get("out_fired"),
+        "cotangent_hook_firings_inputs": b.get("in_fired"),
+        "injected_loss": float(loss2),
+        "seconds_forward": t_f, "seconds_backward": t_b,
+        "n_trunk_tensors": len(mine), "n_without_gradient": n_none,
+        "forward_reproduces_the_taped_outputs": {
+            "s": tensor_pair("s_out", s_out.detach().to(torch.float64), c.get("s_out"), sm),
+            "z": tensor_pair("z_out", z_out.detach().to(torch.float64), c.get("z_out"), sm),
+        },
+        "input_cotangent_vs_the_real_backward": {
+            "s": tensor_pair("ds_in", s_in.grad, b.get("cot_in_s"), sm),
+            "z": tensor_pair("dz_in", z_in.grad, b.get("cot_in_z"), sm),
+            "caveat": "the real backward's dL/ds_in and dL/dz_in include every consumer of "
+                      "those two tensors, not only the stack. At num_recycles 0 the stack is "
+                      "their only taped consumer inside run_trunk, but this is a read and not "
+                      "a control.",
+        },
+    }
+    if ref is not None:
+        out["vs_published_reference"] = score(mine, ref)
+        out["vs_published_reference_per_block"] = per_block(mine, ref)
+        out["bar"] = 1e-12
+        out["verdict"] = ("H-B: the captured pair reproduces the reference through the real "
+                          "module, so ref_grad.py's reconstructed stack is the defect"
+                          if (out["vs_published_reference"]["mass_weighted_rel_l2"] or 1.0) <= 1e-12
+                          else "H-A: the captured pair does not reproduce the reference even "
+                               "through the real module, so the pair is insufficient")
+    out["vs_this_runs_own_full_model_backward"] = score(
+        mine, {k: v for k, v in grads.items() if k.startswith(PRE) and v is not None})
+
+    if a.selftest_compare and a.selftest_compare.exists():
+        d = torch.load(a.selftest_compare, map_location="cpu", weights_only=False)
+        rg = d.get("grads", {})
+        cmp_ = {
+            "path": str(a.selftest_compare),
+            "what": "ref_grad.py's reconstructed 48-block loop on the same pair",
+            "recorded_loss": d.get("loss"), "policy": d.get("policy"), "tree": d.get("tree"),
+            "its_forward_vs_the_real_module": {
+                "s": tensor_pair("s", d.get("s"), s_out.detach().to(torch.float64), sm),
+                "z": tensor_pair("z", d.get("z"), z_out.detach().to(torch.float64), sm),
+            },
+            "its_input_gradient_vs_the_real_module": {
+                "s": tensor_pair("ds_in", d.get("ds_in"), s_in.grad, sm),
+                "z": tensor_pair("dz_in", d.get("dz_in"), z_in.grad, sm),
+            },
+            "its_parameter_gradient_vs_the_real_module": score(rg, mine),
+        }
+        if ref is not None:
+            cmp_["its_parameter_gradient_vs_published_reference"] = score(rg, ref)
+        out["ref_grad_reconstruction"] = cmp_
+
+    print("SELFTEST " + json.dumps(
+        {k: out.get(k) for k in ("verdict", "injected_loss", "blocks_per_ckpt_used")}
+        | {"vs_reference": out.get("vs_published_reference")}, indent=1), flush=True)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, type=Path)
@@ -85,6 +298,21 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=20260919)
     ap.add_argument("--threads", type=int, default=14)
     ap.add_argument("--tag", default="model_n384")
+    ap.add_argument("--selftest", action="store_true",
+                    help="of3t-frameself, D242. After the backward and the witness, differentiate "
+                         "THE SAME module object on the captured pair -- zero the grads, call "
+                         "model.pairformer_stack on the recorded boundary with the recorded call "
+                         "kwargs, backward <cot,out>, and score against --ref-grads. The replay "
+                         "in perf/of3t_trunkg043/ref_grad.py reconstructs 48 standalone "
+                         "PairFormerBlocks instead, and overshoots this reference by 1.7584x at "
+                         "a bit-exact forward. This holds everything fixed but the "
+                         "differentiator. Opt-in: without it nothing below runs and the file "
+                         "produces byte for byte what it produced before.")
+    ap.add_argument("--selftest-compare", type=Path,
+                    help="ref_grad.py's own output .pt for this frame (of3t_twoside/ctrl_f64.pt). "
+                         "Its s, z, ds_in, dz_in and grads are scored against the real module's "
+                         "in this process, so the forward claim is checked elementwise on real "
+                         "tokens rather than through a norm the pads dominate.")
     a = ap.parse_args()
 
     t_start = time.time()
@@ -146,6 +374,37 @@ def main() -> int:
             "single_mask": kwargs["single_mask"].detach().to(torch.float64).clone(),
             "pair_mask": kwargs["pair_mask"].detach().to(torch.float64).clone(),
         })
+        if not a.selftest:
+            return
+        # --selftest only. None of this touches the graph: the extra tensor hooks return None,
+        # so they cannot change a gradient, and everything else is a read.
+        e = entries[-1]
+        e["call_kwargs_nontensor"] = {k: (v if isinstance(v, (int, float, bool, str, type(None)))
+                                          else repr(v))
+                                      for k, v in kwargs.items() if not torch.is_tensor(v)}
+        e["call_kwargs_tensor"] = sorted(k for k, v in kwargs.items() if torch.is_tensor(v))
+        e["n_positional_args"] = len(args_)
+        e["module_state"] = {
+            "class": type(mod).__name__,
+            "training": bool(mod.training),
+            "n_blocks": len(mod.blocks),
+            "blocks_per_ckpt": getattr(mod, "blocks_per_ckpt", "<absent>"),
+            "use_reentrant": getattr(mod, "use_reentrant", "<absent>"),
+            "clear_cache_between_blocks": getattr(mod, "clear_cache_between_blocks", "<absent>"),
+            "tune_chunk_size": getattr(mod, "tune_chunk_size", "<absent>"),
+            "chunk_size_tuner": repr(getattr(mod, "chunk_size_tuner", "<absent>")),
+            "block0_class": type(mod.blocks[0]).__name__,
+            "block0_training": bool(mod.blocks[0].training),
+        }
+        e["in_fired"] = {"s": 0, "z": 0}
+        if torch.is_grad_enabled():
+            for key in ("s", "z"):
+                t = kwargs[key]
+                if t.requires_grad:
+                    def ih(g, e=e, key=key):
+                        e["in_fired"][key] += 1
+                        e["cot_in_" + key] = g.detach().to(torch.float64).clone()
+                    t.register_hook(ih)
 
     def post_hook(mod, args_, kwargs, output):
         s_out, z_out = output
@@ -159,6 +418,17 @@ def main() -> int:
         if z_out.requires_grad:
             z_out.register_hook(
                 lambda g, sl=slot: sl.__setitem__("cot_z", g.detach().to(torch.float64).clone()))
+        if a.selftest:
+            # --selftest only. A counting hook (the existing one overwrites, so a second firing
+            # would be invisible) and the real outputs, kept for the elementwise forward check.
+            slot["out_fired"] = {"s": 0, "z": 0}
+            for key, t in (("s", s_out), ("z", z_out)):
+                if t.requires_grad:
+                    t.register_hook(
+                        lambda g, sl=slot, key=key: sl["out_fired"].__setitem__(
+                            key, sl["out_fired"][key] + 1))
+            slot["s_out"] = s_out.detach().to(torch.float64).clone()
+            slot["z_out"] = z_out.detach().to(torch.float64).clone()
         cots.append(slot)
 
     h1 = model.pairformer_stack.register_forward_pre_hook(pre_hook, with_kwargs=True)
@@ -269,6 +539,10 @@ def main() -> int:
               flush=True)
         del ref
 
+    selftest = None
+    if a.selftest:
+        selftest = run_selftest(model, b, c, grads, a, mode)
+
     rep = {
         "what": __doc__.strip().splitlines()[0],
         "host": socket.gethostname(),
@@ -315,6 +589,7 @@ def main() -> int:
         "stack_taped_times": len(taped_in),
         "probe": probe,
         "witness_trunk_gradient_vs_published_reference": witness,
+        "selftest_real_module_differentiated": selftest,
         "seconds_forward": t_fwd, "seconds_backward": t_bwd,
         "seconds_total": time.time() - t_start,
         "peak_rss_gb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 ** 2),
