@@ -93,8 +93,12 @@ TABLE = {
                   "gradients and withholds it from four sitting inside near-cancellations."),
     "D56": (USER, "A constant ~2,172x device arithmetic floor against torch fp32 on the worst "
                   "gradient component, which the entry itself calls a port gap."),
-    "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
-                  "measured on two independent modules -- and the tape is shipped training code."),
+    "D58": (USER, "The forward-to-gradient factor is 11.026x (diffusion) and 10.903x (msa_module) at the "
+             "repaired denominator, not the ~20x first filed. of3t-tapeamp REFUTED the "
+             "'belongs to the tape' half on the diffusion leg: 69.53 %% of the factor is "
+             "upstream 0.4.3's own, and our arm beats upstream on BOTH halves. The "
+             "msa_module leg is priced but has no upstream comparison, so D58 stands on "
+             "one unmeasured leg. USER-FACING because the tape is shipped training code."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "

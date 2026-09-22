@@ -2936,3 +2936,44 @@ with measured reach.
 **The row stated all four in those words — closes, narrows, leaves alone — and gave its reason:**
 *"the campaign's closure plan has already carried a concluded row as a live owner for days and a
 narrowing described as a closure is how that happens."*
+
+### D58 UPDATE 3, pass 354 — the full reading from `of3t-tapeamp`'s conclusion, and my own triage entry was carrying a figure two revisions stale. Still **UNFIXED**.
+
+**The number.** The "~20x" is **11.026x** (diffusion) and **10.903x** (`msa_module`) at the repaired
+denominator. `of3t-ditref` and `of3t-tapediverge` had already moved it, and **both my brief and
+`UNFIXED_TRIAGE.json`'s D58 entry were still quoting the old one** — corrected this pass.
+
+**The measurement nobody in the campaign had made** was upstream 0.4.3's own **forward accuracy** at
+this boundary. Its gradient was on record (median 1.2940662e-01) and its forward *seconds* were; its
+forward *accuracy* was in no artifact. Both halves, one process, one host:
+
+    arm                        forward          gradient (547)     factor
+    ours, device               8.4748009e-03    9.3442464e-02      11.026x
+    upstream 0.4.3 own bf16    1.6601749e-02    1.2727639e-01       7.666x
+    upstream 0.4.3 own fp32    1.2939393e-06    1.2067747e-05       9.326x
+
+**69.53 % of our factor is upstream's own.** To reach upstream's 7.666x we would have to make our
+forward **1.96x worse**.
+
+**Three independent confirmations it is not a D206-class boundary**, and the third is new:
+
+  * a call census on device — **0 dtype reconciliations in 1,879 node firings**, every firing
+    fp32-against-fp32, the only crossings being 96 calls of the model's own taped `typecast`;
+  * the factor **survives fp32**, four orders of absolute error away;
+  * **the per-block cotangent curve has the SAME SHAPE in both precisions** — same five-block ramp,
+    an 8.191x / 5.726x step at the *same* boundary (19→18), same plateau — while the absolute errors
+    sit **11,792x to 18,350x** apart.
+
+**And the shape answers `of3t-bwdaccum`'s discriminator with NEITHER of its two options.** Not flat
+at the bf16 floor (a wrong leaf backward), not monotone with depth (per-block injection), but
+**ramp / step / saturation** — that discriminator's *third* pre-registered shape, first seen on the
+DiT-24 and present in the reference's own arm. **The step moves relative error 8.191x at 1.399x
+magnitude, so it is a cancellation event**, not an amplification.
+
+Worth setting beside `of3t-tapeattn`'s trunk result from pass 352: a step at blocks 45→44 there, a
+step at 19→18 here, both precision-independent, both cancellation-shaped, in different scopes.
+Whether that is one phenomenon is not established and is not claimed.
+
+**`msa_module` is measured at 10.903x but has no upstream comparison**, because there is no upstream
+bf16 arm for that boundary anywhere in the campaign. So D58's two legs are now: diffusion
+re-explained, msa priced but uncompared.
