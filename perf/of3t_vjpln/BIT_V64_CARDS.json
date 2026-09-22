@@ -1,0 +1,9 @@
+{
+ "a": "/home/ttuser/of3t_vjpln/cot_V64.pt",
+ "b": "/home/ttuser/of3t_vjpln/cot_V64B.pt",
+ "tensors": 98,
+ "bit_identical": 98,
+ "differing": [],
+ "a_content_sha256_12": "05b0a4b07833",
+ "verdict": "BIT-IDENTICAL"
+}
