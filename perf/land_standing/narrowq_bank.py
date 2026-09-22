@@ -7,8 +7,25 @@ two of eight legs survived the ceiling cut. A pair is ~5.5 minutes. See narrowq_
 
 WHAT THIS DOES NOT RELAX. Three bars, all applied per leg before anything is pooled:
 
-  1. CEILING. A leg is cut unless loadavg1 stayed at or below 2.00 across its OWN
-     [t_start, t_end]. Fixed before any timing is read.
+  1. CONTENTION, scored as FOREIGN cpu. A leg is cut if any sample inside its own
+     [t_start, t_end] shows more than 200 % cpu belonging to processes that are neither this
+     harness nor known always-on infra. This bar replaced a loadavg1 <= 2.00 ceiling on
+     2026-09-22, and the reason is worth keeping: loadavg1 INCLUDES the measured fold. The
+     pre-flight tested the same 2.00 against a box with no fold running, so it admitted windows
+     the scorer was arithmetically certain to refuse. On the one clean cell the fold's own
+     contribution is ~1.2 (pre-flight 0.13, during max 1.33), and loadavg1 is a 60 s EWMA that
+     keeps climbing while the process runs, so the second leg of a pair inherits the first's
+     tail and clears 2.00 on an empty box. The 23:03:50Z pair was cut at peaks of 2.65 and 3.68
+     whose entire content, read off the trace, was this worktree's own `tt_bio.main predict`
+     and its multiprocessing children at 276 % and 229 %. A contention bar that counts the
+     measurement as contention cuts the legs it exists to protect.
+
+     THE REPLACEMENT IS CONTROLLED, because a looser-looking bar proposed by the row it
+     unblocks is worth nothing on its own. The retake's reps 2-4 had a real co-tenant (of3t
+     stacking ref_grad.py, c64_score.py and model_scope.py from 22:11:40Z) and they carry
+     484-1846 % foreign cpu; the four clean legs carry 75-100 %. The bar sits at 200 %, inside
+     a gap of a factor of five, and still cuts every leg it cut before for a real reason.
+     narrowq_foreign_score.py prints that control.
   2. CLOCK. A leg is cut unless its during-sampled AICLK carries an unbroken run at or above
      1200 MHz long enough to CONTAIN its timed fold -- clock_during.py's contract, imported from
      it rather than restated, and with the same sample-evidence bar.
@@ -28,7 +45,7 @@ deltas separately so a surviving position effect is visible rather than averaged
 import argparse, importlib.util, json, pathlib, statistics, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CEILING = 2.00
+FOREIGN_CEILING = 200.0  # percent cpu held by anything that is not this harness
 MIN_MHZ = 1200.0
 MIN_SPAN_FRAC = 0.5
 
@@ -36,6 +53,12 @@ spec = importlib.util.spec_from_file_location(
     "clock_during", ROOT / "perf/pvx_gate_land/clock_during.py")
 cd = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cd)
+
+# one definition of "mine vs foreign", shared with the control script rather than restated here
+_fs_spec = importlib.util.spec_from_file_location(
+    "narrowq_foreign_score", ROOT / "perf/land_standing/narrowq_foreign_score.py")
+fs = importlib.util.module_from_spec(_fs_spec)
+_fs_spec.loader.exec_module(fs)
 
 
 def read_trace(path, card):
@@ -60,8 +83,10 @@ def judge(fold, clocks, load):
     lo = [l for t, l in load if t0 <= t <= t1]
     if not lo:
         return False, "no loadavg samples inside the leg"
-    if max(lo) > CEILING:
-        return False, "loadavg1 peaked %.2f over the %.2f ceiling" % (max(lo), CEILING)
+    foreign = fold.get("_foreign", 0.0)
+    if foreign > FOREIGN_CEILING:
+        return False, "foreign cpu peaked %.0f %% over the %.0f %% bar (%s)" % (
+            foreign, FOREIGN_CEILING, fold.get("_who") or "unnamed")
     inside = [(t, v) for t, v in clocks if t0 <= t <= t1]
     sub = t1 - t0
     span = (inside[-1][0] - inside[0][0]) if len(inside) > 1 else 0.0
@@ -72,7 +97,8 @@ def judge(fold, clocks, load):
     if ok_span < fold["runtime_s"]:
         return False, "longest run at or above %.0f MHz is %.0fs, cannot contain a %.1fs fold" % (
             MIN_MHZ, ok_span, fold["runtime_s"])
-    return True, "load max %.2f, %.0fs at or above %.0f MHz" % (max(lo), ok_span, MIN_MHZ)
+    return True, "foreign %.0f %%, loadavg1 max %.2f, %.0fs at or above %.0f MHz" % (
+        fold.get("_foreign", 0.0), max(lo), ok_span, MIN_MHZ)
 
 
 def main():
@@ -82,8 +108,8 @@ def main():
     a = ap.parse_args()
 
     man = json.load(open(a.manifest))
-    print("narrow-q rf3 896 aa, banked cell. ceiling %.2f loadavg1, clock contract at or above "
-          "%.0f MHz.\n" % (CEILING, MIN_MHZ))
+    print("narrow-q rf3 896 aa, banked cell. contention bar %.0f %% foreign cpu, clock "
+          "contract at or above %.0f MHz.\n" % (FOREIGN_CEILING, MIN_MHZ))
 
     pairs = []
     for src in man["sources"]:
@@ -93,10 +119,14 @@ def main():
             continue
         art = json.load(open(art_p))
         clocks, load = read_trace(tr_p, a.card)
+        raw = [json.loads(l) for l in open(tr_p) if l.strip()]
+        raw = [r for r in raw if "t" in r]
         for cell in art["cells"]:
             first = cell.get("first_arm", src.get("first_arm", "off"))
             by_rep = {}
             for f in cell.get("folds", []):
+                _s = fs.score_leg(f, raw)
+                f["_foreign"], f["_who"] = _s["foreign"], _s["who"]
                 kept, why = judge(f, clocks, load)
                 print("  %-34s %-3s rep%d %7.1fs  %-4s %s" % (
                     src["artifact"].split("/")[-1], f["arm"], f["rep"], f["runtime_s"],

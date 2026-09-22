@@ -7,6 +7,12 @@
       "trace": "perf/land_standing/out/narrowq_rf3_retake1s_contention.jsonl",
       "first_arm": "off",
       "note": "2026-09-22 22:05Z 4-rep run. Refused as a cell on its own A/A floor (+32.135 % against +11.149 % A/B) after of3t took the box at 22:11:40Z. Its rep 1 pair was taken at loadavg 1.07-1.33 with both legs clock-clean, and is the only part of it that survives."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T230350Z_on_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T230350Z_on_c0_contention.jsonl",
+      "first_arm": "on",
+      "note": "2026-09-22 23:03:50Z single ON-FIRST pair, card 0, board-pair sibling card 1 verified holding no fd. Pre-flight loadavg 1.52. Taken to balance the bank: the retake pair is off-first and narrowq_bank.py refuses a single-order bank."
     }
   ]
 }
