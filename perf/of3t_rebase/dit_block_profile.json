@@ -1,0 +1,230 @@
+{
+ "bar": 0.05,
+ "groups": [
+  {
+   "group": "OUTSIDE_dit_blocks",
+   "n": 91,
+   "median_rel": 0.49519806692986257,
+   "norm_ratio_median": 1.007882713255974,
+   "cos_median": 0.8710950246306579,
+   "mass_share": 0.14693537434746048,
+   "passing_mass_share_within_group": 0.33444289560387874
+  },
+  {
+   "group": "dit_block_00",
+   "n": 19,
+   "median_rel": 0.22786887967781363,
+   "norm_ratio_median": 1.0681895274588395,
+   "cos_median": 0.9786017056411584,
+   "mass_share": 0.01356266172446988,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_01",
+   "n": 19,
+   "median_rel": 0.36969483643529516,
+   "norm_ratio_median": 1.0967988316430013,
+   "cos_median": 0.9489867418428631,
+   "mass_share": 0.01722728191784924,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_02",
+   "n": 19,
+   "median_rel": 0.20483246882118675,
+   "norm_ratio_median": 1.0752684730741113,
+   "cos_median": 0.9834398749871729,
+   "mass_share": 0.05647526686838339,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_03",
+   "n": 19,
+   "median_rel": 0.208025441316016,
+   "norm_ratio_median": 1.0791268364220765,
+   "cos_median": 0.9841429163989466,
+   "mass_share": 0.031084589704190854,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_04",
+   "n": 19,
+   "median_rel": 0.19068980078835857,
+   "norm_ratio_median": 1.0747246610119914,
+   "cos_median": 0.9861958077512347,
+   "mass_share": 0.05386400264101279,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_05",
+   "n": 19,
+   "median_rel": 0.19886379815877173,
+   "norm_ratio_median": 1.0511862579620859,
+   "cos_median": 0.983269286690776,
+   "mass_share": 0.06626289139268232,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_06",
+   "n": 19,
+   "median_rel": 0.19013045402780399,
+   "norm_ratio_median": 1.0610351188092875,
+   "cos_median": 0.9867966388541322,
+   "mass_share": 0.06242590158387731,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_07",
+   "n": 19,
+   "median_rel": 0.23587357689489893,
+   "norm_ratio_median": 1.071050209639408,
+   "cos_median": 0.973194675129757,
+   "mass_share": 0.06464367990164667,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_08",
+   "n": 19,
+   "median_rel": 0.11855866265437551,
+   "norm_ratio_median": 1.033196618388415,
+   "cos_median": 0.9934236661794181,
+   "mass_share": 0.19140118948827434,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_09",
+   "n": 19,
+   "median_rel": 0.12255788988710241,
+   "norm_ratio_median": 1.0385325114961925,
+   "cos_median": 0.9941008130910498,
+   "mass_share": 0.0820613921257843,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_10",
+   "n": 19,
+   "median_rel": 0.12140098694312955,
+   "norm_ratio_median": 1.014712489564956,
+   "cos_median": 0.9931700795346096,
+   "mass_share": 0.031398472617967715,
+   "passing_mass_share_within_group": 0.038360363764074715
+  },
+  {
+   "group": "dit_block_11",
+   "n": 19,
+   "median_rel": 0.11523780845167449,
+   "norm_ratio_median": 1.0235126676327237,
+   "cos_median": 0.993981532911108,
+   "mass_share": 0.059724035102357124,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_12",
+   "n": 19,
+   "median_rel": 0.1251951833415447,
+   "norm_ratio_median": 1.0093957422049498,
+   "cos_median": 0.9927097994416506,
+   "mass_share": 0.06266400538551312,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_13",
+   "n": 19,
+   "median_rel": 0.11872593991928444,
+   "norm_ratio_median": 1.0168831364264497,
+   "cos_median": 0.9936332593284773,
+   "mass_share": 0.014979968153131877,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_14",
+   "n": 19,
+   "median_rel": 0.12742673052189984,
+   "norm_ratio_median": 1.0188872093380312,
+   "cos_median": 0.9923237207683175,
+   "mass_share": 0.014329732922616347,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_15",
+   "n": 19,
+   "median_rel": 0.13169092386117814,
+   "norm_ratio_median": 1.0147985077644517,
+   "cos_median": 0.9922107769423817,
+   "mass_share": 0.017707257055499782,
+   "passing_mass_share_within_group": 0.0
+  },
+  {
+   "group": "dit_block_16",
+   "n": 19,
+   "median_rel": 0.1235305167535607,
+   "norm_ratio_median": 0.9959086121626817,
+   "cos_median": 0.9936075911898661,
+   "mass_share": 0.0024910635328272077,
+   "passing_mass_share_within_group": 0.25569074920080986
+  },
+  {
+   "group": "dit_block_17",
+   "n": 19,
+   "median_rel": 0.09625262061535998,
+   "norm_ratio_median": 0.9933470309160659,
+   "cos_median": 0.9953819619609435,
+   "mass_share": 0.001585473842539026,
+   "passing_mass_share_within_group": 0.28772771723521323
+  },
+  {
+   "group": "dit_block_18",
+   "n": 19,
+   "median_rel": 0.0946332153404965,
+   "norm_ratio_median": 0.9937006247033472,
+   "cos_median": 0.9963551100387639,
+   "mass_share": 0.0024821522149435,
+   "passing_mass_share_within_group": 0.20803978252023908
+  },
+  {
+   "group": "dit_block_19",
+   "n": 19,
+   "median_rel": 0.060363276174440844,
+   "norm_ratio_median": 0.9922011489313771,
+   "cos_median": 0.9982297165621951,
+   "mass_share": 0.004416795656470225,
+   "passing_mass_share_within_group": 0.2768602450145703
+  },
+  {
+   "group": "dit_block_20",
+   "n": 19,
+   "median_rel": 0.0469603632971417,
+   "norm_ratio_median": 0.9869168073811241,
+   "cos_median": 0.9989271204805896,
+   "mass_share": 0.0007059341528507766,
+   "passing_mass_share_within_group": 0.8886315957786336
+  },
+  {
+   "group": "dit_block_21",
+   "n": 19,
+   "median_rel": 0.0475423653099462,
+   "norm_ratio_median": 0.9895270062560333,
+   "cos_median": 0.9990942163126361,
+   "mass_share": 0.00032999264549301536,
+   "passing_mass_share_within_group": 0.6723347978297878
+  },
+  {
+   "group": "dit_block_22",
+   "n": 19,
+   "median_rel": 0.06692364776988985,
+   "norm_ratio_median": 0.9974634740859444,
+   "cos_median": 0.9977585443563894,
+   "mass_share": 0.0007528157695944542,
+   "passing_mass_share_within_group": 0.4469193954765725
+  },
+  {
+   "group": "dit_block_23",
+   "n": 19,
+   "median_rel": 0.05920993580379067,
+   "norm_ratio_median": 1.006044173610267,
+   "cos_median": 0.9986855929110181,
+   "mass_share": 0.0004880692525642284,
+   "passing_mass_share_within_group": 0.564060017428161
+  }
+ ]
+}

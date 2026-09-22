@@ -76,14 +76,19 @@ def sha256(path, chunk=1 << 22):
     return h.hexdigest()
 
 
-def verify_bundle(manifest_path):
+def verify_bundle(manifest_path, bundle=BUNDLE, manifest_json=None):
     """Every declared artifact, hashed before anything reads it. Absence is a result."""
-    man = from_ref_branch(manifest_path)
-    out = {"manifest": f"{REF_BRANCH}:{manifest_path}", "bundle_dir": BUNDLE, "files": {}}
+    if manifest_json is not None:
+        man = json.loads(open(manifest_json).read())
+        src = str(manifest_json)
+    else:
+        man = from_ref_branch(manifest_path)
+        src = f"{REF_BRANCH}:{manifest_path}"
+    out = {"manifest": src, "bundle_dir": bundle, "files": {}}
     decl = {x["file"]: x for x in man.get("artifacts", []) if x.get("sha256")}
     decl = {k: v for k, v in decl.items() if v["sha256"] != "recomputed-on-rename"}
     for name, meta in sorted(decl.items()):
-        p = os.path.join(BUNDLE, name)
+        p = os.path.join(bundle, name)
         if not os.path.isfile(p):
             out["files"][name] = {"present": False, "declared_bytes": meta.get("bytes"),
                                   "declared_sha256": meta.get("sha256")}
@@ -107,6 +112,13 @@ def main() -> int:
                          "first call at a given chunk width exist before the walk. of3t-leaves "
                          "measured this as 188 -> 204 on a 4-block stack; 0 skips it.")
     ap.add_argument("--tag", default="of3_full")
+    # D23/R126 and amendment 3: the 0.5.0 reference has 4,147 parameters and the 0.4.3 one has
+    # 4,170, so the DENOMINATOR of every reach figure depends on which bundle this is run
+    # against. Defaults are the published 0.5.0 paths, so nothing already computed moves.
+    ap.add_argument("--bundle", default=BUNDLE)
+    ap.add_argument("--manifest-json", default=None)
+    ap.add_argument("--presence-file", default=PRESENCE_FILE)
+    ap.add_argument("--out-dir", default=OUT)
     a = ap.parse_args()
 
     import torch
@@ -120,7 +132,7 @@ def main() -> int:
            "checkpoint": CKPT, "host": "qb2", "card": 0, "board": "p300c"}
 
     # ---- the bundle, hashed before anything reads it -----------------------------------------
-    man, ver = verify_bundle(MANIFEST_GIT)
+    man, ver = verify_bundle(MANIFEST_GIT, a.bundle, a.manifest_json)
     rep["bundle"] = ver
     rep["bundle_gradient_block"] = man.get("gradient")
     print(f"[{time.perf_counter()-t0:.0f}s] bundle: verified {ver['verified']}, "
@@ -285,10 +297,11 @@ def main() -> int:
 
     # ---- SS3b presence, against the hash-verified frozen set ------------------------------------
     pres = None
-    if PRESENCE_FILE in ver["verified"]:
-        pres = json.load(open(os.path.join(BUNDLE, PRESENCE_FILE)))
-    rep["presence"] = {"reference": "of3t-reference BUNDLE-MIN " + PRESENCE_FILE,
-                       "reference_hash_verified": PRESENCE_FILE in ver["verified"]}
+    if a.presence_file in ver["verified"]:
+        pres = json.load(open(os.path.join(a.bundle, a.presence_file)))
+    rep["presence"] = {"reference": "BUNDLE-MIN " + a.presence_file,
+                       "reference_bundle": a.bundle,
+                       "reference_hash_verified": a.presence_file in ver["verified"]}
     if pres is not None:
         table = pres if isinstance(pres, dict) else {}
         for key in ("presence", "grad_present", "parameters"):
@@ -317,7 +330,8 @@ def main() -> int:
               f"tensor, {len(theirs_with - ours_reachable)} we do not", flush=True)
 
     os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"full_model_{a.tag}.json")
+    os.makedirs(a.out_dir, exist_ok=True)
+    path = os.path.join(a.out_dir, f"full_model_{a.tag}.json")
     json.dump(rep, open(path, "w"), indent=1, default=str)
     print(f"-> {path}")
     return 0
