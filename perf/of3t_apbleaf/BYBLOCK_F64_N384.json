@@ -1,0 +1,393 @@
+{
+  "what": "of3t-apbleaf: the brief's convergence, crossed at the width this row measures at.",
+  "frame": "ours_vs_f64",
+  "tensors": 2736,
+  "total_error_mass_sq": 1.3061438128322385,
+  "total_reference_mass_sq": 1.8714981803225021,
+  "by_block": {
+    "0": {
+      "n": 57,
+      "block_err_sq": 0.24051923801232913,
+      "leaf_err_sq": 5.234590493083779e-05,
+      "block_share_of_trunk_error": 0.18414452960642053,
+      "leaf_share_of_trunk_error": 4.007667794048734e-05,
+      "leaf_share_within_block": 0.00021763708118913348
+    },
+    "1": {
+      "n": 57,
+      "block_err_sq": 0.03247369342697104,
+      "leaf_err_sq": 0.0009535542499241804,
+      "block_share_of_trunk_error": 0.02486226486542487,
+      "leaf_share_of_trunk_error": 0.0007300530313400147,
+      "leaf_share_within_block": 0.029363898876134782
+    },
+    "2": {
+      "n": 57,
+      "block_err_sq": 0.007488837951537286,
+      "leaf_err_sq": 0.0005029353084813533,
+      "block_share_of_trunk_error": 0.005733547774726668,
+      "leaf_share_of_trunk_error": 0.00038505354735080043,
+      "leaf_share_within_block": 0.06715799056355763
+    },
+    "3": {
+      "n": 57,
+      "block_err_sq": 0.01914402134009617,
+      "leaf_err_sq": 0.007401878259073192,
+      "block_share_of_trunk_error": 0.014656901599973383,
+      "leaf_share_of_trunk_error": 0.005666970349170801,
+      "leaf_share_within_block": 0.38664176807880685
+    },
+    "4": {
+      "n": 57,
+      "block_err_sq": 0.2946319871019387,
+      "leaf_err_sq": 0.28095072887189376,
+      "block_share_of_trunk_error": 0.22557392547996655,
+      "leaf_share_of_trunk_error": 0.21509938347652624,
+      "leaf_share_within_block": 0.9535649256395524
+    },
+    "5": {
+      "n": 57,
+      "block_err_sq": 0.007989547656801438,
+      "leaf_err_sq": 0.00011492209648437623,
+      "block_share_of_trunk_error": 0.00611689737248529,
+      "leaf_share_of_trunk_error": 8.798579096369143e-05,
+      "leaf_share_within_block": 0.0143840554460607
+    },
+    "6": {
+      "n": 57,
+      "block_err_sq": 0.004827695390358899,
+      "leaf_err_sq": 0.0004117019184329549,
+      "block_share_of_trunk_error": 0.003696143826528978,
+      "leaf_share_of_trunk_error": 0.0003152041256010099,
+      "leaf_share_within_block": 0.08527918295241663
+    },
+    "7": {
+      "n": 57,
+      "block_err_sq": 0.00807341443624637,
+      "leaf_err_sq": 0.0023283817215966063,
+      "block_share_of_trunk_error": 0.006181106825243081,
+      "leaf_share_of_trunk_error": 0.0017826380975213979,
+      "leaf_share_within_block": 0.28840111454493317
+    },
+    "8": {
+      "n": 57,
+      "block_err_sq": 0.004618892106928448,
+      "leaf_err_sq": 1.0749217749803924e-05,
+      "block_share_of_trunk_error": 0.003536281427473791,
+      "leaf_share_of_trunk_error": 8.229735228386032e-06,
+      "leaf_share_within_block": 0.0023272285866300798
+    },
+    "9": {
+      "n": 57,
+      "block_err_sq": 0.004966673229649992,
+      "leaf_err_sq": 0.000620289664909092,
+      "block_share_of_trunk_error": 0.00380254699433156,
+      "leaf_share_of_trunk_error": 0.0004749015068746968,
+      "leaf_share_within_block": 0.12489037152798647
+    },
+    "10": {
+      "n": 57,
+      "block_err_sq": 0.005127074490493384,
+      "leaf_err_sq": 0.0002907761661586554,
+      "block_share_of_trunk_error": 0.0039253522009768975,
+      "leaf_share_of_trunk_error": 0.00022262186085629973,
+      "leaf_share_within_block": 0.0567138563517679
+    },
+    "11": {
+      "n": 57,
+      "block_err_sq": 0.004573137544967626,
+      "leaf_err_sq": 0.00014388777891936053,
+      "block_share_of_trunk_error": 0.0035012511639520368,
+      "leaf_share_of_trunk_error": 0.00011016227884382401,
+      "leaf_share_within_block": 0.031463689317129236
+    },
+    "12": {
+      "n": 57,
+      "block_err_sq": 0.004573702320103619,
+      "leaf_err_sq": 0.0001998877665968118,
+      "block_share_of_trunk_error": 0.0035016835628429123,
+      "leaf_share_of_trunk_error": 0.00015303656812749872,
+      "leaf_share_within_block": 0.043703711480786375
+    },
+    "13": {
+      "n": 57,
+      "block_err_sq": 0.00418442162521625,
+      "leaf_err_sq": 0.00026435271231334105,
+      "block_share_of_trunk_error": 0.0032036454057404002,
+      "leaf_share_of_trunk_error": 0.00020239173490407567,
+      "leaf_share_within_block": 0.06317544836311263
+    },
+    "14": {
+      "n": 57,
+      "block_err_sq": 0.00567572326075966,
+      "leaf_err_sq": 4.0873232554068464e-05,
+      "block_share_of_trunk_error": 0.004345404545041972,
+      "leaf_share_of_trunk_error": 3.1293056823076064e-05,
+      "leaf_share_within_block": 0.0072014139302129816
+    },
+    "15": {
+      "n": 57,
+      "block_err_sq": 0.020806371817624878,
+      "leaf_err_sq": 0.014425937838725485,
+      "block_share_of_trunk_error": 0.01592961786689354,
+      "leaf_share_of_trunk_error": 0.011044678003293009,
+      "leaf_share_within_block": 0.693342307115045
+    },
+    "16": {
+      "n": 57,
+      "block_err_sq": 0.004071622889105111,
+      "leaf_err_sq": 2.870788343340781e-05,
+      "block_share_of_trunk_error": 0.003117285285971853,
+      "leaf_share_of_trunk_error": 2.197911374793999e-05,
+      "leaf_share_within_block": 0.007050722578022795
+    },
+    "17": {
+      "n": 57,
+      "block_err_sq": 0.00387365240323461,
+      "leaf_err_sq": 0.00013411389727201355,
+      "block_share_of_trunk_error": 0.002965716611890534,
+      "leaf_share_of_trunk_error": 0.00010267927310485157,
+      "leaf_share_within_block": 0.03462207841881337
+    },
+    "18": {
+      "n": 57,
+      "block_err_sq": 0.0035285413934030073,
+      "leaf_err_sq": 0.0005693875186030196,
+      "block_share_of_trunk_error": 0.002701495316776587,
+      "leaf_share_of_trunk_error": 0.00043593018855126017,
+      "leaf_share_within_block": 0.16136625736275947
+    },
+    "19": {
+      "n": 57,
+      "block_err_sq": 0.004094481710050734,
+      "leaf_err_sq": 0.0001669246831058353,
+      "block_share_of_trunk_error": 0.0031347862844997684,
+      "leaf_share_of_trunk_error": 0.00012779962012289924,
+      "leaf_share_within_block": 0.04076820826823695
+    },
+    "20": {
+      "n": 57,
+      "block_err_sq": 0.0060324292937449665,
+      "leaf_err_sq": 0.00021295022578134555,
+      "block_share_of_trunk_error": 0.004618503134554735,
+      "leaf_share_of_trunk_error": 0.00016303734986087396,
+      "leaf_share_within_block": 0.03530090704952877
+    },
+    "21": {
+      "n": 57,
+      "block_err_sq": 0.003406025631178957,
+      "leaf_err_sq": 0.00022920633443207996,
+      "block_share_of_trunk_error": 0.002607695720575624,
+      "leaf_share_of_trunk_error": 0.0001754832294730774,
+      "leaf_share_within_block": 0.06729436570703162
+    },
+    "22": {
+      "n": 57,
+      "block_err_sq": 0.008714513465638785,
+      "leaf_err_sq": 0.004462930795980704,
+      "block_share_of_trunk_error": 0.006671940241206869,
+      "leaf_share_of_trunk_error": 0.0034168755018662896,
+      "leaf_share_within_block": 0.5121262149146918
+    },
+    "23": {
+      "n": 57,
+      "block_err_sq": 0.002955418083213613,
+      "leaf_err_sq": 3.6929802778245184e-05,
+      "block_share_of_trunk_error": 0.0022627049595749286,
+      "leaf_share_of_trunk_error": 2.8273917784111925e-05,
+      "leaf_share_within_block": 0.012495627264379824
+    },
+    "24": {
+      "n": 57,
+      "block_err_sq": 0.005420788924257734,
+      "leaf_err_sq": 0.0028734450961756496,
+      "block_share_of_trunk_error": 0.0041502236361731955,
+      "leaf_share_of_trunk_error": 0.002199945417912963,
+      "leaf_share_within_block": 0.5300787646088081
+    },
+    "25": {
+      "n": 57,
+      "block_err_sq": 0.0028074692368110173,
+      "leaf_err_sq": 4.5173610679021595e-05,
+      "block_share_of_trunk_error": 0.0021494334767955675,
+      "leaf_share_of_trunk_error": 3.4585479971816634e-05,
+      "leaf_share_within_block": 0.016090509590172376
+    },
+    "26": {
+      "n": 57,
+      "block_err_sq": 0.002882712570261654,
+      "leaf_err_sq": 0.00025940630718612506,
+      "block_share_of_trunk_error": 0.00220704071170447,
+      "leaf_share_of_trunk_error": 0.00019860470542185487,
+      "leaf_share_within_block": 0.08998687897717796
+    },
+    "27": {
+      "n": 57,
+      "block_err_sq": 0.0037925749732506428,
+      "leaf_err_sq": 4.141053240445734e-05,
+      "block_share_of_trunk_error": 0.0029036427198830686,
+      "leaf_share_of_trunk_error": 3.170442029248131e-05,
+      "leaf_share_within_block": 0.010918843449774725
+    },
+    "28": {
+      "n": 57,
+      "block_err_sq": 0.003656468019104042,
+      "leaf_err_sq": 5.96849174876038e-05,
+      "block_share_of_trunk_error": 0.0027994375375674503,
+      "leaf_share_of_trunk_error": 4.5695517523589686e-05,
+      "leaf_share_within_block": 0.016323106663525152
+    },
+    "29": {
+      "n": 57,
+      "block_err_sq": 0.004707590744936522,
+      "leaf_err_sq": 4.2374415008080294e-05,
+      "block_share_of_trunk_error": 0.003604190211435138,
+      "leaf_share_of_trunk_error": 3.244238084028108e-05,
+      "leaf_share_within_block": 0.009001295419245641
+    },
+    "30": {
+      "n": 57,
+      "block_err_sq": 0.004147726799939272,
+      "leaf_err_sq": 1.0288550751655638e-05,
+      "block_share_of_trunk_error": 0.0031755513896630978,
+      "leaf_share_of_trunk_error": 7.877042826812444e-06,
+      "leaf_share_within_block": 0.00248052758725726
+    },
+    "31": {
+      "n": 57,
+      "block_err_sq": 0.0042372863873185816,
+      "leaf_err_sq": 6.795216158953823e-05,
+      "block_share_of_trunk_error": 0.0032441193272052197,
+      "leaf_share_of_trunk_error": 5.202502275931696e-05,
+      "leaf_share_within_block": 0.01603671675176513
+    },
+    "32": {
+      "n": 57,
+      "block_err_sq": 0.004834700512326286,
+      "leaf_err_sq": 0.002094683750438836,
+      "block_share_of_trunk_error": 0.0037015070353108633,
+      "leaf_share_of_trunk_error": 0.0016037160149285016,
+      "leaf_share_within_block": 0.4332602909111631
+    },
+    "33": {
+      "n": 57,
+      "block_err_sq": 0.005799380645297764,
+      "leaf_err_sq": 0.00011187628721788482,
+      "block_share_of_trunk_error": 0.004440078181530718,
+      "leaf_share_of_trunk_error": 8.565388138637858e-05,
+      "leaf_share_within_block": 0.019291075040676287
+    },
+    "34": {
+      "n": 57,
+      "block_err_sq": 0.005941345439056479,
+      "leaf_err_sq": 0.00015103126385440952,
+      "block_share_of_trunk_error": 0.004548768198942261,
+      "leaf_share_of_trunk_error": 0.00011563142004012083,
+      "leaf_share_within_block": 0.025420380855416848
+    },
+    "35": {
+      "n": 57,
+      "block_err_sq": 0.005912369496131987,
+      "leaf_err_sq": 5.569059814129657e-05,
+      "block_share_of_trunk_error": 0.00452658385550334,
+      "leaf_share_of_trunk_error": 4.263741679450844e-05,
+      "leaf_share_within_block": 0.0094193365583343
+    },
+    "36": {
+      "n": 57,
+      "block_err_sq": 0.006163324616506216,
+      "leaf_err_sq": 5.985846250924497e-05,
+      "block_share_of_trunk_error": 0.004718718226855648,
+      "leaf_share_of_trunk_error": 4.582838575749791e-05,
+      "leaf_share_within_block": 0.009712041184547689
+    },
+    "37": {
+      "n": 57,
+      "block_err_sq": 0.0052443919143962455,
+      "leaf_err_sq": 1.692287586010505e-05,
+      "block_share_of_trunk_error": 0.0040151718844989364,
+      "leaf_share_of_trunk_error": 1.2956364907023166e-05,
+      "leaf_share_within_block": 0.0032268518707861053
+    },
+    "38": {
+      "n": 57,
+      "block_err_sq": 0.016296194552155575,
+      "leaf_err_sq": 0.011178689209926873,
+      "block_share_of_trunk_error": 0.012476569878487541,
+      "leaf_share_of_trunk_error": 0.008558543936817367,
+      "leaf_share_within_block": 0.6859693024742525
+    },
+    "39": {
+      "n": 57,
+      "block_err_sq": 0.008642297735592948,
+      "leaf_err_sq": 0.0028281144160156326,
+      "block_share_of_trunk_error": 0.006616650977240412,
+      "leaf_share_of_trunk_error": 0.0021652396835867235,
+      "leaf_share_within_block": 0.32724103039960767
+    },
+    "40": {
+      "n": 57,
+      "block_err_sq": 0.00851109907847268,
+      "leaf_err_sq": 0.0003182996704580161,
+      "block_share_of_trunk_error": 0.006516203648369498,
+      "leaf_share_of_trunk_error": 0.0002436941991615885,
+      "leaf_share_within_block": 0.03739818647665598
+    },
+    "41": {
+      "n": 57,
+      "block_err_sq": 0.007066762489909359,
+      "leaf_err_sq": 0.00040521295947240936,
+      "block_share_of_trunk_error": 0.005410401535023782,
+      "leaf_share_of_trunk_error": 0.00031023609765738335,
+      "leaf_share_within_block": 0.05734067899565234
+    },
+    "42": {
+      "n": 57,
+      "block_err_sq": 0.08161662425076724,
+      "leaf_err_sq": 0.07006535457312232,
+      "block_share_of_trunk_error": 0.062486705865711666,
+      "leaf_share_of_trunk_error": 0.05364290967408314,
+      "leaf_share_within_block": 0.8584691564533028
+    },
+    "43": {
+      "n": 57,
+      "block_err_sq": 0.01493491409430206,
+      "leaf_err_sq": 0.0029682689787220258,
+      "block_share_of_trunk_error": 0.011434356575113451,
+      "leaf_share_of_trunk_error": 0.002272543765518163,
+      "leaf_share_within_block": 0.19874697370067057
+    },
+    "44": {
+      "n": 57,
+      "block_err_sq": 0.3555385615921034,
+      "leaf_err_sq": 0.31783277246422925,
+      "block_share_of_trunk_error": 0.27220475884746154,
+      "leaf_share_of_trunk_error": 0.24333673623200924,
+      "leaf_share_within_block": 0.8939473992384189
+    },
+    "45": {
+      "n": 57,
+      "block_err_sq": 0.019210912461204606,
+      "leaf_err_sq": 0.006158332042933576,
+      "block_share_of_trunk_error": 0.014708114276901652,
+      "leaf_share_of_trunk_error": 0.004714895850235562,
+      "leaf_share_within_block": 0.3205642655115936
+    },
+    "46": {
+      "n": 57,
+      "block_err_sq": 0.010267059618375724,
+      "leaf_err_sq": 0.0005231876787970464,
+      "block_share_of_trunk_error": 0.00786058894702618,
+      "leaf_share_of_trunk_error": 0.00040055901475547916,
+      "leaf_share_within_block": 0.05095788845529428
+    },
+    "47": {
+      "n": 57,
+      "block_err_sq": 0.0121601400981681,
+      "leaf_err_sq": 0.0002520914491779934,
+      "block_share_of_trunk_error": 0.009309954982522245,
+      "leaf_share_of_trunk_error": 0.00019300435886256584,
+      "leaf_share_within_block": 0.0207309658558926
+    }
+  }
+}
