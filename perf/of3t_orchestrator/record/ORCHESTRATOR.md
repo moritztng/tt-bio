@@ -543,7 +543,7 @@ module's gr...
 
 **D19, D87 and D99 CLOSED, D91 narrowed, on data already collected and with no card; in PASSLOG.** D19's registered refutation condition did not occur — shipped **fell 5.65x** and tb-off **rose 4.26x**, so **D23's trunk half is CONFIRMED, not refuted**.
 
-**D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D189 (UNFIXED)**: A26's floor is upstream's own bf16 step and is host-dependent while float64 agrees to 2e-16, so a ratio whose floor and numerator came off different boxes carries a host term. Pass 340 bounded it, then measured it: the floor came off **qb2** (`fleet.log:118653`), the swing is **2.0797x** on its crop-64 lower bound and runs toward LENIENCY, and two c64 floors off different boxes read 0.4007237405 and 0.3739375769 — **7.2 % apart, numerators agreeing to 1e-16**. **D190 (UNFIXED)**: a field-boundary edit anchored on `index("FIELD:")` matched the field's own name quoted in PROSE and deleted **56,734 characters** of `DOESNOT:`; every content check reported the deletion as ordinary staleness, a missing field and an un-updated one both reading as "does not quote X". Restored from the mirror; presence is asserted before content now, but the rule — anchor on a heading matched at line start — is not enforced. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME; the reframing is confirmed (1.8416532191, cos 0.36514) and does NOT exonerate the trunk. **D191 (UNFIXED, pass 340, the campaign's largest object)**: frame-matched at the width we report, `of3t-frame384` reads ours **0.8354121633** against upstream's own bf16 floor **0.3739383921** on the same capture — **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373 and outside the band the row pre-registered. At crop 64 through the same scorer it is 1.0251x, inside; the floor is flat in width and our arm is **2.18x worse at 384 than at 64**, so the width dependence is ours — two points, and D175 found the shape non-monotone, so no curve is assumed. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `1b27f5754b32b8e3` over 293 `.py` files — re-verified on qb2 at pass 341, identical under a rename-sensitive rule too. **D192 (UNFIXED)**: the `24f0aee7525f1042` this line carried for eleven passes reproduced under no rule and was sourced by one artifact, mine; a quoted digest now needs a carrier outside this namespace. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+**D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D189 (UNFIXED)**: A26's floor is upstream's own bf16 step and is host-dependent while float64 agrees to 2e-16, so a ratio whose floor and numerator came off different boxes carries a host term. Pass 340 bounded it, then measured it: the floor came off **qb2** (`fleet.log:118653`), the swing is **2.0797x** on its crop-64 lower bound and runs toward LENIENCY, and two c64 floors off different boxes read 0.4007237405 and 0.3739375769 — **7.2 % apart, numerators agreeing to 1e-16**. **D190 (UNFIXED)**: a field edit anchored on `index("FIELD:")` matched the name quoted in PROSE and deleted **56,734 characters** of `DOESNOT:`; every content check read the deletion as ordinary staleness. Restored from the mirror; presence is asserted before content, but the anchor-on-a-heading rule is not enforced. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME; the reframing is confirmed (1.8416532191) and does NOT exonerate the trunk. **D191 (UNFIXED, LOCATED pass 342, the campaign's largest object)**: `of3t-widthattr` decomposed the growth — **93.80 % LayerNorm affine**, **74.58 % in blocks 44/4/0**, 83.85 % in 20 of 2,736 tensors, worst `blocks.4.attn_pair_bias.layer_norm_a.weight` at norm ratio 7.3729 and **cos -0.0057**; the softmax backward's scope carries **0.1232 %** and block 47 entire 0.1808 %, so they are separate objects, and it is no width LAW (exponents 1.129/0.964/0.448). Closing it needs one card and two arms. **D193 (UNFIXED)**: I labelled that block-47 result *crop 64*; the capture's masks are (1, 384) — D180 one turn worse, a wrong label not a missing one. The reading: ours **0.8354121633** against upstream's own bf16 floor **0.3739383921** is **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373 and outside the pre-registered band; at 64 it is 1.0251x, the floor moving 1.0000022x where our arm moves 2.1795x. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `1b27f5754b32b8e3` over 293 `.py` files (re-verified on qb2, identical under a rename-sensitive rule too). **D192 (UNFIXED)**: the digest this line carried for eleven passes reproduced under no rule and had one carrier, mine; a quoted digest now needs a carrier outside this namespace. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
 
 **D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched by pattern, not measured per leaf; it sweeps in **D59, D62, D78, D86, D93, D112**, each inheriting its class without its own measurement. In DEFECTS. **D59, D62, D78, D86, D93 and D112**, each UNFIXED on its own entry and each inheriting D118's classification rather than carrying a measurement of its own — which is the defect: a pattern match is not a per-leaf reading. **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
 
@@ -865,8 +865,8 @@ precision on mass already inside the bar, another softmax configuration, or call
 gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random cosine is a
 missing term, not rounding.
 
-VERDICT: PARTIAL, re-stamped pass 341, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-five** of3t rows concluded, **one hundred ninety-two defects** filed, **65 UNFIXED**, counted
+VERDICT: PARTIAL, re-stamped pass 342, 2026-09-22 — **still working, which is what PARTIAL means.**
+**Ninety-five** of3t rows concluded, **one hundred ninety-three defects** filed, **66 UNFIXED**, counted
 over the UNION of `DEFECTS.md` and its archives because the live file holds only the tail. The exit
 criterion is machine-readable and reads **0 of 3** (`state/of3t/CHARTER_EVIDENCE.json`, regenerated
 every compose, spec lifted from the live gate so the two cannot drift).
@@ -894,21 +894,21 @@ float64 over 92.1568 % of the mass, **1.1031x** upstream's own bf16, inside the 
 twenty-step trajectory tracks upstream to **1.4553x** what their own bf16-mixed loop deviates from
 float64, sub-linear, over 88.0819 % (D182, a committed artifact).
 
-**The trunk FAILS frame-matched at the width we report, and that is pass 340's headline (D191).**
-`of3t-frame384` built the crop-384 in-frame reference on qb1: ours **0.8354121633** against
-upstream's own bf16 floor **0.3739383921** on the same capture is **2.2341x**, against an in-frame
-A26 bar 0.5268825373 — **1.586x outside**, and outside the band the row pre-registered. Through the
-same scorer at crop 64 it is 1.0251x, inside. **The floor is flat in width to six digits; our arm
-is 2.18x worse at 384 than at 64**, so the width dependence is ours. Reframing (D186) was real and
-does NOT exonerate the trunk: the frame is confirmed here at 1.8416532191, cos 0.36514. The op is
-still the softmax backward — only it recovers **51.55 %** of block 47's error where all 112 taped
-ops recover 51.48 %. `diffusion_transformer` at 2.019x over 43.622 % (D187) stays open beside it.
+**The trunk FAILS frame-matched at the width we report, and pass 342 LOCATED it (D191).**
+Frame-matched at 384: ours **0.8354121633** against upstream's own bf16 floor **0.3739383921** on
+the same capture is **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373. At 64 the
+same scorer reads 1.0251x, inside. The floor moves **1.0000022x** with width where our arm moves
+**2.1795x**, so the movement is ours. Decomposed as a difference of numerators (total 0.5510 mw²,
+float64 denominator width-invariant to 3.20e-15): **93.80 % is LayerNorm affine parameters**,
+**74.58 % is blocks 44, 4 and 0**, and 83.85 % is 20 of 2,736 tensors. On the worst,
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, we read norm ratio **7.3729 at cos -0.0057** — seven
+times too big and orthogonal, not a precision floor. **The softmax backward is a DIFFERENT object**:
+its 16-tensor scope carries **0.1232 %** of the growth and block 47 entire carries 0.1808 %.
+`diffusion_transformer` at 2.019x over 43.622 % (D187) stays open beside it.
 
-**The bar's host term is bounded and cannot flip GRADIENTS (pass 340).** The A26 floor was produced
-on **qb2** (`host: tt-quietbox2` in the artifact, its bf16 input under a qb2 home,
-`fleet.log:118653`) — so pass 339's "not recoverable" was wrong. D189's host swing is **2.0797x**
-on the floor's crop-64 lower bound and runs toward LENIENCY, the bar being sqrt(2)*F/R; granted in
-full it still leaves clause 1 failing by ~1.70x.
+**The bar's host term is bounded and cannot flip GRADIENTS (D189).** The A26 floor came off **qb2**;
+the swing is **2.0797x** on its crop-64 lower bound and runs toward LENIENCY, and granted in full
+it still leaves clause 1 failing by ~1.70x.
 
 **Two things wait on Moritz.** **D126**, ask **9760**, open — his reply went to BindCraft 2 and
 did not answer it: on `origin/main` a training run computes one gradient then exactly zero forever,
@@ -1015,7 +1015,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 341 over the union's sixty-five UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 52 campaign-internal** — the pass-340 rebuild added the eight the table had never classified (**D18, D180, D183, D186, D187, D189, D190** campaign-internal and **D184** USER-FACING) and dropped D164, which is no longer UNFIXED; and it fixed the producer, which read the rotated tail alone and had been refusing to run at all. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 342 over the union's sixty-six UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 53 campaign-internal** — the pass-340 rebuild added the eight the table had never classified (**D18, D180, D183, D186, D187, D189, D190** campaign-internal and **D184** USER-FACING) and dropped D164, which is no longer UNFIXED; and it fixed the producer, which read the rotated tail alone and had been refusing to run at all. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
 
 **CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -2773,3 +2773,65 @@ dark-branch trap this campaign has already paid for. The fix belongs to a row wh
 files, and D183's update now records both verified digests so that row does not re-derive them.
 
 `of3t-widthattr` launched at the end of pass 340 and has not committed yet; nothing to absorb.
+
+## Pass 342 — D191 is located, and the block this campaign has instrumented hardest carries 0.18 % of it
+
+`of3t-widthattr` (commit `8d74c4ab4`, `GROWTH.json`, qb1, CPU only, no card) decomposed the trunk's
+excess at padded width 384 over width 64 as a **difference of numerators** — total **0.5509895585**
+in mw², additive by construction, against a float64 denominator width-invariant to **3.20e-15**, so
+this is absolute error growing and not a share moving.
+
+    by leaf family   attn_pair_bias.layer_norm_a.weight  34.89 %
+                     attn_pair_bias.layer_norm_a.bias    27.43 %
+                     single_transition.layer_norm.bias   10.22 %
+                     single_transition.layer_norm.weight  7.39 %   four families: 79.93 %
+                     ALL LayerNorm affine, 24 families:                     93.80 %
+    by block         44: 30.38 %    4: 25.05 %    0: 19.15 %       three of 48: 74.58 %
+    concentration    83.85 % in 20 of 2,736 tensors
+
+**The standing hypothesis is refuted, and I am the one who registered it.** I asked whether the op
+carrying 51.55 % of block 47's error carries the width growth. Its 16-tensor scope carries
+**0.1232 %**; **block 47 entire carries 0.1808 %**. So D191 and the softmax-backward finding are
+two objects, and the block the campaign has instrumented hardest across dozens of passes is
+essentially absent from the failure at the width we actually report.
+
+**It is also not a width LAW and I had been carrying it as one.** The three sections scale with
+different exponents — `attn_pair_bias` 1.1286, `single_transition` 0.9645, `pair_stack` 0.4477 —
+so there is nothing to fit, which is what D175's refutation (non-monotone, shape-keyed) predicted.
+
+**On the worst tensor this is not a precision floor.**
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, 18.65 % of the growth by itself, reads norm ratio
+**7.3729 at cos -0.0057**: seven times too large and orthogonal to the reference. A bf16 rounding
+story does not produce an orthogonal gradient.
+
+**Independent confirmation of the floor:** `floor_384 / floor_64 = 1.0000021801307795` where our
+own arm moves **2.1794882627817005** — `of3t-frame384`'s "flat in width" holds on the tensors that
+carry the growth, tensor by tensor.
+
+**And the row caught me in a wrong crop label, which I verified rather than accepted.** My brief
+told it `of3t-apbback`'s block-47 result was "at crop 64". I read the capture directly on qb2:
+`/home/ttuser/of3t_gradients/cap/block47_boundary.pt` carries `single_mask (1, 384)` and
+`pair_mask (1, 384, 384)`. It is a crop-**384** object, and `N384_OOM.json` is the record of that
+row moving to a single-block n384 reference because the full stack would not fit. Filed as **D193**:
+this is **D180 one turn worse** — the crop was quoted and was wrong, in the brief that framed the
+row's central question as cross-width when both readings are at the same width. The row answered
+the substantive question correctly regardless, and the 51.55 % figure is unaffected and slightly
+strengthened, being a reading at the width the campaign reports. A wrong label is worse than a
+missing one because it survives review, and the capture records the truth in a tensor shape, so
+this is mechanisable and is not mechanised.
+
+**Recorded rather than buried, from the row's own findings list:** the two device arms D191 is
+computed from differ in `tri_att_sdpa_hifi`. Inert at width 64 by construction and unreachable from
+84.52 % of the growth by code, so the result stands, but any row differencing these arms must match
+it.
+
+**What closes D191 needs a card**: one c64 and one n384 device arm with `tri_att_sdpa_hifi` matched
+and the fp32-softmax L1 plan pinned to the same shard geometry at both widths — the growth
+surviving that makes it the pair track's chunking, collapsing makes it the single track's softmax
+partition. Not dispatched; BindCraft 2 holds card precedence and the row has not concluded yet.
+
+The row's own P1 pre-registration failed as written — it predicted the float64 reference would
+agree across widths to 1e-10 per tensor and 0 of 2,736 tensors are bit-identical — and it said so
+plainly before showing that the property held with 27 orders of margin (3.699e-14 mass-weighted;
+the 48 movers are all `attn_pair_bias.layer_norm_z.bias` with reference norms at 1e-17 to 1e-19,
+under the campaign's own A14 floor). That is the discipline this campaign has been trying to build.

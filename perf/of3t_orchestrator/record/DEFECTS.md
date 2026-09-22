@@ -2863,3 +2863,70 @@ right home is `perf/refpath.py`, which already documents the rule.
 an add/add conflict against every branch that carries it, which is the dark-branch trap this
 campaign has paid for before. The fix belongs to a row whose base has the files. Recorded here with
 the verified digests so that row does not re-derive them.
+
+### D191 UPDATE, pass 342. **LOCATED**, still **UNFIXED**: 93.80 % of the width growth is LayerNorm affine parameters, three blocks carry 74.58 %, and the softmax backward the campaign has chased for fifty passes carries 0.1232 % of it.
+
+`of3t-widthattr` (commit `8d74c4ab4`, `perf/of3t_widthattr/GROWTH.json`, qb1, CPU only, no card)
+decomposed the excess of our shipped renorm trunk arm at padded width 384 over width 64, as a
+DIFFERENCE of numerators rather than a shift of shares — `total 0.5509895585288948` in mw² units,
+additive by construction, against a float64 denominator that is width-invariant to **3.20e-15**.
+
+    by leaf family    attn_pair_bias.layer_norm_a.weight   34.89 %
+                      attn_pair_bias.layer_norm_a.bias     27.43 %
+                      single_transition.layer_norm.bias    10.22 %
+                      single_transition.layer_norm.weight   7.39 %
+                      ------------------------------------------- four families: 79.93 %
+                      all LayerNorm affine, 24 families:         93.80 %
+    by block          44: 30.38 %   4: 25.05 %   0: 19.15 %   ---> 74.58 % in three of 48
+    concentration     83.85 % in 20 of 2,736 tensors
+
+**The standing hypothesis is REFUTED and that is the pass's result.** I asked whether the op
+carrying 51.55 % of block 47's error carries the width growth. Its 16-tensor scope carries
+**0.1232 %** of it; **block 47 entire carries 0.1808 %**. So D191 and the softmax-backward finding
+are two separate objects, and the block this campaign has instrumented hardest is essentially
+absent from the failure at the width we report. `attn_pair_bias` across all 48 blocks carries
+65.79 %, `single_transition` 18.73 %, `pair_stack` 15.48 %.
+
+**It is not a width LAW, and I was carrying it as one.** The three sections scale with different
+exponents — attn_pair_bias p = 1.1286, single_transition p = 0.9645, pair_stack p = 0.4477 — so
+there is no single exponent to fit, which is consistent with D175's refutation (non-monotone,
+shape-keyed) rather than with a smooth law.
+
+**The floor is flat, confirmed independently:** `floor_384 / floor_64 = 1.0000021801307795`, where
+our own arm moves **2.1794882627817005**. Upstream's own bf16 reads the same value at both widths
+on every tensor carrying the growth, to every digit printed.
+
+**And on the worst tensor this is not a precision floor.**
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, 18.65 % of the growth on its own, reads
+`norm_ratio 7.3729` at `cos -0.0057` at 384 — seven times too large and orthogonal to the
+reference. At 64 the same tensor reads `norm_ratio 2.1824` at `cos -0.1491`.
+
+**Caveat the row raised and I am recording rather than burying:** the two device arms D191 is
+computed from differ in `tri_att_sdpa_hifi`. The flag is inert at width 64 by construction and
+unreachable from 84.52 % of the growth by code, so the result stands — but any future row
+differencing these two arms must match it.
+
+**What closes it needs a card, and this row could not take one.** One c64 and one n384 device arm
+with `tri_att_sdpa_hifi` matched and the fp32-softmax L1 plan pinned to the same shard geometry at
+both widths: if the growth survives, it is the pair track's chunking; if it collapses, it is the
+single track's softmax partition. Not dispatched — BindCraft 2 holds card precedence.
+
+### D193. I labelled `of3t-apbback`'s block-47 result "at crop 64" in a brief and in this ledger; the capture is at 384. FOUND by `of3t-widthattr`, pass 342. **UNFIXED** as a class.
+
+Verified directly rather than taken on report: `/home/ttuser/of3t_gradients/cap/block47_boundary.pt`
+carries `kwargs.single_mask (1, 384)` and `kwargs.pair_mask (1, 384, 384)`. The row is right —
+`of3t-apbback` is a crop-384 object at every reading, and `N384_OOM.json` is the record of it
+moving to a single-block n384 reference precisely because the full stack would not fit.
+
+**This is D180 one turn worse.** D180 says quote the crop or do not quote the number; here the crop
+was quoted and was WRONG, in the brief that framed `of3t-widthattr`'s central question as a
+cross-width comparison when both readings are at 384. The row answered the substantive question
+correctly anyway, so nothing downstream is wrong — but the framing it was given was, and a label
+that is wrong is worse than one that is missing because it survives review.
+
+**The figure is unaffected and slightly strengthened**: 51.55 % of block 47's error recovered by
+the softmax backward is a reading at the width the campaign reports, not at a small crop.
+
+**Unfixed as a class:** nothing checks that a crop label in prose matches the capture the artifact
+was taken on. The capture records it — `single_mask` shape — so this is mechanisable and is not
+mechanised.

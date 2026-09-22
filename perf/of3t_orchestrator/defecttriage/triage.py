@@ -214,6 +214,10 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D193": (CAMP, "A crop label in a brief and in the ledger said 'crop 64' for a capture "
+             "whose masks are (1, 384): of3t-apbback's block-47 result is a crop-384 reading. "
+             "D180 one turn worse -- the crop was quoted and was wrong. Entirely in the "
+             "campaign's own framing; the 51.55 % figure is unaffected."),
     "D192": (CAMP, "A digest published at pass 330 (24f0aee7525f1042) was the campaign's "
              "quoted tree identity for eleven passes and reproduces under no rule in the tree; "
              "the real value 1b27f5754b32b8e3 is carried by seven artifacts across five "
