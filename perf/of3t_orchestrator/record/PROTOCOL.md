@@ -807,3 +807,38 @@ passed a **necessary** condition, and must not describe the path as verified.
 This is the campaign's own recurring shape rather than a new caution: **the check that would
 have caught it was run at the wrong altitude.** D9 found a 3.2x gradient defect precisely
 because somebody stopped trusting the forward.
+
+---
+
+**A19 — the A18 discriminator threshold, recalibrated for the post-D23 regime.**
+
+**Amended 2026-09-20, orchestrator pass 113, BEFORE the number existed.** Recorded here rather
+than in a row's brief because it changes how a bar is read, and §9's rule is that any amendment
+says whether a number already existed when it was made. **It did not**: the 0.4.3
+`sub_boundary.pt` landed at 01:43:36Z and the discriminator had not been run.
+
+**The problem.** `of3t-rebase`'s brief sets A18's gate as *"~1e-2 or better → wiring sound,
+proceed to the gradient"* and *"~1e-1 or worse → a mis-wired operand, do not touch the gradient"*.
+The 0.4.3 depth ladder reads **2.168e-02 over 24 blocks**, and `xl_out` is the DiT's output after
+those blocks, so the discriminator is expected around **~2.2e-02** — **in neither branch**. A
+number that lands between two thresholds, interpreted afterwards, is precisely what fixing
+tolerances in advance is meant to prevent.
+
+**The recalibration, and its reasoning.** A18's first clause is *"a disagreeing forward
+invalidates the gradient comparison taken at it"*. The operative meaning of **disagreeing** should
+be **outside the bar the comparison will be judged at**, which is §3d's per-tensor **5.0e-02** —
+not 1e-2. The 1e-2 figure was written when the forward read 1.114e-01 against the 0.5.0 boundary
+and the only question was whether it was an order of magnitude out. It was never calibrated for a
+regime where D23 has closed and the forward agrees inside the bar.
+
+| discriminator reads | action |
+|---|---|
+| **< 5.0e-02** | forward agrees at the bar the comparison is judged at — **take the gradient**, and report the forward beside it as the floor under it |
+| **5.0e-02 to 1e-1** | take the gradient and state plainly that the forward is over the per-tensor bar, so the gradient number is **bounded rather than measured** |
+| **>= 1e-1** | the brief's mis-wired-operand branch, unchanged — do not touch the gradient, localise |
+
+**And the forward is a floor, not a prediction of the gradient.** D9 measured a **3.2x** shift in
+the triangle-attention weight gradient under a **12 %** change in the corresponding forward, so a
+2e-02 forward does not imply a 2e-02 gradient. Whatever the discriminator reads is reported
+*beside* the gradient as its floor and never *as* an expectation for it.
+

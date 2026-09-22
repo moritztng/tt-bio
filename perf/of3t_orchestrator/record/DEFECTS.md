@@ -34,6 +34,14 @@ has been wrong twice recently by promoting a plausible shape to a finding.
 | **D8** | assembled block's pair-track **gradients** 4.3e-01 to 1.4e+00 while every sub-module passes alone (0.0092–0.0172); graded by attention/pair involvement — `tri_att_end` 0.3838, `attn_pair_bias` 0.1470, `tri_att_start` 0.0865, and `single_transition`, the one sub-module with no attention and no pair coupling, is the **only passer** at 0.0212 | pairformer block, gradient |
 | **D9** | `fp32_softmax` alone moves the triangle-attention weight gradient **3.2x** while the forward moves **12 %** | triangle attention, gradient-only |
 
+**PASS 89 — D23 SUPERSEDES THE CAUSE OF D19 IN THIS MAP.** The reference bundle is upstream
+0.5.0 loading the preview2 checkpoint, a combination upstream's own registry marks unsupported.
+Two code changes separate the revisions: `transpose_bias` on the trunk's ending node, and a
+`layer_norm_z` that 0.5.0's new `DiffusionAttentionPairBias` no longer has. D19 is the first of
+those measured against a reference that cannot run these weights. **D8/D9 are NOT explained by
+it** — they are gradient-scope and the trunk change is a forward one, so this map's co-location
+claim stands for them. See D23.
+
 **What follows, and it is load-bearing for the verdict.** D9 proves a class of error here that a
 forward comparison **structurally cannot see**. Therefore **closing D19 would not make instrument
 A pass**: a forward fix cannot reach a gradient-only defect, and D8's grading by attention
@@ -66,6 +74,19 @@ values for OF3. For `TriangleAttention` `False` is *correct* and was established
 (the folded form makes the OF3 softmax ~5.7x too peaky, 0.892 against 1.000000 versus the
 reference golden); for `AttentionPairBias` it is *wrong*. **Flipping the single flag fixes one
 track and breaks the other.** The fix is to split the flag.
+
+**PASS 92: the default was flipped ON in the composition anyway, and is now held at False with a
+guard.** `of3t-pairbias`'s commit `bb59a9730` landed the split **and** the flip, against its own
+verdict ("Land the MECHANISM. Do NOT flip the OF3 trunk default on this evidence"), so
+`wk/of3t` — the single branch that goes to Moritz's merge gate — carried `scale_pair_bias=True`
+while `origin/main` carries `False`. Merged as it stood it would have served the 1.245 A rank-0
+regression to every OpenFold3 user. Found by `of3t-confhead` reading the branch rather than the
+verdict, verified against git by the orchestrator, and reverted on `wk/of3t-orchestrator`, which
+the compose merges last. **The split stays** — it is correct, unified, byte-identical on the other
+four models, and `of3t-confhead` needs it to drive its arms. `compose_verify.sh` now asserts the
+composed tree carries `scale_pair_bias=False, tri_att_scale_pair_bias=False` and exits 1 naming
+the line otherwise; shown failing on the pairbias tree. When D1+D10 are approved, the assertion
+changes in the same commit as the flip.
 
 **Status: MEASURED end to end, and the answer is that the fix must NOT ship alone.**
 `of3t-pairbias` split the flag (`tri_att_scale_pair_bias`, default-preserving) and folded 1UBQ
@@ -101,7 +122,321 @@ Other models unaffected and the control proves it can fail: Boltz-2, BoltzGen, P
 AF2 each from its own checkpoint are **byte-identical**, while `--tri 0` changes all three
 Pairformer digests.
 
+**PASS 90: D1's convention survives the D23 audit, and it needed checking.** D23 showed the
+campaign's reference ran the preview2 checkpoint on 0.5.0 and that two conventions differ between
+the revisions, so a fix whose reference transcription came from the wrong one would have been the
+same mistake in the other direction — and D1 changes every OF3 fold users get. It is clean: the
+computational core of `primitives/attention.py::_attention` is identical in 0.4.3 and 0.5.0.
+`q` is pre-divided by `sqrt(c_hidden)` by the caller (`attention.py:314` in 0.4.3, `:321` in
+0.5.0), then `scores += b` adds the biases **unscaled to already-scaled scores**, then softmax.
+The only difference between the revisions is where a dtype cast sits, inert in float64. **So the
+bias must arrive pre-baked by `sqrt(head_dim)` under both revisions and D1's diagnosis is
+revision-stable.** Owner `of3t-confhead`, dispatched pass 90 — D1 and D10 ship together or not at
+all.
+
+### D25. Replaying upstream against upstream across boxes, at one revision, reads median 6.224e-02 with 151 of 171 tensors over the bar. It is NOT a floor on our arms — it shares a term with them. MEASURED.
+
+Raised by `of3t-orchestrator` pass 93 and **substantially corrected by `of3t-rebase` the same
+night**; the correction is the useful part and is recorded first.
+
+**The measurement.** `perf/of3t_gradients/replay_vs_r0.json`: a qb2-CPU r = 0 replay against the
+republished r = 0 tape produced on a rented A100 — **upstream against upstream**, same revision,
+same batch `batch_step003.pt`, same replayed `draws_recycles0.pt`, dropout disabled both sides.
+Median **6.224e-02** over 171 tensors, **151 over the 5.0e-02 bar**; per block 5.707e-02 /
+6.198e-02 / 7.379e-02. **No model of ours is in it.** That much stands.
+
+**What does NOT follow, and pass 93 asserted it anyway.** I wrote that this "bounds every
+comparison taken against it" and that the `tb-off` arm reading 1.148e-02 — below 5.665e-02 — was
+an inconsistency needing explanation. Both are wrong. `of3t-rebase` tested the two explanations I
+offered and refuted each, with arithmetic over artifacts already in the branch
+(`perf/of3t_rebase/box_floor_a14.py`, `box_floor_a14.json`):
+
+| block | floor as published | floor, A14 applied | floor on the arm's own 52 | `tb-off` arm |
+|---|---|---|---|---|
+| 0 | 5.707e-02 (50/57) | 5.698e-02 (49/56) | 5.665e-02 (45/52) | **1.148e-02** (7/52) |
+| 23 | 6.198e-02 (52/57) | 6.190e-02 (51/56) | 6.182e-02 (47/52) | **1.743e-02** (12/52) |
+| 47 | 7.379e-02 (49/57) | 7.323e-02 (48/56) | 7.323e-02 (44/52) | **4.004e-01** (52/52) |
+
+A14 is not it: it removes exactly three tensors, one per block, all
+`attn_pair_bias.layer_norm_z.bias` at reference norms 1.089e-19 / 4.181e-19 / 1.932e-17. That
+collapses the **worst** case — 2.2439 to 0.1744 at block 0 — and moves the **median** by nothing,
+6.2244e-02 to 6.2147e-02 over all 171. The tensor set is not it either: matched 52 to 52, none
+absent either side, the gap stands.
+
+**The reason is that the two contrasts share a subtrahend.** The floor is
+`upstream_CPU − reference_A100`; the arm is `ours − reference_A100`. Two differences against the
+same reference do not order each other — the triangle inequality bounds `|arm − floor|` by the
+distance between our gradient and upstream's, and says nothing about `arm ≥ floor`. The intuition
+that "a comparison cannot be tighter than the floor under it" holds for an *independent* noise
+floor and not for this. **So the published box figure is not a floor on these arms at all, and
+D25's original framing is withdrawn.**
+
+**And it inverts what the rebuild does.** Building BUNDLE-MIN-043 on qb2 CPU — the host the
+capture runs on — does not *add* a box confound, it *removes* one: the published arms were
+ours against upstream-on-A100, the corrected arms are ours against upstream-on-qb2. The
+0.5.0-on-qb2-CPU control still earns its time, because it is what quantifies the A100-to-CPU term
+at fixed revision so the revision effect can be stated alone.
+
+**What survives, and it is the part that matters for D19.** D19 records a diffusion-scope figure
+of **6.444e-02** from *"their model against their own bundle entries"* — the same kind of
+measurement as this one, upstream against upstream — and attributes it to our forward gap, then
+concludes *"until D19 closes nothing compared against the bundle at this scope can read below
+6.4e-02."* **That is wrong twice.** A replay of upstream against upstream cannot contain our
+forward gap, so the attribution is wrong; and a shared-subtrahend contrast is not a bound, so the
+conclusion does not follow even if the attribution had been right. D19's floor claim should be
+read as a measurement of cross-box reproducibility and not as a limit on anything.
+
+**Provenance note, the reusable part.** `of3t-rebase` first sized its box term from
+`capture_trunk_boundary_nodropout.json`, quoting worst 2.256 / 1.971 / 1.563 and forward
+1.686e-02. That file carries `reference_standing.standing = HISTORICAL` and a `superseded_by`
+field: its `capture_vs_bundle` block scores against the **D18-withdrawn** train-mode tape, whose
+median of 1.096 is inside noise of the zero-model answer of 1.0. The current figures are 6.224e-02
+and 6.735e-03. *The artifact said it was superseded and was read past* — which is why superseded
+fields should be nulled or moved rather than labelled.
+
+### D24. On a single chain, OpenFold3 ranks its samples with a rule two of whose four terms are identically zero — and it is the only model of five that leaves it unhandled. UNFIXED. Affects every monomer fold shipped today.
+
+Found by `of3t-confhead` pass 1, machine-checked in `perf/of3t_confhead/rank_rule.py`. Independent
+of D1: it is the shipped selector, on the shipped default.
+
+**PASS 95 CORRECTION, by `of3t-confhead` against its own hypothesis: on ubiquitin the rule reduces
+one step FURTHER, to `0.2*pTM` and nothing else.** `disorder` reads **0.0 on all five samples** —
+a compact 76-residue fold never pushes a 25-residue smoothed RASA window past the 0.581 threshold
+— so every `rank_score` in the captured fold is `0.2*ptm` to the last digit. **The disorder
+mechanism below is therefore not what moves these picks**, and a fix aimed at the RASA term would
+have measured nothing on this target.
+
+Scope that correction precisely rather than over-applying it: `disorder = 0` is a property of a
+compact 76-residue monomer, not of monomers. On a larger or genuinely disordered single chain the
+term is non-zero and its 2.5x leverage over the only confidence term applies as written. What is
+refuted is *disorder as the explanation for D10 on 1UBQ*, not the weighting analysis.
+
+**And it makes the obvious fix provably inert.** With `iptm = 0` and `disorder = 0`, the
+`shipped`, `family`, `no_disorder` and `ptm` rules all reduce to a positive multiple of pTM, and a
+positive multiple cannot change an ordering — `rules.py` puts all four on **identical served
+RMSDs, sample for sample**, which needs no further seeds to believe. **So giving OpenFold3 the
+ipTM→pTM fallback the other four models carry changes nothing a single-chain user is served.** It
+remains the right consistency change for complexes; it is not the D10 fix.
+
+**Which relocates the fix.** The selector rests entirely on pTM, whose spread across the five
+samples is **0.010953** while their Cα-RMSD spreads **0.58 A** — it is ranking a 0.58 A structural
+difference with a signal that moves by one part in a hundred. The head also emits **pLDDT, PAE,
+PDE and experimentally-resolved, and the rule reads none of them**. On the three `fix`-arm folds
+captured so far `gpde`, `plddt`, `pae` and `boltz` each avoid the 1.60 A sample entirely and serve
+0.803–0.830 A where pTM serves 0.966 A. The row states plainly that three runs is not a result and
+the nine-seed table decides.
+
+**The reproduction control under all of this is unusually strong and worth recording on its own.**
+One fold, arm `fix`, seed 1, qb2 p300c card 0, **AICLK 1350 MHz with 34 reads during the fold,
+min = max = median = 1350**, 371 s wall: its five ranked Cα-RMSDs reproduce `of3t-pairbias`'s
+published `fix_s1` row to a **worst difference of 3.4e-08 A** — on a different card of the same
+class, through a different driver, with the D1 arm applied by patching the trunk `Pairformer`
+rather than by a second checkout. One comparison confirming the lever, the RMSD computation, the
+ranked order and card-class reproducibility together.
+
+`openfold3_fold.py:277` selects the returned sample with AF3 SI 5.9.3's full-complex metric,
+
+```
+0.8*iptm + 0.2*ptm + 0.5*disorder - 100*has_clash
+```
+
+which is faithfully upstream's (`openfold3 0.5.0 core/metrics/sample_ranking.py`). **On a single
+chain two of those four terms are identically zero by construction**: ipTM averages over
+cross-chain pairs that do not exist, and `has_clash` is an inter-chain indicator. Verified against
+a verbatim transcription of upstream's own `compute_ptm` rather than asserted — one chain gives
+ipTM **0.000000** in both implementations, two chains give **0.154491** in both, so the collapse is
+the rule and not a broken call. (Our `_ptm_iptm` and theirs also agree on pTM to six decimals,
+0.150017, which is a free parity reading.)
+
+**So 0.8 of the weight budget is identically zero and what actually ranks a monomer's samples is
+`0.2*ptm + 0.5*disorder`** — in which the RASA disorder term carries **2.5x the weight of the only
+confidence term, with a positive sign**. A rival sample needs pTM higher by 0.125 to outrank a
+sample 0.05 more disordered. That is a concrete reason for a selector to prefer the looser mode and
+it predicts the sign D10 observes.
+
+**PASS 103 CORRECTION, from reading the four sites in source: OpenFold3 is alone in the CODE and
+is NOT alone in the resulting ORDER, and the actual outlier is Boltz-2.** Monomer ordering implied
+by each site with `iptm = 0` or `None`:
+
+| site | monomer score reduces to | orders by |
+|---|---|---|
+| `openfold3_fold.py:277` | `0.2*ptm + 0.5*disorder`; disorder = 0 on 1UBQ → `0.2*ptm` | **pTM** |
+| `rf3/confidence.py:108` | `iptm_v := ptm_v`, so `1.0*ptm − 100*clash` | **pTM** |
+| `worker.py:1065` | `iptm ≤ 0 → ptm` (pLDDT only if `ptm == 0`) | **pTM** |
+| `boltz2.py:6238` | `4*complex_plddt + ptm` | **a pLDDT blend** |
+
+**Three of the four order monomers identically, and OpenFold3 is one of the three** — `0.2*ptm`,
+`1.0*ptm` and `ptm` are positive multiples of one another. That is the same algebra `of3t-confhead`
+used to prove the family fallback inert, carried one step further: it is inert across rf3 and
+protenix too, so adopting it would move OpenFold3 from one pTM ordering to another.
+
+**Boltz-2 is the outlier and it is the only site that reads pLDDT at all** — which matters because
+pLDDT is the better signal on this evidence, serving **0.709 A** against `of3_fix`'s 0.755 A and
+shipped's 0.775 A on the same samples. So the chosen fix is **adopting Boltz-2's shape and
+departing from rf3 and protenix**, which is the right direction on the measurement and is not
+"bringing OpenFold3 into line with the family". Consistency with the family is the one
+justification the source does not support.
+
+**And UNIFIED-NEVER-PER-MODEL is not satisfied by making a fourth copy agree with three others
+when the four are four different formulas.** If pLDDT ranks better, the unified answer is one
+shared ranking function all four call, and rf3, protenix and of3 are all currently on the worse
+side of the campaign's own measurement. That is a larger change than `of3t-confhead` should make
+unasked; it is recorded here as the recommendation the evidence supports and as the thing that row
+is deliberately not doing.
+
+**OpenFold3 is alone in the family in leaving the degeneracy unhandled**, checked against the four
+source sites:
+
+| model | monomer handling | site |
+|---|---|---|
+| **openfold3 / openbind** | **none — 0.8 of the weight budget is identically zero** | `openfold3_fold.py:277` |
+| boltz-2 / boltzgen | substitutes pTM for ipTM | `boltz2.py:6238` |
+| protenix-v2 / opendde | substitutes pTM, then pLDDT | `worker.py:1065` |
+| rf3 | substitutes pTM | `rf3/confidence.py:108` |
+
+**What is NOT established**, and the row says so: that disorder is what flips these particular
+picks. The previous row stored only per-run aggregates, never per-sample ptm/disorder/pLDDT, so the
+term that moves each decision is unmeasured. `perf/of3t_confhead/rank_fold.py` is written for it
+and needs a card.
+
+**The obvious fix is not sufficient, and that is arithmetic rather than opinion.** With the family
+ipTM→pTM fallback the monomer rule becomes `1.0*ptm + 0.5*disorder`, so the pTM edge a better
+sample needs falls from **2.5x** the disorder gap to **0.5x** — a 5x reduction, not an elimination.
+`rules.py --selftest` constructs a 0.05 pTM gap against a 0.30 disorder gap where **both** rules
+still serve the 1.6 A sample over the 0.5 A one, while the seven candidate rules that do not reward
+RASA serve the 0.5 A one. Nine candidate rules are committed **before** any per-sample number
+exists, because a rule chosen after seeing which one wins on nine seeds of one target is a rule
+fitted to nine seeds of one target.
+
+Scope if a selection-rule change lands: `openfold3_fold.py:277` is **openfold3 and openbind**, so
+it reaches 2 of the 5 named models by construction and the other 3 must be shown byte-identical
+with a control that moves them. Owner `of3t-confhead`.
+
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
+
+**PASS 101 — MEASURED END TO END BY `of3t-confhead`. D1 DOES NOT SHIP; D10 SHIPS AS A CORRECTNESS
+FIX WITH NO ACCURACY CLAIM.** 1UBQ, production CLI, the same searched MSA `of3t-pairbias` used, 5
+samples, 200 sampling steps, arms interleaved, p300c, AICLK 1350 sampled during. Four arms from
+two fold campaigns, because a selection-rule change does not move the diffusion samples — six
+seeds with both arms complete, three pairs still folding:
+
+**FINAL, superseding the six-seed interim first recorded here** — nine ship-arm seeds, eight
+fix-arm seeds, seed floor over **28 pairs**, read from `perf/of3t_confhead/analyze.json` on
+`wk/of3t-confhead` at `5588d889a` rather than from the row's prose:
+
+| arm | rank 0 (served) | best of 5 | seed floor, 28 pairs | picks best |
+|---|---|---|---|---|
+| shipped | **0.775 A** | 0.679 A | **0.226 A** | 1 |
+| D1 alone | **1.201 A** | 0.616 A | 1.133 A | 3 |
+| D10 alone | **0.760 A** | 0.679 A | 0.282 A | 1 |
+| D1 + D10 | **0.924 A** | 0.616 A | 0.671 A | **0** |
+
+The D1+D10 gap is **0.92369 − 0.77507 = 0.149 A**, not the 0.170 A of the six-seed interim. Every
+number here moved and the sign did not.
+
+**A nuance the `picks best` column carries and the means hide:** the repaired rule picks the
+single best sample **0 times** on the D1 arm where the shipped rule picks it 3 times — and still
+serves **0.28 A better on average**. It trades *picking the best* for *avoiding the worst mode*,
+which is the right trade on a bimodal distribution and is why mean-served improves while
+picks-best falls.
+
+**D1 does not ship, and fixing the selector did not rescue it.** D1+D10 serves **0.149 A worse**
+than shipped; the best rule in the whole candidate set, `gpde`, still serves 0.861 A, 0.086 A
+worse. The corrected trunk continues to **sample better and serve worse** — best-of-5 0.634 A
+against 0.663 A. The bar is "the served structure, rank 0, at or better than shipped", and it is
+not met.
+
+**The row states, correctly and unprompted, that both gaps are smaller than the shipped arm's own
+0.275 A seed floor**, so neither the regression nor D10's 0.020–0.066 A improvement is separable
+from re-running with another seed. D10 therefore ships as what it is — a rule that gave 0.8 of its
+weight to a term that is identically zero (D24), now fixed, with the served structure no worse —
+and **not** as a measured accuracy win. `plddt` alone would have served 0.709 A, better than the
+chosen `of3_fix` at 0.755 A, and was not picked: a rule chosen for the best number on one target
+is a rule fitted to one target, which is why the nine-rule candidate set was committed before any
+number existed.
+
+**Sign stability is reported rather than a single number**: the D1+D10 gap reads 0.062 A at four
+seeds and 0.170 A at six, same sign throughout. Six seeds, one target, one checkpoint.
+
+**Provenance, recorded rather than buried**: folds ran on qb2 outside the fleet lease system for
+that host (chip 0 seeds 1–5, chip 1 seeds 7–9 plus a `fix` seed-3 re-run, chip 2 seed 6 after
+`c14-land-tail` released the 2/3 board pair). One fold was refused when `of3t-rebase` opened chip
+0 inside tt_bio's 120 s device-lease wait and was re-run; one wedged at 0 % CPU before building
+the trunk and was killed by explicit pid and restarted. Load 39–43 on 16 cores throughout, both
+campaign shells and all descendants at **nice 15 in one sweep so both arms carry equal priority**,
+and no wall-clock trend is claimed. The seed-1 control is what makes cross-chip reporting safe:
+the same seed on a different chip of the same class reproduces the published structure to
+**3.4e-08 A**.
+
+
+**PASS 92 CORRECTION TO THE PASS-90 REFRAME BELOW, by `of3t-confhead`, and it is right.** A
+five-sample ordering has two one-sided marginals and they disagree here. Pass 90 quoted only the
+first and overstated it.
+
+| | ship | D1 fix | random |
+|---|---|---|---|
+| picks the best sample | 1/9 | 3/9 | 1.8/9 |
+| **predicted** rank of the truly best sample | 3.56 ± 0.44 | 2.22 ± 0.32 | 3.00 |
+| **true** rank of the sample the head picked | 2.67 ± 0.41 | 3.33 ± 0.60 | 3.00 |
+| Spearman rho, predicted vs true | 0.178 ± 0.173 | 0.267 ± 0.155 | 0.000 |
+
+Quote the first marginal and the head looks better with the fix; quote the second and it looks
+worse. The symmetric statistic settles it: **fix minus ship is +0.089 ± 0.232 Spearman**, which
+separates neither arm from the other nor convincingly from chance. **Ordering quality is
+statistically unchanged**, so pass 90's "the head ranks better with the fix" is withdrawn — the
+half it got right, and which stands, is that this is *not* a calibration regression to undo.
+
+**What the row established instead is sharper and is a decision, not a distribution.** The
+corrected trunk's samples go bimodal: pooled over 45 samples the fix arm spans 0.560–1.670 A with
+its largest gap at 1.362 → 1.592 A, and the mode above that gap holds **10 of 45 samples (22 %)**.
+The head serves rank 0 **from that worst mode on 5 of 9 seeds**, where random selection would do
+it 22 % of the time — **P = 0.030**. The shipped arm's equivalent mode holds 4 of 45 and the head
+serves from it **0 of 9** times. So the head is not ordering randomly and is not broadly
+mis-calibrated; **it is actively preferring the worst mode.**
+
+| policy | ship | D1 fix |
+|---|---|---|
+| what the head picks (rank 0) | 0.782 A | **1.245 A** |
+| picking at random | 0.815 A | **1.079 A** |
+| a perfect selector | 0.679 A | 0.629 A |
+
+**In the corrected-trunk arm the head selects worse than a coin flip**, 1.245 A against 1.079 A,
+against this target's own **0.324 A** seed floor. The mechanism candidate is D24.
+
+**PASS 90 REFRAME, from data already in `perf/of3t_pairbias/fold_rmsd.json`: the head's ORDERING
+IMPROVES under D1's fix. What changes is the sample distribution.** That file carries, per seed
+and arm, the five per-sample RMSDs in the model's own ranked order, which measures the ordering
+directly (`perf/of3t_orchestrator/revision/d10_ordering.py`, `d10_ordering.json`). Five samples
+per seed, so a uniformly random selector picks the best 1 time in 5 and sits at mean rank 2.0:
+
+| arm | picks best | mean rank of best | mean regret | within-seed spread | mean best | mean rank 0 | mean pLDDT |
+|---|---|---|---|---|---|---|---|
+| shipped | **1/9** | **2.56** (worse than random) | 0.102 A | 0.284 A | 0.679 A | 0.782 A | 0.7163 |
+| D1 fix | **3/9** | **1.22** (better than random) | 0.616 A | **0.971 A** | 0.629 A | 1.245 A | 0.8011 |
+
+**So "the corrected trunk changed its calibration" is the wrong half of the story.** The head
+ranks *better* with the fix — mean rank of best 2.56 to 1.22, picks-best 1/9 to 3/9 — and the
+shipped arm is **worse than random**. What the fix changes is **variance**: the within-seed
+spread more than triples, 0.284 A to 0.971 A, and the samples go bimodal. Seeds 4, 5 and 6 each
+produce a ~0.56 A structure and a ~1.60 A structure, with best values 0.566 / 0.566 / 0.560 and
+rank-0 values 1.597 / 1.603 / 1.592 — near-identical across seeds, so these are two discrete
+basins rather than a continuum (compare `b2z2-seed-basin-flips-under-any-bf16-perturbation`).
+
+**The defect is therefore not a regression to undo.** The head has always been a weak ranker; it
+was invisible because shipped samples are interchangeable, a 0.284 A spread against a 0.324 A
+seed floor, so picking randomly cost 0.102 A. D1's fix produces a genuinely better mode — 0.560
+to 0.566 A, better than anything the shipped arm reaches, whose best over nine seeds is 0.646 A
+— and a worse one, and the weak ranker now costs 0.616 A. **D1 made the model better and made
+the selector matter.** D10's own sentence "a worse sample distribution masked a bad selector" was
+right; the clause about calibration next to it was not, and the record said both.
+
+This narrows the remedy. Restoring the old calibration is not the goal and would throw away the
+better mode. What is needed is a selector that separates two well-separated basins — which is an
+easier problem than general calibration, and the head's ordering signal is already better in the
+arm that needs it. **What the artifact cannot answer, and needs a card:** per-sample confidence
+values were not stored, only per-run aggregates, so ordering-vs-calibration-vs-selection-rule
+cannot be fully separated without re-folding. That is `of3t-confhead` deliverable 1.
+
 
 On **6 of 9 seeds** the confidence head selects a **1.59 A** sample while a **0.56 A** sample
 sits in the same batch of five. pLDDT rises over the same runs (**0.7162 -> 0.8014**), so the
@@ -297,6 +632,16 @@ ceiling in EVIDENCE: 2,496 of 2,736 tensors, both arms above the zero model's 1.
 ---
 
 ### D19. Our forward and the reference's disagree at 6.735e-03, and that costs a 6.4e-02 median on the gradient. UNFIXED — it is a FLOOR, measured, not a footnote.
+
+**PASS 91: D19 is the trunk half of D23 and its corrected arms are in flight.** The diffusion half
+of the same cause is now measured and closed at block 0 — 2.07e-02 to 3.448e-03 per block, 1.592e-01
+to 2.168e-02 over 24 — so the mechanism is demonstrated, not merely argued. D19's own corrected
+arms need the 0.4.3 block boundary, which is captured from the float64 gradient rebuild `of3t-rebase`
+has running. The prediction is pre-registered and unchanged: the **shipped** arm falls from
+2.792e-01 toward the bf16 composition floor while the **`tb-off`** arm, at 4.965e-02 against 0.5.0,
+gets worse. **Both arms moving the same way refutes D23's trunk half**, and the row is instructed to
+say so rather than reconcile it.
+
 
 Found by `of3t-gradients` (pass 59), and it is a **floor under instrument A at any scope
 against this reference**.
@@ -567,7 +912,32 @@ gradient at all.
 | 640 | PASS | FAIL | 34.215 GB | 6016 |
 
 384's backward went **32.370 GB → 17.983 GB**, which is what made it fit; the ladder now stops
-between 384 and 640. **1,639 of 2,531** declared trunk weights carry a gradient at every
+between 384 and 640.
+
+**PASS 97 — "stops between 384 and 640" understates it, and the arithmetic had never been done.**
+640 failing at **34.215 GB of a 34.22 GB card** reads like a 5 MB miss. It is not: 34.215 GB is
+the high-water **reached before it died**, which is the card ceiling, and 640's live allocation
+count of **6016 is LOWER than 384's 6514** precisely because it never got to its own peak.
+Fitting the three passing rungs (`perf/of3t_orchestrator/crop/crop_ladder_fit.py`):
+
+| fit | crop 640 | crop 768 |
+|---|---|---|
+| `a + b·N²` through 256 and 384 | **51.9 GB, 1.52x the card**, short by **17.68 GB** | **75.2 GB, 2.2x**, short by 41.0 GB |
+| `a + b·N²` through 128 and 384 | 48.9 GB | 70.2 GB |
+
+**So crop 640 needs roughly half a card again, and 768 needs over two cards.** No modest memory
+lever closes 15-18 GB. Stated as an estimate rather than a measurement: these are two-point
+extrapolations under an `a + b·N²` model, and the pairwise exponents differ across the ladder
+(**1.55** from 128→256, **2.20** from 256→384), so the constant is soft. What is robust is the
+order of magnitude, and it says 640 is out of reach rather than nearly in it.
+
+**What that leaves, honestly.** Splitting one model across two chips would fit 640 in their
+combined 68.4 GB and is **forbidden on this fleet**, so more chips is not a path. The one legitimate lever is **deeper
+activation checkpointing** — more recompute for less memory, which trades time and is not "doing
+less of the model's own work". `ops.checkpoint_segment` already covers the three block stacks
+after `of3t-l1`; whether finer segmentation can find 15-18 GB at 640 is **unmeasured and
+unowned**. Until it is, the campaign's demonstrated training scope is **crop 384, one of
+upstream's four stage configs**, and that is a scope bound to state rather than a pending item. **1,639 of 2,531** declared trunk weights carry a gradient at every
 passing rung — the same count at all three, which is the consistency check.
 
 **And the recorded clash was never the defect.** D14's original signature —
@@ -761,6 +1131,50 @@ by composing the branches, since each looked fine alone, and closed by `of3t-dat
 
 ### D8. The assembled pairformer block's pair-track gradients are an order of magnitude outside the bar. UNFIXED.
 
+**PASS 90 RE-ATTRIBUTION: D8 IS LARGELY D23, and what survives is graded by DEPTH rather than by
+attention involvement.** The `tb-off` arms already on the branch equalise our ending-node function
+with the 0.5.0 reference's (the wrong side, but the mismatch is what is removed, so it is a valid
+proxy). Recomputed with the campaign's own A14 rule and bars, not read from a summary
+(`perf/of3t_orchestrator/revision/d8_vs_endnode.py`, `d8_vs_endnode.json`):
+
+| arm | n | median | vs 2.0e-02 | over 5.0e-02 | over-bar norm share | worst |
+|---|---|---|---|---|---|---|
+| block 0, shipped | 52 | 0.0648 | FAIL | 36/52 | 23.7 % | 1.3208 `blocks.0.pair_stack.tri_att_end.layer_norm.weight` |
+| block 0, tb-off | 52 | **0.0115** | **PASS** | **7/52** | **1.9 %** | 0.7918 `blocks.0.attn_pair_bias.linear_z.weight` |
+| block 23, shipped | 52 | 0.0930 | FAIL | 46/52 | 64.1 % | 11.3914 `blocks.23.attn_pair_bias.layer_norm_a.weight` |
+| block 23, tb-off | 52 | **0.0174** | **PASS** | 12/52 | 53.7 % | 11.1199 same tensor |
+| block 47, shipped | 52 | 0.4270 | FAIL | 52/52 | 100 % | 2.9857 `blocks.47.attn_pair_bias.layer_norm_a.weight` |
+| block 47, tb-off | 52 | 0.4004 | FAIL | 52/52 | 100 % | 1.4068 same tensor |
+
+**The worst tensor in the shipped block-0 arm is `tri_att_end.layer_norm.weight`** — the ending
+node, the one sub-module D23's trunk change modifies. The instrument pointed at the cause for
+forty passes and the reading was "the pair track fails in composition".
+
+**What this closes.** At blocks 0 and 23 the median goes FAIL to PASS once both sides compute the
+same function: 0.0648 to 0.0115, and 0.0930 to 0.0174. D8's headline — every sub-module passes
+alone while the assembled block reads 4.3e-01 to 1.4e+00 — is dominated by the reference
+mismatch, not by composition.
+
+**What survives, and it is real.** 7 of 52 at block 0 holding 1.9 % of the block's norm, 12 of 52
+at block 23 holding **53.7 %**, and **block 47 barely moves** — 0.4270 to 0.4004, 52 of 52 over
+bar under either arm. A median inside the bar with 53.7 % of the norm over it is not a pass, so
+D8 is **reduced and re-localised, not closed**, and it stays UNFIXED.
+
+**The grading changes, which redirects the hunt.** The standing lead was that the failure is
+graded by attention and pair-track involvement, `single_transition` the only passer. With the
+function mismatch removed the residual is graded by **depth** — block 0 nearly clean, block 23
+partly, block 47 not at all — and the same tensor, `attn_pair_bias.layer_norm_a.weight`, is worst
+at both 23 and 47. That is a different mechanism from the one D8/D9 were chasing, and the block
+ladder rather than the sub-module ranking is where to cut next. D9's `fp32_softmax` 3.2x was
+measured on the alone arm and R123 already showed the logit/value split does not survive
+assembly, so nothing here revives it.
+
+**Caveat, stated rather than buried:** the tb-off arm equalises on 0.5.0's side. The correct
+configuration is our shipped flag against a 0.4.3 reference, which `of3t-rebase` produces. The
+proxy answers "how much of D8 is the function mismatch" because equalising either way removes it;
+it does not give the final numbers.
+
+
 Every pair-track sub-module passes alone against a 0.05 bar — `tri_mul_out` **0.0172**,
 `tri_mul_in` **0.0156**, `pair_transition` **0.0092** — and **the assembled block reads 4.3e-01
 to 1.4e+00**, while the single track passes in the same run at 6.1e-03 to 6.4e-02
@@ -889,6 +1303,56 @@ move it to the other column and the ratios soften but the direction does not cha
 
 ### D21. The device arm of instrument A runs, and its first reading is an instrument defect, not a result. UNFIXED — the forward discriminator has not been run.
 
+**PASS 116 — D21 IS CLOSED AS AN INSTRUMENT DEFECT AND REPLACED BY A REAL MEASUREMENT, WHICH
+FAILS.** `of3t-rebase` re-ran instrument A at diffusion scope against the rebuilt 0.4.3 reference
+over **all 48 structures**, and the orchestrator verified every figure from
+`perf/of3t_rebase/device_gradient_043all.json` rather than from prose:
+
+| | |
+|---|---|
+| median relative L2 | **1.6588e-01** — **8.3x** over the 2.0e-02 median bar |
+| worst | **1.8504e+01** on `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` |
+| over the 5.0e-02 bar | **474 of 547**, with **73 inside it** |
+| weights with no gradient | **0** |
+| compared set | 547 of 761 reference tensors, **51.14 %** of the model's squared gradient norm |
+| zero-model baseline | 1.0 — so this is **6.0x better than a deleted model**, not at it |
+| A18 discriminator | `forward_rel_median` **8.4748e-03**, inside the 5.0e-02 gate A19 fixed |
+| reference floor | **bit-exact, 0.000e+00 over all 761 tensors** |
+| structures | **48 of 48**, accumulation probe growing **26.68x** |
+
+**The probe's growth is the check that the scope is now right.** 48 independent samples would grow
+√48 = **6.93x** and perfectly correlated ones **48x**; the measured **26.68x** sits between, so
+`backward` is accumulating across tape contexts rather than replacing, and the structures are
+positively correlated as the same weights under different noise should be. Both conditions the
+orchestrator named at pass 115 — full scope **and** a growing probe — are satisfied.
+
+**So the verdict is FAIL against §3d, and it is a real failure rather than an artefact.** The
+reference correction bought **4.62x** on the median and **4.75x** on the worst case. D21's
+withheld 0.7672 and the 1-of-48 run's 0.9778 are both superseded: the first was a bijection
+defect at 283 of 870, the second a scope defect at 1 of 48, and neither was a statement about the
+port.
+
+**One tensor is worst in all three measurements**, across two references and three scopes:
+`diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` — **87.82**
+under D21, **1.291** at 1-of-48, **18.50** now. A reproducible named worst case across independent
+runs is the sharpest handle the diffusion gradient has, and no entry has pursued it.
+
+**Minor record note:** the row's prose quotes A18 at 8.342e-03 where the artifact reads
+**8.4748e-03**. The record follows the artifact. Neither changes the gate's verdict.
+
+
+**PASS 91: the ceiling argument that closed this campaign is GONE for the diffusion half.** Pass
+88 closed at a ceiling on A18's first clause — a disagreeing forward invalidates the gradient
+comparison taken at it, our DiT forward disagreed at 2.07e-02 per block, therefore completing the
+bijection and re-running instrument A was *void before it was taken*. Against a 0.4.3 reference
+that forward reads **3.448e-03 per block and 2.168e-02 over all 24**, every rung inside the bar
+(D23, `of3t-rebase` pass 1). **So the comparison is no longer void and the measurement is
+available.** What still gates it is mechanical rather than conceptual: A18's discriminator was
+scored against `S["xl_out"]` in a 3.2 GB `sub_boundary.pt` captured through a 0.5.0 forward, so it
+must be re-captured at 0.4.3 before the discriminator can be re-read. The 0.7672 / worst 87.82 /
+283-of-283 reading stays withheld until it is.
+
+
 Found by `of3t-diffusion`, pass 79, on the first end-to-end device arm at the captured r=0
 boundary: all 48 noised structures accumulated on one p300c, seeded with the reference's own
 cotangent.
@@ -989,3 +1453,234 @@ whether the hand-written ttnn modules were written against 0.4.3 throughout. The
 0.4.3-era is evidence about the vendor, not proof about hand-written code that was never
 vendored at all.
 
+**RECONCILIATION — the row concluded at 23:00:42 still calling revision skew the leading
+explanation, and did not see the three checks above.** Its final DONE reads *"the leading
+explanation is revision skew rather than a port defect"*; the amendment carrying the refutation
+reached its brief minutes after it exited. **The campaign's position is the one recorded here**:
+the skew is real, it is 0.4.3-against-0.5.0, and it is **not** the cause at this boundary. The
+row is not wrong to have said it — it is the reading its own evidence supported, and it named
+the gap in that evidence itself (*"the DiT is hand-written and unvendored, so the skew evidence
+cannot exhibit the specific change"*). The missing piece was the release trees, which were on
+the disk the whole time.
+
+**And the row itself produced the strongest evidence that this is NOT one mechanism with D19 —
+by measuring the composition law rather than matching shapes.** D19's trunk error grows
+**near-linearly, at 0.74x of block count**. The DiT's grows **sub-linearly, at 0.32x**, and its
+curve is flat and then jumps: **2.07e-02, 2.28e-02, 2.23e-02** through four blocks, **3.42e-02**
+at eight, **1.42e-01** at sixteen, **1.59e-01** at 24. *A shared mechanism should compose the
+same way.* This supersedes the "both are per-block forward errors compounding with depth"
+resemblance that this record noted at pass 83 — resemblance of shape is not resemblance of law,
+and the law is measurable.
+
+
+---
+
+### D23. The reference bundle runs the preview2 checkpoint on upstream 0.5.0, which upstream declares unsupported. CONFIRMED on CPU. It is the cause of D19 and of the DiT forward gap, and it clears our shipped inference. UNFIXED (the reference must be rebuilt at 0.4.3).
+
+Found by `of3t-orchestrator` pass 89 from the release trees on pc. No card. Scripts and results:
+`perf/of3t_orchestrator/revision/` (`dit_apb_identity.py`, `dit_apb_control.py`, `FINDING.md`).
+
+**Upstream's own registry settles the compatibility question.** `entry_points/parameters.py` in
+the 0.5.0 sdist gives `of3-p2-155k.pt` `version_compatibility=">=0.4,<0.4.4dev0"` and lists it in
+`LEGACY_CHECKPOINTS`, commented *"not supported for download and use in the current version"*.
+The same file in 0.4.3 gives it `">=0.4"` unbounded and makes it `DEFAULT_CHECKPOINT_NAME`.
+v0.4.0 is the "OpenFold3 Preview2" release; v0.5.0 is the "OpenBind Model Release". The campaign's
+bundle is 0.5.0 (D22, `c4771653`) loading `of3-p2-155k.pt`.
+
+**Two code changes separate the revisions, one per track, and both are on the paths the campaign
+measures.**
+
+*Trunk.* `transpose_bias=True` on `PairFormerBlock.tri_att_end` occurs in `base_blocks.py` zero
+times in 0.4.0, 0.4.3, 0.4.4 and 0.4.5, and once in 0.5.0.
+
+*Diffusion transformer.* 0.5.0 splits `AttentionPairBias` into a plain class and a new
+`DiffusionAttentionPairBias`, and the new class has **no `layer_norm_z`** — not constructed, not
+applied. 0.4.3's single class constructs it (line 107) and applies it to the pair bias (line 156)
+on both tracks. The p2 checkpoint carries the weights it needs: 24 tensors
+`diffusion_module.diffusion_transformer.blocks.{0..23}.attention_pair_bias.layer_norm_z.weight`,
+shape `(128,)`.
+
+**Measured.** Loading p2's block-0 attention weights into each of upstream's own constructions:
+0.4.3 reports `missing=[] unexpected=[]`; 0.5.0 reports `missing=[] unexpected=['layer_norm_z.weight']`
+— it has nowhere to put the norm and drops it silently. Relative L2 between the two constructions
+in float64 on the same weights: **3.995e-01 at N=64, 3.868e-01 at N=384**, flat in N, which is the
+campaign's own DiT size ladder. **Sufficiency control: pre-normalising `z` with the checkpoint's
+own `layer_norm_z` makes 0.5.0 reproduce 0.4.3 at 0.000000e+00, bit-identical.** `layer_norm_z` is
+the entire difference, not one contribution among several.
+
+**This corrects D22.** D22 concluded every DiT-path layer file is functionally inert between the
+revisions. It compared the two `forward` methods, which are line-for-line identical; the change is
+in `_prep_bias`, which `forward` calls. The wider primitive set D22 did not cover
+(`normalization.py`, `activations.py`, `linear.py`) **is** inert under a float64 reference — those
+diffs are bf16 autocast branches, an opt-in Triton kernel flag and an init-time bias guard.
+
+**This clears our shipped inference, and that is the load-bearing consequence.** `of3t-reopen`
+reported that our shipped OpenFold3 trunk computes the ending-node function 0.5.0's
+`PairFormerBlock` does not call. True of 0.5.0, which does not support these weights. tt-bio sets
+`tri_att_end_bias_follows_pair = not is_openbind(state_dict)` (`openfold3_trunk.py:133`) and
+selects the per-block `layer_norm_z` on `shared_ln is None` (`openfold3_diffusion_transformer.py:265`)
+— giving each checkpoint the convention of the release that produced it, which is upstream's own
+binding reproduced. **No flag is to be flipped.** Flipping the end node would have put a real
+regression into shipped OpenFold3 inference on the authority of a reference that cannot run these
+weights.
+
+**`of3t-reopen`'s own bisection corroborates the DiT half.** Inside one DiT block it measured
+`d_attention_pair_bias` over bar at **5.522e-02** with the shared AdaLN conditioning clean at
+**6.027e-03**. `layer_norm_z` is on the pair-bias path and not on the AdaLN path, so the one op
+that differs between the revisions is the one op the bisection indicted.
+
+**The composition-law refutation stands.** D19 composes near-linearly at 0.74x of block count and
+the DiT sub-linearly at 0.32x, so they are not one mechanism — they are two different code changes
+on two tracks. They have one *cause*.
+
+**Remedy, and the predictions that falsify it.** Rebuild the bundle at **0.4.3**: the revision the
+port targets and the last inside upstream's declared window. 0.4.4's model tree is byte-identical
+to 0.4.3's; 0.4.5 changes 13 model files, so 0.4.5 and later are not substitutes. pc's installed
+tree at `/home/moritz/.coworker/scratch/of3-upstream/repo` (0.4.6.dev12+g72fc3a953) still carries
+the unified `AttentionPairBias` with `layer_norm_z` and no `transpose_bias`, so it behaves as
+0.4.3 on both changes. Written before the rebuild exists:
+
+1. The 48-block forward on the **shipped** arm falls from **2.792e-01** toward the bf16
+   composition floor and the `tb-off` arm, better against 0.5.0 at **4.965e-02**, gets worse. Both
+   arms moving the same way refutes this.
+2. `d_attention_pair_bias` falls from **5.522e-02** toward **6.027e-03**, and `block_out` from
+   **2.072e-02**. If it stays over bar the DiT has a second defect and this closes only part.
+3. D19's near-linear 0.74x composition disappears, one differing sub-module per block being what
+   produces a per-block constant that composes linearly.
+
+**PASS 90 — the skew is completely bounded, and upstream's own loader refuses it.** The two
+changes above were found by reading diffs, which is not a bound. Building the whole `OpenFold3`
+model from each revision's own `model_config` and diffing parameter names against the checkpoint
+(`full_model_keys.py`): **0.4.3 gives missing 1 (`version_tensor`), unexpected 0** against 4,936
+model params and 4,935 checkpoint tensors; **0.5.0 gives missing 3, unexpected 48** against 4,890.
+The 48 are exactly the `layer_norm_z` hoist counted across both paths the checkpoint carries, 24
+under `diffusion_module.` and 24 under `sample_diffusion.`. **There is no other parameter-level
+divergence at whole-model scope**, and p2 fits 0.4.3 exactly.
+
+And upstream 0.5.0 **already ships this check**: `entry_points/experiment_runner.py:750-772`,
+`_load_state_dict_with_version_validation`, computes the same two sets, warns and loads
+`strict=False` only when `missing == {"model.version_tensor"}` with nothing unexpected, and
+otherwise **raises ValueError**. At missing=3 / unexpected=48 the p2-on-0.5.0 case takes the raise
+branch, so **upstream's supported entry point will not load this checkpoint on 0.5.0 at all** —
+the bundle went around it with a direct `load_state_dict(..., strict=False)`. 0.5.0 also registers
+`version_tensor = MODEL_VERSION = [2,0,0]` and raises on a mismatch, so upstream treats the
+checkpoint-to-architecture binding as a correctness gate rather than a convention.
+
+**Correction to the gate this campaign is installing: it is necessary and not sufficient.** A
+key-set check catches the diffusion half and is structurally blind to the trunk half —
+`transpose_bias` carries no parameter, so a model computing the wrong ending-node function loads
+with missing 0 and unexpected 0. Pair it with an explicit assertion that the installed revision
+sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
+`of3t-rebase`'s brief is amended accordingly and the live session was told directly.
+
+**PASS 108 — D23's TRUNK HALF IS CONFIRMED TOO, and it survives its own pre-registered
+falsifier.** `of3t-rebase` ran six crop-64 arms against the rebuilt 0.4.3 reference, scored with
+`of3t-orchestrator`'s `revision/d8_vs_endnode.py` **unchanged** — same 5.0e-02 / 2.0e-02 bars,
+same A14 floor, same norm-share definition, 53 compared and 52 kept on both sides so the columns
+are the same tensors. **Recomputed independently by the orchestrator from the row's own artifacts
+and reproducing exactly:**
+
+| arm | median vs 0.5.0 | median vs 0.4.3 | over bar | norm share | |
+|---|---|---|---|---|---|
+| block 0 shipped | 6.481e-02 | **1.2136e-02** | 9/52 | 5.1 % | 5.34x better, **PASS** |
+| block 0 tb-off | 1.148e-02 | 7.3978e-02 | 37/52 | 24.1 % | 6.4x worse, FAIL |
+| block 23 shipped | 9.304e-02 | **1.9191e-02** | 15/52 | 25.0 % | 4.85x better, **PASS** |
+| block 23 tb-off | 1.743e-02 | 1.008e-01 | 46/52 | 70.0 % | 5.8x worse, FAIL |
+| block 47 shipped | 4.270e-01 | **2.0129e-01** | 52/52 | 100 % | 2.12x better, FAIL |
+| block 47 tb-off | 4.004e-01 | 2.386e-01 | 52/52 | 100 % | 1.68x better, FAIL |
+
+**The falsifier was "both arms moving the same direction refutes D23's trunk half."** At blocks 0
+and 23 they move in **opposite** directions — shipped improves, `tb-off` degrades — which is what a
+convention mismatch looks like and nothing else does. Both blocks cross **FAIL → PASS** on the
+median bar. Against the prediction written before the rebuild existed (≈0.0115, ≈0.0174, ≈0.40),
+the measurements land **within 6 % and 10 %** on the first two, and block 47 comes out twice as
+good as predicted.
+
+**Block 47 is a separate animal and D23 does not explain it.** Both arms improve *together*,
+2.12x and 1.68x, and both still fail at 2.013e-01 and 2.386e-01 with 52 of 52 tensors and 100 % of
+the compared norm over bar. **The depth-graded residual stands as its own open finding**, now with
+the reference-side term removed from it.
+
+**These arms are readable because the floor under them is bit-exact** — A13 on the rebuilt
+reference reads worst **0.000e+00** on all 171 tensors — so what they measure is our port's error
+with no reference-side term to share or subtract.
+
+**A mis-pin the row caught and handled exactly right.** The ladder first ran with
+`--scale-pair-bias on`; audited against the arms' own `shipped_config`, that is true of the three
+48-block *stack* arms and **false** of all six crop-64 arms, so the first run moved the bias
+convention and the revision together. The row **moved** those results to
+`perf/of3t_rebase/mispinned_spb_on/` rather than labelling them in place, citing that a label
+beside a wrong number does not stop it being quoted. It kept them as evidence about the flag, and
+they say something new: **the bias scale is worth 4.7x at depth 47** (9.439e-01 mis-pinned against
+2.013e-01 matched) **and nothing at depth 0** (1.207e-02 against 1.214e-02) — **depth-dependent**,
+which no entry records. The mis-pin also dropped `attn_pair_bias.linear_z.weight` out of the
+bijection, 52 instead of 53, which is how it was caught.
+
+**Orchestrator correction:** pass 106 hypothesised from the logs that "D1's correction has an L1
+cost". The arm that hit the circular-buffer clash was the **mis-pinned** `spb on` run, and crop-64
+arms ship with `spb=false`, so the clash was on a configuration that is not shipped. The narrow
+true statement is that `spb=on` clashed at crop 64 where `spb=off` ran; whether that is inherent
+is a lower-priority open question, and the 4.7x-at-depth-47 result is the more interesting fact
+about that flag.
+
+**PASS 91 — D23's DIFFUSION HALF IS CONFIRMED AND CLOSED AT BLOCK 0, against the prediction
+written before the rebuild existed.** `of3t-rebase` built the reference at 0.4.3 and re-ran the
+one-block bisection on the same captured `dit_in`, block 0, n=384, device arm float32 HiFi4 on
+one p300c, reference float64:
+
+| boundary | against 0.5.0 | against 0.4.3 |
+|---|---|---|
+| `adaln_a_out` | 6.027017e-03 | **6.027017e-03**, unchanged to every printed digit |
+| `adaln_t_out` | 6.850e-02 | **9.180e-03** |
+| `a1_running` | 2.180e-02 | **4.245e-03** |
+| **`d_attention_pair_bias`** | **5.522e-02** over bar | **1.076e-02** |
+| `d_conditioned_transition` | 5.327e-02 over bar | **7.502e-03** |
+| `block_out` | 2.072e-02 | **3.448e-03** |
+
+**Every boundary is now inside the 5.0e-02 per-tensor bar**, so on the falsifier the brief set —
+*if `d_attention_pair_bias` stays over bar the DiT carries a second defect* — **there is no second
+defect at block 0**. D23 predicted `d_attention_pair_bias` would fall from 5.522e-02 toward
+`adaln_a_out`'s 6.027e-03 and `block_out` from 2.072e-02; they read 1.076e-02 and 3.448e-03.
+
+**`adaln_a_out` is the control that makes the rest readable.** It is the one boundary in the block
+that `layer_norm_z` is not on, and it reproduces across the two references to every digit. A
+reference swap that moved everything equally would have moved nothing in particular; this one
+moves the pair-bias path and leaves the path beside it alone, which is exactly what D23 says the
+change is.
+
+**Depth ladder**, same instrument truncated to d blocks on both sides:
+
+| blocks | 1 | 2 | 4 | 8 | 16 | 24 |
+|---|---|---|---|---|---|---|
+| vs 0.5.0 | 2.072e-02 | 2.284e-02 | 2.232e-02 | 3.423e-02 | 1.417e-01 | 1.592e-01 |
+| vs 0.4.3 | **3.448e-03** | **5.272e-03** | **5.380e-03** | **7.793e-03** | **1.535e-02** | **2.168e-02** |
+
+The full 24-block DiT reads **2.168e-02 against 1.592e-01, a 7.34x improvement**, and every rung
+is inside the bar. The 0.32x composition law is **restated rather than retired** — 0.262x against
+0.320x of block count, log-log slope 0.579 against 0.642, both consistent with independent
+per-block perturbations accumulating as roughly the square root of depth. *The shape was never the
+defect; the level was.*
+
+**REFBUILD passed its own gate, and the gate was shown to fail.** 0.4.3 loads the checkpoint at
+missing=1 (`version_tensor`) / unexpected=0 and upstream's own loader accepts it; the 0.5.0
+control reads missing=3 / unexpected=48 and upstream's loader raises. The check is now baked into
+`perf/of3t_reference/bundle_min.py`, which refuses to build on a non-empty unexpected set, and it
+exits 1 on the 0.5.0 tree on demand. The row also kept the version-window assertion as the second
+gate, correctly noting it is the one to keep if only one can be afforded.
+
+**Still open on that row:** the trunk arms (waiting on the float64 gradient rebuild in flight),
+the diffusion-scope gradient (A18's discriminator must be re-read at 0.4.3, which needs a 3.2 GB
+boundary re-capture) and the inference digests. Its verdict is PARTIAL and it says so.
+
+**NEW, AND IT REACHES EVERY BIJECTION FIGURE IN THIS CAMPAIGN: the denominator 4,147 is the 0.5.0
+model's parameter count.** Measured independently by `of3t-orchestrator` and `of3t-rebase` and
+agreeing: `OpenFold3(model_config).parameters()` is **4,170 at 0.4.3** and **4,147 at 0.5.0**, the
+difference being 24 per-block DiT `layer_norm_z` weights minus the 1 hoisted shared norm. So every
+figure the campaign quotes as `x of 4,147` — D17's **3,545 of 4,147 tensors / 98.69 % of the
+squared gradient norm**, the reference's **4,147 of 4,147** A13 bit-identity — is computed against
+a model that is **missing 23 parameters our device model carries**, and the norm shares are shares
+of the wrong model's norm. The A13 self-consistency result is not thereby wrong, but it is about
+the wrong model. Re-deriving the bijection and its norm shares against 4,170 is owed by
+`of3t-rebase` alongside the trunk arms.
+
+Owner: `of3t-rebase`, dispatched pass 89.
