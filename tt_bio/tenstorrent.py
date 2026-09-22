@@ -3605,7 +3605,7 @@ def softmax_ckc(token: str, default: bool = False):
 # 0 refused, which is exactly what a model nobody ran reads. `host_f64_softmax_reach()` compares
 # the two halves and says which of the two happened.
 HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
-                          "selected": 0, "tail": 0}
+                          "selected": 0, "tail": 0, "served_taped": 0, "served_raw": 0}
 
 #: Construction sites that selected the host float64 softmax, COUNTED per token. `_SITE_FLAG_SEEN`
 #: records the last answer per token and `selected` records the total, and neither can say which
@@ -3622,6 +3622,12 @@ def host_f64_softmax_reach() -> str:
     branch that never consults it therefore reads zero in all three, which is indistinguishable
     from a process that never built the model -- the reporting gap D225 hid in for the whole
     campaign. `selected` counts construction sites, so the pair separates the cases.
+
+    `served_taped` and `served_raw` split `served` by whether the call created a tape node.
+    Both get the float64 forward; only the taped one gets the float64 JACOBIAN, because a raw
+    ttnn tensor has no node to hang a backward on. Two arms can serve the same number of calls
+    and differ entirely in how much of the gradient they moved, and this is the only counter
+    that sees it.
 
     `tail` counts arrivals through `_fp32_softmax_attention`'s own reduction, the route that
     did not exist before D225 was fixed; `declined + refused + served - tail` is what
