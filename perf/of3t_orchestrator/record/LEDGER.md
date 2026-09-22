@@ -1762,3 +1762,43 @@ that worktree returns rc=0 with `b6b64dd5f..339e0d7ea`. So the standing worry fr
 unpushed commit is simply a row mid-arm rather than a stranded one.
 
 Artifact `perf/of3t_orchestrator/clausestatus/REPOINT_CONTRACT.json`.
+
+---
+
+### R165. My own state doc carried a 41 KB transcription of the ledger it sits beside, and it was re-read every pass (pass 399, zero card)
+
+Both rows were mid-arm with nothing new on their branches, so I measured the thing only I can
+fix: **the state doc had reached 160,815 bytes and I had added ~40 KB of it in thirteen
+passes.** The breakdown, before the cut:
+
+    LEDGER field    40,967      a full restatement of R149-R164
+    PASSLOG         69,849      26 pass sections from pass 365
+    GAP              9,323
+    PROVES           6,945
+    ROWS             6,762
+    everything else  ~27,000
+
+**The LEDGER field was a transcription.** Every entry it restated lives in
+`state/of3t/LEDGER.md` — verified before cutting: R149 through R164 each return exactly one
+`### Rn.` heading there, and thirteen rotations hold the older ones. `audit_evidence.py` reads
+the word LEDGER only for defect labels, not for that field's prose. So 41 KB of duplicate was
+being re-read on every pass beside the file that already carried it, which is
+`a-digest-with-one-carrier-is-a-transcription` applied to my own document.
+
+Replaced with an INDEX: the range, where the rotations are, **one line per entry newest first**
+saying what it settles, and the four standing amendments a successor most needs (A41, A40, A37,
+A34). **160,815 → 122,966 bytes, a 23.5 % cut with nothing lost** — the full text, evidence and
+artifact path of every entry is one file away and the index says which.
+
+**PASSLOG is deliberately NOT cut.** A30 requires it kept verbatim and the rotation script
+archives it; it is the one field whose job is the narrative. The distinction is the point:
+**a field that carries what a successor cannot reconstruct earns its size; a field that
+restates a neighbouring file does not.**
+
+**Why this is worth a ledger entry rather than silent housekeeping.** Pass 9's cost lesson is
+that the state doc is re-read every pass, so its size is a recurring cost and a long campaign's
+total grows with the square of its length — one orchestrator reached 1,168,747 bytes and
+$12.83/pass. At 400 passes this campaign is exactly the shape that lesson describes, and the
+duplication was mine: I wrote both copies, one entry at a time, each time reasonably.
+**Transcription does not feel like duplication while you are doing it, which is why it needs a
+periodic measurement rather than a rule.**
