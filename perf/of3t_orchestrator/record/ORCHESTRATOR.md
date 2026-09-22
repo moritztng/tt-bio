@@ -2587,3 +2587,33 @@ compose had already read origin. **I cited my own fresh artifacts to a row whose
 them.** The fix is to cite the SOURCE another row already merged — here
 `perf/of3t_apbback/REFAUDIT.json`, which carries the same four numbers — or to name the commit the
 derived file landed in.
+
+### Pass 339 — the campaign had already tested reduction-order sensitivity, on the arm where it does not matter
+
+`of3t-frame384` is progressing well and has nothing to absorb yet: it pre-registered before the
+first run (`aebc887f9`) and built the crop-384 scorer (`46f2a1b6a`), on `wk/of3t` at `f00130c43`
+after resetting its own base. Its prediction is a **band, not a point** — ours 0.30 to 0.90, the
+in-frame floor 0.30 to 0.90, the ratio 0.70 to 1.30 — with the falsification condition written out
+and **three candidate mechanisms named in advance** so the answer cannot be retrodicted onto
+whichever one fits. That is the discipline this campaign has been trying to build, arriving from a
+row rather than from me.
+
+So the pass did what D189 owes instead: find out which published numbers carry a host term.
+
+**`of3t-refprec` DID test reduction order — on the fp32 arm.** `THREAD_COUNT_FLOOR.json` scores the
+same fp32 arm at `OMP_NUM_THREADS` 3 against 7 and reads **1.7335891859774135e-05** mass-weighted,
+175 tensors bit-identical, cos 0.99999999985. Reduction order moves fp32 by nothing. D189 measured
+the **bf16** arm moving **6.0e-02** across hosts — about **3,500x** more. The campaign holds a
+correct reassurance about reduction order that **does not cover the arm the bar is made of**. The
+tell was even inside it: that comparison's worst tensor is a `layer_norm_z.bias` at rel 6.269, the
+same cancellation-limited leaf family D189's 6 % lands on. The shape was visible; its magnitude on
+bf16 was not.
+
+**And the A26 floor's producing host is recorded nowhere.** Six of that row's JSON outputs carry no
+`host`, `hostname` or `machine` field, and `NOTES.md` names none. The pinned
+`arm4_bf16_autocast/grads_f64.pt` that IS the 0.3147698293887927 the charter quotes has a producing
+host nobody can now name from the record. So D189 is not hypothetical here — it is **unresolvable
+for the bar we quote**, though re-derivable on a named host, which is what `of3t-frame384` is doing
+for its own ratio.
+
+Nothing dispatched: BindCraft 2 holds new work and the one live row is on the critical path.

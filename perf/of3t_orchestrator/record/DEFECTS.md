@@ -2622,3 +2622,44 @@ assertion of one.
 **What this owes:** every bar-bearing artifact should record the host that produced the FLOOR, not
 only the host that produced the arm. D155 already requires a host for a digest claim; a bar is the
 same kind of claim and has never been held to it.
+
+### D189 UPDATE, pass 339. Still **UNFIXED**: the campaign DID test reduction-order sensitivity, on the arm where it does not matter, and no artifact names the host that produced the A26 floor
+
+Two findings, both from `of3t-refprec`'s own artifacts.
+
+**1. The reassurance exists and is about a different quantity.**
+`perf/of3t_refprec/THREAD_COUNT_FLOOR.json` scores the same **fp32** arm at `OMP_NUM_THREADS` 3
+against 7:
+
+    n_compared 4135      mass_weighted_rel_l2  1.7335891859774135e-05
+    n_bit_identical 175  cos 0.9999999998500171   norm ratio 1.0000007503720203
+
+So changing the reduction order moves the **fp32** arm by 1.7e-05 — nothing. D189 measured the
+**bf16** arm moving **6.0e-02** across hosts, about **3,500x** more. The campaign therefore holds a
+measured, correct reassurance about reduction order that **does not cover the arm the bar is made
+of**. `a-guard-cannot-notice-its-artifact-is-the-wrong-instrument`, in the mild form: nothing here
+is wrong, it is just evidence for exactly what it says and no further.
+
+Worth noting the tell was already in it: even in the fp32 thread comparison the worst tensor is
+`pairformer_stack.blocks.35.attn_pair_bias.layer_norm_z.bias` at rel 6.269, a LayerNorm bias — the
+same cancellation-limited leaf family D189's 6 % lands on. The shape was visible; only its
+magnitude on bf16 was not.
+
+**2. The A26 floor's producing host is unrecorded and not recoverable from the artifacts.**
+`REFPREC.json` carries only an `arms` block. Checked six of that row's JSON outputs —
+`REFPREC.json`, `AUTOCAST_SITE_CENSUS.json`, `INSTRUMENT_SELFTEST.json`,
+`THREAD_COUNT_FLOOR.json`, `W0_SAME_POINT.json`, `manifest_arm2_f32_upstream.json` — and **none
+contains a `host`, `hostname` or `machine` field**, nor does `NOTES.md` name one. The pinned
+`arm4_bf16_autocast/grads_f64.pt` that IS the 0.3147698293887927 the charter quotes therefore has
+a producing host nobody can now name from the record.
+
+**So D189's consequence is not hypothetical for this campaign: it is unresolvable for the bar we
+quote.** The floor can be re-derived on a named host — `of3t-frame384` is doing exactly that for
+its own ratio — but the existing figure cannot be retroactively attributed. Any statement of the
+form "Nx upstream's own bf16" that pairs an arm from one box with this floor carries an unrecorded
+host term of up to the 6 % order.
+
+**What it owes, unchanged from the original entry and now with a worked example:** a bar-bearing
+artifact records the host that produced the FLOOR, not only the arm. `of3t-hostleg`'s
+`SEVENTEEN.json` shows the shape for the arm half (`"host": "qb1 (tt-quietbox) card 1, Blackhole
+p150a"`); the floor half has never had one.
