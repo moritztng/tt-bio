@@ -1,0 +1,107 @@
+{
+  "legs": [
+    {
+      "tree": "main",
+      "rung": 640,
+      "rc": 0,
+      "wall": 42.577,
+      "runtime_s": 35.1,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_main_r0/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 0,
+      "slot": 0
+    },
+    {
+      "tree": "cand",
+      "rung": 640,
+      "rc": 0,
+      "wall": 24.866,
+      "runtime_s": 17.4,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_cand_r0/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 0,
+      "slot": 1
+    },
+    {
+      "tree": "cand",
+      "rung": 640,
+      "rc": 0,
+      "wall": 23.864,
+      "runtime_s": 16.3,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_cand_r1/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 1,
+      "slot": 0
+    },
+    {
+      "tree": "main",
+      "rung": 640,
+      "rc": 0,
+      "wall": 23.935,
+      "runtime_s": 16.3,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_main_r1/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 1,
+      "slot": 1
+    },
+    {
+      "tree": "main",
+      "rung": 640,
+      "rc": 0,
+      "wall": 23.878,
+      "runtime_s": 16.0,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_main_r2/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 2,
+      "slot": 0
+    },
+    {
+      "tree": "cand",
+      "rung": 640,
+      "rc": 0,
+      "wall": 23.96,
+      "runtime_s": 16.1,
+      "aiclk_median": null,
+      "aiclk_n": 0,
+      "aiclk_min": null,
+      "tail": "\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/ladder_attrib/work/out_cand_r2/protenix_results_cdk2x2_640/results.json\n",
+      "rep": 2,
+      "slot": 1
+    }
+  ],
+  "host": "tt-quietbox2",
+  "rung": 640,
+  "note": "runtime_s recovered post hoc from each leg results.json; the harness rglob missed it because results.json holds a LIST, not a dict. AICLK n=0 on every leg: the sampler read device_info[card][board_info][aiclk] and tt-smi -s does not put it there. So this cell has NO recorded clock and is not quotable as a perf number -- it is used only to bound the candidate-vs-main difference, where the missing clock inflates spread rather than hiding an effect.",
+  "cold_leg": "main rep0 slot0 (35.1s runtime_s, 42.6s wall) is the process-cold compile leg; warm comparison drops rep0 from both arms",
+  "main_warm": {
+    "n": 2,
+    "legs": [
+      16.3,
+      16.0
+    ],
+    "median": 16.15,
+    "spread_s": 0.3
+  },
+  "cand_warm": {
+    "n": 2,
+    "legs": [
+      16.3,
+      16.1
+    ],
+    "median": 16.2,
+    "spread_s": 0.2
+  },
+  "warm_ratio_cand_over_main": 1.0031,
+  "warm_effect_s": 0.05,
+  "warm_floor_s": 0.3
+}

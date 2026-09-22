@@ -1,0 +1,10 @@
+rep0 slot0 main  rc=0 runtime_s=None wall=42.577 aiclk=None (n=0)
+rep0 slot1 cand  rc=0 runtime_s=None wall=24.866 aiclk=None (n=0)
+rep1 slot0 cand  rc=0 runtime_s=None wall=23.864 aiclk=None (n=0)
+rep1 slot1 main  rc=0 runtime_s=None wall=23.935 aiclk=None (n=0)
+rep2 slot0 main  rc=0 runtime_s=None wall=23.878 aiclk=None (n=0)
+rep2 slot1 cand  rc=0 runtime_s=None wall=23.96 aiclk=None (n=0)
+{
+  "host": "tt-quietbox2",
+  "rung": 640
+}

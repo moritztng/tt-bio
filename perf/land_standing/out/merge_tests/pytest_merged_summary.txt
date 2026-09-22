@@ -1,0 +1,10 @@
+        assert " passed" in out, f"the inner session did not run at all:\n{out[-4000:]}"
+E         1 failed, 121 passed, 2 skipped in 11.38s
+FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde]
+FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde-abag]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/amplify.json]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/autograd.py-perf/of3t_d116/rowsum.json]
+FAILED tests/test_template_l1_consumer_margin.py::test_the_residency_window_is_still_the_projections_only
+7 failed, 4128 passed, 135 skipped, 1 xfailed, 115 warnings in 1082.09s (0:18:02)
