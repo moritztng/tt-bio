@@ -203,14 +203,27 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
             rendered = ", ".join(al.name + (f" as {al.asname}" if al.asname else "")
                                  for al in sorted(names, key=lambda x: x.name))
             lines.append(f"from {'.' * level}{module} import {rendered}")
-        new = s[:i] + "\n".join(lines) + "\n" + s[k + len(end):]
+        # Re-indent to the sides' own column. `only_imports` dedents before parsing, so a
+        # FUNCTION-LOCAL import -- `from .protenix import ConfidenceHead` inside a method in
+        # openfold3_fold.py -- was rendered back at column 0 and the file stopped parsing.
+        # Take the indent from whichever side actually had a line; both agree when both do.
+        indent = ""
+        for side in (ours, theirs):
+            for ln in side.splitlines():
+                if ln.strip():
+                    indent = ln[:len(ln) - len(ln.lstrip())]
+                    break
+            if indent:
+                break
+        new = s[:i] + "\n".join(indent + ln for ln in lines) + "\n" + s[k + len(end):]
         try:
             ast.parse(new)
         except SyntaxError as e:
             print(f"  {path}: the merged imports do not parse -- {e}", file=sys.stderr)
             return 1
         path.write_text(new)
-        print(f"  {path.name}: union of {len(lines)} import line(s)")
+        print(f"  {path.name}: union of {len(lines)} import line(s)"
+              + (f", indented {len(indent)} col(s)" if indent else ""))
         return 0
 
     # An `__all__` conflict is the third shape a shared module produces, and it arrived when
