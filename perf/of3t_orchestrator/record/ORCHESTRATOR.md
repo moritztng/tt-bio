@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R176 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R177 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,8 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R177** `VERDICT` and `GAP` were three passes and a closed defect behind — R157's rot,
+  committed by me three passes after naming it; both rewritten, GAP 9,322 -> 5,583 chars
 - **R176** the PACKAGE install fires only half of itself — `verb` 0, `raw` 1742 — and the arm
   is bit-identical to the no-lever baseline, so the best trunk number still has no shippable path
 - **R175** with the double count removed the trunk's error is **97 % DIRECTION** (35.13 deg)
@@ -425,40 +427,23 @@ own best number**, and the inference A/B Moritz's hard constraint requires is st
 whichever install wins. **GRADIENTS, and as of pass 381 the honest statement is that we do not yet have a frame that
 can grade it.**
 
-    control   **The model frame fails its own gating control by twelve orders of magnitude (D242).**
-              An injected float64 trunk handed `of3t-modelframe`'s captured boundary and cotangent
-              must return `grads_f64_043.pt`'s `pairformer_stack` section to float64 round-off. Bar
-              pre-registered **1e-12**, commit 2520681ed, before the arm existed. It reads
-              **0.7945281613194305**, norm ratio 1.7584185703064399, cos 0.9840549138041126, worst
-              tensor over the mass floor
-              `pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight` at 1.2730.
-              **The capture is not what is wrong**: its own witness scores that run's trunk gradient
-              against the reference over all 2,736 tensors at **1.6952505222168705e-14**, the loss is
-              bit-identical and the global gradient norm agrees to 1e-15. **The replay's forward is
-              bit-exact** on `s_norm`, `z_norm`, `s_in_norm`, `cot_s_norm` and `cot_z_norm`. So the
-              error is at the injected cotangent, and it does not grow: block 47, the first the
-              backward touches, already reads 0.7849.
-              **It is two components, and the campaign must stop saying 'one scalar'.** A scale
-              is real: over all 48 blocks the norm ratio is mean **1.7460**, stdev 0.0706, **CV
-              4.04 %**, only blocks 44 and 46 outside [1.6, 1.9], and 48 independently-
-              parameterised blocks do not agree to 4 % through 48 different arithmetic paths. But
-              the row's own banked least-squares fit — which its state doc does not report — gives
-              scale median **0.5716543455995005** (reciprocal 1.7493) and a residual AFTER it of
-              median **0.08950314250776042**. That is an 8.88x reduction leaving the control
-              **10.95 orders above the 1e-12 bar**, and it is **0.3003 at block 47**, the entry,
-              against a 0.0895 median. `of3t-twoside` called it 'small' — small against 0.79,
-              enormous against the bar (R133 again). **Removing the scale does not fix the frame.**
-              **An exact float64 replay of the injection costs 0.7945; upstream's entire bf16 recipe
-              costs 0.3148 on the same reference.** The harness is 2.5x worse than the thing it was
-              built to grade, so our arm's 0.9349 is dominated by it.
+    control   **CLOSED at pass 408. The model frame reproduces its own reference.** D242 was a
+              DOUBLE COUNT in the injection: `z_out` is an ancestor of `s_out`, so
+              `(s_out, z_out)` was never a graph cut and the hooked `cot_z` — correctly read by
+              three instruments as a TOTAL derivative — already carried the `s_out <- z_out`
+              route, which the surrogate then replayed. The duplicate was **99.6628 %** of it by
+              norm. Repaired, the injection reads **1.6952505222168708e-14** over all 2,736
+              trunk tensors against the 1e-12 bar, which is the capture's OWN witness value, and
+              `dL/dz_in` lands bit-exact on the EXACT branch of a falsifier banked before the
+              mechanism was known. `ref_grad.py` now defaults to the corrected injection, stamps
+              which convention produced every artifact, and asserts the graph cut (A41/A42).
 
-    retracted **1.7814x is not a statement about our gradient.** The clause reading
-              0.27095922968432157 against bar 0.15210099830945006, the trunk's **2.9702x**, block
-              47's **4.1613x** and the per-leaf table this field carried are all read through that
-              frame. They stand on the page unretracted as readings of the frame; none of them is
-              now a reading of our arithmetic, and pass 379's claim to the contrary is withdrawn.
-              **D237 was real and its repair was incomplete in a way nobody checked**: the frame it
-              produced was never made to reproduce its own reference.
+    rescored  **1.7814428090278143x is superseded, not merely withdrawn.** On the repaired
+              injection the clause reads **0.22072451195864032** against bar
+              **0.15210099830945006** — **1.4511706984958472x**, an 18.54 % improvement, and it
+              **still FAILS**. The trunk must fall **1.7414134679108282x** (`x_allowance`,
+              vs-upstream-bf16). No bar moved: all five of `CLAUSE.json`'s pre-registered levels
+              re-derive on the rescored artifact at rel_difference 0.0.
 
     in-frame  **What survives, because both sides share one cotangent.** Upstream's own injected
               bf16 trunk reads **0.22475141530713597** against injected float64; ours reads
@@ -471,46 +456,22 @@ can grade it.**
               **The bound on it**: this is differentiated at a point that is not the training point,
               so it estimates the like-for-like excess and does not settle it.
 
-    next      `of3t-frameself`, **parked on an evidence-backed DEFER until 22:15 CEST** with its
-              self-test and both s/z split arms running detached on qb2, correctly rooted in its
-              own worktree. Pass 384 audited every premise of D242's syllogism — same weights,
-              same inputs, same function, same cotangent, therefore identical gradients — from
-              committed files at **zero card and zero model cost**
-              (`perf/of3t_orchestrator/frameself/PREMISE_AUDIT.json`). **Six of seven hold:**
-                - **the files** — the capture ran on **qb1**, the replay on **qb2**, reading the
-                  same path on a different filesystem. Checked, not assumed: sha256 identical
-                  both sides, `583bcd7c…` and `4e66d1ef…`;
-                - **the forward, with the row's own pad caveat now closed by arithmetic** — pads
-                  carry 97.9 % of z's squared norm, a **47.6x** loss of sensitivity, but a
-                  real-row discrepancy `d` moves the total norm by `0.021·d`, so 16-digit
-                  agreement bounds **d <= 4.76e-15**, fourteen orders below the defect;
-                - **parameter sharing** — one instantiation (`model.py:100`), one call (`:307`),
-                  the only mentions in the file, so `named_parameters`' de-duplication hides no
-                  second call site;
-                - **no post-op** between the stack's outputs and the hooked tensors;
-                - **the function** — R146's `checkpoint_blocks` refutation plus the row's tree
-                  and per-block-call eliminations.
-              **The seventh, the hook FIRING COUNT, is the last cheap discriminator, and this
-              pass made it more informative by killing its most plausible cause.** A tensor hook
-              fires with the accumulated gradient within one backward execution, so multiple
-              consumers are safe; multiple EXECUTIONS are the risk, and the train preset really
-              does chunk the loss under `checkpoint_section` (`diffusion.py:419-447`,
-              `chunk_size: 4`). But its closure is `{'batch', 'eps'}` and the chunked tensor is
-              `x`, so **no trunk tensor is captured** and the gradient reaching `s_out`
-              accumulates once. `ckpt_intermediate_steps` reaches only
-              `sequence_local_atom_attention`.
-              **So if the count is 1, every checkable premise holds** and the answer is in the
-              module-state diff the self-test also banks, which is then the priority rather than
-              a footnote. **The direction remains the sharpest constraint**: the replay is
-              **1.75x LARGER** than the reference, so a merely-missing additive path is excluded
-              — whatever is wrong must partially cancel, or the captured cotangent is too large.
-              **Six exclusions are not a mechanism**, and a premise audit cannot see a premise
-              nobody wrote down.
+    next      **The repoint is blocked on ONE key and nothing else.**
+              `MODEL_RECUT_composed3660_n384.json` carries six of R164's seven contract keys
+              with the corrected value; `injection.convention` is absent, and R164 fixed before
+              the number existed that any failing condition means no repoint. `of3t-recutfin`
+              (qb2, CPU) is emitting it per scope and banking `cos`/`norm_ratio` against
+              upstream's own bf16, so the 97 %-direction split can be computed in the space the
+              clause is graded in rather than carried across from float64.
+              `of3t-verbinstall` holds qb1 on D245, where BOTH shippable installs have now
+              failed — the site selector 34.25 % worse, the package install inert on the half
+              that matters (`verb` 0, `raw` 1742).
 
     satisfiable  Unchanged and still the reason this is PARTIAL and not NO-GO: a perfect trunk reads
               **0.6752x** the bar (D221, ten sections pooling to 0.1026990533692057), and our trunk
               merely at upstream's own bf16 floor clears at **0.8525x**. Both are computed in the
-              broken frame, so both are provisional — but a terminal NO-GO needs unreachability and
+              REPAIRED frame at pass 408, so neither is provisional any longer — and a terminal
+              NO-GO needs unreachability and
               nothing here shows it.
 
     coverage  Still `not instrumented`, still outranked by the above only because a frame that
@@ -524,16 +485,28 @@ can grade it.**
               Triage and reasons in `state/of3t/UNFIXED_TRIAGE.json`; the list is stamped from
               the DEFECTS union, not retyped, so a rotation cannot close one by moving it.
 
-VERDICT: PARTIAL, stamped pass 386, 2026-09-22 — **still working, which is what PARTIAL means.**
-**New at pass 386 and it moves the campaign's best number's STATUS, not its value**: the softmax
-ceiling is restated on the consistent arm at **1.0525x** (0.5545352626143085), a 0.04 % move from
-the 1.0529x carried since pass 365, and the question `of3t-f64route` handed up as a product
-decision is answered from banked artifacts with no trade to make (R149). But the arm that
-produces it is a perf script rewriting `tt._VERBS`, and the SHIPPABLE install measures **34.25 %
-worse against float64** (D245) — so the campaign's best trunk reading is an experiment, and
-`of3t-verbinstall` is dispatched to make it a configuration.
+VERDICT: PARTIAL, stamped pass 411, 2026-09-23 — **still working, which is what PARTIAL means.**
+**D242 IS CLOSED AND THE CLAUSE STILL FAILS, on a frame that now reproduces its own reference.**
+The frame's defect was a DOUBLE COUNT in the injection — `z_out` is an ancestor of `s_out`, so
+`(s_out, z_out)` was never a graph cut and the hooked `cot_z` replayed the `s_out <- z_out`
+route twice; the duplicate was **99.6628 %** of it by norm. Repaired, the injection reproduces
+the reference's whole trunk at **1.6952505222168708e-14** against a 1e-12 bar — the capture's
+own witness value — and `dL/dz_in` lands bit-exact on the EXACT branch of a two-sided falsifier
+banked before the mechanism was known. **Re-scored, GRADIENTS reads 0.22072451195864032 against
+its 0.15210099830945006 bar: 1.4511706984958472x, down from the withdrawn 1.7814428090278143x,
+an 18.54 % improvement, still FAILING.** The trunk must fall **1.7414134679108282x**. No bar
+moved: all five of `CLAUSE.json`'s pre-registered levels re-derive on the rescored artifact at
+rel_difference 0.0. **And the best softmax arm still has no shippable path** — the site-selector
+install is 34.25 % worse and the tape-gated package install is INERT on the half that matters
+(`verb` 0, `raw` 1742), so D245 has two failed attempts at one (R176).
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, break control passing): COVERAGE and TRAJECTORY MET, GRADIENTS not.
+
+**Distance to go, per tensor** (`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator
+10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
+tensor by tensor, **49.8019 %** worse, **2.0150 %** unread. **All three are still on the DOUBLE-COUNTED functional**
+and are restated unchanged rather than adjusted; only the trunk section has been re-scored so
+far, and adjusting a pooled figure from a re-scored part is the defect again with a newer number.
 
 **Counts, stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.** One hundred
 twenty-one rows dispatched; `state/concluded` holds **one hundred twenty-three** of3t files, two of them
@@ -541,43 +514,26 @@ this row's own historical markers, so **one hundred twenty-one rows have conclud
 **Two hundred forty-five defects filed**, **95 UNFIXED** (5
 scope-excluded, 8 USER-FACING, 82 campaign-internal).
 
-**Distance to go, per tensor** (`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator
-10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
-tensor by tensor, **49.8019 %** worse, **2.0150 %** unread. **All three are frame readings**,
-computed on the artifact D242 disqualifies, and restated unchanged rather than adjusted —
-adjusting a number on a frame that fails its own control is the defect again with a newer figure.
-
-**The headline is retracted: `of3t-modelframe`'s frame fails its own gating control at
-**0.7945281613194305** against a bar pre-registered at 1e-12 (D242), so **1.7814x was never a
-statement about our gradient**. Detail in GAP.
-
-**And the campaign is probably much closer than it has been saying.** In-frame the two-sided
-multiple is **1.7997765325758555** against a **2.0** separator pre-registered before the arm ran,
-so **the excess was substantially the asymmetry, not our arithmetic** — an estimate, not a
-settlement, since it is differentiated at a point that is not the training point.
+**What the remaining gap IS, measured on the corrected functional and new at pass 409.** The
+trunk's error is **97.0 % DIRECTION and 8.8 % magnitude** — cos 0.8178953379770566, norm ratio
+1.054584096168068, angle **35.13 degrees**, an exact split reconstructing the observed
+0.6221485227575493 to 1.1e-15. The double count had made it look like a near-constant SCALE of
+1.7460 at cos 0.9841, because a large nearly-parallel component inflates the magnitude and
+flatters the cosine at once. **Everything chased from D227 to D233 as a magnitude deficit was
+reading the duplicate.** That split is in vs-float64 space and the clause is graded in
+vs-upstream-bf16 space; `of3t-recutfin` is banking the bf16-space pair so the question
+"reachable by magnitude, by direction, or by neither" can be answered without a cross-space
+quotient.
 
 **D244, fixed at pass 385**: the charter's COVERAGE evidence published MET beside prose naming
 three items that do not fire, stale by fifty passes and understating us. No verdict moved. R148.
-
-**Pass 384 audited every premise of D242's syllogism; six of seven hold** (R147, zero card) —
-the files are sha256-identical across hosts, the pad caveat closes at **4.76e-15**, parameter
-sharing is out, and the checkpointed loss chunks close over no trunk tensor. **The hook firing
-count is the last cheap discriminator** and the self-test banks it.
-
-**Pass 383 collapsed the hypothesis space onto H-A** by refuting my own R141: `checkpoint_blocks`
-is exact — **228 of 228 parameter gradients bit-identical** to a bare loop on upstream's real
-`PairFormerBlock` at every `use_reentrant` setting (R146) — so with the row's two eliminations,
-**H-B has no surviving mechanism**.
 
 **D243, fixed at pass 382 with no card**: `tt-bio finetune`'s fit planner gated every model on
 Protenix-v2's table. Fixed model-keyed, 11-case test, break control fires. **Release-gated and
 unmerged.**
 
-**The defect is two components**: a scale near **1.7493** at a **4.04 %** CV over 48 blocks, plus
-a residual of **0.17786491114882785** after the best scalar, still 1.8e11 over the bar.
-
 **The charter.** Satisfiable and unchanged: a perfect trunk reads **0.6752x** the bar, our trunk
-at upstream's own bf16 floor clears at **0.8525x**, both provisional in the broken frame. A
+at upstream's own bf16 floor clears at **0.8525x**, both now on the REPAIRED frame. A
 terminal NO-GO needs unreachability and nothing shows it.
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** Per-pass narrative
@@ -1923,3 +1879,26 @@ pre-flight for itself; the probe still has none.
 
 Also fixed this pass: my LEDGER index named one archive file by name, which the next rotation
 would have falsified. It now names the rule.
+
+## Pass 411 — the two fields Moritz reads were three passes and one closed defect behind
+
+Checked `VERDICT` and `GAP` against the numbers the campaign now holds. Both carried 1.7814
+(withdrawn) and 0.7945 (D242's unrepaired control); neither carried 1.4511, 0.2207 or 1.7414.
+They described a campaign blocked on a frame defect that has since been root-caused, repaired,
+controlled three ways and re-scored.
+
+**That is R157's rot, and I committed it three passes after naming it.** Naming a failure mode
+does not inoculate you against it; what catches it is re-reading the field against the
+artifacts, which is a task rather than an intention.
+
+VERDICT is rewritten and stays under its cap at 3,967 by deleting two paragraphs D242's closure
+superseded — including "the defect is two components: a scale near 1.7493 plus a residual of
+0.1779", which was no longer merely stale but wrong. GAP is rewritten and shrank 9,322 → 5,583:
+its `control` block recorded D242 as open at twelve orders over, its `next` block still had
+`of3t-frameself` parked on a DEFER two concluded rows ago, and two sentences called the frame
+broken and the ladder levels provisional. All corrected.
+
+**The sharper form of R157**: a field recording a BLOCKER is the likeliest to rot, because it is
+written at maximum certainty about something expected to change. **Closing a defect should
+trigger a re-read of every field that named it** — its own entry, the clause's `why`, and the
+summary fields. The campaign has now found the same rot in all three.

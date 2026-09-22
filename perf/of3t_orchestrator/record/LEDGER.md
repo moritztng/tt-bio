@@ -2293,3 +2293,52 @@ probe whose purpose is to fail fast, and which instead hangs forever while every
 reads green, is a fleet-wide defect** — the `chip-holder-at-100pct-cpu-can-be-a-corpse` family,
 and it will cost every card row that meets it. The row added a bounded pre-flight for itself
 (`b77e89f27`); **the underlying probe still has no timeout.**
+
+---
+
+### R177. `VERDICT` and `GAP` were three passes and one closed defect behind — the same rot I named at R157, committed by me within three passes of naming it (pass 411, zero card)
+
+Checked the two fields Moritz actually reads against the numbers the campaign now holds. Both
+carried **1.7814** (withdrawn) and **0.7945** (D242's unrepaired control) and **neither carried
+1.4511, 0.2207 or 1.7414** — the corrected clause, its value, and the distance to go. They said
+the campaign was blocked on a frame defect that has since been root-caused, repaired,
+controlled three ways, and re-scored.
+
+**That is exactly R157's pattern** — *"a clause's CHECKS stay live because a script recomputes
+them; the PROSE beside them is written once and then rots"* — and **I wrote it three passes
+before committing it myself, on the campaign's headline.** Naming a failure mode does not
+inoculate you against it; the only thing that catches it is re-reading the field against the
+artifacts, which is a task and not an intention.
+
+**VERDICT rewritten** on the corrected numbers and kept under its 4,000 cap at 3,967 by deleting
+two paragraphs D242's closure superseded — the pass-383 hypothesis-space narrowing, and *"the
+defect is two components: a scale near 1.7493 plus a residual of 0.1779"*, **which was no longer
+merely stale but WRONG**: the defect was a double count, and the corrected error is 97 %
+direction, not a scale plus a residual.
+
+**GAP rewritten and it shrank 9,322 → 5,583 chars.** Its `control` block described D242 as open
+at twelve orders over; it now records the closure with the mechanism and the three
+confirmations. Its `next` block still had `of3t-frameself` "parked on an evidence-backed DEFER
+until 22:15 CEST" — two concluded rows ago — and now names the one key blocking the repoint and
+the two live rows. `retracted` becomes `rescored`: 1.7814428090278143x is **superseded**, not
+merely withdrawn, by 1.4511706984958472x. And two sentences calling the frame "broken" and the
+ladder levels "provisional in the broken frame" are corrected: the frame was repaired at pass
+408 and those levels are no longer provisional.
+
+**The general form, and it is the sharper version of R157.** A field that records a BLOCKER is
+the one most likely to rot, because it is written at the moment of maximum certainty and its
+whole content is a claim about something that is expected to change. **The closure of a defect
+should trigger a re-read of every field that named it** — the defect's own entry (done at R163),
+the clause's `why` (R157), and the summary fields (here). Three places, and the campaign has now
+found the same rot in all three.
+
+**Addendum to R177, same pass.** The rewrite's own collateral damage was caught by the compose,
+which is the system working. `audit_evidence.py:1831` reads only **`_vt[:2000]`** — VERDICT's
+first two thousand characters — when checking that the three distance-to-go shares are stated.
+My longer header pushed 49.8019 % and 2.0150 % past that window while 48.1831 % survived, which
+is why exactly two of three drifted. **The numbers were present and correct; the audit's window
+had moved relative to them.** The 2,000-char limit encodes a real editorial intent — these
+shares belong where a reader meets them — so the prose moved rather than the check: the
+distance-to-go paragraph now sits directly under the header, ahead of the counts. **Widening
+the window to fit my preamble would have been moving a check to accommodate writing**, which is
+the same act as moving a bar to accommodate a number.
