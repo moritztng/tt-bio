@@ -1357,3 +1357,50 @@ frame is repaired and R143 re-read on it.**
 The general form, and it is the sibling of A34: **a within-frame quotient survives a broken frame,
 but its OPERATING POINT does not come along for free.** State the point a ratio was read at
 whenever the frame's own defect lies in the channel the ratio is about.
+
+---
+
+### R152. D210 has a second route into the update rule that its triage does not mention, and it is measured not to fire — with 12.57x of headroom, not by construction (pass 388, zero card)
+
+D210 is the last USER-FACING defect with no owner and no built repair: our fused `qkv_w` pads
+head_dim 48 -> 64, the pad lanes are registered leaves, and Adam steps 14.2M parameters upstream
+does not have. Its triage said *"It moves no number the campaign quotes, because the pad columns
+are outside the reference's parameter space and are sliced off before v is used."*
+
+**Sliced off before use is not the only route out of a parameter.** `tt_bio/train/optim.py:218`
+computes ONE global gradient norm over `self.params` — our FUSED tensors, pad lanes included —
+and `clip_coef` (`:447-455`) turns it into a single scalar multiplying EVERY parameter's update.
+Upstream's `compute_global_norm` runs over upstream's parameter set, which does not contain them.
+So the two norms are taken over different sets by construction,
+`gnorm_ours^2 = gnorm_theirs^2 + ||pad grads||^2`, and wherever clipping binds our coefficient is
+smaller than theirs and every parameter's step is scaled differently. **That would be a
+divergence in the update rule itself, which is the campaign's whole object.**
+
+**It does not fire, and the reason matters.** From `of3t-trajfull`'s own committed steplog: the
+batch clip coefficient is exactly **1.0 at all 20 steps**, every one of the **80** per-sample
+coefficients is exactly 1.0, and the gradient norm's closest approach to the threshold is
+**0.7955289728502993 against 10.0 — 12.5703x of headroom**. So D210's triage claim survives the
+one mechanism that could have broken it and nothing the campaign quotes moves.
+
+**But it is confined by the batch's gradient norm, not by the parameter set.** The honest
+statement is now: *the pad lanes move no number on the measured trajectory because the clip is
+identically 1.0 there; they enter the update rule through the global-norm clip on any batch where
+clipping binds.* Owed and nearly free: emit `||pad grads||^2 / gnorm^2` per step beside
+`grad_norm` — a slice and a dot product over tensors the optimizer already holds, no extra
+backward and no device time. Not dispatched as a row this pass: both card-capable rows are live
+on D242 and D245 and a third contending for the same two hosts would cost more than it returns.
+
+**And a positive result for PROTOCOL's central design decision, stated as a number for the first
+time.** The 20-step trajectory exercises the clipping factor at coefficient 1.0 and nowhere else,
+so a trajectory-only proof would have **zero** coverage of clipping while looking fully covered.
+That is not a hole here only because the factorisation verifies clipping as a pure function over
+its whole domain under an injected drive — `clip_coef` agrees with their real
+`compute_global_norm` to **8.51e-08 across eight straddling cases**. The argument for driving the
+state-free factors with a controlled input instead of trusting a trajectory has been a design
+preference in this campaign since pass 1; this is the measurement that makes it a fact.
+
+**What the factorisation still cannot see is the composition**: both sides' `clip_coef` is the
+same function, but its ARGUMENT is not, because the two global norms are taken over different
+parameter sets. That is D210, and no function-level check reaches it.
+
+Artifact `perf/of3t_orchestrator/clipreach/CLIP_REACH.json`.
