@@ -1,0 +1,135 @@
+{
+ "what": "the shape-keyed picks at padded width 64 and 384, read from the shipped functions before any device arm",
+ "constants": {
+  "TRIATT_FUSED_HIFI_MIN_S": 128,
+  "TRIATT_HIFI_MIN_S_PADDED": false,
+  "FP32_SOFTMAX_L1_GRID": [
+   8,
+   8
+  ],
+  "FP32_SOFTMAX_L1_BYTES_PER_CORE": 786432,
+  "FP32_SOFTMAX_BLOCK_BYTES": 8589934592,
+  "FP32_SOFTMAX_L1_ANY_CORES": true,
+  "FP32_SOFTMAX_L1_FLOAT_CORES": true,
+  "fp32_softmax_core_budget": 110,
+  "COMPUTE_GRID_MAIN": [
+   11,
+   10
+  ],
+  "SDPA_BAND_DIV_K": false
+ },
+ "single_track": [
+  {
+   "track": "single/AttentionPairBias",
+   "N": 64,
+   "leading_rows": 1,
+   "heads": 16,
+   "head_dim": 24,
+   "height_per_row": 1024,
+   "per_row_bytes": 262144,
+   "block_byte_budget_rows": 32768,
+   "row_cap": null,
+   "free_row_cap": null,
+   "tuned_rows": 192,
+   "plan_rows": 330,
+   "plan_cores": 110,
+   "block_rows_final": 330,
+   "blocks_per_call": 1,
+   "shard_buildable": true,
+   "l1_resident": true
+  },
+  {
+   "track": "single/AttentionPairBias",
+   "N": 384,
+   "leading_rows": 1,
+   "heads": 16,
+   "head_dim": 24,
+   "height_per_row": 6144,
+   "per_row_bytes": 9437184,
+   "block_byte_budget_rows": 896,
+   "row_cap": null,
+   "free_row_cap": null,
+   "tuned_rows": 5,
+   "plan_rows": 9,
+   "plan_cores": 108,
+   "block_rows_final": 9,
+   "blocks_per_call": 1,
+   "shard_buildable": true,
+   "l1_resident": true
+  }
+ ],
+ "pair_track_materialised": [
+  {
+   "track": "pair/TriangleAttention",
+   "N": 64,
+   "leading_rows": 64,
+   "heads": 4,
+   "head_dim": 32,
+   "height_per_row": 256,
+   "per_row_bytes": 65536,
+   "block_byte_budget_rows": 131072,
+   "row_cap": null,
+   "free_row_cap": null,
+   "tuned_rows": 768,
+   "plan_rows": 1320,
+   "plan_cores": 110,
+   "block_rows_final": 1320,
+   "blocks_per_call": 1,
+   "shard_buildable": true,
+   "l1_resident": true
+  },
+  {
+   "track": "pair/TriangleAttention",
+   "N": 384,
+   "leading_rows": 384,
+   "heads": 4,
+   "head_dim": 32,
+   "height_per_row": 1536,
+   "per_row_bytes": 2359296,
+   "block_byte_budget_rows": 3616,
+   "row_cap": null,
+   "free_row_cap": null,
+   "tuned_rows": 20,
+   "plan_rows": 36,
+   "plan_cores": 108,
+   "block_rows_final": 36,
+   "blocks_per_call": 11,
+   "shard_buildable": true,
+   "l1_resident": true
+  }
+ ],
+ "pair_track_fused": [
+  {
+   "N": 64,
+   "site_flag_openfold3_trunk": true,
+   "fused_hifi_on": true,
+   "min_s_gate_declines": true,
+   "padded_len": 64,
+   "chunks_shipped_q_k": [
+    64,
+    64
+   ],
+   "q_chunk_ladder": [
+    64
+   ]
+  },
+  {
+   "N": 384,
+   "site_flag_openfold3_trunk": true,
+   "fused_hifi_on": true,
+   "min_s_gate_declines": false,
+   "padded_len": 384,
+   "chunks_shipped_q_k": [
+    64,
+    64
+   ],
+   "q_chunk_ladder": [
+    384,
+    192,
+    128,
+    96,
+    64
+   ]
+  }
+ ]
+}

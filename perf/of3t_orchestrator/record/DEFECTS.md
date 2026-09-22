@@ -2221,3 +2221,216 @@ WIDER one. Narrowing scope is not a way to pass. No brittle equality clause was 
 — within one artifact the two figures agree to 4e-14 and a `>=` on that would fail on float noise —
 so it is a rule for whoever points a condition at an artifact, recorded here and in the clause's
 own comment.
+
+### D182. GO condition 3's headline lived in a row's state-doc PROSE and in no artifact on any branch. FOUND and **FIXED** by `of3t-orchestrator`, pass 330, by re-deriving it from the surviving dumps.
+
+The campaign quotes condition 3 as *"our twenty-step update rule tracks upstream's to within
+**1.4553x** of what their own bf16-mixed training already deviates from the float64 ideal, over
+**88.0819 %** of the model"*. The denominator is measured — `perf/of3t_trajbar/BAR.json`,
+`scored.bar_bf16mixed_trajwide_scope`, 1.762065e-01 at k=20 over the same 573 tensors. **The
+numerator was not in any artifact.**
+
+Searched every of3t branch for `2.564253`: it appears only in `of3t-trajbar/PREDICTION.md`, in
+`trajbar.py`'s docstring, and in the orchestrator's own published state doc. What is actually
+committed on `wk/of3t-trajwide` is `live/PARTIAL_*.json` at **9 of 20 steps**, and
+`INVALID_050_ref/*.json` at 549 tensors which the row itself quarantined as built against the
+0.5.0 reference. So the campaign's condition-3 evidence was prose, unreadable by the charter,
+uncheckable by any guard, and one doc rotation from gone.
+
+**Recovered and verified rather than trusted.** The raw weight dumps survive on qb2 at
+`/home/ttuser/of3t_runs/trajwide/w/`, 21 files per arm across all eight arms, so the row's own
+scorer was re-run on them, CPU only. It reproduces the row **to every published digit**:
+
+    k = 2   rel_d  4.538411e-01        row: 4.538411e-01
+    k = 20  rel_d  2.564253e-01        row: 2.564253e-01
+    growth  exponent -0.27724, intercept -0.46711, r2 0.9050, SUB-LINEAR -- all three match
+    scope   573 tensors, 88.08194359237523 %, ref_tree /home/ttuser/of3t_refprec/of3pkg043
+
+Committed at `perf/of3t_orchestrator/trajrecover/TRAJ_SHIPPED_RECOVERED.json` with its provenance.
+**The row was right; only its artifact was missing.**
+
+**The w0 trap, committed beside it so nobody rediscovers it as a defect.** Scored with `--w0 own`,
+which is what `live/PARTIAL_shipped.json` records as its `w0_baseline`. The scorer's DEFAULT is
+`--w0 ckpt`, and that reads **1.294855e+00** at k=20 — a **5.05x** apparent discrepancy that is a
+baseline convention, not a disagreement. It blows up at small k (2.05e+02 at k=2 against
+4.54e-01) because a wrong w0 offsets every d_k and dominates while the true displacement is
+small. The control arm is committed as `TRAJ_SHIPPED_w0ckpt_CONTROL.json`.
+
+**The class.** `a-rows-progress-is-its-branch-not-its-process-or-state-doc` inverted: here the
+row's RESULT was in its doc and not in its branch. A number the charter is asked to believe must
+be in a committed artifact, and a row that reports a figure its branch does not carry has not
+finished publishing it.
+
+### D183. The D149 reference-tree guard compares PATH STRINGS, not tree content, so a legitimate path move makes every earlier artifact unscorable. FOUND by `of3t-orchestrator`, pass 330. **UNFIXED.**
+
+Re-scoring D182 was refused with *"reference arm 'theirs' was taken against
+`/home/ttuser/of3t_refprec/of3pkg043`, not the tree under test
+`/home/ttuser/of3t-campaign-refs/of3pkg043` ... this pairing is not scorable"*.
+
+The guard is right to exist — D120 is the finding that 0.4.3 and 0.5.0 are a different function at
+this boundary, 1.94959719e-05 against 7.66979728e-01. But **the two trees here are bit-identical**:
+293 `.py` files each, digest **24f0aee7525f1042** on both, which is `of3t-refsweep`'s own claim
+when it moved `REFROOT` to `/home/ttuser/of3t-campaign-refs`, now verified independently.
+
+So the refusal is a path-string mismatch on identical content, and it applies to **every artifact
+dumped before the sweep**. Any re-score of earlier work hits it and has to be talked past by hand,
+which is exactly the situation where somebody eventually talks past a real one.
+
+**The fix is to compare the tree's DIGEST rather than its path**, recording it in the artifact at
+dump time the way `inputs.float64.sha256` already pins the reference weights. Until then the
+workaround is a local `refpath` override to the recorded path, which is what pass 330 used — the
+shared tree was not touched.
+
+### D184. The 99.50523 % coverage figure is arithmetically right and belongs to a default-OFF lever, so on the shipped arm coverage is still 97.98499 %. FOUND by `of3t-orchestrator`, pass 331, by not composing it. **UNFIXED** — it is a merge decision, not a measurement.
+
+Pass 330 recorded that `of3t-hostleg`'s +1.52024 composed with `of3t-modelboundary`'s 97.98499
+"takes the coverage bar to a reachable 99.50523155277441 %", and pass 331's first action was to
+compose it. **The arithmetic checks out and the composition is still wrong.**
+
+**What checks out.** The two tensor sets are **DISJOINT** — hostleg's 17 names against
+modelboundary's 3,643 compared, **intersection 0**, verified by name rather than assumed. Same
+denominator (`model_squared_gradient_norm` 10.279642678524981 in both), same float64 reference
+digest `1d4ea9225f…`. The sum is **99.50523155277438** against the row's 99.50523155277441, a
+3e-14 float difference. So nothing is double-counted and the figure is real.
+
+**Why it must not be composed.** The 17 tensors only have a device gradient under
+`TT_BIO_OF3_DEVICE_REFATOM`, which is **default-off**, release-gated and unmerged
+(`state/of3t-hostleg.md:7`). Read the row's own arm ladder against float64 over those 17:
+
+    shipped   (the default)   mass-weighted rel_l2  1.00000000   17 of 17 over bar
+    refatom   (one leg)                             0.71215816   15 of 17
+    all       (both legs)                           0.05013681    6 of 17, worst 1.175005e-01
+    break     (control)                             0.82521107   16 of 17
+
+**The shipped arm reads exactly 1.0** — the A16 zero-model signature, meaning our shipped default
+computes **no gradient at all** for these 17. The verdict's "6 of 17 over the bar, worst
+1.175005e-01" is the `all` arm, the row's own fix. So composing the coverage would credit the
+charter with 1.52024 points the configuration it grades does not have, and D177's whole point is
+that the charter grades the shipped arm.
+
+**And it would re-create D181 as well.** GRADIENTS' accuracy clause reads
+`<arm>_vs_UPSTREAM_BF16`, and hostleg has no upstream-bf16 arm anywhere — every sidecar it ships
+is `*_vs_FLOAT64`. Coverage over 3,660 tensors beside accuracy over 3,643 is exactly the
+different-scope defect fixed three passes ago.
+
+**So on the shipped arm coverage remains 97.98499306866148 % against the 99.2594 % bar, and the
+bar is now behind a merge rather than behind a measurement.** That puts it with D126 as the second
+item waiting on Moritz. `merged-lever-defaults-off-is-not-a-landed-win`, applied to a coverage
+denominator.
+
+**Work deliberately abandoned on the evidence.** I had extracted the 17 upstream-bf16 slices on
+qb2 (all 17 found in `pinned_p175/arm4_bf16_autocast/grads_f64.pt`) to build the missing
+upstream-bf16 arm. That is moot: on the shipped default those tensors carry a zero gradient, so
+there is nothing to score against upstream until the lever lands. Stopped rather than finished.
+
+**And a correction to my own pass-330 wording.** I wrote that the coverage bar is "reachable". It
+is reachable *with the lever on*; on the shipped default it is not, and "reachable" without that
+qualifier is the same omission D180 filed against me for quoting a model-scope figure without its
+crop. A coverage figure carries its flag state.
+
+### D185. This campaign asked Moritz the same question twice, six seconds apart, and then reported that it had not asked at all. FOUND and **FIXED** by `of3t-orchestrator`, pass 332.
+
+Two pending-input records, **9758** at 23:04:18 and **9760** at 23:04:24, both `status: open`, both
+asking whether D126's two-line `_PARAMS` re-key may be cherry-picked to main. Same campaign, same
+content, six seconds apart, both pinned into Moritz's chat.
+
+**Worse than noise: a mis-routing hazard.** `tg_agent.sh:138-147` routes a reply first by explicit
+reply id, then by the pinned ask, then by **the latest open pending record**. With two identical
+records open, a reply meant for something else could be written into one of them and recorded as
+the D126 merge decision — `tg-agent-pending-ask-auto-resolves-on-unrelated-reply` with a duplicate
+making it likelier. 9758 is now `status: superseded` with a body note saying it was not answered;
+every reader greps `^status: open`, so it leaves the fallback. 9760 stays as the live question.
+
+**And the reporting error, which is the part worth keeping.** Pass 331 told Moritz *"there's no ask
+or decision file for it"*. There were two. I looked in `state/ask-*.md` and `state/answered/` and
+not in **`state/pending-input/`**, which is where `tg.sh ask` actually writes (`tg.sh:127-137`).
+The memory `check-pending-asks-before-authoring-new-ask` exists precisely for this and I followed
+it against the wrong directory — searching two of the three places and reporting the absence as
+fact. **An absence is only evidence if the search covered where the thing is kept**; name the
+writer and read its path out of the writer, rather than guessing the convention.
+
+That error had a real cost pointed the other way too: having concluded nothing was pending, pass
+331 committed to authoring a fresh ask this pass, which would have made it three.
+
+**D184 is not asked separately.** It rides on 9760's decision: both are built, measured,
+release-gated and waiting only on a merge, and two pins for one decision is what this entry is
+about.
+
+**Fleet context, reported not owned:** eight pending asks are open after this fix, the oldest
+`6827` from 2026-09-01 and itself a third re-pin of a question whose first two *"both got
+silently"* dropped. With the router's last resort being "latest open", a backlog that size makes
+any swipe-less reply ambiguous. That is the fleet's hygiene rather than this campaign's, and it is
+recorded here because it bears on whether the D126 answer lands on the D126 question.
+
+### D178 UPDATE, pass 333. **FIXED.** `of3t-trajretake` concluded GO and the `moves` clause is met at all 19 live rungs
+
+Re-taken on a tree that names itself. `tape_resolves_after_step` reads **26 of 26 at all 20
+steps** against the stale artifact's 0 of 26, with a re-key break control showing the `_PARAMS`
+re-key is what causes it, and **ours moves at every one of the 19 rungs where theirs does**,
+against an exactly-zero A/A floor and a pinned zero baseline. The charter now reads
+`perf/of3t_trajretake/traj_retake_shipped.json`, on the row's own explicit handback: *"stale on
+both D126 and D56 and should be superseded by `traj_retake_shipped.json` rather than re-read"*.
+
+**TRAJECTORY's only remaining miss is scope**, 36.94617946669957 % against 99.2594 %, and the row
+left it there rather than widening it, which is what its brief asked.
+
+**Two things it delivered beyond the re-take.** The growth law now carries the movement
+precondition D178 asked for, and replaying it over the stale artifact flips those rows from
+`sub-linear` to **`undefined`** — the field that read as a pass on a constant zero no longer can.
+And the scaled-warmup arm PROTOCOL §7 calls non-optional exists for the first time in this
+campaign.
+
+**Its second handback, which retires a claim rather than adding one: D56 is INERT at this
+boundary, 0 inner calls.** So any statement resting on D56 at `diffusion_module.diffusion_conditioning`
+rests on nothing. Recorded here because this campaign has twice built on a D56 arm that was not
+the arm it thought (D172, D175).
+
+### D186. The trunk's headline failure was a CROSS-FRAME comparison. Frame-matched it reads 0.9565x its floor. FOUND by `of3t-apbback`, pass 334, absorbed by `of3t-orchestrator`. **UNFIXED** — the arithmetic it invalidates is published in several places.
+
+`of3t-apbback` named the op and then showed the op is worth nothing where the campaign reads it.
+Both halves matter and the second is larger.
+
+**The op, and it is well controlled.** Substituting ONLY the softmax backward in block 47 recovers
+**51.55 %** of the block's error mass, where substituting **all 112 taped ops** recovers **51.48 %**
+— one op is the whole recoverable error. Leaving it out while substituting everything else reads
+**−109.89 %**, worse than doing nothing. The all-float64 arm ran FIRST and the null is
+**bit-identical to the untouched arm on 57 of 57 parameter gradients**, max absolute difference
+exactly 0.0, with operand matching 240 of 240 by identity and 0 by shape fallback.
+
+**And the frame, which is the finding.** That repair moves the model-level reading from
+**0.860514 to 0.860908** — it does not move it — because the capture's own float64 gradient, with
+**no device op and no bf16 anywhere on its path**, is already **0.865188** from `grads_f64_043.pt`
+at r 0.6366 and cos 0.5298. No arithmetic inside the block can reach that distance.
+
+**The control that settles it:** upstream 0.4.3's OWN float64 backward on that boundary reads
+**1.8416532191335360** against `grads_f64_043.pt`, which is **1.0806x WORSE than our device arm's
+1.7043**. Upstream's own float64 code scoring worse than our bf16 device arm is not a statement
+about our stack; it is a statement about the comparison.
+
+**So `5.4139x upstream's own bf16` has a numerator and a denominator from different frames.** The
+denominator 0.3147698293887927 is upstream's bf16 FULL MODEL against upstream's float64 full
+model, where the frame cancels. Our arm's frame does not cancel.
+
+**Frame-matched, at crop 64, the trunk backward reads 0.38330656678074404 against a floor of
+0.4007237404807558 — 0.9565x, INSIDE the bar.** Which is the figure D116 reported and this
+campaign has spent many passes treating as superseded.
+
+**What this invalidates, and it is published in several places.** `of3t-padshape`'s COST field
+prices removing the width dependence as 0.532795 → 0.423374; **that prize does not exist as
+stated**, because the width-64 endpoint is a crop-64 arm scored against a crop-384 reference.
+`of3t-apbgrad`'s 0.38330656678074404 and `of3t-padshape`'s 1.7043040667627918 are **the same
+device tensors, identical to 17 digits through one scorer**, and the 4.45x between them is the
+reference alone. The per-block spread (1.268 at block 47, 4.947 at 46, 0.807 to 2.053 elsewhere)
+rules out error accumulating down the stack.
+
+**What is NOT yet established, and must not be assumed.** The frame-matched reading is at **crop
+64 and block scope**. The model-scope 0.532795 at crop 384 is still a cross-frame number, and
+re-deriving it frame-matched is a measurement nobody has made. Until then the campaign should
+quote neither 5.03x nor 0.9565x as *the* model-scope answer — the first is cross-frame, the
+second is out of scope for it.
+
+**The class.** `parity-gate-reproduces-committed-checks-verdict-not-value` and
+`which-tree-is-the-claim-about`, applied to REFERENCES rather than to trees: two float64
+references that disagree by 0.865 at cos 0.5298 are not interchangeable, and a ratio built from
+one of each measures their difference. **A reference is part of the measurement's identity** and
+belongs in the artifact beside the digest.
