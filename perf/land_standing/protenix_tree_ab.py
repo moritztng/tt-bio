@@ -20,20 +20,24 @@ TREES = {"main": "/home/ttuser/mainctl-land-standing",
          "cand": "/home/ttuser/.coworker/wt/land-standing"}
 
 
-def aiclk_sampler(stop, out, card):
-    """tt-smi prints AICLK as a RIGHT-ALIGNED STRING, not a number."""
+def aiclk_sampler(stop, out, card, errs):
+    """AICLK lives at device_info[card]["telemetry"]["aiclk"], as a RIGHT-ALIGNED STRING.
+
+    The first version probed board_info.aiclk then chip_telemetry.aiclk. Neither key
+    exists, so every sample raised KeyError into a bare ``except: pass`` and the run
+    recorded n=0 on all six legs while still printing a ratio. A clock-blind run that
+    still prints a number is the failure worth guarding, so the first exception is kept
+    and the summary refuses to call a cell measured when no leg carries samples.
+    """
     while not stop.is_set():
         try:
             r = subprocess.run(["/home/ttuser/.local/bin/tt-smi", "-s"],
                                capture_output=True, text=True, timeout=20)
-            d = json.loads(r.stdout)
-            dev = d["device_info"][card]
-            v = dev.get("board_info", {}).get("aiclk")
-            if v is None:
-                v = dev.get("chip_telemetry", {}).get("aiclk")
-            out.append(float(str(v).strip()))
-        except Exception:
-            pass
+            dev = json.loads(r.stdout)["device_info"][card]
+            out.append(float(str(dev["telemetry"]["aiclk"]).strip()))
+        except Exception as e:
+            if not errs:
+                errs.append(repr(e))
         stop.wait(1.0)
 
 
@@ -48,8 +52,9 @@ def leg(tree, rung, card, workdir, tag):
            "--model", "protenix-v1", "--single_sequence",
            "--sampling_steps", "6", "--diffusion_samples", "1", "--seed", "0",
            "--out_dir", str(d)]
-    clk, stop = [], threading.Event()
-    t = threading.Thread(target=aiclk_sampler, args=(stop, clk, card), daemon=True)
+    clk, errs, stop = [], [], threading.Event()
+    t = threading.Thread(target=aiclk_sampler, args=(stop, clk, card, errs),
+                         daemon=True)
     t.start()
     t0 = time.monotonic()
     p = subprocess.run(cmd, cwd=TREES[tree], env=env, capture_output=True, text=True)
@@ -66,6 +71,7 @@ def leg(tree, rung, card, workdir, tag):
             "runtime_s": rs,
             "aiclk_median": (round(statistics.median(clk), 1) if clk else None),
             "aiclk_n": len(clk), "aiclk_min": (min(clk) if clk else None),
+            "aiclk_err": (errs[0] if errs else None),
             "tail": (p.stdout + p.stderr)[-1500:] if p.returncode else p.stdout[-300:]}
 
 
@@ -107,4 +113,5 @@ def main():
     print(json.dumps({k: v for k, v in res.items() if k != "legs"}, indent=2))
 
 
-main()
+if __name__ == "__main__":
+    main()
