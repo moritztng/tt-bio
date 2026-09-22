@@ -1,0 +1,1202 @@
+{
+ "a23_note_corrected": "an earlier version of this rows A23 note said a cancelled component carries little mass by construction. That is wrong and amendment 6 is right: blocks.8...layer_norm_a.layer_norm_s.weight is 8.05416 % of the model and the fourth-heaviest tensor in OpenFold3, and it is the one at the highest cancellation. A large result can be a heavily cancelled sum. What survives is the rest of the note: a per-tensor RELATIVE bar is not a readable instrument on a cancelled component, and the 474-of-547 over-bar count must be read with that in mind.",
+ "amendment_4_summand_dtype": {
+  "arms": [
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": null
+   },
+   {
+    "K": 30.089359430529168,
+    "act": "fp32",
+    "gain_cos": 0.9999980189776843,
+    "gain_norm_ratio": 1.0005294158449003,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0020590852074496195,
+    "summand_dtypes": null
+   },
+   {
+    "K": 211.2043050000801,
+    "act": "fp32",
+    "gain_cos": 0.9999735691247812,
+    "gain_norm_ratio": 1.001105855468325,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.007351748090253863,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2100.17712952438,
+    "act": "fp32",
+    "gain_cos": 0.9982846853704964,
+    "gain_norm_ratio": 0.9942621577857897,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.05864178818068268,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999957793418957,
+    "gain_norm_ratio": 1.0014406344395934,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 0.003241730459479091,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.552003518980626,
+    "gain_norm_ratio": 1.8376090828761196,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 1.53039540115579,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.10541395833463714,
+    "gain_norm_ratio": 9.905552450595973,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 9.837578252506798,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.03564008233292323,
+    "gain_norm_ratio": 57.38124976191268,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 57.277007125293714,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999875523333679,
+    "gain_norm_ratio": 1.001216172378969,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.005136141505075466,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3428997363849793,
+    "gain_norm_ratio": 2.8085474164419626,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 2.6359146806528013,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3291882050313532,
+    "gain_norm_ratio": 2.5784391969362095,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 2.4371624593595733,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3428997363849793,
+    "gain_norm_ratio": 2.8085474164419626,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 2.6359146806528013,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.08460508018555359,
+    "gain_norm_ratio": 23.005009275861646,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 22.913841032605383,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.025409879298600512,
+    "gain_norm_ratio": 23.60149142936745,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 23.56805540455796,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.08460508018555359,
+    "gain_norm_ratio": 23.005009275861646,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 22.913841032605383,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.02500967728545728,
+    "gain_norm_ratio": 83.64309752630633,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 83.51990167276364,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.05163433813747233,
+    "gain_norm_ratio": 72.8905492503967,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 72.75812245409752,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.02500967728545728,
+    "gain_norm_ratio": 83.64309752630633,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 83.51990167276364,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   }
+  ],
+  "control": "ttnn.multiply takes a dtype and no compute_kernel_config, so the lever and its control are the same knob in opposite directions. Forcing the product to bf16 on the fp32 arm degrades 1.5653x / 2.6643x / 2.3640x / 2.1735x at K = 20.4 / 2.1e+04 / 2.1e+05 / 2.1e+06, so the knob reaches the kernel and the null is a null.",
+  "question": "autograd.py:1611 forms _sum_leadings summands with ttnn.multiply(g, norm), which passes no dtype. Does forcing the product to fp32 move the HIGH-K rungs?",
+  "verdict": "REFUTED on the fp32 arm and worth ~1.1x on the bf16 arm. On fp32 activations the summands are ALREADY fp32 -- recorded from inside the rule, g=FLOAT32 norm=FLOAT32 prod=FLOAT32 -- and forcing fp32 is BIT-IDENTICAL at every rung including K=2.1e+06. On bf16 activations the summands are bf16 and forcing fp32 moves the headline 0.87x to 1.03x. Neither is the ~800-7000x device-vs-host-fp32 floor."
+ },
+ "amendment_5_within_leaf_contrast": {
+  "K_measured_on_the_float64_reference": [
+   {
+    "K_attention_pair_bias": 36.36570064210569,
+    "K_conditioned_transition": 4.506701092083226,
+    "block": 0,
+    "model_rel_with_the_real_cotangent": 2.7328662470902616,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 8.152128276779168e-16
+   },
+   {
+    "K_attention_pair_bias": 17.120740111432617,
+    "K_conditioned_transition": 9.63159062095701,
+    "block": 1,
+    "model_rel_with_the_real_cotangent": 0.8331,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 4.1175154229609124e-16
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "K_conditioned_transition": 6.044026044667286,
+    "block": 5,
+    "model_rel_with_the_real_cotangent": 4.5418561851468295,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 1.1224759603928367e-15
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "K_conditioned_transition": 12.203495978479577,
+    "block": 6,
+    "model_rel_with_the_real_cotangent": 2.840834392407766,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 2.111730188348863e-15
+   },
+   {
+    "K_attention_pair_bias": 87.44668253529366,
+    "K_conditioned_transition": 6.773102328569385,
+    "block": 7,
+    "model_rel_with_the_real_cotangent": 5.307078050609351,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.4145557516002414e-15
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "K_conditioned_transition": 10.543002774292496,
+    "block": 8,
+    "model_rel_with_the_real_cotangent": 18.503974843073646,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.214419099785081e-15
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "K_conditioned_transition": 7.682115028611642,
+    "block": 9,
+    "model_rel_with_the_real_cotangent": 0.1237,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 7.428939546801882e-15
+   },
+   {
+    "K_attention_pair_bias": 72.90205087045088,
+    "K_conditioned_transition": 6.4290786287768515,
+    "block": 12,
+    "model_rel_with_the_real_cotangent": 5.645936592384648,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 6.664504131595929e-16
+   },
+   {
+    "K_attention_pair_bias": 14.672172899257903,
+    "K_conditioned_transition": 3.328140438410647,
+    "block": 23,
+    "model_rel_with_the_real_cotangent": null,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.0261956030085085e-16
+   }
+  ],
+  "cosine_correction": "amendment 5 reads the ladders cosine as never going negative. One arm does: fp32 activations, fp32 weights, K=2.1e+06 reads cos -0.019878. A random direction in 384 dimensions has |cos| ~ 0.051, so -0.02 is what a fully error-dominated result looks like and the mechanism can reach cos <= 0. It cannot reach the -0.796 and -0.805 that blocks 0 and 6 read, which are ~16 sigma from zero. The conclusion stands in its strong form and the evidence for it is the DISTANCE from zero, not the sign.",
+  "question": "the leafs own 24 blocks split 15 on-curve / 9 off-curve. Is block 8 simply higher-K than block 9?",
+  "same_cotangent_device_arms": [
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.990819317585868,
+     "norm_ratio": 1.7854868689268928,
+     "rel_l2": 0.8060853534539731
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995462813316591,
+     "norm_ratio": 0.9955744095893557,
+     "rel_l2": 0.03038103423500968
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.987114854252645,
+     "norm_ratio": 0.6662443081860528,
+     "rel_l2": 0.35855567468226285
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995794230601496,
+     "norm_ratio": 0.9985814812817309,
+     "rel_l2": 0.029016768988493095
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.9985550730278248,
+     "norm_ratio": 1.1742784179303538,
+     "rel_l2": 0.18375652389542171
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999690922186157,
+     "norm_ratio": 0.9971838961845714,
+     "rel_l2": 0.024986902128183604
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.999979854937261,
+     "norm_ratio": 0.9868400982440103,
+     "rel_l2": 0.01459256405202325
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999704088108611,
+     "norm_ratio": 0.9956178712283548,
+     "rel_l2": 0.024666442534811095
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.8052033650041637,
+     "norm_ratio": 0.9240059842118646,
+     "rel_l2": 0.6047822776144994
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9998863019122204,
+     "norm_ratio": 1.0101446385985495,
+     "rel_l2": 0.018237782756532355
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.9989103916725777,
+     "norm_ratio": 1.0165527768367721,
+     "rel_l2": 0.04989271653076546
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999807374484797,
+     "norm_ratio": 1.0020162131518882,
+     "rel_l2": 0.0065320665438992976
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.9988093859583707,
+     "norm_ratio": 1.0195611568046716,
+     "rel_l2": 0.05301364460891182
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999788982052571,
+     "norm_ratio": 1.0025717251296224,
+     "rel_l2": 0.006994704830085713
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.999811602103022,
+     "norm_ratio": 1.0039400895539687,
+     "rel_l2": 0.019844513317815116
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999845422689108,
+     "norm_ratio": 1.001206210037971,
+     "rel_l2": 0.005692775717953044
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9998956709987796,
+     "norm_ratio": 1.166360346791023,
+     "rel_l2": 0.1670902014018671
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998129618364222,
+     "norm_ratio": 1.0113719450073841,
+     "rel_l2": 0.022531121495127263
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999554346983064,
+     "norm_ratio": 1.0004056838483806,
+     "rel_l2": 0.009451525888342013
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998930393354455,
+     "norm_ratio": 1.0177698694892365,
+     "rel_l2": 0.023097422905443664
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999922031014779,
+     "norm_ratio": 0.9835625625111881,
+     "rel_l2": 0.01689753905687623
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998853068420447,
+     "norm_ratio": 1.018750136159051,
+     "rel_l2": 0.024192043042085325
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999872447482329,
+     "norm_ratio": 0.9864059552683102,
+     "rel_l2": 0.014490057445549535
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998794850722692,
+     "norm_ratio": 1.019991212435245,
+     "rel_l2": 0.02540663120401278
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9867641534140603,
+     "norm_ratio": 1.2872834770455364,
+     "rel_l2": 0.34147967642738547
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.999777011393772,
+     "norm_ratio": 0.9929086403384846,
+     "rel_l2": 0.022205900330558553
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9992993797270079,
+     "norm_ratio": 1.039693276629213,
+     "rel_l2": 0.055067382216362655
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.9999265749861095,
+     "norm_ratio": 0.9961587784393813,
+     "rel_l2": 0.012690190202119766
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9995952697408439,
+     "norm_ratio": 0.9846034714456695,
+     "rel_l2": 0.03215665915252876
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.9999373436812579,
+     "norm_ratio": 0.996864092500194,
+     "rel_l2": 0.011608341160204495
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9999179863848645,
+     "norm_ratio": 0.9882535561216311,
+     "rel_l2": 0.017322801084223773
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.999947796261333,
+     "norm_ratio": 0.9967307996093132,
+     "rel_l2": 0.010712320923244445
+    },
+    "rule": "softmax_host_f64"
+   }
+  ],
+  "verdict": "NO. On the real operands the cancellation ratio of the attention-side AdaLN gain sum is K=172.6 at block 8 and K=175.6 at block 9 -- 1.7 % apart -- while the model reads rel 18.504 and 0.1237, a 150x split. Under the same controlled cotangent the two blocks also read the same on the device: 8.060854e-01 and 6.047823e-01, 1.33x apart. The blocks code, operands and conditioning are matched; whatever produces the 150x arrives through the real cotangent."
+ },
+ "amendment_6_the_transition_branch": {
+  "arms": [
+   {
+    "block": 8,
+    "compared": "9 of 9",
+    "forward_rel": 0.004082501382279741,
+    "gain_cancellation_K": 35.71070413256852,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.005468735843305745,
+    "over_bar": 0
+   },
+   {
+    "block": 8,
+    "compared": "9 of 9",
+    "forward_rel": 0.004079441264700118,
+    "gain_cancellation_K": 35.79699731861262,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0019125276413133254,
+    "mass_weighted_rel": 0.00789709236729021,
+    "over_bar": 0
+   },
+   {
+    "block": 9,
+    "compared": "9 of 9",
+    "forward_rel": 0.00475844676088867,
+    "gain_cancellation_K": 31.512229581863032,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.007278610039564238,
+    "over_bar": 0
+   },
+   {
+    "block": 9,
+    "compared": "9 of 9",
+    "forward_rel": 0.0049342320322087125,
+    "gain_cancellation_K": 31.5693507727739,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0008487425529685591,
+    "mass_weighted_rel": 0.008039326401098446,
+    "over_bar": 0
+   },
+   {
+    "block": 0,
+    "compared": "9 of 9",
+    "forward_rel": 0.006543222570398997,
+    "gain_cancellation_K": 17.529410648377887,
+    "input": "reference",
+    "input_rel_vs_reference": 0.0,
+    "mass_weighted_rel": 0.009595681097830867,
+    "over_bar": 0
+   },
+   {
+    "block": 0,
+    "compared": "9 of 9",
+    "forward_rel": 0.005427882754104481,
+    "gain_cancellation_K": 17.43054514220223,
+    "input": "ours",
+    "input_rel_vs_reference": 0.0045234061982470705,
+    "mass_weighted_rel": 0.005733395955656431,
+    "over_bar": 0
+   }
+  ],
+  "question": "amendment 6 hands over the 23.8917 % of the arm no softmax lever touches, whose largest member is conditioned_transition.layer_norm.layer_norm_s.weight at 15.5125 % of the model and mass-weighted rel 0.1828.",
+  "verdict": "the conditioned transition is NOT broken. Run alone on the real (a, s) the block hands it, against upstream 0.4.3s own ConditionedTransitionBlock in float64, all 9 of its parameter gradients read 5.5e-03 to 9.7e-03 at blocks 8, 9 and 0, mass-weighted 5.468736e-03 / 7.278610e-03 / 9.595681e-03, 0 of 9 over the 5.0e-02 per-tensor bar and inside the 2.0e-02 mass bar, with cos >= 0.99997 and norm ratios within 1 % of unity. Feeding it OUR blocks `a` instead of the references moves it at most 1.44x and at block 0 slightly improves it. The models 0.1828 is not made inside this module.",
+  "what_it_leaves": "the 0.1828 must be carried by the cotangent that arrives at the transitions output -- from the blocks above it, the atom decoder, or the accumulation over 48 samples. Extrapolating this arms slope (rel ~ 1.55e-04 x K at K 35.7) the transition would need K ~ 1.2e+03 to reach 0.1828, against the K 10.5 to 35.8 measured here."
+ },
+ "amendments": {
+  "answer": "the attention-side gradient defect is the attention SOFTMAX. Replacing it with float64 on the real operands takes attention_pair_bias.layer_norm_a.layer_norm_s.weight from 8.060854e-01 to 1.459256e-02 at DiT block 8, while the sister AdaLN under conditioned_transition, which has no softmax above it, moves 1.23x.",
+  "block_arms": [
+   {
+    "apb_gain": {
+     "cos": 0.999156684171148,
+     "norm_ratio": 1.289597344203811,
+     "rel_l2": 0.2933286509639416
+    },
+    "block": 0,
+    "ct_gain": {
+     "cos": 0.9999957247815245,
+     "norm_ratio": 0.9903278474327287,
+     "rel_l2": 0.010100409452365159
+    },
+    "forward_rel": 0.0044849411813475595,
+    "mass_weighted_rel": 0.2923357553725186,
+    "rule": "shipped"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.999798987072511,
+     "norm_ratio": 1.1200118357202202,
+     "rel_l2": 0.12187335405566639
+    },
+    "block": 0,
+    "ct_gain": {
+     "cos": 0.9999993461314641,
+     "norm_ratio": 0.9995110653197067,
+     "rel_l2": 0.0012434447294855284
+    },
+    "forward_rel": 0.0037982138929203517,
+    "mass_weighted_rel": 0.12146302277984043,
+    "rule": "softmax_precise"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9999053169133756,
+     "norm_ratio": 1.0698825506104492,
+     "rel_l2": 0.07131739229849052
+    },
+    "block": 0,
+    "ct_gain": {
+     "cos": 0.9999994914041066,
+     "norm_ratio": 1.0000497463609441,
+     "rel_l2": 0.0010098104222127202
+    },
+    "forward_rel": 0.0035009057619853207,
+    "mass_weighted_rel": 0.0710778919148999,
+    "rule": "softmax_accurate"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9999899067322497,
+     "norm_ratio": 1.0026431349725757,
+     "rel_l2": 0.005217859112914848
+    },
+    "block": 0,
+    "ct_gain": {
+     "cos": 0.999999024050915,
+     "norm_ratio": 0.9999724874568313,
+     "rel_l2": 0.0013973551476993682
+    },
+    "forward_rel": 0.0036260356548898274,
+    "mass_weighted_rel": 0.005224761856038293,
+    "rule": "softmax_host_f64"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.990819317585868,
+     "norm_ratio": 1.7854868689268928,
+     "rel_l2": 0.8060853534539731
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995462813316591,
+     "norm_ratio": 0.9955744095893557,
+     "rel_l2": 0.03038103423500968
+    },
+    "forward_rel": 0.0019540680112847984,
+    "mass_weighted_rel": 0.7933780690142959,
+    "rule": "shipped"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.987114854252645,
+     "norm_ratio": 0.6662443081860528,
+     "rel_l2": 0.35855567468226285
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995794230601496,
+     "norm_ratio": 0.9985814812817309,
+     "rel_l2": 0.029016768988493095
+    },
+    "forward_rel": 0.0015207439188866302,
+    "mass_weighted_rel": 0.35289490108669613,
+    "rule": "softmax_precise"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9985550730278248,
+     "norm_ratio": 1.1742784179303538,
+     "rel_l2": 0.18375652389542171
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999690922186157,
+     "norm_ratio": 0.9971838961845714,
+     "rel_l2": 0.024986902128183604
+    },
+    "forward_rel": 0.001253617575236124,
+    "mass_weighted_rel": 0.18090484797488593,
+    "rule": "softmax_accurate"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.999979854937261,
+     "norm_ratio": 0.9868400982440103,
+     "rel_l2": 0.01459256405202325
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999704088108611,
+     "norm_ratio": 0.9956178712283548,
+     "rel_l2": 0.024666442534811095
+    },
+    "forward_rel": 0.0012696762724797063,
+    "mass_weighted_rel": 0.014868643595055662,
+    "rule": "softmax_host_f64"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9920157765517135,
+     "norm_ratio": 0.8594386066460766,
+     "rel_l2": 0.1829792476011678
+    },
+    "block": 12,
+    "ct_gain": {
+     "cos": 0.999960665317712,
+     "norm_ratio": 0.9861869350579109,
+     "rel_l2": 0.016382413211373615
+    },
+    "forward_rel": 0.0015026347595388256,
+    "mass_weighted_rel": 0.14935922035493668,
+    "rule": "shipped"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9985299179757812,
+     "norm_ratio": 1.0726685619575043,
+     "rel_l2": 0.09183975957464845
+    },
+    "block": 12,
+    "ct_gain": {
+     "cos": 0.99999163532418,
+     "norm_ratio": 0.9900157231198341,
+     "rel_l2": 0.010781841493022852
+    },
+    "forward_rel": 0.0005306415394717544,
+    "mass_weighted_rel": 0.07505276818874221,
+    "rule": "softmax_precise"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9993106489942488,
+     "norm_ratio": 1.0472555934773082,
+     "rel_l2": 0.060637814177111574
+    },
+    "block": 12,
+    "ct_gain": {
+     "cos": 0.999995506290619,
+     "norm_ratio": 0.9916983574617969,
+     "rel_l2": 0.008822135640349109
+    },
+    "forward_rel": 0.0005012790505829033,
+    "mass_weighted_rel": 0.049646895491348736,
+    "rule": "softmax_accurate"
+   },
+   {
+    "apb_gain": {
+     "cos": 0.9999804026054337,
+     "norm_ratio": 1.0014830384229716,
+     "rel_l2": 0.006438347573307217
+    },
+    "block": 12,
+    "ct_gain": {
+     "cos": 0.9999977840437951,
+     "norm_ratio": 0.994138301193705,
+     "rel_l2": 0.006226190389775174
+    },
+    "forward_rel": 0.0005228636205696321,
+    "mass_weighted_rel": 0.006389975049613638,
+    "rule": "softmax_host_f64"
+   }
+  ],
+  "config_call_sites": [
+   "tt_bio/tenstorrent.py:3797",
+   "tt_bio/tenstorrent.py:3808",
+   "tt_bio/autograd.py:702",
+   "tt_bio/autograd.py:909"
+  ],
+  "harness_negative_control": "a backward that drops the inner term reads 7.329269e+01 against the shipped 6.566019e-01; without dropping the shims cached wrapper the patch is a silent no-op and the first version of the sandwich arm measured the shipped rule twice",
+  "no_config_call_sites": [
+   "tt_bio/openfold3_diffusion_transformer.py:208",
+   "tt_bio/openfold3_atom_transformer.py:183",
+   "tt_bio/tenstorrent.py:8399",
+   "tt_bio/protenix.py:567",
+   "tt_bio/protenix.py:662"
+  ],
+  "note": "the brief was amended twice mid-pass. Amendment 1 refuted the gate hypothesis from the models own A/B; amendment 2 closed the AdaLN op and handed over the DiT attention path. This file keeps the micro-arm, which reaches amendment 1s conclusion independently, and adds what the amended scope measured.",
+  "reduction_is_innocent": "giving the backwards ttnn.sum precise_config() changes nothing at any rung, and inner recomputed in float64 on the DEVICE y reads 8.808894e-03 against the device sums 8.954591e-03",
+  "release_gate": "both levers change the forward, so they move inference on four of five models; nothing in tt_bio/ changed and no fix is proposed here",
+  "softmax_forward_vs_float64_1x16x384x384_fp32": {
+   "tenstorrent._accurate_softmax": 0.0002780055,
+   "torch float32 on the host": 6.053848167392353e-08,
+   "ttnn.softmax, no compute_kernel_config": 0.02274755,
+   "ttnn.softmax, precise_config()": 0.000688815
+  }
+ },
+ "block_ladder_same_inputs": [
+  {
+   "K": 17.829358743502784,
+   "block": 0,
+   "mass_weighted_rel": 0.0018610374173357324,
+   "published_rel_in_the_model": 2.7328662470902616
+  },
+  {
+   "K": 20.963857647464128,
+   "block": 5,
+   "mass_weighted_rel": 0.002135487849649934,
+   "published_rel_in_the_model": 4.5418561851468295
+  },
+  {
+   "K": 19.566666705059394,
+   "block": 6,
+   "mass_weighted_rel": 0.002087537770510113,
+   "published_rel_in_the_model": 2.840834392407766
+  },
+  {
+   "K": 17.819348661628872,
+   "block": 7,
+   "mass_weighted_rel": 0.0020084891169120313,
+   "published_rel_in_the_model": 5.307078050609351
+  },
+  {
+   "K": 20.44424679801088,
+   "block": 8,
+   "mass_weighted_rel": 0.002071013522889777,
+   "published_rel_in_the_model": 18.503974843073646
+  },
+  {
+   "K": 19.543316347551784,
+   "block": 12,
+   "mass_weighted_rel": 0.0021054446839745226,
+   "published_rel_in_the_model": 5.645936592384648
+  }
+ ],
+ "cancellation_ladder": [
+  {
+   "K": 30.089359430529168,
+   "cancel": 1.0,
+   "device_mass_weighted_rel": 0.0020590852074496195,
+   "gain_cos": 0.9999980189776843,
+   "gain_norm_ratio": 1.0005294158449003,
+   "gain_rel": 0.0020601998294967378,
+   "host_fp32_mass_weighted_rel": 4.0273674909719436e-07
+  },
+  {
+   "K": 211.2043050000801,
+   "cancel": 0.1,
+   "device_mass_weighted_rel": 0.007351748090253863,
+   "gain_cos": 0.9999735691247812,
+   "gain_norm_ratio": 1.001105855468325,
+   "gain_rel": 0.0073582011531460965,
+   "host_fp32_mass_weighted_rel": 2.6711269838165274e-06
+  },
+  {
+   "K": 2100.17712952438,
+   "cancel": 0.01,
+   "device_mass_weighted_rel": 0.05864178818068268,
+   "gain_cos": 0.9982846853704964,
+   "gain_norm_ratio": 0.9942621577857897,
+   "gain_rel": 0.05868447565496948,
+   "host_fp32_mass_weighted_rel": 2.747817272374607e-05
+  },
+  {
+   "K": 20999.621991192995,
+   "cancel": 0.001,
+   "device_mass_weighted_rel": 0.5744067205836998,
+   "gain_cos": 0.8631851653519217,
+   "gain_norm_ratio": 1.137834174594952,
+   "gain_rel": 0.5747551205466149,
+   "host_fp32_mass_weighted_rel": 0.0002598909436260373
+  },
+  {
+   "K": 209997.93112979498,
+   "cancel": 0.0001,
+   "device_mass_weighted_rel": 4.161453345982668,
+   "gain_cos": 0.1717780400878119,
+   "gain_norm_ratio": 4.219141702559284,
+   "gain_rel": 4.165530568995752,
+   "host_fp32_mass_weighted_rel": 0.002595697833902842
+  },
+  {
+   "K": 2099710.7224412663,
+   "cancel": 1e-05,
+   "device_mass_weighted_rel": 26.35289241577452,
+   "gain_cos": 0.16241300796758423,
+   "gain_norm_ratio": 26.52931971929624,
+   "gain_rel": 26.385363206496724,
+   "host_fp32_mass_weighted_rel": 0.03324536530510368
+  }
+ ],
+ "fp32_weight_control": [
+  {
+   "K": 20.44424679801088,
+   "cancel": null,
+   "mass_weighted_rel": 0.0008479490548594245
+  },
+  {
+   "K": 20999.621991192995,
+   "cancel": 0.001,
+   "mass_weighted_rel": 0.4980885877566878
+  },
+  {
+   "K": 2099710.7224412663,
+   "cancel": 1e-05,
+   "mass_weighted_rel": 25.74859880823981
+  }
+ ],
+ "fused_vs_unfused_bit_identical": {
+  "bf16": true,
+  "fp32": true
+ },
+ "instrument_correction": {
+  "after": "mha.linear_o.weight 2.492647e-02 cos 0.999740, mha.linear_g.weight 2.469198e-02 cos 0.999853 -- both ordinary. No defect there.",
+  "cause": "both are 768x768. The instrument inferred the transpose from the shape, which cannot disambiguate a square matrix, so the device gradient was compared against the references transpose.",
+  "fix": "read the flag `_DiTBlock._w_tt` already records in its `(key, transpose)` cache key.",
+  "lesson": "a transpose inferred from shape is silent on a square weight, and it manufactures exactly the r ~ 1 / cos ~ 0 signature this row taught everyone to read as a wrong transform.",
+  "what": "the first widened block arm reported attention_pair_bias.mha.linear_o.weight and mha.linear_g.weight at rel 1.411 with r ~ 0.996 and cos ~ 0.0001 -- the textbook signature of a wrong transform."
+ },
+ "mechanism": "the disagreement is a device precision floor amplified by the conditioning of the LayerNorm-gain reduction. rel grows LINEARLY in K = sum_i||term_i|| / ||sum_i term_i||, the cancellation ratio of the gain gradient's own sum over tokens. A generic input gives K ~ 20 and rel ~ 2e-03; the published rel 18.504 sits between the K = 2.1e+05 and K = 2.1e+06 rungs of the ladder below.",
+ "micro_arm_base": {
+  "block": 8,
+  "compared": "4 of 4",
+  "forward_worst": 0.0010549775311867577,
+  "gain_cancellation_K": 20.44424679801088,
+  "host_fp32_mass_weighted_rel": 2.9713299224078237e-07,
+  "mass_weighted_rel": 0.002071013522889777,
+  "over_bar": 0,
+  "tensors": {
+   "layer_norm_s.weight": {
+    "cos": 0.9999982313801217,
+    "device_norm": 3433.209058250897,
+    "host_fp32_rel_l2": 2.97340498675195e-07,
+    "norm_ratio": 1.000867872357494,
+    "published_pct_of_model": 8.05416,
+    "ref_norm": 3430.2320546708584,
+    "rel_l2": 0.002072079163065081
+   },
+   "linear_g.bias": {
+    "cos": 0.999999624996214,
+    "device_norm": 128.44252306701546,
+    "host_fp32_rel_l2": 1.3105588530027134e-07,
+    "norm_ratio": 1.0000575800551033,
+    "published_pct_of_model": 0.02472,
+    "ref_norm": 128.43512776528155,
+    "rel_l2": 0.0008679667159948103
+   },
+   "linear_g.weight": {
+    "cos": 0.9999981188588121,
+    "device_norm": 25.925447269338708,
+    "host_fp32_rel_l2": 2.709653387835652e-07,
+    "norm_ratio": 0.9995054753751429,
+    "published_pct_of_model": 0.00413,
+    "ref_norm": 25.938274384748265,
+    "rel_l2": 0.002001243713938054
+   },
+   "linear_s.weight": {
+    "cos": 0.999998352733786,
+    "device_norm": 111.58629340657542,
+    "host_fp32_rel_l2": 2.584230986435415e-07,
+    "norm_ratio": 0.9987652465232257,
+    "published_pct_of_model": 0.05522,
+    "ref_norm": 111.7242453069081,
+    "rel_l2": 0.002194329191480673
+   }
+  },
+  "tokens": 384,
+  "zero_model_mass_weighted": 1.0
+ },
+ "provenance": {
+  "date": "2026-09-20",
+  "host": "qb2 card 3",
+  "instrument": "perf/of3t_adaln/adaln_micro.py",
+  "real_arm": "perf/of3t_diffusion/device_gradient.py --structs all --cap /home/ttuser/of3t_rebase/diffcap043 --dump-per-tensor, unmodified, written into this row's namespace; it reproduces the published worst_rel 18.503974843073646 exactly",
+  "reference": {
+   "class": "openfold3.core.model.primitives.normalization.AdaLN",
+   "dtype": "float64",
+   "engine": "torch autograd",
+   "source": "/home/ttuser/of3t_rebase/of3pkg043/openfold3",
+   "version": "0.4.3"
+  },
+  "weights": {
+   "8": {
+    "layer_norm_s.weight": "2f5e7b9f5943e80e",
+    "linear_g.bias": "3e31578bcb915b67",
+    "linear_g.weight": "0fa0a74552bcfb48",
+    "linear_s.weight": "b9d4b9f3ffcf0252"
+   }
+  }
+ },
+ "the_signature_that_confirms_it": {
+  "measured_on_the_real_tensor": {
+   "cos": 0.7494141255644292,
+   "device_norm": 17.5080992645065,
+   "norm_ratio": 19.241539653061206,
+   "ref_norm": 0.9099115549062142,
+   "rel_l2": 18.503974843073646,
+   "tensor": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+  },
+  "prediction_from_the_micro_arm": "under cancellation the device norm does NOT shrink with the reference, so r ~ rel and the cosine collapses. A wrong transform would read r ~ 1 with cos ~ 0; a wrong constant would read r ~ 19 with cos ~ 1.",
+  "reading": "r = 19.2415 against rel = 18.5040, cosine 0.74941. r tracks rel, which is the cancellation signature and not a wrong transform."
+ },
+ "verdict": "the sigmoid-gated AdaLN backward is CORRECT. rel 2.071014e-03 mass-weighted at block 8's real weights on generic inputs, norm ratio 1.00087 and cosine 0.99999823 on the leaf that reads 18.504 in the model. The fused-sigmoid rule is BIT-IDENTICAL to an unfused sigmoid + multiply, in fp32 and in bf16.",
+ "what": "the AdaLN backward, measured in isolation against a float64 torch autograd reference built from upstream OpenFold3 0.4.3's own AdaLN class. Four hypotheses had been eliminated from source; this is the measurement that replaces the argument.",
+ "what_this_does_not_establish": "K at the model's own block-8 inputs was not measured -- that needs the real activations and the real upstream cotangent at that AdaLN, which live inside a float64 DiT run this row does not do. What is measured is that the rule is right, that r/cos on the real tensor match the amplification signature the ladder produces, and that they do not match a wrong transform or a wrong constant.",
+ "whole_block_under_an_exact_softmax": {
+  "block": 8,
+  "compared": "19 of 19",
+  "mass_weighted_rel": 0.014892170372615466,
+  "over_bar": 2,
+  "rule": "softmax_host_f64",
+  "shipped_for_contrast": 0.7856039601563344
+ }
+}
