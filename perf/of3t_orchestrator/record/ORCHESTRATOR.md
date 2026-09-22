@@ -346,14 +346,25 @@ GAP: **GRADIENTS, and after this pass it is two things rather than the one the d
               substituted** (D219): 60,144 firings at padded 384, not 11,856, with
               `_identity_grad` 26.50 % and `_sliced` 21.47 % excluded on purpose as data
               movement — the criterion removed the class every later conclusion points at.
-              **The LEVER ceiling is measured and it does not close the clause** (D222,
-              `of3t-trunkceiling`, live): every reaching accuracy lever on takes the trunk
-              1.0293953378 -> **0.9153623104**, buying **1.1246x** and landing at **1.7373x**
-              the in-frame A26 bar, with a reproduction control hitting the published shipped
-              reading exactly and an A/A floor of exactly 0.0. **That is a lever ceiling, not a
-              silicon one** — `of3t-readverbs` is building float64 VJPs for the 47.97 % of the
-              backward no lever touches, and a catalogue census cannot bound a mechanism outside
-              the catalogue. **All three census axes have now converged on one object** (D223): blocks 44/4/0 hold
+              **The host float64 softmax takes the trunk to 1.0529x its bar — the closest the
+              campaign has been** (D224/D225, `of3t-trunkceiling`, live). The flag catalogue
+              alone reaches 0.9153623104, **1.7373x** (D222); installing the host float64
+              softmax at the taped verb reaches **0.5547455957585244**, **1.0529x**, a factor of
+              **1.8556x** over shipped and the largest accuracy movement in the campaign. Two
+              measures, both true and different: `ratio_ours_over_floor` **1.1178** against
+              A26's sqrt(2) = 1.4142 allowance — **comfortably inside on our own error** — while
+              the agreement measure the clause grades sits **5.3 % outside**, because A26's
+              sqrt(2) composes two EQUAL errors and ours is 1.1178x theirs. **The remaining gap
+              is arithmetic, not mystery.** Two cautions: the artifact's
+              `inside_the_A26_style_bar` reads TRUE and is **wrong** — `frame384.py:348`
+              compares ours-vs-float64 against a bars built for ours-vs-their-bf16, agreeing by
+              luck on every worse arm and diverging on this one (D224). And
+              **`TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` read 0 served / 0 declined / 0 refused**
+              — the trunk ships `fp32_softmax=True` and `site_softmax` is in the other branch,
+              so **every trunk measurement this campaign took was made with the stack's biggest
+              accuracy lever off by routing** (D225). **The decisive measurement is now named**:
+              this arm's trunk gradient through `model_scope.py` at model scope, in one process
+              over one union — not an estimate by scaling. **All three census axes have now converged on one object** (D223): blocks 44/4/0 hold
               76.4502 % of the error mass, the 96 `attn_pair_bias.layer_norm_a` leaves hold
               56.1174 % of it on 0.8583 % of the reference mass, and the APB op class holds
               65.3917 % on 7.6004 % — **enrichment 8.604x at cos -0.5781**. Ceilings in frame:
@@ -413,14 +424,14 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 82 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 84 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
 had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
 was filed this pass):
 
     SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        6  D32, D55, D58, D184, D205, D210
-    CAMPAIGN-INTERNAL  71  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223
+    CAMPAIGN-INTERNAL  73  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D199, D200, D202, D204, D207, D208, D209, D211, D214, D217, D219, D222, D223, D224, D225
 
 **Six** USER-FACING carry a closure plan each in
 `perf/of3t_orchestrator/userfacing/closure_plan.py`. **Three closed this pass and it was verified
@@ -457,8 +468,8 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred twelve** of3t files. **Two hundred twenty-three defects filed**, **82 UNFIXED** (5
-scope-excluded, 6 USER-FACING, 71 campaign-internal) over the UNION of `DEFECTS.md` and its
+concluded, three live; `state/concluded` holds **one hundred twelve** of3t files. **Two hundred twenty-five defects filed**, **84 UNFIXED** (5
+scope-excluded, 6 USER-FACING, 73 campaign-internal) over the UNION of `DEFECTS.md` and its
 archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
 historical markers and not rows, so **one hundred ten rows have concluded**. Recounted from
@@ -1359,3 +1370,43 @@ explicit instruction not to take `of3t-readverbs`' tape-verb axis.
 host's disk. All eight of its artifacts are in the composition, pushed on `wk/of3t-d56-renorm` —
 a row's work does not have to live on a branch named after it. The guard now checks the
 composed tree for the row's artifact namespace before claiming loss, and its probe still fires.
+
+
+## Pass 365 — the host float64 softmax takes the trunk to 1.0529x, and a flag one line away from a false GO
+
+`of3t-trunkceiling` pushed the campaign's best result and very nearly lost it to a scorer bug.
+
+**The result (D225).** Installing `autograd.host_f64_softmax` at the taped verb takes the trunk
+from **1.029395337772341** to **0.5547455957585244** — **1.8556x**, the largest accuracy movement
+this campaign has produced — serving 5,285 host float64 softmaxes over 6.5569554432e10 elements.
+Against the in-frame A26 bar 0.5268825372815341 that is **1.0529x**: 5.3 % outside, from 95 %
+outside.
+
+**And the reason it had never been tried.** `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` reads
+**0 served / 0 declined / 0 refused**. The trunk ships `fp32_softmax=True` and `site_softmax`
+sits in the other branch, so the lever Moritz directed the campaign to build was **never on the
+route** — not inert, not reached. Every trunk measurement in this campaign was taken with the
+stack's biggest accuracy lever off by routing, and the selector reported silence rather than
+zero. A zero-count selector must report zero.
+
+**The bug (D224), and it is the campaign's signature defect inside the flag a verdict is read
+off.** `perf/of3t_frame384/frame384.py:348` sets `inside_the_A26_style_bar` from
+**ours-vs-float64** against a bar built for **ours-vs-their-bf16**. It agreed with the clause
+ratio on shipped (1.9537x, False) and on the lever ceiling (1.7373x, False) purely by luck, and
+diverges the moment an arm is good enough to act on: ratio **1.0529x outside**, flag **TRUE**,
+on adjacent lines, in the row permitted to end the campaign.
+
+**What is honestly true of that arm**, and the two statements are different:
+
+    ratio_ours_over_floor                  1.1178263796918230   vs A26's sqrt(2) = 1.4142  INSIDE
+    ratio_ours_vs_their_bf16_over_bar      1.0528828657346485   vs 1.0                     outside
+
+Our error against float64 is 11.78 % larger than upstream's own bf16 error — comfortably within
+what A26 allows a faithful port. The agreement measure lands 5.3 % over because sqrt(2) composes
+two *equal* independent errors and ours is 1.1178x theirs.
+
+**The decisive measurement is named and it is one run**: this arm's trunk gradient through
+`of3t-modelboundary`'s own `model_scope.py` at model scope, one process, one union, the way
+`of3t-covadopt` did it. That number decides GRADIENTS. The row is told to bank the dump with its
+digest if its card time runs out, and explicitly **not** to estimate it by scaling an in-frame
+number into a model-frame threshold — the mistake I made myself at D218.

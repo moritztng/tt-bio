@@ -1400,3 +1400,59 @@ APB, 0.8147x for APB+TRANS) are pooled on the SUPERSEDED 3,643 artifact — its 
 reproduces `0.5201243840984896`, not the graded `0.5171166332757559` — and substitute an in-frame
 trunk value into model-frame weights, which is D218's defect inherited from a target I published
 and withdrew. Its trunk-scope numbers above are clean and are the ones to quote.
+
+### D224. `inside_the_A26_style_bar` compares a float64-referenced quantity against a bf16-referenced bar, and it reads TRUE on the first arm good enough for anyone to act on. FOUND at pass 365 by the orchestrator in `of3t-trunkceiling`'s live artifact. UNFIXED in the scorer.
+
+`perf/of3t_frame384/frame384.py:348`:
+
+    "inside_the_A26_style_bar": ou["mass_weighted_rel_l2"] <= bar,
+
+`ou` is **ours against float64**. `bar` is `sqrt(2) * floor / norm_ratio(floor)`, built for **ours
+against upstream's own bf16** — the quantity the clause measures and the quantity the field
+directly above it, `ratio_ours_vs_their_bf16_over_bar`, divides. Two references, one comparison.
+
+**It was invisible until an arm got good, which is when it matters.**
+
+    arm            ours vs f64   ours vs their bf16   ratio/bar   flag says
+    shipped           0.8354           1.0293953378     1.9537x     False   agrees
+    all levers        0.7030           0.9153623104     1.7373x     False   agrees
+    host f64 softmax  0.4180           0.5547455957     1.0529x     TRUE    DISAGREES
+
+The flag flips at `ours_vs_f64 <= 0.5269` while the clause's own ratio is still **1.0529x
+outside**. An artifact reading `ratio_ours_vs_their_bf16_over_bar: 1.0528828657346485` and
+`inside_the_A26_style_bar: true` on adjacent lines is one glance from a false GO, on the row that
+is permitted to end the campaign.
+
+**The honest reading of that arm, and it is very good news.** Two true statements, neither of
+which is the flag:
+
+  * **`ratio_ours_over_floor` = 1.1178263796918230.** Our trunk error against float64 is 11.78 %
+    larger than upstream's own bf16 error against float64. A26 allows **sqrt(2) = 1.4142x** for a
+    faithful independent port, so **on that measure the trunk is comfortably inside A26.**
+  * **`ratio_ours_vs_their_bf16_over_bar` = 1.0528828657346485.** The agreement measure the clause
+    grades is **5.3 % outside** its bar. The two differ because A26's sqrt(2) is the composition
+    of two *equal* independent errors and ours is 1.1178x theirs, which pushes the composition
+    just over.
+
+So the remaining gap is arithmetic rather than mystery, and it is the smallest the campaign has
+ever measured: from 1.9537x shipped to **1.0529x**.
+
+### D225. The campaign's biggest accuracy lever never reached the trunk: `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` reads 0 served, 0 declined, 0 refused. FOUND by `of3t-trunkceiling`, pass 365. UNFIXED.
+
+The trunk ships `fp32_softmax=True`, and `site_softmax` sits in the **other branch**, so the host
+float64 softmax — the lever Moritz directed the campaign to build on 2026-09-21, *"a host round
+trip is not overshooting upstream; it is the only way to reach what they already do"* — was never
+on the route. Not inert: **not reached at all.** Installing the same shipped implementation at the
+taped verb reaches it and serves **5,285** host float64 softmaxes over **6.5569554432e10**
+elements, taking the trunk from 1.029395337772341 to **0.5547455957585244**, a factor of
+**1.8556x** and by far the largest single accuracy movement in the campaign.
+
+**3,504 renorm firings survive that arm and they are all the pair track**: `taped_ttnn.py:861`
+routes to `ag.triangle_attention`, whose chunked backward recomputes `ttnn.softmax` inside
+`_scores`, so a site-level install cannot see them. The row's `ceiling_hf3` lever replaces
+`ttnn.softmax` module-wide instead.
+
+This is `a-lever-can-fire-and-be-inert` one step further, and it has a consequence the campaign
+has been paying for: **every trunk measurement in this campaign was taken with the stack's biggest
+accuracy lever switched off by routing**, and nobody noticed because the flag it is set by
+reported nothing rather than reporting zero.
