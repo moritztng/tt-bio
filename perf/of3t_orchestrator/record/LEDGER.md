@@ -1586,3 +1586,101 @@ surrogate. **When every premise holds and the conclusion still fails, the defect
 QUESTION, not in anything being checked.**
 
 Artifact `perf/of3t_orchestrator/doublecount/BLAST_RADIUS.json`. Delivered as Amendment 9.
+
+---
+
+### R161. How D242's repair lands: four decisions, and opt-in is the right default for a LEVER and the wrong one for a BUG FIX (pass 396, zero card)
+
+R160 located D242 at `ref_grad.py:201` and specified the fix. **Fifteen namespaces drive that
+file** — `of3t_apbback`, `of3t_apbleaf`, `of3t_bwdaccum`, `of3t_condtrans`, `of3t_frame384`,
+`of3t_gradients`, `of3t_modelframe`, `of3t_orchestrator`, `of3t_trajwiden`, `of3t_trunkact`,
+`of3t_trunkback`, `of3t_trunkdepth`, `of3t_trunkg043`, `of3t_trunkgrad`, `of3t_widthattr` — so
+how the fix lands is arbitration, not an edit, and improvising it inside a running pass is how
+a repair becomes its own defect.
+
+**1. The correct behaviour becomes the DEFAULT, which inverts my own standing rule on purpose.**
+That rule — a shared-instrument change must be opt-in so every existing arm reproduces — exists
+to protect a CORRECT baseline from a SPECULATIVE change. **Here the baseline is measured-wrong
+and the change is measured-right**, so applying the rule unchanged would leave every future arm
+inheriting a known double count unless its author remembered a flag. **Opt-in is the right
+default for a LEVER and the wrong default for a BUG FIX: a lever that defaults on is an
+unreviewed change, a bug fix that defaults off is a known defect left armed.** The old behaviour
+stays reachable as `--legacy-total-cotangent` for reproducing a banked number, and **every
+artifact stamps which convention produced it** — that stamp is what would have made R160 a
+five-minute read instead of fifteen passes.
+
+**2. Every corrected reading lands in ONE new namespace**, never back into the concluded rows'
+directories (`sibling-perf-campaigns-need-namespaced-output-paths`). It also gives the campaign
+one place to read the corrected picture rather than a diff across fifteen.
+
+**3. No arm is re-run from scratch, and this is the decision that saves the device time.** The
+parameter gradient is linear in the injected cotangent, measured rather than assumed:
+`TWOBASIS.json` puts `|| g_sonly + g_zonly - g_ctrl || / || g_ctrl ||` at
+**6.435383259300361e-15** in this exact setup. So with
+`delta = autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)` computed once,
+**`g_corrected = g(cot_s, cot_z) - g(0, delta)`**, and `g(cot_s, cot_z)` is already banked for
+every arm. Each configuration needs ONE additional arm driven by `(0, delta)` — for the DEVICE
+arms that is the difference between a cheap re-score and card time on every one of them. Its
+control is free: re-run one arm end to end with the corrected cotangent and it must reproduce
+the subtraction; if it does not, the linearity is what broke and the shortcut is withdrawn,
+not the repair.
+
+**4. `of3t-frameself` is authorised to edit `perf/of3t_trunkg043/ref_grad.py`.** That row
+concluded, the change repairs the defect frameself root-caused, and splitting the fix from the
+diagnosis across two rows would cost a full ramp-up to save nothing. The edit is to that one
+file only.
+
+Also delivered: add A41's reachability assertion to the capture while the file is open — for
+each pair of injected outputs, assert neither appears in the other's `grad_fn` ancestry. A graph
+walk, no model run, and it is what makes this class impossible to file twice.
+
+**What none of this decides** is whether the corrected readings clear the clause. That is pass
+394's pre-registered ladder and one measurement, and no bar may be re-derived to meet it.
+
+Artifact `perf/of3t_orchestrator/doublecount/REPAIR_DESIGN.json`. Delivered as Amendment 10.
+
+---
+
+### R162. D242 is SOLVED: the break control clears the 1e-12 bar at 3.04e-15, from 0.7849 (pass 396, zero card)
+
+`of3t-frameself`'s break control ran and the mechanism is confirmed to round-off. Verified here
+against `perf/of3t_frameself/BREAK_DOUBLECOUNT.json` rather than the row's prose:
+
+    cot_z norm, as captured          0.0007601379094210722
+    the s-route correction term      0.0007575746327655109
+    cot_z norm after subtraction     6.47087024696404e-05        11.7471x smaller
+    block 47 vs grads_f64_043        3.0392623414001263e-15      from 0.7849281738435908
+    norm ratio                       0.9999999999999992
+    cos                              1.0000000000000002
+    best scalar                      1.0000000000000007
+    residual after the best scalar   0.0
+    bar                              1e-12, commit 2520681ed, fixed before the arm existed
+    cost                             16.65 s
+
+**Three orders of margin under a bar the campaign has failed for fifteen passes, and it is not
+merely close to the reference: 3.0392623414001263e-15 is bit for bit what `--blockprobe`'s
+LOSS-driven `torch.autograd.grad` reads at the same block.** The corrected injection is the same
+computation as the real backward, not an approximation of it.
+
+**The duplicate was 99.6628 % of the captured `cot_z` by norm** (99.3267 % by squared norm; the
+row's write-up says 99.66 % "of the squared norm", which is the norm figure — it changes
+nothing). The true external cotangent is **11.7471x smaller** than what was injected, which is
+why the defect presented as a near-scale of 1.7460 at 4.04 % CV, why no single scalar fixed it,
+and why Amendment 5's target — a 7x-to-26x magnitude error with about ten degrees of angle on
+the z channel only — was the right shape.
+
+**What D242 was, stated finally.** The captured pair is not wrong as a cotangent; it is wrong as
+an **injection**. A hook and `torch.autograd.grad(loss, z_out)` both correctly report the total
+derivative at `z_out`, which already contains the route through `s_out`; injecting `cot_s` at
+`s_out` as well replays that route a second time. The instrument was right about the cotangent
+and wrong about what to do with it.
+
+**Status change.** D242 moves from UNFIXED to root-caused with a proven repair. **The re-score
+is still owed** — every `MATCHED/` reading remains on the old functional until the arms are
+re-driven, which is R161's four decisions and the `g(cot_s, cot_z) - g(0, delta)` shortcut. So
+the honest line is *repair proven at one block, campaign not yet re-scored*, and nothing in
+`PROVES:` moves until it is.
+
+Artifact `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`, verdict field: *"MECHANISM CONFIRMED:
+removing the double-counted s_out <- z_out route brings the injection to 3.03926e-15 of the
+reference, from 0.784928"*.
