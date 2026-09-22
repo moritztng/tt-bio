@@ -140,9 +140,19 @@ class OF3Trunk(Module):
         # `TriangleAttention` adds it outside, so the same convention is
         # tri_att_scale_pair_bias=False. Passing one False to both is what left the token
         # bias at 1/sqrt(24) = 0.204 of reference for all 48 blocks.
+        #
+        # The SPLIT is landed; the OF3 trunk DEFAULT is deliberately NOT flipped, and
+        # `scale_pair_bias=False` below matches `main`. `of3t-pairbias` measured the
+        # corrected bias end to end and its own verdict is "Land the MECHANISM. Do NOT flip
+        # the OF3 trunk default on this evidence": over nine seeds on 1UBQ it buys 0.050 A of
+        # best-of-5 and costs 0.463 A on the structure a user actually receives, against this
+        # target's own 0.324 A seed floor. The loss is the confidence head preferring the
+        # looser of two sample modes (D10), not a worse ensemble, so the fix must ship with a
+        # selector fix or not at all. `of3t-confhead` owns that pair. Flipping this one token
+        # is the whole lever, and `compose_verify.sh` asserts it stays False.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=True, tri_att_scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=False, tri_att_scale_pair_bias=False, fp32_softmax=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"),
             # Default ON. 34.138 -> 22.574 s at 512 aa, 1.5123x, 11.564 s, on A/A floors of
