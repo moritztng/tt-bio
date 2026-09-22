@@ -1,0 +1,135 @@
+{
+  "instrument": "PROTOCOL SS4 -- LR schedule",
+  "bar": "exact float64 equality at every step",
+  "configs": {
+    "of3_defaults": {
+      "config": {
+        "base_lr": 0.0,
+        "max_lr": 0.0018,
+        "warmup_no_steps": 1000,
+        "start_decay_after_n_steps": 50000,
+        "decay_every_n_steps": 50000,
+        "decay_factor": 0.95
+      },
+      "steps_compared": 100002,
+      "mismatches": 0,
+      "first_mismatches": [],
+      "pass": true,
+      "knees": {
+        "0": {
+          "theirs": 0.0,
+          "ours": 0.0,
+          "equal": true
+        },
+        "1": {
+          "theirs": 1.8e-06,
+          "ours": 1.8e-06,
+          "equal": true
+        },
+        "999": {
+          "theirs": 0.0017982,
+          "ours": 0.0017982,
+          "equal": true
+        },
+        "1000": {
+          "theirs": 0.0018,
+          "ours": 0.0018,
+          "equal": true
+        },
+        "1001": {
+          "theirs": 0.0018,
+          "ours": 0.0018,
+          "equal": true
+        },
+        "49999": {
+          "theirs": 0.0018,
+          "ours": 0.0018,
+          "equal": true
+        },
+        "50000": {
+          "theirs": 0.0018,
+          "ours": 0.0018,
+          "equal": true
+        },
+        "50001": {
+          "theirs": 0.00171,
+          "ours": 0.00171,
+          "equal": true
+        },
+        "99999": {
+          "theirs": 0.00171,
+          "ours": 0.00171,
+          "equal": true
+        },
+        "100000": {
+          "theirs": 0.0016244999999999999,
+          "ours": 0.0016244999999999999,
+          "equal": true
+        },
+        "100001": {
+          "theirs": 0.0016244999999999999,
+          "ours": 0.0016244999999999999,
+          "equal": true
+        }
+      }
+    },
+    "many_decay_periods": {
+      "config": {
+        "base_lr": 0.0,
+        "max_lr": 0.0018,
+        "warmup_no_steps": 100,
+        "start_decay_after_n_steps": 300,
+        "decay_every_n_steps": 200,
+        "decay_factor": 0.9
+      },
+      "steps_compared": 4001,
+      "mismatches": 0,
+      "first_mismatches": [],
+      "pass": true
+    },
+    "nonzero_base_lr": {
+      "config": {
+        "base_lr": 5e-05,
+        "max_lr": 0.001,
+        "warmup_no_steps": 250,
+        "start_decay_after_n_steps": 1000,
+        "decay_every_n_steps": 137,
+        "decay_factor": 0.87
+      },
+      "steps_compared": 3001,
+      "mismatches": 0,
+      "first_mismatches": [],
+      "pass": true
+    },
+    "warmup_ends_on_plateau_boundary": {
+      "config": {
+        "base_lr": 0.0,
+        "max_lr": 0.001,
+        "warmup_no_steps": 500,
+        "start_decay_after_n_steps": 500,
+        "decay_every_n_steps": 250,
+        "decay_factor": 0.95
+      },
+      "steps_compared": 2001,
+      "mismatches": 0,
+      "first_mismatches": [],
+      "pass": true
+    }
+  },
+  "negative_control": {
+    "perturbed_step": 37000,
+    "perturbation": "x1.01",
+    "mismatching_steps": [
+      37000
+    ],
+    "n_mismatching": 1,
+    "localised_to_the_perturbed_step_only": true,
+    "pass": true
+  },
+  "protenix_regression": {
+    "steps_compared": 100002,
+    "mismatches": 0,
+    "pass": true
+  },
+  "verdict": "PASS"
+}
