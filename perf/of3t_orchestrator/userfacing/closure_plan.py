@@ -66,14 +66,41 @@ PLAN = {
         "evidence_held": ("the shipped arm reads rel_l2 exactly 1.00000000 on all seventeen -- the "
                           "A16 zero-model signature, so the default computes no gradient for them "
                           "at all. The arm ladder is shipped 1.00000000, refatom 0.71215816, all "
-                          "0.05013681, break 0.82521107. Landing it also takes GRADIENTS' coverage "
-                          "from 97.98499306866148 % to 99.50523155277438 %, past the 99.2594 % bar, "
-                          "with the two tensor sets verified disjoint (intersection 0, same "
-                          "denominator, same float64 digest)"),
+                          "0.05013681, break 0.82521107. CORRECTED at pass 358 (D212): this field "
+                          "said landing the flag takes GRADIENTS' coverage to 99.50523155277438 %, "
+                          "crediting all seventeen. `of3t-covdefault` measured the key-set diff and "
+                          "the flag reaches EIGHT -- 97.98499306866148 % + 0.7530394291090192 = "
+                          "98.73803249777050 %, which is 0.52 points SHORT of the 99.2594 % bar. "
+                          "The other nine cannot enter the reading at all: `input_embedder` reads "
+                          "n_compared 0 of 98 in the boundary artifact. And the flag is now a "
+                          "measured inference regression (+198.476 ms cold, +50.231 ms warm on "
+                          "openfold3), so the coverage route does not run through it -- it runs "
+                          "through the TRAINING ADAPTER, which `tt_bio/train/` confines to training "
+                          "by construction. Row `of3t-refcov`"),
         "would_a_row_help": False,
         "asked": ("not yet asked. It belongs with D126 in one merge question rather than as a "
                   "separate ask: both are built, measured, release-gated and waiting only on "
                   "Moritz"),
+    },
+    "D210": {
+        "needs": RELEASE,
+        "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",
+        "closes_when": ("the pad lanes are masked out of the optimizer's parameter set, or a "
+                        "measurement establishes they are harmless. Masking is a model change on "
+                        "the SHARED diffusion path, so it owes an inference A/B against an A/A "
+                        "floor on every model that executes it -- which is what makes this a "
+                        "release item rather than a one-line fix"),
+        "evidence_held": ("`of3t-trajfull` found it outside its own scored set: our fused `qkv_w` "
+                          "pads head_dim 48 -> 64 and the pad columns are registered leaves. They "
+                          "are exactly 0.0 at `w_0` and reach 3.494e-04 by k = 20. The mechanism is "
+                          "Adam's scale invariance -- a numerically tiny device-backward gradient "
+                          "in a lane that should have none still takes a full lr-sized step. It "
+                          "moves no number the campaign quotes, because the pad columns are outside "
+                          "the reference's parameter space and are sliced off before v is used, "
+                          "which is exactly why it sat unnoticed"),
+        "would_a_row_help": True,
+        "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
+                  "has not been built"),
     },
     "D10": {
         "needs": MERGE,
