@@ -35,6 +35,6 @@ nice -n 5 "$PY" perf/of3t_modelframe/capture_model_frame.py \
   --graphdrive "$BLOCKS" --cotprobe-compare /home/ttuser/of3t_modelframe/cot_model_n384.pt \
   --graphdrive-injected /home/ttuser/of3t_twoside/ctrl_f64.pt \
   --graphdrive-zonly "$O/split_zonly.pt" \
-  --out-dir "$O" --threads "$THREADS" --tag graphdrive_n384 2>&1 \
+  --out-dir "$O" --threads "$THREADS" --tag ${TAG:-graphdrive_n384} 2>&1 \
   | grep -vE "UserWarning|warnings.warn|^  from openfold3|Consider using tensor.detach"
 echo "=== graphdrive exit ${PIPESTATUS[0]} $(date -u +%FT%TZ) ==="

@@ -642,6 +642,48 @@ def run_graphdrive(entries, cots, loss, model, ref_grads, injected, zonly, out_d
     print("GRAPHDRIVE pruned " + json.dumps(out["pruned_to_blocks"], indent=1), flush=True)
     del gb, mine_b
 
+    # THE BREAK CONTROL. z_out is an ANCESTOR of s_out: the last block's attn_pair_bias reads
+    # the z its own pair_stack just produced. So (s_out, z_out) is not a cut, and the hook's
+    # cot_z -- a correct dL/dz_out -- already contains the gradient routed back from s_out.
+    # Injecting cot_s on s_out as well adds that route a SECOND time. Writing L = f(a, b) with
+    # a = s_out(theta, b), b = z_out(theta), the hook gives ga = df/da and
+    # gb_total = df/db + ga.da/db, and the surrogate ga.a + gb_total.b differentiates to the
+    # truth PLUS one extra ga.(da/db).(db/dtheta). Subtract that term and the injection should
+    # land on the reference.
+    t0 = time.time()
+    corr = torch.autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out,
+                               retain_graph=True)[0]
+    cot_z_ext = cot_z - corr
+    gc = torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z_ext),
+                             inputs=bp, retain_graph=True, allow_unused=True)
+    t_c = time.time() - t0
+    mine_c = {n: (g.detach().to(torch.float64) if g is not None else None)
+              for n, g in zip(bn, gc)}
+    out["double_count_break_control"] = {
+        "what": "cot_z with the s_out route subtracted, injected on the same original graph, "
+                "pruned to the same blocks",
+        "hypothesis": "z_out is an ancestor of s_out, so the captured pair double-counts the "
+                      "s_out <- z_out route and the pair branch is the only thing that sees it",
+        "correction_term_norm": norms(corr),
+        "cot_z_norm_before": norms(cot_z), "cot_z_norm_after": norms(cot_z_ext),
+        "seconds": t_c,
+        "vs_grads_f64_043": fit(mine_c, rg, bn),
+        "uncorrected_vs_grads_f64_043_for_comparison":
+            out["pruned_to_blocks"]["vs_grads_f64_043"]["rel_l2_as_is"],
+    }
+    r = out["double_count_break_control"]["vs_grads_f64_043"]["rel_l2_as_is"]
+    out["double_count_break_control"]["verdict"] = (
+        "MECHANISM CONFIRMED: removing the double-counted s_out <- z_out route brings the "
+        "injection to %.6g of the reference, from %.6g" % (
+            r, out["pruned_to_blocks"]["vs_grads_f64_043"]["rel_l2_as_is"])
+        if r < 1e-12 else
+        "PARTIAL or REFUTED: %.6g of the reference survives the correction, from %.6g" % (
+            r, out["pruned_to_blocks"]["vs_grads_f64_043"]["rel_l2_as_is"]))
+    print("GRAPHDRIVE break " + json.dumps(out["double_count_break_control"], indent=1),
+          flush=True)
+    (out_dir / f"GRAPHDRIVE_{tag}_partial.json").write_text(json.dumps(out, indent=1))
+    del gc, mine_c, corr, cot_z_ext
+
     # the full arm: every trunk parameter and both stack inputs
     t0 = time.time()
     got = torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
