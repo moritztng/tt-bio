@@ -11991,5 +11991,6 @@
   ]
  },
  "unregistered_aliases_of_a_trunk_parameter": [],
- "verdict": "SHARING FOUND: 761 parameter objects carry more than one name and 0 bare attributes alias a trunk parameter"
+ "verdict": "NO TRUNK SHARING: all 2736 trunk parameter objects are registered at exactly one name, none is held as a bare attribute anywhere, and no buffer aliases one, so a second call site cannot be hiding behind named_parameters' de-duplication. The model DOES alias 761 parameter objects and 1103 modules, every one of them diffusion_module registered again as sample_diffusion.diffusion_module, which is why the question was worth asking and is not an answer to it.",
+ "verdict_note": "An earlier run of this file reported 'SHARING FOUND: 761 parameter objects carry more than one name', which is true of the model and false of the question the file was built for. The numbers were always right; only the headline was."
 }

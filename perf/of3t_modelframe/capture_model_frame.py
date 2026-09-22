@@ -169,10 +169,19 @@ def run_selftest(model, b, c, grads, a, mode):
     is insufficient and no reconstruction can be blamed.
     """
     stack = model.pairformer_stack
-    kw = dict(b.get("call_kwargs_nontensor") or {})
-    # Only the arguments the module actually declares, and only the plain ones -- a repr() of a
-    # non-scalar would be passed as a string.
-    kw = {k: v for k, v in kw.items() if isinstance(v, (int, float, bool, type(None)))}
+    kw_taped = dict(b.get("call_kwargs_nontensor") or {})
+    # Only the plain arguments: the pre-hook stores a repr() for anything else, and a repr
+    # passed back as a string is not the argument. Dropping one silently would replay a
+    # DIFFERENT call while reporting agreement, so this refuses instead. On this frame nothing
+    # is dropped -- all seven of the taped call's non-tensor kwargs are plain.
+    kw = {k: v for k, v in kw_taped.items()
+          if isinstance(v, (int, float, bool, type(None)))}
+    dropped = sorted(set(kw_taped) - set(kw))
+    if dropped:
+        raise SystemExit(
+            f"--selftest cannot replay the taped call: {dropped} came back from the pre-hook as "
+            f"a repr() and would be replaced by the module's default. Widen the pre-hook to "
+            f"keep the object rather than replaying a different call.")
     bpc_real = getattr(stack, "blocks_per_ckpt", None)
     bpc_used = bpc_real if bpc_real is not None else 1
     note_bpc = ("as the model had it" if bpc_real is not None else
@@ -512,6 +521,135 @@ def run_blockprobe(cots, loss, model, blocks, ref_grads, injected, out_dir, tag,
     }
 
 
+def run_graphdrive(entries, cots, model, ref_grads, injected, zonly, out_dir, tag, blocks):
+    """--graphdrive only: drive the ORIGINAL graph with the captured cotangent.
+
+    Amendment 4/5. Every premise that would force the replay to reproduce `grads_f64_043.pt`
+    has been measured and holds, so the premise nobody wrote down is the one under test here: a
+    bit-exact FORWARD does not imply an identical BACKWARD GRAPH. `--selftest` clones the
+    boundary and re-runs the forward, so it differentiates a RECONSTRUCTION and cannot see a
+    defect in reconstructing a graph. `--blockprobe` drives the original graph but from the
+    LOSS, which confirms the reference and not the injection.
+
+    This is the missing cell: the original graph, driven by the captured cotangent.
+
+        torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
+                            inputs=list(trunk_params) + [s_in, z_in])
+
+    The falsifier is pre-registered and both its values were banked before this ran:
+    ||dL/dz_in|| at 0.000848887340907281 means the injection is EXACT on the original graph and
+    the replay's fresh forward is the defect; at 0.0014907294032500784 means the injection
+    overcounts on the original graph too.
+    """
+    e = [x for x in entries if x["grad_enabled"]][0]
+    c = [x for x in cots if x["grad_enabled"]][0]
+    s_out, z_out = c["s_out_t"], c["z_out_t"]
+    s_in, z_in = e["s_in_t"], e["z_in_t"]
+    cot_s, cot_z = c["cot_s"], c["cot_z"]
+
+    names = [n for n, _ in model.named_parameters() if n.startswith("pairformer_stack.")]
+    nameset = set(names)
+    params = [prm for n, prm in model.named_parameters() if n in nameset]
+
+    def load(path):
+        d = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+        return d["grads"] if isinstance(d, dict) and "grads" in d else d
+
+    def fit(arm, ref, keys):
+        dot = a2 = r2 = e2 = 0.0
+        worst, worst_name, n_bit, n_absent = -1.0, None, 0, 0
+        for n in keys:
+            r = ref[n].to(torch.float64).reshape(-1)
+            rn2 = float(torch.dot(r, r)); r2 += rn2
+            m = arm.get(n)
+            if m is None:
+                n_absent += 1; e2 += rn2; continue
+            m = m.reshape(-1)
+            dot += float(torch.dot(m, r)); a2 += float(torch.dot(m, m))
+            d = float(torch.dot(m - r, m - r)); e2 += d
+            if torch.equal(m, r):
+                n_bit += 1
+            rel = (d / rn2) ** 0.5 if rn2 > 0 else (0.0 if d == 0 else float("inf"))
+            if rel > worst:
+                worst, worst_name = rel, n
+        return {"n_tensors": len(keys), "n_absent_from_arm": n_absent,
+                "n_bit_identical": n_bit,
+                "rel_l2_as_is": (e2 / r2) ** 0.5 if r2 else None,
+                "norm_ratio_arm_over_ref": (a2 / r2) ** 0.5 if r2 else None,
+                "cos": dot / (a2 * r2) ** 0.5 if a2 > 0 and r2 > 0 else None,
+                "best_scalar_a_star": dot / a2 if a2 > 0 else None,
+                "residual_after_best_scalar_frac_of_ref":
+                    (max(r2 - dot * dot / a2, 0.0) / r2) ** 0.5 if a2 > 0 and r2 else None,
+                "ref_squared_norm": r2, "arm_squared_norm": a2,
+                "worst_rel_l2": worst, "worst_tensor": worst_name}
+
+    out = {
+        "what": "the ORIGINAL graph driven by the captured cotangent, not a replay of it",
+        "host": socket.gethostname(), "row": "of3t-frameself", "defect": "D242",
+        "device_involved": False,
+        "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+        "drive": "grad_outputs=(cot_s, cot_z) on (s_out, z_out) of the taped call",
+        "graph": "the original one built by the capture's own forward; nothing is re-run",
+        "prereg_falsifier": {
+            "quantity": "norm of dL/dz_in from this call",
+            "exact_means": 0.000848887340907281,
+            "overcounts_means": 0.0014907294032500784,
+            "both_banked_before_this_ran": True},
+    }
+
+    # cheap arm first, so a kill after it still leaves a reading: one block, pruned.
+    bn = [n for n in names if any(n.startswith(f"pairformer_stack.blocks.{i}.")
+                                  for i in blocks)]
+    bp = [prm for n, prm in model.named_parameters() if n in set(bn)]
+    t0 = time.time()
+    gb = torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
+                             inputs=bp, retain_graph=True, allow_unused=True)
+    t_b = time.time() - t0
+    mine_b = {n: (g.detach().to(torch.float64) if g is not None else None)
+              for n, g in zip(bn, gb)}
+    rg = load(ref_grads)
+    inj = load(injected)
+    out["pruned_to_blocks"] = {
+        "blocks": list(blocks), "seconds": t_b,
+        "vs_grads_f64_043": fit(mine_b, rg, bn),
+        "vs_the_injected_replay": fit(mine_b, {n: inj[n] for n in bn}, bn)}
+    print("GRAPHDRIVE pruned " + json.dumps(out["pruned_to_blocks"], indent=1), flush=True)
+    del gb, mine_b
+
+    # the full arm: every trunk parameter and both stack inputs
+    t0 = time.time()
+    got = torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
+                              inputs=params + [s_in, z_in], retain_graph=False,
+                              allow_unused=True)
+    t_f = time.time() - t0
+    gp, ds_in, dz_in = got[:len(params)], got[len(params)], got[len(params) + 1]
+    out["seconds_full"] = t_f
+    out["input_cotangent_on_the_original_graph"] = {
+        "ds_in_norm": norms(ds_in), "dz_in_norm": norms(dz_in),
+        "ds_in_vs_the_real_backwards_own_hook": tensor_pair(
+            "ds_in", ds_in, e.get("cot_in_s")),
+        "dz_in_vs_the_real_backwards_own_hook": tensor_pair(
+            "dz_in", dz_in, e.get("cot_in_z"))}
+    print("GRAPHDRIVE dz_in " + json.dumps(
+        {"ds_in_norm": norms(ds_in), "dz_in_norm": norms(dz_in)}), flush=True)
+    mine = {n: (g.detach().to(torch.float64) if g is not None else None)
+            for n, g in zip(names, gp)}
+    out["vs_grads_f64_043"] = fit(mine, rg, names)
+    out["vs_the_injected_replay"] = fit(mine, inj, names)
+    if zonly is not None:
+        zg = load(zonly)
+        out["vs_the_banked_z_only_arm"] = fit(mine, zg, names)
+    dz = out["input_cotangent_on_the_original_graph"]["dz_in_norm"]
+    out["verdict"] = (
+        "EXACT on the original graph: the injection reproduces the real backward's own dL/dz_in, "
+        "so the replay's fresh forward is the defect"
+        if dz is not None and abs(dz - 0.000848887340907281) < 1e-12
+        else ("OVERCOUNTS on the original graph too: the injection is not a replay artefact"
+              if dz is not None and abs(dz - 0.0014907294032500784) < 1e-12
+              else "a third answer: dL/dz_in is %r, neither pre-registered value" % dz))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, type=Path)
@@ -542,6 +680,18 @@ def main() -> int:
                          "a bit-exact forward. This holds everything fixed but the "
                          "differentiator. Opt-in: without it nothing below runs and the file "
                          "produces byte for byte what it produced before.")
+    ap.add_argument("--graphdrive", metavar="I,J,...", default=None,
+                    help="opt-in. Drive the ORIGINAL graph with the captured cotangent: "
+                         "torch.autograd.grad(outputs=(s_out, z_out), "
+                         "grad_outputs=(cot_s, cot_z), inputs=trunk_params + [s_in, z_in]). "
+                         "The one cell --selftest (replayed graph, cotangent drive) and "
+                         "--blockprobe (original graph, loss drive) leave empty. The named "
+                         "blocks are scored first as a cheap pruned arm. Stops before the full "
+                         "backward. Needs --ref-grads and --graphdrive-injected.")
+    ap.add_argument("--graphdrive-injected", type=Path, default=None,
+                    help="the injected replay's gradient file --graphdrive is scored against")
+    ap.add_argument("--graphdrive-zonly", type=Path, default=None,
+                    help="optional: the banked z-only arm, scored as a third comparison")
     ap.add_argument("--blockprobe", metavar="I,J,...", default=None,
                     help="opt-in. Read the reference's own trunk gradient for these blocks with "
                          "torch.autograd.grad instead of p.grad after a full backward, and score "
@@ -646,6 +796,10 @@ def main() -> int:
             "block0_class": type(mod.blocks[0]).__name__,
             "block0_training": bool(mod.blocks[0].training),
         }
+        if a.graphdrive:
+            # --graphdrive only. The graph tensors themselves. The boundary saved above is a
+            # detached clone, which is the whole point of the distinction being tested here.
+            e["s_in_t"], e["z_in_t"] = kwargs["s"], kwargs["z"]
         e["in_fired"] = {"s": 0, "z": 0}
         if torch.is_grad_enabled():
             for key in ("s", "z"):
@@ -668,7 +822,7 @@ def main() -> int:
         if z_out.requires_grad:
             z_out.register_hook(
                 lambda g, sl=slot: sl.__setitem__("cot_z", g.detach().to(torch.float64).clone()))
-        if a.cotprobe or a.blockprobe:
+        if a.cotprobe or a.blockprobe or a.graphdrive:
             # --cotprobe only. The graph tensors themselves, so autograd.grad can be pointed at
             # them. Holding a reference does not change the graph.
             slot["s_out_t"], slot["z_out_t"] = s_out, z_out
@@ -730,6 +884,25 @@ def main() -> int:
         raise SystemExit(f"loss {float(loss)!r} is not bit-identical to the published "
                          f"{a.expect_loss!r} -- this is not the reference's own step, so its "
                          f"boundary and cotangent are not the reference's either")
+
+    if a.graphdrive:
+        if a.graphdrive_injected is None or a.ref_grads is None:
+            raise SystemExit("--graphdrive needs --ref-grads and --graphdrive-injected")
+        gd = run_graphdrive(entries, cots, model, a.ref_grads, a.graphdrive_injected,
+                            a.graphdrive_zonly, a.out_dir, a.tag,
+                            [int(x) for x in a.graphdrive.split(",") if x.strip()])
+        h1.remove(); h2.remove()
+        for h in hb:
+            h.remove()
+        a.out_dir.mkdir(parents=True, exist_ok=True)
+        rp = a.out_dir / f"GRAPHDRIVE_{a.tag}.json"
+        rp.write_text(json.dumps(gd, indent=1))
+        print("GRAPHDRIVE " + json.dumps(
+            {k: gd[k] for k in ("verdict", "input_cotangent_on_the_original_graph",
+                                "vs_grads_f64_043", "vs_the_injected_replay")}, indent=1),
+              flush=True)
+        print("report " + str(rp), flush=True)
+        return 0
 
     if a.blockprobe:
         if a.blockprobe_injected is None or a.ref_grads is None:

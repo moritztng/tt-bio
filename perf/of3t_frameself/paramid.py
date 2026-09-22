@@ -107,15 +107,24 @@ def main() -> int:
         },
         "unregistered_aliases_of_a_trunk_parameter": unreg,
     }
+    # The verdict answers THIS file's question -- is a TRUNK parameter used at a second site --
+    # not the broader "does the model share anything". An earlier cut reported "SHARING FOUND"
+    # off the model-wide count, which is true of the model and false of the question, and that
+    # headline kept a dead hypothesis reading live for a pass.
     p = out["parameters"]
+    trunk_clean = (p["n_trunk_parameters_also_registered_outside_the_trunk"] == 0 and not unreg)
     out["verdict"] = (
-        "NO SHARING: every trunk parameter object is registered at exactly one name and is not "
-        "held as a bare attribute anywhere else, so a second call site cannot be hiding behind "
-        "named_parameters' de-duplication"
-        if (p["n_objects_registered_more_than_once"] == 0 and not unreg)
-        else "SHARING FOUND: %d parameter objects carry more than one name and %d bare "
-             "attributes alias a trunk parameter" % (p["n_objects_registered_more_than_once"],
-                                                     len(unreg)))
+        ("NO TRUNK SHARING: all %d trunk parameter objects are registered at exactly one name, "
+         "none is held as a bare attribute, and no buffer aliases one, so a second call site "
+         "cannot be hiding behind named_parameters' de-duplication. The model DOES alias %d "
+         "parameter objects and %d modules elsewhere, which is why the question was worth "
+         "asking and is not an answer to it."
+         % (p["n_trunk_parameters"], p["n_objects_registered_more_than_once"],
+            out["modules"]["n_objects_registered_more_than_once"]))
+        if trunk_clean else
+        ("TRUNK SHARING FOUND: %d trunk parameter objects are registered outside the trunk and "
+         "%d bare attributes alias one"
+         % (p["n_trunk_parameters_also_registered_outside_the_trunk"], len(unreg))))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, indent=1))
     print(json.dumps({k: out[k] for k in ("parameters", "buffers", "modules",
