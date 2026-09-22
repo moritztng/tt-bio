@@ -1305,3 +1305,61 @@ dtype, 2 of them FROM float64** — a `.float()` on a float64 tensor inside a fl
 run is a downcast.
 
 Artifact `perf/of3t_orchestrator/frameself/POLICY_CKPT_2X2.json`.
+
+---
+
+### R156. I retract R155's mechanism one pass after proposing it: both halves of the cast policy are inert inside the block, and that revives R146 (pass 391, zero card)
+
+R155 proposed that D242 is the checkpoint recomputation composed with the cast policy — outputs
+from the in-policy first forward, backward from a recomputation outside it — and I put it in
+`of3t-frameself`'s brief as Amendment 6, calling it the first candidate that predicts rather
+than retrodicts.
+
+**The scoping half is right.** `bundle_min.py:650-654` is `forward_loss(..., cast_ctx=policy)`
+and then a bare `loss.backward()`, and `forward_loss:457`'s `with ac, ctx:` wraps only
+`model(private)` and `loss_fn(...)`, so `torch.Tensor.float` and `torch.amp.autocast` are
+restored before the recomputation runs.
+
+**The acting half is wrong.** A context that is absent can only matter if it was doing
+something, and inside `PairFormerBlock` the policy has nothing to patch:
+
+- **`.float()`**: the special case (`mode == "removed"`, float64 source returns unchanged — a
+  no-op inside, a downcast outside) has **ZERO call sites in the entire
+  `openfold3/core/model/` subtree**, by grep over every `.py`. The capture's 240 counted calls
+  are elsewhere, sources `{float64: 2, int32: 84, int64: 154}` — 238 integer featurisation casts
+  the special case never touches, and the 2 float64 ones outside the per-block checkpoint.
+- **autocast**: five sites under `core/model/primitives/` (`linear.py:123,136`,
+  `attention.py:115,151`, `normalization.py:65`), every one naming `device_type="cuda"` on a CPU
+  box — and measured rather than argued, since the capture's own report is
+  `n_autocast_contexts_entered: 822`, `n_autocast_contexts_torch_actually_enabled: 0`.
+
+**And that revives R146 instead of leaving it blind.** R155 said R146 could not exclude the
+checkpoint candidate because `ckpt_break.py` had no policy to lose across the recomputation.
+With the policy inert inside the block that objection dies, and R146 covers what remains: 228 of
+228 parameter gradients bit-identical to a bare loop on upstream's **real** `PairFormerBlock` at
+`use_reentrant` None, True and False, with independent random cotangents on both outputs. **Both
+remaining candidates are dead and the hypothesis space is empty again.**
+
+**The lesson, and it is mine rather than the row's: a scoping argument is not a mechanism.** I
+established that the policy exits before the backward — which is true, checkable and was the
+easy half — and then let that carry the claim that its absence changes the recomputed graph,
+without checking whether the policy acts on anything the block executes. **Verify the context is
+DOING something before you argue about when it stops.** The check that killed it cost one grep.
+
+**What replaces it is an instrument, not a candidate.** Three passes of mechanisms have each
+died; the observation that survives all of them is that the forward is bit-exact and the
+backward is not, so the two graphs differ — and at 13.2 s a run with a portable
+`ONEBLOCK_<tag>.pt`, looking is cheaper than guessing. Hook every submodule of the block, record
+its output during the real first forward, record again during the backward's recomputation
+(`use_reentrant=False` re-executes the same modules so the same hooks fire), and diff.
+Pre-registered two-sided: an intermediate that differs IS the site, returned in one run;
+all bit-identical means the defect is not in what the recomputation computes but in which
+tensors the graph saves, and the next instrument is the saved-tensor set. Delivered as
+Amendment 7.
+
+**R155's direction warning stands** and is independent of the mechanism withdrawn here: if the
+reference's backward is the odd one, `grads_f64_043.pt` is the attenuated side and every ratio
+graded against it inherits that, so the replay must not be repaired to match the reference until
+that is settled.
+
+Artifact `perf/of3t_orchestrator/frameself/POLICY_REFUTED.json`.
