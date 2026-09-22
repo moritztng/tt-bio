@@ -1,0 +1,8 @@
+00:29:43  [tt-quietbox:tt1] ✓ 01_b78_tok658_bk672 — 259.6s
+00:33:57  [tt-quietbox:tt1] ✓ 02_b108_tok688_bk704 — 254.4s
+00:38:51  [tt-quietbox:tt1] ✓ 03_b168_tok748_bk768 — 293.3s
+00:41:59  [tt-quietbox:tt1] ✓ 04_b78_tok658_bk672 — 188.1s
+00:45:14  [tt-quietbox:tt1] ✓ 05_b108_tok688_bk704 — 194.9s
+00:48:52  [tt-quietbox:tt1] ✓ 06_b168_tok748_bk768 — 218.5s
+00:54:48  [tt-quietbox:tt1] ✓ 07_b140_tok720_bk736 — 355.6s
+00:58:43  [tt-quietbox:tt1] ✓ 08_b140_tok720_bk736 — 235.6s
