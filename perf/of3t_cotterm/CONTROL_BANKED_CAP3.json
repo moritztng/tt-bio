@@ -1,0 +1,19 @@
+{
+  "what": "of3t-cotterm: tensor-by-tensor identity between two files, with the host in the artifact.",
+  "label": "instrument control: this rows CAP3 arm --lever none against of3t-apbleafs banked trunk gradient, same width same boundary",
+  "host": "tt-quietbox",
+  "board_class": "p150a Blackhole",
+  "card": "1",
+  "aiclk_during": "n=113 min=800 median=1350 max=1350",
+  "a": "/tmp/of3t/of3t-apbleaf/dev_CAPA_n384.pt",
+  "b": "/tmp/of3t/of3t-cotterm/dev_CAP3_n384.pt",
+  "tensors_compared": 2736,
+  "only_in_a": [],
+  "only_in_b": [],
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "tensors_that_moved": 0,
+  "bit_identical": true,
+  "worst_relative_move": 0.0,
+  "worst_tensor": null
+}
