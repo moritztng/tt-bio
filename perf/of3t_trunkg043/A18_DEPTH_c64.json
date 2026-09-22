@@ -1,0 +1,462 @@
+{
+  "what": "A18 re-asserted in this row's own process, and the gradient's depth profile.",
+  "reference": "upstream 0.4.3 float64 over the same boundary, this row's own run",
+  "masking": "56 real of 64 tokens; single padding fraction 0.125000, pair 0.234375",
+  "pair_mask_is_the_outer_product_of_the_single_mask": true,
+  "A18_bar_per_tensor": 0.05,
+  "A18_reachable_sqrt2": 0.07071067811865477,
+  "arms": {
+    "FLIPPED": {
+      "s_masked": 0.01691313313889005,
+      "z_masked": 0.04880487221590299,
+      "s_unmasked": 0.2531075574285778,
+      "z_unmasked": 0.393021929946258,
+      "s_norm_masked": 2153991.790606516,
+      "z_norm_masked": 90900.75021401448,
+      "config": {
+        "scale_pair_bias": true,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      }
+    },
+    "SHIPPED": {
+      "s_masked": 0.1064843245712271,
+      "z_masked": 0.04880487221590299,
+      "s_unmasked": 0.26859725949427415,
+      "z_unmasked": 0.393021929946258,
+      "s_norm_masked": 1977228.4975724383,
+      "z_norm_masked": 90900.75021401448,
+      "config": {
+        "scale_pair_bias": false,
+        "tri_att_scale_pair_bias": false,
+        "fp32_softmax": true,
+        "transpose_bias": true,
+        "accurate_softmax": false
+      }
+    },
+    "UPSTREAM_BF16": {
+      "s_masked": 0.0059975453861483554,
+      "z_masked": 0.005210325027123999,
+      "s_unmasked": 0.006046642470184794,
+      "z_unmasked": 0.001747280356831873,
+      "s_norm_masked": 2177216.9320508153,
+      "z_norm_masked": 88028.64805155156,
+      "config": "upstream fp32 params under autocast('cpu', bfloat16)"
+    }
+  },
+  "pair_track_bit_identical_under_the_flip": {
+    "torch_equal": true,
+    "z_norm_flipped": 1040949.4944040732,
+    "z_norm_shipped": 1040949.4944040732
+  },
+  "depth_profile": {
+    "in_block_order": true,
+    "note": "mass-weighted rel_l2 within each block, beside that block's share of the stack's squared gradient norm. Block 47 is the first the backward reaches.",
+    "blocks": {
+      "0": {
+        "mass_share": 0.020198478776000398,
+        "FLIPPED": 32.18819339480628,
+        "SHIPPED": 24.51921152013417,
+        "FLOOR": 1.361598561478963,
+        "FLIPPED_over_FLOOR": 23.640002498125135,
+        "SHIPPED_over_FLOOR": 18.007665558563385
+      },
+      "1": {
+        "mass_share": 0.01176289984028686,
+        "FLIPPED": 7.51149643377933,
+        "SHIPPED": 2.7728444471372935,
+        "FLOOR": 0.35564624676882,
+        "FLIPPED_over_FLOOR": 21.12069648428488,
+        "SHIPPED_over_FLOOR": 7.79663632705147
+      },
+      "2": {
+        "mass_share": 0.009445890272455513,
+        "FLIPPED": 17.86008050247741,
+        "SHIPPED": 15.690478209565091,
+        "FLOOR": 0.3145002293449094,
+        "FLIPPED_over_FLOOR": 56.78876781641526,
+        "SHIPPED_over_FLOOR": 49.89019639905411
+      },
+      "3": {
+        "mass_share": 0.010777117521969018,
+        "FLIPPED": 25.159888203038147,
+        "SHIPPED": 20.501453184130785,
+        "FLOOR": 0.37617870622465666,
+        "FLIPPED_over_FLOOR": 66.8828080556279,
+        "SHIPPED_over_FLOOR": 54.49923891196321
+      },
+      "4": {
+        "mass_share": 0.014422846264932685,
+        "FLIPPED": 31.53930069140473,
+        "SHIPPED": 25.326199208513117,
+        "FLOOR": 0.785037646808777,
+        "FLIPPED_over_FLOOR": 40.1755263834974,
+        "SHIPPED_over_FLOOR": 32.26112698093597
+      },
+      "5": {
+        "mass_share": 0.009838969087058442,
+        "FLIPPED": 6.257817624267993,
+        "SHIPPED": 3.8177750241717003,
+        "FLOOR": 0.2706529347076935,
+        "FLIPPED_over_FLOOR": 23.121188879871067,
+        "SHIPPED_over_FLOOR": 14.105795779731396
+      },
+      "6": {
+        "mass_share": 0.009751288242738593,
+        "FLIPPED": 1.3347449340185684,
+        "SHIPPED": 0.9466872275459418,
+        "FLOOR": 0.2776036735445466,
+        "FLIPPED_over_FLOOR": 4.808095357586772,
+        "SHIPPED_over_FLOOR": 3.4102114552674623
+      },
+      "7": {
+        "mass_share": 0.010575142818449358,
+        "FLIPPED": 1.3674899435379229,
+        "SHIPPED": 0.5528650662531656,
+        "FLOOR": 0.32390721593627364,
+        "FLIPPED_over_FLOOR": 4.221856989462583,
+        "SHIPPED_over_FLOOR": 1.706862456444742
+      },
+      "8": {
+        "mass_share": 0.010693729774430042,
+        "FLIPPED": 2.517446631402891,
+        "SHIPPED": 0.786194447977962,
+        "FLOOR": 0.330417986570648,
+        "FLIPPED_over_FLOOR": 7.61897576318723,
+        "SHIPPED_over_FLOOR": 2.3793936163637466
+      },
+      "9": {
+        "mass_share": 0.016351811510661306,
+        "FLIPPED": 14.920689198288414,
+        "SHIPPED": 4.191451695650431,
+        "FLOOR": 0.2752093755356547,
+        "FLIPPED_over_FLOOR": 54.21577360599536,
+        "SHIPPED_over_FLOOR": 15.230046896085517
+      },
+      "10": {
+        "mass_share": 0.009087697920854784,
+        "FLIPPED": 9.058710892732162,
+        "SHIPPED": 2.800025819592702,
+        "FLOOR": 0.3982041152187804,
+        "FLIPPED_over_FLOOR": 22.74891329979135,
+        "SHIPPED_over_FLOOR": 7.031634562727505
+      },
+      "11": {
+        "mass_share": 0.014400451642691409,
+        "FLIPPED": 1.6660354843370102,
+        "SHIPPED": 0.5618594037042068,
+        "FLOOR": 0.2744973280424711,
+        "FLIPPED_over_FLOOR": 6.069405105754748,
+        "SHIPPED_over_FLOOR": 2.046866567740412
+      },
+      "12": {
+        "mass_share": 0.011837922619376906,
+        "FLIPPED": 13.24704423642083,
+        "SHIPPED": 2.2982602285792515,
+        "FLOOR": 0.3092367519066441,
+        "FLIPPED_over_FLOOR": 42.83787148437,
+        "SHIPPED_over_FLOOR": 7.432041031374809
+      },
+      "13": {
+        "mass_share": 0.008310153508786073,
+        "FLIPPED": 21.682613888312154,
+        "SHIPPED": 1.6868751220505103,
+        "FLOOR": 0.31406391999934696,
+        "FLIPPED_over_FLOOR": 69.03885644793976,
+        "SHIPPED_over_FLOOR": 5.371120382290388
+      },
+      "14": {
+        "mass_share": 0.00902774769082287,
+        "FLIPPED": 10.918067409741463,
+        "SHIPPED": 1.08975626980261,
+        "FLOOR": 0.37306564367677053,
+        "FLIPPED_over_FLOOR": 29.26580776009767,
+        "SHIPPED_over_FLOOR": 2.9210845015436226
+      },
+      "15": {
+        "mass_share": 0.012970779059482629,
+        "FLIPPED": 37.723136856564274,
+        "SHIPPED": 1.4078410788424203,
+        "FLOOR": 0.24312734556112947,
+        "FLIPPED_over_FLOOR": 155.1579349065017,
+        "SHIPPED_over_FLOOR": 5.790550115180059
+      },
+      "16": {
+        "mass_share": 0.008607322287349556,
+        "FLIPPED": 1.2111003640529736,
+        "SHIPPED": 0.6918371042428647,
+        "FLOOR": 0.3136799044727353,
+        "FLIPPED_over_FLOOR": 3.860943422846015,
+        "SHIPPED_over_FLOOR": 2.205551246280102
+      },
+      "17": {
+        "mass_share": 0.0062610604342119396,
+        "FLIPPED": 1.8983497660089748,
+        "SHIPPED": 0.9226884463210523,
+        "FLOOR": 0.4741420914565105,
+        "FLIPPED_over_FLOOR": 4.003757101963803,
+        "SHIPPED_over_FLOOR": 1.9460167383297664
+      },
+      "18": {
+        "mass_share": 0.00587670950935185,
+        "FLIPPED": 5.0545337503897105,
+        "SHIPPED": 2.118443357837047,
+        "FLOOR": 0.40571590749184744,
+        "FLIPPED_over_FLOOR": 12.458308035386258,
+        "SHIPPED_over_FLOOR": 5.221494446528735
+      },
+      "19": {
+        "mass_share": 0.007672205608241144,
+        "FLIPPED": 1.8676683217166483,
+        "SHIPPED": 1.4787527417527504,
+        "FLOOR": 0.4313954784134625,
+        "FLIPPED_over_FLOOR": 4.329364620568922,
+        "SHIPPED_over_FLOOR": 3.4278355146213864
+      },
+      "20": {
+        "mass_share": 0.009302145251635979,
+        "FLIPPED": 0.9464623996077635,
+        "SHIPPED": 0.5359635579680248,
+        "FLOOR": 0.300668500858362,
+        "FLIPPED_over_FLOOR": 3.1478601745968064,
+        "SHIPPED_over_FLOOR": 1.7825730212441004
+      },
+      "21": {
+        "mass_share": 0.007227378718135921,
+        "FLIPPED": 1.4491924385041912,
+        "SHIPPED": 1.082152659544498,
+        "FLOOR": 0.3385070169742658,
+        "FLIPPED_over_FLOOR": 4.281129683684999,
+        "SHIPPED_over_FLOOR": 3.196839667364314
+      },
+      "22": {
+        "mass_share": 0.009466305541327045,
+        "FLIPPED": 14.444273120483594,
+        "SHIPPED": 8.976396371740279,
+        "FLOOR": 0.4349249635033249,
+        "FLIPPED_over_FLOOR": 33.21095437735933,
+        "SHIPPED_over_FLOOR": 20.63895413000743
+      },
+      "23": {
+        "mass_share": 0.007554616131287161,
+        "FLIPPED": 0.9995117712718863,
+        "SHIPPED": 0.7286039383739367,
+        "FLOOR": 0.3108312303046132,
+        "FLIPPED_over_FLOOR": 3.2156092239906826,
+        "SHIPPED_over_FLOOR": 2.3440499774102754
+      },
+      "24": {
+        "mass_share": 0.005359114939483729,
+        "FLIPPED": 4.305507759048077,
+        "SHIPPED": 4.473049287260456,
+        "FLOOR": 0.4176591519800817,
+        "FLIPPED_over_FLOOR": 10.308663748025348,
+        "SHIPPED_over_FLOOR": 10.709807904493799
+      },
+      "25": {
+        "mass_share": 0.0060153268992911854,
+        "FLIPPED": 1.120156877212443,
+        "SHIPPED": 0.5899689971696258,
+        "FLOOR": 0.3562302539006545,
+        "FLIPPED_over_FLOOR": 3.1444742970226005,
+        "SHIPPED_over_FLOOR": 1.656145121616078
+      },
+      "26": {
+        "mass_share": 0.005369870253023664,
+        "FLIPPED": 2.677568824541844,
+        "SHIPPED": 0.7289653665599516,
+        "FLOOR": 0.3020898020416861,
+        "FLIPPED_over_FLOOR": 8.863486309188152,
+        "SHIPPED_over_FLOOR": 2.413075057923868
+      },
+      "27": {
+        "mass_share": 0.003984861604091078,
+        "FLIPPED": 0.896075829791334,
+        "SHIPPED": 0.6438030233956704,
+        "FLOOR": 0.3888352923875202,
+        "FLIPPED_over_FLOOR": 2.3045125978386984,
+        "SHIPPED_over_FLOOR": 1.6557216795898373
+      },
+      "28": {
+        "mass_share": 0.009547093752947535,
+        "FLIPPED": 1.3148836078747428,
+        "SHIPPED": 0.7103832889609695,
+        "FLOOR": 0.3458401897020689,
+        "FLIPPED_over_FLOOR": 3.801997705956257,
+        "SHIPPED_over_FLOOR": 2.0540796301694826
+      },
+      "29": {
+        "mass_share": 0.006024421529752597,
+        "FLIPPED": 0.9416403627037809,
+        "SHIPPED": 0.81285767886506,
+        "FLOOR": 0.42165517245048423,
+        "FLIPPED_over_FLOOR": 2.233200074912776,
+        "SHIPPED_over_FLOOR": 1.9277782699571069
+      },
+      "30": {
+        "mass_share": 0.008838735648688091,
+        "FLIPPED": 0.7155322137862652,
+        "SHIPPED": 0.4940210473465584,
+        "FLOOR": 0.2881880444298089,
+        "FLIPPED_over_FLOOR": 2.48286571083118,
+        "SHIPPED_over_FLOOR": 1.7142315821046568
+      },
+      "31": {
+        "mass_share": 0.006444999898258223,
+        "FLIPPED": 0.9954602744056383,
+        "SHIPPED": 0.5378289603639516,
+        "FLOOR": 0.33852285770337515,
+        "FLIPPED_over_FLOOR": 2.940599879012877,
+        "SHIPPED_over_FLOOR": 1.5887522751424217
+      },
+      "32": {
+        "mass_share": 0.0055811265831861795,
+        "FLIPPED": 2.7217924815092682,
+        "SHIPPED": 1.5839094268816802,
+        "FLOOR": 0.40456408172539066,
+        "FLIPPED_over_FLOOR": 6.727716582997998,
+        "SHIPPED_over_FLOOR": 3.915101459641698
+      },
+      "33": {
+        "mass_share": 0.006686461485021558,
+        "FLIPPED": 0.8916812413146802,
+        "SHIPPED": 0.49784085290793895,
+        "FLOOR": 0.36645474456072674,
+        "FLIPPED_over_FLOOR": 2.4332642831069036,
+        "SHIPPED_over_FLOOR": 1.3585329711168186
+      },
+      "34": {
+        "mass_share": 0.008836136119376682,
+        "FLIPPED": 1.5203772304084961,
+        "SHIPPED": 0.48319966431328204,
+        "FLOOR": 0.3930508849395486,
+        "FLIPPED_over_FLOOR": 3.8681435118568195,
+        "SHIPPED_over_FLOOR": 1.2293565103856676
+      },
+      "35": {
+        "mass_share": 0.006527057786588913,
+        "FLIPPED": 1.2999027973483939,
+        "SHIPPED": 0.5027604462801292,
+        "FLOOR": 0.3489925688601504,
+        "FLIPPED_over_FLOOR": 3.724729158543475,
+        "SHIPPED_over_FLOOR": 1.4406050189612982
+      },
+      "36": {
+        "mass_share": 0.007166942341680107,
+        "FLIPPED": 0.9995553622284028,
+        "SHIPPED": 0.612484912512624,
+        "FLOOR": 0.364679476521327,
+        "FLIPPED_over_FLOOR": 2.740914766476987,
+        "SHIPPED_over_FLOOR": 1.67951571707602
+      },
+      "37": {
+        "mass_share": 0.013753424563617504,
+        "FLIPPED": 0.863783134673936,
+        "SHIPPED": 0.5163695749583554,
+        "FLOOR": 0.6324693617091844,
+        "FLIPPED_over_FLOOR": 1.3657311910566694,
+        "SHIPPED_over_FLOOR": 0.8164341329719418
+      },
+      "38": {
+        "mass_share": 0.006118199972867976,
+        "FLIPPED": 10.77302395795824,
+        "SHIPPED": 2.032190517129666,
+        "FLOOR": 0.5010058834032333,
+        "FLIPPED_over_FLOOR": 21.50278931811984,
+        "SHIPPED_over_FLOOR": 4.056220863765911
+      },
+      "39": {
+        "mass_share": 0.010853405239571184,
+        "FLIPPED": 12.378602508447587,
+        "SHIPPED": 2.3752622878602887,
+        "FLOOR": 0.4655242174912576,
+        "FLIPPED_over_FLOOR": 26.590673574742766,
+        "SHIPPED_over_FLOOR": 5.102338822802264
+      },
+      "40": {
+        "mass_share": 0.02213430133762079,
+        "FLIPPED": 0.9850215864369116,
+        "SHIPPED": 0.7103232113795247,
+        "FLOOR": 0.30074383635971236,
+        "FLIPPED_over_FLOOR": 3.2752843694483946,
+        "SHIPPED_over_FLOOR": 2.361887844410964
+      },
+      "41": {
+        "mass_share": 0.009991164048278604,
+        "FLIPPED": 2.1466606035861298,
+        "SHIPPED": 1.2908307080727328,
+        "FLOOR": 0.4063226079927211,
+        "FLIPPED_over_FLOOR": 5.283143397289342,
+        "SHIPPED_over_FLOOR": 3.176861643140115
+      },
+      "42": {
+        "mass_share": 0.03288105068353822,
+        "FLIPPED": 2.649812258477129,
+        "SHIPPED": 2.028090085624529,
+        "FLOOR": 0.5124821608115108,
+        "FLIPPED_over_FLOOR": 5.170545359630032,
+        "SHIPPED_over_FLOOR": 3.957386696959494
+      },
+      "43": {
+        "mass_share": 0.015768087642081898,
+        "FLIPPED": 0.9532442434251233,
+        "SHIPPED": 1.0146229375201146,
+        "FLOOR": 0.3930582652892531,
+        "FLIPPED_over_FLOOR": 2.4251983169050706,
+        "SHIPPED_over_FLOOR": 2.5813550486553174
+      },
+      "44": {
+        "mass_share": 0.040370904268922286,
+        "FLIPPED": 1.0436348320215916,
+        "SHIPPED": 0.9926166599873916,
+        "FLOOR": 1.1074170879295147,
+        "FLIPPED_over_FLOOR": 0.9424044864368368,
+        "SHIPPED_over_FLOOR": 0.8963349679236393
+      },
+      "45": {
+        "mass_share": 0.04104925301356478,
+        "FLIPPED": 0.35943367940853904,
+        "SHIPPED": 0.5271442260770408,
+        "FLOOR": 0.2773287331411033,
+        "FLIPPED_over_FLOOR": 1.296056399701149,
+        "SHIPPED_over_FLOOR": 1.9007919594427052
+      },
+      "46": {
+        "mass_share": 0.4133315241730871,
+        "FLIPPED": 0.12534357055338297,
+        "SHIPPED": 0.1381463499076845,
+        "FLOOR": 0.03290983092339398,
+        "FLIPPED_over_FLOOR": 3.808696885898687,
+        "SHIPPED_over_FLOOR": 4.197722869778801
+      },
+      "47": {
+        "mass_share": 0.055945866182922695,
+        "FLIPPED": 0.4133071277759512,
+        "SHIPPED": 0.7445557156566163,
+        "FLOOR": 0.15479529768293904,
+        "FLIPPED_over_FLOOR": 2.670023792470179,
+        "SHIPPED_over_FLOOR": 4.809937554961519
+      }
+    }
+  },
+  "input_cotangent_at_block_0": {
+    "reference": {
+      "ds_in_norm": 0.037143394274900904,
+      "dz_in_norm": 0.0012452903204826088
+    },
+    "FLIPPED": {
+      "ds_in_norm": 0.28319680903347094,
+      "dz_in_norm": 0.002027033881528247,
+      "ds_ratio": 7.624419215366028,
+      "dz_ratio": 1.6277600878987604
+    },
+    "SHIPPED": {
+      "ds_in_norm": 0.09911509086835898,
+      "dz_in_norm": 0.000844228330844219,
+      "ds_ratio": 2.66844462664885,
+      "dz_ratio": 0.6779369573169417
+    }
+  }
+}

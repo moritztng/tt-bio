@@ -1,0 +1,60 @@
+{
+ "model": "opendde",
+ "size": 507,
+ "site_default_opendde_refiner": true,
+ "accurate_softmax_ab_env": null,
+ "bucket_multiple_of_32": false,
+ "runs": [
+  {
+   "arm": "floored",
+   "fold_s": 82.74,
+   "error": null,
+   "n_tokens": 507,
+   "plddt": 0.735695,
+   "sha256": {
+    "cdk2x2_507.cif": "9225aaa0a5edc5ae32b677687c717795324fe692573864ae177fb9136b0fd12c"
+   },
+   "probe": null
+  },
+  {
+   "arm": "unfloored",
+   "fold_s": 81.53,
+   "error": null,
+   "n_tokens": 507,
+   "plddt": 0.735695,
+   "sha256": {
+    "cdk2x2_507.cif": "9225aaa0a5edc5ae32b677687c717795324fe692573864ae177fb9136b0fd12c"
+   },
+   "probe": null
+  },
+  {
+   "arm": "floored2",
+   "fold_s": 81.9,
+   "error": null,
+   "n_tokens": 507,
+   "plddt": 0.735695,
+   "sha256": {
+    "cdk2x2_507.cif": "9225aaa0a5edc5ae32b677687c717795324fe692573864ae177fb9136b0fd12c"
+   },
+   "probe": null
+  },
+  {
+   "arm": "probe",
+   "fold_s": 87.17,
+   "error": null,
+   "n_tokens": 507,
+   "plddt": 0.735695,
+   "sha256": {
+    "cdk2x2_507.cif": "9225aaa0a5edc5ae32b677687c717795324fe692573864ae177fb9136b0fd12c"
+   },
+   "probe": {
+    "calls": 488,
+    "bound": 488,
+    "worst_dmin": -203423744.0,
+    "worst_overshoot": -0.0,
+    "nonfinite_out": 0
+   }
+  }
+ ],
+ "n_tokens": 507
+}

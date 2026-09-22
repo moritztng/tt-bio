@@ -1,0 +1,127 @@
+{
+ "generated": "2026-09-21T15:06:15Z",
+ "host": "tt-quietbox2",
+ "what": "Why TT_BIO_SOFTMAX_CKC is bit-exactly inert at the trunk's crop-64 shape, and at which",
+ "cases": [
+  {
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "seed": 20260921,
+   "none": {
+    "fp32_out_rel_l2": 0.01822978104308575,
+    "after_bf16_typecast_rel_l2": 0.018320661691207378
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.0005850190648619852,
+    "after_bf16_typecast_rel_l2": 0.0017024654120400735
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 31.161003355311898,
+   "gain_after_typecast": 10.761253392662839
+  },
+  {
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "seed": 7,
+   "none": {
+    "fp32_out_rel_l2": 0.018129945521343685,
+    "after_bf16_typecast_rel_l2": 0.018215088042056536
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.000580631613045368,
+    "after_bf16_typecast_rel_l2": 0.0016980925317857246
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 31.224523629110582,
+   "gain_after_typecast": 10.72679356460124
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "seed": 20260921,
+   "none": {
+    "fp32_out_rel_l2": 0.020419338666782676,
+    "after_bf16_typecast_rel_l2": 0.020465664161501893
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.0005211253956512488,
+    "after_bf16_typecast_rel_l2": 0.0017216682449984414
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 39.18315790629372,
+   "gain_after_typecast": 11.887112526444037
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "seed": 7,
+   "none": {
+    "fp32_out_rel_l2": 0.020423090537958846,
+    "after_bf16_typecast_rel_l2": 0.02049499646063737
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.0005170909357234079,
+    "after_bf16_typecast_rel_l2": 0.0017284730783779043
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 39.49612945619909,
+   "gain_after_typecast": 11.857284164281586
+  },
+  {
+   "shape": [
+    1,
+    4,
+    1024,
+    1024
+   ],
+   "seed": 20260921,
+   "none": {
+    "fp32_out_rel_l2": 0.02103651991336954,
+    "after_bf16_typecast_rel_l2": 0.021060849061942867
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.0004930027063407401,
+    "after_bf16_typecast_rel_l2": 0.0017521979634563655
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 42.670191548259155,
+   "gain_after_typecast": 12.019674432447392
+  },
+  {
+   "shape": [
+    1,
+    4,
+    1024,
+    1024
+   ],
+   "seed": 7,
+   "none": {
+    "fp32_out_rel_l2": 0.021697062663507034,
+    "after_bf16_typecast_rel_l2": 0.021726099189172107
+   },
+   "precise_config()": {
+    "fp32_out_rel_l2": 0.0005099480646245725,
+    "after_bf16_typecast_rel_l2": 0.0016984735785247418
+   },
+   "bf16_outputs_bit_identical": false,
+   "gain_before_typecast": 42.54759291905651,
+   "gain_after_typecast": 12.791543809614593
+  }
+ ]
+}

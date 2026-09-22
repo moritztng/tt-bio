@@ -1,0 +1,26 @@
+rf3, the two changes priced apart (mean served Ca-RMSD):
+  ubq   main (rounded order, 1.0*pTM) 0.6825  ordering fix only 0.6828  ordering fix + unified rule 0.6800
+  prot  main (rounded order, 1.0*pTM) 1.2769  ordering fix only 1.2811  ordering fix + unified rule 1.2966
+
+model        targ  seeds    main A unified A   delta A  unch/bett/worse
+opendde      prot      8    1.3636    1.3667   +0.0031  6/1/1
+opendde      ubq       8    0.9982    1.0445   +0.0463  6/0/2
+openfold3    prot      4    2.5108    2.5108   +0.0000  4/0/0
+openfold3    ubq       8    0.7976    0.7825   -0.0151  7/1/0
+protenix-v2  prot      4    1.9202    1.9202   +0.0000  4/0/0
+protenix-v2  ubq       4    1.8919    1.8919   +0.0000  4/0/0
+rf3          prot      8    1.2769    1.2966   +0.0197  4/1/3
+rf3          ubq       8    0.6825    0.6800   -0.0026  4/1/3
+
+52 folds: 39 unchanged, 4 better, 9 worse. Two-sided sign test p = 0.2668
+
+Interface branch, every multi-chain cell on disk:
+  opendde__multimer__s1        n=5  worst |unified-main| = 0.000e+00  order preserved: True
+  openfold3__multimer__s1      n=5  worst |unified-main| = 0.000e+00  order preserved: True
+  openfold3__multimer__s2      n=5  worst |unified-main| = 0.000e+00  order preserved: True
+  protenix-v2__multimer__s1    n=5  worst |unified-main| = 0.000e+00  order preserved: True
+  protenix-v2__multimer__s2    n=5  worst |unified-main| = 0.000e+00  order preserved: True
+  rf3__9gfr_abag__s1           n=5  worst |unified-main| = 2.871e-05  order preserved: True
+  rf3__9gfr_abag__s2           n=5  worst |unified-main| = 3.473e-05  order preserved: False
+  rf3__multimer__s1            n=5  worst |unified-main| = 4.234e-05  order preserved: False
+  rf3__multimer__s2            n=5  worst |unified-main| = 4.463e-05  order preserved: True

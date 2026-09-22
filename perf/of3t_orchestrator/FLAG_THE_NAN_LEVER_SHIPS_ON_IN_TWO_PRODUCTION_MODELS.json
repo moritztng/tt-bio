@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 190. A FLAGGED QUESTION, not a defect claim. CPU-only source read.",
+ "headline": "of3t-softgrad found that `_accurate_softmax` returns NaN on a FULLY-MASKED row because `ttnn.max` rounds to bf16. That same 5-op chain SHIPS ON BY DEFAULT at three sites in two production models. Whether those sites can produce a fully-masked row is NOT established -- by me or by anyone -- and the question is cheap to answer, so it is raised here rather than assumed either way.",
+ "the_mechanism_as_measured_by_the_row": "`ttnn.max` rounds to bf16. On a row whose keys are all masked at -1e9 the reduction comes back 1.76e6 ABOVE the true row max; every exponent then underflows to zero, the sum is zero, the divide is 0/0. Standalone: 114,688 non-finite entries, exactly the masked rows. The FUSED kernel is finite on the same input, so this is specific to the 5-op chain.",
+ "where_it_ships_on": [
+  {
+   "site": "opendde.refiner",
+   "file": "tt_bio/opendde.py:419",
+   "construct": "Pairformer (triangle attention)"
+  },
+  {
+   "site": "protenix <scope>.trunk",
+   "file": "tt_bio/protenix.py:2465",
+   "construct": "Pairformer (triangle attention)"
+  },
+  {
+   "site": "protenix <scope>.confidence",
+   "file": "tt_bio/protenix.py:1460",
+   "construct": "Pairformer (triangle attention)"
+  }
+ ],
+ "every_other_site_is_default_off": "openfold3.trunk / .confidence / .template / .msa and esmfold2.token_transformer all pass no default, i.e. False. The OF3 campaign's own scope is unaffected in its shipped configuration.",
+ "the_argument_that_it_COULD_fire": "in triangle attention under a PAIR mask, a padded row i has every (i,j) masked, which is exactly the fully-masked-row shape. Protenix pads its token axis to a multiple of 32 as a standing rule, so padded rows are not rare -- they occur on essentially every fold whose token count is not a multiple of 32.",
+ "the_argument_that_it_does_NOT_fire_and_it_is_the_stronger_one": "Protenix-v2 is served in production through JapanFold with this lever ON, at exactly those padded sizes, and NaN is not a subtle corruption -- it would surface as failed or garbage folds. No such failures are on the record. So either the Pairformer sites do not produce a fully-masked row, or the NaN is confined to padded positions that are sliced away before anything reduces over them. Absence of field failures across a served model is real evidence and it bounds this risk hard.",
+ "what_I_am_NOT_claiming": "that there is a product defect. I have not read what mask the Pairformer sites actually apply, and the production evidence argues against it. This file exists because the mechanism is now precisely known, it ships on in two models, and 'probably fine' is not the same as checked.",
+ "the_cheap_check_for_whoever_owns_those_models": "run one Protenix-v2 and one OpenDDE fold at a token count that is NOT a multiple of 32, with `TT_BIO_ACCURATE_SOFTMAX_AB` left at its shipped default, and assert the output is finite -- plus the same fold with `-all` forcing the chain off, as the control. If both are finite and identical, this closes. The per-site A/B grammar exists precisely so this can be answered without a checkout.",
+ "provenance": "of3t-orchestrator pass 190 on pc, CPU only, no device. Mechanism and the 114,688 figure are of3t-softgrad's (origin/wk/of3t-softgrad at 8b6963af8), not mine. Site list read from tt_bio/opendde.py:419, tt_bio/protenix.py:1460 and :2465, and tenstorrent.py:3452. No measurement here is mine."
+}

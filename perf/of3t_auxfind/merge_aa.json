@@ -1,0 +1,38 @@
+{
+ "arm_A": "origin/wk/of3t tt_bio/openfold3_confidence.py",
+ "arm_B": "merged HEAD (wk/of3t + the mask patch), token_mask unset",
+ "bit_identical": 7,
+ "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+ "card": "tt-quietbox2 card 0, Blackhole p300c, both arms same card",
+ "n": 7,
+ "tensors": {
+  "distogram_logits": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "experimentally_resolved_logits": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "pae_logits": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "pde_logits": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "plddt_logits": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "si_conf": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  },
+  "zij_conf": {
+   "max_abs": 0.0,
+   "torch_equal": true
+  }
+ }
+}

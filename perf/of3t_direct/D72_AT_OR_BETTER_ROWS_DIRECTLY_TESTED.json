@@ -1,0 +1,232 @@
+{
+ "what": "Close D72's five AT-OR-BETTER rows against upstream's own gradient, one table.",
+ "why": "D72 re-scored every section against upstream's own bf16 error instead of a float64 ideal upstream never runs, and read 42.2794 % of OpenFold3's squared gradient norm as AT OR BETTER than the recipe's own deviation. Both of D72's columns are distances from the SAME float64 reference, and two distances from one reference do not order each other, so that reading was limited by construction.",
+ "D72_headline_being_tested": {
+  "claim": "42.2794 % of the model deviates from float64 by no more than upstream's own bf16 training recipe does",
+  "pct_of_model": 42.2794,
+  "limit": "both columns are distances from the same float64 reference, and two distances from one reference do not order each other"
+ },
+ "recomputed_without_the_shared_subtrahend": {
+  "survives_the_direct_test": {
+   "sections": [
+    "aux_heads",
+    "diffusion_module.layer_norm_a"
+   ],
+   "pct_of_model": 3.1097
+  },
+  "does_not_survive": {
+   "sections": [
+    "diffusion_module.diffusion_conditioning",
+    "diffusion_module.layer_norm_s",
+    "msa_module"
+   ],
+   "pct_of_model": 39.1697
+  },
+  "reading": "D72's 42.2794 % becomes 3.1097 %. 39.1697 % of the model was read as at or better than upstream's own recipe and does not agree with what that recipe actually computes."
+ },
+ "threshold": "floor / r, where floor = rel(bf16, float64) over the scope and r = ||bf16|| / ||float64|| over the same scope. rel(device, bf16) divides by ||bf16|| and floor divides by ||float64||, so a port that reproduced float64 exactly reads floor / r and not floor (D76).",
+ "rows": {
+  "diffusion_module.diffusion_conditioning": {
+   "pct_of_model_mass_reached": 36.94617946669957,
+   "n_tensors": 26,
+   "device_vs_float64": 0.007865384774093601,
+   "device_vs_bf16_direct": 0.0646383941962739,
+   "median_over_tensors": 0.06946011706474728,
+   "norm_ratio": 0.9909212353642082,
+   "cos": 0.9979333887039693,
+   "n_over_per_tensor_bar": 25,
+   "n_rel_measurable": 26,
+   "worst_tensor": "diffusion_module.diffusion_conditioning.transition_z.0.layer_norm.bias",
+   "worst_rel_l2": 0.10173865178536712,
+   "scope_floor_bf16_vs_float64": 0.0625316770492112,
+   "scope_norm_ratio_r": 1.0074137203387377,
+   "threshold_floor_over_r": 0.06207149633438112,
+   "multiples_of_threshold": 1.041353890488878,
+   "survives": false,
+   "error_geometry": {
+    "what": "our error against the float64 ideal, versus upstream bf16's error against the same ideal, over this scope. cos near 0 means the two errors are unrelated directions and 'no further from float64 than they are' says nothing about agreement with their step.",
+    "our_error_norm": 0.015328291480202592,
+    "their_error_norm": 0.12186355786601184,
+    "ratio_ours_over_theirs": 0.12578240573819405,
+    "cos_between_the_two_errors": -0.27268007492960683
+   },
+   "controls": {
+    "ZERO_vs_UPSTREAM_BF16": 1.0,
+    "UPSTREAM_BF16_vs_UPSTREAM_F32": 0.06253421225857482,
+    "UPSTREAM_PERMUTED_DRAWS_vs_UPSTREAM_BF16": 0.3620813211084456,
+    "our_cotangent_break": 0.22597754846011267
+   },
+   "capture_identity": {
+    "what": "the capture's grad_f64 against the bundle's float64 gradient, over the device scope",
+    "capture": "/home/ttuser/of3t_cond_cap/cond_boundary.pt",
+    "capture_key": "grad_f64",
+    "key_prefix_stripped": "diffusion_module.diffusion_conditioning.",
+    "max_abs_diff": 0.0,
+    "at": null,
+    "n_scope": 26,
+    "n_compared": 26,
+    "identical": true
+   },
+   "reference_digests": {
+    "device": "cb6b921c95d605284aa12ff1a500457531f01e284188622489a0e7bca53a19b4",
+    "device_permuted": "7cdaef12f79b6e43ab6f8578fa57de050368e369d4471695fd8d5aaef4d3b0fa",
+    "float64": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+    "upstream_bf16": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+    "upstream_f32": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+    "upstream_permuted_draws": "a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0",
+    "diffcap": "8529e21fc74545eb2bab95ff98cf51ccd9ba9223ad3e8a89174bb17e7adf4911"
+   },
+   "source": "perf/of3t_direct/DIRECT_diffusion_conditioning.json, this row, set 'the device arm's scope'",
+   "pct_of_model_mass_D72": 36.9462,
+   "D72_band": "AT OR BETTER"
+  },
+  "aux_heads": {
+   "pct_of_model_mass_reached": 2.8431356088226227,
+   "n_tensors": 180,
+   "device_vs_float64": 0.0022995509888563857,
+   "device_vs_bf16_direct": 0.23601427188249083,
+   "median_over_tensors": 1.4613259332810684,
+   "norm_ratio": 0.9860515750320193,
+   "cos": 0.9718533090060057,
+   "n_over_per_tensor_bar": 176,
+   "n_rel_measurable": 176,
+   "worst_tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_g.weight",
+   "worst_rel_l2": 7.973760883409057,
+   "scope_floor_bf16_vs_float64": 0.23936995453970605,
+   "scope_norm_ratio_r": 1.013634550522136,
+   "threshold_floor_over_r": 0.23615015334313885,
+   "multiples_of_threshold": 0.9994245971949441,
+   "survives": true,
+   "error_geometry": {
+    "what": "our error against the float64 ideal, versus upstream bf16's error against the same ideal, over this scope. cos near 0 means the two errors are unrelated directions and 'no further from float64 than they are' says nothing about agreement with their step.",
+    "our_error_norm": 0.0012431709139886392,
+    "their_error_norm": 0.12940690013337666,
+    "ratio_ours_over_theirs": 0.009606681813004808,
+    "cos_between_the_two_errors": 0.06468221189026345
+   },
+   "controls": {
+    "ZERO_vs_UPSTREAM_BF16": 1.0,
+    "UPSTREAM_BF16_vs_UPSTREAM_F32": 0.23936886183049527,
+    "UPSTREAM_PERMUTED_DRAWS_vs_UPSTREAM_BF16": 0.23614911839186956,
+    "our_cotangent_break": 112.776212252763
+   },
+   "capture_identity": {
+    "what": "the capture's grad_f64 against the bundle's float64 gradient, over the device scope",
+    "capture": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+    "capture_key": "param_grads",
+    "key_prefix_stripped": "",
+    "max_abs_diff": 0.0,
+    "at": null,
+    "n_scope": 180,
+    "n_compared": 180,
+    "identical": true
+   },
+   "reference_digests": {
+    "device": "ea5516a18f4d89af8b5578d25e8c5924770c785417063c7da0e63d5f76c01a0c",
+    "device_permuted": "2c9d3e9c415865ebd951cf91abeb7744c0d1ac3874587a10d1c356591fd7edcc",
+    "float64": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+    "upstream_bf16": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+    "upstream_f32": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+    "upstream_permuted_draws": "a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0",
+    "diffcap": "09fe8da010fecd17f15f7cfdce1d8786cbad2098a54a41eace3e0d195c04a534"
+   },
+   "source": "perf/of3t_direct/DIRECT_aux_heads.json, this row, set 'the device arm's scope'",
+   "pct_of_model_mass_D72": 2.8431,
+   "D72_band": "AT OR BETTER"
+  },
+  "msa_module": {
+   "pct_of_model_mass_reached": 1.2317423683293727,
+   "n_tensors": 154,
+   "device_vs_float64": 0.16212396622403188,
+   "device_vs_bf16_direct": 0.22600135840942495,
+   "median_over_tensors": 0.21493263589165273,
+   "norm_ratio": 0.9479368120485359,
+   "cos": 0.9744887856192046,
+   "n_over_per_tensor_bar": 150,
+   "n_rel_measurable": 151,
+   "worst_tensor": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight",
+   "worst_rel_l2": 1.6180529330856286,
+   "scope_floor_bf16_vs_float64": 0.17876037263599853,
+   "scope_norm_ratio_r": 1.0597361950080808,
+   "threshold_floor_over_r": 0.16868384176935225,
+   "multiples_of_threshold": 1.339792573128878,
+   "survives": false,
+   "error_geometry": {
+    "what": "our error against the float64 ideal, versus upstream bf16's error against the same ideal, over this scope. cos near 0 means the two errors are unrelated directions and 'no further from float64 than they are' says nothing about agreement with their step.",
+    "our_error_norm": 0.05768941955593514,
+    "their_error_norm": 0.06360923913447154,
+    "ratio_ours_over_theirs": 0.9069345953655921,
+    "cos_between_the_two_errors": 0.01515336464178647
+   },
+   "controls": {
+    "ZERO_vs_UPSTREAM_BF16": 1.0,
+    "UPSTREAM_BF16_vs_UPSTREAM_F32": 0.1787654660057096,
+    "UPSTREAM_PERMUTED_DRAWS_vs_UPSTREAM_BF16": 0.2131249635705002,
+    "our_cotangent_break": 16.203846362329767
+   },
+   "capture_identity": {
+    "what": "the capture's grad_f64 against the bundle's float64 gradient, over the device scope",
+    "capture": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+    "capture_key": "param_grads",
+    "key_prefix_stripped": "",
+    "max_abs_diff": 0.0,
+    "at": null,
+    "n_scope": 154,
+    "n_compared": 154,
+    "identical": true
+   },
+   "reference_digests": {
+    "device": "580f375fa0ea5ffccf7f5fc8a40d78b848b2b6b72307aaec5dc529d90ffd158b",
+    "device_permuted": "c596ff5a52657f3993446c3df39d6562b7e46097d15967e076793fbfd7f96228",
+    "float64": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+    "upstream_bf16": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+    "upstream_f32": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+    "upstream_permuted_draws": "a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0",
+    "diffcap": "ca142fe906547d4c0b4cb30dbf8449a72bd218e984dd61f4ae09d50c4d4d879f"
+   },
+   "source": "perf/of3t_direct/DIRECT_msa_module.json, this row, set 'the device arm's scope'",
+   "pct_of_model_mass_D72": 1.24,
+   "D72_band": "AT OR BETTER"
+  },
+  "diffusion_module.layer_norm_s": {
+   "pct_of_model_mass_reached": 0.9834601790165411,
+   "device_vs_float64": 0.023809,
+   "device_vs_bf16_direct": 0.05279714108357849,
+   "median_over_tensors": 0.0527971410835785,
+   "norm_ratio": 0.9474990652563524,
+   "cos": 0.9999835409032124,
+   "worst_tensor": "diffusion_module.layer_norm_s.weight",
+   "worst_rel_l2": 0.0527971410835785,
+   "scope_floor_bf16_vs_float64": 0.03101235199459842,
+   "multiples_of_this_sections_own_bf16_floor": 1.7024552376025668,
+   "controls": {
+    "our_cotangent_break": 1.4058430626639902
+   },
+   "source": "perf/of3t_trajectory/D72_ROW_BY_ROW_WITHOUT_THE_SHARED_SUBTRAHEND.json, row 'diffusion_module.layer_norm_s', measured by of3t-trajectory at pass 175",
+   "note": "floor/r is not recomputed for this row: trajectory scored it against the 547-tensor scope constant. Its own floor and multiple are carried as published.",
+   "pct_of_model_mass_D72": 0.9835,
+   "D72_band": "AT OR BETTER",
+   "survives": false
+  },
+  "diffusion_module.layer_norm_a": {
+   "pct_of_model_mass_reached": 0.26663015175732807,
+   "device_vs_float64": 0.0094683,
+   "device_vs_bf16_direct": 0.03496810848468805,
+   "median_over_tensors": 0.03496810848468805,
+   "norm_ratio": 0.9763961525726128,
+   "cos": 0.9996591409153612,
+   "worst_tensor": "diffusion_module.layer_norm_a.weight",
+   "worst_rel_l2": 0.03496810848468805,
+   "scope_floor_bf16_vs_float64": 0.03697010744965473,
+   "multiples_of_this_sections_own_bf16_floor": 0.945848170236103,
+   "controls": {
+    "our_cotangent_break": 1.0544508942949165
+   },
+   "source": "perf/of3t_trajectory/D72_ROW_BY_ROW_WITHOUT_THE_SHARED_SUBTRAHEND.json, row 'diffusion_module.layer_norm_a', measured by of3t-trajectory at pass 175",
+   "note": "floor/r is not recomputed for this row: trajectory scored it against the 547-tensor scope constant. Its own floor and multiple are carried as published.",
+   "pct_of_model_mass_D72": 0.2666,
+   "D72_band": "AT OR BETTER",
+   "survives": true
+  }
+ }
+}

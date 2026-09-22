@@ -1,0 +1,58 @@
+model/target                 seeds  shipped  unified   plddt     ptm  random   floor  moved   clk
+-------------------------------------------------------------------------------------------------
+opendde/multimer                 1      -        -       -       -       -       -   0/1     1350
+opendde/prot                     8    1.364    1.367   1.357   1.364   1.375   0.326 2/8     1350
+opendde/ubq                      8    0.998    1.044   1.006   0.998   0.940   0.380 2/8     1350
+openfold3/9gfr_pep               3   11.138   11.138  11.138  11.138  34.190   0.546 0/3     1350
+openfold3/multimer               2      -        -       -       -       -     8.202 0/2     1350
+openfold3/prot                   4    2.511    2.511   2.511   2.511   2.045   0.594 0/4     1350
+openfold3/ubq                    8    0.782    0.782   0.748   0.798   0.819   0.358 0/8     1350
+protenix-v2/9gfr_pep             4   51.430   45.871  45.871  51.430  47.979  16.441 4/4     1350
+protenix-v2/multimer             2      -        -       -       -       -     1.651 0/2     1350
+protenix-v2/prot                 4    1.920    1.920   1.983   1.920   1.861   1.971 0/4     1350
+protenix-v2/ubq                  4    1.892    1.892   1.892   1.892   1.417   1.338 0/4     1350
+rf3/9gfr_abag                    2   30.939   30.939  38.976  30.939  35.927  18.341 0/2     1350
+rf3/9gfr_pep                     4   39.556   37.203  37.203  39.556  46.150  36.001 1/4     1350
+rf3/multimer                     2      -        -       -       -       -    24.560 0/2     1350
+rf3/prot                         8    1.277    1.297   1.307   1.281   1.289   0.163 4/8     1350
+rf3/ubq                          8    0.682    0.680   0.667   0.683   0.675   0.089 4/8     1350
+
+model/target                 regret shipped regret unified sel rank ship sel rank unif paired mean     b/w/s
+------------------------------------------------------------------------------------------------------------
+opendde/prot                         0.0522         0.0553          1.62          1.62     +0.0031 1/1/6    
+opendde/ubq                          0.1492         0.1955          2.50          3.50     +0.0463 0/2/6    
+openfold3/9gfr_pep                   2.6042         2.6042          1.00          1.00     +0.0000 0/0/3    
+openfold3/prot                       0.7643         0.7643          4.00          4.00     +0.0000 0/0/4    
+openfold3/ubq                        0.0993         0.0993          1.50          1.50     +0.0000 0/0/8    
+protenix-v2/9gfr_pep                 6.2580         0.6990          3.50          0.75     -5.5590 4/0/0    
+protenix-v2/prot                     0.4108         0.4108          2.50          2.50     +0.0000 0/0/4    
+protenix-v2/ubq                      1.2285         1.2285          3.50          3.50     +0.0000 0/0/4    
+rf3/9gfr_abag                        3.4565         3.4565          1.00          1.00     +0.0000 0/0/2    
+rf3/9gfr_pep                         2.3532         0.0000          1.00          0.00     -2.3532 1/0/3    
+rf3/prot                             0.0314         0.0512          1.88          2.50     +0.0197 1/3/4    
+rf3/ubq                              0.0293         0.0267          2.38          2.50     -0.0026 1/3/4    
+
+model/target                  iptm samples  exact  worst diff  served same
+opendde/multimer                         5      5   0.000e+00         True
+openfold3/multimer                      10     10   0.000e+00         True
+protenix-v2/multimer                    10     10   0.000e+00         True
+rf3/9gfr_abag                           10     10   0.000e+00         True
+rf3/multimer                            10     10   0.000e+00         True
+
+model/target                  pLDDT~pTM  pLDDT~qual  pLDDTca~qual  pTM~qual  seeds
+opendde/multimer                    -           -             -         -        0
+opendde/prot                     +0.700      +0.062        +0.188    +0.087      8
+opendde/ubq                      +0.287      -0.600        -0.013    -0.275      8
+openfold3/9gfr_pep               +0.800      +0.800        +0.067    +0.700      3
+openfold3/multimer                  -           -             -         -        0
+openfold3/prot                   +0.975      -0.600        -0.225    -0.650      4
+openfold3/ubq                    +0.750      +0.263        -0.100    +0.125      8
+protenix-v2/9gfr_pep             -0.775      +0.825        -0.450    -0.800      4
+protenix-v2/multimer                -           -             -         -        0
+protenix-v2/prot                 +0.300      -0.450        -0.200    +0.000      4
+protenix-v2/ubq                  +0.950      -0.650        -0.325    -0.775      4
+rf3/9gfr_abag                    -0.600      -0.750        -0.150    +0.800      2
+rf3/9gfr_pep                     +0.775      +0.575        -0.075    +0.250      4
+rf3/multimer                        -           -             -         -        0
+rf3/prot                         -0.037      -0.362        -0.088    +0.050      8
+rf3/ubq                          -0.087      +0.037        +0.375    +0.075      8

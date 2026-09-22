@@ -1,0 +1,43 @@
+{
+  "question": "D172 asked whether diffusion_transformer's 8.1943 at model scope is a real defect or an artifact of the capture the charter's arm used. Answered on CPU from artifacts already on disk, with no card.",
+  "answer": "AN ARTIFACT, and the variable is named. The two arms use the SAME capture (/home/ttuser/of3t_softgrad/diffcap043), the SAME 547 tensors, the SAME model denominator, and the SAME reference -- per-tensor ref_norm agrees to a ratio of exactly 1.0000 on every diffusion_transformer tensor. The only difference either artifact records is D56: arm A has softmax_bw_renorm_asked/live BOTH NULL (it predates the instrumentation, so it ran without the repair), arm B records asked=false live=TRUE, which is the composition's default-ON since pass 274.",
+  "effect_on_that_section": {
+    "tensors": 456,
+    "pct_of_model_mass": 43.6221,
+    "rel_l2_arm_A_pre_D56": 8.1943,
+    "rel_l2_arm_B_D56_live": 0.1167,
+    "factor": 70.2
+  },
+  "where_it_sits": {
+    "one_tensor_carries_it": "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "its_share_of_the_DiT_squared_error_in_arm_A_pct": 94.149,
+    "rel_l2_A": 18.504,
+    "rel_l2_B": 0.0637,
+    "our_device_gradient_A_over_B": 20.073,
+    "top_12_tensors_carry_pct": 99.97,
+    "note": "MODEL_shipped.json's own worst_tensor field already named this tensor at 18.5040. What nobody had done is weight it: it is 94 % of the section and the section is the whole model-scope error."
+  },
+  "arm_level_effect": {
+    "worst_rel_A": 18.503974843073646,
+    "worst_rel_B": 0.5523992247843221,
+    "median_rel_A": 0.1250047459812202,
+    "median_rel_B": 0.09344246380757325,
+    "over_5e-2_A": 459,
+    "over_5e-2_B": 407
+  },
+  "projected_model_scope": {
+    "method": "SUBSTITUTION, not a re-run: MODEL_shipped's per-section table with the six sections arm B covers replaced by arm B's own mass-weighted values, composed on squared mass shares. Legitimate because capture, reference, denominator and tensor set are identical; it is still a projection and of3t-ditmodel owns the real re-take.",
+    "pct_of_model_mass": 92.1568,
+    "rel_l2_as_measured_today": 5.637919818294238,
+    "rel_l2_with_the_D56_arm": 0.084474,
+    "upstream_own_bf16_vs_same_float64": 0.07525074084476165,
+    "ratio_to_upstreams_own_bf16_step": 1.122567021290401,
+    "A26_reachable_bar": 0.1049544980174316,
+    "inside_the_reachable_bar": true
+  },
+  "inputs": {
+    "MODEL_shipped": "a33bd07a25f111769196217d33610fb9f8e49f52f9b96c459184990856f990d8",
+    "arm_A": "34337f7569f1ee84a09ffb9b2bc2f916d793fa0bdc3a2b16a0e76f464190714c",
+    "arm_B": "effddf97d4deeb76ac45376c63dc8be94a9b994e8f56c83ae055ab1eac757c9f"
+  }
+}

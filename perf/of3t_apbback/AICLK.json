@@ -1,0 +1,3 @@
+{"what":"AICLK sampled DURING a device arm, card 0, p300c Blackhole on qb2",
+ "arm":"devblk.py --block 47 --arm shipped --sub none","n":48,"min":800,"median":1350,"max":1350,
+ "note":"the 800 samples are the idle head of the window before the arm opened the device; no timing or performance claim is made anywhere in this row, every figure is a VALUE"}
