@@ -491,11 +491,11 @@ the cancelling reduction, and `of3t-lnreduce` is dispatched on it.
 0.1026990533692057 against the 0.15210099830945006 bar, **0.6752x, passing alone**, spread
 0.005x to 1.823x, seven of eleven strictly better than their own bf16 (D221).
 
-**The 3-4.6x now has a mechanism with a number on it** (R131, CPU simulation, no card): it maps
-to a **~2 mantissa-bit deficit** — a 22-bit accumulator reads **3.928** against the 4.000 the
-deficit predicts — and **bf16 accumulation is excluded at 65,237x**. TT fp32 being short of IEEE
-fp32 is Moritz's mechanism with "a few bits" measured at about two, and it makes the trunk defect
-and the unreachable on-device softmax **one** mechanism, not two.
+**The 3-4.6x is a ~2 mantissa-bit deficit** (R131, CPU simulation, no card): a 22-bit
+accumulator reads **3.928** against the 4.000 the deficit predicts, and bf16 accumulation is
+excluded at 65,237x. **It is NOT the softmax ceiling** — asserted and retracted inside this pass;
+the sites are **10.1 bits apart** (softmax 12.3-17.6, trunk 1.6-2.2). **Two bits is small**, so
+the trunk may not need the host round trip the softmax did.
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** The per-pass
 narrative, including the superseded CEIL_HF projection and its correction, is in PASSLOG.

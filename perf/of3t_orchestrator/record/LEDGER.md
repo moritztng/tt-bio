@@ -1352,8 +1352,19 @@ Three things fall out that are worth more than the correction:
   prediction: measure ~22 bits, or the precision story is wrong.
 - **bf16 accumulation is excluded by four orders of magnitude**, 65,237x against an observed 3x.
   We are not accumulating in bf16 while upstream accumulates in fp32.
-- **Same silicon ceiling, second site.** This is why no on-device softmax config reached the bar
-  either, and it makes the trunk defect and the softmax defect one mechanism rather than two.
+- **NOT the softmax ceiling, and I had that wrong for about ten minutes in this same pass.** I
+  wrote "same silicon ceiling, second site" into VERDICT and this entry, then put both sites in
+  one unit and retracted it: `BIT_DEFICIT_SITES.json` reads the softmax sites at **12.3 to 17.6
+  bits** short of IEEE fp32 and the trunk reduction at **1.6 to 2.2**, **10.1 bits apart, a
+  factor of 1,121**. Both are on-device precision deficits; neither is the other.
+  **The consequence is the useful part: two bits is SMALL.** The softmax needed a host round trip
+  because nothing on-device came within four orders of magnitude of real fp32; two bits is the
+  size a higher-precision on-device accumulate could plausibly close. So `of3t-lnreduce` should
+  price the on-device rung FIRST — the reverse of the softmax result and cheaper if it holds.
+  The unit is C-independent because it is a ratio of two computations of the same quantity, and
+  `LADDER_SHAPE.json` validates it directly: a 2-bit-short accumulator reads 3.928 against a
+  predicted 4.000. The caveat is stated in the artifact — two different computations in a common
+  unit is an order-of-magnitude argument, decisive here only because the gap is 10.1 bits.
 
 **The process lesson, which is the durable one.** The simulation cost four minutes on CPU with
 numpy and no card, and it invalidated the test before the row spent card time on it — but I ran
