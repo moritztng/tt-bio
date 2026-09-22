@@ -1,0 +1,130 @@
+{
+ "question": "is the gradient failure localised to one op family -- e.g. the tape's layer_norm backward -- as \"the worst tensor is always a layer norm\" suggests?",
+ "method": "classify each compared tensor by its LEAF op, not by a substring of the full path: AdaLN nests linear_g/linear_b under a layer_norm_a prefix, and a path-substring test bins those linears as layer norms. A14 applied.",
+ "by_arm": {
+  "043_block0_tboff": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.0695862561908629,
+    "max": 1.3731638151595602
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.07526287443731267,
+    "max": 1.0479928080418976
+   }
+  },
+  "043_block0_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.010098002267262617,
+    "max": 1.2510219391256625
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.012140235659400405,
+    "max": 0.08022932235435783
+   }
+  },
+  "043_block23_tboff": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.0890778295159115,
+    "max": 4.892815960088487
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.10346678129752346,
+    "max": 1.3300400177662315
+   }
+  },
+  "043_block23_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.016392149145636945,
+    "max": 4.852631746532342
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.020555500765248508,
+    "max": 0.0749134614084168
+   }
+  },
+  "043_block47_tboff": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.9574038432298649,
+    "max": 13.119620683081962
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.970508477166123,
+    "max": 1.8160769298216572
+   }
+  },
+  "043_block47_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.9333890925621745,
+    "max": 10.840243797639522
+   },
+   "linear/matmul": {
+    "n": 32,
+    "median": 0.9450148427262406,
+    "max": 1.0135676011733612
+   }
+  },
+  "043spb_block0_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.01002076971728698,
+    "max": 0.9138911451654851
+   },
+   "linear/matmul": {
+    "n": 33,
+    "median": 0.012204275517178486,
+    "max": 0.8353116179586978
+   }
+  },
+  "043spb_block23_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.014918976832811506,
+    "max": 5.741911456294123
+   },
+   "linear/matmul": {
+    "n": 33,
+    "median": 0.02073693850078388,
+    "max": 1.1116050030928775
+   }
+  },
+  "043spb_block47_tboff": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.2266319817294849,
+    "max": 33.265665013881694
+   },
+   "linear/matmul": {
+    "n": 33,
+    "median": 0.2402640128354431,
+    "max": 1.151054789918688
+   }
+  },
+  "043spb_block47_tbshipped": {
+   "layer_norm": {
+    "n": 19,
+    "median": 0.1990190516565147,
+    "max": 33.08190724677101
+   },
+   "linear/matmul": {
+    "n": 33,
+    "median": 0.2024928212040084,
+    "max": 1.0163553263517702
+   }
+  }
+ },
+ "answer": "NO.",
+ "reading": "At every block and every arm the layer_norm median and the linear/matmul median agree to within 25 %, and layer norms are marginally BETTER: 0.0101 vs 0.0121 at block 0 shipped, 0.0164 vs 0.0206 at block 23, 0.9334 vs 0.9450 at block 47. A defect localised to one op's backward cannot produce that. What IS true is that layer norms own the extreme TAIL -- max 10.84 to 33.27 against linear/matmul's 1.0 to 1.8 -- because a layer-norm weight gradient is a sum with cancellation over the normalised axis, so a small absolute error reads as a large relative one. \"The worst tensor is always a layer norm\" is therefore a statement about the TAIL, not about the LOCUS, and it has been quoted in this campaign as if it pointed at a module.",
+ "consequence_for_D31": "D31 was argued on three legs: backward-specific by construction, the right order of magnitude, and \"it sits on the right module -- attention_pair_bias is worst in both stacks\". THE THIRD LEG IS WITHDRAWN. attn_pair_bias.layer_norm_a being worst is a tail effect of layer-norm gradients, not evidence that the attention path is the locus. D31 stands on the other two.",
+ "consequence_for_the_bisect": "Stop looking for one bad op. A failure whose median is uniform across op families within a block, and which varies 50x BETWEEN blocks (0.012 at block 0, 0.944 at block 47), is something that scales the whole block -- which is what D27 already showed (block 47 responds to scale_pair_bias, a whole-block input scaling, and not at all to transpose_bias) and what the s_fp32_residual hypothesis proposes (whole-block residual quantisation). The backward stage bisect should be cut by BLOCK BOUNDARY first and by op only after."
+}
