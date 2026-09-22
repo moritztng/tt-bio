@@ -4,6 +4,16 @@
 # Each step's output is an artifact in perf/of3t_hostleg/, so a failure stops the chain with the
 # last good one on disk rather than half a table.
 set -uo pipefail
+# One at a time. Two launchers fired this chain once -- a detached watcher on qb1 and a session
+# waiter that outlived its turn -- and the second was REWRITING device_grads_hl_allbreak.pt while
+# the first was scoring it. Both runs were killed and the chain re-run; the lock is so it cannot
+# happen again. flock, not a pidfile: the kernel releases it if the holder dies.
+exec 9>/tmp/of3t-hostleg-finish.lock
+if ! flock -n 9; then
+  echo "REFUSING: another finish.sh holds /tmp/of3t-hostleg-finish.lock. Two of these write the"
+  echo "same artifacts and want the same card; one of them would score a half-written dump."
+  exit 3
+fi
 W=/home/ttuser/.coworker/wt/of3t-hostleg
 cd "$W"
 PY=/home/ttuser/tt-bio-dev/env/bin/python
