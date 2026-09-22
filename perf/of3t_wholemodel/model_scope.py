@@ -69,6 +69,90 @@ def sha256(p):
     return agreement.sha256(p)
 
 
+CONVENTIONS = ("graph-cut-external", "legacy-total-cotangent", "not_injected")
+
+
+def injection_map(arm_specs, injection_specs, correction_specs, digest=sha256):
+    """The per-scope record of WHICH FUNCTIONAL produced each part of the composition.
+
+    R161 put the convention stamp in `ref_grad.py`; R168 found it does not survive composition,
+    and the composed artifact is what the charter reads. So the stamp has to travel as far as
+    the number does, and it has to be PER SCOPE: this composition pools five full-model arms
+    that inject nothing with one injected trunk, and a single top-level flag would be false for
+    five of six.
+
+    Returns None when nothing is declared, which leaves the artifact exactly as it was before
+    this option existed. Declaring PART of the pool is a STOP rather than a default, because a
+    scope quietly defaulting to `not_injected` is the one error this record exists to prevent.
+
+    The pooled `convention` is a single well-defined string only because the injected scopes are
+    required to AGREE -- A42's digest rule one level up. Today `pairformer_stack` is the only
+    injected scope, so that check always passes; it is here for the next person to inject a
+    second one, who will not be thinking about it.
+    """
+    if not injection_specs and not correction_specs:
+        return None
+    parts = [spec.split("=", 1)[0] for spec in arm_specs]
+
+    def parse(specs, what):
+        out = {}
+        for spec in specs:
+            head, val = spec.split("=", 1)
+            if head in out:
+                raise SystemExit("STOP: %s names %r twice." % (what, head))
+            if head not in parts:
+                raise SystemExit("STOP: %s names %r, which is not one of the --arm parts (%s)."
+                                 % (what, head, ", ".join(parts)))
+            out[head] = val
+        return out
+
+    conv = parse(injection_specs, "--injection")
+    corr = parse(correction_specs, "--injection-correction")
+    unnamed = [x for x in parts if x not in conv]
+    if unnamed:
+        raise SystemExit(
+            "STOP: --injection was given but %d of %d parts are unnamed (%s). Every scope must "
+            "say which functional produced it; an unnamed one would take the least alarming "
+            "value by default, which is the ambiguity this stamp exists to remove."
+            % (len(unnamed), len(parts), ", ".join(unnamed)))
+    by_scope, injected = {}, {}
+    for part in parts:
+        c = conv[part]
+        if c not in CONVENTIONS:
+            raise SystemExit("STOP: %s declares convention %r; it must be one of %s."
+                             % (part, c, ", ".join(CONVENTIONS)))
+        rec = {"convention": c}
+        if c == "not_injected":
+            if part in corr:
+                raise SystemExit("STOP: %s is not_injected but carries a correction file %r. A "
+                                 "scope with no injection has no correction." % (part, corr[part]))
+        else:
+            if part not in corr:
+                raise SystemExit("STOP: %s declares %r but no --injection-correction. An "
+                                 "injected scope without the correction it was driven by cannot "
+                                 "be reproduced." % (part, c))
+            rec["correction"] = {"path": corr[part], "sha256": digest(corr[part])}
+            injected[part] = c
+        by_scope[part] = rec
+    pooled = sorted(set(injected.values()))
+    if len(pooled) > 1:
+        raise SystemExit(
+            "STOP: the injected scopes disagree on convention -- "
+            + "; ".join("%s is %r" % (k, v) for k, v in sorted(injected.items()))
+            + ". A composed reading built from two functionals is meaningless and nothing in "
+              "the artifact would say so. Compose one convention at a time.")
+    return {
+        "convention": pooled[0] if pooled else "not_injected",
+        "what_the_single_value_means":
+            "the convention every INJECTED scope was driven by. It is one string only because "
+            "disagreeing injected scopes are refused; read by_scope for which scope carries it.",
+        "n_scopes": len(by_scope),
+        "n_injected": len(injected),
+        "key_form": "ARM:SCOPE, the same identifier --arm uses",
+        "by_scope": by_scope,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", action="append", default=[], metavar="ARM:SCOPE=PATH",
@@ -97,6 +181,16 @@ def main():
                          "scope's own denominator. A scope scored this way may not be "
                          "concatenated into the model union; that is what --composed-term is "
                          "for.")
+    ap.add_argument("--injection", action="append", default=[],
+                    metavar="ARM:SCOPE=CONVENTION",
+                    help="repeatable, and either every --arm part is named or none is. "
+                         "CONVENTION is graph-cut-external, legacy-total-cotangent or "
+                         "not_injected. R168: the stamp ref_grad.py writes does not survive "
+                         "composition, and the composed artifact is what the charter reads.")
+    ap.add_argument("--injection-correction", action="append", default=[],
+                    dest="injection_correction", metavar="ARM:SCOPE=PATH",
+                    help="the cotangent correction an INJECTED scope was driven by. Its sha256 "
+                         "is computed here from the file rather than transcribed.")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
     args = ap.parse_args()
@@ -121,6 +215,13 @@ def main():
         head, path = spec.split("=", 1)
         arm, scope = head.split(":", 1)
         by_arm.setdefault(arm, []).append(f"{scope}={path}")
+    # Before anything expensive loads: a mis-declared pool costs seconds, not an hour.
+    injection = injection_map(args.arm, args.injection, args.injection_correction)
+    if injection is not None:
+        print('injection: %s over %d of %d scopes'
+              % (injection['convention'], injection['n_injected'], injection['n_scopes']),
+              flush=True)
+
     arms, owners = {}, {}
     for arm, parts in by_arm.items():
         print(f"loading arm {arm}", flush=True)
@@ -341,6 +442,8 @@ def main():
         },
         "reconciliation": recon,
     }
+    if injection is not None:
+        out["injection"] = injection
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(out, indent=2))
     print(json.dumps({k: v for k, v in out.items()

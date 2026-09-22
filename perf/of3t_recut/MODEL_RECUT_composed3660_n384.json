@@ -1343,5 +1343,36 @@
         }
       }
     }
+  },
+  "injection": {
+    "convention": "graph-cut-external",
+    "what_the_single_value_means": "the convention every INJECTED scope was driven by. It is one string only because disagreeing injected scopes are refused; read by_scope for which scope carries it.",
+    "n_scopes": 6,
+    "n_injected": 1,
+    "key_form": "ARM:SCOPE, the same identifier --arm uses",
+    "by_scope": {
+      "renorm:diffusion": {
+        "convention": "not_injected"
+      },
+      "renorm:input_embedder": {
+        "convention": "not_injected"
+      },
+      "renorm:cond": {
+        "convention": "not_injected"
+      },
+      "renorm:aux": {
+        "convention": "not_injected"
+      },
+      "renorm:msa": {
+        "convention": "not_injected"
+      },
+      "renorm:pairformer_stack": {
+        "convention": "graph-cut-external",
+        "correction": {
+          "path": "/home/ttuser/of3t_recut/cot_external.pt",
+          "sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+        }
+      }
+    }
   }
 }
