@@ -1874,3 +1874,52 @@ about our arithmetic.
 boundary; A39 extends that to the denominator. A40 is the prior question both of them assume: that
 the boundary is the one it says it is. A34 and A39 are satisfiable by a frame that is internally
 consistent and externally wrong, which is precisely what happened here.
+
+### A40, addendum — pass 382. This was a REGRESSION, not an oversight, and the control already existed
+
+A40 above reads as though nobody had thought of the control. That is wrong, and the correction
+matters because it changes what has to be fixed.
+
+**`of3t-conditioning` had already built it, named it, and written down the principle.**
+`perf/of3t_conditioning/capture_cond_boundary.py:15-22`:
+
+> **COTANGENT_COMPLETE** — seeding it with `cond_out_cot` must reproduce all 26
+> `diffusion_conditioning.*` gradients in `grad_f64`. [...] a cotangent at a boundary is a
+> complete gradient only if the parameters reach the loss through that boundary alone, and the
+> reference's own float64 answer is the only thing that can say so. `DiffusionConditioning.forward`
+> returns `(si, zij)` and has no other entry point, so the expectation is exact agreement — and an
+> expectation is not a check.
+
+That is D242's control, stated in full, with its rationale, two rows before the model frame was
+built.
+
+**`capture_model_frame.py` shipped without it and argued the opposite in a comment**
+(`perf/of3t_modelframe/capture_model_frame.py:232-234`):
+
+> A boundary and a cotangent cannot be checked directly against anything. What CAN be checked is
+> that the backward they were taken from is the one the reference published.
+
+Both sentences are about the same object. The first is false — `of3t-twoside` checked it directly,
+in one trunk replay — and the second describes the WITNESS, which passed at 1.6952505222168705e-14
+and was then read as validating the frame.
+
+**So the rule has a second half. A capture's WITNESS and its frame's GATING CONTROL test different
+things, and passing the first says nothing about the second.**
+
+- The **witness** asks: is the backward these tensors were taken from the reference's backward?
+  It is an assertion about PROVENANCE and it cannot see a replay defect, because no replay has run.
+- The **control** asks: does replaying this capture, in the reference's own precision, reproduce
+  the reference? It is an assertion about SUFFICIENCY and it is the only one that licenses grading.
+
+A frame carrying a green witness and no control is not a validated frame, and it reads exactly
+like one. That is why this cost three passes: the instrument that was run could not fail.
+
+**What binds from here.** Any row producing a boundary/cotangent capture ships COTANGENT_COMPLETE
+by name, with its bar fixed in advance, and may not substitute a provenance witness for it. Any
+row consuming one asserts the control has passed before it publishes a ratio. Where the producer
+is concluded, the consuming row owns the control — it is cheaper than the arm it gates, always,
+because it is one replay of the same function.
+
+**And a reviewer's rule, from how this got through.** When a producer's comment explains why a
+check is impossible, that is the place to look hardest. The comment was load-bearing: it is the
+reason no successor asked for the control.
