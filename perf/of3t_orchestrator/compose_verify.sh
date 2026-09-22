@@ -325,6 +325,12 @@ _ASSERT
             # parsed, stripped of docstrings and compared as ASTs, so any executable difference
             # anywhere refuses and stops the compose.
             :
+          elif "$PY" "$HERE/resolve_foreign_namespace_copy.py" "$_f" "origin/wk/of3t-$r" "$r"; then
+            # A stale copy of ANOTHER row's perf namespace, carried along by this branch since
+            # it forked. The ownership rule says a row writes only its own namespace, so HEAD --
+            # which is rebuilt from origin/main every pass -- wins. Refuses on tt_bio/, tests/,
+            # docs/ and scripts/, where a conflict is real.
+            :
           elif "$PY" "$HERE/resolve_superseded_local_def.py" "$_f" "origin/wk/of3t-$r"; then
             # The row carries a LOCAL copy of something main has since unified -- of3t-rebase's
             # `sample_ranking_score` against main's landed `rank.ranking_score` (7848e2d17 and
