@@ -14,7 +14,7 @@ def secs(hms):
     return h * 3600 + m * 60 + s
 
 rows = []
-for tag in ("run2", "run3", "armNEW", "armOLD", "runq"):
+for tag in ("run2", "run3", "armNEW", "armOLD", "runq", "runq2"):
     err, lg = R / tag / "run.err", R / tag / "loadavg.log"
     if not err.exists():
         continue
