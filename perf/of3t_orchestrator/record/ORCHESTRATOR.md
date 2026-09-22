@@ -74,14 +74,15 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **one hundred eight dispatched, one hundred four concluded** as of pass 358 — one hundred
-eight `of3t-*` briefs on disk including this row's own, and one hundred four concluded markers
-excluding it. `of3t-covdefault` concluded 11:46Z (NO-GO on the default flip, and its BAR proposal
-refused as D212); `of3t-blk4544` concluded 11:18Z having excluded the trunk's backward;
-`of3t-trajfull` concluded 08:35Z and closed TRAJECTORY. Dispatched this pass: **`of3t-refcov`**
-(the coverage leg, from the training adapter) and **`of3t-vjpln`** (blk4544's named next arm).
-`of3t-trunkact` is live. Four rows live against a cap of five — Moritz, 20:29Z 2026-09-21:
-*"we're still burning money too fast. do exactly the same with fewer agents in parallel."*
+ROWS: **one hundred eight dispatched, one hundred five concluded**, counted from disk at the END
+of pass 358 (108 `of3t-*` briefs including this row's own; 107 markers, 2 of them this row's own
+historical ones). `of3t-trunkact` concluded NO-GO mid-pass and its brief-amendment is below;
+`of3t-covdefault` concluded 11:46Z (NO-GO on the default flip, BAR proposal refused as D212);
+`of3t-blk4544` 11:18Z; `of3t-trajfull` 08:35Z, closing TRAJECTORY. Dispatched this pass:
+**`of3t-refcov`** (the coverage leg, from the training adapter) and **`of3t-vjpln`** (blk4544's
+named next arm, brief amended with trunkact's census after it concluded). Three rows live against
+a cap of five — Moritz, 20:29Z 2026-09-21: *"we're still burning money too fast. do exactly the
+same with fewer agents in parallel."*
 
 Every row owns a disjoint artifact namespace `perf/of3t_<row>/` and is based on `wk/of3t` via
 `CONTINUES_FROM:` so the DISPATCHER resolves the base rather than the row spending ten minutes
@@ -358,11 +359,12 @@ the same loss 106.102083, ratio 1.0001, registry resolving 0/5. That is what har
 nothing on the route reaches looks like.
 
 
-**The 78 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
+**The 79 UNFIXED, named, because a count is not a list** (classes and per-defect reasons in
 `state/of3t/UNFIXED_TRIAGE.json`, recomputed against the DEFECTS union at pass 358 — the two it
-had been missing, D210 and D211, were invisible only because their headings used an em dash):
+had been missing, D210 and D211, were invisible only because their headings used an em dash; D213
+was filed this pass):
 
-    SCOPE-EXCLUDED     4  D2, D3, D123, D124
+    SCOPE-EXCLUDED     5  D2, D3, D123, D124, D213
     USER-FACING        9  D10, D24, D32, D55, D56, D58, D184, D205, D210
     CAMPAIGN-INTERNAL  65  D18, D22, D23, D26, D27, D28, D35, D37, D42, D46, D48, D49, D51, D53, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D207, D208, D209, D211
 
@@ -385,13 +387,13 @@ VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is wha
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
 regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
 pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred eight rows dispatched, one
-hundred four concluded, four live. **Two hundred twelve defects filed**, **78 UNFIXED** (4
+hundred five concluded, three live; `state/concluded` holds **one hundred seven** of3t files. **Two hundred thirteen defects filed**, **79 UNFIXED** (5
 scope-excluded, 9 USER-FACING, 65 campaign-internal) over the UNION of `DEFECTS.md` and its
-archives — the live file holds only the tail. `state/concluded` holds **one hundred six** (106) of3t files, of which
+archives — the live file holds only the tail. It holds, of which
 two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
-historical markers and not rows, so **one hundred four rows have concluded**. Counts recounted
-from disk this pass, not carried forward: 108 `of3t-*.txt` briefs, 106 markers, 2 of them this
-row's own.
+historical markers and not rows, so **one hundred five rows have concluded**. Recounted from
+disk at the end of this pass, not carried forward, and it moved DURING the pass: `of3t-trunkact`
+concluded while these fields were being written.
 
 **The distance still to go, per tensor against upstream's own step**
 (`perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator 10.279642678524981,
