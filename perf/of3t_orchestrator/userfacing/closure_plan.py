@@ -125,18 +125,6 @@ PLAN = {
         "asked": ("pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the "
                   "composition since pass 274, verified backward-only by AST, and not merged"),
     },
-    "D30": {
-        "needs": CARD,
-        "one_line": "the diffusion module's backward costs 19.6x the forward it is taken at",
-        "closes_when": ("the cause of the backward-over-forward amplification is located. D58 "
-                        "already moved this from a diffusion-module property to a property of the "
-                        "tape, and of3t-ditcot is measuring the same object one level down"),
-        "evidence_held": ("forward median 8.34e-03, gradient median 1.6588e-01, ratio 19.6x over 48 "
-                          "structures against the rebuilt 0.4.3 reference"),
-        "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D58", "D129"],
-    },
     "D58": {
         "needs": CARD,
         "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
@@ -167,19 +155,6 @@ PLAN = {
                           "even count measured keeps it"),
         "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
                  "(D204: nothing checked that it ever was)",
-    },
-    "D129": {
-        "needs": CARD,
-        "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",
-        "closes_when": ("of3t-ditcot names the op carrying the flat 2.28x cotangent excess and it is "
-                        "repaired or shown to be a floor. Separately, the 0.4.3 ratio needs OUR arm "
-                        "at the 0.4.3 capture, which no artifact holds and which needs a lease"),
-        "evidence_held": ("isolation 1.5217e-03 (456x under the reading), input exact to 1.98e-08, "
-                          "substitution reproduces the reference gradient at 8.877e-09; the 0.4.3 "
-                          "bar is 2.2530588761e-01, 0.73 % from the 0.5.0 one"),
-        "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D30", "D58"],
     },
     # D55's BACKWARD half closed at pass 311 and the entry stays, rewritten to its forward half.
     # Not removed: `of3t-ditcot`'s commit subject reads "D55 closed" and it is not, it is half.
