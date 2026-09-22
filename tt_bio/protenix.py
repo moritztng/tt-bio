@@ -38,7 +38,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul,
-                          device_generation, accurate_softmax_site, softmax_ckc)
+                          device_generation, accurate_softmax_site, host_f64_softmax_site,
+                          site_softmax, softmax_ckc)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
 
@@ -483,7 +484,9 @@ class AtomTransformer(_KeyedWeights, Module):
         self.dtype = dtype
         self.n_blocks = n_blocks
         self._w = {k: v for k, v in self.weights.data.items()}
+        # OFF: bf16 arrives here too, 2.14x accuracy for 2.46x cost at [33,4,32,128].
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
+        self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
 
     def _adaln(self, a, s, pre):
@@ -565,7 +568,8 @@ class AtomTransformer(_KeyedWeights, Module):
         sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+        o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                        host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
@@ -661,7 +665,8 @@ class AtomTransformer(_KeyedWeights, Module):
         else:
             sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
-        o = batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc),
+        o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                        host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
@@ -932,7 +937,8 @@ class DiffusionModule(_KeyedWeights):
                 AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
                                   PW.remap_attention_pair_bias(sub(A)), self._dit_ckc,
-                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True),
+                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True,
+                                  softmax_site="protenix.token_dit"),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 

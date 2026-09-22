@@ -1,0 +1,141 @@
+{
+ "instrument": "PROTOCOL SS6: bond term fires, with its gradient contribution measured",
+ "stage": "finetune_1",
+ "dataset": "weighted-pdb",
+ "crop": 256,
+ "index": 12,
+ "dtype": "float32",
+ "seed": 20260920,
+ "package": "openfold3",
+ "cache_file": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets/training_cache_with_templates_subset_2.json",
+ "target": {
+  "pdb_id": "4g5j",
+  "datapoint": "1",
+  "token_bonds_nnz": 120,
+  "token_bonds_pairs": 60,
+  "bond_mask_nnz": 1,
+  "loss_weight_bond": 4.0,
+  "n_tokens_real": 256
+ },
+ "arms": {
+  "bond4": {
+   "weight": 4.0,
+   "loss": 0.3135363757610321,
+   "breakdown": {
+    "plddt_loss": 1.6199744939804077,
+    "pde_loss": 1.6161963939666748,
+    "experimentally_resolved_loss": 0.02289993315935135,
+    "pae_loss": 2.5762619972229004,
+    "confidence_loss": 0.0005835333140566945,
+    "mse_loss": 1.7676992416381836,
+    "bond_loss": 0.0012424831511452794,
+    "diffusion_loss": 0.2772516906261444,
+    "distogram_loss": 1.1900384426116943,
+    "scaled_distogram_loss": 0.03570115193724632,
+    "loss": 0.3135363757610321
+   }
+  },
+  "bond0": {
+   "weight": 0.0,
+   "loss": 0.30956944823265076,
+   "breakdown": {
+    "plddt_loss": 1.6199744939804077,
+    "pde_loss": 1.6161963939666748,
+    "experimentally_resolved_loss": 0.02289993315935135,
+    "pae_loss": 2.5762619972229004,
+    "confidence_loss": 0.0005835333140566945,
+    "mse_loss": 1.7676992416381836,
+    "diffusion_loss": 0.27328476309776306,
+    "distogram_loss": 1.1900384426116943,
+    "scaled_distogram_loss": 0.03570115193724632,
+    "loss": 0.30956944823265076
+   }
+  }
+ },
+ "bond_gradient_contribution": {
+  "squared_norm_with_bond": 1.4551536445726967,
+  "squared_norm_of_difference": 0.2137645687351699,
+  "share_of_squared_gradient_norm": 0.1469017168959787,
+  "n_params_moved": 3924,
+  "n_params": 4170
+ },
+ "by_section": {
+  "input_embedder": {
+   "sq": 0.0005975700981861351,
+   "delta_sq": 2.9747953593579577e-05,
+   "n": 98,
+   "share_of_own": 0.04978152970484391
+  },
+  "layer_norm_z": {
+   "sq": 1.7918824218217955e-05,
+   "delta_sq": 2.946042199593595e-07,
+   "n": 2,
+   "share_of_own": 0.01644104637512082
+  },
+  "linear_z": {
+   "sq": 1.8388111733872692e-06,
+   "delta_sq": 3.469194899674974e-08,
+   "n": 1,
+   "share_of_own": 0.018866509785691477
+  },
+  "template_embedder": {
+   "sq": 0.0003935402338494027,
+   "delta_sq": 9.602161011324415e-06,
+   "n": 96,
+   "share_of_own": 0.02439943920701868
+  },
+  "msa_module_embedder": {
+   "sq": 0.00010634011270891336,
+   "delta_sq": 6.884739411086715e-06,
+   "n": 2,
+   "share_of_own": 0.06474263789744546
+  },
+  "msa_module": {
+   "sq": 0.0027041045240089015,
+   "delta_sq": 8.287287283184044e-05,
+   "n": 227,
+   "share_of_own": 0.030647067114469143
+  },
+  "layer_norm_s": {
+   "sq": 6.132338851233785e-06,
+   "delta_sq": 2.5152038441517376e-07,
+   "n": 2,
+   "share_of_own": 0.04101540872363398
+  },
+  "linear_s": {
+   "sq": 9.762995170906314e-07,
+   "delta_sq": 1.0965308913175555e-08,
+   "n": 1,
+   "share_of_own": 0.011231500908504114
+  },
+  "pairformer_stack": {
+   "sq": 0.024222263960271252,
+   "delta_sq": 0.0009506989128067188,
+   "n": 2736,
+   "share_of_own": 0.039248970053585054
+  },
+  "diffusion_module": {
+   "sq": 1.4114222428668257,
+   "delta_sq": 0.21268417031365308,
+   "n": 761,
+   "share_of_own": 0.15068784085594208
+  },
+  "aux_heads": {
+   "sq": 0.015680716503086684,
+   "delta_sq": 0.0,
+   "n": 244,
+   "share_of_own": 0.0
+  }
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "total_s": 856.3603925704956
+}
