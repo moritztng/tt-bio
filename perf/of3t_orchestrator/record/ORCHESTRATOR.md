@@ -475,54 +475,55 @@ closing both legs at one scope, which is what `of3t-trunkact` and `of3t-covdefau
 verified every pass by `perf/of3t_orchestrator/compose_verify.sh`. Nothing merges to `main` without
 Moritz.
 
-VERDICT: PARTIAL, stamped pass 358, 2026-09-22 — **still working, which is what PARTIAL means.**
+VERDICT: PARTIAL, stamped pass 375, 2026-09-22 — **still working, which is what PARTIAL means.**
 The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
-regenerated every compose, spec lifted from the live gate, break control passing): COVERAGE MET at
-pass 351, **TRAJECTORY MET at pass 357**, GRADIENTS not. One hundred twelve rows dispatched, one hundred seven
-concluded, three live; `state/concluded` holds **one hundred fourteen** of3t files. **Two hundred thirty-six defects filed**, **89 UNFIXED** (5
+regenerated every compose, break control passing): COVERAGE and TRAJECTORY MET, GRADIENTS not —
+and since pass 361 GRADIENTS is a **single** failing clause, its coverage leg met on the composed
+3,660 artifact. One hundred sixteen
+rows dispatched, one hundred twelve concluded, three live;
+`state/concluded` holds **one hundred fourteen** of3t files, two of them (`of3t-orchestrator.falseconclude-20260920`,
+`.reopened-20260920-225425`) this row's own historical markers rather than rows, so **one hundred
+twelve rows have concluded**. **Two hundred thirty-six defects filed**, **89 UNFIXED** (5
 scope-excluded, 6 USER-FACING, 78 campaign-internal) over the UNION of `DEFECTS.md` and its
-archives — the live file holds only the tail. It holds, of which
-two (`of3t-orchestrator.falseconclude-20260920`, `.reopened-20260920-225425`) are this row's own
-historical markers and not rows, so **one hundred twelve rows have concluded**. Recounted from
-disk at the end of this pass, not carried forward, and it moved DURING the pass: `of3t-trunkact`
-concluded while these fields were being written.
+archives. Counts are stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.
 
 **Distance to go**: **48.1831 %** of the mass is at or better than upstream's own bf16 step
 tensor by tensor, **49.8019 %** worse, **2.0150 %** unread; mass weighted the graded 3,660
-artifact reads **0.5171166332757559** against its bar **0.15210099830945006**. Both true — our
-failures concentrate in high-mass tensors.
+artifact reads **0.5171166332757559** against **0.15210099830945006**. Both true — our failures
+concentrate in high-mass tensors.
 
 **What is verified.** The update rule's four state-free factors — LR schedule, clipping,
 optimizer, EMA — are exact or at 1e-06 under an injected drive, over their whole domain and at
 the corner cases a real batch never hits. Every loss term and conditional path FIRES on a real
-end-to-end step, 8 of 8 and 11 of 11, inference byte-identical twice. The
-twenty-step trajectory is coupled, covers the diffusion module completely, diverges
-sub-linearly, and sits **1.2707x** upstream's own bf16 loop at k = 20, never above **1.3677x**
-(pass 357, identical 761-tensor scope, reference bit-identical at all twenty rungs). Outside the
-pairformer trunk, same-reference against float64 on the graded 3,660 artifact, **seven of eleven
-sections are strictly BETTER than upstream's own bf16 training step** — `input_embedder`
-**0.005x**, `aux_heads` **0.010x**, `diffusion_conditioning` 0.126x on 36.95 % of the mass,
-`layer_norm_a` 0.277x, `atom_attn_dec` 0.391x, `msa_module` 0.499x, `atom_attn_enc` 0.886x — the
-spread outside the trunk is **0.005x to 1.823x**, and those ten read **0.1026990533692057**
-against the 0.15210099830945006 bar, **0.6752x and passing alone** (D221).
+end-to-end step, 8 of 8 and 11 of 11, inference byte-identical twice. The twenty-step trajectory
+is coupled, covers the diffusion module completely, diverges sub-linearly, and sits **1.2707x**
+upstream's own bf16 loop at k = 20, never above **1.3677x**. Outside the trunk, same-reference
+against float64 on the graded 3,660 artifact, **seven of eleven sections are strictly BETTER than
+upstream's own bf16 step** — `input_embedder` **0.005x**, `aux_heads` **0.010x**,
+`diffusion_conditioning` 0.126x on 36.95 % of the mass, `layer_norm_a` 0.277x, `atom_attn_dec`
+0.391x, `msa_module` 0.499x, `atom_attn_enc` 0.886x — the spread is **0.005x to 1.823x** and
+those ten read **0.1026990533692057** against **0.15210099830945006**, **0.6752x, passing
+alone** (D221).
 
-**What fails, and it is one object.** The graded artifact's trunk row reads **2.0151** against
-upstream's own **0.3148**, but not on the same reference and not in the same frame, so **6.402x
-is not the distance** (D214). In frame it is **2.2341x**. The aim is the trunk's own in-frame A26
-bar **0.5268825372815341** from **1.0293953377723410** — **1.9537x** to find — and **an
-A26-perfect trunk CLOSES the clause at 0.9701x** on the graded artifact (D218, D221). At
-5.8282 % of the model's gradient mass that
+**What fails, and it is one object.** In frame the trunk is **2.2341x** upstream's own bf16;
+the graded artifact's 2.0151-against-0.3148 is neither the same reference nor the same frame, so
+**6.402x is not the distance** (D214). The aim is its own in-frame A26 bar
+**0.5268825372815341** from **1.0293953377723410**, **1.9537x**, and **an A26-perfect trunk
+CLOSES the clause at 0.9701x** (D218, D221). At 5.8282 % of the mass that
 one section is the entire difference between GRADIENTS passing and failing. It is 100 % ours (the float64 reference is
 bit-identical across both widths at all 49 rungs), softmax is refuted as the carrier, and the
 LayerNorm affine leaves carry 93.80 % of it with an excess that is width-invariant.
 
-**The honest one-sentence claim today**: *on a configuration we have built and measured, the
-OpenFold3 training step reproduces upstream's step per-parameter over 92.16 % of the gradient mass
-at upstream's own bf16 accuracy, with full loss-term and path coverage and a coupled twenty-step
-weight trajectory over the diffusion module that stays within 1.27x of upstream's own bf16 loop —
-and one section, the pairformer trunk at 5.83 % of the mass, is **2.23x** upstream's own error
-in frame and is not reproduced.* Everything in that sentence is a
-measurement in a committed artifact; nothing in it is the shipped default.
+**The honest one-sentence claim today** (restated at pass 375; the 92.16 % it carried since
+pass 357 was two artifacts superseded): *on a configuration we have built and measured, the
+OpenFold3 training step reproduces upstream's step per-parameter over **99.505 %** of the model's
+squared gradient mass, with full loss-term and path coverage and a coupled twenty-step weight
+trajectory over the diffusion module within **1.2707x** of upstream's own bf16 loop; outside the
+pairformer trunk the gradient is **better** than upstream's own bf16 step — ten sections pooling
+to 0.1027 against a 0.1521 bar, **0.6752x** — and the trunk, **5.83 %** of the mass, is
+**2.2341x** upstream's own error in frame and is not reproduced.* With the host float64 softmax
+reaching the trunk that last reading is **1.0529x** its own bar, left out of the sentence because
+it is not yet assembled end to end. **Nothing quoted is the shipped default.**
 
 
 PASSLOG: the per-pass narrative. **This field is deliberately uncapped and is not a
@@ -1766,3 +1767,34 @@ Fixed where it can be trusted — `TT_BIO_CAPACITY_CENSUS` already dumps per PID
 carries `HOST_F64_SOFTMAX_STATS`, the site flags that process resolved, and the reach verdict,
 plus a counter separating arrivals through `_fp32_softmax_attention` from those through
 `site_softmax`, which is the question D225 could not answer.
+
+## Pass 375 — the campaign's headline sentence was quoting an artifact two generations old
+
+Nothing new landed from the three live rows, so I audited the one thing Moritz actually reads.
+**`VERDICT:`'s one-sentence claim still said "92.16 % of the gradient mass"** — a figure from
+`MODEL_d56_retake.json`, 907 tensors, superseded first by the 3,643 artifact and then by the
+composed 3,660 one the gate has graded since pass 361. The campaign was **understating its own
+coverage by 7.3 points** in its most visible sentence.
+
+Restated on the graded artifact, and every number in it re-read rather than transcribed:
+
+    coverage                    99.50523155277438 %   was quoted as 92.16 %
+    the ten non-trunk sections  0.1026990533692057 against 0.15210099830945006 = 0.6752x, passing
+    trajectory                  1.2707x at k = 20
+    the trunk                   2.2341x upstream's own bf16 in frame, not reproduced
+    the trunk with the lever    1.0529x its own A26 bar   (left OUT of the claim -- see below)
+
+**The 1.0529x is deliberately not in the claim.** It is measured and it is the campaign's best
+result, but it comes from an arm that is not a configuration we have assembled end to end — the
+route fix is on a branch, unmerged, with its inference A/B still owed. Putting it in the headline
+would be the thing this campaign has spent twenty passes refusing to do.
+
+The header paragraph was also internally inconsistent — *"one hundred twelve rows dispatched"*
+against *"one hundred twelve rows have concluded"*, plus a fragment left by an earlier edit —
+because two of the stamper's patterns were fighting over the same sentence. Rewritten in the form
+the stamper owns, so the numbers come from disk rather than from prose.
+
+**Also checked and clean**: D236 voided the "0 served" reach evidence in four published inference
+A/Bs, so I checked whether `PROVES:`, `DOESNOT:` or `VERDICT:` rested on it. They do not — the
+only inference claim in the summary fields is *"inference byte-identical twice"*, which is a
+digest and unaffected. The correction stays in the ledger where it belongs.
