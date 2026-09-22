@@ -1,0 +1,439 @@
+{
+  "what": "of3t-cotterm: the ACROSS component of the cotangent error, attributed per contributing term.",
+  "host": "tt-quietbox",
+  "ref_host": "tt-quietbox",
+  "dev_host": "tt-quietbox",
+  "board_class": "p150a Blackhole",
+  "real_rows": 56,
+  "padded_width": 384,
+  "blocks": [
+    0,
+    4,
+    44
+  ],
+  "ref_apb": "/tmp/of3t/of3t-cotterm/apb_ref_n384.pt",
+  "dev_apb": "/tmp/of3t/of3t-cotterm/apb_CAP3_n384.pt",
+  "projector": "P(e) = e - <e,u>u, u = g_ref/||g_ref||, on the 56 real rows",
+  "frame": "ours against upstream's own bf16 autocast, padded 384 (D218)",
+  "bar_in_frame": 0.5268825372815341,
+  "shipped_in_frame": 1.029395337772341,
+  "leaf_ceiling_in_frame": 0.6822397912,
+  "validation": {
+    "block": 44,
+    "tree": "",
+    "fd_sweep": [
+      {
+        "h": 0.001,
+        "fd": 0.0005106330012039778,
+        "analytic": 0.0005106330068340004,
+        "rel": 1.1025575164450734e-08
+      },
+      {
+        "h": 0.0001,
+        "fd": 0.0005106330064428427,
+        "analytic": 0.0005106330068340004,
+        "rel": 7.660251014187953e-10
+      },
+      {
+        "h": 1e-05,
+        "fd": 0.0005106330094005462,
+        "analytic": 0.0005106330068340004,
+        "rel": 5.0262043215843355e-09
+      },
+      {
+        "h": 1e-06,
+        "fd": 0.0005106329751397576,
+        "analytic": 0.0005106330068340004,
+        "rel": 6.206853532903845e-08
+      },
+      {
+        "h": 1e-07,
+        "fd": 0.0005106333324927936,
+        "analytic": 0.0005106330068340004,
+        "rel": 6.377550782420143e-07
+      }
+    ],
+    "fd_best_rel": 7.660251014187953e-10,
+    "fd_at_1e-6_rel": 6.206853532903845e-08,
+    "fd_bar": 1e-09,
+    "fd_band": [
+      7.660251014187953e-10,
+      6.377550782420143e-07
+    ]
+  },
+  "pooled": {
+    "denominator": "the ACROSS mass of the ALL arm, pooled over the 3 sites, masked to the 56 real rows",
+    "ref_norm": 1.5307305996327203,
+    "e_norm": 2.306727736284308,
+    "e_perp_norm": 1.427519600427404,
+    "e_par_norm": 1.8119549221045563,
+    "across_share_of_e_pct": 38.297593462391234,
+    "local_norm": 1.5355500254444243,
+    "local_perp_norm": 1.448647871708839,
+    "local_share_of_e": 0.665683253940449,
+    "ref_recompute_rel": 2.5369728727069883e-13,
+    "ALL_perp_norm": 0.9040790219320844,
+    "channel_sum_over_ALL": 0.9608241675845048
+  },
+  "channels": {
+    "ALL": {
+      "e_perp_norm": 0.9040790219320844,
+      "e_norm": 2.4897405849221177,
+      "share_of_ALL_across": 1.0
+    },
+    "A": {
+      "e_perp_norm": 0.7651548553595695,
+      "e_norm": 1.1791403902058746,
+      "share_of_ALL_across": 0.8463362568953059
+    },
+    "Z": {
+      "e_perp_norm": 0.14354005923534596,
+      "e_norm": 0.14362133701605273,
+      "share_of_ALL_across": 0.15876937275747216
+    },
+    "DO": {
+      "e_perp_norm": 0.918603307320547,
+      "e_norm": 1.8610004130840916,
+      "share_of_ALL_across": 1.0160652830517216
+    },
+    "W": {
+      "e_perp_norm": 0.0035231002764482757,
+      "e_norm": 0.005366584544258363,
+      "share_of_ALL_across": 0.0038968941773686407
+    }
+  },
+  "terms": {
+    "T_Q": {
+      "e_perp_norm": 0.2276512079633934,
+      "e_norm": 0.22769589524030825,
+      "share_of_ALL_across": 0.25180454632924204
+    },
+    "T_K": {
+      "e_perp_norm": 0.8630138469551534,
+      "e_norm": 2.478057951679043,
+      "share_of_ALL_across": 0.9545778919975693
+    },
+    "T_V": {
+      "e_perp_norm": 0.17035284883141696,
+      "e_norm": 0.17062958310747903,
+      "share_of_ALL_across": 0.18842694576339156
+    },
+    "T_GATE": {
+      "e_perp_norm": 0.03759749513639714,
+      "e_norm": 0.037753861313548395,
+      "share_of_ALL_across": 0.0415865142585086
+    }
+  },
+  "track": {
+    "dbias_rel_l2": 1.8946731640706893,
+    "dbias_abs_err": 0.004227338400934512,
+    "dbias_ref_norm": 0.0022311702519985615,
+    "z_rel_l2": 0.032197803562142024,
+    "z_abs_err": 7077.564243674727,
+    "z_ref_norm": 219815.12589872692,
+    "why_not_R44": "R44 is ds at rung 44, a single-track metric. D231 measured ds at exactly 0.0 on all 49 rungs for both pins, and of3t-readverbs doubled the cotangent at 960 sites leaving all 49 ds rungs bit-identical while 48 of 49 dz rungs diverged. dbias is what this backward EXPORTS to the pair track, which is the dz reading at this site."
+  },
+  "worst_case": {
+    "block": 4,
+    "located": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight",
+    "e_perp_norm": 1.2731556126617143,
+    "rel_l2": 1.461932609405587,
+    "cos_dev_ref": -0.22508740594028587,
+    "channels": {
+      "ALL": {
+        "e_norm": 2.405973776509656,
+        "e_perp_norm": 0.6578585310517652,
+        "e_par_norm": 2.3142886523453763,
+        "cos_with_e_perp_total": -0.023562946335947563
+      },
+      "A": {
+        "e_norm": 1.1735381004707832,
+        "e_perp_norm": 0.7566606495364067,
+        "e_par_norm": 0.8970263846173767,
+        "cos_with_e_perp_total": -0.20156957204290485
+      },
+      "Z": {
+        "e_norm": 0.10757175620411824,
+        "e_perp_norm": 0.10756472517918564,
+        "e_par_norm": 0.001229890224580669,
+        "cos_with_e_perp_total": 0.7084714438734314
+      },
+      "DO": {
+        "e_norm": 1.7854503860773179,
+        "e_perp_norm": 0.7713469925666829,
+        "e_par_norm": 1.6102350443963107,
+        "cos_with_e_perp_total": 0.34510807938127464
+      },
+      "W": {
+        "e_norm": 0.004941604754327175,
+        "e_perp_norm": 0.0028375961423159086,
+        "e_par_norm": 0.004045677406949648,
+        "cos_with_e_perp_total": -0.18465752142399613
+      }
+    },
+    "terms": {
+      "T_Q": {
+        "e_norm": 0.0025584965859407833,
+        "e_perp_norm": 0.0025584901110299275,
+        "ref_term_norm": 0.00191395214276412
+      },
+      "T_K": {
+        "e_norm": 2.408937671259,
+        "e_perp_norm": 0.6558358847925474,
+        "ref_term_norm": 1.513942757373191
+      },
+      "T_V": {
+        "e_norm": 0.026897076417824135,
+        "e_perp_norm": 0.026646871611081566,
+        "ref_term_norm": 0.02278994407186624
+      },
+      "T_GATE": {
+        "e_norm": 1.5324316344531226e-05,
+        "e_perp_norm": 1.532429019027503e-05,
+        "ref_term_norm": 1.3537888959978464e-05
+      }
+    }
+  },
+  "verdict_inputs": {
+    "channel_top": "DO",
+    "channel_top_share": 1.0160652830517216,
+    "term_top": "T_K",
+    "term_top_share": 0.9545778919975693,
+    "named_at": 0.6,
+    "spread_at": 0.4,
+    "channel_call": "NAMED:DO",
+    "term_call": "NAMED:T_K",
+    "secondary_1_local_under_0.25": false,
+    "secondary_2_gate_under_0.25": true,
+    "secondary_3_sum_check_in_band": true
+  },
+  "per_site": {
+    "0": {
+      "block": 0,
+      "ref_g_norm": 0.008641717182660068,
+      "dev_g_norm": 0.01105074046778808,
+      "e_norm": 0.008274743550393626,
+      "e_perp_norm": 0.008184778206125598,
+      "e_par_norm": 0.0012168757296093355,
+      "across_share_pct": 97.83736427763637,
+      "cos_dev_ref": 0.6718863296711637,
+      "rel_l2": 0.9575346398742616,
+      "local_norm": 0.00018028502309321866,
+      "local_perp_norm": 0.00017341853508417255,
+      "local_share_of_e_pct": 2.1787384949790085,
+      "ref_recompute_rel": 5.847864639758654e-16,
+      "channels": {
+        "ALL": {
+          "e_norm": 0.008325941143426377,
+          "e_perp_norm": 0.008229103286173517,
+          "e_par_norm": 0.001266157584698016,
+          "cos_with_e_perp_total": 0.9997913298975812
+        },
+        "A": {
+          "e_norm": 9.556991015933465e-05,
+          "e_perp_norm": 3.5950564064695e-05,
+          "e_par_norm": 8.855035105121578e-05,
+          "cos_with_e_perp_total": -0.19501770808798435
+        },
+        "Z": {
+          "e_norm": 1.318525609638913e-05,
+          "e_perp_norm": 1.3184519933792409e-05,
+          "e_par_norm": 1.393285426511797e-07,
+          "cos_with_e_perp_total": 0.09917057336709134
+        },
+        "DO": {
+          "e_norm": 0.008216458690142646,
+          "e_perp_norm": 0.008105516826036508,
+          "e_par_norm": 0.0013456561186498267,
+          "cos_with_e_perp_total": 0.9997340886182386
+        },
+        "W": {
+          "e_norm": 1.961418372199721e-05,
+          "e_perp_norm": 1.1998851760829444e-05,
+          "e_par_norm": 1.551591955063894e-05,
+          "cos_with_e_perp_total": -0.003715640892561584
+        }
+      },
+      "terms": {
+        "T_Q": {
+          "e_norm": 0.00011364587185087834,
+          "e_perp_norm": 0.00011361208091490402,
+          "ref_term_norm": 6.098288088207029e-05
+        },
+        "T_K": {
+          "e_norm": 0.0008078640909606735,
+          "e_perp_norm": 0.0008078477306389503,
+          "ref_term_norm": 0.0003133307424354475
+        },
+        "T_V": {
+          "e_norm": 0.001819355766048352,
+          "e_perp_norm": 0.0018192210741612553,
+          "ref_term_norm": 0.000693106327102063
+        },
+        "T_GATE": {
+          "e_norm": 0.00805139979630234,
+          "e_perp_norm": 0.007955946061379504,
+          "ref_term_norm": 0.008602774378040249
+        }
+      },
+      "channel_sum_vs_ALL": 0.9728104148132221,
+      "dbias_rel_l2": 1.8976225218500935,
+      "dbias_cos": 0.06267043808828965,
+      "z_rel_l2": 0.003494521878905371,
+      "z_cos": 0.9999946155410113
+    },
+    "4": {
+      "block": 4,
+      "ref_g_norm": 1.5109247651297668,
+      "dev_g_norm": 1.3066870641162693,
+      "e_norm": 2.2088701845016834,
+      "e_perp_norm": 1.2731556126617143,
+      "e_par_norm": 1.8050435667674316,
+      "across_share_pct": 33.2217565756902,
+      "cos_dev_ref": -0.22508740594028587,
+      "rel_l2": 1.461932609405587,
+      "local_norm": 1.5337875359796354,
+      "local_perp_norm": 1.446780442341318,
+      "local_share_of_e_pct": 69.43764947081554,
+      "ref_recompute_rel": 2.5701912897941346e-13,
+      "channels": {
+        "ALL": {
+          "e_norm": 2.405973776509656,
+          "e_perp_norm": 0.6578585310517652,
+          "e_par_norm": 2.3142886523453763,
+          "cos_with_e_perp_total": -0.023562946335947563
+        },
+        "A": {
+          "e_norm": 1.1735381004707832,
+          "e_perp_norm": 0.7566606495364067,
+          "e_par_norm": 0.8970263846173767,
+          "cos_with_e_perp_total": -0.20156957204290485
+        },
+        "Z": {
+          "e_norm": 0.10757175620411824,
+          "e_perp_norm": 0.10756472517918564,
+          "e_par_norm": 0.001229890224580669,
+          "cos_with_e_perp_total": 0.7084714438734314
+        },
+        "DO": {
+          "e_norm": 1.7854503860773179,
+          "e_perp_norm": 0.7713469925666829,
+          "e_par_norm": 1.6102350443963107,
+          "cos_with_e_perp_total": 0.34510807938127464
+        },
+        "W": {
+          "e_norm": 0.004941604754327175,
+          "e_perp_norm": 0.0028375961423159086,
+          "e_par_norm": 0.004045677406949648,
+          "cos_with_e_perp_total": -0.18465752142399613
+        }
+      },
+      "terms": {
+        "T_Q": {
+          "e_norm": 0.0025584965859407833,
+          "e_perp_norm": 0.0025584901110299275,
+          "ref_term_norm": 0.00191395214276412
+        },
+        "T_K": {
+          "e_norm": 2.408937671259,
+          "e_perp_norm": 0.6558358847925474,
+          "ref_term_norm": 1.513942757373191
+        },
+        "T_V": {
+          "e_norm": 0.026897076417824135,
+          "e_perp_norm": 0.026646871611081566,
+          "ref_term_norm": 0.02278994407186624
+        },
+        "T_GATE": {
+          "e_norm": 1.5324316344531226e-05,
+          "e_perp_norm": 1.532429019027503e-05,
+          "ref_term_norm": 1.3537888959978464e-05
+        }
+      },
+      "channel_sum_vs_ALL": 0.28724405027467514,
+      "dbias_rel_l2": 1.4616987731651294,
+      "dbias_cos": -0.15665053916066551,
+      "z_rel_l2": 0.009630752539813709,
+      "z_cos": 0.9999724059382092
+    },
+    "44": {
+      "block": 44,
+      "ref_g_norm": 0.24529134410663914,
+      "dev_g_norm": 0.6514765034190393,
+      "e_norm": 0.6646930765263036,
+      "e_perp_norm": 0.645615988772046,
+      "e_par_norm": 0.15810401963231593,
+      "across_share_pct": 94.34225313314208,
+      "cos_dev_ref": 0.13383034386774018,
+      "rel_l2": 2.709810568110923,
+      "local_norm": 0.07355027269290995,
+      "local_perp_norm": 0.07353215481148433,
+      "local_share_of_e_pct": 11.065298449817595,
+      "ref_recompute_rel": 8.527653308984148e-15,
+      "channels": {
+        "ALL": {
+          "e_norm": 0.6403351041917559,
+          "e_perp_norm": 0.6200913746208647,
+          "e_par_norm": 0.15973644787922647,
+          "cos_with_e_perp_total": 0.9940607220085206
+        },
+        "A": {
+          "e_norm": 0.11480582487261083,
+          "e_perp_norm": 0.11369526301048749,
+          "e_par_norm": 0.015929990384701127,
+          "cos_with_e_perp_total": 0.49642448978241815
+        },
+        "Z": {
+          "e_norm": 0.09515989459635488,
+          "e_perp_norm": 0.09504513837425523,
+          "e_par_norm": 0.004671960082026944,
+          "cos_with_e_perp_total": -0.2918055314255683
+        },
+        "DO": {
+          "e_norm": 0.5248065797625916,
+          "e_perp_norm": 0.49878868659539943,
+          "e_par_norm": 0.16319250070559588,
+          "cos_with_e_perp_total": 0.9632327399820673
+        },
+        "W": {
+          "e_norm": 0.0020929375065875037,
+          "e_perp_norm": 0.0020880947580462464,
+          "e_par_norm": 0.0001422943705861398,
+          "cos_with_e_perp_total": 0.697765939057923
+        }
+      },
+      "terms": {
+        "T_Q": {
+          "e_norm": 0.2276814921971502,
+          "e_perp_norm": 0.22763680218242177,
+          "ref_term_norm": 0.04189781551911693
+        },
+        "T_K": {
+          "e_norm": 0.5811969160487797,
+          "e_perp_norm": 0.5609559159477271,
+          "ref_term_norm": 0.15630330246798232
+        },
+        "T_V": {
+          "e_norm": 0.16848647380784718,
+          "e_perp_norm": 0.1682460334540029,
+          "ref_term_norm": 0.1934783708423114
+        },
+        "T_GATE": {
+          "e_norm": 0.036885346285050344,
+          "e_perp_norm": 0.03674607908288933,
+          "ref_term_norm": 0.025143812591458363
+        }
+      },
+      "channel_sum_vs_ALL": 0.8217547796451736,
+      "dbias_rel_l2": 2.0031118144997064,
+      "dbias_cos": 0.17616378002551725,
+      "z_rel_l2": 0.037021225161341195,
+      "z_cos": 0.9996451235875208
+    }
+  },
+  "cf_out": {
+    "path": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/CF_CAP3_N384.json",
+    "channel": "Z",
+    "tensors": 6
+  }
+}
