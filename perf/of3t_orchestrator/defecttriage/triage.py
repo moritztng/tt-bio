@@ -367,6 +367,11 @@ TABLE = {
              "trunk on its own captured boundary and cotangent reads 0.7945281613194305 "
              "against a 1e-12 bar. A defect in this campaign's instrument, localised at pass "
              "389 to the captured cot_z alone."),
+    "D247": (USER, "tenstorrent._assert_local_dispatch is a fail-fast startup probe with NO "
+              "timeout: it guards against a chip that THROWS and not one that WEDGES, so "
+              "synchronize_device blocks forever while every liveness signal reads green. "
+              "Cost this campaign 230 min of card time and bills every card user; the row "
+              "that paid for it bounded its own launches, not the probe."),
     "D246": (USER, "a global install()/uninstall() pair whose owner is a constant STRING "
               "cannot tell two callers apart, so install(exact_softmax=True) is still torn "
               "down by an unrelated bracket -- the entry point exact_softmax()'s docstring "

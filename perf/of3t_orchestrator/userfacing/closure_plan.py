@@ -153,6 +153,29 @@ PLAN = {
         "would_a_row_help": True,
         "asked": ("not yet asked. The complex-side measurement has no owner"),
     },
+    "D247": {
+        "needs": SOURCE,
+        "one_line": "a fail-fast startup probe with NO timeout: it guards the chip that THROWS, not the chip that WEDGES",
+        "closes_when": ("`_assert_local_dispatch` bounds its own dispatch -- a timeout expiring "
+                        "into the RuntimeError path its `except` already builds, which also "
+                        "closes the device -- so a wedge and a throw produce the SAME fast "
+                        "respawnable outcome its docstring promises. The bound must be on the "
+                        "probe, not on its callers: a per-row pre-flight leaves the defect "
+                        "shipped for everyone else. No card and no decision: this is source"),
+        "evidence_held": ("`tt_bio/tenstorrent.py:5575`, called at `:6005` from every "
+                          "`get_device()`. The body wraps from_torch/add/synchronize_device in "
+                          "`try/except Exception`, so a chip that THROWS is handled as designed; "
+                          "a chip that WEDGES never reaches the except, because "
+                          "`ttnn.synchronize_device(dev)` blocks indefinitely and there is no "
+                          "timeout, alarm or watchdog in the function. Verified in the shipped "
+                          "file at pass 414, not taken from the row's report. It cost "
+                          "`of3t-verbinstall` 230 minutes -- two arms, 115 min each, nothing "
+                          "computed, every liveness signal green -- and that is a FLOOR, since "
+                          "it bills every card row on any model. The row bounded its own launches "
+                          "at `b77e89f27`; the probe is unchanged"),
+        "would_a_row_help": False,
+        "row": "of3t-verbinstall",
+    },
     "D246": {
         "needs": SOURCE,
         "one_line": "a constant owner TOKEN tells two APIs apart, not two callers -- so install(exact_softmax=True) is still torn down by an unrelated bracket",
