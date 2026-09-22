@@ -33,7 +33,7 @@ from tt_bio.envflags import env_flag
 
 __all__ = [
     "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
-    "forget_parameters",
+    "parameter_for", "forget_parameters",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
@@ -169,10 +169,10 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("value", "grad", "requires_grad", "node", "pinned", "evictable")
+    __slots__ = ("_value", "grad", "requires_grad", "node", "pinned", "evictable")
 
     def __init__(self, value, requires_grad: bool = False):
-        self.value = value
+        self._value = value
         self.grad = None
         self.requires_grad = requires_grad
         self.node = None
@@ -188,6 +188,45 @@ class Tensor:
         self.evictable = True
 
     @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, new):
+        """Replace the handle, and carry the parameter registration with it.
+
+        ``_PARAMS`` maps the identity of the RAW handle to the leaf that owns it, because
+        that is the only question a taped call can ask: the model hands an op a raw tensor
+        and the tape has to say whether it is trainable. A raw ttnn handle carries no stable
+        identity of its own, so the key is derived from a value that three callers
+        legitimately replace -- ``AdamW.step`` writes the updated weight
+        (``train/optim.py``), ``load_adapter`` writes a checkpoint's
+        (``train/checkpoint.py``), and ``free`` below moves an L1-resident tensor to DRAM.
+
+        Leaving the key behind on any of those is not a degraded gradient, it is no
+        gradient: the model holds a handle the tape has never seen, ``parameter_for``
+        returns None at every call site, and the next backward reaches zero parameters while
+        the loss curve still falls.
+
+        **Main's own shipped recipe does not reach this.** ``train/recipes.py`` goes through
+        ``lora.trainable`` -> ``lora._Substitute``, which hands the forward the LEAF, so a
+        taped call there never asks ``_PARAMS`` to resolve a raw handle -- measured on a card
+        at 9e17ad418, six steps, registry resolving 0 of 5 leaves and the run training
+        perfectly (``perf/d126_main_reach/out/weights/reach.json``). This is hardening of a
+        published seam: ``parameter`` is in ``__all__``, and a Tier-2 caller writing its own
+        full-weight loop over it reaches exactly the stranded key.
+
+        Re-keying HERE rather than at those three call sites is the point. A duty spelled out
+        in a docstring and owed by the caller is the form this defect already took:
+        ``parameter()`` documented it and no caller performed it.
+        """
+        old = self._value
+        self._value = new
+        if _PARAMS.get(id(old)) is self:
+            del _PARAMS[id(old)]
+            _PARAMS[id(new)] = self
+
+    @property
     def shape(self):
         return self.value.shape
 
@@ -197,9 +236,11 @@ class Tensor:
 
     def __getattr__(self, name):
         # Only reached on a miss, so slots and properties above keep their own meaning.
-        if name.startswith("__"):
+        # Reads the SLOT, not the `value` property: forwarding through the property would
+        # recurse for the one instant in `__init__` before the slot is set.
+        if name.startswith("__") or name == "_value":
             raise AttributeError(name)
-        return getattr(object.__getattribute__(self, "value"), name)
+        return getattr(object.__getattribute__(self, "_value"), name)
 
     def __getitem__(self, index):
         # Resolved lazily: the slicing lives with the taped verb surface, and importing it
@@ -1220,12 +1261,14 @@ def parameter(raw, requires_grad: bool = True):
     The leaf, not a copy: `_wrap` hands the same object to every call site that reads this
     weight, so a 48-block trunk sharing one tensor accumulates into one gradient.
 
-    Pass the LEAF back, not its new value, after an optimizer step. `AdamW.step` replaces
-    `t.value` with a fresh device tensor, so the registry is keyed on a handle that no longer
-    exists and a bare `parameter(t.value)` would mint a SECOND leaf over the same weight --
-    the tape would accumulate into the new one and the optimizer would keep stepping the old,
-    which reads as a run whose second step has no gradients at all. Re-keying is what is
-    wanted, and it is what passing the leaf does.
+    Nothing is owed after an optimizer step. ``AdamW.step`` replaces ``t.value`` with a
+    fresh device tensor and ``Tensor.value``'s setter carries the registration onto it, so the leaf
+    the model reads after a step is the leaf the tape resolves. That duty used to be the
+    caller's, stated here and performed nowhere.
+
+    Still pass the LEAF and not its value if you do call this again: ``parameter(t.value)``
+    over a handle a leaf already owns mints a SECOND leaf over the same weight, the tape
+    accumulates into one and the optimizer steps the other.
     """
     if isinstance(raw, Tensor):
         _PARAMS[id(raw.value)] = raw
@@ -1236,6 +1279,20 @@ def parameter(raw, requires_grad: bool = True):
     t = Tensor(raw, requires_grad=requires_grad)
     _PARAMS[id(raw)] = t
     return t
+
+
+def parameter_for(raw):
+    """The leaf :func:`parameter` registered over this raw handle, or ``None``.
+
+    The public form of the one question a coverage check asks: is the tensor the MODEL holds
+    a thing the tape can hand a gradient to? Reading ``_PARAMS`` directly to ask it is a
+    check that stops agreeing with the tape the first time the tape changes.
+
+    A pure query: unlike ``_param`` it does not record the handle as touched, so asking
+    cannot change what ``checkpoint`` decides to recompute.
+    """
+    t = _PARAMS.get(id(raw))
+    return t if t is not None and t.value is raw else None
 
 
 def forget_parameters() -> None:
