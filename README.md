@@ -981,7 +981,9 @@ rather than trusting `TT_VISIBLE_DEVICES`, which names a different number than t
 Both failures look like a healthy run otherwise.
 
 Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
-[`docs/training.md`](docs/training.md).
+[`docs/training.md`](docs/training.md). What one gradient step through a pairformer stack costs,
+how it scales with depth and width, and where the headroom is:
+[`docs/gradient-step-cost.md`](docs/gradient-step-cost.md).
 
 ## Cite
 

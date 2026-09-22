@@ -204,6 +204,11 @@ Below 256 aa `plan()` reports the 256 aa figure as an **upper bound** rather tha
 down: a smaller crop carries the same weights and optimizer state and strictly fewer
 activations, so the bound is sound and the scaling would be the guess.
 
+`plan()` answers memory. For time, a taped gradient step through a pairformer stack costs
+`a + b*K` over `K` blocks, `a` is under half a percent of it, and the per-block cost runs at
+about 7 % of a matmul roof measured on the same chip at the same clock. The fits, the FLOPs
+scaling and what is and is not recoverable: [`gradient-step-cost.md`](gradient-step-cost.md).
+
 ## Distribution
 
 Single box, up to 4 chips, data-parallel. In user code it appears exactly twice:

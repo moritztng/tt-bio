@@ -1,0 +1,49 @@
+{
+ "what": "p2 smoke anchor: halloop at AF2 pair dims, one _block, n=128. Validates the harness, the venv and the device path in this worktree. NOT the p2 measurement.",
+ "caveat": "AICLK window is NOT attributable to the timed steps: 3 samples at 5 s poll over a 24.5 s wall whose first step was 23.667 s of compilation, so every sample landed in the compile phase. Indicative only. p2 proper timestamps the clock samples.",
+ "host": "tt-quietbox2",
+ "card": 1,
+ "git_sha": "fd70adde2bd2e018cac3f5ad1b61e397a66b018e",
+ "python": "/home/ttuser/ptxft-venv/bin/python",
+ "argv": "perf/hallgrad/halloop.py --n 128 --c-z 128 --heads 4 --head-dim 32 --steps 12",
+ "n": 128,
+ "c_z": 128,
+ "c_s": 384,
+ "heads": 4,
+ "head_dim": 32,
+ "bins": 64,
+ "chunk": 128,
+ "blocks": 1,
+ "checkpoint": false,
+ "steps": 12,
+ "seed": 5,
+ "lr": 0.1,
+ "step_1_s": 23.66734742600238,
+ "warm_median_s": 0.07433797100384254,
+ "warm_mean_s": 0.07430809272707185,
+ "aiclk_mhz": {
+  "min": 1350,
+  "max": 1350,
+  "median": 1350,
+  "samples": 3,
+  "attributable_to_timed_steps": false
+ },
+ "step_times": [
+  23.66734742600238,
+  0.0745902160051628,
+  0.07380705900141038,
+  0.07411319599486887,
+  0.07425621600123122,
+  0.07435914899542695,
+  0.0742731080026715,
+  0.07417344999703346,
+  0.0743981729974621,
+  0.07433797100384254,
+  0.07459706800000276,
+  0.07448341399867786
+ ],
+ "loss": [
+  1.1551635489100178,
+  0.47797853175266125
+ ]
+}
