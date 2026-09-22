@@ -919,11 +919,27 @@ if ORCH.is_file():
     # a VERDICT that said "six remain UNFIXED" in words. Second time a guard of mine has been
     # wrong about a document that was right; both times the guard encoded the shape of the
     # prose it was born against.
-    _words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
-              7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
-              13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
-              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one",
-              22: "twenty-two", 23: "twenty-three", 24: "twenty-four"}
+    # Pass 155: GENERATED, not hardcoded. This list stopped at twenty-four, so the UNFIXED
+    # check reported drift against a document that was correct (it fell through to a 'zzz'
+    # sentinel and failed loudly, which is the pass-138 fix working) -- and the DEFECTS-count
+    # check, whose branch is guarded by `if _w`, went SILENTLY VACUOUS at twenty-five and has
+    # not checked anything since the record passed D24. Fourth sighting of a guard outgrowing
+    # its word list in this campaign. A generated list cannot outgrow the subject, and the
+    # assertion below makes a missing word a failure rather than a skip.
+    _ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+             "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+             "seventeen", "eighteen", "nineteen"]
+    _TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+             "ninety"]
+
+    def _word(n):
+        if n < 20:
+            return _ONES[n]
+        if n < 100:
+            return _TENS[n // 10] + ("-" + _ONES[n % 10] if n % 10 else "")
+        return None
+
+    _words = {n: _word(n) for n in range(1, 100)}
     if DEF.is_file():
         _dt = DEF.read_text()
         n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
@@ -931,7 +947,10 @@ if ORCH.is_file():
                      if "UNFIXED" in m.group(0)])
         for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
             _w = _words.get(_n)
-            if _w and _label == "defects" and f"{_w} defects" not in verdict.lower():
+            if _w is None:
+                bad.append(f"the {_label} count is {_n}, outside this check's word list -- the "
+                           f"check cannot run, which is not a pass (pass-138 class)")
+            elif _label == "defects" and f"{_w} defects" not in verdict.lower():
                 bad.append(f"VERDICT does not say '{_w} defects' -- DEFECTS.md has {_n}")
             if _label == "UNFIXED" and not _re.search(rf"\b(?:{_n}|{_words.get(_n, 'zzz')})\b"
                                                       r"[^.]{0,40}UNFIXED", verdict):
@@ -1031,6 +1050,54 @@ if _host_only is None:
     warn.append("the concluded-row count could not be checked: it reads "
                 "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
                 "That check did NOT run -- it is not a pass")
+
+# --- the distance-to-go arithmetic must sum, and VERDICT must quote it ------------------------
+# Pass 152. The campaign's position is now a three-way split of the model's gradient mass, and
+# it is the number Moritz reads. Two ways it can rot: the three shares stop summing to 100 as
+# readings move between buckets, and VERDICT keeps yesterday's passing share. Both are the
+# campaign's most recurrent defect class, so both are mechanical now.
+_dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
+if _dtg:
+    _p = _dtg["measured_and_inside_bar"]["total_pct"]
+    _f = _dtg["measured_and_outside_bar"]["total_pct"]
+    _u = _dtg["not_measured_at_its_own_scope"]["total_pct"]
+    _tot = _p + _f + _u
+    if abs(_tot - 100.0) > 0.001:
+        bad.append(f"DISTANCE_TO_GO_BY_MASS's three shares sum to {_tot:.4f} %, not 100 -- a "
+                   f"reading moved buckets and the split was not rebalanced")
+    else:
+        ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} in / {_f:.4f} out / "
+                  f"{_u:.4f} unmeasured)")
+    if ORCH.is_file():
+        _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
+        _vt = _verd.group(1) if _verd else ""
+        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
+        for _val, _lbl in ((_p, "passing"), (_f, "failing"), (_u, "unmeasured")):
+            if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
+                bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
+                           f"summary has drifted from DISTANCE_TO_GO_BY_MASS")
+        if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
+            ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
+
+# --- a summary field must stay readable, which is a LENGTH property no content check sees -----
+# Pass 166. VERDICT had grown to 177,928 characters over 2,371 lines, because every pass appends
+# after the last field and VERDICT is the last field, so the whole narrative landed inside the one
+# field a reader treats as the answer. Every content check above passed throughout -- they read the
+# shares, the counts and the amendment phrase, all of which sit in its first eight lines, and none
+# of them reads its size. A field can be entirely correct and entirely unusable.
+if ORCH.is_file():
+    _o = ORCH.read_text()
+    _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000}
+    _over = []
+    for _f, _cap in _CAPS.items():
+        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_]+:|\Z)", _o, _re.M | _re.S)
+        if _m and len(_m.group(1)) > _cap:
+            _over.append(f"{_f} is {len(_m.group(1))} chars against a {_cap} cap")
+    if _over:
+        bad.append("summary field(s) have accreted past the point of being read: "
+                   + "; ".join(_over) + " -- move the narrative to PASSLOG, which is what it is for")
+    else:
+        ok.append("every owed summary field is inside its readability cap")
 
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
