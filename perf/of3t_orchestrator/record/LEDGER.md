@@ -2101,3 +2101,41 @@ number to reason from.**
 R161's end-to-end control still stands and should still be run — this bounds the shortcut, it
 does not replace its control. But the row should not read a sub-0.1 % disagreement between the
 subtraction and a direct `cot_external.pt` run as a defect: **0.014 % is the expected size.**
+
+---
+
+### R173. D242's two-sided falsifier has now fired on BOTH branches, bit for bit, and the repair moved it from one to the other (pass 407, zero card)
+
+Pass 387 pre-registered a one-scalar falsifier for D242 with both values banked before any arm
+ran: `||dL/dz_in||` at **0.000848887340907281** means the injection is exact on the original
+graph; at **0.0014907294032500784** it overcounts.
+
+    pass 395  --graphdrive, the double-counting injection    0.0014907294032500784   OVERCOUNTS
+    pass 407  the repaired graph-cut-external injection      0.000848887340907281    EXACT
+
+**Both bit-identical to the banked values.** `REF_F64_MODEL_N384_CORRECTED.json` reads
+`dz_in_norm` 0.000848887340907281 and `ds_in_norm` 0.009204973933437452 — the real backward's
+own two numbers. **A two-sided falsifier that fires on one branch, is then acted on, and fires
+on the other branch after the repair is the strongest form this evidence takes**: the values
+were fixed before the mechanism was known, so neither branch could be fitted to the answer.
+
+**And it is independent of the parameter-gradient confirmation.** R170 established the repair
+on the 2,736 trunk tensors at **1.6952505222168708e-14** — the capture's own witness value.
+This is a different quantity, `dL/dz_in`, checked against a different reference, and it lands
+exactly. Two independent pre-registered confirmations of one repair.
+
+**The A42 chain is verifiable by digest at every hop**, checked this pass:
+`REF_F64_MODEL_N384_CORRECTED` computes the correction from **its own graph** —
+`correction_source: "this arm's own graph"`, which A42 permits only for the arm that defines
+the boundary — banks it as `cot_external.pt` (`1d15a8dc…`) and `cot_delta_only.pt`
+(`33be05b1…`), and both device arms cite those digests: `DEV_..._EXTERNAL` carries
+`1d15a8dc…` with `cot_z_norm` 6.47087024696404e-05, `DEV_..._DELTA` carries `33be05b1…` with
+`cot_s_norm` exactly 0.0. **One correction, one source, three consumers, digest-checkable.**
+
+**One consequence of the repair worth stating before it surprises anyone.** The corrected
+injection is 11.7471x smaller than the hooked one, so any FIXED-ABSOLUTE error in the device
+path becomes 11.7471x more significant in relative terms. Measured: the harness's cotangent
+round-trip is ~2-7e-9 absolute regardless of the cotangent's size, so on the external cotangent
+it reads **3.38e-5 relative** against 2.9e-6 on the hooked one. That is still four orders below
+the clause's scale, and **there is no other fixed-absolute floor to amplify** — the device arms'
+A/A is exactly 0.0 across two cards, so they are bit-reproducible. Checked, and a non-issue.

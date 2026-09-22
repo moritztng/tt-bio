@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R172 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R173 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R173** D242's two-sided falsifier has fired on BOTH branches bit for bit — 1.49e-3
+  OVERCOUNTS at pass 395, **0.000848887340907281** EXACT after the repair
 - **R172** my own linearity shortcut looked unsafe on the device by 9.18 % from bf16's nominal
   epsilon; the arms' own `cotangent_on_device` blocks put it at **0.014 %**, 637x smaller
 - **R171** I amended one clause of a four-part pre-registered condition at R166 and did not
@@ -1791,3 +1793,27 @@ measured.** Once the harness is instrumented, the epsilon is the wrong number to
 the same mistake as asserting a roofline instead of measuring it, in precision's costume. The
 row is told to run R161's end-to-end control anyway, and told that 0.014 % is the expected
 disagreement so a sub-0.1 % result is not read as a defect.
+
+## Pass 407 — the falsifier fired on its other branch, exactly
+
+Pass 387 pre-registered a one-scalar falsifier for D242 with both values banked before any arm
+ran: `||dL/dz_in||` at 0.000848887340907281 means exact, at 0.0014907294032500784 it overcounts.
+At pass 395 `--graphdrive` read the OVERCOUNTS value bit for bit. The repaired reference now
+reads **0.000848887340907281** — the EXACT value, bit for bit, with `ds_in_norm`
+0.009204973933437452 alongside it.
+
+**A two-sided falsifier that fires on one branch, is acted on, and then fires on the other
+after the repair is the strongest form this evidence takes.** Both values were fixed before the
+mechanism was known, so neither could be fitted to the answer. And it is independent of R170's
+parameter-gradient confirmation at 1.6952505222168708e-14 — a different quantity against a
+different reference, landing exactly. Two pre-registered confirmations of one repair.
+
+The A42 chain checks out by digest at every hop: the reference self-corrects (permitted only for
+the arm that defines the boundary), banks `cot_external.pt` and `cot_delta_only.pt`, and both
+device arms cite those digests — one correction, one source, three consumers.
+
+One consequence stated before it surprises anyone: the corrected cotangent is 11.7471x smaller,
+so any fixed-absolute device error is 11.7471x more significant in relative terms. Measured, the
+harness's round-trip is ~2-7e-9 absolute whatever the cotangent's size, giving 3.38e-5 relative
+on the external one against 2.9e-6 on the hooked one — four orders below the clause's scale, and
+there is no other fixed-absolute floor to amplify because the device arms' A/A is exactly 0.0.
