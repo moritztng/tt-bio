@@ -87,8 +87,18 @@ if set(per) == set(WEIGHT):
     m = sum(WEIGHT[b] * per[b] for b in WEIGHT) / sum(WEIGHT.values())
     print(f"\nPLAIN MEAN over the 117 integer binder lengths (29/32/32/24)")
     print(f"  pc as measured, on a loaded box: {m:.3f} s")
-if set(corrected) == set(WEIGHT):
-    cm = sum(WEIGHT[b] * corrected[b] for b in WEIGHT) / sum(WEIGHT.values())
+# In the CORRECTED frame every bucket qb1 folded benchlocked can supply itself, so the mean
+# only strictly needs 736 from pc -- which is the one bucket qb1 never folded and the reason
+# this row exists. A bucket taken from qb1 is labelled, never silently substituted.
+frame, src = dict(corrected), {b: "pc, corrected" for b in corrected}
+for b in WEIGHT:
+    if b not in frame and b in QB1:
+        frame[b], src[b] = QB1[b], "qb1 benchlocked, used directly"
+if set(frame) == set(WEIGHT):
+    print("\nMEAN INPUTS:")
+    for b in sorted(frame):
+        print(f"  bucket {b}: {frame[b]:8.3f} s  ({src[b]})")
+    cm = sum(WEIGHT[b] * frame[b] for b in WEIGHT) / sum(WEIGHT.values())
     lo, hi = cm * (1 - worst / 100), cm * (1 + worst / 100)
     print(f"  corrected to the benchlocked frame: {cm:.3f} s  ({lo:.1f}-{hi:.1f} s)")
     print(f"  against the customer's 208 s: {208 - cm:+.1f} s")
