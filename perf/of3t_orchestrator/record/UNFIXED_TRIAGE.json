@@ -16,11 +16,11 @@
   ],
   "why": "DEFECTS.md rotates; the live file is the tail, not the ledger"
  },
- "unfixed_total": 82,
+ "unfixed_total": 83,
  "counts": {
   "SCOPE-EXCLUDED": 5,
   "USER-FACING": 9,
-  "CAMPAIGN-INTERNAL": 68
+  "CAMPAIGN-INTERNAL": 69
  },
  "classes": {
   "SCOPE-EXCLUDED": [
@@ -109,7 +109,8 @@
    "D211",
    "D214",
    "D217",
-   "D219"
+   "D219",
+   "D199"
   ]
  },
  "reasons": {
@@ -422,7 +423,8 @@
   "D213": "main's test suite is red: tt_bio/autograd.py on origin/main cites perf/of3t_d116/amplify.json and perf/of3t_d116/rowsum.json, neither of which exists there (both are on wk/of3t and wk/of3t-d116). The remedy is a merge to main, which this campaign is forbidden to do -- handed to land-standing, the same ground D2 and D3 sit on. Recorded here rather than dropped, and it blocks every row on the fleet, not only OF3T.",
   "D214": "the campaign's headline trunk figure is cross-frame and its scope bar is looser than the model clause it feeds. Campaign-internal: it changes what the campaign tells Moritz the remaining distance is and what the live rows aim at, and no user sees it. UNFIXED as a TARGET -- the prose is corrected, the trunk still has to reach <= 0.4361680548.",
   "D217": "blocks 44/4/0 hold 76.4502 % of the trunk's error mass and the live rows are aimed at 31.2190 % of it; blocks 4 and 0, 45.8293 % between them, are unowned. And every block at upstream's own level still leaves model scope at 1.103x the bar, so the per-block route is necessary and not sufficient. Campaign-internal: no user sees it.",
-  "D219": "the trunk's carrier is being searched among the wrong verbs: 60,144 firings at padded 384 rather than the 11,856 planned against, and _identity_grad (26.50 %) plus _sliced (21.47 %) have never been substituted -- excluded on purpose as data movement, which is exactly what decides what the backward reads and how many contributions accumulate. Owner of3t-readverbs, dispatched pass 361. Campaign-internal: no user sees it."
+  "D219": "the trunk's carrier is being searched among the wrong verbs: 60,144 firings at padded 384 rather than the 11,856 planned against, and _identity_grad (26.50 %) plus _sliced (21.47 %) have never been substituted -- excluded on purpose as data movement, which is exactly what decides what the backward reads and how many contributions accumulate. Owner of3t-readverbs, dispatched pass 361. Campaign-internal: no user sees it.",
+  "D199": "classified by stamp_row_counts.py; no user-facing claim made"
  },
  "boundary_cases": {
   "D8": "Could be read as CAMPAIGN-INTERNAL: pass 90 re-attributed most of it to D23, a reference defect. Kept USER-FACING because what SURVIVES the re-attribution is a gradient our port computes, and no measurement has yet shown that residue is zero.",
