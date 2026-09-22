@@ -62,7 +62,22 @@ STATE = {
 }
 
 CENSUS = {"backward": {}, "forward": {}, "err": {}, "sampled": 0, "skipped": 0,
-          "errors": {}}
+          "errors": {}, "dtype": {}, "narrowing_per_block": {}}
+
+
+# Bytes per element, so "the cast changed the dtype" can be told from "the cast LOST
+# something". `src=FLOAT32 g=BFLOAT16` is a widening cast and is exactly lossless; only
+# `width(src) < width(g)` rounds. Counting both as one number would have reported three times
+# the lossy population at padded 64 (576 against 384).
+_W = {"FLOAT32": 4, "UINT32": 4, "INT32": 4, "UINT16": 2, "BFLOAT16": 2, "FLOAT16": 2,
+      "BFLOAT8_B": 1, "BFLOAT4_B": 1, "UINT8": 1}
+
+
+def _narrows(src, got):
+    a, b = _W.get(src), _W.get(got)
+    if a is None or b is None:
+        return src != got          # unknown pair: report it rather than call it lossless
+    return a < b
 
 
 def _dt(v):
@@ -229,10 +244,11 @@ def summary():
 
 # --- the no-cast arm --------------------------------------------------------------------------
 
-NOCAST = {"nodes": 0, "fired": 0, "cast_omitted": 0}
+NOCAST = {"nodes": 0, "cast_nodes": 0, "fired": 0, "cast_omitted": 0,
+          "narrowing_omitted": 0, "coarsened": 0, "pert_failed": 0, "mode": None}
 
 
-def install_nocast():
+def install_nocast(mode: str = "nocast"):
     """`typecast`'s backward without its narrowing cast: the exact VJP, on device.
 
     `_identity_grad`'s whole arithmetic is one line -- `x.add_grad(ttnn.typecast(g, src_dtype)
@@ -256,14 +272,53 @@ def install_nocast():
         ra, rk = tt._raw(args, kwargs)
         out_v = shipped(*ra, **rk)
         src_layout = x.value.layout
+        src_dtype = x.value.dtype
+        desc_cast = bool(cast)
         NOCAST["nodes"] += 1
+        NOCAST["mode"] = mode
+        if desc_cast:
+            NOCAST["cast_nodes"] += 1
 
         def make():
             def bw(g):
                 NOCAST["fired"] += 1
                 if g.layout != src_layout:
                     g = ttnn.to_layout(g, src_layout)
-                NOCAST["cast_omitted"] += 1
+                if mode == "double":
+                    # The ON-PATH control, and the reason it exists: `nocast` came back
+                    # BIT-IDENTICAL at padded 64 after firing 960 times. A lever that fires
+                    # and is inert and a lever that is not on the recorded path look the same
+                    # from the output (D121). This one DOUBLES the cotangent at exactly the
+                    # same sites. Two is exactly representable in bfloat16, so unlike a small
+                    # multiplier the perturbation cannot be lost to a downstream bf16 store,
+                    # and that matters here: the narrowing cast this row is about moves each
+                    # contribution by about 1.6e-3, which is UNDER bfloat16's 3.9e-3 unit
+                    # roundoff, so a small probe would test the storage granularity rather
+                    # than the path. If the ladder does not move when every one of these
+                    # contributions is doubled, the sites are off the recorded path and
+                    # nocast's inertness says nothing about the verb.
+                    #
+                    # Two earlier attempts failed on device rather than quietly. A bfloat8_b
+                    # round trip raised on the first firing (SIDE_X64.json: nodes 490,
+                    # fired 1, coarsened 0, rc 1). ttnn.multiply(g, 1.001) HUNG the backward
+                    # at padded 64, 401 s against a 42 s baseline, killed by timeout, twice
+                    # (aiclk_X64B.txt, aiclk_X64C.txt). So the perturbation goes through the
+                    # same host round trip `route` already uses, which is measured to work.
+                    # `coarsened` is counted apart from `fired` so a control that cannot act
+                    # reads as zero rather than as a pass.
+                    t = P._t(g)
+                    if t is None:
+                        NOCAST["pert_failed"] += 1
+                    else:
+                        g = ttnn.from_torch(
+                            (t * 2.0).to(torch.float32).reshape([int(d) for d in g.shape]),
+                            dtype=g.dtype, layout=g.layout, device=P._device())
+                        NOCAST["coarsened"] += 1
+                elif desc_cast:
+                    NOCAST["cast_omitted"] += 1
+                    if _narrows(str(src_dtype).replace("DataType.", ""),
+                                str(g.dtype).replace("DataType.", "")):
+                        NOCAST["narrowing_omitted"] += 1
                 x.add_grad(g)
             return bw
 
@@ -322,6 +377,23 @@ def install_census(err_blocks=(44, 4, 0), cap: int = 2, all_callers: bool = True
             blk = P.CUR[0]
             key = "%s | %s | %s | block%s" % (caller, nm or "-", shp, blk)
             CENSUS["backward"][key] = CENSUS["backward"].get(key, 0) + 1
+            if desc is not None:
+                # Read off the cotangent HANDLE, so it costs no host transfer and runs
+                # on every firing rather than on a capped sample. Whether a firing
+                # rounds at all is decided by exactly this triple: `cast and g.dtype !=
+                # src_dtype` is the condition in the shipped closure.
+                gd = _dt(g)
+                narrow = bool(desc.get("cast")) and _narrows(desc.get("src_dtype"), gd)
+                dk = ("%s | %s | cast=%s src=%s g=%s | %s"
+                      % (caller, shp, desc.get("cast"), desc.get("src_dtype"), gd,
+                         "NARROWING" if narrow else
+                         ("widening" if bool(desc.get("cast"))
+                          and gd != desc.get("src_dtype") else "exact")))
+                CENSUS["dtype"][dk] = CENSUS["dtype"].get(dk, 0) + 1
+                if narrow:
+                    bk = "block%s" % blk
+                    CENSUS["narrowing_per_block"][bk] = (
+                        CENSUS["narrowing_per_block"].get(bk, 0) + 1)
             if desc is None or blk not in err_blocks or not plist:
                 return realfn(g)
             ek = "%s | %s | block%s" % (caller, shp, blk)
@@ -394,6 +466,9 @@ def census_summary():
             "backward": dict(sorted(bwd.items())),
             "forward": dict(sorted(CENSUS["forward"].items())),
             "route_error_sample": dict(sorted(CENSUS["err"].items())),
+            "dtype_tally": dict(sorted(CENSUS["dtype"].items())),
+            "narrowing_firings_total": sum(CENSUS["narrowing_per_block"].values()),
+            "narrowing_per_block": dict(sorted(CENSUS["narrowing_per_block"].items())),
             "sampled": CENSUS["sampled"], "sample_skipped": CENSUS["skipped"],
             "census_errors": CENSUS["errors"],
             "nocast": dict(NOCAST)}

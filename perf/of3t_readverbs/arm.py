@@ -81,9 +81,9 @@ def main() -> int:
             err_blocks=tuple(int(x) for x in ERRBLOCKS.split(",") if x.strip() != ""),
             cap=CAP)
         mode = "census"
-    elif PIN == "nocast":
+    elif PIN in ("nocast", "double"):
         import pinroute
-        pinroute.install_nocast()
+        pinroute.install_nocast(mode=PIN)
         pinroute.install_census(err_blocks=(), cap=0)
         mode = "census"
     elif PIN:
