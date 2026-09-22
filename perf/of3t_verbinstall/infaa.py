@@ -70,10 +70,13 @@ def fold(py, tree, model, fixture, out: Path, card, env_extra):
     t = time.time()
     r = subprocess.run(cmd, cwd=str(tree), env=env, capture_output=True, text=True)
     secs = time.time() - t
-    census = {}
-    for line in r.stdout.splitlines():
-        if line.startswith("VERBINSTALL_CENSUS "):
-            census = json.loads(line.split(" ", 1)[1])
+    # EVERY line, not the last one. `sitecustomize` is inherited through PYTHONPATH, so a fold
+    # that spawns a worker emits one census per process and keeping only the last one reports
+    # whichever process happened to exit last -- usually the launcher, which folds nothing.
+    # That is D236 exactly, and it is why the artifacts this row builds on read zero in every
+    # arm including the adversarial one.
+    census = [json.loads(line.split(" ", 1)[1]) for line in r.stdout.splitlines()
+              if line.startswith("VERBINSTALL_CENSUS ")]
     cifs = sorted(out.rglob("*.cif"))
     return {"rc": r.returncode, "seconds": round(secs, 2), "census": census,
             "cifs": {c.name: digest(c) for c in cifs},
@@ -102,7 +105,7 @@ def main() -> int:
     ok = all(r["rc"] == 0 for r in runs)
     cifs = [r["cifs"] for r in runs]
     identical = ok and len(cifs) > 1 and all(c == cifs[0] and c for c in cifs)
-    imported = [r["census"].get("autograd_imported") for r in runs]
+    imported = [p.get("autograd_imported") for r in runs for p in r["census"]]
     report = {
         "what": "A/A floor for one model: two folds, byte-compared, census taken in the "
                 "folding process. `autograd_imported` False in every arm is the inference "
@@ -112,7 +115,8 @@ def main() -> int:
         "all_folds_succeeded": ok,
         "AA_byte_identical": identical,
         "cif_digests": cifs,
-        "autograd_imported_per_fold": imported,
+        "census_processes_per_fold": [len(r["census"]) for r in runs],
+        "autograd_imported_per_process": imported,
         "training_lever_absent_in_every_fold": all(i is False for i in imported),
         "seconds_per_fold": [r["seconds"] for r in runs],
         "census_per_fold": [r["census"] for r in runs],
