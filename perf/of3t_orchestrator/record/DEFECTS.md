@@ -2796,3 +2796,49 @@ to a scored set must be shown purely additive on the tensors it did not add*, or
 movement must be reported as two findings. Same family as D181 (a clause repair that lets you
 declare success) and D195 (an instrument that names a carrier), and it arrived the same way all
 three did — from a row checking the result it wanted to be true.
+
+### D191 UPDATE 2, pass 352. **It is a STEP, not a per-block factor** — created in the backward of blocks 45 and 44, then carried and diluted over the remaining 44. Still **UNFIXED**, and my brief's premise is refuted.
+
+`of3t-tapeattn` concluded. The cotangent ladder at both widths, in-frame float64, upstream's own
+bf16 recipe as the floor at each rung, 56 real tokens:
+
+    rung 46   7.1347e-01   7.4352e-01   1.042
+    rung 45   6.1508e-01   1.1427e+00   1.858
+    rung 44   6.9791e-01   1.5364e+00   2.201
+    rung 43   6.9835e-01   1.5888e+00   2.275
+    rung  0   8.1204e-01   1.4000e+00   1.724
+
+**A per-block factor would compound. This decays monotonically from rung 43**, which is the shape
+of a step that is created once and then diluted. And **rung 44's 2.201x sits against D191's
+model-scope 2.1795x, so all of D191 is present four blocks in** — the other 44 blocks add nothing.
+Pass 347's relocation to "a per-block factor of ~2.9x on the single track's cotangent", which I
+carried into the brief, is **refuted**.
+
+**100 % of the growth is ours**, and that is measured rather than inferred: the float64 reference at
+crop 64 and padded 384 is **bit-identical on the 56 real tokens, rel_l2 exactly 0.0 at all 49 rungs,
+both tracks**.
+
+**The softmax candidate fell to a DECOMPOSITION rather than to a smaller number**, which is the
+methodologically interesting part. `VERBS.json`'s pooled **1.7797x** for softmax is a
+reference-norm-weighted RMS, so it moves when the mass moves:
+
+    384 errors, 64 weights    0.9369x    softmax's own arithmetic, weights held
+    64 errors, 384 weights    2.0923x    reweighting alone, errors held
+
+**Softmax gets 6.3 % BETTER per firing at 384**; only 10 of 48 firings are worse. `matmul` and
+`multiply_` are flat by every reading. That is D195 and "a share moves when its denominator
+collapses" applied to a pooled ratio by the row that owned it.
+
+**Floors taken before any scoring, not after:** A/A determinism exactly 0.0 at both widths (98/98
+bit-identical), wall clock 1.92 % over the byte-identical 384 pair, instrument inert by content sha
+at both widths, and the checkpointed reference bit-identical to the plain one. AICLK n=122, min 800,
+median 1350, qb1 card 2 p150a.
+
+**What it does NOT claim, stated by the row rather than found by me.** The step is **not attributed
+to a named op**. The census sees only the single track (heads = 16), so **the pair track and the
+triangle multiplications run in the same blocks 45/44 and remain live candidates**. And the ladder
+is **saturated** — O(1) relative error from rung 47 down at both widths, floor included — which
+bounds what it can localise.
+
+**The next arm is named and cheap**: pin the single track's softmax backward to its float64 VJP and
+re-score; `tapecensus.py` already computes that VJP.
