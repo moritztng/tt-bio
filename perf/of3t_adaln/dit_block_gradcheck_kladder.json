@@ -1,0 +1,200 @@
+{
+ "arms": [
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 36.36570064210569,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 8.152128276779168e-16,
+     "sum_norm": 154214.01791881776,
+     "term_norm_sum": 5608100.81045205
+    },
+    "conditioned_transition": {
+     "K": 4.506701092083226,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 2.1956467893904668e-16,
+     "sum_norm": 9457.38747779701,
+     "term_norm_sum": 42621.61847444202
+    }
+   },
+   "block": 0,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 17.120740111432617,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 4.1175154229609124e-16,
+     "sum_norm": 127711.78894396094,
+     "term_norm_sum": 2186520.3476756886
+    },
+    "conditioned_transition": {
+     "K": 9.63159062095701,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 2.6463571647494076e-16,
+     "sum_norm": 5747.024885413628,
+     "term_norm_sum": 55352.99098475643
+    }
+   },
+   "block": 1,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 52.81562884940877,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 1.1224759603928367e-15,
+     "sum_norm": 196284.68531957714,
+     "term_norm_sum": 10366899.08866178
+    },
+    "conditioned_transition": {
+     "K": 6.044026044667286,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 2.0721549885297582e-16,
+     "sum_norm": 11597.989213497187,
+     "term_norm_sum": 70098.54887214725
+    }
+   },
+   "block": 5,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 207.8776712138543,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 2.111730188348863e-15,
+     "sum_norm": 36297.933380768285,
+     "term_norm_sum": 7545529.861069737
+    },
+    "conditioned_transition": {
+     "K": 12.203495978479577,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.4307374558873793e-16,
+     "sum_norm": 10075.652443380737,
+     "term_norm_sum": 122958.18407335474
+    }
+   },
+   "block": 6,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 87.44668253529366,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.4145557516002414e-15,
+     "sum_norm": 84850.31566956578,
+     "term_norm_sum": 7419878.617375972
+    },
+    "conditioned_transition": {
+     "K": 6.773102328569385,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.3546607824260375e-16,
+     "sum_norm": 13425.510257562551,
+     "term_norm_sum": 90932.35478772908
+    }
+   },
+   "block": 7,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 172.60342882505822,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.214419099785081e-15,
+     "sum_norm": 93352.06238221837,
+     "term_norm_sum": 16112886.055061623
+    },
+    "conditioned_transition": {
+     "K": 10.543002774292496,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.9278226008149883e-16,
+     "sum_norm": 9750.818738553533,
+     "term_norm_sum": 102802.90901219315
+    }
+   },
+   "block": 8,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 175.6418062282152,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 7.428939546801882e-15,
+     "sum_norm": 33822.18468389902,
+     "term_norm_sum": 5940589.608464299
+    },
+    "conditioned_transition": {
+     "K": 7.682115028611642,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 2.8080041218267574e-16,
+     "sum_norm": 20612.38042805921,
+     "term_norm_sum": 158346.67746185412
+    }
+   },
+   "block": 9,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 72.90205087045088,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 6.664504131595929e-16,
+     "sum_norm": 59002.67075266864,
+     "term_norm_sum": 4301415.7047035135
+    },
+    "conditioned_transition": {
+     "K": 6.4290786287768515,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.772320212327774e-16,
+     "sum_norm": 41603.6505546609,
+     "term_norm_sum": 267473.1406600706
+    }
+   },
+   "block": 12,
+   "rule": "reference_float64_only"
+  },
+  {
+   "K": {
+    "attention_pair_bias": {
+     "K": 14.672172899257903,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 3.0261956030085085e-16,
+     "sum_norm": 30038.98724558806,
+     "term_norm_sum": 440737.21458587097
+    },
+    "conditioned_transition": {
+     "K": 3.328140438410647,
+     "n_summands": 384,
+     "reproduces_gamma_grad": 5.837015193273124e-17,
+     "sum_norm": 66988.28799164984,
+     "term_norm_sum": 222946.43016490818
+    }
+   },
+   "block": 23,
+   "rule": "reference_float64_only"
+  }
+ ],
+ "bar": 0.05,
+ "capture": "/home/ttuser/of3t_diffusion_cap/sub_boundary.pt",
+ "reference": {
+  "class": "openfold3.core.model.layers.diffusion_transformer.DiffusionTransformerBlock",
+  "dtype": "float64",
+  "keys": {
+   "missing": 0,
+   "missing_names": [],
+   "unexpected": 0,
+   "unexpected_names": []
+  },
+  "source": "/home/ttuser/of3t_rebase/of3pkg043/openfold3",
+  "version": "0.4.3"
+ },
+ "seconds": 22.070749315993453,
+ "what": "one real DiT block, ours taped against upstream 0.4.3's own in float64, on the captured diffusion boundary's real (a, s, z, mask), with and without precise_config() on the FORWARD softmax."
+}
