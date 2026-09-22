@@ -1,0 +1,89 @@
+{
+ "instrument": "of3t-refcov boundary_adapter.py -- P0: is the training adapter's arm on the same loss boundary as the pinned float64 reference",
+ "host": "qb2 (tt-quietbox2), CPU only; the adapter dump lives there",
+ "prediction": "the norms disagree by ORDERS, in BOTH directions, so it is a different function and not a precision gap. Refuted if any pair reads rel_l2 <= 0.02",
+ "reference": {
+  "path": "/home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt",
+  "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "matches_pin": true,
+  "what": "upstream OpenFold3 0.4.3 full OpenFold3Loss, one loss.backward()"
+ },
+ "adapter_arm": {
+  "path": "/home/ttuser/of3t_trainfwd/grad_full_n384.pt",
+  "n_keys": 2498,
+  "what": "perf/of3t_trainfwd/trainfwd_run.py --arm full, seeded by tt_bio.train.objectives 'af3'",
+  "terms_that_fired": [
+   "distogram",
+   "resolved"
+  ],
+  "terms_skipped": [
+   "bond",
+   "smooth_lddt",
+   "mse",
+   "plddt",
+   "pae",
+   "pde"
+  ]
+ },
+ "per_tensor": [
+  {
+   "adapter_param": "input_glue.w_s",
+   "checkpoint_param": "input_embedder.linear_s.weight",
+   "numel": 172416,
+   "reference_norm": 0.031918674051856034,
+   "adapter_norm": 8.09368901789177e-05,
+   "norm_ratio": 0.002535722193454064,
+   "rel_l2": 1.0000103016451183,
+   "cos": -0.0027947677705179915
+  },
+  {
+   "adapter_param": "input_glue.w_zi",
+   "checkpoint_param": "input_embedder.linear_z_i.weight",
+   "numel": 57472,
+   "reference_norm": 0.034895721622509736,
+   "adapter_norm": 0.14027338337803616,
+   "norm_ratio": 4.019787436851622,
+   "rel_l2": 4.140168299226294,
+   "cos": 0.002201296937939235
+  },
+  {
+   "adapter_param": "input_glue.w_zj",
+   "checkpoint_param": "input_embedder.linear_z_j.weight",
+   "numel": 57472,
+   "reference_norm": 0.03342019906457023,
+   "adapter_norm": 0.19364730152643045,
+   "norm_ratio": 5.79431921253042,
+   "rel_l2": 5.8801833431024635,
+   "cos": -0.00020891253240391206
+  },
+  {
+   "adapter_param": "input_glue.w_relpos",
+   "checkpoint_param": "input_embedder.linear_relpos.weight",
+   "numel": 17792,
+   "reference_norm": 0.006303329003207231,
+   "adapter_norm": 0.03896058005148189,
+   "norm_ratio": 6.180952958612528,
+   "rel_l2": 6.259715713468525,
+   "cos": 0.001629090471246749
+  },
+  {
+   "adapter_param": "input_glue.w_tb",
+   "checkpoint_param": "input_embedder.linear_token_bonds.weight",
+   "numel": 128,
+   "reference_norm": 0.0,
+   "adapter_norm": 0.0,
+   "norm_ratio": null,
+   "rel_l2": null,
+   "cos": null
+  }
+ ],
+ "worst_rel_l2": 6.259715713468525,
+ "worst_tensor": "input_embedder.linear_relpos.weight",
+ "norm_ratio_range": [
+  0.002535722193454064,
+  6.180952958612528
+ ],
+ "pairs_inside_the_bar": [],
+ "prediction_refuted": false,
+ "finding": "the adapter's arm is a gradient of a DIFFERENT loss. Wiring the atom-encoder legs into its tape puts a gradient on those weights, but not one this reference can score, so it cannot move coverage_total at any precision. The route that can is the union, and of3t-hostleg already built both arms."
+}

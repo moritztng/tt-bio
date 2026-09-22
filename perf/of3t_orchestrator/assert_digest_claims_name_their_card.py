@@ -64,6 +64,18 @@ FROZEN = {
     # host field at all, so the artifact could not have carried one. Frozen here rather than by
     # editing a concluded row's artifact (A33), and the fix that removes these two entries is one
     # line in `aa.py`, not a re-run.
+    # `of3t-apbleaf`, concluded 2026-09-22 pass 372. Its state doc line 3 records the hardware
+    # where a reader looks -- "Host **qb1 (tt-quietbox), card 1, p150a Blackhole**" -- and its
+    # FLOOR field repeats it; the writer emits no host field, which is the same defect frozen for
+    # of3t-modelboundary below and not pc card 0. Frozen rather than edited because A33 forbids
+    # editing a concluded row's artifacts, and because the row was warned twice while live (the
+    # D155 live-row deferral exists exactly so a row CAN act) and concluded without acting. The
+    # fix that removes these five is in the writer, not in the files.
+    "perf/of3t_apbleaf/BITCMP_BANKED_CAPA.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK_BF16.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_CAPTURE.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_N384.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
     "perf/of3t_modelboundary/AA_c64_CTRL.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
     "perf/of3t_modelboundary/AA_c64_CTRL_nocaptures.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
     # `of3t-apbback`'s BLK47_VALIDATION.json, frozen pass 334 for a reason neither of the two
@@ -131,6 +143,32 @@ def offenders(root: pathlib.Path):
     return out
 
 
+#: A row that has not concluded yet is still writing. Its artifacts are pushed but not published,
+#: and hard-failing on them stops the SHARED composition for every other row -- at pass 360
+#: `of3t-vjpln`, three hours into its first arm, blocked the whole compose with three
+#: work-in-progress `bit_identical` files. Freezing them is wrong too: the freeze list is
+#: shrink-only and every entry on it names a CONCLUDED row, because a concluded row's artifact
+#: cannot be edited (A33). A live row's can.
+#:
+#: So: WARN while the row is live, FAIL the moment it concludes. The guard is never weaker where
+#: it matters, because an artifact cannot be published without its row concluding, and the
+#: warning names the row so a permanent "live" row cannot hide behind it.
+def _row_of(rel):
+    parts = rel.split("/")
+    if len(parts) > 1 and parts[0] == "perf" and parts[1].startswith("of3t_"):
+        return "of3t-" + parts[1][len("of3t_"):].replace("_", "-")
+    return None
+
+
+def _is_live(rel, coworker=pathlib.Path("/home/moritz/.coworker")):
+    row = _row_of(rel)
+    if row is None:
+        return False
+    if not (coworker / "workstreams" / (row + ".txt")).is_file():
+        return False                      # not a dispatched row; hold it to the full bar
+    return not (coworker / "state" / "concluded" / row).exists()
+
+
 def main(argv):
     root = pathlib.Path(argv[1] if len(argv) > 1 else ".").resolve()
     bad = offenders(root)
@@ -156,8 +194,33 @@ def main(argv):
             print("BROKEN an identified digest claim on a good card fires", file=sys.stderr)
             return 2
 
+        # The live-row DEFERRAL needs its own control, because a deferral that never escalates
+        # is the guard silently switched off and its direction is the flattering one. Build a
+        # fake .coworker with one dispatched row and assert the verdict flips on the marker
+        # alone -- live WARNS, concluded FAILS, and nothing else changes.
+        fake = t / "cw"
+        (fake / "workstreams").mkdir(parents=True)
+        (fake / "state" / "concluded").mkdir(parents=True)
+        (fake / "workstreams" / "of3t-probe.txt").write_text("#DISPATCH: probe\n")
+        if not _is_live("perf/of3t_probe/anon.json", fake):
+            print("BROKEN a dispatched row with no marker does not read as live", file=sys.stderr)
+            return 2
+        (fake / "state" / "concluded" / "of3t-probe").write_text("")
+        if _is_live("perf/of3t_probe/anon.json", fake):
+            print("BROKEN a concluded row still reads as live -- the deferral would never "
+                  "escalate and this guard would be off", file=sys.stderr)
+            return 2
+        if _is_live("perf/of3t_nosuchrow/anon.json", fake):
+            print("BROKEN an artifact with no dispatched row reads as live", file=sys.stderr)
+            return 2
+
     new = [(r, f, w) for r, f, w in bad if r not in FROZEN]
     healed = [r for r in FROZEN if r not in {b[0] for b in bad}]
+    live = [x for x in new if _is_live(x[0])]
+    new = [x for x in new if not _is_live(x[0])]
+    for rel, _f, why in live:
+        print("  WARN %s %s (D155) -- %s is LIVE, so this is a warning; it becomes a FAILURE the "
+              "moment that row concludes" % (rel, why, _row_of(rel)))
     if new:
         for rel, _f, why in new:
             print("  DRIFT %s %s (D155)" % (rel, why))
@@ -170,9 +233,10 @@ def main(argv):
         print("FAIL the ratchet has %d stale entr(y/ies); it may only shrink" % len(healed))
         return 1
     n = sum(1 for _f in root.glob("perf/**/*.json") if "of3t" in str(_f))
-    print("ok    %d of3t digest claim(s) cannot be attributed to healthy hardware, all %d frozen "
-          "(probes: anonymous fires, pc card 0 fires, an identified good card does not); a new "
-          "one fails" % (len(bad), len(FROZEN)))
+    print("ok    %d of3t digest claim(s) cannot be attributed to healthy hardware, %d frozen and "
+          "%d deferred to a LIVE row (probes: anonymous fires, pc card 0 fires, an identified "
+          "good card does not); a new one from a concluded row fails"
+          % (len(bad), len(FROZEN), len(live)))
     return 0
 
 
