@@ -36,7 +36,28 @@ The levers, each named for what it does to `dW = sum_t g_t * xhat_t`:
   dx_fp32     the ACTIVATION gradient path (dnorm, its two means, dx) in fp32 -- D55's four
               withheld configs, the half that propagates rather than the half that lands
   all         every one of the above
-  ceiling     of3t-trunkceiling:  AND  together.  predates the softmax
+  hostf64_softmax
+              of3t-trunkceiling: every taped softmax computed on the HOST in float64, forward
+              and Jacobian both, through the package's own `autograd.host_f64_softmax`. The
+              site selector `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer` cannot reach the trunk --
+              measured, 0 served / 0 declined / 0 refused -- because the trunk ships
+              `fp32_softmax=True` and `site_softmax` sits in the other branch. Installing the
+              same implementation at the VERB reaches every softmax the trunk tapes, whichever
+              branch calls it. The renormalisation this displaces is a no-op against a float64
+              softmax, which already sums to one.
+  ceiling_hf  `all` AND `hostf64_softmax`: every fp32 island in the LayerNorm backward plus an
+              exact softmax at the taped VERB. That reaches `AttentionPairBias` and leaves
+              `autograd.triangle_attention` on the device softmax -- measured, 3,504 renorm
+              firings survive in this arm, and they are all the pair track, because
+              `taped_ttnn.py:861` routes the verb to `ag.triangle_attention`, whose chunked
+              backward recomputes its own `ttnn.softmax` inside `_scores`.
+  ceiling_hf3 `ceiling_hf` AND `ttnn.softmax` itself replaced, module-wide, by the package's own
+              raw host float64 entry point `autograd.host_f64_softmax_values`. That reaches
+              `_scores` in both the forward and the recompute, so no softmax in the trunk runs
+              on the card. It is the strongest arm this row can build without rewriting the
+              chunked attention: what is left on the device is `softmax_bw_inner`'s reduction,
+              computed on an EXACT p.
+  ceiling     of3t-trunkceiling: `all` AND `softmax_fp32` together. `all` predates the softmax
               lever and does not include it, so the two could not be read as one arm, which is
               the arm a ceiling needs -- every fp32 island in the taped backward at once.
   lofi        the control: LoFi, fp32_dest_acc_en off, on the same reductions. It must make
@@ -55,7 +76,7 @@ sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_trunkg043"))
 sys.path.insert(0, os.path.join(os.getcwd(), "perf/of3t_gradients"))
 
 LEVERS = ("none", "prod_fp32", "sum_fp32", "xhat_fp32", "dxcfg", "dx_fp32", "all", "lofi",
-          "softmax_fp32", "ceiling")
+          "softmax_fp32", "ceiling", "hostf64_softmax", "ceiling_hf", "ceiling_hf3")
 
 
 def main() -> int:
@@ -166,7 +187,7 @@ def main() -> int:
 
     # ---- 3. the LayerNorm backward, with the levers -------------------------------------
     lev = a.lever
-    on = (lambda n: lev in ("all", "ceiling") or lev == n)
+    on = (lambda n: lev in ("all", "ceiling", "ceiling_hf", "ceiling_hf3") or lev == n)
     CAPTURED = []
     # D121 REACH. A lever that never runs and a lever that runs and is inert are different
     # results, and no output comparison can tell them apart. `dxcfg_applied` counts the
@@ -344,6 +365,42 @@ def main() -> int:
             if v in tt._VERBS:
                 tt._VERBS[v] = _v_softmax_fp32
 
+    # The exact softmax, host float64 forward and float64 Jacobian, from the package's own
+    # implementation rather than a copy of it -- `autograd.host_f64_softmax` is what bought the
+    # diffusion module 7.426217e+00 -> 7.777580e-02, and a reimplementation here would be a
+    # second definition of the lever being priced.
+    def _v_softmax_host_f64(shipped, args, kwargs):
+        x = ag._wrap(args[0])
+        dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+        SM["fired"] += 1
+        return ag.host_f64_softmax(x, dim)
+
+    if lev in ("hostf64_softmax", "ceiling_hf", "ceiling_hf3"):
+        for v in ("softmax", "softmax_in_place"):
+            if v in tt._VERBS:
+                tt._VERBS[v] = _v_softmax_host_f64
+
+    # `ttnn.softmax` itself, so `autograd.triangle_attention._scores` is exact in the forward
+    # AND in the backward's recompute. The verb patch above cannot reach it: the verb routes to
+    # `ag.triangle_attention`, which calls `ttnn.softmax` directly inside its chunk loop. The
+    # replacement is the package's own raw entry point, so there is still one definition of the
+    # arithmetic. Counted separately from the verb, because "the pair track went exact" and
+    # "the single track went exact" are different claims.
+    SMRAW = {"fired": 0, "elements": 0}
+    _real_ttnn_softmax = ttnn.softmax
+    _real_ttnn_softmax_ip = getattr(ttnn, "softmax_in_place", None)
+
+    def _raw_host_f64(v, dim=-1, **kw):
+        SMRAW["fired"] += 1
+        y64, y = ag.host_f64_softmax_values(v, dim)
+        SMRAW["elements"] += int(y64.numel())
+        return y
+
+    if lev == "ceiling_hf3":
+        ttnn.softmax = _raw_host_f64
+        if _real_ttnn_softmax_ip is not None:
+            ttnn.softmax_in_place = _raw_host_f64
+
     ag._taped_layer_norm = _taped_layer_norm
     ag._TAPED["layer_norm"] = _taped_layer_norm
     tt._VERBS["layer_norm"] = _taped_layer_norm
@@ -387,6 +444,7 @@ def main() -> int:
         print(json.dumps({"ln_out": a.ln_out, "sites": len(CAPTURED),
                           "paths": sorted({c["gamma_path"] for c in CAPTURED})[:8]}))
     print(json.dumps({"lever": lev, "softmax_backward_firings": SM["fired"],
+                      "raw_ttnn_softmax_host_f64": SMRAW,
                       "layer_norm_backward_reach": LN,
                       "seconds": round(time.perf_counter() - t0, 1)}))
     return rc
