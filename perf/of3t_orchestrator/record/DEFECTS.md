@@ -2645,3 +2645,27 @@ only 6 of 1,639 parameter gradients and then died. So 768's 1.558x overshoot is 
 **And a rule fell out of it:** tile parity. 480 (15 tiles) and 544 (17 tiles) are odd 32-tile
 counts and both narrow the fp32-softmax L1 plan to **0 B**, where every even count measured (12,
 14, 16, 18, 20, 24) keeps it.
+
+### D206. A training forward that drives the diffusion modules directly skips a typecast the shipped caller does inline, so fp32 weights met bf16 activations — every loss looked sane while the squared gradient norm read 4.87e+11. FOUND by `of3t-trainfwd`, pass 350. **FIXED** by the row.
+
+`OF3SampleDiffusion.__call__` performs the typecast inline. A training forward that drives `dc`/`dm`
+directly never passes through it, so the arm ran **fp32 weights against bf16 activations** with no
+error raised anywhere.
+
+    squared gradient norm   4.87e+11      against the model denominator 10.2796
+
+**Every loss value looked sane.** That is the whole defect: the loss is computed from activations
+that are individually plausible, so nothing in the forward flags a precision boundary crossed the
+wrong way, and the damage shows up eleven orders of magnitude out in the gradient — which is the
+one number nobody reads until the end of a training step.
+
+**Fixed as a shared method rather than a second copy**: the boundary is now a method both callers
+use, and `ttnn.typecast` has a tape entry, so it is differentiable rather than a hole.
+
+**The class, and why it is worth an entry.** A *loss that looks right is not evidence the gradient
+is right*, and a precision boundary maintained inline in one caller is a trap for every other
+caller by construction — the campaign has the same shape in D153 (a missing reference path resolves
+to nothing and the run continues) and in `firing != code`. **Where two callers must cross the same
+boundary, the boundary belongs to neither of them.** And if an arm reports a squared gradient norm
+eleven orders off its own denominator, that is a configuration fault to find before it is a
+finding: no model produces 4.87e+11 against 10.2796 by being inaccurate.
