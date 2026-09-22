@@ -221,6 +221,11 @@ SELECT = {"sm16": _sel_sm16, "sm4": _sel_sm4, "pairattn": _sel_pairattn,
           "paircontract": _sel_paircontract}
 SELECT["identity"] = lambda c, s, d: any(f(c, s, d) for f in
                                          (_sel_sm16, _sel_pairattn, _sel_paircontract))
+# `all` is the same union predicate in EXACT mode: every node any selector sees, pinned to
+# its float64 VJP in one arm. The saturation test the three single-pin refutations point at --
+# if R44 does not move with every taped verb in blocks 45 and 44 exact, the carrier is not a
+# taped verb at all and the next instrument has to be the forward activations they consume.
+SELECT["all"] = SELECT["identity"]
 
 
 # --- the block tag -----------------------------------------------------------------------------
