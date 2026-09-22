@@ -1,0 +1,168 @@
+{
+ "arm": "on",
+ "size": "896",
+ "folds": [
+  {
+   "tag": "0",
+   "fold_s": 51.38,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 199,
+    "power_w_mean": 73.0
+   },
+   "clock_node": 0,
+   "kernel_path": {
+    "TRIATT_PERSISTENT_MASK": {
+     "served_declined": [
+      560,
+      560
+     ],
+     "rejects": {
+      "('pm_over_l1', (896, 4, 896, 32))": 560
+     }
+    },
+    "TRIATT_GATE_EPILOGUE": {
+     "served_declined": [
+      0,
+      0
+     ]
+    },
+    "TRIATT_HEAD_MAJOR_QKV": {
+     "served_declined": [
+      560,
+      0
+     ]
+    },
+    "TRIATT_HEAD_MAJOR_TAIL": {
+     "served_declined": [
+      560,
+      0
+     ]
+    },
+    "TRIMUL_IN_PROJ_DUAL_NOC": {
+     "served_declined": [
+      560,
+      0
+     ]
+    },
+    "TRIMUL_TAIL_F1": {
+     "served_declined": [
+      0,
+      0
+     ]
+    }
+   },
+   "plddt": 0.803368,
+   "cif_sha256": "c3c6034693fad0d85e2372a5be11f5c07aca0ba579bfb3ae89ab89c25a98cdfa",
+   "loadavg1": 7.55,
+   "foreign_device_holders": [],
+   "foreign_device_holders_end": [],
+   "aiclk_hold": {
+    "mhz": 1350,
+    "nodes": [
+     0
+    ],
+    "reasserts": 0
+   }
+  }
+ ],
+ "model_load_s": 7.587,
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "0",
+  "lease_cards": "0",
+  "flag": "TT_BIO_TRIATT_NARROW_Q_FALLBACK",
+  "attr": "_SDPA_NARROW_Q_FALLBACK",
+  "env_flag": "1",
+  "module_flag": true,
+  "counters": [
+   "TRIATT_PERSISTENT_MASK",
+   "TRIATT_GATE_EPILOGUE",
+   "TRIATT_HEAD_MAJOR_QKV",
+   "TRIATT_HEAD_MAJOR_TAIL",
+   "TRIMUL_IN_PROJ_DUAL_NOC",
+   "TRIMUL_TAIL_F1"
+  ],
+  "aiclk_held_mhz": 1350,
+  "git_head": "86db331675d82cd51bc56f2ffecdfb7d3e162412",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0
+  }
+ },
+ "warmup": {
+  "tag": "warmup",
+  "fold_s": 45.294,
+  "clock": {
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_mean": 1350.0,
+   "aiclk_n": 185,
+   "power_w_mean": 79.2
+  },
+  "clock_node": 0,
+  "kernel_path": {
+   "TRIATT_PERSISTENT_MASK": {
+    "served_declined": [
+     560,
+     560
+    ],
+    "rejects": {
+     "('l1_budget', (896, 4, 896, 32))": 1,
+     "('pm_over_l1', (896, 4, 896, 32))": 559
+    }
+   },
+   "TRIATT_GATE_EPILOGUE": {
+    "served_declined": [
+     0,
+     0
+    ]
+   },
+   "TRIATT_HEAD_MAJOR_QKV": {
+    "served_declined": [
+     560,
+     0
+    ]
+   },
+   "TRIATT_HEAD_MAJOR_TAIL": {
+    "served_declined": [
+     560,
+     0
+    ]
+   },
+   "TRIMUL_IN_PROJ_DUAL_NOC": {
+    "served_declined": [
+     560,
+     0
+    ]
+   },
+   "TRIMUL_TAIL_F1": {
+    "served_declined": [
+     0,
+     0
+    ]
+   }
+  },
+  "plddt": 0.803368,
+  "cif_sha256": "c3c6034693fad0d85e2372a5be11f5c07aca0ba579bfb3ae89ab89c25a98cdfa",
+  "loadavg1": 7.75,
+  "foreign_device_holders": [],
+  "foreign_device_holders_end": [],
+  "aiclk_hold": {
+   "mhz": 1350,
+   "nodes": [
+    0
+   ],
+   "reasserts": 0
+  },
+  "discarded": true
+ }
+}
