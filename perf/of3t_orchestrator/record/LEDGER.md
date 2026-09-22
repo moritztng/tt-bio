@@ -1715,3 +1715,50 @@ trunk and the ladder, verbinstall owns the softmax install and D245, and recut's
 re-scoring verbinstall's arms. recut takes qb2, which frameself had just freed; verbinstall
 holds qb1.
 
+
+---
+
+### R164. The re-score would have landed and the clause would still have read the stale artifact; the contract and the repoint condition are fixed before the number exists (pass 398, zero card)
+
+`of3t-recut` writes to `perf/of3t_recut/`. The GRADIENTS clause is graded on
+`perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json`. **Nothing connects the two.**
+So the foreseeable outcome was: recut finishes, publishes a corrected reading, and the charter's
+clause still grades the stale artifact and still reports FAIL — **R157 a second time, this time
+visible in advance.**
+
+Repointing the gate is the orchestrator's job; a row may not edit it. **So the contract and the
+repoint condition are fixed now, before the corrected number exists** — the discipline A37
+applies to bars, applied to the gate itself. A repoint decided after seeing the result is a gate
+moved to fit an answer.
+
+**The contract**: recut's artifact carries the six paths the clause's `require` list already
+reads — `inputs.float64.sha256`,
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2`,
+`stats.renorm_vs_FLOAT64.n_over_per_tensor_bar`,
+`stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar`,
+`coverage_total.pct_of_model_compared`, `bars.A26_reachable_bar_vs_their_bf16` — so the repoint
+is one string and no check is rewritten. **Plus one new required key, `injection.convention`,
+reading `graph_cut_correct` or `legacy_total_cotangent`**: R161's stamp, because an artifact
+that does not say which functional produced it is precisely the ambiguity R160 had to untangle
+retrospectively across fifteen namespaces.
+
+**The repoint condition, pre-registered.** All four must hold: the artifact exists with every
+key and the convention stamped correct; the CONTROL reproduces **3.0392623414001263e-15** at
+block 47 **through the fixed `ref_grad.py`** rather than frameself's bespoke break control;
+`--legacy-total-cotangent` reproduces a banked number exactly; and the linearity shortcut's
+end-to-end control passes on one arm. **Any one failing means no repoint** and the clause keeps
+grading the old artifact with R157's frame-status `why`. **A corrected reading nobody has
+controlled is not better evidence than a known-stale one — it is just newer.**
+
+**And the repoint moves no bar.** 99.2594, `bars.A26_reachable_bar_vs_their_bf16` and the keyed
+inequality are unchanged; only the file the clause reads changes.
+
+Also checked this pass and clean, so it is recorded rather than acted on: `of3t-verbinstall`'s
+state doc claims the package install is "pushed" and **it is** — `exact_softmax` appears 20
+times in `tt_bio/autograd.py` at `origin/wk/of3t-verbinstall`. One later commit (`339e0d7ea`,
+the arm-timeout variable) sits unpushed on qb1, and **qb1 CAN push**: `git push --dry-run` from
+that worktree returns rc=0 with `b6b64dd5f..339e0d7ea`. So the standing worry from
+`worker-pushed-claim-unverified-qb1-qb2-cannot-push` does not hold for qb1 today, and the
+unpushed commit is simply a row mid-arm rather than a stranded one.
+
+Artifact `perf/of3t_orchestrator/clausestatus/REPOINT_CONTRACT.json`.
