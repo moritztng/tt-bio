@@ -64,13 +64,15 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R174 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R175 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file; entries before R149 are in
 `state/archive/of3t-LEDGER.20260922-230004.md` and twelve earlier rotations. What each recent
 entry settles, one line, newest first:
 
+- **R175** with the double count removed the trunk's error is **97 % DIRECTION** (35.13 deg)
+  and the magnitude is within 5.5 %; the repoint is blocked on one missing key
 - **R174** the CORRECTED clause reads **1.4511706984958472x** the bar — still FAILING, improved
   18.54 % — and two of my own numbers are retracted: R159's 1.4172x was cross-space, R172's
   0.014 % shortcut bound was wrong and the shortcut is withdrawn at 2.21 %
@@ -128,10 +130,10 @@ the frame), A37 (a projection is a PREDICTION, never a TARGET, and no bar may be
 one), A34 (both sides of a per-parameter comparison on the SAME boundary). PROTOCOL carries all
 forty-one.
 
-ROWS: **one hundred twenty-three dispatched, one hundred twenty concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **`of3t-frameself` is live (relaunched 21:46 CEST, its DEFER expired) and `of3t-verbinstall` is dispatched at pass 386 onto D245. Two rows, two questions, no overlap: frameself owns whether the model frame is the frame it claims, verbinstall owns which softmax install ships.** Superseded at pass 386, kept for its method: at pass 385 the DEFER was re-checked against the host rather than the clock. Re-checked at pass 385 against the host rather than the clock — pid 42326 is in **R** state at 908 % CPU and 16.5 GB RSS with qb2 showing zero swap used and 176 GB free, so the DEFER is waiting on a live process and not a corpse. None dispatched at pass 382 — the critical path is already owned and adding a row to it would be two agents on one question.**
+ROWS: **one hundred twenty-four dispatched, one hundred twenty-one concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **`of3t-frameself` is live (relaunched 21:46 CEST, its DEFER expired) and `of3t-verbinstall` is dispatched at pass 386 onto D245. Two rows, two questions, no overlap: frameself owns whether the model frame is the frame it claims, verbinstall owns which softmax install ships.** Superseded at pass 386, kept for its method: at pass 385 the DEFER was re-checked against the host rather than the clock. Re-checked at pass 385 against the host rather than the clock — pid 42326 is in **R** state at 908 % CPU and 16.5 GB RSS with qb2 showing zero swap used and 176 GB free, so the DEFER is waiting on a live process and not a corpse. None dispatched at pass 382 — the critical path is already owned and adding a row to it would be two agents on one question.**
 
-- **`of3t-recut`** — **dispatched at pass 397**, qb2, one card, and it is now the critical path. Five jobs: FIX `ref_grad.py:201` with the correct injection as the DEFAULT and `--legacy-total-cotangent` reachable, plus A41's reachability assertion; CONTROL both directions; RESCORE the trunk using the `g(cot_s,cot_z) − g(0,delta)` shortcut with its end-to-end control; read `CLAUSE.json`'s pre-registered LADDER with **no new bar**; everything in namespace `perf/of3t_recut/`. Gate entry, `_STAGE_HINTS` path, TASKS ws-tag and the brief written on all three hosts.
-- **`of3t-frameself`** — **CONCLUDED GO at 23:57, and it solved D242.** Root-caused the double count, proved the repair at 3.0392623414001263e-15 against a 1e-12 bar, and banked a 13.2 s one-block reproducer. Its eight brief amendments and the arms they specified are the record.- **`of3t-verbinstall`** — **live**, picked up on qb1 at 22:14. Dispatched at pass 386 onto D245. The campaign's
+- **`of3t-recutfin`** — **dispatched at pass 409**, qb2, CPU only. Two things `of3t-recut` left when it concluded: the per-scope `injection.convention` stamp, which is the ONLY thing blocking the repoint under R164's pre-registered contract, and the magnitude/direction split in vs-upstream-bf16 space, which decides whether the trunk's required **1.7414134679108282x** fall is reachable. Namespace `perf/of3t_recutfin/`, gate entry and brief on all three hosts.
+- **`of3t-recut`** — **CONCLUDED GO at 00:58**, and its deliverable's answer is that the clause FAILS. It repaired `ref_grad.py`, controlled the repair three ways, withdrew its own linearity shortcut when the control failed at 2.21 %, re-scored, and read the ladder without moving a bar. The corrected clause is **1.4511706984958472x**, improved 18.54 % from the withdrawn 1.7814428090278143x.- **`of3t-frameself`** — **CONCLUDED GO at 23:57, and it solved D242.** Root-caused the double count, proved the repair at 3.0392623414001263e-15 against a 1e-12 bar, and banked a 13.2 s one-block reproducer. Its eight brief amendments and the arms they specified are the record.- **`of3t-verbinstall`** — **live**, picked up on qb1 at 22:14. Dispatched at pass 386 onto D245. The campaign's
   best trunk number (1.0525x) comes from `dev_cot.py` rewriting `tt._VERBS` from a perf script,
   while the shippable site-selector install measures **34.25 % worse against float64**. Three
   jobs: PACKAGE the consistent arm as a tape-gated install from `tt_bio.autograd.install` (which
@@ -530,8 +532,8 @@ The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDEN
 regenerated every compose, break control passing): COVERAGE and TRAJECTORY MET, GRADIENTS not.
 
 **Counts, stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.** One hundred
-twenty-one rows dispatched; `state/concluded` holds **one hundred twenty-two** of3t files, two of them
-this row's own historical markers, so **one hundred twenty rows have concluded**.
+twenty-one rows dispatched; `state/concluded` holds **one hundred twenty-three** of3t files, two of them
+this row's own historical markers, so **one hundred twenty-one rows have concluded**.
 **Two hundred forty-five defects filed**, **95 UNFIXED** (5
 scope-excluded, 8 USER-FACING, 82 campaign-internal).
 
@@ -1856,3 +1858,35 @@ which is the part of the design that worked.
 **Repoint condition 4 is satisfied by ELIMINATION, not waved through**: the reading now contains
 no shortcut at all, which meets the condition's purpose more strongly than a passing control
 would, and the failure and its magnitude sit in the record beside it.
+
+## Pass 409 — the trunk's remaining error is 97 % direction, and that inverts the campaign's picture
+
+**The repoint is blocked, by my own pre-registration.** The corrected composed artifact carries
+six of seven contract keys with the corrected 0.22072451195864032; `injection.convention` is
+absent. Conditions 2, 3 and 4 are met. R164 fixed the rule before the number existed and it
+says any failing condition means no repoint, so it holds. The namespace and the value would let
+a careful reader work it out — which is exactly the reasoning that makes a stamp optional and
+then rots.
+
+**And the corrected reading has a structure nobody had named.** From the artifact's own two
+scalars — cos 0.8178953379770566 and norm ratio 1.054584096168068 — the observed 0.6221485227575493
+reconstructs to 1.1e-15, so the split is exact rather than modelled:
+
+    magnitude alone    0.054584      8.8 % of the observed error
+    direction alone    0.603498     97.0 % of the observed error
+    the angle          35.13 degrees
+
+On the double-counted functional the trunk read as a near-constant scale of 1.7460 at cos
+0.9841 — a magnitude story with a ten-degree angle. **That was the duplicate**: a large
+nearly-parallel component inflates the magnitude and flatters the cosine at the same time.
+Remove it and the magnitude is within 5.5 % while the angle opens to 35 degrees. **Everything
+the campaign chased from D227 through D233 as a magnitude deficit was reading the duplicate;
+what is left is a direction error.**
+
+**What this does not license.** The decomposition is in vs-float64 space, because those are the
+scalars banked; the clause is graded in vs-upstream-bf16 space, and carrying it across is the
+cross-space error I retracted one pass ago. So no claim is made here about what the clause
+needs. The one-line ask that closes it: bank cos and norm ratio against upstream's own bf16 too
+— the scorer already computes that comparison and reports the decomposition for only one of the
+two. With both, the campaign can say whether the remaining 1.7414x is reachable by magnitude,
+by direction, or by neither.

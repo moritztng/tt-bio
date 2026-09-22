@@ -2202,3 +2202,45 @@ reading must not rest on an unvalidated shortcut, and the row eliminated the sho
 and read the direct arm — which satisfies that purpose **more strongly** than a passing control
 would, because the reading now contains no shortcut at all. Condition 4 is recorded as satisfied
 BY ELIMINATION, with the failure and its magnitude in the record beside it.
+
+---
+
+### R175. With the double count removed, the trunk's remaining error is 97 % DIRECTION — the magnitude is within 5.5 % — and the repoint is blocked on one missing key (pass 409, zero card)
+
+**The repoint is BLOCKED, by my own pre-registration.** `MODEL_RECUT_composed3660_n384.json`
+carries six of the seven contract keys, with the corrected
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2` = **0.22072451195864032** — but
+`injection.convention` is still absent. R164 fixed the rule before the number existed: *any of
+the four failing means no repoint.* The name and the namespace say "recut" and the value differs
+from the legacy one, so a reader could work it out — **and that is precisely the reasoning that
+makes a stamp optional and then rots.** R168's point stands: the stamp must travel as far as
+the number does. One key, asked of the row.
+
+**And the corrected reading has a structure nobody has named.** From the artifact's own two
+scalars, `cos_vs_float64` **0.8178953379770566** and `norm_ratio_vs_float64`
+**1.054584096168068**, the observed `rel_l2` **0.6221485227575493** reconstructs to 1.1e-15 —
+so the decomposition is exact, not a model:
+
+    magnitude alone   (cos = 1, same norm ratio)    0.054584     8.8 % of the observed
+    direction alone   (norm ratio = 1, same cos)    0.603498    97.0 % of the observed
+    the angle                                       35.13 degrees
+    perpendicular share of our vector               0.5754
+
+**The campaign's picture is inverted.** On the double-counted functional the trunk read as a
+near-constant SCALE of 1.7460 at cos 0.9841 — a magnitude story with a ten-degree angle. That
+is what the duplicate was doing: it added a large, nearly-parallel component, which inflated
+the magnitude AND flattered the cosine. **With it removed the magnitude is within 5.5 % and the
+angle is 35 degrees.** Everything the campaign chased from D227 through D233 as a magnitude
+deficit was reading the duplicate; **what is actually left is a direction error.**
+
+**What this does NOT license, and the restraint is the point.** The decomposition is in
+**vs-float64** space, because those are the two scalars the artifact banks. The clause is graded
+in **vs-upstream-bf16** space. Carrying the decomposition across is exactly the cross-space
+error I retracted one pass ago in R159, so **no statement is made here about what the clause
+needs** — only about where the error is, in the space it is measured in.
+
+**The one-line ask that closes that gap**: bank `cos` and `norm_ratio` against upstream's own
+bf16 alongside the float64 pair. The scorer already computes both comparisons; it reports the
+decomposition for only one of them. With both, the same exact decomposition can be done in the
+space the clause lives in, and the campaign can say for the first time whether the remaining
+1.7414x is reachable by magnitude, by direction, or by neither.
