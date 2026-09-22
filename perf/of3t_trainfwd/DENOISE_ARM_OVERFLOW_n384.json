@@ -8,13 +8,12 @@
  "seed": 20260922,
  "host": "tt-quietbox2",
  "card": "1",
- "commit": "524deccaefe4359ee9b568fffe25e97c709481e4",
+ "commit": "248c2605e29b6e0943c085f0b189464bae8206be",
  "padded_width": 384,
  "real_tokens": 56,
  "pdb_id": "5nw3",
- "denoise": false,
  "params_reachable": 3952,
- "loss": 0.1342802552371707,
+ "loss": 9.310687084427952,
  "weights": {
   "bond": 0.0,
   "smooth_lddt": 4.0,
@@ -33,16 +32,14 @@
    "skipped": "weight is zero in this stage"
   },
   "smooth_lddt": {
-   "value": null,
+   "value": 0.25282072459367777,
    "weight": 4.0,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_dist']"
+   "contribution": 1.011282898374711
   },
   "mse": {
-   "value": null,
+   "value": 2.041101740680398,
    "weight": 4.0,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
+   "contribution": 8.164406962721593
   },
   "distogram": {
    "value": 4.451829139528296,
@@ -61,40 +58,46 @@
    "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
   },
   "pae": {
-   "value": null,
+   "value": 4.580056093439887,
    "weight": 0.0001,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
+   "contribution": 0.0004580056093439887
   },
   "pde": {
-   "value": null,
+   "value": 2.5896248513361995,
    "weight": 0.0001,
-   "contribution": 0.0,
-   "skipped": "missing ['pred_xyz']"
+   "contribution": 0.00025896248513361997
   }
  },
  "seeded_outputs": [
   "distogram_logits",
+  "pae_logits",
+  "pde_logits",
+  "pred_dist",
+  "pred_xyz",
   "resolved_logits"
  ],
- "forward_s": 8.741135140000551,
- "backward_s": 488.14811607699994,
- "step_s": 496.8892512170005,
- "params_with_grad": 2498,
- "params_nonzero_grad": 2489,
- "squared_gradient_norm": 9.785634443843449,
+ "forward_s": 9.522967656999754,
+ "backward_s": 499.44807305299946,
+ "step_s": 508.9710407099992,
+ "params_with_grad": 3400,
+ "params_nonzero_grad": 3391,
+ "squared_gradient_norm": Infinity,
  "by_section": {
   "input_glue": {
    "n": 5,
-   "sq": 0.0586938328215179
+   "sq": 4040455631.4351654
   },
   "trunk": {
    "n": 2314,
-   "sq": 6.775973617677438
+   "sq": 431271975520.11896
   },
   "confidence_head": {
-   "n": 179,
-   "sq": 2.9509669933444918
+   "n": 185,
+   "sq": 2.9509675895949923
+  },
+  "sampler": {
+   "n": 896,
+   "sq": Infinity
   }
  },
  "grad_dump": "/home/ttuser/of3t_trainfwd/grad_full_n384.pt",
@@ -104,9 +107,9 @@
    "min": 800,
    "max": 1350,
    "median": 1350,
-   "n": 134
+   "n": 140
   }
  },
- "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 134 samples, polled DURING the work",
- "total_s": 500.29750430999957
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 140 samples, polled DURING the work",
+ "total_s": 515.9741451509999
 }
