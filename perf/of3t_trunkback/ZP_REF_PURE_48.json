@@ -1,0 +1,81 @@
+{
+  "what": "One upstream release tree's 48-block pairformer trunk GRADIENT over the captured boundary.",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "policy": "bf16pure",
+  "tb": "keep",
+  "blocks": 48,
+  "crop": 64,
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "first_block": 0,
+  "boundary": {
+    "inputs_from_block": 0,
+    "cotangent_from_block": 47,
+    "block_first": "/home/ttuser/of3t_gradients/cap/block0_boundary.pt",
+    "block_last": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+    "tokens": 64,
+    "real_tokens": 56,
+    "padding_fraction_single": 0.125,
+    "padding_fraction_pair": 0.234375,
+    "s_in_norm": 5623.548807821603,
+    "z_in_norm": 64263.67350116298,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261
+  },
+  "dtype_policy": "every parameter and every activation bfloat16, NO autocast. autocast keeps layer norms, softmaxes and reductions in float32 off its own op list; this arm takes that away and is therefore the upstream-side control for a stack whose arithmetic really is bf16 all the way down. The difference between this and bf16auto is exactly what autocast's float32 list is worth on this scope.",
+  "zero_pad": {
+    "pad_rows": 8,
+    "real_rows": 56,
+    "s_in_norm": 5623.548807821603,
+    "z_in_norm": 64263.67350116298
+  },
+  "their_dims": {
+    "c_s": 384,
+    "c_z": 128,
+    "c_hidden_pair_bias": 24,
+    "no_heads_pair_bias": 16,
+    "c_hidden_mul": 128,
+    "c_hidden_pair_att": 32,
+    "no_heads_pair": 4,
+    "transition_type": "swiglu",
+    "transition_n": 4,
+    "pair_dropout": 0.25,
+    "fuse_projection_weights": false,
+    "inf": 1000000000.0
+  },
+  "their_load": {
+    "blocks": 48,
+    "tensors": 2736,
+    "missing": 0,
+    "unexpected": 0
+  },
+  "forward": {
+    "loss": -0.2979462171773613,
+    "s_out_norm": 2161432.9732497395,
+    "z_out_norm": 117258.71335934145,
+    "seconds": 1.5135457449996466,
+    "vs_captured_050": {
+      "s": 0.03498058301930183,
+      "z": 0.9972942597982283,
+      "s_masked": 0.033630698778532864,
+      "z_masked": 0.26262930958405045
+    }
+  },
+  "gradient": {
+    "with_grad": 2736,
+    "without_grad": 0,
+    "absent": [],
+    "global_norm": 1.4339943139775566,
+    "squared_norm": 2.0563396925199635
+  },
+  "input_grad": {
+    "file": "/home/ttuser/of3t_trunkback/ZP_REF_PURE_48_ig.pt",
+    "ds_in_norm": 0.03412628404177783,
+    "dz_in_norm": 0.0012435345030681773
+  },
+  "out": "/home/ttuser/of3t_trunkback/ZP_REF_PURE_48.pt",
+  "out_sha256": "9c2580c567e52cdc7aa6493482edc56f88f71480a68c2b2f3394505a14e4b252",
+  "forward_out": "/home/ttuser/of3t_trunkback/ZP_REF_PURE_48_fwd.pt",
+  "forward_out_sha256": "e99621afd2d9559a36f5c5736556d7dc0c44e0598810e2fbb6558e73e2c4ae06",
+  "seconds": 33.2771286520001
+}

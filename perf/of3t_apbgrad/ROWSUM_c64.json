@@ -1,0 +1,239 @@
+{
+  "what": "the softmax backward's zero-row-sum invariant, and what q@k^T does with the leak",
+  "blocks": {
+    "4": {
+      "probs_row_sum_minus_one_rms": 0.025804178987363424,
+      "probs_row_sum_minus_one_max": 0.036865234375,
+      "d_logits_row_sum_rms": {
+        "card": 6.195035357235732e-05,
+        "exact_bw_same_operands": 6.225753132123744e-05,
+        "variant_A": 3.473967108593263e-19,
+        "variant_B": 3.447958324525468e-19
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": -8.701617552172043e-05,
+        "leak_norm": 3.7061569406715353,
+        "error_norm": 0.005427430920846061,
+        "residual_norm_after_removing_the_leak": 0.005417841174000179,
+        "fraction_of_the_error_variance_removed": 0.003530685109343623
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 1.821371194046273,
+          "r": 1.4130471474929096,
+          "cos": -0.11347490635137925
+        },
+        "exact_bw_same_operands": {
+          "rel": 1.8242529004115677,
+          "r": 1.417852970397408,
+          "cos": -0.1119973670141001
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 1.261608898249756,
+          "r": 0.5101462435019075,
+          "cos": -0.3248164880220395
+        },
+        "variant_B_renormalised_y": {
+          "rel": 1.2792643906675474,
+          "r": 0.524732341896601,
+          "cos": -0.34415007591516633
+        }
+      }
+    },
+    "15": {
+      "probs_row_sum_minus_one_rms": 0.02439064830075793,
+      "probs_row_sum_minus_one_max": 0.0397820417128969,
+      "d_logits_row_sum_rms": {
+        "card": 1.9030315930914465e-05,
+        "exact_bw_same_operands": 1.908924111166973e-05,
+        "variant_A": 5.398470971824248e-21,
+        "variant_B": 7.172806281289721e-21
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": -3.8351090031217066e-05,
+        "leak_norm": 0.9458941496633434,
+        "error_norm": 0.0013134657229696709,
+        "residual_norm_after_removing_the_leak": 0.0013129646804231686,
+        "fraction_of_the_error_variance_removed": 0.0007627865309126625
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 33.29402452773519,
+          "r": 33.29795828170818,
+          "cos": 0.018949457295123023
+        },
+        "exact_bw_same_operands": {
+          "rel": 33.45482981954515,
+          "r": 33.45947351006226,
+          "cos": 0.019586819192448646
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 0.6375905962161935,
+          "r": 1.0723739370016103,
+          "cos": 0.8128993218782372
+        },
+        "variant_B_renormalised_y": {
+          "rel": 0.6450835132374066,
+          "r": 1.0890072232266705,
+          "cos": 0.8125767926246223
+        }
+      }
+    },
+    "22": {
+      "probs_row_sum_minus_one_rms": 0.025279568792996365,
+      "probs_row_sum_minus_one_max": 0.039775848388671875,
+      "d_logits_row_sum_rms": {
+        "card": 3.047256007981247e-05,
+        "exact_bw_same_operands": 3.0284110271294354e-05,
+        "variant_A": 4.6791984670760664e-20,
+        "variant_B": 6.320871048775085e-20
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": 0.00020923920598070873,
+        "leak_norm": 1.7929091298260487,
+        "error_norm": 0.0021258293956068603,
+        "residual_norm_after_removing_the_leak": 0.0020924663523247916,
+        "fraction_of_the_error_variance_removed": 0.031141954644323566
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 10.915243393043955,
+          "r": 10.9877708502768,
+          "cos": 0.11779322503519782
+        },
+        "exact_bw_same_operands": {
+          "rel": 10.80767897437445,
+          "r": 10.880839705358902,
+          "cos": 0.11886710725575594
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 0.5556487945141311,
+          "r": 1.2767378270397858,
+          "cos": 0.9090800973334567
+        },
+        "variant_B_renormalised_y": {
+          "rel": 0.5944430043511404,
+          "r": 1.3128109174915596,
+          "cos": 0.9026852184439811
+        }
+      }
+    },
+    "31": {
+      "probs_row_sum_minus_one_rms": 0.020639921657561743,
+      "probs_row_sum_minus_one_max": 0.03937911987046461,
+      "d_logits_row_sum_rms": {
+        "card": 2.4050469724215907e-06,
+        "exact_bw_same_operands": 2.4238552569854675e-06,
+        "variant_A": 5.578240848834853e-21,
+        "variant_B": 5.605931474204864e-21
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": -9.669108317568663e-05,
+        "leak_norm": 0.036995518023890346,
+        "error_norm": 2.401222240033607e-05,
+        "residual_norm_after_removing_the_leak": 2.3744281786537204e-05,
+        "fraction_of_the_error_variance_removed": 0.02219250683281715
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 0.7844254370922871,
+          "r": 1.4073115792430233,
+          "cos": 0.8403265664829832
+        },
+        "exact_bw_same_operands": {
+          "rel": 0.8017508595331883,
+          "r": 1.4087066453721366,
+          "cos": 0.8311347077286007
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 0.38065469018397013,
+          "r": 1.2807665836681141,
+          "cos": 0.9742075880582507
+        },
+        "variant_B_renormalised_y": {
+          "rel": 0.38164166504065683,
+          "r": 1.2824422394447696,
+          "cos": 0.9743159029521095
+        }
+      }
+    },
+    "39": {
+      "probs_row_sum_minus_one_rms": 0.022707029953790668,
+      "probs_row_sum_minus_one_max": 0.0395282506942749,
+      "d_logits_row_sum_rms": {
+        "card": 3.0101739263578784e-05,
+        "exact_bw_same_operands": 2.9917599359836943e-05,
+        "variant_A": 8.518296566612675e-20,
+        "variant_B": 1.599711156548713e-19
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": 0.0001663156956914491,
+        "leak_norm": 1.1191032857511998,
+        "error_norm": 0.0013506377645149178,
+        "residual_norm_after_removing_the_leak": 0.0013377518690708718,
+        "fraction_of_the_error_variance_removed": 0.01899017810723891
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 13.340790349000137,
+          "r": 13.573897460663014,
+          "cos": 0.2679409196105693
+        },
+        "exact_bw_same_operands": {
+          "rel": 13.102706493992565,
+          "r": 13.334511730519651,
+          "cos": 0.2672870881104673
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 1.9533352620738826,
+          "r": 1.1484486171587585,
+          "cos": -0.6515678618299462
+        },
+        "variant_B_renormalised_y": {
+          "rel": 1.973244471480715,
+          "r": 1.1670809465426033,
+          "cos": -0.6561737696874168
+        }
+      }
+    },
+    "47": {
+      "probs_row_sum_minus_one_rms": 0.008314927353310155,
+      "probs_row_sum_minus_one_max": 0.0388031005859375,
+      "d_logits_row_sum_rms": {
+        "card": 1.0435564029019176e-05,
+        "exact_bw_same_operands": 1.0053912921489044e-05,
+        "variant_A": 1.2514310824390513e-19,
+        "variant_B": 1.904008017077304e-19
+      },
+      "dq_error_explained_by_the_leak": {
+        "regression_coefficient": 0.0011891159094147665,
+        "leak_norm": 0.056023170426985056,
+        "error_norm": 0.0003145309384888327,
+        "residual_norm_after_removing_the_leak": 0.00030739510012381356,
+        "fraction_of_the_error_variance_removed": 0.04485976588543683
+      },
+      "module_ds_vs_reference": {
+        "card": {
+          "rel": 0.3951113158499584,
+          "r": 0.9755052978123677,
+          "cos": 0.9202910728285264
+        },
+        "exact_bw_same_operands": {
+          "rel": 0.39387647634994166,
+          "r": 0.9757277038176864,
+          "cos": 0.9208029383324948
+        },
+        "variant_A_inner_over_sum_y": {
+          "rel": 0.38858163268626983,
+          "r": 0.9599201659201059,
+          "cos": 0.9221866059986019
+        },
+        "variant_B_renormalised_y": {
+          "rel": 0.38914264559707196,
+          "r": 0.9627156881889116,
+          "cos": 0.9220736295482392
+        }
+      }
+    }
+  }
+}

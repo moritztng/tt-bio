@@ -1,0 +1,44 @@
+{
+ "scope": "REAL TOKENS ONLY (56 of 384); padded rows excluded from numerator and denominator",
+ "n_real_tokens": 56,
+ "CONTROL": {
+  "s": {
+   "rel_vs_t": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.0
+  },
+  "z": {
+   "rel_vs_t": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.0
+  }
+ },
+ "REVISION_050_vs_043": {
+  "s": {
+   "rel_vs_t": 0.03214910057635795,
+   "norm_ratio": 0.9885320690793428,
+   "cos": -0.37073996849408747
+  },
+  "z": {
+   "rel_vs_t": 0.21040157247002225,
+   "norm_ratio": 0.880323928310689,
+   "cos": -0.6399633799786767
+  }
+ },
+ "UPSTREAM_OWN_BF16": {
+  "s": {
+   "rel_vs_t": 0.012878133443183962,
+   "norm_ratio": 0.9897402333468391,
+   "cos": -0.7990333733658369
+  },
+  "z": {
+   "rel_vs_t": 0.024409521001988132,
+   "norm_ratio": 1.005513967519069,
+   "cos": 0.21431215630099973
+  }
+ },
+ "R_in_bf16_units": {
+  "s": 2.496409958647662,
+  "z": 8.619651833925182
+ }
+}

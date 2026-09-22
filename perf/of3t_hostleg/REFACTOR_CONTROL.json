@@ -1,0 +1,199 @@
+{
+ "instrument": "of3t-hostleg refactor_control.py -- the shipped HOST leg after the refactor, against origin/wk/of3t's own bytes, on CPU",
+ "base": "origin/wk/of3t:tt_bio/openfold3_host_prep.py",
+ "rows": [
+  {
+   "n_atom": 602,
+   "n_res": 76,
+   "seed": 0,
+   "cl_bit_identical": true,
+   "plm_bit_identical": true,
+   "cl_max_abs_diff": 0.0,
+   "plm_max_abs_diff": 0.0,
+   "cl_shape": [
+    602,
+    128
+   ],
+   "plm_shape": [
+    19,
+    32,
+    128,
+    16
+   ],
+   "block_shapes": [
+    [
+     19,
+     32,
+     128,
+     3
+    ],
+    [
+     19,
+     32,
+     128,
+     1
+    ],
+    [
+     19,
+     32,
+     128,
+     1
+    ]
+   ],
+   "single_shapes": [
+    [
+     602,
+     3
+    ],
+    [
+     602,
+     1
+    ],
+    [
+     602,
+     1
+    ],
+    [
+     602,
+     119
+    ],
+    [
+     602,
+     256
+    ]
+   ],
+   "pad_rows_are_zero": true,
+   "pad_keeps_real_rows": true,
+   "NP": 608
+  },
+  {
+   "n_atom": 1000,
+   "n_res": 130,
+   "seed": 1,
+   "cl_bit_identical": true,
+   "plm_bit_identical": true,
+   "cl_max_abs_diff": 0.0,
+   "plm_max_abs_diff": 0.0,
+   "cl_shape": [
+    1000,
+    128
+   ],
+   "plm_shape": [
+    32,
+    32,
+    128,
+    16
+   ],
+   "block_shapes": [
+    [
+     32,
+     32,
+     128,
+     3
+    ],
+    [
+     32,
+     32,
+     128,
+     1
+    ],
+    [
+     32,
+     32,
+     128,
+     1
+    ]
+   ],
+   "single_shapes": [
+    [
+     1000,
+     3
+    ],
+    [
+     1000,
+     1
+    ],
+    [
+     1000,
+     1
+    ],
+    [
+     1000,
+     119
+    ],
+    [
+     1000,
+     256
+    ]
+   ],
+   "pad_rows_are_zero": true,
+   "pad_keeps_real_rows": true,
+   "NP": 1024
+  },
+  {
+   "n_atom": 31,
+   "n_res": 4,
+   "seed": 2,
+   "cl_bit_identical": true,
+   "plm_bit_identical": true,
+   "cl_max_abs_diff": 0.0,
+   "plm_max_abs_diff": 0.0,
+   "cl_shape": [
+    31,
+    128
+   ],
+   "plm_shape": [
+    1,
+    32,
+    128,
+    16
+   ],
+   "block_shapes": [
+    [
+     1,
+     32,
+     128,
+     3
+    ],
+    [
+     1,
+     32,
+     128,
+     1
+    ],
+    [
+     1,
+     32,
+     128,
+     1
+    ]
+   ],
+   "single_shapes": [
+    [
+     31,
+     3
+    ],
+    [
+     31,
+     1
+    ],
+    [
+     31,
+     1
+    ],
+    [
+     31,
+     119
+    ],
+    [
+     31,
+     256
+    ]
+   ],
+   "pad_rows_are_zero": true,
+   "pad_keeps_real_rows": true,
+   "NP": 32
+  }
+ ],
+ "verdict": "BIT-IDENTICAL"
+}

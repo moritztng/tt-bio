@@ -1,0 +1,44 @@
+{
+ "entry_point": "OF3ConfidenceHead.forward_device, both masks unset",
+ "arm_a": "origin/wk/of3t",
+ "arm_b": "wk/of3t-auxgrad HEAD",
+ "n_tensors": 7,
+ "all_bit_identical": true,
+ "rows": [
+  {
+   "tensor": "distogram_logits",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "experimentally_resolved_logits",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "pae_logits",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "pde_logits",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "plddt_logits",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "si_conf",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  },
+  {
+   "tensor": "zij_conf",
+   "torch_equal": true,
+   "max_abs_delta": 0.0
+  }
+ ]
+}

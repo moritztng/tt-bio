@@ -10,11 +10,31 @@ between rows makes their numbers incomparable.
 """
 
 import json
+import os
+import shutil
 import subprocess
 import threading
 import time
 
-TT_SMI = "/home/ttuser/.local/bin/tt-smi"
+
+def _tt_smi():
+    """Where tt-smi is on THIS host.
+
+    It was pinned to /home/ttuser/.local/bin/tt-smi, which is qb1 and qb2 only. On pc the user
+    is `moritz` and that path does not exist, so every sample raised, `clocks` stayed empty and
+    `line()` reported NOT SAMPLED -- a harness that ran fine and produced unclocked numbers,
+    which on Blackhole is not a measurement.
+    """
+    for c in (os.environ.get("TT_SMI"),
+              "/home/ttuser/.local/bin/tt-smi",
+              os.path.expanduser("~/.local/bin/tt-smi"),
+              shutil.which("tt-smi")):
+        if c and os.path.exists(c):
+            return c
+    return "tt-smi"
+
+
+TT_SMI = _tt_smi()
 
 
 def sample_aiclk(stop, out, *, period=2.0):

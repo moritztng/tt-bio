@@ -1,0 +1,372 @@
+{
+ "what": "Do we reproduce the gradient OpenFold3's own training step computes?",
+ "inputs": {
+  "device": {
+   "path": "/home/ttuser/of3t_direct/msa_grads.pt",
+   "bytes": 16145227,
+   "sha256": "580f375fa0ea5ffccf7f5fc8a40d78b848b2b6b72307aaec5dc529d90ffd158b"
+  },
+  "device_permuted": {
+   "path": "/home/ttuser/of3t_direct/msa_grads_scramcot.pt",
+   "bytes": 16146667,
+   "sha256": "c596ff5a52657f3993446c3df39d6562b7e46097d15967e076793fbfd7f96228"
+  },
+  "float64": {
+   "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+   "bytes": 2947844653,
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4"
+  },
+  "upstream_bf16": {
+   "path": "/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt",
+   "bytes": 2947844653,
+   "sha256": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "matches_pin": true
+  },
+  "upstream_f32": {
+   "path": "/home/ttuser/of3t_refprec/pinned_p175/arm2_f32_upstream/grads_f64.pt",
+   "bytes": 2947844653,
+   "sha256": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+   "matches_pin": true
+  },
+  "upstream_permuted_draws": {
+   "path": "/home/ttuser/of3t_trajectory/ref/negctl_permuted_grads.pt",
+   "bytes": 2947844653,
+   "sha256": "a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0"
+  },
+  "diffcap": {
+   "path": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+   "bytes": 478407265,
+   "sha256": "ca142fe906547d4c0b4cb30dbf8449a72bd218e984dd61f4ae09d50c4d4d879f"
+  }
+ },
+ "scope": {
+  "n_tensors": 154,
+  "source": "/home/ttuser/of3t_direct/msa_grads.pt",
+  "pct_of_model_mass": 1.2317423683293727,
+  "tensors_absent_from_float64": []
+ },
+ "model_squared_gradient_norm": 10.279642678524981,
+ "diffcap_is_the_bundles_float64": {
+  "what": "the capture's grad_f64 against the bundle's float64 gradient, over the device scope",
+  "capture": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+  "capture_key": "param_grads",
+  "key_prefix_stripped": "",
+  "max_abs_diff": 0.0,
+  "at": null,
+  "n_scope": 154,
+  "n_compared": 154,
+  "identical": true
+ },
+ "bars": {
+  "upstream_bf16_own_distance_from_float64": 0.05852018,
+  "per_tensor": 0.05
+ },
+ "pairs": {
+  "DEVICE_vs_UPSTREAM_BF16": {
+   "arm": "DEVICE",
+   "reference": "UPSTREAM_BF16",
+   "why": "the question. Our gradient against the gradient upstream's own bf16 training step computes, no shared subtrahend.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.22600135840942495,
+     "mass_weighted_norm_ratio": 0.9479368120485359,
+     "mass_weighted_cos": 0.9744887856192046,
+     "median_rel_l2_over_tensors": 0.21493263589165273,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 1.6180529330856286,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.22600135840942495,
+     "mass_weighted_norm_ratio": 0.9479368120485359,
+     "mass_weighted_cos": 0.9744887856192046,
+     "median_rel_l2_over_tensors": 0.21493263589165273,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 1.6180529330856286,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 2.260014e-01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 2.149326e-01, norm ratio 0.947937, cos 0.974489",
+   "per_tensor_sidecar": "per_tensor_DEVICE_vs_UPSTREAM_BF16.json"
+  },
+  "DEVICE_vs_FLOAT64": {
+   "arm": "DEVICE",
+   "reference": "FLOAT64",
+   "why": "continuity with the record: the device arm's published distance from the ideal.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.16212396622403188,
+     "mass_weighted_norm_ratio": 1.0045629503084057,
+     "mass_weighted_cos": 0.9869279670822863,
+     "median_rel_l2_over_tensors": 0.0801893082554809,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 130,
+     "worst_rel_l2": 1.6438564440075256,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.16212396622403188,
+     "mass_weighted_norm_ratio": 1.0045629503084057,
+     "mass_weighted_cos": 0.9869279670822863,
+     "median_rel_l2_over_tensors": 0.0801893082554809,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 130,
+     "worst_rel_l2": 1.6438564440075256,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_att_start.layer_norm.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.621240e-01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 8.018931e-02, norm ratio 1.004563, cos 0.986928",
+   "per_tensor_sidecar": "per_tensor_DEVICE_vs_FLOAT64.json"
+  },
+  "UPSTREAM_BF16_vs_FLOAT64": {
+   "arm": "UPSTREAM_BF16",
+   "reference": "FLOAT64",
+   "why": "the bar. Upstream's own distance from the ideal on this scope.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.17876037263599853,
+     "mass_weighted_norm_ratio": 1.0597361950080808,
+     "mass_weighted_cos": 0.9866066394803559,
+     "median_rel_l2_over_tensors": 0.20221515963202316,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 0.4640306778554396,
+     "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.17876037263599853,
+     "mass_weighted_norm_ratio": 1.0597361950080808,
+     "mass_weighted_cos": 0.9866066394803559,
+     "median_rel_l2_over_tensors": 0.20221515963202316,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 0.4640306778554396,
+     "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.787604e-01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 2.022152e-01, norm ratio 1.059736, cos 0.986607",
+   "per_tensor_sidecar": "per_tensor_UPSTREAM_BF16_vs_FLOAT64.json"
+  },
+  "UPSTREAM_BF16_vs_UPSTREAM_F32": {
+   "arm": "UPSTREAM_BF16",
+   "reference": "UPSTREAM_F32",
+   "why": "the scale. How far upstream's own two precisions are from each other.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.1787654660057096,
+     "mass_weighted_norm_ratio": 1.059744666547066,
+     "mass_weighted_cos": 0.9866063649332092,
+     "median_rel_l2_over_tensors": 0.2022213588147883,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 0.4640183445169818,
+     "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.1787654660057096,
+     "mass_weighted_norm_ratio": 1.059744666547066,
+     "mass_weighted_cos": 0.9866063649332092,
+     "median_rel_l2_over_tensors": 0.2022213588147883,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 150,
+     "worst_rel_l2": 0.4640183445169818,
+     "worst_tensor": "msa_module.blocks.2.pair_stack.tri_mul_out.layer_norm_in.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.787655e-01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 2.022214e-01, norm ratio 1.059745, cos 0.986606",
+   "per_tensor_sidecar": "per_tensor_UPSTREAM_BF16_vs_UPSTREAM_F32.json"
+  },
+  "UPSTREAM_F32_vs_FLOAT64": {
+   "arm": "UPSTREAM_F32",
+   "reference": "FLOAT64",
+   "why": "the achievable floor: upstream's single precision against the ideal.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 1.545978969687922e-05,
+     "mass_weighted_norm_ratio": 0.9999920060565035,
+     "mass_weighted_cos": 0.9999999999124485,
+     "median_rel_l2_over_tensors": 1.883942044381003e-05,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 4.25096107941986e-05,
+     "worst_tensor": "msa_module.blocks.1.pair_stack.tri_att_end.layer_norm.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 1.545978969687922e-05,
+     "mass_weighted_norm_ratio": 0.9999920060565035,
+     "mass_weighted_cos": 0.9999999999124485,
+     "median_rel_l2_over_tensors": 1.883942044381003e-05,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 0,
+     "worst_rel_l2": 4.25096107941986e-05,
+     "worst_tensor": "msa_module.blocks.1.pair_stack.tri_att_end.layer_norm.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.545979e-05 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 1.883942e-05, norm ratio 0.999992, cos 1.000000",
+   "per_tensor_sidecar": "per_tensor_UPSTREAM_F32_vs_FLOAT64.json"
+  },
+  "ZERO_vs_UPSTREAM_BF16": {
+   "arm": "ZERO",
+   "reference": "UPSTREAM_BF16",
+   "why": "A16, measured not asserted: what a model that computes nothing reads.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 1.0,
+     "mass_weighted_norm_ratio": 0.0,
+     "mass_weighted_cos": null,
+     "median_rel_l2_over_tensors": 1.0,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 1.0,
+     "worst_tensor": "msa_module.blocks.0.msa_att_row.layer_norm_m.bias"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 1.0,
+     "mass_weighted_norm_ratio": 0.0,
+     "mass_weighted_cos": null,
+     "median_rel_l2_over_tensors": 1.0,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 1.0,
+     "worst_tensor": "msa_module.blocks.0.msa_att_row.layer_norm_m.bias"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.000000e+00 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 1.000000e+00, norm ratio 0.000000, cos n/a",
+   "per_tensor_sidecar": "per_tensor_ZERO_vs_UPSTREAM_BF16.json"
+  },
+  "DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16": {
+   "arm": "DEVICE_COTANGENT_PERMUTED",
+   "reference": "UPSTREAM_BF16",
+   "why": "the break control: our own run with every sample paired to the wrong cotangent. The headline must move by orders of magnitude.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 16.203846362329767,
+     "mass_weighted_norm_ratio": 16.166405148817983,
+     "mass_weighted_cos": -0.006556234868161902,
+     "median_rel_l2_over_tensors": 5.200227583729728,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 428.3860266058943,
+     "worst_tensor": "msa_module.blocks.0.msa_att_row.linear_z.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 16.203846362329767,
+     "mass_weighted_norm_ratio": 16.166405148817983,
+     "mass_weighted_cos": -0.006556234868161902,
+     "median_rel_l2_over_tensors": 5.200227583729728,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 428.3860266058943,
+     "worst_tensor": "msa_module.blocks.0.msa_att_row.linear_z.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 1.620385e+01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 5.200228e+00, norm ratio 16.166405, cos -0.006556",
+   "per_tensor_sidecar": "per_tensor_DEVICE_PERMUTED_COTANGENT_vs_UPSTREAM_BF16.json"
+  },
+  "UPSTREAM_PERMUTED_DRAWS_vs_UPSTREAM_BF16": {
+   "arm": "UPSTREAM_F32_PERMUTED_DRAWS",
+   "reference": "UPSTREAM_BF16",
+   "why": "a second break control, upstream against itself with the sample draws permuted.",
+   "sets": [
+    {
+     "set": "the device arm's scope (all compared tensors)",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.2131249635705002,
+     "mass_weighted_norm_ratio": 0.8785521062212678,
+     "mass_weighted_cos": 0.9825436311765487,
+     "median_rel_l2_over_tensors": 0.2339666998015999,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 0.5138521572203123,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_in.weight"
+    },
+    {
+     "set": "section msa_module",
+     "n": 154,
+     "pct_of_model_mass": 1.2317423683293727,
+     "mass_weighted_rel_l2": 0.2131249635705002,
+     "mass_weighted_norm_ratio": 0.8785521062212678,
+     "mass_weighted_cos": 0.9825436311765487,
+     "median_rel_l2_over_tensors": 0.2339666998015999,
+     "n_rel_measurable": 151,
+     "n_over_per_tensor_bar": 151,
+     "worst_rel_l2": 0.5138521572203123,
+     "worst_tensor": "msa_module.blocks.3.pair_stack.tri_mul_in.layer_norm_in.weight"
+    }
+   ],
+   "headline": "mass-weighted rel_l2 2.131250e-01 over 154 tensors holding 1.2317 % of the model's squared gradient norm; median over tensors 2.339667e-01, norm ratio 0.878552, cos 0.982544",
+   "per_tensor_sidecar": "per_tensor_UPSTREAM_PERMUTED_DRAWS_vs_UPSTREAM_BF16.json"
+  }
+ },
+ "PRE_REGISTERED_READING": {
+  "headline_mass_weighted_rel_l2": 0.22600135840942495,
+  "scope_floor_rel_bf16_vs_float64": 0.17876037263599853,
+  "scope_norm_ratio_r_bf16_over_float64": 1.0597361950080808,
+  "threshold_a_perfect_port_would_read__floor_over_r": 0.16868384176935225,
+  "multiples_of_that_threshold": 1.339792573128878,
+  "multiples_of_the_scope_floor_itself": 1.2642698998486708,
+  "measured_zero_model_reading_A16": 1.0,
+  "our_distance_from_float64_on_this_scope": 0.16212396622403188,
+  "what_moving_the_reference_from_float64_to_their_bf16_did_to_our_headline": 1.394003389339265,
+  "whole_device_arm_floor_constant_for_cross_reference": 0.05852018,
+  "attainable_range": {
+   "device_gradient_equals_their_bf16": 0.0,
+   "device_gradient_equals_float64": 0.16868384176935225,
+   "device_gradient_is_zero": 1.0,
+   "worse": "unbounded above"
+  },
+  "branch": "between floor/r and ~1.0: the published pass DOES NOT SURVIVE the direct test. The float64-scored reading was hiding a disagreement, exactly as layer_norm_s did."
+ },
+ "ERROR_GEOMETRY": {
+  "what": "our error against the float64 ideal, versus upstream bf16's error against the same ideal, over this scope. cos near 0 means the two errors are unrelated directions and 'no further from float64 than they are' says nothing about agreement with their step.",
+  "our_error_norm": 0.05768941955593514,
+  "their_error_norm": 0.06360923913447154,
+  "ratio_ours_over_theirs": 0.9069345953655921,
+  "cos_between_the_two_errors": 0.01515336464178647
+ }
+}

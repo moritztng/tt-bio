@@ -1,0 +1,51 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "all five published headlines recompute from their own sidecars to within 1.19e-07 relative. And the D86 orientation fix is confirmed BY DATA: the corrected arm carries ZERO transpose-signature tensors where the pre-fix arm carries 80 of 547, 55.91 % of its squared error on 0.3948 % of its mass.",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Sidecars read from origin/wk/of3t-{residual,trajectory,direct} at their pushed heads via git show, scored by perf/of3t_orchestrator/recompute_from_sidecar.py.",
+ "verified": [
+  {
+   "arm": "shipped, D86-corrected",
+   "published": 7.426217,
+   "recomputed": 7.426217,
+   "rel_err": 4.67e-08,
+   "row": "of3t-residual",
+   "transpose_signature": "0 of 547"
+  },
+  {
+   "arm": "float64-softmax bound, D86-corrected",
+   "published": 0.0777758,
+   "recomputed": 0.0777758,
+   "rel_err": 4.77e-08,
+   "row": "of3t-residual",
+   "transpose_signature": "0 of 547"
+  },
+  {
+   "arm": "float64-softmax bound, PRE-fix",
+   "published": 0.1172914,
+   "recomputed": 0.1172914,
+   "rel_err": 5.09e-08,
+   "row": "of3t-trajectory",
+   "transpose_signature": "80 of 547 -- 55.91 % of the squared error on 0.3948 % of the mass. This is D86 seen from the data, and it corroborates of3t-residual's independently derived 56.22 %, which it obtained by identifying square weights in the SOURCE rather than by fingerprint."
+  },
+  {
+   "arm": "diffusion_conditioning",
+   "published": 0.06463839,
+   "recomputed": 0.06463839,
+   "rel_err": 6.49e-08,
+   "row": "of3t-direct",
+   "transpose_signature": "0 of 26"
+  },
+  {
+   "arm": "aux_heads",
+   "published": 0.2360143,
+   "recomputed": 0.2360143,
+   "rel_err": 1.19e-07,
+   "row": "of3t-direct",
+   "transpose_signature": "10 of 180, 0.00 % of the squared error -- massless"
+  }
+ ],
+ "what": "an end-to-end verification of every published device-vs-upstream headline in this campaign, recomputed by the orchestrator from each row's own per-tensor sidecar, with the D86 transpose fingerprint run over each. No device, no trust in any row's arithmetic -- only in its per-tensor data.",
+ "what_the_zero_proves": "the corrected arm reading 0 of 547 against the pre-fix arm's 80 is the fix verified from the OUTSIDE. of3t-residual fixed device_gradient.py to record orientation at load and reported that it had; this checks the claim against the arm's own output, by a fingerprint the fix does not know about. Two independent routes -- squareness in the source, and rel~sqrt(2) with cos~0 in the data -- agree on the contamination and on its removal.",
+ "what_this_does_NOT_verify": "that any figure is the RIGHT measurement -- only that each row's arithmetic matches its own data and that no arm carries the transpose contaminant. D88 is the counter-example that matters: of3t-pairformer's reference had a matching digest and was still the gradient of a different loss. Recomputation checks internal consistency; it cannot see a wrong reference, a wrong scope, or a broken forward. A18 and A24's same-function clause are the checks for those, and two scopes fail A18.",
+ "why_this_verification_is_possible_at_all": "because every row published per-tensor diff_norm and ref_norm rather than summary statistics. That is the campaign's 'a result file keeping only extremes cannot be re-analysed' rule, and it has now paid three times in one pass: it caught D84's mis-scoped cross-column comparison, it refuted my own D85, and it confirms the D86 fix here. A row that publishes only its headline cannot be checked by anyone, including itself later."
+}

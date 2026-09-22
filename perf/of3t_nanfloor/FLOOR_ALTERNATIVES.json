@@ -1,0 +1,87 @@
+{
+ "bf16_grid_input_immunity": {
+  "max_overshoot_over_true_row_max": 0.0,
+  "max_shortfall_under_true_row_max": 0.0,
+  "shipped_accurate_nonfinite": 0,
+  "shipped_accurate_rel_l2": 0.0004206977893601364
+ },
+ "floor_vs_unfloored": {
+  "live_rows_bit_identical": true,
+  "live_rows_max_abs_diff": 0.0,
+  "masked_rows_floored_nonfinite": 0,
+  "masked_rows_unfloored_nonfinite": 114688
+ },
+ "sum_ckc_bit_identity_on_this_input": {
+  "bit_identical": true,
+  "max_abs_diff": 0.0,
+  "note": "the two _fp32_softmax_tail call sites pass sm_ckc, which is None unless TT_BIO_SOFTMAX_CKC is set; this is what that argument buys on this shape"
+ },
+ "sum_floor_alternative": {
+  "sum_floor_1e-18": {
+   "backward_analytic": {
+    "finite": true,
+    "n_nonfinite": 0,
+    "rel_l2": 0.27999878703701314
+   },
+   "backward_divide_twice": {
+    "finite": true,
+    "n_nonfinite": 0
+   },
+   "backward_rs_squared": {
+    "finite": true,
+    "n_nonfinite": 0,
+    "reciprocal_s_max": 9.999999155872727e+17
+   },
+   "finite": true,
+   "live_rows_bit_identical_to_unfloored": true,
+   "n_nonfinite": 0,
+   "rel_l2_all": 0.1669997528869334,
+   "rel_l2_live_rows": 0.0006555245995419063,
+   "rel_l2_masked_rows": 1.0
+  },
+  "sum_floor_1e-20": {
+   "backward_analytic": {
+    "finite": true,
+    "n_nonfinite": 0,
+    "rel_l2": 0.27999878703701314
+   },
+   "backward_divide_twice": {
+    "finite": true,
+    "n_nonfinite": 0
+   },
+   "backward_rs_squared": {
+    "finite": false,
+    "n_nonfinite": 114688,
+    "reciprocal_s_max": 1.0000000200408773e+20
+   },
+   "finite": true,
+   "live_rows_bit_identical_to_unfloored": true,
+   "n_nonfinite": 0,
+   "rel_l2_all": 0.1669997528869334,
+   "rel_l2_live_rows": 0.0006555245995419063,
+   "rel_l2_masked_rows": 1.0
+  },
+  "sum_floor_1e-30": {
+   "backward_analytic": {
+    "finite": true,
+    "n_nonfinite": 0,
+    "rel_l2": 0.27999878703701314
+   },
+   "backward_divide_twice": {
+    "finite": true,
+    "n_nonfinite": 0
+   },
+   "backward_rs_squared": {
+    "finite": false,
+    "n_nonfinite": 114688,
+    "reciprocal_s_max": 1.0000000150474662e+30
+   },
+   "finite": true,
+   "live_rows_bit_identical_to_unfloored": true,
+   "n_nonfinite": 0,
+   "rel_l2_all": 0.1669997528869334,
+   "rel_l2_live_rows": 0.0006555245995419063,
+   "rel_l2_masked_rows": 1.0
+  }
+ }
+}

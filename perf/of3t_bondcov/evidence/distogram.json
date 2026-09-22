@@ -1,0 +1,12 @@
+{
+ "term": "distogram",
+ "stage": "initial_training",
+ "dataset": "RNA-monomer-distillation",
+ "target": "5nw3",
+ "quantity": "norm of the gradient seeded into the model outputs",
+ "value": 0.0005327387051577457,
+ "n_pairs_firing": 15,
+ "weight": 0.03,
+ "term_value": 4.288465315645982,
+ "source": "coverage_census.json"
+}
