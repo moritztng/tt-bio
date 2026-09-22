@@ -4,7 +4,16 @@
 The A/B json records t_start/t_end per fold; the contention jsonl samples loadavg, per-card AICLK
 and the top processes at 1 s. Joining them says whether a leg's number is a measurement or an
 artifact. Written because the 2026-09-22 02:10Z run reported a 9.707 % A/A floor at 896 aa and a
-failing 768 aa negative control, and both turned out to be host contention rather than the lever.
+failing 768 aa negative control, and neither is a statement about the lever.
+
+CORRECTED 2026-09-22 21:45Z. An earlier version of this file concluded the 9.707 % floor was
+intrinsic to the harness shape -- a cold subprocess per leg paying its own kernel compilation
+inside the timed window. That is REFUTED by this repo's own artifact:
+`perf/land_standing/out/narrowq_rf3_896_qb2c1.json` runs the SAME harness, `fold_ab_flip.py`, on
+rf3 at 896 aa, and its two quiet reps read an A/A floor of **1.570 %**. Same harness, same size,
+same host, a sixth of the floor. So the floor is the BOX, not the harness, and the earlier
+conclusion was a mechanism invented to fit one number without checking the control that was
+already on disk.
 
   python3 perf/land_standing/narrowq_contention_attrib.py <contention.jsonl> <ab.json> [<ab.json>...]
 """
