@@ -1404,3 +1404,58 @@ same function, but its ARGUMENT is not, because the two global norms are taken o
 parameter sets. That is D210, and no function-level check reaches it.
 
 Artifact `perf/of3t_orchestrator/clipreach/CLIP_REACH.json`.
+
+---
+
+### R153. D242's sub-module partition is ENTAILED, not a lead; one hypothesis of mine dies here; and the object is a 7-26x magnitude with a ten-degree angle (pass 389, zero card)
+
+`of3t-frameself` split a block's 57 tensors by sub-module: `attn_pair_bias` and
+`single_transition` exact at every probed depth (rel 2.2e-15 to 8.8e-14, ratio 1, cos 1), all
+five `pair_stack.*` off together (norm ratio 1.567 to 2.203, tightening to 1.781-1.835 at block
+0). It read that as locating the defect at the pair branch and noted `base_blocks.py:307` puts
+`ps_dropout_row_layer` on every pair update and nowhere on the s branch, *"which matches the
+partition exactly"*. It then refuted dropout on its merits, correctly.
+
+**The partition cannot nominate a candidate, because the row already measured what entails it.**
+`TWOBASIS.json`: the z-only arm's `ds_in` is exactly 0.0, so the pair track does not read the
+single track. s-branch parameters therefore reach the loss ONLY through `cot_s`, pair-branch
+parameters through both, and **a defect in `cot_z` and nothing else produces exactly this
+partition at every depth with no mechanism at the pair branch**. `ps_dropout_row_layer` matches
+it for the same reason the words "pair branch" match it. Every structure separating the two
+branches will match, so matching is worth nothing — `retrodiction-is-not-prediction`, and this is
+a whole class of dead ends closed rather than one. What the split IS worth is a consistency check
+that passes: 11 + 5 = 16 exact tensors per block, times 48, is exactly TWOBASIS's 768.
+
+**The blockprobe beside it is the row's real result.** The reference gradient was the one
+quantity never read twice; a second instrument puts it at **3.0392623414001263e-15** and
+**4.1031090433915236e-15** at the two blocks where the replay is worst, which closes the
+reference branch of pass 387's falsifier.
+
+**A hypothesis of mine, brought to this pass and killed in it.** I expected the row's two-scalar
+fit to be collinear — cos **0.9181951994170596** between its regressors — and its `b_z` to be an
+artifact, which would have dissolved the "7x too large" headline. The fit IS ill-conditioned,
+normalised Gram condition number **23.4484**, but the valley is not flat: `b_z` 0.55, what a 1.8x
+scale error would mean, costs residual **0.173577** against the minimum's **0.111621**, 55 %
+worse. **The published `b_z` stands.** Solving the 2x2 normal equations from banked scalars alone
+reproduces the row's `a_s` and `b_z` to **1.94e-14 / 1.51e-13**, which checks this entry's
+arithmetic and independently checks the row's.
+
+**Two readings that looked contradictory are one statement.** "The pair branch is 1.8167x too
+large" and "`cot_z` wants scaling by 0.1429" differ only because the correction applies to the
+`cot_z` PART of a pair parameter's gradient and that part is a large fraction of the whole.
+Matching the norm on the mixed class alone needs **b = 0.038316**, 26.1x.
+
+**And "pointing elsewhere" overstates the direction error, which matters because it sets the
+target.** The pair-branch cos is **0.948834 to 0.998232**, 0.995 at depth — a **0.0999**
+perpendicular component, the same size as the 0.111621 residual floor after the best two scalars.
+So a mechanism must produce **a 7x to 26x magnitude error and about ten degrees of angle, on the
+z channel only**. The general form: **an irreducible residual after the best scale IS the angle,
+so quote it as one — "pointing elsewhere" and "ten degrees off" send a search in different
+directions.**
+
+Pass 387's discriminator is still un-run and is now nearly free: `--blockprobe` prunes to one
+block (**135.2 s** against a 340.6 s forward) and `capture_model_frame.py:653-656` already holds
+`s_out_t`/`z_out_t`, so the cotangent-driven call on the ORIGINAL graph is one extra
+`grad_outputs=` argument. Delivered as Amendment 5 to the row's brief.
+
+Artifact `perf/of3t_orchestrator/frameself/PARTITION_ENTAILED.json`.
