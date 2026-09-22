@@ -2280,3 +2280,50 @@ which is exactly the situation where somebody eventually talks past a real one.
 dump time the way `inputs.float64.sha256` already pins the reference weights. Until then the
 workaround is a local `refpath` override to the recorded path, which is what pass 330 used — the
 shared tree was not touched.
+
+### D184. The 99.50523 % coverage figure is arithmetically right and belongs to a default-OFF lever, so on the shipped arm coverage is still 97.98499 %. FOUND by `of3t-orchestrator`, pass 331, by not composing it. **UNFIXED** — it is a merge decision, not a measurement.
+
+Pass 330 recorded that `of3t-hostleg`'s +1.52024 composed with `of3t-modelboundary`'s 97.98499
+"takes the coverage bar to a reachable 99.50523155277441 %", and pass 331's first action was to
+compose it. **The arithmetic checks out and the composition is still wrong.**
+
+**What checks out.** The two tensor sets are **DISJOINT** — hostleg's 17 names against
+modelboundary's 3,643 compared, **intersection 0**, verified by name rather than assumed. Same
+denominator (`model_squared_gradient_norm` 10.279642678524981 in both), same float64 reference
+digest `1d4ea9225f…`. The sum is **99.50523155277438** against the row's 99.50523155277441, a
+3e-14 float difference. So nothing is double-counted and the figure is real.
+
+**Why it must not be composed.** The 17 tensors only have a device gradient under
+`TT_BIO_OF3_DEVICE_REFATOM`, which is **default-off**, release-gated and unmerged
+(`state/of3t-hostleg.md:7`). Read the row's own arm ladder against float64 over those 17:
+
+    shipped   (the default)   mass-weighted rel_l2  1.00000000   17 of 17 over bar
+    refatom   (one leg)                             0.71215816   15 of 17
+    all       (both legs)                           0.05013681    6 of 17, worst 1.175005e-01
+    break     (control)                             0.82521107   16 of 17
+
+**The shipped arm reads exactly 1.0** — the A16 zero-model signature, meaning our shipped default
+computes **no gradient at all** for these 17. The verdict's "6 of 17 over the bar, worst
+1.175005e-01" is the `all` arm, the row's own fix. So composing the coverage would credit the
+charter with 1.52024 points the configuration it grades does not have, and D177's whole point is
+that the charter grades the shipped arm.
+
+**And it would re-create D181 as well.** GRADIENTS' accuracy clause reads
+`<arm>_vs_UPSTREAM_BF16`, and hostleg has no upstream-bf16 arm anywhere — every sidecar it ships
+is `*_vs_FLOAT64`. Coverage over 3,660 tensors beside accuracy over 3,643 is exactly the
+different-scope defect fixed three passes ago.
+
+**So on the shipped arm coverage remains 97.98499306866148 % against the 99.2594 % bar, and the
+bar is now behind a merge rather than behind a measurement.** That puts it with D126 as the second
+item waiting on Moritz. `merged-lever-defaults-off-is-not-a-landed-win`, applied to a coverage
+denominator.
+
+**Work deliberately abandoned on the evidence.** I had extracted the 17 upstream-bf16 slices on
+qb2 (all 17 found in `pinned_p175/arm4_bf16_autocast/grads_f64.pt`) to build the missing
+upstream-bf16 arm. That is moot: on the shipped default those tensors carry a zero gradient, so
+there is nothing to score against upstream until the lever lands. Stopped rather than finished.
+
+**And a correction to my own pass-330 wording.** I wrote that the coverage bar is "reachable". It
+is reachable *with the lever on*; on the shipped default it is not, and "reachable" without that
+qualifier is the same omission D180 filed against me for quoting a model-scope figure without its
+crop. A coverage figure carries its flag state.

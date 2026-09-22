@@ -572,7 +572,7 @@ module's gr...
 
 **D158 (UNFIXED as a convention; in PASSLOG)**: ledger citations do not name their TREE, and `attention.py`, `pairformer.py` and `normalization.py` exist in both tt-bio and upstream. All **140** distinct `file.py:NNN` citations audited: none demonstrably stale, and the one out-of-range hit was my checker conflating upstream's `attention.py` with ours. Not made a guard; recorded as the convention new entries follow.
 
-**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D179 (FIXED pass 328)**: COVERAGE's two halves are now composed on every compose — 8 of 8 loss terms, 9 of 11 paths. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS, not content, so the REFROOT move makes every pre-sweep artifact unscorable though both 0.4.3 trees digest `24f0aee7525f1042`. **D178 (UNFIXED, owner `of3t-trajretake`)**: TRAJECTORY grades an artifact written 20 min before the `_PARAMS` re-key that fixes the defect it reports; the arm trains zero steps, `tape_resolves_after_step: 0` at all 20. A re-take. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm those 17 read rel_l2 **1.0** and coverage stays **97.98499 %**. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so the REFROOT move makes pre-sweep artifacts unscorable though both trees digest `24f0aee7525f1042`. **D178 (UNFIXED, owner `of3t-trajretake`)**: TRAJECTORY grades an artifact written 20 min before the `_PARAMS` re-key that fixes the defect it reports; that arm trains zero steps. A re-take. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
 
 **D119 (UNFIXED, mine)**: my crop-ladder observational floor is near-vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so it tests only that a projection exceeds the card, not which. Plus a unit error: the card is 34,225,520,128 B (**34.2255 GB = 31.875 GiB**) and `project.py` compares 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; 640's GO stands, and it is why 768 is closed on a measured lower bound.
 
@@ -869,8 +869,8 @@ gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random
 missing term, not rounding.
 
 VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-two** of3t rows concluded, **one hundred eighty-three defects** filed,
-**fifty-nine UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
+**Ninety-two** of3t rows concluded, **one hundred eighty-four defects** filed,
+**sixty UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
 archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
 reading the tail as the ledger cost.
 The campaign's exit criterion is machine-readable and reads **0 of 3** conditions met
@@ -1015,7 +1015,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 330 over the union's fifty-nine UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 8 USER-FACING, 47 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 331 over the union's sixty UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 47 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
 
 **CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -2194,3 +2194,42 @@ read off both artifacts rather than off the row's summary.
 
 **It would not hand a GO in any case:** GRADIENTS' A26 clause reads 0.520124 against 0.147353,
 3.53x, and fails independently of coverage.
+
+### Pass 331 — the coverage composition was the plan, and not doing it is the result
+
+`of3t-apbback` and `of3t-trajretake` are live; neither concluded. Pass 330's stated first action
+was to compose GRADIENTS' coverage, with disjointness read off both artifacts rather than off the
+row's summary. **The disjointness holds and the composition is still wrong, which is why the
+checking was worth doing.**
+
+**What holds.** hostleg's 17 names against modelboundary's 3,643 compared: **intersection 0**,
+verified by name. Same denominator 10.279642678524981 in both, same float64 digest
+`1d4ea9225f…`, and the sum is **99.50523155277438** against the row's 99.50523155277441 — a 3e-14
+float difference. Nothing double-counted.
+
+**Why it must not be composed.** Those 17 carry a device gradient only under
+`TT_BIO_OF3_DEVICE_REFATOM`, **default-off**, release-gated, unmerged. The row's own arm ladder
+against float64 over the 17:
+
+    shipped   (the default)   mass-weighted rel_l2  1.00000000   17 of 17 over bar
+    refatom   (one leg)                             0.71215816   15 of 17
+    all       (both legs)                           0.05013681    6 of 17, worst 1.175005e-01
+    break     (control)                             0.82521107   16 of 17
+
+**The shipped arm reads exactly 1.0** — the A16 zero-model signature: our shipped default computes
+no gradient at all for them. The verdict's "6 of 17, worst 1.175005e-01" is the `all` arm, the
+row's fix. Composing would credit the charter with 1.52024 points the configuration it grades does
+not have, which is precisely what D177 exists to prevent. It would also re-create **D181**:
+hostleg has no upstream-bf16 arm anywhere, every sidecar is `*_vs_FLOAT64`, so coverage over 3,660
+beside accuracy over 3,643 is the different-scope defect again.
+
+**So coverage on the shipped arm stays 97.98499306866148 % and the bar is behind a MERGE, not a
+measurement** — the second item waiting on Moritz, with D126.
+
+**Work abandoned on the evidence rather than finished.** I had already extracted the 17
+upstream-bf16 slices on qb2 to build the missing arm. Moot: a zero gradient has nothing to score
+against upstream until the lever lands. Stopped.
+
+**And a correction to my own pass-330 wording.** I wrote the coverage bar is "reachable". It is
+reachable *with the lever on*. Unqualified, that is the same omission D180 filed against me for
+quoting a model-scope figure without its crop — **a coverage figure carries its flag state**.
