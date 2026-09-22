@@ -2221,3 +2221,62 @@ WIDER one. Narrowing scope is not a way to pass. No brittle equality clause was 
 — within one artifact the two figures agree to 4e-14 and a `>=` on that would fail on float noise —
 so it is a rule for whoever points a condition at an artifact, recorded here and in the clause's
 own comment.
+
+### D182. GO condition 3's headline lived in a row's state-doc PROSE and in no artifact on any branch. FOUND and **FIXED** by `of3t-orchestrator`, pass 330, by re-deriving it from the surviving dumps.
+
+The campaign quotes condition 3 as *"our twenty-step update rule tracks upstream's to within
+**1.4553x** of what their own bf16-mixed training already deviates from the float64 ideal, over
+**88.0819 %** of the model"*. The denominator is measured — `perf/of3t_trajbar/BAR.json`,
+`scored.bar_bf16mixed_trajwide_scope`, 1.762065e-01 at k=20 over the same 573 tensors. **The
+numerator was not in any artifact.**
+
+Searched every of3t branch for `2.564253`: it appears only in `of3t-trajbar/PREDICTION.md`, in
+`trajbar.py`'s docstring, and in the orchestrator's own published state doc. What is actually
+committed on `wk/of3t-trajwide` is `live/PARTIAL_*.json` at **9 of 20 steps**, and
+`INVALID_050_ref/*.json` at 549 tensors which the row itself quarantined as built against the
+0.5.0 reference. So the campaign's condition-3 evidence was prose, unreadable by the charter,
+uncheckable by any guard, and one doc rotation from gone.
+
+**Recovered and verified rather than trusted.** The raw weight dumps survive on qb2 at
+`/home/ttuser/of3t_runs/trajwide/w/`, 21 files per arm across all eight arms, so the row's own
+scorer was re-run on them, CPU only. It reproduces the row **to every published digit**:
+
+    k = 2   rel_d  4.538411e-01        row: 4.538411e-01
+    k = 20  rel_d  2.564253e-01        row: 2.564253e-01
+    growth  exponent -0.27724, intercept -0.46711, r2 0.9050, SUB-LINEAR -- all three match
+    scope   573 tensors, 88.08194359237523 %, ref_tree /home/ttuser/of3t_refprec/of3pkg043
+
+Committed at `perf/of3t_orchestrator/trajrecover/TRAJ_SHIPPED_RECOVERED.json` with its provenance.
+**The row was right; only its artifact was missing.**
+
+**The w0 trap, committed beside it so nobody rediscovers it as a defect.** Scored with `--w0 own`,
+which is what `live/PARTIAL_shipped.json` records as its `w0_baseline`. The scorer's DEFAULT is
+`--w0 ckpt`, and that reads **1.294855e+00** at k=20 — a **5.05x** apparent discrepancy that is a
+baseline convention, not a disagreement. It blows up at small k (2.05e+02 at k=2 against
+4.54e-01) because a wrong w0 offsets every d_k and dominates while the true displacement is
+small. The control arm is committed as `TRAJ_SHIPPED_w0ckpt_CONTROL.json`.
+
+**The class.** `a-rows-progress-is-its-branch-not-its-process-or-state-doc` inverted: here the
+row's RESULT was in its doc and not in its branch. A number the charter is asked to believe must
+be in a committed artifact, and a row that reports a figure its branch does not carry has not
+finished publishing it.
+
+### D183. The D149 reference-tree guard compares PATH STRINGS, not tree content, so a legitimate path move makes every earlier artifact unscorable. FOUND by `of3t-orchestrator`, pass 330. **UNFIXED.**
+
+Re-scoring D182 was refused with *"reference arm 'theirs' was taken against
+`/home/ttuser/of3t_refprec/of3pkg043`, not the tree under test
+`/home/ttuser/of3t-campaign-refs/of3pkg043` ... this pairing is not scorable"*.
+
+The guard is right to exist — D120 is the finding that 0.4.3 and 0.5.0 are a different function at
+this boundary, 1.94959719e-05 against 7.66979728e-01. But **the two trees here are bit-identical**:
+293 `.py` files each, digest **24f0aee7525f1042** on both, which is `of3t-refsweep`'s own claim
+when it moved `REFROOT` to `/home/ttuser/of3t-campaign-refs`, now verified independently.
+
+So the refusal is a path-string mismatch on identical content, and it applies to **every artifact
+dumped before the sweep**. Any re-score of earlier work hits it and has to be talked past by hand,
+which is exactly the situation where somebody eventually talks past a real one.
+
+**The fix is to compare the tree's DIGEST rather than its path**, recording it in the artifact at
+dump time the way `inputs.float64.sha256` already pins the reference weights. Until then the
+workaround is a local `refpath` override to the recorded path, which is what pass 330 used — the
+shared tree was not touched.
