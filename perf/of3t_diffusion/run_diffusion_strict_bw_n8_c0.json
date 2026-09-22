@@ -1,0 +1,128 @@
+{
+ "function_local_ttnn_imports": [],
+ "weights_loaded": 272,
+ "weights_reachable": 870,
+ "weights_derived_in_init": 598,
+ "derived_names": [
+  "_wc.134691773102864",
+  "_wc.134692468383952",
+  "_wc.134692468384192",
+  "_wc.134692468384432",
+  "_wc.134692468384672",
+  "_wc.134692468384912",
+  "_wc.134692468453328",
+  "_wc.134692468453648",
+  "_wc.134692468453968",
+  "dec.at._wc.('layer_norm_z.weight', False)",
+  "dec.at.ln_z_w",
+  "dit.blocks.0._wc.('attention_pair_bias.layer_norm_z.weight', False)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_ada_out.bias', False)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_ada_out.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_z.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.mha.linear_g.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.mha.linear_o.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_g.bias', False)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_g.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_out.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.swiglu.linear_a.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.swiglu.linear_b.weight', True)",
+  "dit.blocks.0.b_ada_out",
+  "dit.blocks.0.b_lg",
+  "dit.blocks.0.ln_z_w",
+  "dit.blocks.0.qkv_b",
+  "dit.blocks.0.qkv_w",
+  "dit.blocks.0.w_ada_out",
+  "dit.blocks.0.w_g",
+  "dit.blocks.0.w_la",
+  "dit.blocks.0.w_lb",
+  "dit.blocks.0.w_lg",
+  "dit.blocks.0.w_lin_z",
+  "dit.blocks.0.w_lout",
+  "dit.blocks.0.w_o",
+  "dit.blocks.1._wc.('attention_pair_bias.layer_norm_z.weight', False)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_ada_out.bias', False)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_ada_out.weight', True)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_z.weight', True)",
+  "dit.blocks.1._wc.('attention_pair_bias.mha.linear_g.weight', True)"
+ ],
+ "ladder": {
+  "before": {
+   "dram_bytes": 856177664,
+   "dram_GB": 0.856,
+   "live_allocs": 615
+  },
+  "forward_n1": {
+   "dram_bytes": 2106962944,
+   "dram_GB": 2.107,
+   "live_allocs": 2574
+  },
+  "forward_n2": {
+   "dram_bytes": 2810356736,
+   "dram_GB": 2.81,
+   "live_allocs": 4019
+  },
+  "forward_n3": {
+   "dram_bytes": 3513750528,
+   "dram_GB": 3.514,
+   "live_allocs": 5464
+  },
+  "forward_n4": {
+   "dram_bytes": 4217144320,
+   "dram_GB": 4.217,
+   "live_allocs": 6909
+  },
+  "forward_n5": {
+   "dram_bytes": 4920538112,
+   "dram_GB": 4.921,
+   "live_allocs": 8354
+  },
+  "forward_n6": {
+   "dram_bytes": 5623931904,
+   "dram_GB": 5.624,
+   "live_allocs": 9799
+  },
+  "forward_n7": {
+   "dram_bytes": 6327325696,
+   "dram_GB": 6.327,
+   "live_allocs": 11244
+  },
+  "forward_n8": {
+   "dram_bytes": 7030719488,
+   "dram_GB": 7.031,
+   "live_allocs": 12689
+  },
+  "forward": {
+   "dram_bytes": 7030719488,
+   "dram_GB": 7.031,
+   "live_allocs": 12689
+  },
+  "backward": {
+   "dram_bytes": 2313892864,
+   "dram_GB": 2.314,
+   "live_allocs": 2603
+  },
+  "peak": {
+   "dram_bytes": 7030719488,
+   "dram_GB": 7.031,
+   "live_allocs": 12689
+  }
+ },
+ "weights_touched": 870,
+ "weights_with_grad": 870,
+ "weights_without_grad": 0,
+ "nograd_names": [],
+ "totals": {
+  "taped": 16507,
+  "nested": 1983,
+  "none": 93,
+  "raw": 8
+ },
+ "params": 272,
+ "survey": false,
+ "backward": true,
+ "act_dtype": "DataType.FLOAT32",
+ "tokens": 76,
+ "atoms": 601,
+ "n_struct": 8,
+ "error": null
+}
