@@ -1316,3 +1316,31 @@ indistinguishable from one caller undoing itself. It needs a per-call identity �
 returned by `install()` and required by `uninstall()`, or a depth count so nesting is *counted*
 rather than *named*. If the pair is judged not worth saving, the honest repair is to withdraw the
 docstring's equivalence claim instead. Either way the third test closes the 2x2 by test.
+
+### D247. `tenstorrent._assert_local_dispatch` is a fail-fast startup probe with NO timeout, so a chip that wedges instead of throwing hangs it forever while every liveness signal reads green. **UNFIXED** — cost `of3t-verbinstall` 230 minutes of card time (two arms, 115 min each, nothing computed); filed by `of3t-orchestrator` at pass 414, verified in the shipped file, no card. **SHIPPED-CODE, and it reaches every card user, not just this campaign.**
+
+`tt_bio/tenstorrent.py:5575`. Its own docstring states the purpose: *"Probe with one trivial op
+so a mis-initialized worker fails HERE, at startup, and gets respawned ... instead of silently
+accepting jobs it will fail."* It is called at `:6005` on every `get_device()` with the comment
+`# raises (and closes) on a remote-only bring-up`.
+
+**The body guards the wrong failure mode.** It wraps `from_torch` / `add` /
+`synchronize_device` in `try/except Exception`, so a chip that *throws* is handled exactly as
+designed. A chip that *wedges* never reaches the `except`: `ttnn.synchronize_device(dev)` blocks
+indefinitely and there is no timeout, no alarm and no watchdog anywhere in the function.
+
+**A fail-fast probe that can hang is worse than no probe**, because it converts a fast, loud,
+respawnable failure into the campaign's most expensive failure shape: a job that consumes a card
+while every cheap liveness signal says it is healthy. This is the
+`chip-holder-at-100pct-cpu-can-be-a-corpse` family, and the 230 minutes is a floor — it bills
+every card row that meets it, on any model, not only OF3T.
+
+**Not closed by the row that paid for it.** `of3t-verbinstall` added a bounded pre-flight for
+its own launches at `b77e89f27`, which is the right local move and does nothing for anyone else:
+**the probe itself still has no timeout**, so every other caller of `get_device()` is unchanged.
+A per-row workaround around a shipped defect leaves the defect shipped.
+
+**Closes when** the probe is bounded — a timeout around the dispatch, expiring into the same
+`RuntimeError` path the `except` already builds (which also closes the device), so a wedge and a
+throw produce the *same* fast, respawnable outcome the docstring promises. The bound must be on
+the probe, not on its callers. No measurement and no card: this is source.

@@ -1299,3 +1299,33 @@ survival under a foreign `uninstall()`. An arm whose defect *was* "the install d
 must stamp the install path it actually took; this one still records the one that would not have
 survived. `shipped-artifact-identity-is-digest-plus-recorded-inputs`, in the case where the
 recorded input is the sentence rather than the number.
+
+### R181. A per-row workaround around a shipped defect leaves the defect shipped: D247, the fail-fast probe that hangs (pass 414, zero card)
+
+`of3t-verbinstall` lost **230 minutes of card time** — two arms, 115 minutes each, nothing
+computed — and wrote the cause in its own state doc without a defect ID. Filed now as **D247**,
+and **verified in the shipped file rather than transcribed from the row's sentence**:
+`tt_bio/tenstorrent.py:5575`, reached at `:6005` by every `get_device()`.
+
+**The body guards the wrong failure mode.** It wraps `from_torch` / `add` /
+`synchronize_device` in `try/except Exception`, so a chip that **throws** is handled exactly as
+the docstring describes — closed, re-raised, respawned. A chip that **wedges** never reaches the
+`except`: `synchronize_device` blocks indefinitely and there is no timeout, alarm or watchdog in
+the function. The docstring's whole claim is that a mis-initialised worker *"fails HERE, at
+startup"*. **A fail-fast probe that can hang is worse than no probe**, because it converts the
+cheapest failure shape into the most expensive one: a card held by a process every liveness
+signal calls healthy. `chip-holder-at-100pct-cpu-can-be-a-corpse`, arrived at from the other end.
+
+**The generalisable half is what the row did next.** It added a bounded pre-flight for its own
+launches (`b77e89f27`) — the right local move, and it closes nothing. **The probe is unchanged,
+so every other caller on every other model still meets it, and the 230 minutes is a FLOOR rather
+than a total.** A row that works around a shipped defect has bought itself out of the blast
+radius and left the radius exactly as wide; the workaround also removes the row's own motive to
+fix it, and its state doc reads as resolved. This is why the cost belongs in DEFECTS with an ID
+and an owner rather than in a row's narrative: **the defect ledger is what outlives the row.**
+
+Handed back to `of3t-verbinstall` with a narrow grant for that one function, since it holds the
+reproduction. Bound the probe, not its callers, into the `RuntimeError` path the `except` already
+builds — so a wedge and a throw produce the same fast, respawnable outcome. Both D246 and D247
+are SOURCE items: no card, no decision, no measurement, and they do not compete with the row's
+two outstanding frame scores.

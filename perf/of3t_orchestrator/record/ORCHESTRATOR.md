@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R180 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R181 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,9 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R181** a per-row workaround around a SHIPPED defect leaves the defect shipped — D247,
+  `_assert_local_dispatch` is a fail-fast probe with no timeout that guards the chip which
+  THROWS and not the one that WEDGES; cost 230 min, and that is a floor not a total
 - **R180** R176 root-caused: `uninstall()` is not the lever's private teardown — a foreign
   `install()`/`uninstall()` bracket that closed FIRST spent all 1,742 exact softmaxes in a
   discarded forward, and `verb 0 / raw 1742` was the only signal that could show it. Fix's
@@ -483,7 +486,11 @@ can grade it.**
               USER-FACING defect in the campaign needing no measurement at all — the owner is a
               constant STRING, so `install(exact_softmax=True)` shares the token every foreign
               `uninstall()` passes and that path is torn down exactly as before. Latent in-repo,
-              user-facing out of it, because the docstring still calls it equivalent.
+              user-facing out of it, because the docstring still calls it equivalent. The same
+              audit filed **D247** from that row's 230 lost card-minutes, verified in the shipped
+              file: `_assert_local_dispatch` is a fail-fast probe with no timeout, guarding the
+              chip that THROWS and not the one that WEDGES, and the row's own bounded pre-flight
+              left the probe shipped for every other caller — so 230 minutes is a floor.
 
     satisfiable  Unchanged and still the reason this is PARTIAL and not NO-GO: a perfect trunk reads
               **0.6752x** the bar (D221, ten sections pooling to 0.1026990533692057), and our trunk
@@ -529,8 +536,8 @@ far, and adjusting a pooled figure from a re-scored part is the defect again wit
 **Counts, stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.** One hundred
 twenty-one rows dispatched; `state/concluded` holds **one hundred twenty-four** of3t files, two of them
 this row's own historical markers, so **one hundred twenty-two rows have concluded**.
-**Two hundred forty-six defects filed**, **96 UNFIXED** (5
-scope-excluded, 9 USER-FACING, 82 campaign-internal).
+**Two hundred forty-seven defects filed**, **97 UNFIXED** (5
+scope-excluded, 10 USER-FACING, 82 campaign-internal).
 
 **What the remaining gap IS, taken in the space the clause is GRADED in (pass 412).** cos
 **0.6976277**, norm ratio **0.9978645**, angle **45.763 degrees**, magnitude share **0.2749 %**
