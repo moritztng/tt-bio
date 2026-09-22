@@ -1,0 +1,107 @@
+{
+ "stage": "finetune_1",
+ "crop": 640,
+ "pkg": "tt_bio._vendor.openfold3",
+ "retries": 0,
+ "rows": [
+  {
+   "index": 0,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 290,
+   "token_bonds_pairs": 145,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 142,
+   "is_atomized": 142,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 1,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 296,
+   "token_bonds_pairs": 148,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 144,
+   "is_atomized": 144,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 2,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 300,
+   "token_bonds_pairs": 150,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 143,
+   "is_atomized": 143,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 3,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 290,
+   "token_bonds_pairs": 145,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 139,
+   "is_atomized": 139,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 4,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 172,
+   "token_bonds_pairs": 86,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 94,
+   "is_atomized": 94,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 5,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 300,
+   "token_bonds_pairs": 150,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 146,
+   "is_atomized": 146,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 6,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 294,
+   "token_bonds_pairs": 147,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 141,
+   "is_atomized": 141,
+   "loss_weight_bond": 4.0
+  },
+  {
+   "index": 7,
+   "n_tokens_real": 640,
+   "n_tokens_padded": 640,
+   "token_bonds_nnz": 130,
+   "token_bonds_pairs": 65,
+   "polymer_ligand_bond_nnz": 0,
+   "is_ligand": 72,
+   "is_atomized": 72,
+   "loss_weight_bond": 4.0
+  }
+ ],
+ "with_bond": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "with_polymer_ligand_bond": []
+}
