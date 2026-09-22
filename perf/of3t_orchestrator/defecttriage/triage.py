@@ -87,9 +87,6 @@ TABLE = {
                   "identically zero -- the shipped default, machine-checked in rank_rule.py."),
 
     # --- ships to users: training on the shipped default -------------------------------------
-    "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
-                  "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
-                  "the repair, re-measured from ONE harness at pass 222."),
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
@@ -301,9 +298,6 @@ TABLE = {
                    "figures; it changes nothing a user of the shipped tree gets."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
-    "D129": (USER, "conditioned_transition.layer_norm.layer_norm_s.weight reads 4.388x its own "
-                   "bf16 floor and 3.10x A26's bar on 28 of 30 instances -- the first leaf to "
-                   "survive the floor check that closed D8. Measured at the 0.5.0 boundary."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
 }

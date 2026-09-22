@@ -1,11 +1,9 @@
 {
  "by_need": {
   "CARD": [
-   "D30",
    "D32",
    "D55",
    "D58",
-   "D129",
    "D205"
   ],
   "MERGE": [
@@ -23,18 +21,6 @@
    "needs": "MERGE",
    "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
    "would_a_row_help": false
-  },
-  "D129": {
-   "closes_when": "of3t-ditcot names the op carrying the flat 2.28x cotangent excess and it is repaired or shown to be a floor. Separately, the 0.4.3 ratio needs OUR arm at the 0.4.3 capture, which no artifact holds and which needs a lease",
-   "evidence_held": "isolation 1.5217e-03 (456x under the reading), input exact to 1.98e-08, substitution reproduces the reference gradient at 8.877e-09; the 0.4.3 bar is 2.2530588761e-01, 0.73 % from the 0.5.0 one",
-   "needs": "CARD",
-   "one_line": "a LayerNorm affine leaf at 4.388x its own bf16 floor, all of it the arriving cotangent",
-   "row": "of3t-ditcot",
-   "shares_object_with": [
-    "D30",
-    "D58"
-   ],
-   "would_a_row_help": true
   },
   "D184": {
    "asked": "not yet asked. It belongs with D126 in one merge question rather than as a separate ask: both are built, measured, release-gated and waiting only on Moritz",
@@ -58,18 +44,6 @@
    "needs": "MERGE",
    "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
    "would_a_row_help": false
-  },
-  "D30": {
-   "closes_when": "the cause of the backward-over-forward amplification is located. D58 already moved this from a diffusion-module property to a property of the tape, and of3t-ditcot is measuring the same object one level down",
-   "evidence_held": "forward median 8.34e-03, gradient median 1.6588e-01, ratio 19.6x over 48 structures against the rebuilt 0.4.3 reference",
-   "needs": "CARD",
-   "one_line": "the diffusion module's backward costs 19.6x the forward it is taken at",
-   "row": "of3t-ditcot",
-   "shares_object_with": [
-    "D58",
-    "D129"
-   ],
-   "would_a_row_help": true
   },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
@@ -112,12 +86,10 @@
  "user_facing": [
   "D10",
   "D24",
-  "D30",
   "D32",
   "D55",
   "D56",
   "D58",
-  "D129",
   "D184",
   "D205"
  ],

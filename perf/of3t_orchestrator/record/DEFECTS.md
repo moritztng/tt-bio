@@ -2885,3 +2885,54 @@ digit at `OMP_NUM_THREADS=8`.
 D129 and D55 it closes, narrows or leaves untouched. I am not closing a USER-FACING defect on my
 own reading of a live row's commit message — that is the closure-plan failure this campaign already
 had, in the other direction.
+
+### D30. **CLOSED as not a defect**, pass 353, by `of3t-tapeamp` against the correct denominator and the correct reference.
+
+Filed at forward 8.34e-03 / gradient 1.6588e-01 / **19.6x**. The number was corrected twice before
+this row touched it: `of3t-tapediverge` read the shipped arm at 1.250047e-01 (**14.75x**) with the
+forward bit-identical, and `of3t-ditref` repaired the denominator to 9.344246e-02 (**11.026x**).
+
+This row prices **7.666x of that 11.026x inside upstream 0.4.3's own bf16 recipe**, with the
+remaining **1.438x** accounted for arithmetically by our forward being **1.96x** more accurate than
+upstream's. And the direct reading settles it: **our gradient is 0.734x upstream's own** on the same
+547 tensors and **0.5865x mass-weighted** on the 761 (`of3t-ditref`'s `VS_FLOOR.json`,
+`ours_over_floor_x` 0.5865346734980963) — **below the reference's own floor**. There is no
+amplification defect at the correct denominator against the correct reference.
+
+**What this does NOT close, named by the row rather than found later:** the tail. A worst tensor at
+**1.850397e+01** is a different object from a median factor and belongs to whichever row owns the
+per-tensor outliers. Unowned.
+
+### D129 UPDATE 3, pass 353. **CLOSED** — dissolved by `of3t-ditref` and absorbed here, the leaf reading below its own floor on every like-for-like statistic. The ratio in circulation for it is not like-for-like.
+
+`of3t-tapeamp` notes, correctly, that D129 was already dissolved and that my brief was wrong to list
+it as waiting on that row. `VS_FLOOR.json`'s `D129_LEAF`
+(`conditioned_transition.layer_norm.layer_norm_s.weight`, n=30 both sides) reads **below its own
+floor on every like-for-like statistic**:
+
+    median          ours 0.08544921051930113   floor 0.12498386673173574   ratio 0.6836819243455522
+    mass-weighted   ours 0.12190333295342548   floor 0.15931532097065704   ratio 0.7652
+
+**The 0.536x in circulation mixes statistics** — it divides the MEDIAN numerator 0.0854492105 by the
+MASS-WEIGHTED floor 1.5931532097e-01. The verdict is unchanged, since 0.684x and 0.765x are both
+under 1, but the quoted figure understates by about 1.3x **in the flattering direction**, and the
+artifact records `ratio_median` explicitly one field away from the two it used. Corrected here
+rather than carried: the like-for-like readings are **0.6837x median** and **0.7652x mass-weighted**.
+
+### D58 UPDATE 2, pass 353. Still **UNFIXED** — narrowed to one leg, and the untouched half is named.
+
+`of3t-tapeamp` refutes the *"belongs to the tape"* half **on the diffusion track** and supplies the
+mechanism that explains the two-significant-figure agreement without an amplifier. It does **not**
+measure `msa_module`: there is no upstream bf16 arm for that boundary anywhere in the campaign, and
+building one is a boundary capture plus a float64 reference, not an afternoon. So D58 stands with
+one leg re-explained and the other unmeasured, and the prediction that would close it is registered
+in that row's DOESNOT.
+
+**D55's forward arm is UNTOUCHED** and the row says so in those words: it measured no
+kernel-config lever, set no `precise_config()`, and did not run the forward-side census D55's
+forward half needs. Its backward half was closed by `of3t-ditcot` on four reductions proved inert
+with measured reach.
+
+**The row stated all four in those words — closes, narrows, leaves alone — and gave its reason:**
+*"the campaign's closure plan has already carried a concluded row as a live owner for days and a
+narrowing described as a closure is how that happens."*
