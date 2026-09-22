@@ -1,0 +1,23 @@
+{
+ "instrument": "upstream 0.5.0's two end-node constructions, float64 torch, one draw",
+ "shapes": {
+  "N": 48,
+  "c_z": 128,
+  "c_hidden": 32,
+  "heads": 4
+ },
+ "A_is": "TriangleAttentionEndingNode(z) -- bisect_grad.py's alone arm",
+ "B_is": "TriangleAttention(z^T, transpose_bias=True)^T -- base_blocks.py:388-397, what PairFormerBlock computes",
+ "Bprime_is": "the same external transpose with transpose_bias=False -- the bias following the transposed pair, our device's transpose_bias=True",
+ "rel_A_vs_B": 0.7936197534672236,
+ "rel_A_vs_Bprime": 0.0,
+ "rel_B_vs_Bprime": 0.7930969795030398,
+ "bias_ordering_separation": 1.2828298477222568,
+ "control": "bias_ordering_separation is the two permutations against each other; a zero there means the probe cannot see the flag at all",
+ "weights": "/home/ttuser/of3-weights/of3-p2-155k.pt block 2 tri_att_end, trained",
+ "norms": {
+  "A": 14256.597205579215,
+  "B": 14247.206086212082,
+  "Bprime": 14256.597205579215
+ }
+}
