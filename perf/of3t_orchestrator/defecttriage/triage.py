@@ -214,6 +214,24 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D199": (CAMP, "COVERAGE's diffusion_rollout gap rests on a census reason that is wrong about "
+             "upstream: the rollout runs under torch.no_grad() and is the mini rollout in "
+             "training, so it is not differentiated. The clause needs restating in the sense the "
+             "model has. Campaign-internal: it is about this campaign's own coverage definition."),
+    "D198": (CAMP, "run_arms.sh's clock_watch truncates the four-device tt-smi dump to device 0's "
+             "AICLK fields, so every aiclk log in of3t-trajwide's runs records card 0 whichever "
+             "card the arm held; the shipped arm ran on card 1. Recoverable here because 0 and 1 "
+             "are one board pair, wrong on a run whose cards are on different boards. An "
+             "instrument defect in this campaign's own harness."),
+    "D197": (CAMP, "TRAJECTORY's scope is 88.0819 % of the model, not 36.9462 %: of3t-trajwide ran "
+             "every arm to 20 of 20 and scored at 9 because the scoring pass was taken while the "
+             "runs were still going. The clause still misses the 99.2594 % bar by 11.918 %. "
+             "Campaign-internal: a measurement of our own coverage, no shipped number moves."),
+    "D196": (CAMP, "The shape-keyed site charged with 84.52 % of the trunk's width growth is never "
+             "executed: a route census counts 384 calls of one PAIR-track shape and zero from the "
+             "single track, so AttentionPairBias never reaches _fp32_softmax_attention. A "
+             "code-read route taken for a runtime fact, in a brief I wrote. Campaign-internal; "
+             "D191's mechanism is un-located again."),
     "D195": (CAMP, "A difference-of-absolute-errors decomposition locates the CARRIER, not the "
              "cause: it points at whatever holds the reference mass. In D187 the named leaf was "
              "1.0741x its worst cotangent-sharing sibling. A method rule for this campaign's own "
