@@ -46,8 +46,15 @@ BUNDLE = "/home/ttuser/of3t/bundle_min"
 #: `of3t-reference`'s published half, read from ITS branch rather than from a copy, so this row
 #: cannot drift from the reference it verifies against. `wk/of3t-reference` at `f898ca3c2`.
 REF_BRANCH = "origin/wk/of3t-reference"
-MANIFEST_GIT = "perf/of3t_reference/bundle_min/manifest.json"
-PRESENCE_GIT = "perf/of3t_reference/bundle_min/grad_presence.json"
+#: `manifest.json` was renamed `MANIFEST.json` so it could not be mistaken for the publication
+#: on a case-sensitive filesystem, and its schema changed from a `files` dict to an `artifacts`
+#: list. Both are followed here rather than worked around: a consumer pinned to the old name
+#: fails closed, which is what happened on the first run of this pass.
+MANIFEST_GIT = "perf/of3t_reference/bundle_min/MANIFEST.json"
+#: The presence pattern OF THE VALIDATED GRADIENT, not of the withdrawn random-init one. Git
+#: carries only the latter under its original name, so this is read from the host and hashed
+#: against the manifest like every other artifact.
+PRESENCE_FILE = "grad_presence_recycles0.json"
 
 
 def from_ref_branch(path):
@@ -69,16 +76,19 @@ def sha256(path, chunk=1 << 22):
     return h.hexdigest()
 
 
-def verify_bundle(manifest_path):
+def verify_bundle(manifest_path, bundle=BUNDLE, manifest_json=None):
     """Every declared artifact, hashed before anything reads it. Absence is a result."""
-    man = from_ref_branch(manifest_path)
-    out = {"manifest": f"{REF_BRANCH}:{manifest_path}", "bundle_dir": BUNDLE, "files": {}}
-    decl = dict(man.get("files", {}))
-    b = man.get("batch", {})
-    if b.get("file"):
-        decl[b["file"]] = {"sha256": b.get("sha256"), "bytes": None}
+    if manifest_json is not None:
+        man = json.loads(open(manifest_json).read())
+        src = str(manifest_json)
+    else:
+        man = from_ref_branch(manifest_path)
+        src = f"{REF_BRANCH}:{manifest_path}"
+    out = {"manifest": src, "bundle_dir": bundle, "files": {}}
+    decl = {x["file"]: x for x in man.get("artifacts", []) if x.get("sha256")}
+    decl = {k: v for k, v in decl.items() if v["sha256"] != "recomputed-on-rename"}
     for name, meta in sorted(decl.items()):
-        p = os.path.join(BUNDLE, name)
+        p = os.path.join(bundle, name)
         if not os.path.isfile(p):
             out["files"][name] = {"present": False, "declared_bytes": meta.get("bytes"),
                                   "declared_sha256": meta.get("sha256")}
@@ -102,6 +112,13 @@ def main() -> int:
                          "first call at a given chunk width exist before the walk. of3t-leaves "
                          "measured this as 188 -> 204 on a 4-block stack; 0 skips it.")
     ap.add_argument("--tag", default="of3_full")
+    # D23/R126 and amendment 3: the 0.5.0 reference has 4,147 parameters and the 0.4.3 one has
+    # 4,170, so the DENOMINATOR of every reach figure depends on which bundle this is run
+    # against. Defaults are the published 0.5.0 paths, so nothing already computed moves.
+    ap.add_argument("--bundle", default=BUNDLE)
+    ap.add_argument("--manifest-json", default=None)
+    ap.add_argument("--presence-file", default=PRESENCE_FILE)
+    ap.add_argument("--out-dir", default=OUT)
     a = ap.parse_args()
 
     import torch
@@ -115,7 +132,7 @@ def main() -> int:
            "checkpoint": CKPT, "host": "qb2", "card": 0, "board": "p300c"}
 
     # ---- the bundle, hashed before anything reads it -----------------------------------------
-    man, ver = verify_bundle(MANIFEST_GIT)
+    man, ver = verify_bundle(MANIFEST_GIT, a.bundle, a.manifest_json)
     rep["bundle"] = ver
     rep["bundle_gradient_block"] = man.get("gradient")
     print(f"[{time.perf_counter()-t0:.0f}s] bundle: verified {ver['verified']}, "
@@ -194,7 +211,30 @@ def main() -> int:
                 ag.uninstall()
             except Exception:
                 pass
-        materialise = {"tokens": n, "module": "trunk.pairformer",
+        # And the confidence head, whose weights are materialised on its first CALL rather than
+        # at construction. Building it is not enough: `aux_heads.distogram.linear.weight` alone
+        # is 3.57 % of the reference gradient's squared norm (`reach_by_norm.json`), which made
+        # this the single largest lever on SS3a's reach after the diffusion module. The values
+        # are arbitrary; the shapes are read off their own checkpoint so a dimension cannot be
+        # guessed wrong, and the call is the one `fold` makes.
+        conf_err = None
+        try:
+            pe = "aux_heads.pairformer_embedding."
+            c_in = sd[pe + "linear_i.weight"].shape[1]
+            c_tr = sd["aux_heads.plddt.layer_norm.weight"].shape[0]
+            c_z2 = sd[pe + "linear_i.weight"].shape[0]
+            n_bins = sd[pe + "linear_distance.weight"].shape[1]
+            with ag.no_grad():
+                model.confidence_head.forward_device(
+                    ft(torch.randn(1, n, c_in, generator=g) * 0.05),
+                    ft(torch.randn(1, n, c_tr, generator=g) * 0.05),
+                    ft(torch.randn(1, n, n, c_z2, generator=g) * 0.05),
+                    ft(torch.randn(1, n, n, n_bins, generator=g) * 0.05))
+        except Exception as e:                       # a gap is a finding, not a crash
+            conf_err = f"{type(e).__name__}: {e}"
+            print(f"  confidence-head materialise failed: {conf_err}", flush=True)
+        materialise = {"tokens": n, "module": "trunk.pairformer + confidence_head",
+                       "confidence_head_error": conf_err,
                        "reachable_before": before_fwd,
                        "reachable_after": len(device_weights(model))}
         print(f"[{time.perf_counter()-t0:.0f}s] materialise at {n} tokens: "
@@ -257,10 +297,11 @@ def main() -> int:
 
     # ---- SS3b presence, against the hash-verified frozen set ------------------------------------
     pres = None
-    if "grad_presence.json" in ver["verified"]:
-        pres = from_ref_branch(PRESENCE_GIT)
-    rep["presence"] = {"reference": "of3t-reference BUNDLE-MIN grad_presence.json",
-                       "reference_hash_verified": "grad_presence.json" in ver["verified"]}
+    if a.presence_file in ver["verified"]:
+        pres = json.load(open(os.path.join(a.bundle, a.presence_file)))
+    rep["presence"] = {"reference": "BUNDLE-MIN " + a.presence_file,
+                       "reference_bundle": a.bundle,
+                       "reference_hash_verified": a.presence_file in ver["verified"]}
     if pres is not None:
         table = pres if isinstance(pres, dict) else {}
         for key in ("presence", "grad_present", "parameters"):
@@ -274,15 +315,23 @@ def main() -> int:
             their_total=len(table), their_with_gradient=len(theirs_with),
             their_without_gradient=sorted(theirs_without)[:40],
             ours_carried_by_a_device_tensor=len(ours_reachable & set(table)),
-            their_with_gradient_we_cannot_carry=sorted(theirs_with - ours_reachable)[:60],
+            # The FULL set, not a sample. It was truncated to 60 here, and a consumer that
+            # read the list rather than the count computed a reach over 60 of 610 missing
+            # tensors -- which is exactly the shape of the defect D17 names, arriving through
+            # the artifact instead of through the metric. A field whose count and whose length
+            # disagree is a trap; the sample now lives under its own name.
+            their_with_gradient_we_cannot_carry=sorted(theirs_with - ours_reachable),
+            their_with_gradient_we_cannot_carry_sample=sorted(theirs_with - ours_reachable)[:60],
             n_their_with_gradient_we_cannot_carry=len(theirs_with - ours_reachable),
+            their_placed_with_gradient=sorted(ours_reachable & theirs_with),
             rule="SS3b: compared as a set, before any magnitude. Nothing was zero-filled.")
         print(f"[{time.perf_counter()-t0:.0f}s] presence: theirs {len(theirs_with)}/{len(table)} "
               f"with a gradient; we carry {len(ours_reachable & set(table))} of them on a device "
               f"tensor, {len(theirs_with - ours_reachable)} we do not", flush=True)
 
     os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"full_model_{a.tag}.json")
+    os.makedirs(a.out_dir, exist_ok=True)
+    path = os.path.join(a.out_dir, f"full_model_{a.tag}.json")
     json.dump(rep, open(path, "w"), indent=1, default=str)
     print(f"-> {path}")
     return 0

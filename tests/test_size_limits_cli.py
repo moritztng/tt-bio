@@ -135,14 +135,19 @@ def test_design_refuses_an_oversized_rfd3_contig(tmp_path, wormhole, no_device):
 
 
 def test_design_refuses_an_oversized_pxdesign_target(tmp_path, wormhole, no_device):
+    # Both numbers come off the table, for the reason the rfd3 case above gives. The one time
+    # this was a literal it pinned 768 while the platform had been dispatching 960-residue
+    # targets for eleven days, and a green test said nothing about it.
+    cap = sl.ceiling("pxdesign", "wormhole_b0").residues
+    over = cap + 140
     f = tmp_path / "target.yaml"
-    f.write_text("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-900\"]\n"
+    f.write_text(f"target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-{over}\"]\n"
                  "binder_length: 80\n")
     res = CliRunner().invoke(main.cli, ["design", str(f), "--model", "pxdesign",
                                         "--out_dir", str(tmp_path / "out")])
     assert res.exit_code != 0
     msg = str(res.output) + str(res.exception)
-    assert "900" in msg and "768" in msg
+    assert str(over) in msg and str(cap) in msg
     assert not no_device
 
 

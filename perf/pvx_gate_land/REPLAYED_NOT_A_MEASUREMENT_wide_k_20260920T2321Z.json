@@ -1,0 +1,30 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_SDPA_WIDE_K=0",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "protenix-v2",
+      "rung": 352,
+      "off": [
+        27.7,
+        26.2
+      ],
+      "on": [
+        24.6,
+        24.7
+      ],
+      "off_median": 26.95,
+      "on_median": 24.65,
+      "aa_spread_pct": 5.565862708719852,
+      "ab_median_pct": -8.534322820037108,
+      "inside_aa": false
+    }
+  ]
+}

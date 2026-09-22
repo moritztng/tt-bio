@@ -42,6 +42,33 @@ STATUS_RE = re.compile(PATTERN)
 #: RECORDED joins the dead list because a finding has no repair pending.
 DEAD = ("FIXED", "WITHDRAWN", "REFUTED", "CLOSED", "RESOLVED", "ROOT-CAUSED", "RECORDED")
 
+#: What a dead status ASSERTS, which is not the same as which word was used (D115, pass 270).
+#:
+#: Two dead words can differ as phrasing -- FIXED and RESOLVED say the same thing -- or they can
+#: disagree about a fact: whether there was ever a defect. "CLOSED" tells a reader the campaign
+#: had a bug and dealt with it; "REFUTED" tells them the bug was never real. A guard that treats
+#: every dead word as interchangeable cannot see the second kind, and three defects drifted that
+#: way for 181 revisions of the published record while the reverse check added at pass 196 was
+#: looking only for the word UNFIXED.
+#:
+#: Within a group, a mismatch is phrasing and passes. Across groups it is a contradiction.
+REPAIRED = ("FIXED", "RESOLVED", "CLOSED", "ROOT-CAUSED")
+NOT_A_DEFECT = ("WITHDRAWN", "REFUTED", "RECORDED")
+
+#: Phrases that reconcile a label to the NOT-A-DEFECT group without using one of its words.
+#: D8's own GAP label reads "CLOSED as a NON-DEFECT, pass 232", which is honest and carries more
+#: than either word alone. Nuance passes; that is the rule D115's fix was built on.
+NOT_A_DEFECT_IN_WORDS = ("NON-DEFECT", "NOT A DEFECT", "NEVER A DEFECT", "NOT A BUG")
+
+
+def asserts(word: str) -> str | None:
+    """Which claim a dead status makes: REPAIRED, NOT-A-DEFECT, or None if it is not dead."""
+    if word in REPAIRED:
+        return "REPAIRED"
+    if word in NOT_A_DEFECT:
+        return "NOT-A-DEFECT"
+    return None
+
 HEADING_RE = re.compile(r"^### (D\d+)\b(.*)$", re.M)
 
 

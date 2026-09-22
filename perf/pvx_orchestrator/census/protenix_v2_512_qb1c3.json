@@ -1,0 +1,649 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox",
+ "card": "3",
+ "model": "protenix-v2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "timers": [
+  "Protenix.fold->fold",
+  "Protenix._trunk_cond->trunk_cond",
+  "Protenix._atom_feat_inputs->atom_feats",
+  "AtomAttentionEncoder.__call__->input_aae",
+  "AtomFeaturization.c_l->diff_atom_cache",
+  "AtomFeaturization.p_lm->diff_atom_cache",
+  "Trunk.__call__->trunk",
+  "Trunk._msa->msa",
+  "Trunk._template->template",
+  "Trunk._noisy_structure->noisy_struct",
+  "Trunk._noisy_structure_dist->noisy_struct",
+  "Protenix._diffusion_pair_cond->diff_pair_cond",
+  "Protenix._plm_z_term->plm_z_term",
+  "tt_bio.protenix.edm_sample->sampler",
+  "DiffusionModule.denoise->denoise",
+  "DiffusionModule.denoise_traced->denoise",
+  "DiffusionModule._denoise_multiplicity->denoise",
+  "ConfidenceHead.confidence->confidence",
+  "ConfidenceHead.confidence_device->confidence",
+  "ConfidenceHead.z_base_device->conf_zbase",
+  "ConfidenceHead._postprocess->conf_postprocess",
+  "Pairformer.__call__->pairformer",
+  "MSA.__call__->msa_stack",
+  "Diffusion.__call__->diffusion_mod",
+  "DiffusionTransformer.__call__->dit",
+  "PairformerLayer.__call__->pf_layer",
+  "MSALayer.__call__->msa_layer",
+  "TriangleMultiplication.__call__->trimul",
+  "TriangleAttention.__call__->triatt",
+  "AttentionPairBias.__call__->attn_pair_bias",
+  "PairWeightedAveraging.__call__->pwa",
+  "OuterProductMean.__call__->opm",
+  "Transition.__call__->transition",
+  "DiffusionTransformerLayer.__call__->dit_layer"
+ ],
+ "runs": [
+  {
+   "ix": 0,
+   "tag": "cold",
+   "instrumented": false,
+   "fold_s": 85.5433,
+   "wall_s": 85.5443,
+   "n_tokens": 512,
+   "plddt": 0.810638,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work"
+  },
+  {
+   "ix": 1,
+   "tag": "clean",
+   "instrumented": false,
+   "fold_s": 52.1022,
+   "wall_s": 52.1029,
+   "n_tokens": 512,
+   "plddt": 0.810638,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 17
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work"
+  },
+  {
+   "ix": 2,
+   "tag": "clean",
+   "instrumented": false,
+   "fold_s": 52.0513,
+   "wall_s": 52.0522,
+   "n_tokens": 512,
+   "plddt": 0.810638,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 17
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 17 samples, polled DURING the work"
+  },
+  {
+   "ix": 3,
+   "tag": "stage",
+   "instrumented": true,
+   "fold_s": 55.1973,
+   "wall_s": 55.1982,
+   "n_tokens": 512,
+   "plddt": 0.810638,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 18
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work",
+   "tree": [
+    {
+     "path": "fold",
+     "n": 1,
+     "incl_s": 55.0287,
+     "self_s": 0.0588
+    },
+    {
+     "path": "fold/confidence",
+     "n": 1,
+     "incl_s": 1.9089,
+     "self_s": 1.5707
+    },
+    {
+     "path": "fold/confidence/conf_postprocess",
+     "n": 1,
+     "incl_s": 0.0688,
+     "self_s": 0.0688
+    },
+    {
+     "path": "fold/confidence/pairformer",
+     "n": 1,
+     "incl_s": 0.2694,
+     "self_s": 0.0003
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer",
+     "n": 4,
+     "incl_s": 0.2691,
+     "self_s": 0.022
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/attn_pair_bias",
+     "n": 4,
+     "incl_s": 0.0125,
+     "self_s": 0.0125
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/transition",
+     "n": 8,
+     "incl_s": 0.0612,
+     "self_s": 0.0612
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/triatt",
+     "n": 8,
+     "incl_s": 0.0799,
+     "self_s": 0.0799
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/trimul",
+     "n": 8,
+     "incl_s": 0.0935,
+     "self_s": 0.0935
+    },
+    {
+     "path": "fold/sampler",
+     "n": 1,
+     "incl_s": 11.1499,
+     "self_s": 0.2263
+    },
+    {
+     "path": "fold/sampler/denoise",
+     "n": 200,
+     "incl_s": 10.9236,
+     "self_s": 7.145
+    },
+    {
+     "path": "fold/sampler/denoise/attn_pair_bias",
+     "n": 4800,
+     "incl_s": 3.6689,
+     "self_s": 3.6689
+    },
+    {
+     "path": "fold/sampler/denoise/transition",
+     "n": 400,
+     "incl_s": 0.1098,
+     "self_s": 0.1098
+    },
+    {
+     "path": "fold/trunk_cond",
+     "n": 1,
+     "incl_s": 41.9112,
+     "self_s": 1.4627
+    },
+    {
+     "path": "fold/trunk_cond/atom_feats",
+     "n": 1,
+     "incl_s": 0.0035,
+     "self_s": 0.0035
+    },
+    {
+     "path": "fold/trunk_cond/diff_atom_cache",
+     "n": 2,
+     "incl_s": 0.0054,
+     "self_s": 0.0054
+    },
+    {
+     "path": "fold/trunk_cond/diff_pair_cond",
+     "n": 1,
+     "incl_s": 0.674,
+     "self_s": 0.6449
+    },
+    {
+     "path": "fold/trunk_cond/diff_pair_cond/transition",
+     "n": 2,
+     "incl_s": 0.029,
+     "self_s": 0.029
+    },
+    {
+     "path": "fold/trunk_cond/input_aae",
+     "n": 1,
+     "incl_s": 0.1667,
+     "self_s": 0.1621
+    },
+    {
+     "path": "fold/trunk_cond/input_aae/diff_atom_cache",
+     "n": 2,
+     "incl_s": 0.0045,
+     "self_s": 0.0045
+    },
+    {
+     "path": "fold/trunk_cond/plm_z_term",
+     "n": 1,
+     "incl_s": 0.144,
+     "self_s": 0.144
+    },
+    {
+     "path": "fold/trunk_cond/trunk",
+     "n": 1,
+     "incl_s": 39.4549,
+     "self_s": 1.9206
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa",
+     "n": 10,
+     "incl_s": 3.55,
+     "self_s": 0.0746
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/opm",
+     "n": 40,
+     "incl_s": 0.7068,
+     "self_s": 0.7068
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer",
+     "n": 40,
+     "incl_s": 2.5393,
+     "self_s": 0.2053
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/transition",
+     "n": 40,
+     "incl_s": 0.6037,
+     "self_s": 0.6037
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/triatt",
+     "n": 80,
+     "incl_s": 0.7965,
+     "self_s": 0.7965
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/trimul",
+     "n": 80,
+     "incl_s": 0.9339,
+     "self_s": 0.9339
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pwa",
+     "n": 30,
+     "incl_s": 0.2112,
+     "self_s": 0.2112
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/transition",
+     "n": 30,
+     "incl_s": 0.0181,
+     "self_s": 0.0181
+    },
+    {
+     "path": "fold/trunk_cond/trunk/noisy_struct",
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer",
+     "n": 10,
+     "incl_s": 32.3623,
+     "self_s": 0.0234
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer",
+     "n": 480,
+     "incl_s": 32.339,
+     "self_s": 2.6723
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/attn_pair_bias",
+     "n": 480,
+     "incl_s": 1.4971,
+     "self_s": 1.4971
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/transition",
+     "n": 960,
+     "incl_s": 7.3681,
+     "self_s": 7.3681
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/triatt",
+     "n": 960,
+     "incl_s": 9.5536,
+     "self_s": 9.5536
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/trimul",
+     "n": 960,
+     "incl_s": 11.2479,
+     "self_s": 11.2479
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template",
+     "n": 10,
+     "incl_s": 1.622,
+     "self_s": 0.0885
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer",
+     "n": 80,
+     "incl_s": 1.5334,
+     "self_s": 0.1041
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/transition",
+     "n": 80,
+     "incl_s": 0.1705,
+     "self_s": 0.1705
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/triatt",
+     "n": 160,
+     "incl_s": 0.6018,
+     "self_s": 0.6018
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/trimul",
+     "n": 160,
+     "incl_s": 0.657,
+     "self_s": 0.657
+    }
+   ]
+  },
+  {
+   "ix": 4,
+   "tag": "deep",
+   "instrumented": true,
+   "fold_s": 55.3721,
+   "wall_s": 55.3731,
+   "n_tokens": 512,
+   "plddt": 0.810638,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 18
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work",
+   "tree": [
+    {
+     "path": "fold",
+     "n": 1,
+     "incl_s": 55.2045,
+     "self_s": 0.057
+    },
+    {
+     "path": "fold/confidence",
+     "n": 1,
+     "incl_s": 1.8625,
+     "self_s": 1.5208
+    },
+    {
+     "path": "fold/confidence/conf_postprocess",
+     "n": 1,
+     "incl_s": 0.0786,
+     "self_s": 0.0786
+    },
+    {
+     "path": "fold/confidence/pairformer",
+     "n": 1,
+     "incl_s": 0.2631,
+     "self_s": 0.0002
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer",
+     "n": 4,
+     "incl_s": 0.2629,
+     "self_s": 0.0195
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/attn_pair_bias",
+     "n": 4,
+     "incl_s": 0.012,
+     "self_s": 0.012
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/transition",
+     "n": 8,
+     "incl_s": 0.0593,
+     "self_s": 0.0593
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/triatt",
+     "n": 8,
+     "incl_s": 0.0791,
+     "self_s": 0.0791
+    },
+    {
+     "path": "fold/confidence/pairformer/pf_layer/trimul",
+     "n": 8,
+     "incl_s": 0.093,
+     "self_s": 0.093
+    },
+    {
+     "path": "fold/sampler",
+     "n": 1,
+     "incl_s": 11.2221,
+     "self_s": 0.2776
+    },
+    {
+     "path": "fold/sampler/denoise",
+     "n": 200,
+     "incl_s": 10.9445,
+     "self_s": 7.1679
+    },
+    {
+     "path": "fold/sampler/denoise/attn_pair_bias",
+     "n": 4800,
+     "incl_s": 3.6998,
+     "self_s": 3.6998
+    },
+    {
+     "path": "fold/sampler/denoise/transition",
+     "n": 400,
+     "incl_s": 0.0769,
+     "self_s": 0.0769
+    },
+    {
+     "path": "fold/trunk_cond",
+     "n": 1,
+     "incl_s": 42.0629,
+     "self_s": 1.4945
+    },
+    {
+     "path": "fold/trunk_cond/atom_feats",
+     "n": 1,
+     "incl_s": 0.0031,
+     "self_s": 0.0031
+    },
+    {
+     "path": "fold/trunk_cond/diff_atom_cache",
+     "n": 2,
+     "incl_s": 0.0054,
+     "self_s": 0.0054
+    },
+    {
+     "path": "fold/trunk_cond/diff_pair_cond",
+     "n": 1,
+     "incl_s": 0.6723,
+     "self_s": 0.6432
+    },
+    {
+     "path": "fold/trunk_cond/diff_pair_cond/transition",
+     "n": 2,
+     "incl_s": 0.0291,
+     "self_s": 0.0291
+    },
+    {
+     "path": "fold/trunk_cond/input_aae",
+     "n": 1,
+     "incl_s": 0.1723,
+     "self_s": 0.1677
+    },
+    {
+     "path": "fold/trunk_cond/input_aae/diff_atom_cache",
+     "n": 2,
+     "incl_s": 0.0046,
+     "self_s": 0.0046
+    },
+    {
+     "path": "fold/trunk_cond/plm_z_term",
+     "n": 1,
+     "incl_s": 0.1402,
+     "self_s": 0.1402
+    },
+    {
+     "path": "fold/trunk_cond/trunk",
+     "n": 1,
+     "incl_s": 39.5751,
+     "self_s": 1.9448
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa",
+     "n": 10,
+     "incl_s": 3.5586,
+     "self_s": 0.0758
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/opm",
+     "n": 40,
+     "incl_s": 0.7077,
+     "self_s": 0.7077
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer",
+     "n": 40,
+     "incl_s": 2.5454,
+     "self_s": 0.2082
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/transition",
+     "n": 40,
+     "incl_s": 0.6027,
+     "self_s": 0.6027
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/triatt",
+     "n": 80,
+     "incl_s": 0.7978,
+     "self_s": 0.7978
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pf_layer/trimul",
+     "n": 80,
+     "incl_s": 0.9368,
+     "self_s": 0.9368
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/pwa",
+     "n": 30,
+     "incl_s": 0.2117,
+     "self_s": 0.2117
+    },
+    {
+     "path": "fold/trunk_cond/trunk/msa/transition",
+     "n": 30,
+     "incl_s": 0.018,
+     "self_s": 0.018
+    },
+    {
+     "path": "fold/trunk_cond/trunk/noisy_struct",
+     "n": 1,
+     "incl_s": 0.0,
+     "self_s": 0.0
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer",
+     "n": 10,
+     "incl_s": 32.4554,
+     "self_s": 0.0232
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer",
+     "n": 480,
+     "incl_s": 32.4322,
+     "self_s": 2.7418
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/attn_pair_bias",
+     "n": 480,
+     "incl_s": 1.503,
+     "self_s": 1.503
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/transition",
+     "n": 960,
+     "incl_s": 7.3384,
+     "self_s": 7.3384
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/triatt",
+     "n": 960,
+     "incl_s": 9.6308,
+     "self_s": 9.6308
+    },
+    {
+     "path": "fold/trunk_cond/trunk/pairformer/pf_layer/trimul",
+     "n": 960,
+     "incl_s": 11.2183,
+     "self_s": 11.2183
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template",
+     "n": 10,
+     "incl_s": 1.6162,
+     "self_s": 0.0886
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer",
+     "n": 80,
+     "incl_s": 1.5276,
+     "self_s": 0.1035
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/transition",
+     "n": 80,
+     "incl_s": 0.1702,
+     "self_s": 0.1702
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/triatt",
+     "n": 160,
+     "incl_s": 0.6015,
+     "self_s": 0.6015
+    },
+    {
+     "path": "fold/trunk_cond/trunk/template/pf_layer/trimul",
+     "n": 160,
+     "incl_s": 0.6524,
+     "self_s": 0.6524
+    }
+   ]
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ]
+}

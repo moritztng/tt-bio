@@ -1,0 +1,98 @@
+{
+  "host": "tt-quietbox2",
+  "card": "0",
+  "loadavg": [
+    "19.96",
+    "19.34",
+    "18.45"
+  ],
+  "commit": "2275fcc6c",
+  "rows": [
+    {
+      "rung": 1024,
+      "arm": "off",
+      "ab": "-openfold3.trunk",
+      "rc": 0,
+      "wall_s": 224.539,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 84
+      },
+      "steps": 25,
+      "seed": 1,
+      "cif": "cdk2x2_1024.cif",
+      "cif_sha256": "d126f938e3d63bb6",
+      "geom": {
+        "n_ca": 1024,
+        "clash_frac": 0.0127,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.803,
+        "radius_of_gyration_A": 29.302,
+        "plddt_mean": 0.379808
+      },
+      "firing": {
+        "TRIATT_PERSISTENT_MASK": [
+          0,
+          0
+        ],
+        "SDPA_FUSED_LARGE_S": [
+          0,
+          0
+        ],
+        "TRIATT_HEAD_MAJOR_QKV": [
+          424,
+          16
+        ],
+        "SDPA_WIDE_K": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "rung": 1024,
+      "arm": "on",
+      "ab": "openfold3.trunk",
+      "rc": 0,
+      "wall_s": 119.509,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 46
+      },
+      "steps": 25,
+      "seed": 1,
+      "cif": "cdk2x2_1024.cif",
+      "cif_sha256": "83d20e2aa9208d11",
+      "geom": {
+        "n_ca": 1024,
+        "clash_frac": 0.041,
+        "chain_break_frac": 0.0,
+        "ca_ca_median_A": 3.797,
+        "radius_of_gyration_A": 29.101,
+        "plddt_mean": 0.376606
+      },
+      "firing": {
+        "TRIATT_PERSISTENT_MASK": [
+          384,
+          5
+        ],
+        "SDPA_FUSED_LARGE_S": [
+          0,
+          0
+        ],
+        "TRIATT_HEAD_MAJOR_QKV": [
+          424,
+          16
+        ],
+        "SDPA_WIDE_K": [
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}

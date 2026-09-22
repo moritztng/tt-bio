@@ -1,0 +1,165 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox",
+ "card": "0",
+ "model": "protenix-v2",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "commit": "163da6f4c38ecd0826a559cca9aaef42c18592ae",
+ "clock_pin": "1350",
+ "legs": "652d512:5:1,652d2048:5:1",
+ "runs": [
+  {
+   "size": "652d512",
+   "n_sample": 5,
+   "ix": 0,
+   "tag": "cold",
+   "n_cif": 5,
+   "cifs": {
+    "cdk2x2_652d512.cif": "df91837371aa5895",
+    "cdk2x2_652d512_model_1.cif": "f9846292c93afd36",
+    "cdk2x2_652d512_model_2.cif": "6dd79cb6a148ed09",
+    "cdk2x2_652d512_model_3.cif": "e65723d86440d8bf",
+    "cdk2x2_652d512_model_4.cif": "4791e6162ce0a66d"
+   },
+   "fold_s": 173.0425,
+   "wall_s": 173.0427,
+   "n_tokens": 652,
+   "plddt": 0.795895,
+   "load_s": 4.99,
+   "n_msa": 512,
+   "loadavg1": 3.49,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 53
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 53 samples, polled DURING the work",
+   "yaml_sha256": "04dd7d50a67cf16790683d88777b160531c4cd323527aa527be30559fe6d7f8c",
+   "a3m_sha256": "53547fb78e11df77085ec0d7c2824747409a41764ad5541b115f69b1b62c2084"
+  },
+  {
+   "size": "652d512",
+   "n_sample": 5,
+   "ix": 1,
+   "tag": "warm",
+   "n_cif": 5,
+   "cifs": {
+    "cdk2x2_652d512.cif": "df91837371aa5895",
+    "cdk2x2_652d512_model_1.cif": "f9846292c93afd36",
+    "cdk2x2_652d512_model_2.cif": "6dd79cb6a148ed09",
+    "cdk2x2_652d512_model_3.cif": "e65723d86440d8bf",
+    "cdk2x2_652d512_model_4.cif": "4791e6162ce0a66d"
+   },
+   "fold_s": 159.5687,
+   "wall_s": 159.5704,
+   "n_tokens": 652,
+   "plddt": 0.795895,
+   "load_s": 4.99,
+   "n_msa": 512,
+   "loadavg1": 1.66,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 50
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 50 samples, polled DURING the work",
+   "yaml_sha256": "04dd7d50a67cf16790683d88777b160531c4cd323527aa527be30559fe6d7f8c",
+   "a3m_sha256": "53547fb78e11df77085ec0d7c2824747409a41764ad5541b115f69b1b62c2084"
+  },
+  {
+   "size": "652d2048",
+   "n_sample": 5,
+   "ix": 0,
+   "tag": "cold",
+   "n_cif": 5,
+   "cifs": {
+    "cdk2x2_652d2048.cif": "e1ac3676d989136a",
+    "cdk2x2_652d2048_model_1.cif": "4bf3ec3dba96cf6e",
+    "cdk2x2_652d2048_model_2.cif": "acc4d3a63236e04d",
+    "cdk2x2_652d2048_model_3.cif": "1020d6c629e98a20",
+    "cdk2x2_652d2048_model_4.cif": "ec780fc3ecacdfea"
+   },
+   "fold_s": 169.4346,
+   "wall_s": 169.4354,
+   "n_tokens": 652,
+   "plddt": 0.788886,
+   "load_s": 4.26,
+   "n_msa": 2048,
+   "loadavg1": 3.19,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 52
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 52 samples, polled DURING the work",
+   "yaml_sha256": "04dd7d50a67cf16790683d88777b160531c4cd323527aa527be30559fe6d7f8c",
+   "a3m_sha256": "c7de5468e2f98d800a021f80d52fd5f84fa806e4ccf1757f5bc1e9f15be28af5"
+  },
+  {
+   "size": "652d2048",
+   "n_sample": 5,
+   "ix": 1,
+   "tag": "warm",
+   "n_cif": 5,
+   "cifs": {
+    "cdk2x2_652d2048.cif": "e1ac3676d989136a",
+    "cdk2x2_652d2048_model_1.cif": "4bf3ec3dba96cf6e",
+    "cdk2x2_652d2048_model_2.cif": "acc4d3a63236e04d",
+    "cdk2x2_652d2048_model_3.cif": "1020d6c629e98a20",
+    "cdk2x2_652d2048_model_4.cif": "ec780fc3ecacdfea"
+   },
+   "fold_s": 164.2066,
+   "wall_s": 164.2084,
+   "n_tokens": 652,
+   "plddt": 0.788886,
+   "load_s": 4.26,
+   "n_msa": 2048,
+   "loadavg1": 4.2,
+   "clock": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 51
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 51 samples, polled DURING the work",
+   "yaml_sha256": "04dd7d50a67cf16790683d88777b160531c4cd323527aa527be30559fe6d7f8c",
+   "a3m_sha256": "c7de5468e2f98d800a021f80d52fd5f84fa806e4ccf1757f5bc1e9f15be28af5"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "summary": [
+  {
+   "size": "652d512",
+   "n_sample": 5,
+   "n_warm": 1,
+   "median_s": 159.569,
+   "min_s": 159.569,
+   "max_s": 159.569,
+   "spread_s": 0.0
+  },
+  {
+   "size": "652d2048",
+   "n_sample": 5,
+   "n_warm": 1,
+   "median_s": 164.207,
+   "min_s": 164.207,
+   "max_s": 164.207,
+   "spread_s": 0.0
+  }
+ ]
+}

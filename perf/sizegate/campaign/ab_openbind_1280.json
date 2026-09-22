@@ -1,0 +1,254 @@
+{
+  "card": 1,
+  "model": "openbind",
+  "rung": 1280,
+  "node": "/sys/class/tenstorrent/tenstorrent!2",
+  "budgets": [
+    524288,
+    786432,
+    917504
+  ],
+  "reps": 2,
+  "rows": [
+    {
+      "tag": "rep0_b524288",
+      "budget": 524288,
+      "rc": 0,
+      "wall_s": 389.29,
+      "runtime_s": 363.0,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 78
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 563200,
+        "l1": 440,
+        "l1_blocks": 563200,
+        "l1_refused": 0,
+        "l1_cores": 80,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    },
+    {
+      "tag": "rep0_b786432",
+      "budget": 786432,
+      "rc": 0,
+      "wall_s": 397.26,
+      "runtime_s": 364.5,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 80
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 562560,
+        "l1": 440,
+        "l1_blocks": 561921,
+        "l1_refused": 1,
+        "l1_cores": 80,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    },
+    {
+      "tag": "rep0_b917504",
+      "budget": 917504,
+      "rc": 0,
+      "wall_s": 471.17,
+      "runtime_s": 439.3,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 95
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 3032,
+        "l1": 2,
+        "l1_blocks": 2,
+        "l1_refused": 2,
+        "l1_cores": 64,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    },
+    {
+      "tag": "rep1_b524288",
+      "budget": 524288,
+      "rc": 0,
+      "wall_s": 380.52,
+      "runtime_s": 351.5,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 77
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 563200,
+        "l1": 440,
+        "l1_blocks": 563200,
+        "l1_refused": 0,
+        "l1_cores": 80,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    },
+    {
+      "tag": "rep1_b786432",
+      "budget": 786432,
+      "rc": 0,
+      "wall_s": 386.03,
+      "runtime_s": 357.4,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 78
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 562560,
+        "l1": 440,
+        "l1_blocks": 561921,
+        "l1_refused": 1,
+        "l1_cores": 80,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    },
+    {
+      "tag": "rep1_b917504",
+      "budget": 917504,
+      "rc": 0,
+      "wall_s": 452.0,
+      "runtime_s": 423.1,
+      "aiclk": {
+        "min": 800,
+        "median": 1350,
+        "max": 1350,
+        "n": 91
+      },
+      "fp32_softmax": {
+        "calls": 440,
+        "blocked": 440,
+        "blocks": 3032,
+        "l1": 2,
+        "l1_blocks": 2,
+        "l1_refused": 2,
+        "l1_cores": 64,
+        "dram_narrowed": 0
+      },
+      "structure": {
+        "cif": "cdk2x2_1280.cif",
+        "sha256": "71acde336602971c",
+        "n_ca": 1280,
+        "clash_frac": 0.0391,
+        "chain_break_frac": 0.9992,
+        "ca_ca_median_A": 105.2989,
+        "radius_of_gyration_A": 86.165,
+        "plddt_mean": 0.33714,
+        "geometry_ok": false,
+        "geometry_fail": [
+          "median CA-CA 105.299 A outside [3.6, 4.0]",
+          "99.9% of consecutive CA pairs exceed 5.0 A",
+          "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+          "radius of gyration 86.2 A outside [16.7, 83.4]"
+        ]
+      }
+    }
+  ]
+}

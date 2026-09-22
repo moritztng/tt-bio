@@ -1,0 +1,128 @@
+HEAD 75bd612f0   old-ref origin/main   card p300c
+====================================================================================================
+opendde: 2026-09-17 679b9ab4c grid 11x10 -> 2026-09-20 0451345c8 grid 11x10;  104 tt_bio commits between
+  runtime old: {'256': 21.4, '512': 76.1, '640': 121.6, '768': 172.8, '896': 251.5, '1024': 327.2}
+  runtime new: {'256': 28.3, '512': 80.4, '640': 126.5, '768': 184.1, '896': 248.7, '1024': 322.3}
+  exponents old {'256->512': 1.83, '512->768': 2.023} -> new {'256->512': 1.506, '512->768': 2.043}
+  whole-ladder median ratio 1.048 (divided out below; a rung is judged against its own ladder, not against 1.0)
+  -- 20 lever finding(s), 0 unresolved --
+    256 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.26x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    256 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.26x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    256 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.26x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    256 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.26x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+    512 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    512 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    512 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+    640 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.99x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    640 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.99x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    640 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.99x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+    768 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.02x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    768 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.02x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    768 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.02x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+    896 PAIR_TRANSPOSE_VIA_ROW_MAJOR   frac 0.998 -> 0.872 exceeds the 0.05 band (partial darkness)
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    896 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    896 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    896 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+   1024 PAIR_PROJ_MINIMAL_MATMUL       decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)', 'k_tiles=2:
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+   1024 QKV_MM_CONFIG                  decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)', 'no_mm_b
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+   1024 TRIATT_HEAD_MAJOR_QKV          decline clause ['no_mm_config'] -> []
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.94x at this rung)
+          8d72c4356 Merge wk/c14-regiont-on-main: Region T bfp8 triangle-attention, opt-in flag defaulti
+          f36c56b24 a weight can be trained at all 331 taped calls, not at the four routed ones
+          700347a2b Merge wk/bfp8-orchestrator into the landing branch: region T + the sdpa_generic cach
+          d7bb67988 Merge remote-tracking branch 'origin/wk/bfp8-qkv-matmul'
+====================================================================================================
+opendde        findings 20   unresolved 0    ATTRIBUTED

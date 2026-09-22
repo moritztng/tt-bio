@@ -1,0 +1,191 @@
+{
+ "model": "openfold3",
+ "size": 128,
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "arms": "off,trunk,off,trunk",
+ "sites": "",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T03:58:02Z",
+ "loadavg": [
+  12.224609375,
+  25.0478515625,
+  22.87060546875
+ ],
+ "ccd_donor": null,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 7.434,
+   "plddt": 0.517584,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 6
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 6 samples, polled DURING the work",
+   "digest": "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 1,
+   "arm": "trunk",
+   "fold_s": 5.753,
+   "plddt": 0.517584,
+   "aiclk": {
+    "0": {
+     "min": 1337,
+     "max": 1350,
+     "median": 1350,
+     "n": 5
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1337 / median 1350 / max 1350 MHz over 5 samples, polled DURING the work",
+   "digest": "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 5.647,
+   "plddt": 0.517584,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 4
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 4 samples, polled DURING the work",
+   "digest": "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 3,
+   "arm": "trunk",
+   "fold_s": 6.957,
+   "plddt": 0.517584,
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 6
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 6 samples, polled DURING the work",
+   "digest": "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 108,
+ "triatt_targeted": 108,
+ "paths": [
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_start"
+ ],
+ "site_groups": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "site_groups_targeted": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "other_paths": [],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "fused_hifi",
+ "cold_s": 7.423,
+ "medians": {
+  "off": 6.5405,
+  "trunk": 6.355
+ },
+ "aa_floor": {
+  "off": 1.787,
+  "trunk": 1.2039999999999997
+ },
+ "digests": {
+  "off": [
+   "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae"
+  ],
+  "trunk": [
+   "c3f7533ef8c0f45d3ecc5ef055c2c96abe4009634cb554a2e70d1b3c86af1bae"
+  ]
+ }
+}

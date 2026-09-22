@@ -1,0 +1,12 @@
+{
+ "term": "pae",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "target": "5nw3",
+ "quantity": "norm of the gradient seeded into the model outputs",
+ "value": 1.7753389718472197e-06,
+ "n_pairs_firing": 4,
+ "weight": 0.0001,
+ "term_value": 4.275963320622558,
+ "source": "coverage_census.json"
+}

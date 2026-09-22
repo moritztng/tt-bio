@@ -1,4 +1,0 @@
-m (1, 1024, 512, 36) torch.float32: 72.0 MiB host, 36.0 MiB uploaded as bf16
-host build : median 29.5 ms (min 29.0, max 30.0), n=7
-bf16 cast  : median 3.7 ms
-redundant  : 3 of 4 cycles = 100 ms host + 0.11 GiB of upload

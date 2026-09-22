@@ -1,0 +1,7893 @@
+{
+ "doc": "Who owns the bytes at the backward's DRAM high-water, at a crop where it COMPLETES.",
+ "argv": [
+  "--tokens",
+  "768",
+  "--walk-from-gb",
+  "18",
+  "--walk-step-mb",
+  "32",
+  "--dead-values",
+  "on",
+  "--out",
+  "perf/of3t_crop768/out/split_768_on.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "0",
+  "tt_bio_lease_cards": "0,0",
+  "commit": "72ca358e796b58806be7f983a0158bb698cf30f6",
+  "branch": "wk/of3t-crop768",
+  "started_utc": "2026-09-21T13:08:16Z",
+  "loadavg": [
+   2.0751953125,
+   6.0263671875,
+   15.73583984375
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 1644
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 1644 samples, polled DURING the work"
+ },
+ "build_fold_s": 5.11,
+ "prep_to_sampler_s": 77.94,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 67.48,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 2826676224,
+  "ok": true,
+  "s": 4739.67,
+  "dram_peak_b": 15197644800,
+  "l1_peak_b": 16220160,
+  "at_verb": "concat",
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "outer_tensors_noted": 2474,
+  "ckpt_pins": 106,
+  "walk": {
+   "label": "backward high-water",
+   "dram_now_b": 34189404160,
+   "census_total_b": 34238064640,
+   "census_dram_b": 34189404160,
+   "buffers": 7458,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 6687,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 8045199360,
+     "dram_b": 8045199360,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 0,
+     "b": 0,
+     "dram_b": 0,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 3295002624,
+     "dram_b": 3295002624,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 150994944,
+     "dram_b": 150994944,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 2675,
+     "b": 20395229184,
+     "dram_b": 20346568704,
+     "l1_b": 48660480
+    },
+    "other_leaf": {
+     "n": 2,
+     "b": 262144,
+     "dram_b": 262144,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 23.53,
+    "weights": 1.05,
+    "weight_grads": 0.0,
+    "tape": 9.64,
+    "cotangents": 0.44,
+    "recompute": 59.51,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 2095,
+    "b": 1992321024,
+    "dram_b": 1992321024,
+    "dram_share_pct": 5.83,
+    "top_by_bytes": [
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 37748736,
+      "n": 9,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 150994944,
+      "n": 2,
+      "total_b": 301989888
+     },
+     {
+      "each_b": 9437184,
+      "n": 25,
+      "total_b": 235929600
+     },
+     {
+      "each_b": 188743680,
+      "n": 1,
+      "total_b": 188743680
+     },
+     {
+      "each_b": 50855936,
+      "n": 3,
+      "total_b": 152567808
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 75497472,
+      "n": 1,
+      "total_b": 75497472
+     },
+     {
+      "each_b": 1179648,
+      "n": 55,
+      "total_b": 64880640
+     },
+     {
+      "each_b": 589824,
+      "n": 98,
+      "total_b": 57802752
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       768,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [],
+    "tape": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       768,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       768,
+       449
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       39
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       768,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       2,
+       4,
+       768,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1315
+     },
+     {
+      "shape": [
+       2,
+       4,
+       768,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 657
+     },
+     {
+      "shape": [
+       2,
+       4,
+       32,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 329
+     },
+     {
+      "shape": [
+       2,
+       4,
+       768,
+       768
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 328
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 24
+     },
+     {
+      "shape": [
+       1,
+       128,
+       768,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       768,
+       4,
+       768,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ]
+   },
+   "walk_s": 0.31
+  },
+  "walks": 338,
+  "trace": [
+   {
+    "dram_b": 19420194816,
+    "buffers": 4812,
+    "walk_s": 0.166,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 5586812928,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 19571189760,
+    "buffers": 4813,
+    "walk_s": 0.182,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 5737807872,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 19722184704,
+    "buffers": 4814,
+    "walk_s": 0.183,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 5888802816,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 19873179648,
+    "buffers": 4815,
+    "walk_s": 0.164,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 6039797760,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 20024174592,
+    "buffers": 4816,
+    "walk_s": 0.165,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 6190792704,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 20061923328,
+    "buffers": 4817,
+    "walk_s": 0.202,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 6228541440,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 20519626752,
+    "buffers": 4819,
+    "walk_s": 0.169,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 6686244864,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 20670621696,
+    "buffers": 4820,
+    "walk_s": 0.169,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 6837239808,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21123606528,
+    "buffers": 4823,
+    "walk_s": 0.171,
+    "unattributed_b": 1982867456,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7290224640,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21162928128,
+    "buffers": 4833,
+    "walk_s": 0.173,
+    "unattributed_b": 1992304640,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7320109056,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21202659328,
+    "buffers": 4842,
+    "walk_s": 0.175,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7359823872,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21242374144,
+    "buffers": 4850,
+    "walk_s": 0.173,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7399538688,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21282088960,
+    "buffers": 4858,
+    "walk_s": 0.175,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7439253504,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21321803776,
+    "buffers": 4866,
+    "walk_s": 0.172,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7478968320,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21361518592,
+    "buffers": 4874,
+    "walk_s": 0.173,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7518683136,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     768,
+     768,
+     128
+    ]
+   },
+   {
+    "dram_b": 21401233408,
+    "buffers": 4882,
+    "walk_s": 0.175,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7558397952,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21440948224,
+    "buffers": 4890,
+    "walk_s": 0.174,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7598112768,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21480663040,
+    "buffers": 4898,
+    "walk_s": 0.173,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7637827584,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21520377856,
+    "buffers": 4906,
+    "walk_s": 0.177,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7677542400,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21560092672,
+    "buffers": 4914,
+    "walk_s": 0.175,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7717257216,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21599807488,
+    "buffers": 4922,
+    "walk_s": 0.176,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7756972032,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21639522304,
+    "buffers": 4930,
+    "walk_s": 0.192,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7796686848,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21679237120,
+    "buffers": 4938,
+    "walk_s": 0.176,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7836401664,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21718951936,
+    "buffers": 4946,
+    "walk_s": 0.175,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7876116480,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21758666752,
+    "buffers": 4954,
+    "walk_s": 0.18,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7915831296,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21798381568,
+    "buffers": 4962,
+    "walk_s": 0.176,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7955546112,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21838096384,
+    "buffers": 4970,
+    "walk_s": 0.176,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 7995260928,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21877811200,
+    "buffers": 4978,
+    "walk_s": 0.177,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8034975744,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21917526016,
+    "buffers": 4986,
+    "walk_s": 0.177,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8074690560,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21957240832,
+    "buffers": 4994,
+    "walk_s": 0.22,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8114405376,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 21996955648,
+    "buffers": 5002,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8154120192,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22036670464,
+    "buffers": 5010,
+    "walk_s": 0.203,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8193835008,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22076385280,
+    "buffers": 5018,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8233549824,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22116100096,
+    "buffers": 5026,
+    "walk_s": 0.206,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8273264640,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22155814912,
+    "buffers": 5034,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8312979456,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22195529728,
+    "buffers": 5042,
+    "walk_s": 0.199,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8352694272,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22235244544,
+    "buffers": 5050,
+    "walk_s": 0.179,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8392409088,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22274959360,
+    "buffers": 5058,
+    "walk_s": 0.18,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8432123904,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22314674176,
+    "buffers": 5066,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8471838720,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22354388992,
+    "buffers": 5074,
+    "walk_s": 0.211,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8511553536,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22394103808,
+    "buffers": 5082,
+    "walk_s": 0.183,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8551268352,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22433818624,
+    "buffers": 5090,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8590983168,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22473533440,
+    "buffers": 5098,
+    "walk_s": 0.18,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8630697984,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22513248256,
+    "buffers": 5106,
+    "walk_s": 0.185,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8670412800,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22552963072,
+    "buffers": 5114,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8710127616,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22592677888,
+    "buffers": 5122,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8749842432,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22632392704,
+    "buffers": 5130,
+    "walk_s": 0.187,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8789557248,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22672107520,
+    "buffers": 5138,
+    "walk_s": 0.18,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8829272064,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22711822336,
+    "buffers": 5146,
+    "walk_s": 0.181,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8868986880,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22751537152,
+    "buffers": 5154,
+    "walk_s": 0.183,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8908701696,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22791251968,
+    "buffers": 5162,
+    "walk_s": 0.18,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8948416512,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22830966784,
+    "buffers": 5170,
+    "walk_s": 0.203,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 8988131328,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22870681600,
+    "buffers": 5178,
+    "walk_s": 0.227,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9027846144,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22910396416,
+    "buffers": 5186,
+    "walk_s": 0.193,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9067560960,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22950111232,
+    "buffers": 5194,
+    "walk_s": 0.181,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9107275776,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 22989826048,
+    "buffers": 5202,
+    "walk_s": 0.181,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9146990592,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23029540864,
+    "buffers": 5210,
+    "walk_s": 0.182,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9186705408,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23069255680,
+    "buffers": 5218,
+    "walk_s": 0.183,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9226420224,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23108970496,
+    "buffers": 5226,
+    "walk_s": 0.183,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9266135040,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23148685312,
+    "buffers": 5234,
+    "walk_s": 0.183,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9305849856,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23188400128,
+    "buffers": 5242,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9345564672,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23228114944,
+    "buffers": 5250,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9385279488,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23267829760,
+    "buffers": 5258,
+    "walk_s": 0.185,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9424994304,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23307544576,
+    "buffers": 5266,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9464709120,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23347259392,
+    "buffers": 5274,
+    "walk_s": 0.184,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9504423936,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23386974208,
+    "buffers": 5282,
+    "walk_s": 0.185,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9544138752,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23426689024,
+    "buffers": 5290,
+    "walk_s": 0.186,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9583853568,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23466403840,
+    "buffers": 5298,
+    "walk_s": 0.189,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9623568384,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23506118656,
+    "buffers": 5306,
+    "walk_s": 0.187,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9663283200,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23545833472,
+    "buffers": 5314,
+    "walk_s": 0.188,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9702998016,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23585548288,
+    "buffers": 5322,
+    "walk_s": 0.186,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9742712832,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23625263104,
+    "buffers": 5330,
+    "walk_s": 0.189,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9782427648,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23664977920,
+    "buffers": 5338,
+    "walk_s": 0.188,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9822142464,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23704692736,
+    "buffers": 5346,
+    "walk_s": 0.189,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9861857280,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23744407552,
+    "buffers": 5354,
+    "walk_s": 0.188,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9901572096,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23784122368,
+    "buffers": 5362,
+    "walk_s": 0.19,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9941286912,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23823837184,
+    "buffers": 5370,
+    "walk_s": 0.191,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 9981001728,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23863552000,
+    "buffers": 5378,
+    "walk_s": 0.188,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10020716544,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23903266816,
+    "buffers": 5386,
+    "walk_s": 0.189,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10060431360,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23942981632,
+    "buffers": 5394,
+    "walk_s": 0.19,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10100146176,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 23982696448,
+    "buffers": 5402,
+    "walk_s": 0.191,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10139860992,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24022411264,
+    "buffers": 5410,
+    "walk_s": 0.228,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10179575808,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24062126080,
+    "buffers": 5418,
+    "walk_s": 0.191,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10219290624,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24101840896,
+    "buffers": 5426,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10259005440,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24141555712,
+    "buffers": 5434,
+    "walk_s": 0.19,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10298720256,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24181270528,
+    "buffers": 5442,
+    "walk_s": 0.187,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10338435072,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24220985344,
+    "buffers": 5450,
+    "walk_s": 0.192,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10378149888,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24260700160,
+    "buffers": 5458,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10417864704,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24300414976,
+    "buffers": 5466,
+    "walk_s": 0.207,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10457579520,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24340129792,
+    "buffers": 5474,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10497294336,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24379844608,
+    "buffers": 5482,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10537009152,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24419559424,
+    "buffers": 5490,
+    "walk_s": 0.233,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10576723968,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24459274240,
+    "buffers": 5498,
+    "walk_s": 0.216,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10616438784,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24498989056,
+    "buffers": 5506,
+    "walk_s": 0.212,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10656153600,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24538703872,
+    "buffers": 5514,
+    "walk_s": 0.214,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10695868416,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24578418688,
+    "buffers": 5522,
+    "walk_s": 0.193,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10735583232,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24618133504,
+    "buffers": 5530,
+    "walk_s": 0.195,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10775298048,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24657848320,
+    "buffers": 5538,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10815012864,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24697563136,
+    "buffers": 5546,
+    "walk_s": 0.305,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10854727680,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24737277952,
+    "buffers": 5554,
+    "walk_s": 0.197,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10894442496,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24776992768,
+    "buffers": 5562,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10934157312,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24816707584,
+    "buffers": 5570,
+    "walk_s": 0.195,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 10973872128,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24856422400,
+    "buffers": 5578,
+    "walk_s": 0.197,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11013586944,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24896137216,
+    "buffers": 5586,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11053301760,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24935852032,
+    "buffers": 5594,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11093016576,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 24975566848,
+    "buffers": 5602,
+    "walk_s": 0.195,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11132731392,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25015281664,
+    "buffers": 5610,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11172446208,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25054996480,
+    "buffers": 5618,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11212161024,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25094711296,
+    "buffers": 5626,
+    "walk_s": 0.215,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11251875840,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25134426112,
+    "buffers": 5634,
+    "walk_s": 0.228,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11291590656,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25174140928,
+    "buffers": 5642,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11331305472,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25213855744,
+    "buffers": 5650,
+    "walk_s": 0.197,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11371020288,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25253570560,
+    "buffers": 5658,
+    "walk_s": 0.199,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11410735104,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25293285376,
+    "buffers": 5666,
+    "walk_s": 0.194,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11450449920,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25333000192,
+    "buffers": 5674,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11490164736,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25372715008,
+    "buffers": 5682,
+    "walk_s": 0.197,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11529879552,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25412429824,
+    "buffers": 5690,
+    "walk_s": 0.199,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11569594368,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25452144640,
+    "buffers": 5698,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11609309184,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25491859456,
+    "buffers": 5706,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11649024000,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25531574272,
+    "buffers": 5714,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11688738816,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25571289088,
+    "buffers": 5722,
+    "walk_s": 0.242,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11728453632,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25611003904,
+    "buffers": 5730,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11768168448,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25650718720,
+    "buffers": 5738,
+    "walk_s": 0.242,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11807883264,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25690433536,
+    "buffers": 5746,
+    "walk_s": 0.197,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11847598080,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25730148352,
+    "buffers": 5754,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11887312896,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25769863168,
+    "buffers": 5762,
+    "walk_s": 0.201,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11927027712,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25809577984,
+    "buffers": 5770,
+    "walk_s": 0.196,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 11966742528,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25849292800,
+    "buffers": 5778,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12006457344,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25889007616,
+    "buffers": 5786,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12046172160,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25928722432,
+    "buffers": 5794,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12085886976,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 25968437248,
+    "buffers": 5802,
+    "walk_s": 0.201,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12125601792,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26008152064,
+    "buffers": 5810,
+    "walk_s": 0.203,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12165316608,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26047866880,
+    "buffers": 5818,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12205031424,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26087581696,
+    "buffers": 5826,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12244746240,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26127296512,
+    "buffers": 5834,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12284461056,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26167011328,
+    "buffers": 5842,
+    "walk_s": 0.198,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12324175872,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26206726144,
+    "buffers": 5850,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12363890688,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26246440960,
+    "buffers": 5858,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12403605504,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26286155776,
+    "buffers": 5866,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12443320320,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26325870592,
+    "buffers": 5874,
+    "walk_s": 0.204,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12483035136,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26365585408,
+    "buffers": 5882,
+    "walk_s": 0.201,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12522749952,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26405300224,
+    "buffers": 5890,
+    "walk_s": 0.2,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12562464768,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26445015040,
+    "buffers": 5898,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12602179584,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26484729856,
+    "buffers": 5906,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12641894400,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26524444672,
+    "buffers": 5914,
+    "walk_s": 0.229,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12681609216,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26564159488,
+    "buffers": 5922,
+    "walk_s": 0.232,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12721324032,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26603874304,
+    "buffers": 5930,
+    "walk_s": 0.231,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12761038848,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26643589120,
+    "buffers": 5938,
+    "walk_s": 0.23,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12800753664,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26683303936,
+    "buffers": 5946,
+    "walk_s": 0.225,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12840468480,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26723018752,
+    "buffers": 5954,
+    "walk_s": 0.227,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12880183296,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26762733568,
+    "buffers": 5962,
+    "walk_s": 0.203,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12919898112,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26802448384,
+    "buffers": 5970,
+    "walk_s": 0.202,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12959612928,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26842163200,
+    "buffers": 5978,
+    "walk_s": 0.216,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 12999327744,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26881878016,
+    "buffers": 5986,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13039042560,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26921592832,
+    "buffers": 5994,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13078757376,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 26961307648,
+    "buffers": 6002,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13118472192,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27001022464,
+    "buffers": 6010,
+    "walk_s": 0.204,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13158187008,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27040737280,
+    "buffers": 6018,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13197901824,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27080452096,
+    "buffers": 6026,
+    "walk_s": 0.204,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13237616640,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27120166912,
+    "buffers": 6034,
+    "walk_s": 0.207,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13277331456,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27159881728,
+    "buffers": 6042,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13317046272,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27199596544,
+    "buffers": 6050,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13356761088,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27239311360,
+    "buffers": 6058,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13396475904,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27279026176,
+    "buffers": 6066,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13436190720,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27318740992,
+    "buffers": 6074,
+    "walk_s": 0.349,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13475905536,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27358455808,
+    "buffers": 6082,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13515620352,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27398170624,
+    "buffers": 6090,
+    "walk_s": 0.204,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13555335168,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27437885440,
+    "buffers": 6098,
+    "walk_s": 0.204,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13595049984,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27477600256,
+    "buffers": 6106,
+    "walk_s": 0.209,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13634764800,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27517315072,
+    "buffers": 6114,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13674479616,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27557029888,
+    "buffers": 6122,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13714194432,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27596744704,
+    "buffers": 6130,
+    "walk_s": 0.207,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13753909248,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27636459520,
+    "buffers": 6138,
+    "walk_s": 0.205,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13793624064,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27676174336,
+    "buffers": 6146,
+    "walk_s": 0.209,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13833338880,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27715889152,
+    "buffers": 6154,
+    "walk_s": 0.207,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13873053696,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27755603968,
+    "buffers": 6162,
+    "walk_s": 0.208,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13912768512,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27795318784,
+    "buffers": 6170,
+    "walk_s": 0.207,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13952483328,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27835033600,
+    "buffers": 6178,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 13992198144,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27874748416,
+    "buffers": 6186,
+    "walk_s": 0.208,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14031912960,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27914463232,
+    "buffers": 6194,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14071627776,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27954178048,
+    "buffers": 6202,
+    "walk_s": 0.208,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14111342592,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 27993892864,
+    "buffers": 6210,
+    "walk_s": 0.212,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14151057408,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28033607680,
+    "buffers": 6218,
+    "walk_s": 0.214,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14190772224,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28073322496,
+    "buffers": 6226,
+    "walk_s": 0.21,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14230487040,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28113037312,
+    "buffers": 6234,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14270201856,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28152752128,
+    "buffers": 6242,
+    "walk_s": 0.211,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14309916672,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28192466944,
+    "buffers": 6250,
+    "walk_s": 0.243,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14349631488,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28232181760,
+    "buffers": 6258,
+    "walk_s": 0.211,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14389346304,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28271896576,
+    "buffers": 6266,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14429061120,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28311611392,
+    "buffers": 6274,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14468775936,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28351326208,
+    "buffers": 6282,
+    "walk_s": 0.215,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14508490752,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28391041024,
+    "buffers": 6290,
+    "walk_s": 0.236,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14548205568,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28430755840,
+    "buffers": 6298,
+    "walk_s": 0.216,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14587920384,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28470470656,
+    "buffers": 6306,
+    "walk_s": 0.212,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14627635200,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28510185472,
+    "buffers": 6314,
+    "walk_s": 0.215,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14667350016,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28549900288,
+    "buffers": 6322,
+    "walk_s": 0.213,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14707064832,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28589615104,
+    "buffers": 6330,
+    "walk_s": 0.273,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14746779648,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28629329920,
+    "buffers": 6338,
+    "walk_s": 0.242,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14786494464,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28669044736,
+    "buffers": 6346,
+    "walk_s": 0.263,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14826209280,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28708759552,
+    "buffers": 6354,
+    "walk_s": 0.244,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14865924096,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28748474368,
+    "buffers": 6362,
+    "walk_s": 0.235,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14905638912,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28788189184,
+    "buffers": 6370,
+    "walk_s": 0.246,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14945353728,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28827904000,
+    "buffers": 6378,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 14985068544,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28867618816,
+    "buffers": 6386,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15024783360,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28907333632,
+    "buffers": 6394,
+    "walk_s": 0.262,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15064498176,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28947048448,
+    "buffers": 6402,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15104212992,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 28986763264,
+    "buffers": 6410,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15143927808,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29026478080,
+    "buffers": 6418,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15183642624,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29066192896,
+    "buffers": 6426,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15223357440,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29105907712,
+    "buffers": 6434,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15263072256,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29145622528,
+    "buffers": 6442,
+    "walk_s": 0.221,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15302787072,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29185337344,
+    "buffers": 6450,
+    "walk_s": 0.215,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15342501888,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29225052160,
+    "buffers": 6458,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15382216704,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29264766976,
+    "buffers": 6466,
+    "walk_s": 0.22,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15421931520,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29304481792,
+    "buffers": 6474,
+    "walk_s": 0.265,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15461646336,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29344196608,
+    "buffers": 6482,
+    "walk_s": 0.322,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15501361152,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29383911424,
+    "buffers": 6490,
+    "walk_s": 0.216,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15541075968,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29423626240,
+    "buffers": 6498,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15580790784,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29463341056,
+    "buffers": 6506,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15620505600,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29503055872,
+    "buffers": 6514,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15660220416,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29542770688,
+    "buffers": 6522,
+    "walk_s": 0.22,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15699935232,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29582485504,
+    "buffers": 6530,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15739650048,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29622200320,
+    "buffers": 6538,
+    "walk_s": 0.216,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15779364864,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29661915136,
+    "buffers": 6546,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15819079680,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29701629952,
+    "buffers": 6554,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15858794496,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29741344768,
+    "buffers": 6562,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15898509312,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29781059584,
+    "buffers": 6570,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15938224128,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29820774400,
+    "buffers": 6578,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 15977938944,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29860489216,
+    "buffers": 6586,
+    "walk_s": 0.217,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16017653760,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29900204032,
+    "buffers": 6594,
+    "walk_s": 0.22,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16057368576,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29939918848,
+    "buffers": 6602,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16097083392,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 29979633664,
+    "buffers": 6610,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16136798208,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30019348480,
+    "buffers": 6618,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16176513024,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30059063296,
+    "buffers": 6626,
+    "walk_s": 0.218,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16216227840,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30098778112,
+    "buffers": 6634,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16255942656,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30138492928,
+    "buffers": 6642,
+    "walk_s": 0.22,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16295657472,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30178207744,
+    "buffers": 6650,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16335372288,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30217922560,
+    "buffers": 6658,
+    "walk_s": 0.221,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16375087104,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30257637376,
+    "buffers": 6666,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16414801920,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30297352192,
+    "buffers": 6674,
+    "walk_s": 0.221,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16454516736,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30337067008,
+    "buffers": 6682,
+    "walk_s": 0.25,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16494231552,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30376781824,
+    "buffers": 6690,
+    "walk_s": 0.227,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16533946368,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30416496640,
+    "buffers": 6698,
+    "walk_s": 0.219,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16573661184,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30456211456,
+    "buffers": 6706,
+    "walk_s": 0.221,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16613376000,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30495926272,
+    "buffers": 6714,
+    "walk_s": 0.227,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16653090816,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30535641088,
+    "buffers": 6722,
+    "walk_s": 0.254,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16692805632,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30575355904,
+    "buffers": 6730,
+    "walk_s": 0.283,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16732520448,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30615070720,
+    "buffers": 6738,
+    "walk_s": 0.26,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16772235264,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30654785536,
+    "buffers": 6746,
+    "walk_s": 0.256,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16811950080,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30694500352,
+    "buffers": 6754,
+    "walk_s": 0.253,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16851664896,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30734215168,
+    "buffers": 6762,
+    "walk_s": 0.222,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16891379712,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30773929984,
+    "buffers": 6770,
+    "walk_s": 0.225,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16931094528,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30813644800,
+    "buffers": 6778,
+    "walk_s": 0.265,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 16970809344,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30853359616,
+    "buffers": 6786,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17010524160,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30893074432,
+    "buffers": 6794,
+    "walk_s": 0.27,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17050238976,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30932789248,
+    "buffers": 6802,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17089953792,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 30972504064,
+    "buffers": 6810,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17129668608,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31012218880,
+    "buffers": 6818,
+    "walk_s": 0.223,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17169383424,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31051933696,
+    "buffers": 6826,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17209098240,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31091648512,
+    "buffers": 6834,
+    "walk_s": 0.23,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17248813056,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31131363328,
+    "buffers": 6842,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17288527872,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31171078144,
+    "buffers": 6850,
+    "walk_s": 0.247,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17328242688,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31210792960,
+    "buffers": 6858,
+    "walk_s": 0.266,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17367957504,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31250507776,
+    "buffers": 6866,
+    "walk_s": 0.225,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17407672320,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31290222592,
+    "buffers": 6874,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17447387136,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31329937408,
+    "buffers": 6882,
+    "walk_s": 0.227,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17487101952,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31369652224,
+    "buffers": 6890,
+    "walk_s": 0.225,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17526816768,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31409367040,
+    "buffers": 6898,
+    "walk_s": 0.224,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17566531584,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31449081856,
+    "buffers": 6906,
+    "walk_s": 0.226,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17606246400,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31488796672,
+    "buffers": 6914,
+    "walk_s": 0.228,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17645961216,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31528511488,
+    "buffers": 6922,
+    "walk_s": 0.228,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17685676032,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31568226304,
+    "buffers": 6930,
+    "walk_s": 0.228,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17725390848,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31607941120,
+    "buffers": 6938,
+    "walk_s": 0.231,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17765105664,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31647655936,
+    "buffers": 6946,
+    "walk_s": 0.23,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17804820480,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31687370752,
+    "buffers": 6954,
+    "walk_s": 0.231,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17844535296,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31727085568,
+    "buffers": 6962,
+    "walk_s": 0.229,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17884250112,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31766800384,
+    "buffers": 6970,
+    "walk_s": 0.23,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17923964928,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31806515200,
+    "buffers": 6978,
+    "walk_s": 0.23,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 17963679744,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31846230016,
+    "buffers": 6986,
+    "walk_s": 0.231,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18003394560,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31885944832,
+    "buffers": 6994,
+    "walk_s": 0.233,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18043109376,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31925659648,
+    "buffers": 7002,
+    "walk_s": 0.235,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18082824192,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 31965374464,
+    "buffers": 7010,
+    "walk_s": 0.234,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18122539008,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32005089280,
+    "buffers": 7018,
+    "walk_s": 0.231,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18162253824,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32044804096,
+    "buffers": 7026,
+    "walk_s": 0.234,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18201968640,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32084518912,
+    "buffers": 7034,
+    "walk_s": 0.235,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18241683456,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32124233728,
+    "buffers": 7042,
+    "walk_s": 0.242,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18281398272,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32163948544,
+    "buffers": 7050,
+    "walk_s": 0.243,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18321113088,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32203663360,
+    "buffers": 7058,
+    "walk_s": 0.274,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18360827904,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32243378176,
+    "buffers": 7066,
+    "walk_s": 0.233,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18400542720,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32283092992,
+    "buffers": 7074,
+    "walk_s": 0.232,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18440257536,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32322807808,
+    "buffers": 7082,
+    "walk_s": 0.232,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18479972352,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32362522624,
+    "buffers": 7090,
+    "walk_s": 0.266,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18519687168,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32402237440,
+    "buffers": 7098,
+    "walk_s": 0.265,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18559401984,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32441952256,
+    "buffers": 7106,
+    "walk_s": 0.298,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18599116800,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32481667072,
+    "buffers": 7114,
+    "walk_s": 0.315,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18638831616,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32521381888,
+    "buffers": 7122,
+    "walk_s": 0.265,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18678546432,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32561096704,
+    "buffers": 7130,
+    "walk_s": 0.233,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18718261248,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32600811520,
+    "buffers": 7138,
+    "walk_s": 0.235,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18757976064,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32640526336,
+    "buffers": 7146,
+    "walk_s": 0.288,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18797690880,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32680241152,
+    "buffers": 7154,
+    "walk_s": 0.25,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18837405696,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32719955968,
+    "buffers": 7162,
+    "walk_s": 0.235,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18877120512,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32759670784,
+    "buffers": 7170,
+    "walk_s": 0.24,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18916835328,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32799385600,
+    "buffers": 7178,
+    "walk_s": 0.237,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18956550144,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32839100416,
+    "buffers": 7186,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 18996264960,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32878815232,
+    "buffers": 7194,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19035979776,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32918530048,
+    "buffers": 7202,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19075694592,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32958244864,
+    "buffers": 7210,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19115409408,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 32997959680,
+    "buffers": 7218,
+    "walk_s": 0.282,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19155124224,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33037674496,
+    "buffers": 7226,
+    "walk_s": 0.294,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19194839040,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33077389312,
+    "buffers": 7234,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19234553856,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33117104128,
+    "buffers": 7242,
+    "walk_s": 0.237,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19274268672,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33156818944,
+    "buffers": 7250,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19313983488,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33196533760,
+    "buffers": 7258,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19353698304,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33236248576,
+    "buffers": 7266,
+    "walk_s": 0.237,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19393413120,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33275963392,
+    "buffers": 7274,
+    "walk_s": 0.263,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19433127936,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33315678208,
+    "buffers": 7282,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19472842752,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33355393024,
+    "buffers": 7290,
+    "walk_s": 0.237,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19512557568,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33395107840,
+    "buffers": 7298,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19552272384,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33434822656,
+    "buffers": 7306,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19591987200,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33474537472,
+    "buffers": 7314,
+    "walk_s": 0.236,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19631702016,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33514252288,
+    "buffers": 7322,
+    "walk_s": 0.236,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19671416832,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33553967104,
+    "buffers": 7330,
+    "walk_s": 0.237,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19711131648,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33593681920,
+    "buffers": 7338,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19750846464,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33633396736,
+    "buffers": 7346,
+    "walk_s": 0.24,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19790561280,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33673111552,
+    "buffers": 7354,
+    "walk_s": 0.236,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19830276096,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33712826368,
+    "buffers": 7362,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19869990912,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33752541184,
+    "buffers": 7370,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19909705728,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33792256000,
+    "buffers": 7378,
+    "walk_s": 0.239,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19949420544,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33831970816,
+    "buffers": 7386,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 19989135360,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33871685632,
+    "buffers": 7394,
+    "walk_s": 0.242,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20028850176,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33911400448,
+    "buffers": 7402,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20068564992,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33951115264,
+    "buffers": 7410,
+    "walk_s": 0.254,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20108279808,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 33990830080,
+    "buffers": 7418,
+    "walk_s": 0.238,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20147994624,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 34030544896,
+    "buffers": 7426,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20187709440,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 34070259712,
+    "buffers": 7434,
+    "walk_s": 0.241,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20227424256,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 34109974528,
+    "buffers": 7442,
+    "walk_s": 0.274,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20267139072,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 34149689344,
+    "buffers": 7450,
+    "walk_s": 0.293,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20306853888,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   },
+   {
+    "dram_b": 34189404160,
+    "buffers": 7458,
+    "walk_s": 0.31,
+    "unattributed_b": 1992321024,
+    "boundaries": 8045199360,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 3295002624,
+    "cotangents": 150994944,
+    "recompute": 20346568704,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     2,
+     4,
+     768,
+     32
+    ]
+   }
+  ],
+  "first_recompute": {
+   "label": "backward high-water",
+   "dram_now_b": 19420194816,
+   "census_total_b": 19420194816,
+   "census_dram_b": 19420194816,
+   "buffers": 4812,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 2727,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 8045199360,
+     "dram_b": 8045199360,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 0,
+     "b": 0,
+     "dram_b": 0,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 3295002624,
+     "dram_b": 3295002624,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 150994944,
+     "dram_b": 150994944,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 31,
+     "b": 5586812928,
+     "dram_b": 5586812928,
+     "l1_b": 0
+    },
+    "other_leaf": {
+     "n": 2,
+     "b": 262144,
+     "dram_b": 262144,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 41.43,
+    "weights": 1.85,
+    "weight_grads": 0.0,
+    "tape": 16.97,
+    "cotangents": 0.78,
+    "recompute": 28.77,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 2093,
+    "b": 1982867456,
+    "dram_b": 1982867456,
+    "dram_share_pct": 10.21,
+    "top_by_bytes": [
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 37748736,
+      "n": 9,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 150994944,
+      "n": 2,
+      "total_b": 301989888
+     },
+     {
+      "each_b": 9437184,
+      "n": 24,
+      "total_b": 226492416
+     },
+     {
+      "each_b": 188743680,
+      "n": 1,
+      "total_b": 188743680
+     },
+     {
+      "each_b": 50855936,
+      "n": 3,
+      "total_b": 152567808
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 75497472,
+      "n": 1,
+      "total_b": 75497472
+     },
+     {
+      "each_b": 1179648,
+      "n": 55,
+      "total_b": 64880640
+     },
+     {
+      "each_b": 589824,
+      "n": 98,
+      "total_b": 57802752
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       768,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [],
+    "tape": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       768,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       768,
+       449
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       39
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       768,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 21
+     },
+     {
+      "shape": [
+       1,
+       128,
+       768,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       1,
+       768,
+       768,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       768,
+       128,
+       768
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ]
+   },
+   "walk_s": 0.166
+  },
+  "ok": false,
+  "error": " [0x7593bb4eeaa0]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7593bb46f895]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x618fc3f45e2d]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x618fc3f5ad5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x618fc4062ea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x618fc3f5e83b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x618fc3f3cee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x618fc3f45e2d]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x618fc3f5ad5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x618fc4062ea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x618fc3f5e83b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x618fc3f3cee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x618fc3f3bf92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x122) [0x618fc3f5e8a2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x618fc3f3cee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x618fc3f3bf92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x618fc3f3bf92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x618fc3f3bf92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x618fc3f45d84]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x618fc3f5ad5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x618fc4062ea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x618fc3f46bab]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x609e) [0x618fc3f4069e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x618fc3f45d84]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc1) [0x618fc3f5adc1]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x618fc4062ea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x618fc3f46bab]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x5a67) [0x618fc3f40067]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x618fc3f3cee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x618fc3f3fcd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x618fc3f3fcd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x618fc3f50aec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x618fc3f3acc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x25b036) [0x618fc4020036]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x86) [0x618fc401ff06]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281a88) [0x618fc4046a88]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x27c0df) [0x618fc40410df]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281825) [0x618fc4046825]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x618fc4045d68]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x47) [0x618fc4045a47]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x2be) [0x618fc4039eae]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x618fc4013f4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7593c1829d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7593c1829e40]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x618fc4013e45]\n\n",
+  "error_head": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4277460224 B, free: 729792 B, largest free block: 458688 B)\n",
+  "stage_at_failure": "enter",
+  "s": 268.67,
+  "dram_peak_b": 34219681792,
+  "l1_peak_b": 64880640,
+  "at_verb": "matmul",
+  "at_stage": "enter",
+  "dram_live_allocs": 7463,
+  "census": {
+   "DRAM": {
+    "count": 7463,
+    "sum_b": 34219681792,
+    "largest_b": 603979776,
+    "median_b": 131072,
+    "p90_b": 9437184,
+    "smallest_b": 16384,
+    "top10_b": [
+     603979776,
+     603979776,
+     452984832,
+     188743680,
+     150994944,
+     150994944,
+     150994944,
+     150994944,
+     150994944,
+     150994944
+    ],
+    "by_size": {
+     "distinct_sizes": 35,
+     "top_by_bytes": [
+      {
+       "each_b": 150994944,
+       "n": 100,
+       "total_b": 15099494400
+      },
+      {
+       "each_b": 9437184,
+       "n": 685,
+       "total_b": 6464471040
+      },
+      {
+       "each_b": 18874368,
+       "n": 329,
+       "total_b": 6209667072
+      },
+      {
+       "each_b": 75497472,
+       "n": 27,
+       "total_b": 2038431744
+      },
+      {
+       "each_b": 603979776,
+       "n": 2,
+       "total_b": 1207959552
+      },
+      {
+       "each_b": 393216,
+       "n": 1676,
+       "total_b": 659030016
+      },
+      {
+       "each_b": 37748736,
+       "n": 17,
+       "total_b": 641728512
+      },
+      {
+       "each_b": 452984832,
+       "n": 1,
+       "total_b": 452984832
+      },
+      {
+       "each_b": 4718592,
+       "n": 73,
+       "total_b": 344457216
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 188743680,
+       "n": 1,
+       "total_b": 188743680
+      },
+      {
+       "each_b": 50855936,
+       "n": 3,
+       "total_b": 152567808
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 589824,
+       "n": 151,
+       "total_b": 89063424
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 2265,
+       "total_b": 37109760
+      },
+      {
+       "each_b": 393216,
+       "n": 1676,
+       "total_b": 659030016
+      },
+      {
+       "each_b": 32768,
+       "n": 864,
+       "total_b": 28311552
+      },
+      {
+       "each_b": 9437184,
+       "n": 685,
+       "total_b": 6464471040
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 18874368,
+       "n": 329,
+       "total_b": 6209667072
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 202,
+       "total_b": 19857408
+      },
+      {
+       "each_b": 589824,
+       "n": 151,
+       "total_b": 89063424
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 150994944,
+       "n": 100,
+       "total_b": 15099494400
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 4718592,
+       "n": 73,
+       "total_b": 344457216
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 7463
+  },
+  "free": {
+   "free_b": 5838336,
+   "largest_contiguous_free_per_bank_b": 458688,
+   "largest_contiguous_free_across_banks_b": 3669504
+  },
+  "params_with_grad": 0,
+  "params_declared": 2531,
+  "max_colive_boundaries_plus_recompute": {
+   "dram_b": 34189404160,
+   "boundaries_b": 8045199360,
+   "recompute_b": 20346568704,
+   "sum_b": 28391768064,
+   "share_of_that_moment_pct": 83.04
+  },
+  "max_boundaries_b": 8045199360,
+  "max_recompute_b": 20346568704,
+  "walk_gap_to_peak_b": 30277632,
+  "walk_gap_to_peak_pct": 0.088,
+  "walk_step_b_final": 33554432
+ },
+ "after_forward": {
+  "label": "after forward, before backward",
+  "dram_now_b": 13682386944,
+  "census_total_b": 13682386944,
+  "census_dram_b": 13682386944,
+  "buffers": 4780,
+  "duplicate_addresses": 0,
+  "live_taped_tensors": 2691,
+  "by_owner": {
+   "boundaries": {
+    "n": 106,
+    "b": 8045199360,
+    "dram_b": 8045199360,
+    "l1_b": 0
+   },
+   "weights": {
+    "n": 2531,
+    "b": 359055360,
+    "dram_b": 359055360,
+    "l1_b": 0
+   },
+   "weight_grads": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "tape": {
+    "n": 48,
+    "b": 3295002624,
+    "dram_b": 3295002624,
+    "l1_b": 0
+   },
+   "cotangents": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "recompute": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "other_leaf": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   }
+  },
+  "owner_share_of_dram_pct": {
+   "boundaries": 58.8,
+   "weights": 2.62,
+   "weight_grads": 0.0,
+   "tape": 24.08,
+   "cotangents": 0.0,
+   "recompute": 0.0,
+   "other_leaf": 0.0
+  },
+  "unattributed": {
+   "n": 2095,
+   "b": 1983129600,
+   "dram_b": 1983129600,
+   "dram_share_pct": 14.49,
+   "top_by_bytes": [
+    {
+     "each_b": 4718592,
+     "n": 72,
+     "total_b": 339738624
+    },
+    {
+     "each_b": 37748736,
+     "n": 9,
+     "total_b": 339738624
+    },
+    {
+     "each_b": 150994944,
+     "n": 2,
+     "total_b": 301989888
+    },
+    {
+     "each_b": 9437184,
+     "n": 24,
+     "total_b": 226492416
+    },
+    {
+     "each_b": 188743680,
+     "n": 1,
+     "total_b": 188743680
+    },
+    {
+     "each_b": 50855936,
+     "n": 3,
+     "total_b": 152567808
+    },
+    {
+     "each_b": 2359296,
+     "n": 48,
+     "total_b": 113246208
+    },
+    {
+     "each_b": 75497472,
+     "n": 1,
+     "total_b": 75497472
+    },
+    {
+     "each_b": 1179648,
+     "n": 55,
+     "total_b": 64880640
+    },
+    {
+     "each_b": 589824,
+     "n": 98,
+     "total_b": 57802752
+    }
+   ]
+  },
+  "shapes": {
+   "boundaries": [
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      768,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      768,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "weights": [
+    {
+     "shape": [
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 838
+    },
+    {
+     "shape": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 417
+    },
+    {
+     "shape": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 208
+    },
+    {
+     "shape": [
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 194
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 144
+    },
+    {
+     "shape": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      544
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    }
+   ],
+   "weight_grads": [],
+   "tape": [
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 23
+    },
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 8
+    },
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      1
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      768,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    },
+    {
+     "shape": [
+      1,
+      768,
+      449
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      768,
+      768,
+      39
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      36,
+      768,
+      34
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    }
+   ],
+   "cotangents": [],
+   "recompute": [],
+   "other_leaf": []
+  },
+  "walk_s": 0.15
+ }
+}

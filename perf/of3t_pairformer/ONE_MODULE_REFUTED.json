@@ -1,0 +1,50 @@
+{
+ "what": "Does the trunk leave \"the failure is one module\" standing?",
+ "caveat": "The diffusion rows are measured at the 043 step (manifest loss\n1.267624369070698). The trunk row is measured over the only pairformer boundary that exists, which\nwas captured from the 0.5.0 step (loss 1.6591175475821072) at a 64-token crop of a 384-token batch\nholding 56 real tokens. Two steps, so the composition is an ORDER-OF-MAGNITUDE statement about\nwhere the error mass sits and not a partition of one number. It is stated that way on purpose:\nwhat it has to decide is whether the trunk is a rounding error beside the diffusion transformer,\nand 0.4 % against 19 % is not a distinction that turns on the step.",
+ "trunk_measurement": {
+  "mass_weighted_rel_l2_vs_upstream_bf16": 10.615529849776957,
+  "median_over_tensors": 1.3106135057018145,
+  "mass_weighted_norm_ratio": 10.551274791291682,
+  "mass_weighted_cos": -0.017063069500161693,
+  "threshold_floor_over_r": 0.1758167773252056,
+  "multiples_of_that_threshold": 60.3783666796575,
+  "measured_zero_model_reading_A16": 1.0,
+  "cos_between_the_two_error_vectors": -0.2412397628543947,
+  "our_error_over_theirs": 60.12932723403869
+ },
+ "for_comparison_same_statistic_other_scopes": {
+  "diffusion_device_arm_547_tensors": 7.426742,
+  "diffusion_module.diffusion_transformer": 8.025,
+  "note": "mass-weighted rel_l2 of the device gradient against upstream's own bf16 step, each on its own scope. The trunk's is LARGER than either."
+ },
+ "rows": [
+  {
+   "scope": "pairformer_stack",
+   "rel": 10.615529849776957,
+   "mass_frac": 0.058282,
+   "measured_by": "of3t-pairformer, this row",
+   "step": "0.5.0 r=0 dropout-disabled boundary, 64-token crop",
+   "error_mass": 6.567767923172928,
+   "share_of_the_measured_error_mass_pct": 18.887830862635543
+  },
+  {
+   "scope": "diffusion_module.diffusion_transformer",
+   "rel": 8.025,
+   "mass_frac": 0.436221,
+   "measured_by": "of3t-trajectory, pass 175",
+   "step": "043",
+   "error_mass": 28.092905038125004,
+   "share_of_the_measured_error_mass_pct": 80.79061943221711
+  },
+  {
+   "scope": "the rest of the diffusion arm (5 sections)",
+   "rel": null,
+   "mass_frac": 0.075137,
+   "error_mass": 0.11181081906817525,
+   "measured_by": "THE_ERROR_MASS_IS_ONE_MODULE.json",
+   "step": "043",
+   "share_of_the_measured_error_mass_pct": 0.32154970514734404
+  }
+ ],
+ "verdict": "REFUTED. The trunk reads 10.6155 against upstream's own bf16 training step on its own scope, larger than the diffusion arm's 7.4267 and larger than the diffusion transformer's 8.025. Composing the error masses, the diffusion transformer holds 80.8 % of the measured error mass and the pairformer trunk 18.9 %, against the 0.4 % that 'the failure is one module' leaves for everything outside it. The headline has to be rewritten: it is at least two modules, and the second one is the trunk."
+}

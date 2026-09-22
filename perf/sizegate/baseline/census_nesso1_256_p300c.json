@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
+    "/home/ttuser/.coworker/wt/sizeladder-p300c-refresh-0920/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/sizegate/work/out_nesso1-256-rep0"
+    "/home/ttuser/.coworker/wt/sizeladder-p300c-refresh-0920/perf/sizegate/work/out_nesso1-256-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -95,9 +95,9 @@
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 2308,
+      "declined": 2114,
       "rejects": {
-        "memory": 2308
+        "memory": 2114
       },
       "gauges": null
     },
@@ -191,10 +191,12 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 770,
-      "declined": 3842,
+      "served": 0,
+      "declined": 7684,
       "rejects": {
-        "window_BufferType.L1": 3842
+        "gated_window_BufferType.L1": 1921,
+        "window_BufferType.L1": 3842,
+        "back_l1_src_narrow": 1921
       },
       "gauges": null
     },
@@ -203,7 +205,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 0,
+      "served": 192,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -213,7 +215,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 0,
+      "served": 384,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -223,7 +225,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 0,
+      "served": 384,
       "declined": 0,
       "rejects": null,
       "gauges": null

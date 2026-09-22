@@ -1,4 +1,0 @@
-HFOLD 1024 h24 DONE 70.182s sha=40587c373b94ac8a served=296/0
-SWEEP 1024 h24 end t=80s throws=2 absorbed=0
-HFOLD 1024 h20 DONE 50.878s sha=528af81f40ea106e served=296/0
-SWEEP 1024 h20 end t=60s throws=2 absorbed=0

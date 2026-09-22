@@ -181,6 +181,14 @@ _UNDECLARED_OK = {
     "py3Dmol": "atomworks notebook visualiser, not reached by importing tt_bio.main or tt_bio.rf3",
     "sympy": "atomworks conditions path, not reached by importing tt_bio.main or tt_bio.rf3",
     "redis": "tt_bio/boltzgen/data/parse/a3m.py is unreferenced; tt_bio/data/parse.py is the live a3m parser",
+    # Not third-party at all: a committed sibling module, reached by the sys.path.insert directly
+    # above its import. `intree` below is built from the top level of tt_bio/ only, so a module one
+    # directory deeper is invisible to it. Widening `intree` to every stem under tt_bio/ is the
+    # obvious fix and the wrong one: it would add 262 names including torch, numpy, transformers
+    # and rdkit, vendored stems that collide with the real distributions, and the gate would stop
+    # seeing an undeclared `import torch`. That is the exact failure this check was built for.
+    "patch_trimul_tail": "tt_bio/kernels/trimul_tail/patch_trimul_tail.py, a committed sibling of "
+                         "the swiglu_fused patch script, not a distribution",
 }
 
 

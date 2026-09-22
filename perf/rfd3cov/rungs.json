@@ -1,0 +1,13 @@
+[
+ {"name": "control 1024", "total": 1024, "designed": 100, "contig": "A1-924,100", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 3, "steps": 100, "designs": 1},
+ {"name": "designed-len ctrl", "total": 1028, "designed": 528, "contig": "A1-500,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 0, "steps": 100, "designs": 1},
+ {"name": "bar route A", "total": 1536, "designed": 528, "contig": "A1-1008,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 0, "steps": 100, "designs": 1},
+ {"name": "bar route A repeat", "total": 1536, "designed": 528, "contig": "A1-1008,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 2, "steps": 100, "designs": 1},
+ {"name": "bar route A x2 designs", "total": 1536, "designed": 528, "contig": "A1-1008,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 3, "steps": 100, "designs": 2},
+ {"name": "bar route A, own chain", "total": 1536, "designed": 528, "contig": "A1-1008,/0,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 2, "steps": 100, "designs": 1},
+ {"name": "bar route B", "total": 1536, "designed": 80, "contig": "A1-1008,B1-448,80", "target": "perf/bhdesign/targets/big_1831.cif", "dev": 1, "steps": 100, "designs": 1},
+ {"name": "headroom 1792", "total": 1792, "designed": 784, "contig": "A1-1008,784", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 1, "steps": 100, "designs": 1},
+ {"name": "headroom 2048", "total": 2048, "designed": 1040, "contig": "A1-1008,1040", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 1, "steps": 100, "designs": 1},
+ {"name": "serve-time 4 designs", "total": 1536, "designed": 528, "contig": "A1-1008,528", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 0, "steps": 100, "designs": 4},
+ {"name": "2048, tuner off", "total": 2048, "designed": 1040, "contig": "A1-1008,1040", "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 2, "steps": 100, "designs": 1}
+]

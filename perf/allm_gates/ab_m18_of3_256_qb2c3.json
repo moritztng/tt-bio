@@ -1,0 +1,151 @@
+{
+ "model": "openfold3",
+ "size": 256,
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "arms": "off,trunk",
+ "sites": "",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T03:59:07Z",
+ "loadavg": [
+  6.59765625,
+  20.9794921875,
+  21.615234375
+ ],
+ "ccd_donor": null,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 10.792,
+   "plddt": 0.431406,
+   "aiclk": {
+    "0": {
+     "min": 1331,
+     "max": 1350,
+     "median": 1350,
+     "n": 9
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1331 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+   "digest": "2920760fa96c75ed9891cba75598ceccf0e11f842baa7175cd8b553694e55fcd",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 1,
+   "arm": "trunk",
+   "fold_s": 10.853,
+   "plddt": 0.464967,
+   "aiclk": {
+    "0": {
+     "min": 1325,
+     "max": 1350,
+     "median": 1350,
+     "n": 9
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+   "digest": "c98fa0c8eb75737b03e0950d23d2dd8c33040ee206ecf1ab091df907309c5ecc",
+   "hifi_stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(256, 256)": [
+     256,
+     256,
+     2
+    ]
+   }
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 108,
+ "triatt_targeted": 108,
+ "paths": [
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_start"
+ ],
+ "site_groups": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "site_groups_targeted": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "other_paths": [],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "fused_hifi",
+ "cold_s": 13.999,
+ "medians": {
+  "off": 10.792,
+  "trunk": 10.853
+ },
+ "aa_floor": {
+  "off": 0.0,
+  "trunk": 0.0
+ },
+ "digests": {
+  "off": [
+   "2920760fa96c75ed9891cba75598ceccf0e11f842baa7175cd8b553694e55fcd"
+  ],
+  "trunk": [
+   "c98fa0c8eb75737b03e0950d23d2dd8c33040ee206ecf1ab091df907309c5ecc"
+  ]
+ }
+}

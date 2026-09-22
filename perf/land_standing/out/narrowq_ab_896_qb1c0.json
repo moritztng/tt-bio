@@ -1,0 +1,60 @@
+{
+  "what": "cost of the shipped accurate-softmax default, per model per rung",
+  "metric": "results.json runtime_s, model load and startup excluded",
+  "steps": 6,
+  "seed": 0,
+  "samples": 1,
+  "single_sequence": true,
+  "fixture": "perf/size512/fixtures/cdk2x2_<rung>.yaml",
+  "off_arm": "TT_BIO_TRIATT_NARROW_Q_FALLBACK=1",
+  "on_arm": "shipped defaults",
+  "cells": [
+    {
+      "model": "boltz2",
+      "rung": 896,
+      "off": [
+        43.5,
+        43.5
+      ],
+      "on": [
+        43.5,
+        43.5
+      ],
+      "folds": [
+        {
+          "arm": "off",
+          "rep": 1,
+          "runtime_s": 43.5,
+          "t_start": 1789979253.0933325,
+          "t_end": 1789979313.399641
+        },
+        {
+          "arm": "on",
+          "rep": 1,
+          "runtime_s": 43.5,
+          "t_start": 1789979313.399805,
+          "t_end": 1789979373.7900136
+        },
+        {
+          "arm": "off",
+          "rep": 2,
+          "runtime_s": 43.5,
+          "t_start": 1789979373.790198,
+          "t_end": 1789979434.130706
+        },
+        {
+          "arm": "on",
+          "rep": 2,
+          "runtime_s": 43.5,
+          "t_start": 1789979434.1308596,
+          "t_end": 1789979494.5195425
+        }
+      ],
+      "off_median": 43.5,
+      "on_median": 43.5,
+      "aa_spread_pct": 0.0,
+      "ab_median_pct": 0.0,
+      "inside_aa": true
+    }
+  ]
+}

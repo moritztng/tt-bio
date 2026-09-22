@@ -1,0 +1,12 @@
+HEAD da86ffd1a 2026-09-20T11:33:27+02:00   card p300c
+
+boltz2         commit=5264350b0 recorded=2026-09-18 host=tt-quietbox2 on-main=NO behind: tt_bio=  78 all= 290 models=['boltz2']
+esmfold2-fast  no p300c entry
+esmfold2       commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['esmfold2']
+nesso1         commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['nesso1']
+openbind       commit=f61c33427 recorded=2026-09-18 host=tt-quietbox2 on-main=NO behind: tt_bio=  78 all= 290 models=['openbind']
+opendde        commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['opendde']
+openfold3      commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['openfold3']
+protenix-v1    commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['protenix-v1']
+protenix-v2    commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['protenix-v2']
+rf3            commit=679b9ab4c recorded=2026-09-17 host=tt-quietbox2 on-main=yes behind: tt_bio= 104 all= 459 models=['rf3']

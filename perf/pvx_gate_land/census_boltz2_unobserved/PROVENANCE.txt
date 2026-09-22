@@ -1,0 +1,42 @@
+Per-file provenance. The directory name does not generalise: these censuses come from TWO
+different runs, and which run a file came from is the whole point. rows is a LIST of flag
+records, not a dict -- a reader that treats it as a dict silently reports every count as 0.
+
+census_boltz2-512-rep0.json   source mtime 2026-09-20 11:14:09 (quiet re-run)   grid 11x10  rc 0
+    ADALN_S_HOIST                  served   72  declined    0  rejects -
+    PAIR_TRANSPOSE_VIA_ROW_MAJOR   served    0  declined  560  rejects l1_dest_is_faster:512x512x128
+    PAIR_PROJ_MINIMAL_MATMUL       served    0  declined    0  rejects -
+    QKV_MM_CONFIG                  served  560  declined    0  rejects -
+    B2_BIAS_SLICE_HOIST            served    3  declined    0  rejects -
+    B2_ADALN_S_MEMO                served   72  declined    0  rejects -
+
+census_boltz2-768-rep0.json   source mtime 2026-09-20 08:47:06 (contended run)   grid 11x10  rc 0
+    ADALN_S_HOIST                  served    0  declined    0  rejects -
+    PAIR_TRANSPOSE_VIA_ROW_MAJOR   served    0  declined    0  rejects -
+    PAIR_PROJ_MINIMAL_MATMUL       served    0  declined    0  rejects -
+    QKV_MM_CONFIG                  served    0  declined    0  rejects -
+    B2_BIAS_SLICE_HOIST            served    0  declined    0  rejects -
+    B2_ADALN_S_MEMO                served    0  declined    0  rejects -
+
+census_boltz2-896-rep0.json   source mtime 2026-09-20 08:49:53 (contended run)   grid 11x10  rc 0
+    ADALN_S_HOIST                  served    0  declined    0  rejects -
+    PAIR_TRANSPOSE_VIA_ROW_MAJOR   served    0  declined    0  rejects -
+    PAIR_PROJ_MINIMAL_MATMUL       served    0  declined    0  rejects -
+    QKV_MM_CONFIG                  served    0  declined    0  rejects -
+    B2_BIAS_SLICE_HOIST            served    0  declined    0  rejects -
+    B2_ADALN_S_MEMO                served    0  declined    0  rejects -
+
+census_boltz2-1024-rep0.json   source mtime 2026-09-20 08:53:02 (contended run)   grid 11x10  rc 0
+    ADALN_S_HOIST                  served   72  declined    0  rejects -
+    PAIR_TRANSPOSE_VIA_ROW_MAJOR   served  560  declined    0  rejects -
+    PAIR_PROJ_MINIMAL_MATMUL       served    0  declined  560  rejects k_tiles=4:(4,4)
+    QKV_MM_CONFIG                  served  560  declined    0  rejects -
+    B2_BIAS_SLICE_HOIST            served    3  declined    0  rejects -
+    B2_ADALN_S_MEMO                served   72  declined    0  rejects -
+
+THE FINDING. At 768 and 896 every one of the six wrapped levers reads served 0 AND declined 0
+-- no calls of any kind -- with rc=0 and the same 11x10 grid as 512 and 1024, which served 72,
+560 and 3. release_gate.py:2778 maps 0/0 to frac 0.0, byte-identical to a lever that declined
+every call, so all six were reported as "went dark". None records a reject clause, and that is
+the tell: a lever that really declines names the clause it declined on (1024 does exactly that,
+PAIR_PROJ_MINIMAL_MATMUL declining 560 on k_tiles=4:(4,4)).

@@ -1,0 +1,630 @@
+{
+  "batch": {
+    "file": "batch_step003.pt",
+    "n_tokens": 56,
+    "pdb_id": [
+      "5nw3"
+    ],
+    "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "bundle": "BUNDLE-MIN",
+  "checkpoint": {
+    "file": "of3-p2-155k.pt",
+    "missing_sample": [
+      "version_tensor",
+      "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+      "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
+    ],
+    "n_loaded": 4935,
+    "n_missing": 3,
+    "n_unexpected": 48,
+    "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+    "unexpected_sample": [
+      "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_z.weight",
+      "diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_z.weight"
+    ]
+  },
+  "device": "NVIDIA A100-SXM4-80GB",
+  "draws": {
+    "n_torch_randn_calls": 45,
+    "noise_level": [
+      2.611525648028148,
+      1.4669987993029614,
+      5.935578604835737,
+      2.823871012410443,
+      94.11616715633228,
+      3.984098051895381,
+      7.074227975207817,
+      15.834665241436655,
+      8.651264381800575,
+      1.9528871023132541,
+      0.7860355325267077,
+      6.843145602184281,
+      351.63027569109136,
+      7.053201955310556,
+      0.4070870868550148,
+      1.9311941442081655,
+      158.5750036567026,
+      0.8817700465377684,
+      1.5585254575779186,
+      9.390727408581933,
+      2.6722780877086096,
+      3.8922691997191308,
+      5.592293057933652,
+      3.1476884935999068,
+      4.761122108390582,
+      60.445321313549144,
+      2.1659047958131836,
+      0.1658771077956971,
+      0.9600255772105425,
+      0.7378522256560753,
+      96.13955657866492,
+      2.499876271805322,
+      2.1847268198153214,
+      73.33001183607419,
+      0.8280195919880731,
+      37.87152035650046,
+      16.962630612261364,
+      0.593514220800826,
+      25.39978604509944,
+      2.726396999767302,
+      0.17637736607075166,
+      10.773349750919014,
+      7.26476172665213,
+      114.53851209320156,
+      0.5631261836774968,
+      32.71570660302604,
+      4.6474682635715086,
+      6.845929557600855
+    ],
+    "num_recycles": 0,
+    "python_random_values": [
+      0.6334896914538571,
+      0.8063837539475641
+    ],
+    "torch_randn_shapes": [
+      [
+        1,
+        1,
+        422,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ],
+      [
+        1,
+        1,
+        3
+      ],
+      [
+        1,
+        48,
+        4
+      ],
+      [
+        1,
+        48,
+        3
+      ],
+      [
+        1,
+        48
+      ],
+      [
+        1,
+        48,
+        422,
+        3
+      ]
+    ]
+  },
+  "dropout": {
+    "disabled": true,
+    "n_nn_dropout_modules": 61,
+    "n_of3_dropout_modules": 61,
+    "rates_before": [
+      0.15,
+      0.25
+    ],
+    "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+  },
+  "dtype": "float64",
+  "files": {
+    "draws.pt": {
+      "bytes": 525598,
+      "sha256": "5f1ee45ca2a66bd29856f0467ff86e8f28249e7ca37bac6f49b927f7486eec66"
+    },
+    "grad_presence.json": {
+      "bytes": 342321,
+      "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f"
+    },
+    "grads_f64.pt": {
+      "bytes": 2947812293,
+      "sha256": "f9cc95218f56d4c58bedb5bf2d02157018f75e4a1e54520aaa620fb00d8299ec"
+    },
+    "w0.pt": {
+      "bytes": 4573705142,
+      "sha256": "9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e"
+    }
+  },
+  "finite_difference_validation": {
+    "checks": [
+      {
+        "abs_err": 3.83413841326533e-08,
+        "analytic": -6.76392813831865e-06,
+        "finite_difference": -6.725586754185997e-06,
+        "index": [
+          2,
+          87
+        ],
+        "n_entries_above_floor": 507,
+        "numel": 512,
+        "param": "pairformer_stack.blocks.5.pair_stack.tri_att_start.linear_z.weight",
+        "rel_err": 0.005668508498108326
+      },
+      {
+        "abs_err": 2.650136070878398e-10,
+        "analytic": -1.2137595702914144e-05,
+        "finite_difference": -1.2137860716521232e-05,
+        "index": [
+          32,
+          6
+        ],
+        "n_entries_above_floor": 15615,
+        "numel": 16384,
+        "param": "pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_k.weight",
+        "rel_err": 2.1833633889629435e-05
+      },
+      {
+        "abs_err": 1.5021839062539816e-13,
+        "analytic": -1.77105426401625e-06,
+        "finite_difference": -1.7710544142346407e-06,
+        "index": [
+          53,
+          147
+        ],
+        "n_entries_above_floor": 231681,
+        "numel": 589824,
+        "param": "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight",
+        "rel_err": 8.481861958505374e-08
+      },
+      {
+        "abs_err": 2.5424633426108073e-10,
+        "analytic": -1.7578294428269278e-06,
+        "finite_difference": -1.7575751964926667e-06,
+        "index": [
+          345,
+          110
+        ],
+        "n_entries_above_floor": 81920,
+        "numel": 147456,
+        "param": "pairformer_stack.blocks.45.attn_pair_bias.mha.linear_o.weight",
+        "rel_err": 0.00014463652051031968
+      },
+      {
+        "abs_err": 3.3301415997065258e-09,
+        "analytic": -1.3770843937270245e-05,
+        "finite_difference": -1.3767513795670538e-05,
+        "index": [
+          91,
+          70
+        ],
+        "n_entries_above_floor": 15934,
+        "numel": 16384,
+        "param": "pairformer_stack.blocks.44.pair_stack.tri_att_start.mha.linear_o.weight",
+        "rel_err": 0.0002418255275331114
+      },
+      {
+        "abs_err": 1.4443701539688995e-10,
+        "analytic": 5.06440789005163e-06,
+        "finite_difference": 5.064263453036233e-06,
+        "index": [
+          294,
+          179
+        ],
+        "n_entries_above_floor": 10587,
+        "numel": 147456,
+        "param": "pairformer_stack.blocks.22.attn_pair_bias.mha.linear_k.weight",
+        "rel_err": 2.8520020214133557e-05
+      },
+      {
+        "abs_err": 1.374924072197475e-09,
+        "analytic": -6.849557119817004e-06,
+        "finite_difference": -6.850932043889202e-06,
+        "index": [
+          94,
+          7
+        ],
+        "n_entries_above_floor": 15638,
+        "numel": 16384,
+        "param": "pairformer_stack.blocks.31.pair_stack.tri_att_end.mha.linear_k.weight",
+        "rel_err": 0.00020069153560264263
+      },
+      {
+        "abs_err": 6.813652710080907e-12,
+        "analytic": -3.766486138222809e-05,
+        "finite_difference": -3.766485456857538e-05,
+        "index": [
+          116,
+          234
+        ],
+        "n_entries_above_floor": 281435,
+        "numel": 294912,
+        "param": "diffusion_module.diffusion_conditioning.transition_s.1.swiglu.linear_a.weight",
+        "rel_err": 1.809021050398949e-07
+      },
+      {
+        "abs_err": 6.209096467258953e-09,
+        "analytic": 5.479321590128622e-05,
+        "finite_difference": 5.4799424997753476e-05,
+        "index": [
+          69,
+          85
+        ],
+        "n_entries_above_floor": 15668,
+        "numel": 16384,
+        "param": "pairformer_stack.blocks.30.pair_stack.tri_mul_out.linear_b_p.weight",
+        "rel_err": 0.00011330586894868873
+      },
+      {
+        "abs_err": 5.637504872996295e-09,
+        "analytic": -3.18969829767764e-06,
+        "finite_difference": -3.184060792804644e-06,
+        "index": [
+          38,
+          63
+        ],
+        "n_entries_above_floor": 15810,
+        "numel": 16384,
+        "param": "pairformer_stack.blocks.8.pair_stack.tri_att_end.mha.linear_o.weight",
+        "rel_err": 0.0017674100641746767
+      },
+      {
+        "abs_err": 9.49434662181716e-09,
+        "analytic": 4.2259171998202806e-05,
+        "finite_difference": 4.2268666344824624e-05,
+        "index": [
+          62,
+          10
+        ],
+        "n_entries_above_floor": 3909,
+        "numel": 4096,
+        "param": "msa_module.blocks.1.msa_att_row.linear_v.weight",
+        "rel_err": 0.00022461902498562385
+      },
+      {
+        "abs_err": 7.073016396813606e-11,
+        "analytic": -1.5969884214283934e-06,
+        "finite_difference": -1.5970591515923616e-06,
+        "index": [
+          316
+        ],
+        "n_entries_above_floor": 39,
+        "numel": 384,
+        "param": "pairformer_stack.blocks.35.single_transition.layer_norm.bias",
+        "rel_err": 4.428775471316384e-05
+      },
+      {
+        "abs_err": 4.2534039379374215e-07,
+        "analytic": -0.0010431007684632576,
+        "finite_difference": -0.0010435261088570513,
+        "index": [
+          14
+        ],
+        "n_entries_above_floor": 128,
+        "numel": 128,
+        "param": "msa_module.blocks.0.pair_stack.tri_att_start.layer_norm.weight",
+        "rel_err": 0.00040759918720156135
+      },
+      {
+        "abs_err": 1.249658290728407e-09,
+        "analytic": -5.733614241301691e-06,
+        "finite_difference": -5.732364583010963e-06,
+        "index": [
+          40,
+          14
+        ],
+        "n_entries_above_floor": 14048,
+        "numel": 16384,
+        "param": "msa_module.blocks.1.pair_stack.tri_att_end.mha.linear_k.weight",
+        "rel_err": 0.000217952976628002
+      },
+      {
+        "abs_err": 3.3645192558102825e-09,
+        "analytic": -4.059832748922371e-05,
+        "finite_difference": -4.060169200847952e-05,
+        "index": [
+          173
+        ],
+        "n_entries_above_floor": 375,
+        "numel": 384,
+        "param": "pairformer_stack.blocks.17.attn_pair_bias.layer_norm_a.bias",
+        "rel_err": 8.286647894150851e-05
+      },
+      {
+        "abs_err": 4.238878962192685e-12,
+        "analytic": -2.206802720513831e-06,
+        "finite_difference": -2.206806959392793e-06,
+        "index": [
+          219,
+          298
+        ],
+        "n_entries_above_floor": 237969,
+        "numel": 589824,
+        "param": "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_v.weight",
+        "rel_err": 1.92082000836132e-06
+      }
+    ],
+    "h": 0.0001,
+    "max_rel_err": 0.005668508498108326,
+    "median_rel_err": 0.0001289711947295042,
+    "min_abs_analytic_sampled": 1e-06,
+    "n_samples": 16,
+    "n_tensors_covered": 16,
+    "n_tensors_total": 4147,
+    "n_tensors_uncovered": 2,
+    "sampling": "stratified by tensor, one entry per tensor",
+    "uncovered_sample": [
+      {
+        "numel": 128,
+        "param": "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias"
+      },
+      {
+        "numel": 589824,
+        "param": "pairformer_stack.blocks.38.single_transition.swiglu.linear_a.weight"
+      }
+    ],
+    "worst": {
+      "abs_err": 3.83413841326533e-08,
+      "analytic": -6.76392813831865e-06,
+      "finite_difference": -6.725586754185997e-06,
+      "index": [
+        2,
+        87
+      ],
+      "n_entries_above_floor": 507,
+      "numel": 512,
+      "param": "pairformer_stack.blocks.5.pair_stack.tri_att_start.linear_z.weight",
+      "rel_err": 0.005668508498108326
+    },
+    "zero_gradient_entry_fraction": 0.00825
+  },
+  "gradient": {
+    "clip_coef_their_grad_manager_would_apply": 1.0,
+    "global_norm": 4.3050101995373735,
+    "n_absent": 0,
+    "n_nonzero": 4138,
+    "n_params": 4147,
+    "n_with_gradient": 4147,
+    "n_zero_init_weight_tensors": 0,
+    "note": "grads_f64.pt holds the per-sample gradient BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef_their_grad_manager_would_apply."
+  },
+  "loss": 1.60736306238088,
+  "loss_bit_identical_on_replay": true,
+  "loss_replayed_same_rng": 1.60736306238088,
+  "loss_terms": {
+    "confidence_loss": 0.0008351816658349483,
+    "diffusion_loss": 1.5207940367850619,
+    "distogram_loss": 2.857794861542796,
+    "experimentally_resolved_loss": 0.022310759262935503,
+    "loss": 1.60736306238088,
+    "mse_loss": 1.949404187010741,
+    "pae_loss": 3.0392859109224974,
+    "pde_loss": 2.0563163177685304,
+    "plddt_loss": 3.23390388138016,
+    "scaled_distogram_loss": 0.0857338439299831,
+    "smooth_lddt_loss": 0.3166184390004445
+  },
+  "num_recycles_pinned": 0,
+  "seed": 20260919,
+  "their_fp32_autocast_blocks_disabled": true,
+  "timings_s": {
+    "backward": 14.658822774887085,
+    "forward": 6.833808422088623
+  },
+  "versions": {
+    "cuda": "12.4",
+    "numpy": "2.1.2",
+    "openfold3": "0.5.0 (git checkout)",
+    "torch": "2.5.1+cu124"
+  }
+}

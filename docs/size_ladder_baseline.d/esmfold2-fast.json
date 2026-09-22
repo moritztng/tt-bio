@@ -1,7 +1,7 @@
 {
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
-    "tt-galaxy-wh l": {
+    "tt-galaxy-wh-l": {
       "commit": "f11e5009",
       "host": "UF-EV-A13-GWH02",
       "models": {

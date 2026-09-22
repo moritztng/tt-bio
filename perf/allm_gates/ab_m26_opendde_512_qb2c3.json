@@ -1,0 +1,210 @@
+{
+ "model": "opendde",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "arms": "off,on,off,on",
+ "sites": "",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T04:58:57Z",
+ "loadavg": [
+  1.26806640625,
+  2.71533203125,
+  7.85009765625
+ ],
+ "ccd_donor": null,
+ "seed": 0,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 78.631,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1300,
+     "max": 1350,
+     "median": 1337,
+     "n": 57
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1300 / median 1337 / max 1350 MHz over 57 samples, polled DURING the work",
+   "digest": "2c1e19d50c6567156b6d7f076985438b875305ad5da9e2bbc5711f2107a1d44f",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 80.148,
+   "plddt": 0.733193,
+   "aiclk": {
+    "0": {
+     "min": 1287,
+     "max": 1350,
+     "median": 1331,
+     "n": 60
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1287 / median 1331 / max 1350 MHz over 60 samples, polled DURING the work",
+   "digest": "b8e01932533de6fa7e971de0942feed4e815433cf5deb49f9146b4958ec6db94",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 1216,
+   "picks": {}
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 78.907,
+   "plddt": 0.717514,
+   "aiclk": {
+    "0": {
+     "min": 1275,
+     "max": 1350,
+     "median": 1331,
+     "n": 58
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1275 / median 1331 / max 1350 MHz over 58 samples, polled DURING the work",
+   "digest": "2c1e19d50c6567156b6d7f076985438b875305ad5da9e2bbc5711f2107a1d44f",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 79.536,
+   "plddt": 0.733193,
+   "aiclk": {
+    "0": {
+     "min": 1287,
+     "max": 1350,
+     "median": 1337,
+     "n": 60
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1287 / median 1337 / max 1350 MHz over 60 samples, polled DURING the work",
+   "digest": "b8e01932533de6fa7e971de0942feed4e815433cf5deb49f9146b4958ec6db94",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 1216,
+   "picks": {}
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 124,
+ "triatt_targeted": 124,
+ "paths": [
+  "model.model._protenix.confidence_head.pf.blocks[0].triangle_attention_end",
+  "model.model._protenix.confidence_head.pf.blocks[0].triangle_attention_start",
+  "model.model._protenix.confidence_head.pf.blocks[1].triangle_attention_end",
+  "model.model._protenix.confidence_head.pf.blocks[1].triangle_attention_start",
+  "model.model._protenix.confidence_head.pf.blocks[2].triangle_attention_end",
+  "model.model._protenix.confidence_head.pf.blocks[2].triangle_attention_start",
+  "model.model._protenix.confidence_head.pf.blocks[3].triangle_attention_end",
+  "model.model._protenix.confidence_head.pf.blocks[3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[0][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[0][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[1][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[1][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[2][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[2][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[3][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[3][3].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[0].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[0].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[10].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[10].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[11].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[11].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[12].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[12].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[13].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[13].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[14].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[14].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[15].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[15].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[16].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[16].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[17].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[17].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[18].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[18].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[19].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[19].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[1].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[1].triangle_attention_start"
+ ],
+ "site_groups": {
+  "other": 116,
+  "confidence": 8
+ },
+ "site_groups_targeted": {
+  "other": 116,
+  "confidence": 8
+ },
+ "other_paths": [
+  "model.model._protenix.trunk.MSA[0][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[0][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[1][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[1][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[2][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[2][3].triangle_attention_start",
+  "model.model._protenix.trunk.MSA[3][3].triangle_attention_end",
+  "model.model._protenix.trunk.MSA[3][3].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[0].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[0].triangle_attention_start",
+  "model.model._protenix.trunk.PF.blocks[10].triangle_attention_end",
+  "model.model._protenix.trunk.PF.blocks[10].triangle_attention_start"
+ ],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "sdpa_hifi",
+ "cold_s": 85.691,
+ "medians": {
+  "off": 78.769,
+  "on": 79.842
+ },
+ "aa_floor": {
+  "off": 0.27599999999999625,
+  "on": 0.6119999999999948
+ },
+ "legs_per_arm": {
+  "off": 2,
+  "on": 2
+ },
+ "floor_note": "null aa_floor means one leg and no floor; that arm's ratio is directional only",
+ "digests": {
+  "off": [
+   "2c1e19d50c6567156b6d7f076985438b875305ad5da9e2bbc5711f2107a1d44f"
+  ],
+  "on": [
+   "b8e01932533de6fa7e971de0942feed4e815433cf5deb49f9146b4958ec6db94"
+  ]
+ },
+ "ratio": 0.98656,
+ "delta_s": -1.073
+}

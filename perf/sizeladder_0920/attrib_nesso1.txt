@@ -1,0 +1,48 @@
+HEAD 80c24cbf1   old-ref origin/main   card p300c
+====================================================================================================
+nesso1: 2026-09-17 679b9ab4c grid 11x10 -> 2026-09-20 0451345c8 grid 11x10;  104 tt_bio commits between
+  runtime old: {'256': 4.64, '512': 7.4, '640': 9.45, '768': 12.58, '896': 17.28, '1024': 22.9}
+  runtime new: {'256': 5.0, '512': 8.23, '640': 9.8, '768': 13.53, '896': 17.61, '1024': 24.47}
+  exponents old {'256->512': 0.673, '512->768': 1.309} -> new {'256->512': 0.719, '512->768': 1.226}
+  whole-ladder median ratio 1.072 (divided out below; a rung is judged against its own ladder, not against 1.0)
+  -- 9 lever finding(s), 0 unresolved --
+    256 REBLOCK_PERMUTE                frac 0.167 -> 0.000 (went dark on back_l1_src_narrow, gated_window_Buf
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    256 REBLOCK_PERMUTE_BACK           frac 0.000 -> 1.000 (started firing)
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    256 REBLOCK_PERMUTE_GATED          frac 0.000 -> 1.000 (started firing)
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    256 TRIMUL_MASK_AFTER_MOVE         frac 0.000 -> 1.000 (started firing)
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.01x at this rung)
+          a8c3fe086 MSA row chunking: do not free the source when the one chunk aliases it
+          7a451ebce Correct the c_z=256 fused-key comment: esmfold2 does not reach that key
+          2c3db9076 triatt: the c_z=64 template fused keys fire and are bit-exact, and do not clear thei
+          d7d613ade trimul/triatt: give the fused qkv+gate projection its c_z=256 block entries
+    512 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.04x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    640 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.97x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    768 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.00x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+    896 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (0.95x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+   1024 REBLOCK_PERMUTE                decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gat
+        MAIN-DRIFT: the rung's seconds did not regress, so the path moved and cost nothing (1.00x at this rung)
+          28c9fec47 the composed gradient is right: 1.05e-02, 8.07e-02 and 6.50e-04 against float64 fini
+          121cb8a2a trimul: the L1 path was paying for two layout passes the kernels already delete
+====================================================================================================
+nesso1         findings 9    unresolved 0    ATTRIBUTED

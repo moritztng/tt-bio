@@ -1,0 +1,186 @@
+{
+ "model": "openfold3",
+ "size": 298,
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "arms": "off,trunk,trunk+1k",
+ "sites": "",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T04:28:57Z",
+ "loadavg": [
+  21.11376953125,
+  13.22802734375,
+  14.009765625
+ ],
+ "ccd_donor": null,
+ "seed": 2,
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 17.678,
+   "plddt": 0.512487,
+   "aiclk": {
+    "0": {
+     "min": 1331,
+     "max": 1350,
+     "median": 1350,
+     "n": 13
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1331 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work",
+   "digest": "4b3967eaf083707488bba062a91b515a93172521cabaa9949a03041d63e1a9a2",
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {}
+  },
+  {
+   "i": 1,
+   "arm": "trunk",
+   "fold_s": 14.392,
+   "plddt": 0.477159,
+   "aiclk": {
+    "0": {
+     "min": 1337,
+     "max": 1350,
+     "median": 1350,
+     "n": 11
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1337 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work",
+   "digest": "9cbff7b450c810281d80a108030bd8c37e8df1a3bcd2d54718e7d70d15d737dc",
+   "hifi_stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(320, 320)": [
+     320,
+     64,
+     2
+    ]
+   }
+  },
+  {
+   "i": 2,
+   "arm": "trunk+1k",
+   "fold_s": 12.461,
+   "plddt": 0.538059,
+   "aiclk": {
+    "0": {
+     "min": 1337,
+     "max": 1350,
+     "median": 1350,
+     "n": 10
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1337 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+   "digest": "4cce0081fc4be8ca9ee64337ab9e7c722a16299bb01d2a53dd122ebeebc06d8d",
+   "hifi_stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_calls": 0,
+   "picks": {
+    "(320, 320)": [
+     320,
+     320,
+     2
+    ]
+   }
+  }
+ ],
+ "ttnn": "0.68.0",
+ "triatt_found": 108,
+ "triatt_targeted": 108,
+ "paths": [
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[0].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[1].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[2].pair_stack.triangle_attention_start",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_end",
+  "model.model.trunk.msa_module.blocks[3].pair_stack.triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[0].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[10].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[11].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[12].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[13].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[14].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[15].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[16].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[17].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[18].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[19].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[1].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[20].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[21].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[22].triangle_attention_start",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_end",
+  "model.model.trunk.pairformer.blocks[23].triangle_attention_start"
+ ],
+ "site_groups": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "site_groups_targeted": {
+  "trunk": 96,
+  "template": 4,
+  "msa": 8
+ },
+ "other_paths": [],
+ "shipped_sdpa_hifi": [
+  false
+ ],
+ "shipped_fused_hifi": [
+  "None"
+ ],
+ "arm_attr": "fused_hifi",
+ "cold_s": 17.69,
+ "medians": {
+  "off": 17.678,
+  "trunk": 14.392,
+  "trunk+1k": 12.461
+ },
+ "aa_floor": {
+  "off": 0.0,
+  "trunk": 0.0,
+  "trunk+1k": 0.0
+ },
+ "digests": {
+  "off": [
+   "4b3967eaf083707488bba062a91b515a93172521cabaa9949a03041d63e1a9a2"
+  ],
+  "trunk": [
+   "9cbff7b450c810281d80a108030bd8c37e8df1a3bcd2d54718e7d70d15d737dc"
+  ],
+  "trunk+1k": [
+   "4cce0081fc4be8ca9ee64337ab9e7c722a16299bb01d2a53dd122ebeebc06d8d"
+  ]
+ }
+}

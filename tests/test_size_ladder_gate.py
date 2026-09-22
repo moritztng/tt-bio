@@ -653,7 +653,7 @@ def test_a_rung_above_the_size_guard_is_recorded_not_a_failure(rg_fresh, monkeyp
     """openbind's guard caps at 960, so its 1024 rung is refused. That is the measurement.
 
     Without this the 1024 rung turns the arm red for every model whose ceiling is lower
-    (opendde 544, pxdesign 768, openbind 960, protenix-v2 1024) and throws away the one
+    (opendde 544, pxdesign 960, openbind 960, protenix-v2 1024) and throws away the one
     number a user cares about: where this model stops accepting work on this card.
     """
     guard = ("'cdk2x2_1024.yaml' has 1024 residues, and openbind is measured to handle at "
@@ -804,7 +804,7 @@ def test_a_fragment_RECORD_PASS_does_not_touch_the_shared_baseline(rg_fresh, tmp
     frag_dir = tmp_path / "size_ladder_baseline.d"
     frag_dir.mkdir()
     base.write_text(json.dumps({
-        "format": 1, "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "format": 1, "rungs": list(rg_fresh.SIZE_LADDER_CONTRACT_RUNGS),
         "what": "size-ladder release-gate baseline: per-model lever census and runtime "
                 "scaling exponents at every rung, per card type",
         "rule": "a perf lever may not land default-ON on the strength of one sequence "
@@ -917,15 +917,18 @@ def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
 def test_an_extra_rung_belongs_to_one_model_only(rg_fresh):
     """A per-model top rung must not leak into the shared ladder: every other model would
     gain a rung with no baseline row, and check mode reads a missing row as a finding."""
-    assert 1088 in rg_fresh._size_ladder_model_rungs("rf3")
+    # pinned to a board with no extra rungs of its own, so this asserts the per-MODEL rule
+    # and not whichever board the test is running on
+    wh = "tt-galaxy-wh l"
+    assert 1088 in rg_fresh._size_ladder_model_rungs("rf3", card=wh)
     assert 1088 not in rg_fresh.SIZE_LADDER_RUNGS
     for m in rg_fresh.SIZE_LADDER_MODELS:
         if m != "rf3":
-            assert rg_fresh._size_ladder_model_rungs(m) == rg_fresh.SIZE_LADDER_RUNGS, m
+            assert rg_fresh._size_ladder_model_rungs(m, card=wh) == rg_fresh.SIZE_LADDER_RUNGS, m
     # and --size-ladder-rungs FILTERS each model's ladder rather than selecting from one
     # shared tuple, so a resume pass naming 1088 is a no-op for the models that lack it
-    assert rg_fresh._size_ladder_model_rungs("rf3", (256, 1088)) == (256, 1088)
-    assert rg_fresh._size_ladder_model_rungs("boltz2", (256, 1088)) == (256,)
+    assert rg_fresh._size_ladder_model_rungs("rf3", (256, 1088), card=wh) == (256, 1088)
+    assert rg_fresh._size_ladder_model_rungs("boltz2", (256, 1088), card=wh) == (256,)
     assert rg_fresh._size_ladder_arg_rungs("1088") == (1088,)
 
 
@@ -1007,7 +1010,7 @@ def test_record_then_resume_then_check_round_trips(rg_fresh, monkeypatch, tmp_pa
                 "length; re-record after any size-affecting change",
         "record_with": "python3 scripts/release_gate.py --model size-ladder "
                        "--size-ladder-record",
-        "rungs": list(rg_fresh.SIZE_LADDER_RUNGS),
+        "rungs": list(rg_fresh.SIZE_LADDER_CONTRACT_RUNGS),
         "fold": {"single_sequence": True, "sampling_steps": rg_fresh.SIZE_LADDER_STEPS,
                  "diffusion_samples": 1, "seed": rg_fresh.SEED},
         "cards": {"p150a": {"models": {"boltz2": {"runtime_s": {"256": 7.8}}}}},
@@ -1094,6 +1097,11 @@ def test_a_record_pass_writes_its_census_evidence_beside_the_scratch_baseline(rg
 def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     """A rung added to SIZE_LADDER_RUNGS owes every already-recorded card a re-record.
 
+    Each card is asked about ITS OWN ladder (`card=card`), because a board held to a higher
+    bar than the shared one carries extra top rungs (SIZE_LADDER_CARD_RUNGS). Without that
+    argument this walks every recorded card against whatever board the test happens to be
+    running on, and a p150a host demands 1152-1536 cells from the Galaxy, which owes none.
+
     SCOPE, because the count this prints is easy to read as the whole gap and is not: it walks
     the cells that EXIST and checks their rungs. A model with no cell at all on a card is
     invisible to it. Measured 2026-09-18, after the p150a re-record: p150a and p300c both
@@ -1109,7 +1117,7 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
         for model, entry in sorted(blk.get("models", {}).items()):
-            want = {str(r) for r in rg._size_ladder_model_rungs(model)}
+            want = {str(r) for r in rg._size_ladder_model_rungs(model, card=card)}
             # A refused rung IS coverage: the guard declining a size is the information the
             # arm exists to carry, so it counts the same as a timed one.
             have = set(entry.get("runtime_s") or {}) | set(entry.get("refused") or {})
@@ -1183,3 +1191,192 @@ def test_no_fixture_hands_a_test_the_real_scratch_tree(rg, rg_fresh):
         assert wd != real, f"{name} still points at the real scratch tree: {wd}"
         assert REPO_ROOT not in wd.parents, (
             f"{name} points inside the repo at {wd}; run_size_ladder(keep=False) rmtrees it")
+
+
+def _slugger():
+    """perf_regression's own _slug_board_type, loaded by path (scripts/ is not a package)."""
+    path = REPO_ROOT / "scripts" / "perf_regression.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_perf_regression_slug", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod._slug_board_type
+
+
+def _recorded_card_keys():
+    """(file, card key) for every card block in every baseline the card detector keys."""
+    files = [REPO_ROOT / "docs" / "size_ladder_baseline.json",
+             REPO_ROOT / "docs" / "perf_baselines.json"]
+    files += sorted((REPO_ROOT / "docs" / "size_ladder_baseline.d").glob("*.json"))
+    out = []
+    for f in files:
+        if not f.exists():
+            continue
+        for card in (json.loads(f.read_text()).get("cards") or {}):
+            out.append((f.relative_to(REPO_ROOT), card))
+    return out
+
+
+def test_every_recorded_card_key_is_its_own_slug():
+    """A baseline key the card detector can never produce is a baseline nobody will ever read.
+
+    detect_card_type() slugs tt-smi's board_type, so the key it looks up is
+    _slug_board_type(board_type) and nothing else. When the slugger changed
+    (bce11f7f5, 2026-09-10) the Galaxy's key went from `tt-galaxy-wh l` to
+    `tt-galaxy-wh-l`, and the five wh-galaxy ladders recorded on 09-07/09-08 kept the old
+    key: 37 rungs of measured device time that the arm then reported as NO BASELINE, on the
+    one board the public service actually runs on. Nothing failed — an unreachable row and a
+    row that was never recorded look identical from the lookup side, which is why this is a
+    test and not a comment.
+    """
+    slug = _slugger()
+    wrong = [(str(f), c, slug(c)) for f, c in _recorded_card_keys() if slug(c) != c]
+    assert not wrong, ("baseline card keys the detector will never look up "
+                       "(file, recorded, what detect_card_type returns): " + repr(wrong))
+
+
+def test_the_card_key_check_would_have_caught_the_key_it_was_written_for():
+    """Negative control: the assertion above reads the key, not the file's existence."""
+    slug = _slugger()
+    assert slug("tt-galaxy-wh L") == "tt-galaxy-wh-l"
+    assert slug("tt-galaxy-wh l") != "tt-galaxy-wh l"
+
+
+# The traceback a refused fold actually writes: CPython prints the raising source line as
+# well as the exception line, and `raise SizeTooLargeError(` sorts first. Verbatim shape
+# from the openbind/1024 fold on UF-EV-A13-GWH02, 2026-09-19.
+REFUSED_FOLD_LOG = '''Traceback (most recent call last):
+  File "/x/tt_bio/main.py", line 1, in predict
+    enforce_size_limit(path, model)
+  File "/x/tt_bio/size_limits.py", line 1148, in enforce_size_limit
+    raise SizeTooLargeError(
+tt_bio.size_limits.SizeTooLargeError: cdk2x2_1024.yaml has 1024 tokens, and openbind is \
+measured to handle at most 960 on wormhole_b0 -- the 896 rung is the last one it accepts.
+'''
+
+
+def test_a_refusal_reason_is_the_message_not_the_traceback_source_line(rg):
+    """The refusal cell has to carry the ceiling, not the punctuation of the raise.
+
+    _size_limit_refusal took the FIRST line containing "SizeTooLargeError", which in a real
+    traceback is the raising source line `raise SizeTooLargeError(`. Splitting on the name
+    left the literal string "(", and that is what openbind's 1024 rung recorded as its
+    reason on the Galaxy on 2026-09-19 — the first refusal this baseline ever held. It
+    reads back through the check as `refused ... (was: ()`, so the one number a user wants
+    from a refused rung, the size at which the model stops accepting work, was thrown away
+    while the cell still looked filled in.
+    """
+    got = rg._size_limit_refusal(REFUSED_FOLD_LOG)
+    assert got is not None
+    assert "960" in got and "openbind" in got, got
+    assert got != "(" and not got.startswith("("), got
+
+
+def test_the_refusal_parser_still_reads_a_single_line_exception(rg):
+    """Negative control: the skip is on the raise SOURCE line, not on every early match."""
+    assert rg._size_limit_refusal("nope, no exception here") is None
+    one_line = "tt_bio.size_limits.SizeTooLargeError: 1024 tokens, limit 960"
+    assert rg._size_limit_refusal(one_line) == "1024 tokens, limit 960"
+
+
+def test_no_recorded_refusal_reason_is_an_empty_cell():
+    """A recorded refusal with no words in it is a ceiling nobody can read off the file."""
+    bad = []
+    files = [REPO_ROOT / "docs" / "size_ladder_baseline.json"]
+    files += sorted((REPO_ROOT / "docs" / "size_ladder_baseline.d").glob("*.json"))
+    for f in files:
+        if not f.exists():
+            continue
+        for card, cd in (json.loads(f.read_text()).get("cards") or {}).items():
+            for model, md in (cd.get("models") or {}).items():
+                for rung, why in (md.get("refused") or {}).items():
+                    if not any(c.isalpha() for c in str(why)):
+                        bad.append((f.name, card, model, rung, why))
+    assert not bad, f"refused rungs recorded without a reason: {bad!r}"
+
+
+# --- what a cell carries beside its runtime ---------------------------------------------
+#
+# Every cell recorded before 2026-09-20 was a runtime and nothing else: no clock, no reps,
+# no evidence the fold had folded anything. On Blackhole the AICLK SETS the fold time (800
+# MHz reads 21.90 s at 512 aa where the 1350 burst reads 14.69 s), so an unclocked runtime
+# cannot be compared across passes at all, and a median of one hides its own spread. These
+# tests pin the three fields to the recorder so they cannot be dropped by a later edit.
+
+
+def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, monkeypatch,
+                                                                    tmp_path):
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        return {"levers": {"FLAG": dict(FIRING)}, "runtime_s": 90.0 if tag == "warmup" else 40.0,
+                "wall": 60.0, "census_json": tmp_path / "c.json", "grid": "11x10",
+                "aiclk": {"card": "2", "min": 800, "median": 1350, "max": 1350, "n": 9},
+                "structure": {"file": "pred.cif", "n_ca": 512, "clash_frac": 0.0,
+                              "geometry_ok": True, "geometry_fail": []}}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    out = rg_fresh._size_ladder_measure_model("boltz2", (512,), tmp_path, 2, 2)
+
+    assert out["runtime_s"]["512"] == 40.0
+    # the array, not just the median: two draws of 40.0 are a spread of zero, and the cell
+    # has to be able to say so
+    assert out["runtime_reps_s"]["512"] == [40.0, 40.0]
+    assert out["aiclk"]["512"] == {"card": "2", "min": 800, "max": 1350,
+                                   "rep_median": [1350, 1350], "n": 18}
+    assert out["structure"]["512"]["n_ca"] == 512
+
+
+def test_the_clock_is_not_attributed_to_a_card_that_was_not_pinned(rg_fresh, monkeypatch):
+    """tt-smi index 0 is the granted chip only when exactly one chip is granted. Unpinned,
+    index 0 is whatever UMD enumerated first, and a runtime beside a clock read off a
+    neighbour is worse than a runtime with no clock."""
+    class Clk:
+        clocks = {0: [1350, 1349, 1350]}
+
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "3")
+    assert rg_fresh._aiclk_cell(Clk()) == {"card": "3", "min": 1349, "median": 1350,
+                                           "max": 1350, "n": 3}
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "0,1,2,3")
+    assert rg_fresh._aiclk_cell(Clk()) is None
+    monkeypatch.delenv("TT_VISIBLE_DEVICES")
+    assert rg_fresh._aiclk_cell(Clk()) is None
+    # sampled nothing is also no clock, never a default
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "3")
+    assert rg_fresh._aiclk_cell(type("E", (), {"clocks": {}})()) is None
+
+
+def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
+    """A carried cell that keeps only its runtime is an unclocked number again."""
+    stamp = {"recorded": "2026-09-20", "host": "tt-quietbox", "commit": "abc1234"}
+    prev = {**stamp, "grid": "11x10",
+            "runtime_s": {"256": 16.1, "512": 36.8},
+            "levers": {"256": {"X": dict(FIRING)}, "512": {"X": dict(FIRING)}},
+            "runtime_reps_s": {"256": [16.1], "512": [36.8, 37.0]},
+            "aiclk": {"256": {"card": "0", "min": 1350, "max": 1350,
+                              "rep_median": [1350], "n": 4}},
+            "structure": {"512": {"n_ca": 512, "clash_frac": 0.0}}}
+    meas = {"runtime_s": {"1536": 528.0}, "levers": {"1536": {"X": dict(FIRING)}},
+            "grid": "11x10", "sigma": 0.04}
+
+    assert rg_fresh._size_ladder_carry_rungs(meas, prev, stamp) == ["256", "512"]
+    assert meas["runtime_reps_s"] == {"256": [16.1], "512": [36.8, 37.0]}
+    assert meas["aiclk"]["256"]["rep_median"] == [1350]
+    assert meas["structure"]["512"]["n_ca"] == 512
+    # 512 had no clock recorded, and carrying must not invent one
+    assert "512" not in meas["aiclk"]
+
+
+def test_the_clash_metric_is_calibrated_on_deposited_structures(rg_fresh):
+    """CLASH_CUT/CLASH_FRAC_MAX are measured off examples/ground_truth_structures, not
+    asserted: the first cut tried, 4.0 A, called 6 % of 21tw a clash because real tertiary
+    contacts do reach 3.5-4.0 A. This test is the calibration, so a later widening of the
+    cut has to face the same 38 structures."""
+    mod = rg_fresh._load_by_path("scripts/gpu_vs_tt/gpu5_accuracy_gate.py")
+    gt = sorted((REPO_ROOT / "examples" / "ground_truth_structures").glob("*.cif"))
+    assert len(gt) >= 30
+
+    worst = max((mod.gate(f, None, None).get("clash_frac") or 0.0, f.name) for f in gt)
+    assert worst[0] <= mod.CLASH_FRAC_MAX / 2, f"{worst[1]} reads {worst[0]}"
+
+    # and it fires on the two ways a fold stops being one
+    cas = mod._parse_cif(gt[0].read_text())
+    half = [(c, r, x / 2, y / 2, z / 2, b) for c, r, x, y, z, b in cas]
+    assert len(mod.clashing_atoms(half)) / len(half) > 0.5

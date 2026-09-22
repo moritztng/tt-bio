@@ -1,0 +1,136 @@
+{
+ "model": "protenix-v2",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "2",
+ "board": "p150a",
+ "shipped_max_c": 128,
+ "on_max_c": 256,
+ "arms_order": "off,on,off,on,off,on",
+ "started_utc": "2026-09-19T16:06:53Z",
+ "loadavg": [
+  1.3720703125,
+  1.96875,
+  2.92333984375
+ ],
+ "runs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "max_c": 128,
+   "error": null,
+   "fold_s": 51.297,
+   "plddt": 0.810638,
+   "h_chunk_served": 110,
+   "h_chunk_declined": 526,
+   "h_chunk_rejects": {
+    "base-unraised:512x512x256": 526
+   },
+   "h_chunk_shapes": {
+    "512x512x64|hid128|h96": 80,
+    "35x512x128|hid512|h48": 30,
+    "512x512x256|hid1024|h16": 524,
+    "512x512x256|hid512|h16": 2
+   },
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "22bc3eaafd886c17afed830fec3b99610ecdae9868aedc7d0ff5e052114b5a78"
+   },
+   "cif_dir": "perf/pvx_eligibility/out/trans_rows_ab512_v68_cifs/0_off",
+   "loadavg": [
+    1.7353515625,
+    1.9462890625,
+    2.79638671875
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "max_c": 256,
+   "error": null,
+   "fold_s": 52.811,
+   "plddt": 0.814127,
+   "h_chunk_served": 636,
+   "h_chunk_declined": 0,
+   "h_chunk_rejects": {},
+   "h_chunk_shapes": {
+    "512x512x64|hid128|h96": 80,
+    "35x512x128|hid512|h48": 30,
+    "512x512x256|hid1024|h24": 524,
+    "512x512x256|hid512|h24": 2
+   },
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3ac158bb931fde3044c0a5ed5fcacbd4e0e10671c06f486c1568745164c1cadd"
+   },
+   "cif_dir": "perf/pvx_eligibility/out/trans_rows_ab512_v68_cifs/1_on",
+   "loadavg": [
+    1.5498046875,
+    1.861328125,
+    2.72021484375
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "max_c": 128,
+   "error": null,
+   "fold_s": 51.173,
+   "plddt": 0.810638,
+   "h_chunk_served": 110,
+   "h_chunk_declined": 526,
+   "h_chunk_rejects": {
+    "base-unraised:512x512x256": 526
+   },
+   "h_chunk_shapes": {
+    "512x512x64|hid128|h96": 80,
+    "35x512x128|hid512|h48": 30,
+    "512x512x256|hid1024|h16": 524,
+    "512x512x256|hid512|h16": 2
+   },
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "22bc3eaafd886c17afed830fec3b99610ecdae9868aedc7d0ff5e052114b5a78"
+   },
+   "cif_dir": "perf/pvx_eligibility/out/trans_rows_ab512_v68_cifs/2_off",
+   "loadavg": [
+    1.302734375,
+    1.744140625,
+    2.62939453125
+   ],
+   "vacuous": false
+  }
+ ],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 57.575
+}

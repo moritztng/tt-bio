@@ -291,7 +291,7 @@ def test_every_row_names_what_it_counts():
 def test_sizer_and_row_agree_on_the_denominator():
     """The assertion that makes rfd3-total vs pxdesign-target safe.
 
-    RFD3's 704 counts motif + designed; PXDesign's 768 counts target residues with the binder
+    RFD3's 704 counts motif + designed; PXDesign's 960 counts target residues with the binder
     outside the number. Sizing an input in one denominator and comparing it against a cap measured
     in the other is a units substitution that produces a plausible wrong answer rather than an
     error, so the two are held against each other here.
@@ -321,11 +321,23 @@ def test_pxdesign_is_sized_from_the_crop_and_excludes_the_binder():
     y = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-116\"]\n"
          "binder_length: 80\n")
     assert sl.scan_pxdesign_target(y) == 116        # 116, not 196
-    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-500\"]\n"
-           "    B:\n      crop: [\"1-400\"]\nbinder_length: 80\n")
-    assert sl.scan_pxdesign_target(two) == 900
+    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-600\"]\n"
+           "    B:\n      crop: [\"1-500\"]\nbinder_length: 80\n")
+    assert sl.scan_pxdesign_target(two) == 1100
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 900, arch="wormhole_b0")
+        sl.check("pxdesign", 1100, arch="wormhole_b0")
+
+
+def test_pxdesign_admits_the_target_the_platform_advertises():
+    """960 target residues plus a 64-residue binder is 1024 tokens, which is what the service
+    accepts and dispatches (japanfold/limits.py caps the SUM at 1024). This row sat at 768 from
+    2026-09-08 to 2026-09-19 while the platform advertised and enforced 1024, so every job in
+    between was accepted by the service and refused here -- the service shells out to
+    `tt-bio design` and sets no TT_BIO_SIZE_LIMIT. Measured, twice, on the serving Galaxy.
+    """
+    sl.check("pxdesign", 960, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check("pxdesign", 961, arch="wormhole_b0")
 
 
 def test_an_unsizable_design_spec_refuses_nothing():
@@ -628,7 +640,7 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
         ("pxdesign", "t.yaml",
-         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-900"]\n'),
+         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-1100"]\n'),
         # BoltzGen is sized off the file its spec points at, so its oversized case needs one on
         # disk beside the spec -- written below, and named here as `big.cif`.
         ("boltzgen", "bg.yaml", 'entities:\n  - protein:\n      id: Z\n      sequence: 80\n'

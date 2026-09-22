@@ -7,11 +7,13 @@ import torch
 import ttnn
 
 from . import align
+from . import ranking as rank
 from .tenstorrent import Module, device_dtype_override
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
+from .protenix import ConfidenceHead
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -88,6 +90,7 @@ def _disorder_score(atom_array, coordinates) -> float:
     return float(np.mean(np.asarray(values) > 0.581)) if values else 0.0
 
 
+
 def _has_clash(coordinates, atom_to_token_index, asym_id, atom_mask, polymer_mask) -> float:
     """AF3 inter-chain polymer clash indicator used by sample ranking."""
     atom_asym = asym_id.long()[atom_to_token_index.long()]
@@ -128,11 +131,22 @@ def sample_rotation(dtype=torch.float32):
 def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
                         npe_q_indices, npe_k_indices, zij_mask, key_block_idxs,
                         invalid_mask, mask_trunked, atom_to_token_mean,
-                        token_mask, n_atom, n_token, nb, NP, n_tok_pad):
+                        token_mask, n_atom, n_token, nb, NP, n_tok_pad,
+                        cl0_d=None, plm0_d=None):
     """Mirror the device DiffusionModule aux setup validated in
     tests/test_openfold3_sample_diffusion.py (the exact tensor shapes/dtypes the
-    gated OF3DiffusionModule consumes), so fold() feeds the sampler identically."""
-    cl0_t = torch.zeros(1, NP, 128); cl0_t[0, :n_atom] = cl0.float()
+    gated OF3DiffusionModule consumes), so fold() feeds the sampler identically.
+
+    ``cl0_d``/``plm0_d`` take the atom-featurization output already on the card, from
+    ``openfold3_host_prep.ref_atom_embed_device``; then ``cl0``/``plm0`` are unused and may be
+    None. The device leg pads ``cl`` by padding its own inputs, so the two paths produce the
+    same [1, NP, 128] with the same zeros in the pad rows.
+    """
+    if cl0_d is None:
+        cl0_t = torch.zeros(1, NP, 128); cl0_t[0, :n_atom] = cl0.float()
+        cl0_d = ft(cl0_t)
+    if plm0_d is None:
+        plm0_d = ft(plm0.unsqueeze(0))
     amc = torch.zeros(1, NP, 1); amc[0, :n_atom, 0] = atom_mask.float()
     amc_na = torch.zeros(1, n_atom, 1); amc_na[0, :, 0] = atom_mask.float()
     idx = torch.zeros(NP, dtype=torch.long); idx[:n_atom] = atom_to_token_index.long()
@@ -148,7 +162,7 @@ def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
     pair_mask_m = mask_trunked.reshape(1, nb, 32, 128, 1)
     tok_pad = torch.zeros(n_tok_pad, dtype=torch.float32); tok_pad[:n_token] = token_mask.float()
     return dict(
-        cl0_d=ft(cl0_t), plm0_d=ft(plm0.unsqueeze(0)),
+        cl0_d=cl0_d, plm0_d=plm0_d,
         amc_d=ft(amc), amc_na_d=ft(amc_na),
         idx_tt=idx_tt, flat_tt=flat_tt,
         zij_mask_d=ft(zij_mask.unsqueeze(0).unsqueeze(-1)),
@@ -265,16 +279,33 @@ class OpenFold3(Module):
         )
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
-        from .protenix import ConfidenceHead
+        # pTM and ipTM are a max over ALIGNMENT FRAMES, not over tokens, and a token that
+        # has no frame can win that max and set the score a user's structure is ranked by.
+        # Upstream builds the mask from the predicted coordinates and zeroes the row
+        # (`sample_ranking.py:60-70` -> `confidence.py:154`); `get_token_frame_atoms` is
+        # the same vendored function it calls, so this is their rule and not a second one.
+        # Every token of a structure built from standard residues has a frame, so the mask
+        # is all-ones on a protein-only target and the reading does not move there; it is
+        # ligands and modified residues, which arrive ATOMIZED and must clear an angle
+        # constraint, that it is about.
+        has_frame = None
+        if aux.get("frame_batch") is not None:
+            from ._vendor.openfold3.core.utils.atomize_utils import get_token_frame_atoms
+            _, has_frame = get_token_frame_atoms(
+                batch=aux["frame_batch"], x=sample.float(),
+                atom_mask=aux["frame_batch"]["atom_mask"].float())
+            has_frame = has_frame.bool()
         ptm, iptm = ConfidenceHead._ptm_iptm(
-            out["pae_logits"], aux.get("asym_id"))
+            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
         has_clash = 0.0
         if all(k in aux for k in ("asym_id", "atom_to_token_index", "atom_mask", "polymer_mask")):
             has_clash = _has_clash(
                 sample, aux["atom_to_token_index"], aux["asym_id"],
                 aux["atom_mask"], aux["polymer_mask"])
-        ranking_score = 0.8 * iptm + 0.2 * ptm + 0.5 * disorder - 100.0 * has_clash
+        ranking_score = rank.ranking_score(
+            iptm=iptm, ptm=ptm, plddt=float(plddt_atom.mean()),
+            disorder=disorder, has_clash=has_clash)
         return {
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
@@ -373,7 +404,8 @@ class OpenFold3(Module):
             mask_trunked=dm_aux_host["mask_trunked"],
             atom_to_token_mean=dm_aux_host["atom_to_token_mean"],
             token_mask=token_mask, n_atom=n_atom, n_token=n_token, nb=nb, NP=NP,
-            n_tok_pad=n_tok_pad)
+            n_tok_pad=n_tok_pad,
+            cl0_d=dm_aux_host.get("cl0_d"), plm0_d=dm_aux_host.get("plm0_d"))
 
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
         n_steps = len(noise_schedule) - 1

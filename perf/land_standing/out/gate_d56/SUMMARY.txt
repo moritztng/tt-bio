@@ -1,0 +1,33 @@
+release gate arm by arm, branch tip 2df673d82, started 2026-09-21T17:53:21Z
+card 2, size-ladder excluded (running separately on card 0)
+boltz2 rc=0 verdict=PASS wall=49s 2026-09-21T17:54:10Z
+esmfold2 rc=0 verdict=PASS wall=71s 2026-09-21T17:55:21Z
+esmfold2-fast rc=0 verdict=PASS wall=72s 2026-09-21T17:56:33Z
+protenix-v2 rc=0 verdict=PASS wall=59s 2026-09-21T17:57:32Z
+protenix-v1 rc=0 verdict=PASS wall=48s 2026-09-21T17:58:20Z
+opendde rc=0 verdict=PASS wall=70s 2026-09-21T17:59:31Z
+openfold3 rc=0 verdict=PASS wall=180s 2026-09-21T18:02:31Z
+rf3 rc=0 verdict=PASS wall=73s 2026-09-21T18:03:44Z
+openbind rc=0 verdict=PASS wall=179s 2026-09-21T18:06:43Z
+boltzgen rc=0 verdict=PASS wall=216s 2026-09-21T18:10:19Z
+rfd3 rc=0 verdict=PASS wall=94s 2026-09-21T18:11:53Z
+opendde-abag rc=0 verdict=PASS wall=348s 2026-09-21T18:17:41Z
+capacity rc=0 verdict=PASS wall=1223s 2026-09-21T18:38:04Z
+l1-budget rc=0 verdict=PASS wall=160s 2026-09-21T18:40:44Z
+batch-position rc=0 verdict=PASS wall=329s 2026-09-21T18:46:13Z
+nesso1 rc=0 verdict=PASS wall=28s 2026-09-21T18:46:41Z
+pxdesign rc=0 verdict=PASS wall=13s 2026-09-21T18:46:54Z
+rf3-1024aa rc=0 verdict=PASS wall=223s 2026-09-21T18:50:37Z
+rfd3-fusion rc=0 verdict=PASS wall=61s 2026-09-21T18:51:38Z
+esmc-300m rc=0 verdict=PASS wall=12s 2026-09-21T18:51:50Z
+esmc-600m rc=0 verdict=PASS wall=16s 2026-09-21T18:52:06Z
+ALL ARMS ATTEMPTED 2026-09-21T18:52:06Z
+
+22nd arm, run separately on card 0 because it shares perf/sizegate/work with the others:
+size-ladder rc=0 verdict=PASS wall=4274s 2026-09-21T18:51Z (openfold3, 10 rungs 256..1536 aa, p150a)
+  "GATE PASS - lever census and scaling exponents match the recorded baseline at every rung"
+  Tree: the re-recorded p150a baseline (committed 4 min later as 21dffdf00) was on disk at launch.
+  Its tt_bio/ differs from the tip only by autograd.py and taped_ttnn.py, which a fold never
+  imports (perf/land_standing/renorm_import_reach.py, PASS with its negative control).
+
+ALL 22 ARMS PASS.

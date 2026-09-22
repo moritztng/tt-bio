@@ -760,6 +760,26 @@ SIZE_LADDER_RUNGS = tuple(int(x) for x in
 # guard, so a shared 1088 rung would add a refusal cell to eight models and, worse, make the
 # check demand a baseline row nobody has recorded yet.
 SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
+# A BOARD's own top rungs, on top of the shared ladder. The shared rungs stop at 1024 because
+# that is what the Wormhole pool advertises and serves; a 32 GiB Blackhole is a different
+# machine (8 banks x 3.984 GiB against Wormhole's 12 x ~1 GiB) and the bar it is held to is
+# 1536 tokens (japanfold/size_evidence.py::TARGET_BAR). A ladder that stops at 1024 on a
+# p150a leaves the whole band where the allocator actually gets tight unmeasured, which is
+# what ~/.coworker/coverage_sweep.py reports as LADDER_BELOW_BAR.
+#
+# Per CARD rather than raised for everyone, for the same reason SIZE_LADDER_EXTRA_RUNGS is
+# per model: a rung in the shared list makes the check demand a baseline cell on every board,
+# and nobody has recorded 1152-1536 on Wormhole or on p300c. The key is the board type
+# _size_ladder_card_type() returns, so a check and a record pass on one board always agree on
+# which ladder they are talking about.
+SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536)}
+# Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
+# ~/.coworker/coverage_sweep.py reads as "the top of the ladder". The union and not this
+# board's own set: a p300c record pass writing 1024 over a p150a pass's 1536 would flip the
+# LADDER_BELOW_BAR deficit on and off with whichever board recorded last. Each card's own
+# cells still say what that board actually walked.
+SIZE_LADDER_CONTRACT_RUNGS = tuple(sorted(
+    set(SIZE_LADDER_RUNGS).union(*(set(r) for r in SIZE_LADDER_CARD_RUNGS.values()))))
 SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
@@ -773,7 +793,14 @@ SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 SIZE_LADDER_EXP_MAX_TOL = 1.40
 # Transient fold/census scratch; deleted after the run unless --keep. Lives under
 # perf/sizegate, never the repo root (the 08-13 run_*.sh lesson).
-SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
+#
+# Overridable because the delete is of the WHOLE directory and the path used to be a
+# constant. Recording several models at once on several cards of one box -- which is the only
+# way a nine-model ladder finishes in an afternoon -- then had the first model to finish
+# rmtree the scratch out from under the two still folding, including the census json a
+# running pass is about to read. Give each card its own.
+SIZE_LADDER_WORKDIR = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR")
+                                   or REPO_ROOT / "perf" / "sizegate" / "work")
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
@@ -1455,24 +1482,61 @@ def _headline(arm: str, line: str) -> None:
                             members=_ARM_MEMBERS.get(arm, [arm]))
 
 
-def _arm_members(arm: str, models) -> list:
-    """The --model values an arm's single verdict covers.
+def _arm_members(arm: str, models, size_ladder_models=None) -> list:
+    """What an arm's single verdict actually covers, for the resume's subset test.
 
-    Eleven arms are their own name. Two are not: the fold leg scores every model in MODELS
-    in one table under one headline, and the ESMC leg does the same for its models. A resume
-    has to know that, or a run recorded with `--model boltz2` would discharge the fold arm
-    for a later run that asked for all five.
+    Ten arms are their own name. Three are not. The fold leg scores every model in MODELS in
+    one table under one headline and the ESMC leg does the same for its models, so a resume
+    has to know that or a run recorded with `--model boltz2` would discharge the fold arm for
+    a later run that asked for all five.
+
+    size-ladder is the third, and it was missing. One `--model size-ladder` value stands for
+    nine per-model ladders, and `--size-ladder-models boltz2` scores exactly one of them while
+    printing the same "GATE PASS - lever census and scaling exponents" headline. So a one-model
+    debug run journalled `members=["size-ladder"]`, and the next `--resume` discharged the whole
+    nine-model arm on the strength of it -- ~2h45m of device time skipped for 8 min that ran.
+    This is the same defect as the `ingest()` members bug fixed on 2026-09-19 and the same shape
+    as a partial verdict read as a whole one: the record did not describe what was scored.
+    Namespacing the members (`size-ladder:<model>`) keeps them from colliding with --model
+    values, and a record written before this existed carries `["size-ladder"]`, which is not a
+    superset of any of them, so it refuses rather than resumes. Refusing costs a re-run; the
+    other direction ships an unrun arm inside a green gate.
     """
     if arm == "fold-models":
         return sorted(m for m in models if m in MODELS)
     if arm == "esmc":
         return sorted(m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN)
+    if arm == "size-ladder":
+        if arm not in models:
+            return []
+        return sorted(f"size-ladder:{m}"
+                      for m in (size_ladder_models or SIZE_LADDER_MODELS))
     return [arm] if arm in models else []
 
 
+# What a resume key means by "dirty": the SOURCE that decides an arm's verdict, not the working
+# directory. Without a pathspec this asked `git status --porcelain` about the whole tree, and the
+# gate writes its own run outputs (boltz2_results_prot/, pxdesign_gate.json, rfd3_gate_designs/, ...)
+# into the repo root, so the gate dirtied its own tree. Every arm after the first then journalled
+# with dirty=True, and gate_journal.resumable() returns {} for a dirty tree, so --resume could never
+# discharge anything. Measured on 2026-09-19: qb2 hard-reset 16:21:00Z with nine arms green and
+# nineteen untracked output paths in the tree; all nine were unresumable, and the nineteen were
+# output directories with not one tracked source file modified. The crash-resume written for exactly
+# that reset had never been able to fire.
+_SOURCE_PATHS = ("tt_bio", "scripts", "tests", "pyproject.toml")
+
+
 def _repo_dirty() -> bool:
+    """Is the source that determines an arm's verdict different from its commit?
+
+    Scoped to _SOURCE_PATHS deliberately. An untracked results directory does not change what an
+    arm scores, so counting it loses the resume; an edit under tt_bio/ or scripts/ does, so it must
+    still refuse. Untracked files inside those paths count too (no --untracked-files=no here): a
+    stray module under tt_bio/ can shadow a real one, which is a source change by any other name.
+    """
     try:
-        return bool(subprocess.check_output(["git", "status", "--porcelain"],
+        return bool(subprocess.check_output(["git", "status", "--porcelain", "--"]
+                                            + list(_SOURCE_PATHS),
                                             cwd=REPO_ROOT, text=True, timeout=10).strip())
     except Exception:
         return True   # cannot prove it is clean, so it is not resumable
@@ -1504,7 +1568,10 @@ def _resume_plan(journal: Path, key: dict, models: list):
         if not set(covers) <= set(rec.get("members") or [arm]):
             continue          # that run scored fewer models than this one is asking for
         resumed[arm] = rec
-        remaining = [m for m in remaining if m not in covers]
+        # `m != arm` because an arm's members are no longer always --model values: size-ladder
+        # covers nine namespaced ladders under the single --model value "size-ladder", and
+        # without this the arm would be discharged and then run anyway.
+        remaining = [m for m in remaining if m not in covers and m != arm]
     return resumed, remaining
 
 
@@ -2623,6 +2690,9 @@ def _census_pythonpath_args() -> list:
     return ["--pythonpath", p] if p else []
 
 
+_SIZE_REFUSAL_RE = re.compile(r"^(?:[\w.]+\.)?SizeTooLargeError: *(\S.*)$")
+
+
 def _size_limit_refusal(text: str) -> str | None:
     """The size guard's own one-line refusal for this fold, or None.
 
@@ -2638,10 +2708,159 @@ def _size_limit_refusal(text: str) -> str | None:
     next wall and the wrong thing here: this arm measures what a user can actually submit,
     and the guard is what defines that.
     """
+    # Only the traceback's FINAL line carries the message: `tt_bio.size_limits.SizeTooLargeError:
+    # <why>`. The raise site is a multi-line call, so its source line -- `raise
+    # SizeTooLargeError(` -- also contains the name, comes FIRST, and splitting on the name
+    # there yields "(" . That is what opendde's four refused rungs recorded on 2026-09-20:
+    # `"1152": "("`, a refusal whose reason is a bracket. Requiring the colon-and-message form
+    # skips the source line, and taking the last match takes the raised exception rather than a
+    # `raise ... from` cause. No match at all returns None, so the rung is recorded as an error
+    # with the log text rather than as a refusal nobody can read.
+    found = None
     for line in text.splitlines():
-        if "SizeTooLargeError" in line:
-            return line.split("SizeTooLargeError", 1)[1].lstrip(": ").strip()[:400]
-    return None
+        m = _SIZE_REFUSAL_RE.match(line.strip())
+        if m:
+            found = m.group(1).strip()[:400]
+    return found or None
+
+
+def _keep_failed_fold_log(log: Path, label: str) -> str:
+    """Copy a failed fold's log somewhere the next model will not delete, and say where.
+
+    The scratch dir is removed whole per card, so the fold log a failure points at survives
+    only until the runner starts the next model. rf3 failed at its 256 warm-up on two
+    different cards on 2026-09-20 with `SpawnProcess-1 exit 1` -- "any other code prints its
+    own fatal above", and above was gone both times. What reaches the campaign log is
+    `_fold_error`'s 400 characters, which here was the generic worker-exited sentence and not
+    the fatal.
+
+    Never raises: this runs inside a path that is already reporting a failure, and a copy that
+    throws would replace the fold's error with its own (see `_fold_log_text`).
+    """
+    keep = REPO_ROOT / "perf" / "sizegate" / "failures"
+    dest = keep / f"{label}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.log"
+    try:
+        keep.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(log, dest)
+        return f"full log kept at {dest.relative_to(REPO_ROOT)}"
+    except Exception as e:
+        return f"the log could not be kept: {e}"
+
+
+class _NoClock:
+    """Stands in for the sampler when it cannot run, so the caller has nothing to sample
+    rather than a clock nobody read."""
+    clocks: dict = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+_BY_PATH: dict = {}
+
+
+def _load_by_path(rel: str):
+    """Import a module of this repo by PATH, cached, or None if it will not load.
+
+    Not `from perf.clocksample import during`: an `import` of a sibling tree needs REPO_ROOT
+    on sys.path and this file keeps it off deliberately, so tt_bio resolves through the
+    installed dist (see the import block at the top). Both callers below are instruments
+    that must never take the gate down, so a failure to load returns None and the cell it
+    would have filled stays empty.
+    """
+    if rel not in _BY_PATH:
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "_rg_" + rel.replace("/", "_").removesuffix(".py"), REPO_ROOT / rel)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _BY_PATH[rel] = mod
+        except Exception as e:
+            print(f"  [size-ladder] {rel} did not load ({e})", flush=True)
+            _BY_PATH[rel] = None
+    return _BY_PATH[rel]
+
+
+def _clock_during(period: float = 5.0):
+    """perf/clocksample.py's `during`, sampling AICLK on a thread for the duration."""
+    mod = _load_by_path("perf/clocksample.py")
+    return _NoClock() if mod is None else mod.during(period=period)
+
+
+def _size_ladder_structure(out_dir: Path) -> dict | None:
+    """The geometry of the CIF this fold wrote, read while it is still on disk.
+
+    The recorder clears its workdir at the end of the pass, so a rung's structure is read
+    here or not at all. Every cell recorded before this was a runtime with nothing beside it
+    saying the fold had folded anything: a kernel that returns fast and wrong is a speedup
+    by this instrument's own reading. Reuses the five-model GPU benchmark's accuracy gate
+    rather than a second CIF reader (it is pure stdlib for exactly this reason).
+
+    WHAT IT IS NOT: a fold-quality verdict. The ladder folds at SIZE_LADDER_STEPS, and six
+    diffusion steps does not converge. Measured on boltz2/256, same fixture, same seed, same
+    card, only the step count moving (perf/sizegate/campaign/steps_ctl.log, 2026-09-20):
+
+        steps   runtime   CA-CA median   breaks   Rg      plDDT
+            6     11.7 s      137.17 A    100 %   111.1   0.526
+           25     11.9 s        3.80 A      0 %    19.1   0.874
+          100     19.6 s        3.81 A      0 %    19.2   0.870
+          200     27.3 s        3.80 A      0 %    19.1   0.861
+
+    So `geometry_ok` is False on every predict rung of this ladder and says nothing about the
+    port: at 25 steps the same code folds a clean protein. The block is recorded because it
+    is a cheap comparator ACROSS cells, pass to pass and arm to arm, where the config is held
+    fixed. `steps` rides along so the verdict cannot be quoted out of that context.
+
+    Never fails the rung. A parser bug in a read-only instrument must not be able to take a
+    release gate down.
+    """
+    mod = _load_by_path("scripts/gpu_vs_tt/gpu5_accuracy_gate.py")
+    if mod is None:
+        return None
+    cifs = sorted(out_dir.rglob("*.cif"))
+    if not cifs:
+        return None
+    try:
+        r = mod.gate(cifs[0], None, None)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    return {"file": cifs[0].name, "steps": SIZE_LADDER_STEPS, "n_ca": r["n_ca"],
+            "clash_frac": r.get("clash_frac"),
+            "chain_break_frac": r.get("chain_break_frac"),
+            "ca_ca_median_A": r.get("ca_ca_median_A"),
+            "radius_of_gyration_A": r.get("radius_of_gyration_A"),
+            "plddt_mean": r.get("plddt_mean"),
+            "geometry_ok": r["pass"], "geometry_fail": r["fail"]}
+
+
+def _aiclk_cell(clk) -> dict | None:
+    """The clock this fold ran at, or None when it cannot be attributed to the folding card.
+
+    tt-smi honours TT_VISIBLE_DEVICES, so with exactly one card granted its index 0 IS the
+    card the fold ran on. Without that pin the recorder sees every chip on the box and index
+    0 is whichever UMD enumerated first, which need not be the one folding, so the cell stays
+    empty instead of carrying a clock read off a neighbour. On Blackhole the AICLK sets the
+    fold time (800 MHz reads 21.90 s at 512 aa where the 1350 burst reads 14.69 s), so a
+    runtime beside a clock from the wrong chip is worse than a runtime with no clock.
+
+    The window is the whole SUBPROCESS, model load included, and the chip idles at 800 until
+    compute starts. `min` and `max` are therefore exact and the median is only the fold's
+    clock once the fold dominates the process. Measured both ways on this card: openbind at
+    1280, a 360 s fold, reads 800/1350/1350 over 78 samples, median at the boost; boltz2 at
+    256, a 7.5 s fold behind a ~20 s load, reads 800/800/1350 over 5, median at idle. Read
+    the median on the long rungs and the max everywhere.
+    """
+    vis = (os.environ.get("TT_VISIBLE_DEVICES") or "").strip()
+    if not vis or "," in vis:
+        return None
+    xs = sorted(clk.clocks.get(0, []))
+    if not xs:
+        return None
+    return {"card": vis, "min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1],
+            "n": len(xs)}
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
@@ -2703,18 +2922,21 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             "--out_dir", str(out_dir),
         ]
     t0 = time.monotonic()
-    with open(log, "w") as fp:
+    with open(log, "w") as fp, _clock_during() as clk:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
+    aiclk = _aiclk_cell(clk)
     if timed_out:
-        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
+        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     if rc != 0:
         text = _fold_log_text(log)
         refusal = _size_limit_refusal(text)
         if refusal:
             return {"refused": refusal}
-        return {"error": f"census fold exited {rc}: {_fold_error(text)}"}
+        return {"error": f"census fold exited {rc}: {_fold_error(text)}"
+                         f" ({_keep_failed_fold_log(log, label)})"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
@@ -2763,7 +2985,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     if runtime_s is None and need_runtime:
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall, "runtime_src": where,
-            "census_json": census_json, "grid": census.get("grid")}
+            "census_json": census_json, "grid": census.get("grid"), "aiclk": aiclk,
+            "structure": _size_ladder_structure(out_dir)}
 
 
 def _size_ladder_dark(entry: dict) -> bool:
@@ -3021,6 +3244,25 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
             # Name the clause it went dark ON: that is the mechanism, and it is the
             # difference between "K2 stopped firing" and "K2 stopped firing because
             # fill_preconditions rejects a padded mask", which is the actual defect.
+            #
+            # First separate darkness from an UNOBSERVED rung. `frac` above is
+            # `served / total if total else 0.0`, so a lever the census saw zero calls of
+            # reads 0.0 -- byte-identical to one that declined every call. Those are
+            # different facts with different remedies: a declining lever records a reject
+            # clause and wants investigating, an unobserved one records nothing and wants
+            # re-running. Boltz-2 hit this on 2026-09-20: seven levers at 768 aa and 896 aa
+            # read served 0 declined 0 with rc=0 and the same 11x10 grid, and were all
+            # reported as "went dark" while 512 aa and 1024 aa served 72/560/3. Verdict is
+            # unchanged -- this is still a finding and still fails the arm -- only the
+            # sentence is, because the old one sent the reader after seven regressions that
+            # were one unmeasured fold.
+            if fc == 0.0 and not (c["served"] or 0) and not (c["declined"] or 0):
+                findings.append(
+                    f"{where} {flag}: census observed NO calls (served 0, declined 0) where "
+                    f"the baseline recorded {b['served']} served / {b['declined']} declined "
+                    f"-- this rung was not measured, so re-run it rather than reading it as "
+                    f"darkness")
+                continue
             clause = ", ".join(sorted(c.get("rejects") or {})) if fc == 0.0 else ""
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
                             f"({'went dark' if fc == 0.0 else 'started firing'}"
@@ -3047,13 +3289,16 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
     return findings
 
 
-def _size_ladder_model_rungs(model: str, want=None) -> tuple:
+def _size_ladder_model_rungs(model: str, want=None, card: str | None = None) -> tuple:
     """This model's own ladder, ascending, narrowed to ``rungs`` when the caller named them.
 
     A design model is walked on its own axis (SIZE_LADDER_DESIGN), so the fold rungs do not
     apply to it: pxdesign's 768 is 768 TARGET residues against a fold's 768 tokens, and its
     top rung is set by how far its own fixture source can be cut. A fold model whose guard
-    reaches past the shared ladder carries its own extra top rungs (SIZE_LADDER_EXTRA_RUNGS).
+    reaches past the shared ladder carries its own extra top rungs (SIZE_LADDER_EXTRA_RUNGS),
+    and a board held to a higher bar than the shared ladder adds the rungs that reach it
+    (SIZE_LADDER_CARD_RUNGS). ``card`` names that board and defaults to the one this process
+    is running on, so a check reading a cell recorded elsewhere asks about the right ladder.
 
     ``want`` (from --size-ladder-rungs) FILTERS each model's ladder rather than replacing it,
     so a resume pass naming 1088 measures rf3 there and measures nothing for the models whose
@@ -3063,7 +3308,8 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
         ladder = tuple(SIZE_LADDER_DESIGN[model]["rungs"])
     else:
         ladder = tuple(sorted(set(SIZE_LADDER_RUNGS)
-                              | set(SIZE_LADDER_EXTRA_RUNGS.get(model, ()))))
+                              | set(SIZE_LADDER_EXTRA_RUNGS.get(model, ()))
+                              | set(_size_ladder_card_rungs(card))))
     return ladder if want is None else tuple(n for n in ladder if n in want)
 
 
@@ -3087,6 +3333,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
+    # Every rep's runtime, and the clock each rep ran at. The median is what the check
+    # reads; these are what make it interpretable. One number per cell cannot say whether
+    # 195.1 at 1152 and 196.3 at 1088 are an inversion or two draws from one spread, and it
+    # cannot say whether a cell that moved between passes moved because the engine did or
+    # because the chip was at 800 MHz instead of 1350.
+    reps_s, aiclk, structure = {}, {}, {}
     # Per-rung noise, not just the middle rung's. The loop below already has every rep's
     # runtime for every rung, so this costs no folds -- it was being thrown away.
     sigmas = {}
@@ -3142,8 +3394,21 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                     drift.append(f)
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
+        if runs[0].get("structure"):
+            structure[str(rung)] = runs[0]["structure"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
+        reps_s[str(rung)] = [round(t, 2) for t in ts]
+        cells = [r["aiclk"] for r in runs if r.get("aiclk")]
+        if cells:
+            # min and max are the true extremes over every sample of every rep. The
+            # per-rep medians are listed rather than collapsed, because a median of
+            # medians is not a median of the samples and would read as if it were.
+            aiclk[str(rung)] = {"card": cells[0]["card"],
+                                "min": min(c["min"] for c in cells),
+                                "max": max(c["max"] for c in cells),
+                                "rep_median": [c["median"] for c in cells],
+                                "n": sum(c["n"] for c in cells)}
         if rung in sigma_rungs and len(ts) > 1:
             sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
             if rung == sigma_rung:
@@ -3153,7 +3418,8 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
-            "runtime_src": runtime_src,
+            "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
+            "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -3300,6 +3566,36 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
     return block, None
 
 
+# What a size-ladder cell is measured AGAINST: the engine and the census hook that reads it.
+# scripts/release_gate.py itself is deliberately absent -- the rung list, the record path and
+# this file's own comments decide which cells exist, not what any of them measures. So is
+# docs/, perf/ and tests/. Wider than japanfold/size_evidence.py::SIZE_AFFECTING_PATHS on
+# purpose: that tuple names the six files that move a CEILING, and a lever census moves with
+# any model code at all.
+SIZE_LADDER_ENGINE_PATHS = ("tt_bio", "scripts/lever_census.py")
+
+
+def _size_ladder_same_engine(old: str | None, new: str | None) -> bool:
+    """True when nothing under SIZE_LADDER_ENGINE_PATHS changed between two commits.
+
+    Unknown or unreachable sha -> False. An entry recorded before this field meant anything,
+    or on a tree this checkout does not have, is one whose engine cannot be compared, and the
+    honest answer there is "re-measure" rather than "probably fine".
+    """
+    if not old or not new or "unknown" in (old, new):
+        return False
+    if old == new:
+        return True
+    try:
+        r = subprocess.run(["git", "diff", "--quiet", old, new, "--"]
+                           + list(SIZE_LADDER_ENGINE_PATHS),
+                           cwd=REPO_ROOT, timeout=30, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:                                                        # noqa: BLE001
+        return False
+    return r.returncode == 0
+
+
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
     """Fold the rungs this pass did not measure back in from ``prev``, in place on
     ``meas``. Returns the rungs carried, so the entry can say which of its cells came
@@ -3310,20 +3606,29 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     recorder's stated policy one level up ("a 6-model record is ~2 h of device time, so
     it has to be resumable a model at a time"); this is the same policy one level down.
 
-    A cell is only carried when the previous entry was recorded on the SAME commit, host
-    and core grid. Commit, because the arm's whole rule is "re-record after any
+    A cell is only carried when the previous entry was recorded on the same ENGINE, host
+    and core grid. Engine, because the arm's whole rule is "re-record after any
     size-affecting change" and a ladder mixing two engines measures neither. Host,
     because absolute runtime does not transfer between machines even of one board type
     (qb1's p150a reads ~30 % slower than pc's). Grid, because a guard sized against the
     core grid flips with it, which is why the check already refuses a cross-grid
     comparison outright.
+
+    "Same engine" is `git diff` over SIZE_LADDER_ENGINE_PATHS and not sha equality, which
+    is what it used to be. Sha equality made the recorder's own stated policy impossible to
+    follow: committing the rungs a pass measured moves HEAD, so the NEXT pass could never
+    carry them and a 10-rung ladder had to be walked in one uninterrupted run per model. It
+    also invalidated a ladder on a README typo. Diffing the paths that decide what is
+    measured keeps the guarantee ("no cell was measured against code that has since moved")
+    and drops the part that was only ever an approximation of it.
     """
     if not prev:
         return []
     if not meas.get("runtime_s"):
         return []
-    same = all(prev.get(k) == stamp[k] for k in ("commit", "host")) \
-        and prev.get("grid") == meas.get("grid")
+    same = prev.get("host") == stamp["host"] \
+        and prev.get("grid") == meas.get("grid") \
+        and _size_ladder_same_engine(prev.get("commit"), stamp["commit"])
     old_rt, old_ref_all = prev.get("runtime_s") or {}, prev.get("refused") or {}
     measured = set(meas["runtime_s"]) | set(meas.get("refused") or {})
     # Refused rungs count as spare too: a pass that re-measures every timing rung but not
@@ -3336,15 +3641,28 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
         print(f"  [size-ladder] not carrying rungs {','.join(sorted(spare, key=int))}: "
               f"recorded on {prev.get('host')}@{prev.get('commit')} grid "
               f"{prev.get('grid')}, this pass is {stamp['host']}@{stamp['commit']} grid "
-              f"{meas.get('grid')} — a ladder mixing two engines measures neither",
+              f"{meas.get('grid')}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
+              f"{'match' if _size_ladder_same_engine(prev.get('commit'), stamp['commit']) else 'differ'} "
+              f"between them — a ladder mixing two engines measures neither",
               flush=True)
         return []
     old_lv = prev.get("levers") or {}
+    old_reps, old_clk = prev.get("runtime_reps_s") or {}, prev.get("aiclk") or {}
+    old_st = prev.get("structure") or {}
     for r in spare:
         if r in old_rt:
             meas["runtime_s"][r] = old_rt[r]
             if r in old_lv:
                 meas["levers"][r] = old_lv[r]
+            # Carry the reps and the clock with the runtime. Carrying the number alone
+            # turns a clocked cell back into an unclocked one, which is the defect the
+            # stamp exists to remove.
+            if r in old_reps:
+                meas.setdefault("runtime_reps_s", {})[r] = old_reps[r]
+            if r in old_clk:
+                meas.setdefault("aiclk", {})[r] = old_clk[r]
+            if r in old_st:
+                meas.setdefault("structure", {})[r] = old_st[r]
         elif r in old_ref_all:
             meas.setdefault("refused", {})[r] = old_ref_all[r]
     if meas.get("sigma") is None and prev.get("sigma_runtime_512") is not None:
@@ -3938,6 +4256,26 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
     return path
 
 
+def _size_ladder_card_rungs(card: str | None = None) -> tuple:
+    """The rungs ``card`` adds to the shared ladder, or () for a board with none.
+
+    ``card`` defaults to the board this process is running on. Passing it explicitly is what
+    lets a check READ a card it is not running on: the coverage test walks every recorded
+    card in the baseline, and asking a p150a host what rungs the Galaxy's ladder walks is how
+    a per-board ladder turns into a demand for cells nobody owes.
+
+    A board with no entry, and a host where the type cannot be read at all, both get the
+    shared ladder: widening a ladder on a guess would demand baseline cells for a board
+    nobody measured.
+    """
+    if card is None:
+        try:
+            card = _size_ladder_card_type()
+        except Exception:                                                    # noqa: BLE001
+            card = ""
+    return tuple(SIZE_LADDER_CARD_RUNGS.get(card, ()))
+
+
 def _size_ladder_every_rung() -> tuple:
     """Every rung any model on the ladder measures: the shared set, each model's extras, and
     each design model's own axis.
@@ -3948,7 +4286,7 @@ def _size_ladder_every_rung() -> tuple:
     Nothing else widens: the models' own ladders are still taken one at a time from
     _size_ladder_model_rungs, so a fold model never sees an atom rung.
     """
-    every = set(SIZE_LADDER_RUNGS)
+    every = set(SIZE_LADDER_CONTRACT_RUNGS)
     for extra in SIZE_LADDER_EXTRA_RUNGS.values():
         every |= set(extra)
     for d in SIZE_LADDER_DESIGN.values():
@@ -4123,7 +4461,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # The LADDER, not this pass's subset. --size-ladder-rungs records a rung at
                 # a time, and writing the subset here would have the file claim a four-rung
                 # ladder because the last resumed pass measured four of them.
-                "rungs": list(SIZE_LADDER_RUNGS),
+                "rungs": list(SIZE_LADDER_CONTRACT_RUNGS),
                 "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
                          "diffusion_samples": 1, "seed": SEED},
             })
@@ -4173,7 +4511,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
-                        for k in ("levers", "runtime_s", "census_jsons"):
+                        for k in ("levers", "runtime_s", "census_jsons",
+                                  "runtime_reps_s", "aiclk", "structure"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"],
@@ -4191,6 +4530,12 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            if meas.get("runtime_reps_s"):
+                entry["runtime_reps_s"] = meas["runtime_reps_s"]
+            if meas.get("aiclk"):
+                entry["aiclk"] = meas["aiclk"]
+            if meas.get("structure"):
+                entry["structure"] = meas["structure"]
             if m in SIZE_LADDER_DESIGN:
                 entry["axis"] = SIZE_LADDER_DESIGN[m]["axis"]
                 entry["runtime_from"] = meas.get("runtime_src")
@@ -4809,8 +5154,11 @@ def main() -> int:
     want_rf3_1024aa = "rf3-1024aa" in models
     want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
+    # What this run's size-ladder leg will actually score, so its journal record describes it.
+    _sl_models = (args.size_ladder_models.split(",") if args.size_ladder_models else None)
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
-    _ARM_MEMBERS = {a: _arm_members(a, models) for a in ("fold-models", "esmc")}
+    _ARM_MEMBERS = {a: _arm_members(a, models, _sl_models) for a in
+                    ("fold-models", "esmc", "size-ladder")}
     _preflight_scored_package()
     _preflight_eval_scorers(models)
     _preflight_esmc_root(esmc_models)

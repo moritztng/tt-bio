@@ -1,0 +1,40 @@
+{
+ "what": "Call census of the tape's dtype reconciliation, on the diffusion scope, on device.",
+ "node_firings_total": 1879,
+ "reconciliations_total": 0,
+ "reconciliation_share_of_firings": 0.0,
+ "reconciliations_that_DOWNCAST_float32_to_bfloat16": 0,
+ "RECONCILIATION_by_direction": {},
+ "RECONCILIATION_by_verb": {},
+ "node_firings_by_verb_and_dtype": {
+  "_binary.<locals>.impl.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 426,
+  "_taped_linear.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 426,
+  "_identity_grad.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 236,
+  "_taped_layer_norm.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 163,
+  "_v_permute.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 132,
+  "_v_reshape.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 101,
+  "_v_create_qkv_heads.<locals>.slot.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 72,
+  "_v_matmul.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 61,
+  "_v_typecast.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 60,
+  "_binary.<locals>.impl.<locals>.make_s.<locals>.bw|g=FLOAT32|value=FLOAT32": 32,
+  "silu.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 30,
+  "_v_softmax.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 30,
+  "_sliced.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 28,
+  "_identity_grad.<locals>.make.<locals>.bw|g=BFLOAT16|value=BFLOAT16": 24,
+  "_v_reshape.<locals>.make.<locals>.bw|g=BFLOAT16|value=BFLOAT16": 24,
+  "_v_embedding.<locals>.make.<locals>.bw|g=BFLOAT16|value=BFLOAT16": 12,
+  "_v_typecast.<locals>.make.<locals>.bw|g=BFLOAT16|value=BFLOAT16": 12,
+  "_unary.<locals>.impl.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 5,
+  "_v_pad.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 2,
+  "?|g=FLOAT32|value=?": 2,
+  "relu.<locals>.make.<locals>.bw|g=FLOAT32|value=FLOAT32": 1
+ },
+ "ALL_typecast_call_sites": {
+  "taped_ttnn.py:1199:_v_typecast|FLOAT32->FLOAT32": 48,
+  "taped_ttnn.py:1199:_v_typecast|FLOAT32->BFLOAT16": 12,
+  "taped_ttnn.py:1199:_v_typecast|BFLOAT16->FLOAT32": 12,
+  "taped_ttnn.py:1204:bw|FLOAT32->BFLOAT16": 12,
+  "taped_ttnn.py:1204:bw|BFLOAT16->FLOAT32": 12
+ },
+ "NOTE": "node_firings counts calls to tt_bio.autograd._unshard, which the backward loop calls exactly once per fired closure. reconciliations counts ttnn.typecast calls whose immediate caller frame is that same loop, so the two are the same denominator and numerator rather than two different populations."
+}

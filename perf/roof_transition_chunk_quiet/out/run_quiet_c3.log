@@ -1,5 +1,0 @@
-=== start 2026-09-14T13:08:35Z loadavg 0.62 1.98 3.50 2/700 458940
-2026-09-14 13:08:35.828 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
-Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
-Terminated
-=== foldab rc=143 2026-09-14T13:17:17Z loadavg 3.16 2.26 2.88 2/745 469780

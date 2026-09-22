@@ -1,0 +1,538 @@
+{
+ "instrument": "PROTOCOL SS6 step 1: bond_mask on a polymer-ligand covale target",
+ "package": "openfold3",
+ "data_dir": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets",
+ "cache_file": "/home/moritz/.coworker/scratch/of3t-bondcov/datasets/training_cache_with_templates_subset_2.json",
+ "stage": "finetune_1",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "seed": 20260921,
+ "n_datapoints": 19,
+ "n_walked": 19,
+ "n_with_nonzero_bond_mask": 13,
+ "rows": [
+  {
+   "index": 0,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 256,
+   "n_ligand_tokens": 128,
+   "token_bonds_nnz": 248,
+   "token_bonds_pairs": 124,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "1",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 1,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 294,
+   "n_ligand_tokens": 90,
+   "token_bonds_nnz": 206,
+   "token_bonds_pairs": 103,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     304,
+     225
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 304,
+     "j": 225,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "2",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 2,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 140,
+   "n_ligand_tokens": 244,
+   "token_bonds_nnz": 554,
+   "token_bonds_pairs": 277,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     140,
+     52
+    ],
+    [
+     270,
+     114
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 140,
+     "j": 52,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 270,
+     "j": 114,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "3",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 3,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 165,
+   "n_ligand_tokens": 219,
+   "token_bonds_nnz": 496,
+   "token_bonds_pairs": 248,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     165,
+     13
+    ],
+    [
+     262,
+     89
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 165,
+     "j": 13,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 262,
+     "j": 89,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "4",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 4,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 200,
+   "n_ligand_tokens": 184,
+   "token_bonds_nnz": 388,
+   "token_bonds_pairs": 194,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     200,
+     64
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 200,
+     "j": 64,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "5",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 5,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 205,
+   "n_ligand_tokens": 179,
+   "token_bonds_nnz": 380,
+   "token_bonds_pairs": 190,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     262,
+     81
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 262,
+     "j": 81,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "6",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 6,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 210,
+   "n_ligand_tokens": 174,
+   "token_bonds_nnz": 364,
+   "token_bonds_pairs": 182,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '2']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 7,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 246,
+   "n_ligand_tokens": 138,
+   "token_bonds_nnz": 264,
+   "token_bonds_pairs": 132,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '3']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 8,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 243,
+   "n_ligand_tokens": 141,
+   "token_bonds_nnz": 280,
+   "token_bonds_pairs": 140,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['1', '5']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 9,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 255,
+   "n_ligand_tokens": 129,
+   "token_bonds_nnz": 260,
+   "token_bonds_pairs": 130,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['2', '4']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 10,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 240,
+   "n_ligand_tokens": 144,
+   "token_bonds_nnz": 298,
+   "token_bonds_pairs": 149,
+   "polymer_ligand_pairs_either_orientation": 0,
+   "bond_mask_nnz": 0,
+   "bond_mask_entries": [],
+   "loss_weight_bond": 4.0,
+   "partners": [],
+   "pdb_id": "4byh",
+   "datapoint": "['2', '6']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 11,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 165,
+   "n_ligand_tokens": 219,
+   "token_bonds_nnz": 494,
+   "token_bonds_pairs": 247,
+   "polymer_ligand_pairs_either_orientation": 2,
+   "bond_mask_nnz": 2,
+   "bond_mask_entries": [
+    [
+     165,
+     12
+    ],
+    [
+     262,
+     90
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 165,
+     "j": 12,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    },
+    {
+     "i": 262,
+     "j": 90,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4byh",
+   "datapoint": "['3', '4']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 12,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 292,
+   "n_ligand_tokens": 92,
+   "token_bonds_nnz": 212,
+   "token_bonds_pairs": 106,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     321,
+     92
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 321,
+     "j": 92,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "1",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 13,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 285,
+   "n_ligand_tokens": 99,
+   "token_bonds_nnz": 226,
+   "token_bonds_pairs": 113,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     314,
+     92
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 314,
+     "j": 92,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "2",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 14,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 282,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 234,
+   "token_bonds_pairs": 117,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     311,
+     88
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 311,
+     "j": 88,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "3",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 15,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 282,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 234,
+   "token_bonds_pairs": 117,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     311,
+     75
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 311,
+     "j": 75,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "4",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 16,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 282,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 234,
+   "token_bonds_pairs": 117,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     311,
+     92
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 311,
+     "j": 92,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '2']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 17,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 289,
+   "n_ligand_tokens": 95,
+   "token_bonds_nnz": 218,
+   "token_bonds_pairs": 109,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     318,
+     72
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 318,
+     "j": 72,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '3']",
+   "silent_substitutions": 0
+  },
+  {
+   "index": 18,
+   "n_tokens_real": 384,
+   "n_polymer_tokens": 282,
+   "n_ligand_tokens": 102,
+   "token_bonds_nnz": 234,
+   "token_bonds_pairs": 117,
+   "polymer_ligand_pairs_either_orientation": 1,
+   "bond_mask_nnz": 1,
+   "bond_mask_entries": [
+    [
+     311,
+     69
+    ]
+   ],
+   "loss_weight_bond": 4.0,
+   "partners": [
+    {
+     "i": 311,
+     "j": 69,
+     "i_is_polymer": false,
+     "i_is_ligand": true,
+     "j_is_polymer": true,
+     "j_is_ligand": false
+    }
+   ],
+   "pdb_id": "4g5j",
+   "datapoint": "['1', '4']",
+   "silent_substitutions": 0
+  }
+ ],
+ "total_s": 82.7998948097229
+}

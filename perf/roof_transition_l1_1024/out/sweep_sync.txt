@@ -1,2 +1,0 @@
-HFOLD 1024 on DONE 55.045s sha=40587c373b94ac8a served=296/0
-SWEEP 1024 on end t=70s throws=2 absorbed=0

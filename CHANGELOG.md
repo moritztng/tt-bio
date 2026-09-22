@@ -5,7 +5,68 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **OpenFold3 trunk triangle attention runs on the fused SDPA at HiFi4, and a 512-residue fold is
+  1.5123x faster.** 34.138 s to 22.574 s on a Blackhole p300c with the AICLK at 1350 MHz, and
+  57.946 s to 33.501 s at 640 residues, arms interleaved in one process on A/A floors of 0.888 and
+  0.950 s, with the firing counted on every leg: 384 calls served, none declined, none below the
+  length floor. Only the OpenFold3 trunk takes the route. Boltz-2 and RoseTTAFold3 build the same
+  block and keep the materialised one, and the OpenFold3 msa, template and confidence sites stay off
+  because all four together land 0.676 A further from the experimental structure than the trunk
+  alone.
+
+  **This is not bit-exact.** The fused route spans the whole key length in one chunk, which reduces
+  each row in the order the torch reference uses rather than through a running-max rescale, so a
+  fold will not match a 0.9.0 run of the same input. At 298 residues over three matched seeds it
+  moves the structure 2.5805 / 7.7510 / 8.0075 A CA against a 5.2283 / 7.7276 / 9.7768 A spread
+  between seeds of that same input, a median of exactly 1.00x the seed floor median and a worst case
+  of 0.82x its maximum, and pLDDT moves 0.50319 to 0.56667. Scored against the deposited structure
+  the trunk route is 0.396 A closer to native than the route it replaces. At 1088 residues the
+  kernel declines every call on L1 grounds and the fold is byte-identical to the old route.
+  `TT_BIO_TRIATT_SDPA_HIFI_AB=-openfold3.trunk` restores it. See
+  [docs/tuning-flags.md](docs/tuning-flags.md).
+
+- **Triangle attention now picks a wider SDPA key chunk, and at twenty padded lengths that changes
+  the bytes you get back.** `TT_BIO_SDPA_WIDE_K` is on by default. The fused kernel refuses any key
+  chunk that does not divide the padded sequence, so at those lengths it used to decline every call
+  and fall back to the stock op; it now takes the widest dividing chunk instead. The op is
+  1.27x-4.39x wherever it fires, measured on a Blackhole p150a with the arms interleaved. The
+  affected padded lengths are 288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088,
+  1184, 1216, 1248, 1312, 1376, 1472 and 1504. Every model buckets to a multiple of 32, so any model
+  that reaches this kernel can present all twenty; OpenFold3, ESMFold2 and RFD3 reach it at no
+  length and are untouched. It does nothing at a length the 256 cap already divides, so 512, 768 and
+  1024 folds are unchanged, byte for byte. There is no fold-level speedup figure here on purpose:
+  the one stage arm that exists recorded no clock and no board class, and the parts differ by 1.19x
+  on the same fold.
+
+  **This is not bit-exact.** The wider chunk changes the online-softmax reduction order, and this
+  path used to reproduce byte for byte at a fixed seed, so a run at one of those lengths will not
+  match a 0.9.0 run of the same input. The structure moves 0.060-0.146 A on a 686-residue chain,
+  against 3.69-7.28 A between seeds of that same input, and pLDDT by 0.0001 against a seed-to-seed
+  0.0041. Set `TT_BIO_SDPA_WIDE_K=0` to restore the old pick exactly. See
+  [docs/tuning-flags.md](docs/tuning-flags.md) and
+  [docs/sdpa-wide-k-parity.md](docs/sdpa-wide-k-parity.md).
+
 ### Fixed
+
+- **The softmax backward leaked a row sum, and every gradient below it carried the term.**
+  `ttnn.softmax` does not return rows that sum to one: mean 0.9934 over the OpenFold3 trunk's own
+  shapes, worst row 0.9506, and fp32 storage does not fix it. So the card computes `c * softmax(x)`
+  for a per-row `c`, and the vjp of that is `y * (g - sum(g*y)/sum(y))`. The shipped rule dropped
+  the divisor, which makes it the vjp of a function the card never evaluated. It barely moves `dx`
+  itself, rel_l2 2.0156e-02 against 2.0154e-02, which is why an op-level audit never saw it. What it
+  does is leave `dx` with a nonzero row sum, 4.62e-03 rms against a float64 reference's 1.29e-16,
+  and the attention backward below it consumes exactly that term: `dq_i = sum_j dx_ij k_j` equals
+  `sum_j dx_ij (k_j - kbar)` only when the row sums vanish. Over 523 matched tensors the leaf error
+  mass falls 878.85 to 2.636, and block 8's gradient norm ratio goes 87.643 to 1.732 with cosine
+  -0.169 to +0.694. Three sites computed the expression inline and all three now share one helper,
+  including `tt_bio.autograd.softmax`, which `__all__` exports.
+
+  **Inference is untouched, and not only by argument.** Every read of the flag is inside a backward
+  closure, and a fold never imports the module it lives in, so no forward can branch on it. A
+  512-residue OpenFold3 fold returns the same CIF digest with the repair on, off and on again.
+  `TT_BIO_SOFTMAX_BW_RENORM=0` restores the old backward.
 
 - **The size-ladder gate takes its rep count from the rung that is noisy.** One sigma, measured
   at 512 aa only, set both the exponent tolerance and how many folds every rung is measured

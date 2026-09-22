@@ -1,0 +1,116 @@
+{
+  "host": "qb2",
+  "card": 0,
+  "board": "p300c",
+  "model": "openfold3",
+  "input": "examples/ubq.yaml",
+  "samples": 5,
+  "clock_aiclk_during": {
+    "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 59
+    },
+    "1": {
+      "min": 1350,
+      "max": 1350,
+      "median": 1350,
+      "n": 59
+    },
+    "2": {
+      "min": 800,
+      "max": 800,
+      "median": 800,
+      "n": 59
+    },
+    "3": {
+      "min": 800,
+      "max": 800,
+      "median": 800,
+      "n": 59
+    }
+  },
+  "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 59 samples, polled DURING the work",
+  "arms": {
+    "off": {
+      "arm": "off",
+      "model": "openfold3",
+      "seed": 0,
+      "samples": 5,
+      "env_TT_BIO_SOFTMAX_PRECISE_AB": null,
+      "rc": 0,
+      "wall_s": 103.63090277000447,
+      "cifs": [
+        "/home/ttuser/of3t_softmax_work/of3/off/openfold3_results_ubq/structures/ubq.cif",
+        "/home/ttuser/of3t_softmax_work/of3/off/openfold3_results_ubq/structures/ubq_model_1.cif",
+        "/home/ttuser/of3t_softmax_work/of3/off/openfold3_results_ubq/structures/ubq_model_2.cif",
+        "/home/ttuser/of3t_softmax_work/of3/off/openfold3_results_ubq/structures/ubq_model_3.cif",
+        "/home/ttuser/of3t_softmax_work/of3/off/openfold3_results_ubq/structures/ubq_model_4.cif"
+      ],
+      "sha256_structures": "600ae14d471e393cde2604fbde0e9ea4723a2422088492c5710cbf4c1fc85f96"
+    },
+    "on": {
+      "arm": "on",
+      "model": "openfold3",
+      "seed": 0,
+      "samples": 5,
+      "env_TT_BIO_SOFTMAX_PRECISE_AB": "all",
+      "rc": 0,
+      "wall_s": 103.93439606399625,
+      "cifs": [
+        "/home/ttuser/of3t_softmax_work/of3/on/openfold3_results_ubq/structures/ubq.cif",
+        "/home/ttuser/of3t_softmax_work/of3/on/openfold3_results_ubq/structures/ubq_model_1.cif",
+        "/home/ttuser/of3t_softmax_work/of3/on/openfold3_results_ubq/structures/ubq_model_2.cif",
+        "/home/ttuser/of3t_softmax_work/of3/on/openfold3_results_ubq/structures/ubq_model_3.cif",
+        "/home/ttuser/of3t_softmax_work/of3/on/openfold3_results_ubq/structures/ubq_model_4.cif"
+      ],
+      "sha256_structures": "1fbdb34b3f43ce413a5864430c4c7238297a45117e11dab17f6b93001462a2d5"
+    },
+    "floor": {
+      "arm": "floor",
+      "model": "openfold3",
+      "seed": 1,
+      "samples": 5,
+      "env_TT_BIO_SOFTMAX_PRECISE_AB": null,
+      "rc": 0,
+      "wall_s": 102.22291707900149,
+      "cifs": [
+        "/home/ttuser/of3t_softmax_work/of3/floor/openfold3_results_ubq/structures/ubq.cif",
+        "/home/ttuser/of3t_softmax_work/of3/floor/openfold3_results_ubq/structures/ubq_model_1.cif",
+        "/home/ttuser/of3t_softmax_work/of3/floor/openfold3_results_ubq/structures/ubq_model_2.cif",
+        "/home/ttuser/of3t_softmax_work/of3/floor/openfold3_results_ubq/structures/ubq_model_3.cif",
+        "/home/ttuser/of3t_softmax_work/of3/floor/openfold3_results_ubq/structures/ubq_model_4.cif"
+      ],
+      "sha256_structures": "1f0adf8b65f49f9ee84ba5127777758a9fd106190a4259deb131c485c5596b4f"
+    }
+  },
+  "angstrom": {
+    "lever_off_vs_on": {
+      "rank0_ca_rmsd_A": 0.3236889659099685,
+      "per_sample_ca_rmsd_A": [
+        0.3236889659099685,
+        0.7081566671713563,
+        0.4121371104816821,
+        0.3495819315856432,
+        0.36504196371225955
+      ],
+      "min_over_samples_A": 0.3236889659099685,
+      "max_over_samples_A": 0.7081566671713563,
+      "n": 5
+    },
+    "seed_floor_off_seed0_vs_off_seed1": {
+      "rank0_ca_rmsd_A": 0.6249559132726739,
+      "per_sample_ca_rmsd_A": [
+        0.6249559132726739,
+        0.4717453061412957,
+        0.27235760153927246,
+        0.3437164565996161,
+        0.7527683325409755
+      ],
+      "min_over_samples_A": 0.27235760153927246,
+      "max_over_samples_A": 0.7527683325409755,
+      "n": 5
+    }
+  }
+}

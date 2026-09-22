@@ -1,0 +1,296 @@
+{
+ "model": "boltz2",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "arms": "off,qkv,gate,off,qkv,gate,off,qkv,gate",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "started_utc": "2026-09-21T01:35:16Z",
+ "loadavg": [
+  1.4912109375,
+  2.4052734375,
+  3.02685546875
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 14.4,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1318,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1318 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 1,
+   "arm": "qkv",
+   "fold_s": 14.371,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1312,
+     "max": 1350,
+     "median": 1343,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1312 / median 1343 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 2,
+   "arm": "gate",
+   "fold_s": 15.304,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1325,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    560,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 3,
+   "arm": "off",
+   "fold_s": 14.404,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1331,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1331 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 4,
+   "arm": "qkv",
+   "fold_s": 14.312,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1300,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1300 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 5,
+   "arm": "gate",
+   "fold_s": 14.39,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1325,
+     "max": 1350,
+     "median": 1343,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1325 / median 1343 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    560,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 6,
+   "arm": "off",
+   "fold_s": 14.316,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1318,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1318 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 7,
+   "arm": "qkv",
+   "fold_s": 14.345,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1325,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    0,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  },
+  {
+   "i": 8,
+   "arm": "gate",
+   "fold_s": 14.392,
+   "plddt": 0.844645,
+   "aiclk": {
+    "0": {
+     "min": 1325,
+     "max": 1350,
+     "median": 1350,
+     "n": 12
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1325 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+   "digest": "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327",
+   "gate_stats": [
+    560,
+    0
+   ],
+   "sdpa_stats": [
+    560,
+    0
+   ],
+   "gate_rejects": {},
+   "fuse_rejects": {
+    "qkv_already_fused_with_gate": 560
+   }
+  }
+ ],
+ "ttnn": "0.68.0",
+ "cold_s": 14.786,
+ "medians": {
+  "off": 14.4,
+  "qkv": 14.345,
+  "gate": 14.392
+ },
+ "aa_floor": {
+  "off": 0.08799999999999919,
+  "qkv": 0.05900000000000105,
+  "gate": 0.9139999999999997
+ },
+ "digests": {
+  "off": [
+   "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327"
+  ],
+  "qkv": [
+   "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327"
+  ],
+  "gate": [
+   "fa67445a65ecdc53b33eafc533b0fe2de43600730979020f6fa5fb9fe53fd327"
+  ]
+ },
+ "ratio_qkv": 1.00383,
+ "delta_s_qkv": 0.055,
+ "ratio_gate": 1.00056,
+ "delta_s_gate": 0.008
+}

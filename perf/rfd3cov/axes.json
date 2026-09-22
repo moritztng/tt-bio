@@ -1,0 +1,600 @@
+{
+  "rungs": [
+    {
+      "rung": "control",
+      "target": "perf/ceilrfd3/targets/laczc_1008.cif",
+      "contig": "A1-924,100",
+      "contig_residue_count": 1024,
+      "designed_residues": 100,
+      "feature_tokens": 1024,
+      "feature_keys": [
+        "active_acceptor",
+        "active_donor",
+        "asym_id",
+        "atom_to_token_map",
+        "entity_id",
+        "has_zero_occupancy",
+        "is_atom_level_hotspot",
+        "is_backbone",
+        "is_ca",
+        "is_central",
+        "is_dna",
+        "is_ligand",
+        "is_motif_atom_unindexed",
+        "is_motif_atom_with_fixed_coord",
+        "is_motif_atom_with_fixed_seq",
+        "is_motif_token_unindexed",
+        "is_motif_token_with_fully_fixed_coord",
+        "is_non_loopy",
+        "is_polar",
+        "is_protein",
+        "is_rna",
+        "is_sidechain",
+        "is_virtual",
+        "motif_pos",
+        "ref_atom_name_chars",
+        "ref_atomwise_rasa",
+        "ref_charge",
+        "ref_element",
+        "ref_is_motif_atom_unindexed",
+        "ref_is_motif_atom_with_fixed_coord",
+        "ref_mask",
+        "ref_motif_token_type",
+        "ref_plddt",
+        "ref_pos",
+        "ref_pos_is_ground_truth",
+        "ref_space_uid",
+        "residue_index",
+        "restype",
+        "sym_id",
+        "terminus_type",
+        "token_bonds",
+        "token_index",
+        "unindexing_pair_mask"
+      ],
+      "feature_shapes": {
+        "active_acceptor": [
+          8800
+        ],
+        "active_donor": [
+          8800
+        ],
+        "asym_id": [
+          1024
+        ],
+        "atom_to_token_map": [
+          8800
+        ],
+        "entity_id": [
+          1024
+        ],
+        "has_zero_occupancy": [
+          8800
+        ],
+        "is_atom_level_hotspot": [
+          8800,
+          1
+        ],
+        "is_backbone": [
+          8800
+        ],
+        "is_ca": [
+          8800
+        ],
+        "is_central": [
+          8800
+        ],
+        "is_dna": [
+          1024
+        ],
+        "is_ligand": [
+          1024
+        ],
+        "is_motif_atom_unindexed": [
+          8800
+        ],
+        "is_motif_atom_with_fixed_coord": [
+          8800
+        ],
+        "is_motif_atom_with_fixed_seq": [
+          8800
+        ],
+        "is_motif_token_unindexed": [
+          1024
+        ],
+        "is_motif_token_with_fully_fixed_coord": [
+          1024
+        ],
+        "is_non_loopy": [
+          1024,
+          1
+        ],
+        "is_polar": [
+          1024
+        ],
+        "is_protein": [
+          1024
+        ],
+        "is_rna": [
+          1024
+        ],
+        "is_sidechain": [
+          8800
+        ],
+        "is_virtual": [
+          8800
+        ],
+        "motif_pos": [
+          8800,
+          3
+        ],
+        "ref_atom_name_chars": [
+          8800,
+          4,
+          64
+        ],
+        "ref_atomwise_rasa": [
+          8800,
+          3
+        ],
+        "ref_charge": [
+          8800
+        ],
+        "ref_element": [
+          8800,
+          128
+        ],
+        "ref_is_motif_atom_unindexed": [
+          8800
+        ],
+        "ref_is_motif_atom_with_fixed_coord": [
+          8800
+        ],
+        "ref_mask": [
+          8800
+        ],
+        "ref_motif_token_type": [
+          1024,
+          3
+        ],
+        "ref_plddt": [
+          1024
+        ],
+        "ref_pos": [
+          8800,
+          3
+        ],
+        "ref_pos_is_ground_truth": [
+          8800
+        ],
+        "ref_space_uid": [
+          8800
+        ],
+        "residue_index": [
+          1024
+        ],
+        "restype": [
+          1024,
+          32
+        ],
+        "sym_id": [
+          1024
+        ],
+        "terminus_type": [
+          1024,
+          2
+        ],
+        "token_bonds": [
+          1024,
+          1024
+        ],
+        "token_index": [
+          1024
+        ],
+        "unindexing_pair_mask": [
+          1024,
+          1024
+        ]
+      },
+      "msa_like_keys": []
+    },
+    {
+      "rung": "bar route A",
+      "target": "perf/ceilrfd3/targets/laczc_1008.cif",
+      "contig": "A1-1008,528",
+      "contig_residue_count": 1536,
+      "designed_residues": 528,
+      "feature_tokens": 1536,
+      "feature_keys": [
+        "active_acceptor",
+        "active_donor",
+        "asym_id",
+        "atom_to_token_map",
+        "entity_id",
+        "has_zero_occupancy",
+        "is_atom_level_hotspot",
+        "is_backbone",
+        "is_ca",
+        "is_central",
+        "is_dna",
+        "is_ligand",
+        "is_motif_atom_unindexed",
+        "is_motif_atom_with_fixed_coord",
+        "is_motif_atom_with_fixed_seq",
+        "is_motif_token_unindexed",
+        "is_motif_token_with_fully_fixed_coord",
+        "is_non_loopy",
+        "is_polar",
+        "is_protein",
+        "is_rna",
+        "is_sidechain",
+        "is_virtual",
+        "motif_pos",
+        "ref_atom_name_chars",
+        "ref_atomwise_rasa",
+        "ref_charge",
+        "ref_element",
+        "ref_is_motif_atom_unindexed",
+        "ref_is_motif_atom_with_fixed_coord",
+        "ref_mask",
+        "ref_motif_token_type",
+        "ref_plddt",
+        "ref_pos",
+        "ref_pos_is_ground_truth",
+        "ref_space_uid",
+        "residue_index",
+        "restype",
+        "sym_id",
+        "terminus_type",
+        "token_bonds",
+        "token_index",
+        "unindexing_pair_mask"
+      ],
+      "feature_shapes": {
+        "active_acceptor": [
+          15487
+        ],
+        "active_donor": [
+          15487
+        ],
+        "asym_id": [
+          1536
+        ],
+        "atom_to_token_map": [
+          15487
+        ],
+        "entity_id": [
+          1536
+        ],
+        "has_zero_occupancy": [
+          15487
+        ],
+        "is_atom_level_hotspot": [
+          15487,
+          1
+        ],
+        "is_backbone": [
+          15487
+        ],
+        "is_ca": [
+          15487
+        ],
+        "is_central": [
+          15487
+        ],
+        "is_dna": [
+          1536
+        ],
+        "is_ligand": [
+          1536
+        ],
+        "is_motif_atom_unindexed": [
+          15487
+        ],
+        "is_motif_atom_with_fixed_coord": [
+          15487
+        ],
+        "is_motif_atom_with_fixed_seq": [
+          15487
+        ],
+        "is_motif_token_unindexed": [
+          1536
+        ],
+        "is_motif_token_with_fully_fixed_coord": [
+          1536
+        ],
+        "is_non_loopy": [
+          1536,
+          1
+        ],
+        "is_polar": [
+          1536
+        ],
+        "is_protein": [
+          1536
+        ],
+        "is_rna": [
+          1536
+        ],
+        "is_sidechain": [
+          15487
+        ],
+        "is_virtual": [
+          15487
+        ],
+        "motif_pos": [
+          15487,
+          3
+        ],
+        "ref_atom_name_chars": [
+          15487,
+          4,
+          64
+        ],
+        "ref_atomwise_rasa": [
+          15487,
+          3
+        ],
+        "ref_charge": [
+          15487
+        ],
+        "ref_element": [
+          15487,
+          128
+        ],
+        "ref_is_motif_atom_unindexed": [
+          15487
+        ],
+        "ref_is_motif_atom_with_fixed_coord": [
+          15487
+        ],
+        "ref_mask": [
+          15487
+        ],
+        "ref_motif_token_type": [
+          1536,
+          3
+        ],
+        "ref_plddt": [
+          1536
+        ],
+        "ref_pos": [
+          15487,
+          3
+        ],
+        "ref_pos_is_ground_truth": [
+          15487
+        ],
+        "ref_space_uid": [
+          15487
+        ],
+        "residue_index": [
+          1536
+        ],
+        "restype": [
+          1536,
+          32
+        ],
+        "sym_id": [
+          1536
+        ],
+        "terminus_type": [
+          1536,
+          2
+        ],
+        "token_bonds": [
+          1536,
+          1536
+        ],
+        "token_index": [
+          1536
+        ],
+        "unindexing_pair_mask": [
+          1536,
+          1536
+        ]
+      },
+      "msa_like_keys": []
+    },
+    {
+      "rung": "bar route B",
+      "target": "perf/bhdesign/targets/big_1831.cif",
+      "contig": "A1-1008,B1-448,80",
+      "contig_residue_count": 1536,
+      "designed_residues": 80,
+      "feature_tokens": 1536,
+      "feature_keys": [
+        "active_acceptor",
+        "active_donor",
+        "asym_id",
+        "atom_to_token_map",
+        "entity_id",
+        "has_zero_occupancy",
+        "is_atom_level_hotspot",
+        "is_backbone",
+        "is_ca",
+        "is_central",
+        "is_dna",
+        "is_ligand",
+        "is_motif_atom_unindexed",
+        "is_motif_atom_with_fixed_coord",
+        "is_motif_atom_with_fixed_seq",
+        "is_motif_token_unindexed",
+        "is_motif_token_with_fully_fixed_coord",
+        "is_non_loopy",
+        "is_polar",
+        "is_protein",
+        "is_rna",
+        "is_sidechain",
+        "is_virtual",
+        "motif_pos",
+        "ref_atom_name_chars",
+        "ref_atomwise_rasa",
+        "ref_charge",
+        "ref_element",
+        "ref_is_motif_atom_unindexed",
+        "ref_is_motif_atom_with_fixed_coord",
+        "ref_mask",
+        "ref_motif_token_type",
+        "ref_plddt",
+        "ref_pos",
+        "ref_pos_is_ground_truth",
+        "ref_space_uid",
+        "residue_index",
+        "restype",
+        "sym_id",
+        "terminus_type",
+        "token_bonds",
+        "token_index",
+        "unindexing_pair_mask"
+      ],
+      "feature_shapes": {
+        "active_acceptor": [
+          12858
+        ],
+        "active_donor": [
+          12858
+        ],
+        "asym_id": [
+          1536
+        ],
+        "atom_to_token_map": [
+          12858
+        ],
+        "entity_id": [
+          1536
+        ],
+        "has_zero_occupancy": [
+          12858
+        ],
+        "is_atom_level_hotspot": [
+          12858,
+          1
+        ],
+        "is_backbone": [
+          12858
+        ],
+        "is_ca": [
+          12858
+        ],
+        "is_central": [
+          12858
+        ],
+        "is_dna": [
+          1536
+        ],
+        "is_ligand": [
+          1536
+        ],
+        "is_motif_atom_unindexed": [
+          12858
+        ],
+        "is_motif_atom_with_fixed_coord": [
+          12858
+        ],
+        "is_motif_atom_with_fixed_seq": [
+          12858
+        ],
+        "is_motif_token_unindexed": [
+          1536
+        ],
+        "is_motif_token_with_fully_fixed_coord": [
+          1536
+        ],
+        "is_non_loopy": [
+          1536,
+          1
+        ],
+        "is_polar": [
+          1536
+        ],
+        "is_protein": [
+          1536
+        ],
+        "is_rna": [
+          1536
+        ],
+        "is_sidechain": [
+          12858
+        ],
+        "is_virtual": [
+          12858
+        ],
+        "motif_pos": [
+          12858,
+          3
+        ],
+        "ref_atom_name_chars": [
+          12858,
+          4,
+          64
+        ],
+        "ref_atomwise_rasa": [
+          12858,
+          3
+        ],
+        "ref_charge": [
+          12858
+        ],
+        "ref_element": [
+          12858,
+          128
+        ],
+        "ref_is_motif_atom_unindexed": [
+          12858
+        ],
+        "ref_is_motif_atom_with_fixed_coord": [
+          12858
+        ],
+        "ref_mask": [
+          12858
+        ],
+        "ref_motif_token_type": [
+          1536,
+          3
+        ],
+        "ref_plddt": [
+          1536
+        ],
+        "ref_pos": [
+          12858,
+          3
+        ],
+        "ref_pos_is_ground_truth": [
+          12858
+        ],
+        "ref_space_uid": [
+          12858
+        ],
+        "residue_index": [
+          1536
+        ],
+        "restype": [
+          1536,
+          32
+        ],
+        "sym_id": [
+          1536
+        ],
+        "terminus_type": [
+          1536,
+          2
+        ],
+        "token_bonds": [
+          1536,
+          1536
+        ],
+        "token_index": [
+          1536
+        ],
+        "unindexing_pair_mask": [
+          1536,
+          1536
+        ]
+      },
+      "msa_like_keys": []
+    }
+  ],
+  "msa_mentions_in_tt_bio_rfd3": {},
+  "msa_mentions_total": 0
+}

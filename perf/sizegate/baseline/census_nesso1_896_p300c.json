@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/nesso1/inputs/ladder/aa896/cdk2_896.yaml",
+    "/home/ttuser/.coworker/wt/sizeladder-p300c-refresh-0920/perf/nesso1/inputs/ladder/aa896/cdk2_896.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/sizegate/work/out_nesso1-896-rep0"
+    "/home/ttuser/.coworker/wt/sizeladder-p300c-refresh-0920/perf/sizegate/work/out_nesso1-896-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -193,9 +193,11 @@
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 3842,
+      "declined": 7684,
       "rejects": {
-        "window_BufferType.L1": 3842
+        "gated_window_BufferType.L1": 1921,
+        "window_BufferType.L1": 3842,
+        "back_l1_src_narrow": 1921
       },
       "gauges": null
     },

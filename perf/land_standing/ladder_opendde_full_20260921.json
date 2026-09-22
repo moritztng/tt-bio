@@ -1,0 +1,53 @@
+{
+ "what": "release_gate.py --model size-ladder --size-ladder-models opendde at commit 11a92f686",
+ "host": "tt-quietbox",
+ "card_type": "p150a",
+ "chip": "0",
+ "started_utc": "2026-09-21T04:37Z",
+ "wall_s": 3136,
+ "baseline": "docs/size_ladder_baseline.d/opendde.json cards.p150a, recorded 2026-09-20 at e69df58cb",
+ "verdict": "FAIL",
+ "summary_row": "opendde            27.8s    79.2s   126.3s   277.6s   247.8s   327.3s        -        -        -        -       1.51       3.09    3136s  FAIL (opendde/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde 512->768: exponent 2.01 -> 3.09 outside \u00b10.50; opendde per-rung base->run: 256 32.5->27.8 0.86x, 512 86.6->79.2 0.91x, 640 134.1->126.3 0.94x, 768 195.9->277.6 1.42x, 896 261.3->247.8 0.95x, 1024 337.0->327.3 0.97x -- only 256 aa, 512 aa, 640 aa, 768 aa, 896 aa moved more than 5%; 1024 aa reproduce. Attribute the exponent to those rungs, not to the interval)",
+ "findings": [
+  "opendde/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']",
+  "opendde/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']",
+  "opendde/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']",
+  "opendde/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']",
+  "opendde/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []",
+  "opendde/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)",
+  "opendde 512->768: exponent 2.01 -> 3.09 outside \u00b10.50",
+  "opendde per-rung base->run: 256 32.5->27.8 0.86x, 512 86.6->79.2 0.91x, 640 134.1->126.3 0.94x, 768 195.9->277.6 1.42x, 896 261.3->247.8 0.95x, 1024 337.0->327.3 0.97x -- only 256 aa, 512 aa, 640 aa, 768 aa, 896 aa moved more than 5%; 1024 aa reproduce. Attribute the exponent to those rungs, not to the interval"
+ ],
+ "runtime_ratios_base_to_run": {
+  "256": 0.86,
+  "512": 0.91,
+  "640": 0.94,
+  "768_as_measured_contended": 1.42,
+  "896": 0.95,
+  "1024": 0.97
+ },
+ "runtime_768_requantified_quiet": {
+  "median_s": 184.5,
+  "ratio": 0.9418,
+  "artifact": "perf/land_standing/ladder768_quiet_20260921.json"
+ },
+ "drift_attribution": {
+  "QKV_MM_CONFIG": "THIS MERGE, intended. Stops declining (12,48)/(12,49) at all six rungs.",
+  "PAIR_PROJ_MINIMAL_MATMUL": "THIS MERGE, intended and second-order. Loses its k_tiles=12:(12,1) decline clause at 256-768 because the fused qkv+gate+bias projection means the one-tile bias matmul is no longer issued at all. Predicted NOT to move: the check made was whether the KEY (12,1) resolves differently, and it does not. The call stops existing, which a key-resolution check cannot see.",
+  "SDPA_WIDE_K": "NOT THIS MERGE. The default flip is ed5d6074e (2026-09-19), which is NOT an ancestor of the baseline commit e69df58cb, and this merge diff mentions the flag zero times. The baseline was recorded from a tree lacking an already-committed flip, so this drift fires against main independently of this change."
+ },
+ "not_re_recorded_because": [
+  "the 768 rung in this run is contention-contaminated, and a baseline is a long-lived reference",
+  "one of the three drifts is another row unrecorded default flip; absorbing it into a re-record attributed to this merge is the wrong bookkeeping"
+ ]
+}

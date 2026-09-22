@@ -1,0 +1,50 @@
+[
+ {
+  "leg": "m1024",
+  "engine_sha": "bd643929a",
+  "engine": "origin/main",
+  "tokens": 1024,
+  "msa_rows_in_a3m": 8192,
+  "sampling_steps": 200,
+  "recycling_steps": 10,
+  "card_umd": 0,
+  "dev_node": 16,
+  "wall_s": 1350,
+  "cif_md5": "b08a39e5a7044af41240b21cd1638b3a",
+  "power_w_max": 118,
+  "power_w_samples": 135,
+  "note": "AICLK not exposed by this host driver; hwmon power sampled at 10 s during the fold"
+ },
+ {
+  "leg": "p1024",
+  "engine_sha": "d29d9a823",
+  "engine": "live engine.pin",
+  "tokens": 1024,
+  "msa_rows_in_a3m": 8192,
+  "sampling_steps": 200,
+  "recycling_steps": 10,
+  "card_umd": 3,
+  "dev_node": 19,
+  "wall_s": 1597,
+  "cif_md5": "3b3099f99a128e416d38ef91b450ef19",
+  "power_w_max": 118,
+  "power_w_samples": 160,
+  "note": "AICLK not exposed by this host driver; hwmon power sampled at 10 s during the fold"
+ },
+ {
+  "leg": "s20",
+  "engine_sha": "bd643929a",
+  "engine": "origin/main",
+  "tokens": 1024,
+  "msa_rows_in_a3m": 8192,
+  "sampling_steps": 20,
+  "recycling_steps": 10,
+  "card_umd": 1,
+  "dev_node": 17,
+  "wall_s": 1259,
+  "cif_md5": "54c9ccab583e28d3c159e838de61e985",
+  "power_w_max": 114,
+  "power_w_samples": 126,
+  "note": "AICLK not exposed by this host driver; hwmon power sampled at 10 s during the fold"
+ }
+]
