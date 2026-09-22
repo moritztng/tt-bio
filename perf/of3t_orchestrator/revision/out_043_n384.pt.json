@@ -1,0 +1,9 @@
+{
+ "tag": "0.4.3",
+ "ctor": "AttentionPairBias(use_ada_layer_norm=True)",
+ "N": 384,
+ "missing_keys": [],
+ "unexpected_keys": [],
+ "out_absmax": 586.4932053958712,
+ "out_l2": 10719.467310193811
+}

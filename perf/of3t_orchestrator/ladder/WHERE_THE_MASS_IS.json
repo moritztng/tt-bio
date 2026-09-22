@@ -1,0 +1,56 @@
+{
+ "measured_exactly_over_the_7_sampled_blocks": {
+  "per_block": {
+   "0": {
+    "ref_grad_sq": 0.012984505209032503,
+    "reach_pct": 94.88188785008835,
+    "median_rel": 0.012135513239367901
+   },
+   "8": {
+    "ref_grad_sq": 0.009092398835022223,
+    "reach_pct": 84.76059212808666,
+    "median_rel": 0.03024706540550518
+   },
+   "16": {
+    "ref_grad_sq": 0.007710135133434251,
+    "reach_pct": 83.3803612606973,
+    "median_rel": 0.021619448058325205
+   },
+   "23": {
+    "ref_grad_sq": 0.0077243145902505025,
+    "reach_pct": 74.95571446472998,
+    "median_rel": 0.01919069614011403
+   },
+   "32": {
+    "ref_grad_sq": 0.006293591145922896,
+    "reach_pct": 61.58403459390909,
+    "median_rel": 0.09678672241663
+   },
+   "40": {
+    "ref_grad_sq": 0.015585888927472907,
+    "reach_pct": 82.93589458846861,
+    "median_rel": 0.02117788457108635
+   },
+   "47": {
+    "ref_grad_sq": 0.10860764524064656,
+    "reach_pct": 0.0,
+    "median_rel": 0.20128904136799777
+   }
+  },
+  "total_ref_grad_sq": 0.16799847908178184,
+  "reach_pct": 29.195152543195945,
+  "reach_pct_excluding_block47": 82.58414483516499,
+  "block47_share_of_sampled_mass_pct": 64.64799314509047,
+  "block47_reach_pct": 0.0
+ },
+ "headline": "over the seven sampled blocks the trunk reaches 29.20 % of squared gradient norm. Block 47 is 64.65 % of that sampled mass and contributes 0.00 % of the reach -- not one of its tensors passes the 5.0e-02 per-tensor bar. Excluding it the six others reach 82.58 %.",
+ "extrapolation_CLEARLY_AN_ESTIMATE": {
+  "assumption": "the 41 unsampled blocks resemble the six clean ones (mean ref grad sq 9.8985e-03)",
+  "estimated_whole_trunk_ref_grad_sq": 0.573835843662873,
+  "block47_share_of_whole_trunk_pct": 18.926605307083825,
+  "block47_share_of_WHOLE_MODEL_pct": 1.1030425572968454,
+  "cross_check": "the campaign independently recorded block 47 at about 1.06 % of model mass, which this estimate reproduces -- so the extrapolation is not obviously wrong"
+ },
+ "the_judgement_this_forces": "block 47 is worth roughly ONE PER CENT of the model's gradient mass. It has absorbed most of the campaign's attention for a dozen passes because it is the sharpest signal available -- a clean per-track factor with six controls -- and that was the right place to learn HOW to localise. But the diffusion module is 89.211 % of the mass and sits at 19.6x its own forward (D30), and nothing has been aimed at it since the ladder work began. Fixing block 47 completely would move the model-scope number by about a per cent of the mass; fixing the diffusion backward would move it by two orders more.",
+ "what_should_change": "the block-47 thread now has one cheap open arm (the k-ladder, A21) and one bracket capture in flight (blocks 42-46). Both should finish -- they are nearly free and the bracket is the cleanest localisation the campaign has. But the NEXT dispatch after them belongs to the diffusion module, and the D30 stage bisect cut by block boundary is the instrument for it: the DiT has 24 blocks and the same per-block ladder that just resolved the trunk applies unchanged."
+}

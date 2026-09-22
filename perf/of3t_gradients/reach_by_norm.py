@@ -54,25 +54,39 @@ def main() -> int:
                          "reproduced; `r0_replay_gradient` is the published r = 0 one. The norm "
                          "SHARES differ between them even though the presence pattern does not, "
                          "because the shares are computed from the gradient's values.")
+    # Amendment 3: the 0.5.0 reference has 4,147 parameters and the 0.4.3 one has 4,170, so
+    # every share below is a share of whichever model's norm this is pointed at. Defaults are
+    # the published 0.5.0 paths.
+    ap.add_argument("--bundle", default=BUNDLE)
+    ap.add_argument("--manifest-json", default=None)
+    ap.add_argument("--out", default=os.path.join(OUT, "reach_by_norm.json"))
     a = ap.parse_args()
     mat_path = a.mat
 
-    man = json.loads(subprocess.run(["git", "show", f"{REF_BRANCH}:{MANIFEST_GIT}"],
-                                    capture_output=True, check=True).stdout)
-    blk = man[a.gradient_block]
+    if a.manifest_json:
+        man = json.loads(open(a.manifest_json).read())
+        man_src = a.manifest_json
+    else:
+        man = json.loads(subprocess.run(["git", "show", f"{REF_BRANCH}:{MANIFEST_GIT}"],
+                                        capture_output=True, check=True).stdout)
+        man_src = f"{REF_BRANCH}:{MANIFEST_GIT}"
+    blk = man.get(a.gradient_block) or man["validated_gradient"]
     if a.gradient_block == "r0_replay_gradient":
         # The `artifacts` list still declares only the withdrawn trio, and this block keys its
         # digests by LOGICAL name (`grads_f64.pt`) while the file on disk is `grads_f64_r0.pt`.
         # Both facts are of3t-reference's to fix; following them here is cheaper than blocking.
         gfile, declared = blk["file"], blk["sha256"]["grads_f64.pt"]
+    elif a.manifest_json:
+        gfile = blk["file"]
+        declared = {x["file"]: x for x in man["artifacts"] if "sha256" in x}[gfile]["sha256"]
     else:
         gfile = blk["file"]
         declared = {x["file"]: x for x in man["artifacts"] if "sha256" in x}[gfile]["sha256"]
-    got = sha256_file(os.path.join(BUNDLE, gfile))
+    got = sha256_file(os.path.join(a.bundle, gfile))
     if got != declared:
         raise SystemExit(f"{gfile}: sha256 {got} != manifest {declared}")
 
-    g = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
+    g = torch.load(os.path.join(a.bundle, gfile), map_location="cpu", weights_only=False)
     sq = {k: float(torch.linalg.vector_norm(v.to(torch.float64)) ** 2)
           for k, v in g.items() if v is not None}
     absent = [k for k, v in g.items() if v is None]
@@ -80,7 +94,7 @@ def main() -> int:
     total = sum(sq.values())
     rep = {"instrument": "D17: bijection reach in gradient norm, not tensor count",
            "reference": {"file": gfile, "sha256": got, "verified": True,
-                         "manifest": f"{REF_BRANCH}:{MANIFEST_GIT}",
+                         "manifest": man_src,
                          "num_recycles": blk["num_recycles"],
                          "published_global_norm":
                              blk["gradient_global_norm"]},
@@ -88,7 +102,7 @@ def main() -> int:
            "n_tensors": len(sq), "n_absent": len(absent),
            "total_squared_norm": total, "total_norm": total ** 0.5}
     print(f"{len(sq)} tensors, global norm {total**0.5:.12f} "
-          f"(published {man['validated_gradient']['gradient_global_norm']:.12f})", flush=True)
+          f"(published {blk['gradient_global_norm']:.12f})", flush=True)
 
     def top_level(k):
         return k.split(".", 1)[0]
@@ -186,8 +200,8 @@ def main() -> int:
          "reached_by_device_bijection": k not in cannot}
         for v, k in sorted(((v, k) for k, v in sq.items()), reverse=True)[:15]]
 
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, "reach_by_norm.json")
+    path = a.out
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     json.dump(rep, open(path, "w"), indent=1)
     print("\nby top level (share of squared norm):")
     for k, v in rep["by_top_level"].items():
