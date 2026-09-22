@@ -1114,7 +1114,15 @@ def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int
 
 
 def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
-    if seq_len in _TRIMUL_DRAM_SHAPES:
+    # The trimul's whole chunk loop inherits this one config, so it is the second place the
+    # L1-residency lever is decided and `_l1_fits` never sees it. Under a tape it must be
+    # DRAM for `_l1_fits`'s reason: a tape keeps what the forward frees, so every chunk's
+    # split, both channel moves, the input projection and the chunk matmul stay resident
+    # and the next program cannot lay out its circular buffers. Measured on openfold3's MSA
+    # module at 76 tokens, 214 MB of L1 held across six sites in this module, and the
+    # fourth block's attention QKV projection then refuses.
+    from . import ops
+    if seq_len in _TRIMUL_DRAM_SHAPES or ops.taping():
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
@@ -4621,7 +4629,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
     where a separate elementwise add rounds twice and measures 1.4x further from torch
     (state/pxdesign-af2ig-port.md, pass 8).
     """
-    if l1_out and _PAIR_PROJ_L1_OUT:
+    # `l1_out` hands the result to its consumer in L1, and under a tape there is no such
+    # handoff: the tape holds the projection as well, so the place is never released. Third
+    # of the three L1 gates, with `_l1_fits` and `_triangle_mul_memory_config`.
+    from . import ops as _ops_l1
+    if l1_out and _PAIR_PROJ_L1_OUT and not _ops_l1.taping():
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
         # The ladder narrows the drain block THIS GATE chose. A caller that names its own block
         # instead -- the row-blocked pair FFN fc1 is the only one, at _PAIR_FFN_FC1_BLOCK_W --
