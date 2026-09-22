@@ -1,0 +1,329 @@
+{
+ "what": "BindCraft2 p2 floor screen: fixed vs per-block cost of a taped pairformer gradient step at AF2's pair dims.",
+ "argv": "perf/hallgrad/blocksweep.py --out perf/hallgrad/p2_blocksweep_k6.json --steps 30 --transitions on,off --ns 256 --ks 6",
+ "host": "tt-quietbox2",
+ "git_sha": "0cacc4e324bdf44f8e7089f375cd2b228e4f7705",
+ "python": "/home/ttuser/ptxft-venv/bin/python",
+ "tt_visible_devices": "0",
+ "started_utc": "2026-09-22T00:55:54Z",
+ "c_z": 128,
+ "heads": 4,
+ "head_dim": 32,
+ "chunk": 128,
+ "steps": 30,
+ "warm_from": 5,
+ "seed": 5,
+ "checkpoint": false,
+ "points": [
+  {
+   "n": 256,
+   "blocks": 6,
+   "block_transition": true,
+   "checkpoint": false,
+   "ok": false,
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B DRAM buffer across 8 banks, where each bank needs to store 16777216 B, but bank size is 4278190016 B (allocated: 4245456896 B, free: 32733120 B, largest free block: 14112704 B)\nbacktrace:\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7284dacd2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x7284dc31886f]\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x7284dc30a4bd]\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x7284dc2dd7c8]\n --- ttnn::add(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5b5dea) [0x7284dd5b5dea]\n --- /home/ttuser/ptxft-venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7284dd26daa5]\n --- /home/ttuser/ptxft-venv/bin/python(_PyObject_Call_Prepend+0x111) [0x54a851]\n --- /home/ttuser/ptxft-venv/bin/python() [0x5a3778]\n --- /home/ttuser/ptxft-venv/bin/python(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/ptxft-venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/ptxft-venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/ptxft-venv/bin/python() [0x5a3778]\n --- /home/ttuser/ptxft-venv/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]\n --- /home/ttuser/ptxft-venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/ptxft-venv/bin/python(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/ptxft-venv/bin/python() [0x608852]\n --- /home/ttuser/ptxft-venv/bin/python() [0x6b50d3]\n --- /home/ttuser/ptxft-venv/bin/python(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/ptxft-venv/bin/python(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/ptxft-venv/bin/python(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/ptxft-venv/bin/python(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7285bf02a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7285bf02a28b]\n --- /home/ttuser/ptxft-venv/bin/python(_start+0x25) [0x657a05]\n",
+   "wall_s": 1.248964786529541
+  },
+  {
+   "n": 256,
+   "blocks": 6,
+   "block_transition": false,
+   "checkpoint": false,
+   "ok": true,
+   "steps": 30,
+   "warm_from": 5,
+   "step_1_s": 1.7193241150016547,
+   "warm_step": {
+    "mean": 1.3251749110000675,
+    "median": 1.325191869000264,
+    "min": 1.3218890099960845,
+    "max": 1.3280499510001391,
+    "count": 25
+   },
+   "warm_fwd": {
+    "mean": 0.4848938296799315,
+    "median": 0.4849001800030237,
+    "min": 0.4844313389985473,
+    "max": 0.4852123210002901,
+    "count": 25
+   },
+   "warm_bwd": {
+    "mean": 0.8100494749192149,
+    "median": 0.810083507996751,
+    "min": 0.8095953430020018,
+    "max": 0.8105064900009893,
+    "count": 25
+   },
+   "reached": 725,
+   "loss_first": 1.0720786780162257,
+   "loss_last": 0.23554351636137383,
+   "t_start": 1790038556.062236,
+   "t_end": 1790038596.2023628,
+   "clock_window_warm": {
+    "min": 1343,
+    "max": 1350,
+    "median": 1350,
+    "samples": 25,
+    "attributable": true
+   },
+   "clock_window_all": {
+    "min": 1337,
+    "max": 1350,
+    "median": 1350,
+    "samples": 30,
+    "attributable": true
+   },
+   "step_times": [
+    1.7193241150016547,
+    1.3204325789993163,
+    1.3217953589992248,
+    1.3253496530014672,
+    1.3238016090035671,
+    1.323220135003794,
+    1.3239319050044287,
+    1.3237018369982252,
+    1.3228448790032417,
+    1.3218890099960845,
+    1.323180131999834,
+    1.3233716969989473,
+    1.3251268110034289,
+    1.3238760919994093,
+    1.3240380300048855,
+    1.3265978039999027,
+    1.3259217270024237,
+    1.325191869000264,
+    1.326817918998131,
+    1.3261976279973169,
+    1.3233190870014369,
+    1.3246203890012112,
+    1.3254663749976316,
+    1.326303404995997,
+    1.326359049999155,
+    1.3276428669996676,
+    1.3280499510001391,
+    1.3266218450007727,
+    1.3277044509959524,
+    1.3273778799994034
+   ],
+   "fwd_times": [
+    0.8842526110020117,
+    0.4850166449978133,
+    0.4850203660025727,
+    0.4850002710008994,
+    0.48507116900145775,
+    0.4850018610013649,
+    0.48517689600703306,
+    0.48471417000109795,
+    0.4847654219993274,
+    0.48481430699757766,
+    0.4845095409982605,
+    0.4850867119967006,
+    0.48500749400409404,
+    0.4848800649997429,
+    0.4852123210002901,
+    0.4847207389975665,
+    0.48504826499993214,
+    0.4849978329948499,
+    0.4849001800030237,
+    0.48498362099780934,
+    0.4846349930012366,
+    0.4844313389985473,
+    0.4851302500028396,
+    0.4848457429980044,
+    0.4845928350041504,
+    0.4848312199974316,
+    0.4851038429987966,
+    0.4848015009993105,
+    0.48508192699955544,
+    0.4850726639997447
+   ],
+   "bwd_times": [
+    0.8103799969976535,
+    0.8101248660022975,
+    0.810213681004825,
+    0.8097726290070568,
+    0.8099008179997327,
+    0.8095953430020018,
+    0.809702432998165,
+    0.810137633998238,
+    0.8098839689992019,
+    0.8101876810032991,
+    0.810083507996751,
+    0.8098886629959452,
+    0.8104664879938355,
+    0.809767713995825,
+    0.8099834799941164,
+    0.8105064900009893,
+    0.8102625620012986,
+    0.8099704620035482,
+    0.8097879999986617,
+    0.8100982559990371,
+    0.8097392190029495,
+    0.8100427609970211,
+    0.8101314450032078,
+    0.8101320409987238,
+    0.8101358639978571,
+    0.8102234059988405,
+    0.8102993540014722,
+    0.8099883300019428,
+    0.8103622349954094,
+    0.8098595350020332
+   ],
+   "wall_s": 40.194584131240845,
+   "clock_ok": true
+  }
+ ],
+ "matmul_roof": {
+  "256": {
+   "n": 256,
+   "shape": [
+    65536,
+    128,
+    128
+   ],
+   "calls": 20,
+   "seconds": 0.00230253700283356,
+   "tflops": 18.653195543500516,
+   "per_call_ms": 0.115126850141678
+  }
+ },
+ "clock_meta": {
+  "device_counts": [
+   1
+  ],
+  "failures": 0,
+  "total_samples": 31,
+  "poll_s": 1.0
+ },
+ "clock_samples": [
+  [
+   1790038555.0238585,
+   1350
+  ],
+  [
+   1790038556.258854,
+   1350
+  ],
+  [
+   1790038557.7767003,
+   1350
+  ],
+  [
+   1790038559.5854115,
+   1337
+  ],
+  [
+   1790038561.1594422,
+   1350
+  ],
+  [
+   1790038562.473603,
+   1350
+  ],
+  [
+   1790038563.805937,
+   1350
+  ],
+  [
+   1790038565.142437,
+   1350
+  ],
+  [
+   1790038566.4516516,
+   1343
+  ],
+  [
+   1790038567.774916,
+   1350
+  ],
+  [
+   1790038569.0959601,
+   1350
+  ],
+  [
+   1790038570.4265215,
+   1350
+  ],
+  [
+   1790038571.7444358,
+   1350
+  ],
+  [
+   1790038573.0680525,
+   1350
+  ],
+  [
+   1790038574.3920867,
+   1350
+  ],
+  [
+   1790038575.7170587,
+   1350
+  ],
+  [
+   1790038577.0353131,
+   1350
+  ],
+  [
+   1790038578.3718665,
+   1350
+  ],
+  [
+   1790038579.7016914,
+   1350
+  ],
+  [
+   1790038581.0104196,
+   1350
+  ],
+  [
+   1790038582.3434694,
+   1350
+  ],
+  [
+   1790038583.6659606,
+   1350
+  ],
+  [
+   1790038585.0063627,
+   1350
+  ],
+  [
+   1790038586.324708,
+   1343
+  ],
+  [
+   1790038587.6505516,
+   1350
+  ],
+  [
+   1790038588.9632952,
+   1350
+  ],
+  [
+   1790038590.290779,
+   1350
+  ],
+  [
+   1790038591.6197755,
+   1350
+  ],
+  [
+   1790038592.945625,
+   1350
+  ],
+  [
+   1790038594.2799845,
+   1350
+  ],
+  [
+   1790038595.6091182,
+   1350
+  ]
+ ],
+ "finished_utc": "2026-09-22T00:56:36Z",
+ "fits": {},
+ "arithmetic": {},
+ "discriminator_1_scaling": {},
+ "discriminator_2_roof": {}
+}
