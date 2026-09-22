@@ -1,0 +1,421 @@
+{
+ "what": "The CHAIN error: dL/ds_in and dL/dz_in, ours against float64, at each scope.",
+ "scopes": {
+  "b0": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b0_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b0_f64_ig.pt",
+   "first_block": 0,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.006285448411484154,
+    "norm_ratio": 0.9960889728628394,
+    "cos": 0.9999878471054683,
+    "ref_norm": 0.005011920332768208,
+    "our_norm": 0.004992318576337465,
+    "magnitude_share": 0.3871766219256257,
+    "direction_share": 0.6128233780782332,
+    "best_rescaled_rel_l2": 0.0049300751891396145
+   },
+   "dz_in": {
+    "rel_l2": 0.008662420313800403,
+    "norm_ratio": 0.9998859529292279,
+    "cos": 0.9999624834618903,
+    "ref_norm": 0.0008770218487217816,
+    "our_norm": 0.0008769218269489318,
+    "magnitude_share": 0.0001733363972071916,
+    "direction_share": 0.9998266636039376,
+    "best_rescaled_rel_l2": 0.008662082239778535
+   }
+  },
+  "b0_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b0_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b0_f64_ig.pt",
+   "first_block": 0,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.004606582371835125,
+    "norm_ratio": 0.9978427581112116,
+    "cos": 0.9999916986376621,
+    "ref_norm": 0.005011920332768208,
+    "our_norm": 0.00500110840828309,
+    "magnitude_share": 0.219300694359661,
+    "direction_share": 0.7806993056483937,
+    "best_rescaled_rel_l2": 0.0040746356601648655
+   },
+   "dz_in": {
+    "rel_l2": 0.006111499273484882,
+    "norm_ratio": 0.9998424466450165,
+    "cos": 0.9999813342589942,
+    "ref_norm": 0.0008770218487217816,
+    "our_norm": 0.0008768836709871217,
+    "magnitude_share": 0.0006645991511206451,
+    "direction_share": 0.9993354008445205,
+    "best_rescaled_rel_l2": 0.006109920916167869
+   }
+  },
+  "b0_BREAK": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_BREAK_b0_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b0_f64_ig.pt",
+   "first_block": 0,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 1.3134244559762531,
+    "norm_ratio": 1.0025949974916488,
+    "cos": 0.13969395824812927,
+    "ref_norm": 0.005011920332768208,
+    "our_norm": 0.005024926253460085,
+    "magnitude_share": 3.903585423263309e-06,
+    "direction_share": 0.9999960964145769,
+    "best_rescaled_rel_l2": 0.9901947273284027
+   },
+   "dz_in": {
+    "rel_l2": 1.3847178902082746,
+    "norm_ratio": 0.9586687360963233,
+    "cos": 0.0008355910886525471,
+    "ref_norm": 0.0008770218487217816,
+    "our_norm": 0.0008407734272429712,
+    "magnitude_share": 0.00089091191223623,
+    "direction_share": 0.9991090880877638,
+    "best_rescaled_rel_l2": 0.9999996508937053
+   }
+  },
+  "b8": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b8_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b8_f64_ig.pt",
+   "first_block": 8,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.05124508978839205,
+    "norm_ratio": 1.0019119922803519,
+    "cos": 0.9986913004669347,
+    "ref_norm": 1.796094860361615e-05,
+    "our_norm": 1.799528979869406e-05,
+    "magnitude_share": 0.0013920914052335629,
+    "direction_share": 0.9986079085948393,
+    "best_rescaled_rel_l2": 0.051143781358664445
+   },
+   "dz_in": {
+    "rel_l2": 0.03405308831837798,
+    "norm_ratio": 1.0003045942682767,
+    "cos": 0.999420416514603,
+    "ref_norm": 0.0004608352238975095,
+    "our_norm": 0.0004609755916653287,
+    "magnitude_share": 8.000745278133275e-05,
+    "direction_share": 0.9999199925473415,
+    "best_rescaled_rel_l2": 0.034041607684970665
+   }
+  },
+  "b8_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b8_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b8_f64_ig.pt",
+   "first_block": 8,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.003469732892372001,
+    "norm_ratio": 1.0001057137239902,
+    "cos": 0.9999939867002119,
+    "ref_norm": 1.796094860361615e-05,
+    "our_norm": 1.7962847322379434e-05,
+    "magnitude_share": 0.0009282621829240624,
+    "direction_share": 0.9990717378176853,
+    "best_rescaled_rel_l2": 0.0034679335945889235
+   },
+   "dz_in": {
+    "rel_l2": 0.006630304879907222,
+    "norm_ratio": 0.9999919974671508,
+    "cos": 0.9999780193847189,
+    "ref_norm": 0.0004608352238975095,
+    "our_norm": 0.00046083153604849225,
+    "magnitude_share": 1.4567597490108882e-06,
+    "direction_share": 0.999998543241263,
+    "best_rescaled_rel_l2": 0.006630290145601607
+   }
+  },
+  "b16": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b16_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b16_f64_ig.pt",
+   "first_block": 16,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.016996689140616163,
+    "norm_ratio": 1.000105882428841,
+    "cos": 0.9998555771765139,
+    "ref_norm": 1.7944454156667805e-05,
+    "our_norm": 1.7946354159058136e-05,
+    "magnitude_share": 3.880780926212707e-05,
+    "direction_share": 0.9999611921914168,
+    "best_rescaled_rel_l2": 0.0169948459545937
+   },
+   "dz_in": {
+    "rel_l2": 0.011249387445246376,
+    "norm_ratio": 0.999433177359968,
+    "cos": 0.9999368504904221,
+    "ref_norm": 0.00047545430417801653,
+    "our_norm": 0.00047518480591410777,
+    "magnitude_share": 0.00253884757222161,
+    "direction_share": 0.9974611524269263,
+    "best_rescaled_rel_l2": 0.011238106214800234
+   }
+  },
+  "b16_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b16_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b16_f64_ig.pt",
+   "first_block": 16,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.001980662448815083,
+    "norm_ratio": 1.0001118069671788,
+    "cos": 0.9999980449571187,
+    "ref_norm": 1.7944454156667805e-05,
+    "our_norm": 1.7946460471664742e-05,
+    "magnitude_share": 0.0031865211004386616,
+    "direction_share": 0.9968134789115541,
+    "best_rescaled_rel_l2": 0.0019773927127253355
+   },
+   "dz_in": {
+    "rel_l2": 0.0059106167886224265,
+    "norm_ratio": 0.9999446968604644,
+    "cos": 0.9999825328678175,
+    "ref_norm": 0.00047545430417801653,
+    "our_norm": 0.0004754280100622898,
+    "magnitude_share": 8.75455281886806e-05,
+    "direction_share": 0.9999124544730948,
+    "best_rescaled_rel_l2": 0.005910495686856508
+   }
+  },
+  "b23": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b23_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b23_f64_ig.pt",
+   "first_block": 23,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.03692193951950151,
+    "norm_ratio": 1.0001024753654242,
+    "cos": 0.9993184602826916,
+    "ref_norm": 1.7860600687425966e-05,
+    "our_norm": 1.7862430959008107e-05,
+    "magnitude_share": 7.703178086129414e-06,
+    "direction_share": 0.9999922968219728,
+    "best_rescaled_rel_l2": 0.03691361453760176
+   },
+   "dz_in": {
+    "rel_l2": 0.011336258779288393,
+    "norm_ratio": 1.0000448905453587,
+    "cos": 0.999935748510301,
+    "ref_norm": 0.00042303087344545666,
+    "our_norm": 0.00042304986353206925,
+    "magnitude_share": 1.568087383151027e-05,
+    "direction_share": 0.9999843191244806,
+    "best_rescaled_rel_l2": 0.011335733374778915
+   }
+  },
+  "b23_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b23_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b23_f64_ig.pt",
+   "first_block": 23,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.0064982062617322065,
+    "norm_ratio": 1.0001807560834897,
+    "cos": 0.9999789068067938,
+    "ref_norm": 1.7860600687425966e-05,
+    "our_norm": 1.7863829099654998e-05,
+    "magnitude_share": 0.0007737467909805983,
+    "direction_share": 0.9992262532100447,
+    "best_rescaled_rel_l2": 0.006495070553091505
+   },
+   "dz_in": {
+    "rel_l2": 0.0059794717723211715,
+    "norm_ratio": 1.0000057226900858,
+    "cos": 0.9999821230773405,
+    "ref_norm": 0.00042303087344545666,
+    "our_norm": 0.0004230332943200421,
+    "magnitude_share": 9.159564269873962e-07,
+    "direction_share": 0.9999990840529435,
+    "best_rescaled_rel_l2": 0.005979425201029381
+   }
+  },
+  "b32": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b32_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b32_f64_ig.pt",
+   "first_block": 32,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.20320018335626489,
+    "norm_ratio": 1.0168676375832961,
+    "cos": 0.9798372001414886,
+    "ref_norm": 1.7811674992643135e-05,
+    "our_norm": 1.81121158711705e-05,
+    "magnitude_share": 0.0068906522262269536,
+    "direction_share": 0.9931093477737771,
+    "best_rescaled_rel_l2": 0.1997975505828048
+   },
+   "dz_in": {
+    "rel_l2": 0.0472270458314352,
+    "norm_ratio": 1.0009701951532615,
+    "cos": 0.9988863541640928,
+    "ref_norm": 0.00033843827320427294,
+    "our_norm": 0.0003387666243766139,
+    "magnitude_share": 0.00042202350585801796,
+    "direction_share": 0.9995779764941225,
+    "best_rescaled_rel_l2": 0.047181049848075876
+   }
+  },
+  "b32_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b32_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b32_f64_ig.pt",
+   "first_block": 32,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.0378788982131196,
+    "norm_ratio": 1.0000803145576806,
+    "cos": 0.9992826553735105,
+    "ref_norm": 1.7811674992643135e-05,
+    "our_norm": 1.781310552944172e-05,
+    "magnitude_share": 4.49566423093616e-06,
+    "direction_share": 0.9999955043357038,
+    "best_rescaled_rel_l2": 0.03787049867199914
+   },
+   "dz_in": {
+    "rel_l2": 0.007495439389092588,
+    "norm_ratio": 1.0000580263523033,
+    "cos": 0.9999719125075254,
+    "ref_norm": 0.00033843827320427294,
+    "our_norm": 0.00033845791154274684,
+    "magnitude_share": 5.993166560320293e-05,
+    "direction_share": 0.9999400683353223,
+    "best_rescaled_rel_l2": 0.0074949446990608525
+   }
+  },
+  "b40": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b40_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b40_f64_ig.pt",
+   "first_block": 40,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.27385265821983884,
+    "norm_ratio": 0.9983539327256733,
+    "cos": 0.9624418923898788,
+    "ref_norm": 1.7116910595525378e-05,
+    "our_norm": 1.7088735009156508e-05,
+    "magnitude_share": 3.612944079824957e-05,
+    "direction_share": 0.9999638705592038,
+    "best_rescaled_rel_l2": 0.2714877598953387
+   },
+   "dz_in": {
+    "rel_l2": 0.012622514672718006,
+    "norm_ratio": 0.9994350002789913,
+    "cos": 0.9999204507287116,
+    "ref_norm": 0.00026651176775647524,
+    "our_norm": 0.0002663611886820473,
+    "magnitude_share": 0.0020035708219646817,
+    "direction_share": 0.9979964291790144,
+    "best_rescaled_rel_l2": 0.012613176225288188
+   }
+  },
+  "b40_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b40_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b40_f64_ig.pt",
+   "first_block": 40,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.027757166462665562,
+    "norm_ratio": 0.9963563598805381,
+    "cos": 0.9996200234137091,
+    "ref_norm": 1.7116910595525378e-05,
+    "our_norm": 1.705454273335828e-05,
+    "magnitude_share": 0.017231405033967195,
+    "direction_share": 0.9827685949659927,
+    "best_rescaled_rel_l2": 0.027564629334994272
+   },
+   "dz_in": {
+    "rel_l2": 0.008919483784109589,
+    "norm_ratio": 1.0000199392948323,
+    "cos": 0.9999602223964402,
+    "ref_norm": 0.00026651176775647524,
+    "our_norm": 0.00026651708181318884,
+    "magnitude_share": 4.997354400828874e-06,
+    "direction_share": 0.9999950026429765,
+    "best_rescaled_rel_l2": 0.008919283876062216
+   }
+  },
+  "b47": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_b47_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b47_f64_ig.pt",
+   "first_block": 47,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.5766426421931753,
+    "norm_ratio": 0.9880665513850934,
+    "cos": 0.8318056971295343,
+    "ref_norm": 1.1858396231175985e-05,
+    "our_norm": 1.1716884669096044e-05,
+    "magnitude_share": 0.0004282707607953796,
+    "direction_share": 0.9995717292392041,
+    "best_rescaled_rel_l2": 0.555066916887369
+   },
+   "dz_in": {
+    "rel_l2": 0.4184213655160469,
+    "norm_ratio": 0.5883041729917337,
+    "cos": 0.9952550182366622,
+    "ref_norm": 0.00041173952875163817,
+    "our_norm": 0.00024222808295023865,
+    "magnitude_share": 0.9681111566334387,
+    "direction_share": 0.03188884336656118,
+    "best_rescaled_rel_l2": 0.09730081538579856
+   }
+  },
+  "b47_FLOOR": {
+   "ours": "/home/ttuser/of3t_trunkdepth/REF_b47_bf16pure_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b47_f64_ig.pt",
+   "first_block": 47,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 0.057162712577321736,
+    "norm_ratio": 1.0022408380264904,
+    "cos": 0.9983723700779539,
+    "ref_norm": 1.1858396231175985e-05,
+    "our_norm": 1.1884968976383994e-05,
+    "magnitude_share": 0.0015367218720689956,
+    "direction_share": 0.9984632781279883,
+    "best_rescaled_rel_l2": 0.057031663704727224
+   },
+   "dz_in": {
+    "rel_l2": 0.021907822863955664,
+    "norm_ratio": 0.9990235598856951,
+    "cos": 0.9997602662807122,
+    "ref_norm": 0.00041173952875163817,
+    "our_norm": 0.0004113374897591201,
+    "magnitude_share": 0.0019865192790771966,
+    "direction_share": 0.9980134807205105,
+    "best_rescaled_rel_l2": 0.02189543254469626
+   }
+  },
+  "b47_BREAK": {
+   "ours": "/home/ttuser/of3t_trunkdepth/DEV_BREAK_b47_ig.pt",
+   "reference": "/home/ttuser/of3t_trunkdepth/REF_b47_f64_ig.pt",
+   "first_block": 47,
+   "blocks": 1,
+   "ds_in": {
+    "rel_l2": 1.4457797048309944,
+    "norm_ratio": 1.086048888054083,
+    "cos": 0.041076987106068386,
+    "ref_norm": 1.1858396231175985e-05,
+    "our_norm": 1.2878798040973408e-05,
+    "magnitude_share": 0.003542307651322124,
+    "direction_share": 0.9964576923486779,
+    "best_rescaled_rel_l2": 0.9991559843839639
+   },
+   "dz_in": {
+    "rel_l2": 1.1444666586598755,
+    "norm_ratio": 0.5824654993432147,
+    "cos": 0.025290875746517203,
+    "ref_norm": 0.00041173952875163817,
+    "our_norm": 0.00023982407021366285,
+    "magnitude_share": 0.1331001189377616,
+    "direction_share": 0.8668998810622383,
+    "best_rescaled_rel_l2": 0.9996801346450644
+   }
+  }
+ }
+}

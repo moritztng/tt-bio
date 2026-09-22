@@ -1,0 +1,42 @@
+{
+ "accurate_clamp30": {
+  "finite": true,
+  "n_nonfinite": 0,
+  "rel_l2": 0.011574971771061602
+ },
+ "accurate_clamp60": {
+  "finite": true,
+  "n_nonfinite": 0,
+  "rel_l2": 0.01157492424155284
+ },
+ "accurate_clamp88": {
+  "finite": false,
+  "n_nonfinite": 114688,
+  "rel_l2": null
+ },
+ "accurate_shipped": {
+  "finite": false,
+  "n_nonfinite": 114688,
+  "rel_l2": null
+ },
+ "fully_masked_blocks": 7,
+ "fused": {
+  "finite": true,
+  "n_nonfinite": 0,
+  "rel_l2": 0.001395828423045152
+ },
+ "shape": [
+  1,
+  14,
+  4,
+  32,
+  128
+ ],
+ "ttnn_max_vs_true_max": {
+  "on_masked_rows_worst_shortfall": -1755648.0,
+  "on_real_rows_worst_shortfall": 0.062468528747558594,
+  "rel_l2": 0.0017556480000000003,
+  "worst_absolute_overshoot": 1755648.0,
+  "worst_absolute_shortfall": 0.062468528747558594
+ }
+}

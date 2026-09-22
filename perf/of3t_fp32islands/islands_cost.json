@@ -1,0 +1,207 @@
+[
+ {
+  "island": "softmax",
+  "site": "trunk AttentionPairBias",
+  "shape": [
+   1,
+   16,
+   384,
+   384
+  ],
+  "upstream": "bf16 in 0.4.3 / fp32 in 0.5.0",
+  "arms": {
+   "floor_bf16_out": 0.001624739362978093,
+   "up_bf16 (0.4.3 softmax_no_cast)": 0.001624739362840012,
+   "up_fp32 (0.5.0 high-prec APB)": 8.655115186532248e-08,
+   "tt_default (no ckc)": 0.022816408393149225,
+   "tt_precise_config": 0.0017199046003865208
+  }
+ },
+ {
+  "island": "softmax",
+  "site": "triangle attention (16 of 384 i-slices)",
+  "shape": [
+   16,
+   4,
+   384,
+   384
+  ],
+  "upstream": "bf16 in 0.4.3 / fp32 in 0.5.0",
+  "arms": {
+   "floor_bf16_out": 0.0016172667958428981,
+   "up_bf16 (0.4.3 softmax_no_cast)": 0.0016172667951696049,
+   "up_fp32 (0.5.0 high-prec APB)": 9.12419961977041e-08,
+   "tt_default (no ckc)": 0.022838661872916825,
+   "tt_precise_config": 0.0017131275323098985
+  }
+ },
+ {
+  "island": "layer_norm",
+  "site": "single track s [1,384,384]",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 (explicit .float(), and autocast fp32 list)",
+  "arms": {
+   "floor_bf16_out": 0.0016556334284157429,
+   "up_fp32 (their .float() LN)": 6.516465836042148e-08,
+   "up_fp32_then_bf16_out": 0.0016556334284160094,
+   "bf16_compute (not theirs)": 0.001655633428654305,
+   "tt_default (no ckc)": 0.0019331153424875505,
+   "tt_precise_config": 0.0019331153424875505
+  }
+ },
+ {
+  "island": "layer_norm",
+  "site": "pair track z [1,384,384,128]",
+  "shape": [
+   1,
+   384,
+   384,
+   128
+  ],
+  "upstream": "fp32 (explicit .float(), and autocast fp32 list)",
+  "arms": {
+   "floor_bf16_out": 0.0016583952938932702,
+   "up_fp32 (their .float() LN)": 5.95176797157071e-08,
+   "up_fp32_then_bf16_out": 0.0016583952944092446,
+   "bf16_compute (not theirs)": 0.0016583952945210215,
+   "tt_default (no ckc)": 0.0019315404431321883,
+   "tt_precise_config": 0.0019315404431321883
+  }
+ },
+ {
+  "island": "sum (reduction)",
+  "site": "pair channel reduction, 128 terms",
+  "shape": [
+   1,
+   384,
+   384,
+   128
+  ],
+  "upstream": "fp32 (autocast sum/prod/cumsum/linalg_vector_norm)",
+  "arms": {
+   "floor_bf16_out": 0.0016551571781104146,
+   "up_fp32 (autocast fp32_set_opt_dtype)": 4.890622548772143e-09,
+   "bf16_compute (not theirs)": 0.0016551571781104146,
+   "tt_default (no ckc)": 0.0016595921388116422,
+   "tt_precise_config": 0.0016595921388116422
+  }
+ },
+ {
+  "island": "exp",
+  "site": "elementwise, single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 (autocast fp32 list)",
+  "arms": {
+   "floor_bf16_out": 0.0015881990030116823,
+   "up_fp32 (autocast fp32 list)": 2.431532485898983e-08,
+   "bf16_compute (not theirs)": 0.0015881990030116823,
+   "tt_default (no ckc)": 0.0019426955602616523
+  }
+ },
+ {
+  "island": "rsqrt",
+  "site": "elementwise, single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 (autocast fp32 list)",
+  "arms": {
+   "floor_bf16_out": 0.0016446483309837463,
+   "up_fp32 (autocast fp32 list)": 3.6027474236720583e-08,
+   "bf16_compute (not theirs)": 0.0016450261867495513,
+   "tt_default (no ckc)": 0.0016446483309837463
+  }
+ },
+ {
+  "island": "reciprocal",
+  "site": "elementwise, single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32 (autocast fp32 list)",
+  "arms": {
+   "floor_bf16_out": 0.001556335860295163,
+   "up_fp32 (autocast fp32 list)": 2.447919777151743e-08,
+   "bf16_compute (not theirs)": 0.001556335860295163,
+   "tt_default (no ckc)": 0.001556335860295163
+  }
+ },
+ {
+  "island": "matmul (CONTROL, not an island)",
+  "site": "single -> pair projection",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "bf16 (autocast lower-precision list)",
+  "arms": {
+   "floor_bf16_out": 0.001659190537519927,
+   "up_bf16 (autocast LOWER-precision list)": 0.0016591905404437343,
+   "fp32_compute (not theirs)": 9.521239283189598e-08,
+   "tt_default (no ckc)": 0.006749705061811893,
+   "tt_precise_config": 0.0017229681805485063
+  }
+ },
+ {
+  "island": "layer_norm BACKWARD d(gamma)",
+  "site": "single track, one block's LN affine",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32",
+  "arms": {
+   "floor_bf16_out": 0.0018304788944165115,
+   "up_fp32": 1.3115041791053168e-07,
+   "bf16_compute (not theirs)": 0.006941539125616207,
+   "tt_autograd (as shipped)": 0.004524640904130111
+  }
+ },
+ {
+  "island": "layer_norm BACKWARD dx",
+  "site": "single track",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "upstream": "fp32",
+  "arms": {
+   "floor_bf16_out": 0.001660166957031904,
+   "up_fp32": 6.922268262417115e-08,
+   "bf16_compute (not theirs)": 0.0024716317655636057,
+   "tt_autograd (as shipped)": 0.004303376261743566
+  }
+ },
+ {
+  "island": "softmax BACKWARD dx",
+  "site": "trunk AttentionPairBias",
+  "shape": [
+   1,
+   16,
+   384,
+   384
+  ],
+  "upstream": "bf16 in 0.4.3 / fp32 in 0.5.0",
+  "arms": {
+   "floor_bf16_out": 0.0016579426466783907,
+   "up_bf16 (0.4.3)": 0.002236110217337843,
+   "up_fp32 (0.5.0)": 1.3212898699085007e-07,
+   "tt_autograd (as shipped)": 0.0035101752877660015
+  }
+ }
+]

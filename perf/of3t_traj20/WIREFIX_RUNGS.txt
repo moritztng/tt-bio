@@ -1,0 +1,242 @@
+================================================================================================================
+of3t-wirefix -- PROTOCOL 7 re-run with the wiring fixes on.
+4,147 of 4,147 declared parameters, 368,293,788 elements, warmup 20, 4 samples/step, rho 0.005, seed 20260920.
+d_1 is reported as the two NORMS, not as their ratio: a reference d_1 of exactly 0
+makes the ratio 1e+30 by construction, which is an artifact of the denominator.
+================================================================================================================
+arm       betas            wd  plateau |  |d_1|ours   |d_1|ref         d_2        d_20      med20  d20/floor |  exp2-20     r2
+------------------------------------------------------------------------------------------------------------------------------
+fixed5    (0.9, 0.95)     0.0    50000 |  0.000e+00  0.000e+00  4.9873e-06  8.2071e-06  5.565e-07  2.815e+00 |   +0.194  0.093
+fixed     (0.9, 0.999)    0.0    50000 |  0.000e+00  0.000e+00  8.7149e-03  9.7413e-02  3.987e-02  3.341e+04 |   +1.267  0.964
+ulp       (0.9, 0.95)     0.0    50000 |  0.000e+00  0.000e+00  3.4668e-06  1.8575e-06  3.362e-07  6.371e-01 |   -0.146  0.184
+ulp4      (0.9, 0.999)    0.0    50000 |  0.000e+00  0.000e+00  3.4851e-06  2.0411e-06  3.304e-07  7.580e-01 |   +0.013  0.000
+aa        both upstream    --       -- |  0.000e+00  0.000e+00  0.0000e+00  0.0000e+00  0.000e+00  0.000e+00 |       --     --
+miswire5  (0.9, 0.95)     0.0    50000 |  1.353e+00  0.000e+00  2.0633e+00  1.1659e-01  1.065e-01  3.999e+04 |   -1.191  0.994
+scaled    (0.9, 0.999)   0.01     None |  0.000e+00  0.000e+00  1.0844e-01  2.9383e-01  7.208e-02  1.008e+05 |   +0.406  0.967
+avg       (0.9, 0.999)    0.0     None |  0.000e+00  0.000e+00  8.7149e-03  9.7413e-02  3.987e-02  3.341e+04 |   +1.267  0.964
+miswire   (0.9, 0.999)    0.0     None |  1.407e+00  0.000e+00  2.2552e+00  3.6934e-01  1.843e-01  1.267e+05 |   -0.707  0.878
+
+--- fixed5: every rung, k = 1..20 --------------------------------------------------------
+    the result: all five divergences closed, betas from the shipped signature
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 4.987302e-06   5.028e-04  9.919e-03   2.624e-06   7.076e-06   2.017e-04 1234/4147       81  diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.linear_ada_out.bias
+  3 3.806555e-06   1.803e-04  2.111e-02   2.752e-06   5.802e-06   1.704e-04  895/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight
+  4 4.912394e-06   9.078e-05  5.411e-02   2.187e-06   5.227e-06   6.081e-04  740/4147       79  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+  5 1.447825e-05   5.527e-05  2.620e-01   1.785e-06   5.189e-06   3.029e-03  645/4147       77  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+  6 1.225942e-05   3.687e-05  3.325e-01   1.495e-06   4.513e-06   3.019e-03  583/4147       76  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+  7 5.413646e-06   2.645e-05  2.047e-01   1.308e-06   4.805e-06   1.160e-03  528/4147       76  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+  8 6.033896e-06   1.983e-05  3.042e-01   1.180e-06   4.619e-06   1.721e-03  479/4147       74  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+  9 4.967030e-06   1.542e-05  3.222e-01   1.049e-06   4.275e-06   1.509e-03  439/4147       74  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+ 10 3.432794e-06   1.230e-05  2.790e-01   9.461e-07   4.422e-06   8.565e-04  409/4147       74  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+ 11 4.200922e-06   1.006e-05  4.175e-01   8.718e-07   4.487e-06   1.486e-03  382/4147       74  pairformer_stack.blocks.43.attn_pair_bias.mha.linear_g.weight
+ 12 3.510152e-06   8.395e-06  4.181e-01   8.434e-07   5.442e-06   2.674e-03  320/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 13 7.354839e-06   7.115e-06  1.034e+00   8.000e-07   5.918e-06   6.719e-03  287/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 14 8.451507e-06   6.101e-06  1.385e+00   7.463e-07   6.850e-06   8.714e-03  251/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 15 8.539407e-06   5.287e-06  1.615e+00   6.924e-07   7.577e-06   6.521e-03  231/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 16 9.083710e-06   4.625e-06  1.964e+00   6.534e-07   7.460e-06   1.139e-02  213/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight
+ 17 9.600927e-06   4.078e-06  2.355e+00   6.103e-07   8.919e-06   1.477e-02  195/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight
+ 18 8.634975e-06   3.620e-06  2.385e+00   5.853e-07   1.040e-05   1.201e-02  175/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 19 8.483229e-06   3.239e-06  2.619e+00   5.770e-07   1.136e-05   1.231e-02  153/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 20 8.207087e-06   2.915e-06  2.815e+00   5.565e-07   1.354e-05   1.020e-02  137/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- fixed: every rung, k = 1..20 ---------------------------------------------------------
+    the four of3t-traj20 found, with betas left at AdamW's class default
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 8.714912e-03   5.028e-04  1.733e+01   8.940e-03   9.010e-03   1.130e-02   96/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias
+  3 6.059664e-03   1.803e-04  3.360e+01   2.010e-03   1.291e-02   5.762e-02   88/4147       81  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_q.weight
+  4 9.881394e-03   9.078e-05  1.088e+02   3.094e-03   2.115e-02   6.081e-02   87/4147       79  pairformer_stack.blocks.18.single_transition.swiglu.linear_b.weight
+  5 1.497447e-02   5.527e-05  2.710e+02   7.298e-03   2.970e-02   1.353e-01   82/4147       77  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+  6 1.986948e-02   3.687e-05  5.390e+02   9.702e-03   3.686e-02   1.009e-01   81/4147       76  input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight
+  7 2.498308e-02   2.645e-05  9.446e+02   1.281e-02   4.439e-02   2.034e-01   80/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+  8 3.010308e-02   1.983e-05  1.518e+03   1.554e-02   4.986e-02   1.096e+00   77/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight
+  9 3.531712e-02   1.542e-05  2.291e+03   1.826e-02   5.682e-02   2.900e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 10 4.058113e-02   1.230e-05  3.298e+03   2.055e-02   6.284e-02   2.754e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_q.weight
+ 11 4.591156e-02   1.006e-05  4.563e+03   2.265e-02   7.029e-02   4.729e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 12 5.132677e-02   8.395e-06  6.114e+03   2.411e-02   7.691e-02   4.538e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_g.weight
+ 13 5.684998e-02   7.115e-06  7.990e+03   2.502e-02   8.320e-02   3.842e-01   74/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 14 6.251261e-02   6.101e-06  1.025e+04   2.652e-02   8.985e-02   7.245e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_q.weight
+ 15 6.824510e-02   5.287e-06  1.291e+04   2.852e-02   9.552e-02   5.537e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_g.weight
+ 16 7.402154e-02   4.625e-06  1.600e+04   3.063e-02   1.016e-01   6.747e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 17 7.984416e-02   4.078e-06  1.958e+04   3.286e-02   1.074e-01   7.909e-01   74/4147       74  pairformer_stack.blocks.31.single_transition.layer_norm.weight
+ 18 8.569150e-02   3.620e-06  2.367e+04   3.508e-02   1.137e-01   1.396e+00   74/4147       74  pairformer_stack.blocks.40.single_transition.layer_norm.bias
+ 19 9.154113e-02   3.239e-06  2.826e+04   3.718e-02   1.198e-01   1.091e+00   74/4147       74  pairformer_stack.blocks.3.single_transition.swiglu.linear_b.weight
+ 20 9.741316e-02   2.915e-06  3.341e+04   3.987e-02   1.262e-01   1.246e+00   74/4147       74  pairformer_stack.blocks.18.single_transition.linear_out.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- ulp: every rung, k = 1..20 -----------------------------------------------------------
+    rounding floor on the fixed5 path: ours vs ours, one side perturbed 2**-24
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 3.466809e-06   5.028e-04  6.895e-03   1.013e-06   4.744e-06   6.473e-05 1409/4147       81  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.layer_norm.weight
+  3 2.279916e-06   1.803e-04  1.264e-02   1.414e-06   3.567e-06   4.441e-05 1161/4147       81  pairformer_stack.blocks.23.pair_stack.tri_mul_in.layer_norm_out.weight
+  4 2.011151e-06   9.078e-05  2.215e-02   1.310e-06   2.803e-06   8.246e-05  944/4147       79  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight
+  5 3.245287e-06   5.527e-05  5.872e-02   1.101e-06   2.498e-06   2.407e-04  802/4147       77  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight
+  6 2.659395e-06   3.687e-05  7.214e-02   9.531e-07   2.178e-06   1.698e-04  708/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight
+  7 2.335723e-06   2.645e-05  8.832e-02   8.442e-07   2.269e-06   1.387e-04  642/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight
+  8 2.038374e-06   1.983e-05  1.028e-01   7.554e-07   2.289e-06   1.590e-04  595/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight
+  9 1.806371e-06   1.542e-05  1.172e-01   6.874e-07   2.089e-06   1.701e-04  556/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight
+ 10 1.632166e-06   1.230e-05  1.326e-01   6.279e-07   2.237e-06   3.239e-04  523/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 11 1.753069e-06   1.006e-05  1.742e-01   5.747e-07   2.314e-06   1.318e-03  489/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 12 2.733976e-06   8.395e-06  3.257e-01   5.294e-07   2.427e-06   3.918e-03  470/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 13 2.985271e-06   7.115e-06  4.196e-01   4.934e-07   2.605e-06   5.511e-03  434/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 14 1.643174e-06   6.101e-06  2.693e-01   4.638e-07   3.154e-06   1.136e-03  401/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 15 2.560456e-06   5.287e-06  4.843e-01   4.377e-07   3.429e-06   4.153e-03  365/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 16 2.437230e-06   4.625e-06  5.269e-01   4.111e-07   3.480e-06   2.501e-03  357/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 17 2.383234e-06   4.078e-06  5.845e-01   3.906e-07   4.062e-06   2.551e-03  334/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 18 1.938478e-06   3.620e-06  5.354e-01   3.727e-07   4.865e-06   3.009e-03  299/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 19 1.905131e-06   3.239e-06  5.882e-01   3.541e-07   5.871e-06   2.007e-03  290/4147       74  pairformer_stack.blocks.34.attn_pair_bias.mha.linear_g.weight
+ 20 1.857467e-06   2.915e-06  6.371e-01   3.362e-07   7.037e-06   3.244e-03  274/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- ulp4: every rung, k = 1..20 ----------------------------------------------------------
+    the same floor on the fixed path
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 3.485132e-06   4.985e-04  6.991e-03   1.029e-06   5.520e-06   6.224e-05 1426/4147       81  pairformer_stack.blocks.13.pair_stack.tri_att_end.linear_z.weight
+  3 2.300631e-06   1.797e-04  1.280e-02   1.416e-06   3.434e-06   2.763e-04 1155/4147       81  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  4 2.266026e-06   9.051e-05  2.504e-02   1.282e-06   2.822e-06   3.036e-04  941/4147       79  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  5 1.796560e-06   5.508e-05  3.262e-02   1.087e-06   2.522e-06   8.355e-04  818/4147       77  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  6 1.661708e-06   3.662e-05  4.538e-02   9.518e-07   2.203e-06   6.718e-04  737/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  7 1.360418e-06   2.619e-05  5.195e-02   8.398e-07   2.295e-06   1.110e-03  659/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  8 1.189864e-06   1.955e-05  6.085e-02   7.459e-07   2.307e-06   7.164e-04  614/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+  9 1.041266e-06   1.513e-05  6.883e-02   6.747e-07   2.065e-06   7.343e-04  577/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+ 10 9.727266e-07   1.201e-05  8.101e-02   6.233e-07   2.344e-06   1.325e-03  535/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.layer_norm_out.weight
+ 11 1.119935e-06   9.767e-06  1.147e-01   5.743e-07   2.324e-06   9.891e-04  498/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 12 1.621469e-06   8.104e-06  2.001e-01   5.311e-07   2.526e-06   3.588e-03  465/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 13 1.219777e-06   6.832e-06  1.785e-01   4.956e-07   2.641e-06   1.604e-03  442/4147       74  pairformer_stack.blocks.14.single_transition.swiglu.linear_b.weight
+ 14 2.307888e-06   5.826e-06  3.961e-01   4.614e-07   2.979e-06   5.182e-03  424/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 15 2.226184e-06   5.020e-06  4.435e-01   4.332e-07   3.400e-06   4.328e-03  402/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 16 3.448028e-06   4.368e-06  7.894e-01   4.084e-07   3.706e-06   4.878e-03  382/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 17 3.564821e-06   3.829e-06  9.310e-01   3.852e-07   3.837e-06   4.285e-03  361/4147       74  pairformer_stack.blocks.29.attn_pair_bias.mha.linear_q.weight
+ 18 2.989999e-06   3.381e-06  8.844e-01   3.663e-07   4.570e-06   6.430e-03  337/4147       74  pairformer_stack.blocks.29.attn_pair_bias.mha.linear_q.weight
+ 19 2.632376e-06   3.008e-06  8.752e-01   3.496e-07   6.058e-06   4.034e-03  304/4147       74  pairformer_stack.blocks.27.single_transition.swiglu.linear_b.weight
+ 20 2.041061e-06   2.693e-06  7.580e-01   3.304e-07   7.007e-06   5.141e-03  286/4147       74  pairformer_stack.blocks.29.attn_pair_bias.mha.linear_q.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0632, k=20 0.5432
+
+--- aa: every rung, k = 1..20 ------------------------------------------------------------
+    A/A, upstream against upstream, a path this row did not touch
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 0.000000e+00   5.028e-04  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       81  template_embedder.template_pair_stack.layer_norm.weight
+  3 0.000000e+00   1.803e-04  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       81  template_embedder.template_pair_stack.layer_norm.weight
+  4 0.000000e+00   9.078e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       79  template_embedder.template_pair_stack.layer_norm.weight
+  5 0.000000e+00   5.527e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       77  template_embedder.template_pair_stack.layer_norm.weight
+  6 0.000000e+00   3.687e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       76  template_embedder.template_pair_stack.layer_norm.weight
+  7 0.000000e+00   2.645e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       76  template_embedder.template_pair_stack.layer_norm.weight
+  8 0.000000e+00   1.983e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+  9 0.000000e+00   1.542e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 10 0.000000e+00   1.230e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 11 0.000000e+00   1.006e-05  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 12 0.000000e+00   8.395e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 13 0.000000e+00   7.115e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 14 0.000000e+00   6.101e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 15 0.000000e+00   5.287e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 16 0.000000e+00   4.625e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 17 0.000000e+00   4.078e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 18 0.000000e+00   3.620e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 19 0.000000e+00   3.239e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+ 20 0.000000e+00   2.915e-06  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147       74  template_embedder.template_pair_stack.layer_norm.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- miswire5: every rung, k = 1..20 ------------------------------------------------------
+    instrument-can-fail: fixed5 with D11's off-by-one restored, our side only
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 1.352515e+30   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00   83/4147     4147  -
+  2 2.063333e+00   5.028e-04  4.104e+03   2.071e+00   2.153e+00   5.570e+01   80/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.bias
+  3 1.055517e+00   1.803e-04  5.853e+03   1.050e+00   1.278e+00   4.546e+01   79/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight
+  4 7.105110e-01   9.078e-05  7.826e+03   6.913e-01   9.325e-01   8.660e+02   77/4147       79  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight
+  5 5.362989e-01   5.527e-05  9.704e+03   5.172e-01   7.134e-01   5.760e+02   76/4147       77  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight
+  6 4.295947e-01   3.687e-05  1.165e+04   4.105e-01   5.784e-01   3.013e+02   75/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight
+  7 3.602435e-01   2.645e-05  1.362e+04   3.414e-01   4.852e-01   1.802e+02   74/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight
+  8 3.101722e-01   1.983e-05  1.564e+04   2.915e-01   4.254e-01   9.707e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight
+  9 2.721150e-01   1.542e-05  1.765e+04   2.541e-01   3.703e-01   2.340e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 10 2.424111e-01   1.230e-05  1.970e+04   2.251e-01   3.187e-01   2.650e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 11 2.188850e-01   1.006e-05  2.175e+04   2.024e-01   2.957e-01   3.058e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 12 1.996216e-01   8.395e-06  2.378e+04   1.839e-01   2.704e-01   3.466e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 13 1.836327e-01   7.115e-06  2.581e+04   1.687e-01   2.548e-01   3.784e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 14 1.698669e-01   6.101e-06  2.784e+04   1.557e-01   2.507e-01   3.576e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 15 1.579110e-01   5.287e-06  2.987e+04   1.445e-01   2.441e-01   1.854e+01   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 16 1.476110e-01   4.625e-06  3.191e+04   1.349e-01   2.441e-01   3.045e+00   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight
+ 17 1.384505e-01   4.078e-06  3.395e+04   1.264e-01   2.339e-01   3.231e+00   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight
+ 18 1.303045e-01   3.620e-06  3.599e+04   1.190e-01   2.257e-01   2.395e+00   74/4147       74  pairformer_stack.blocks.40.single_transition.layer_norm.bias
+ 19 1.230660e-01   3.239e-06  3.800e+04   1.124e-01   2.189e-01   6.641e+00   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight
+ 20 1.165867e-01   2.915e-06  3.999e+04   1.065e-01   2.185e-01   2.181e+00   74/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- scaled: every rung, k = 1..20 --------------------------------------------------------
+    of3t-traj20's shipped arm, before any fix
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 1.084351e-01   5.028e-04  2.157e+02   7.420e-02   2.164e-01   1.507e+06    0/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight
+  3 1.533367e-01   1.803e-04  8.503e+02   1.193e-01   3.141e-01   3.241e+06    0/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight
+  4 1.599532e-01   9.078e-05  1.762e+03   1.170e-01   3.859e-01   2.566e+07    0/4147       79  input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight
+  5 1.515499e-01   5.527e-05  2.742e+03   1.219e-01   4.282e-01   5.501e+09    0/4147       77  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight
+  6 1.697304e-01   3.687e-05  4.604e+03   1.141e-01   5.314e-01   7.328e+08    0/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+  7 1.747429e-01   2.645e-05  6.607e+03   1.113e-01   5.251e-01   1.817e+07    0/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+  8 1.888630e-01   1.983e-05  9.522e+03   1.040e-01   5.791e-01   1.354e+07    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+  9 2.012547e-01   1.542e-05  1.305e+04   9.597e-02   5.669e-01   1.527e+06    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 10 2.135263e-01   1.230e-05  1.735e+04   8.667e-02   5.525e-01   6.685e+05    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 11 2.234268e-01   1.006e-05  2.220e+04   8.029e-02   6.046e-01   9.983e+04    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 12 2.319484e-01   8.395e-06  2.763e+04   7.646e-02   6.103e-01   1.970e+04    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 13 2.405046e-01   7.115e-06  3.380e+04   7.489e-02   6.593e-01   5.753e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight
+ 14 2.493671e-01   6.101e-06  4.087e+04   7.463e-02   6.785e-01   1.964e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 15 2.580383e-01   5.287e-06  4.881e+04   7.423e-02   6.136e-01   1.066e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 16 2.662498e-01   4.625e-06  5.756e+04   7.367e-02   6.348e-01   5.734e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 17 2.740386e-01   4.078e-06  6.721e+04   7.246e-02   6.399e-01   3.144e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 18 2.814653e-01   3.620e-06  7.775e+04   7.094e-02   5.934e-01   1.821e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 19 2.876411e-01   3.239e-06  8.881e+04   7.100e-02   6.917e-01   1.558e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+ 20 2.938325e-01   2.915e-06  1.008e+05   7.208e-02   6.683e-01   1.450e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- avg: every rung, k = 1..20 -----------------------------------------------------------
+    of3t-traj20's three-fix arm, closed in the harness rather than the source
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 0.000000e+00   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00 4147/4147     4147  -
+  2 8.714912e-03   5.028e-04  1.733e+01   8.940e-03   9.010e-03   1.130e-02   96/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias
+  3 6.059664e-03   1.803e-04  3.360e+01   2.010e-03   1.291e-02   5.762e-02   88/4147       81  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_q.weight
+  4 9.881394e-03   9.078e-05  1.088e+02   3.094e-03   2.115e-02   6.081e-02   87/4147       79  pairformer_stack.blocks.18.single_transition.swiglu.linear_b.weight
+  5 1.497447e-02   5.527e-05  2.710e+02   7.298e-03   2.970e-02   1.353e-01   82/4147       77  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+  6 1.986948e-02   3.687e-05  5.390e+02   9.702e-03   3.686e-02   1.009e-01   81/4147       76  input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight
+  7 2.498308e-02   2.645e-05  9.446e+02   1.281e-02   4.439e-02   2.034e-01   80/4147       76  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+  8 3.010308e-02   1.983e-05  1.518e+03   1.554e-02   4.986e-02   1.096e+00   77/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight
+  9 3.531712e-02   1.542e-05  2.291e+03   1.826e-02   5.682e-02   2.900e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 10 4.058113e-02   1.230e-05  3.298e+03   2.055e-02   6.284e-02   2.754e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.mha.linear_q.weight
+ 11 4.591156e-02   1.006e-05  4.563e+03   2.265e-02   7.029e-02   4.729e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 12 5.132677e-02   8.395e-06  6.114e+03   2.411e-02   7.691e-02   4.538e-01   77/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_g.weight
+ 13 5.684998e-02   7.115e-06  7.990e+03   2.502e-02   8.320e-02   3.842e-01   74/4147       74  pairformer_stack.blocks.24.single_transition.linear_out.weight
+ 14 6.251261e-02   6.101e-06  1.025e+04   2.652e-02   8.985e-02   7.245e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_q.weight
+ 15 6.824510e-02   5.287e-06  1.291e+04   2.852e-02   9.552e-02   5.537e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_g.weight
+ 16 7.402154e-02   4.625e-06  1.600e+04   3.063e-02   1.016e-01   6.747e-01   74/4147       74  aux_heads.pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_att_end.mha.linear_k.weight
+ 17 7.984416e-02   4.078e-06  1.958e+04   3.286e-02   1.074e-01   7.909e-01   74/4147       74  pairformer_stack.blocks.31.single_transition.layer_norm.weight
+ 18 8.569150e-02   3.620e-06  2.367e+04   3.508e-02   1.137e-01   1.396e+00   74/4147       74  pairformer_stack.blocks.40.single_transition.layer_norm.bias
+ 19 9.154113e-02   3.239e-06  2.826e+04   3.718e-02   1.198e-01   1.091e+00   74/4147       74  pairformer_stack.blocks.3.single_transition.swiglu.linear_b.weight
+ 20 9.741316e-02   2.915e-06  3.341e+04   3.987e-02   1.262e-01   1.246e+00   74/4147       74  pairformer_stack.blocks.18.single_transition.linear_out.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064
+
+--- miswire: every rung, k = 1..20 -------------------------------------------------------
+    of3t-traj20's mis-wire arm, on the pre-fix path
+  k          d_k  fp32 floor  d_k/floor      median         p90       worst bit-ident zero-ref  worst tensor
+  1 1.406539e+30   0.000e+00  0.000e+00   0.000e+00   0.000e+00   0.000e+00    0/4147     4147  -
+  2 2.255227e+00   5.028e-04  4.485e+03   2.217e+00   2.473e+00   8.758e+07    0/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight
+  3 1.228171e+00   1.803e-04  6.811e+03   1.233e+00   1.676e+00   2.742e+07    0/4147       81  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight
+  4 8.739725e-01   9.078e-05  9.627e+03   8.556e-01   1.230e+00   6.218e+07    0/4147       79  input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight
+  5 6.774376e-01   5.527e-05  1.226e+04   6.726e-01   1.013e+00   6.424e+09    0/4147       77  input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight
+  6 5.715767e-01   3.687e-05  1.550e+04   5.492e-01   9.379e-01   1.179e+09    0/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+  7 4.983299e-01   2.645e-05  1.884e+04   4.702e-01   9.053e-01   2.703e+07    0/4147       76  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+  8 4.555227e-01   1.983e-05  2.297e+04   4.100e-01   8.849e-01   2.495e+07    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+  9 4.265182e-01   1.542e-05  2.766e+04   3.626e-01   8.014e-01   2.906e+06    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 10 4.076937e-01   1.230e-05  3.313e+04   3.247e-01   7.811e-01   1.316e+06    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 11 3.922157e-01   1.006e-05  3.898e+04   2.950e-01   8.055e-01   1.001e+05    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 12 3.806190e-01   8.395e-06  4.534e+04   2.717e-01   8.098e-01   4.460e+04    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias
+ 13 3.726721e-01   7.115e-06  5.238e+04   2.537e-01   8.549e-01   4.585e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 14 3.685529e-01   6.101e-06  6.041e+04   2.399e-01   9.112e-01   2.477e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 15 3.665917e-01   5.287e-06  6.934e+04   2.264e-01   7.859e-01   1.314e+03    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 16 3.659783e-01   4.625e-06  7.913e+04   2.151e-01   7.707e-01   6.933e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 17 3.663348e-01   4.078e-06  8.984e+04   2.059e-01   7.933e-01   3.739e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 18 3.672497e-01   3.620e-06  1.014e+05   1.954e-01   7.241e-01   2.135e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias
+ 19 3.678402e-01   3.239e-06  1.136e+05   1.890e-01   8.314e-01   1.762e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+ 20 3.693394e-01   2.915e-06  1.267e+05   1.843e-01   8.159e-01   1.627e+02    0/4147       74  input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight
+    feedback share of the drive norm: k=2 0.0011, k=10 0.0611, k=20 0.5064

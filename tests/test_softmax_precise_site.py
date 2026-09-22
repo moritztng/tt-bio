@@ -30,6 +30,11 @@ SITE_TOKENS = [
     "miniformer",
     "diffusion_transformer.token",
     "diffusion_transformer.atom",
+    # protenix-v2's token DiT. It used to construct AttentionPairBias without softmax_site, so
+    # its lever sat under the shared "default" token and could not be switched on its own --
+    # and of3t-softmax's model/site table attributes protenix to diffusion_transformer.token,
+    # which is a DIFFERENT construction. of3t-fwdkcfg's runtime census is what separated them.
+    "protenix.token_dit",
 ]
 
 
