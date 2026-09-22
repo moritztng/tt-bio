@@ -171,7 +171,12 @@ def main() -> int:
     # D121 REACH. A lever that never runs and a lever that runs and is inert are different
     # results, and no output comparison can tell them apart. `dxcfg_applied` counts the
     # reductions that actually received the kwarg, not the ones that could have.
-    LN = {"bw": 0, "dw": 0, "dx": 0, "dxcfg_applied": 0}
+    # `dx_fp32_applied` added by of3t-trunkceiling. `dxcfg` lives in the ELSE of `dx_fp32`,
+    # and the fp32 branch passes the same `bwcfg` to the same two reductions, so under a lever
+    # set that turns both on `dxcfg_applied` reads 0 while the config IS applied. Without this
+    # counter that reads exactly like the config reaching nothing, which is what it looked like
+    # on the first ceiling arm.
+    LN = {"bw": 0, "dw": 0, "dx": 0, "dxcfg_applied": 0, "dx_fp32_applied": 0}
 
     def _precise():
         return ag.precise_config()
@@ -271,6 +276,7 @@ def main() -> int:
                 if x.requires_grad:
                     LN["dx"] += 1
                     if on("dx_fp32"):
+                        LN["dx_fp32_applied"] += 2
                         g32 = ttnn.typecast(g, ttnn.float32)
                         n32 = (norm if norm.dtype == ttnn.float32
                                else ttnn.typecast(norm, ttnn.float32))
