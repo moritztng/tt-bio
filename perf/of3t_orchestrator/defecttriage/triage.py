@@ -87,17 +87,18 @@ TABLE = {
                   "identically zero -- the shipped default, machine-checked in rank_rule.py."),
 
     # --- ships to users: training on the shipped default -------------------------------------
-    "D30": (USER, "The diffusion module -- 89.2 % of the gradient mass -- agrees to 0.85 % on the "
-                  "forward and is 9.3 % out on the gradient; 11.03x backward amplification after "
-                  "the repair, re-measured from ONE harness at pass 222."),
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
     "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
                   "gradients and withholds it from four sitting inside near-cancellations."),
     "D56": (USER, "A constant ~2,172x device arithmetic floor against torch fp32 on the worst "
                   "gradient component, which the entry itself calls a port gap."),
-    "D58": (USER, "The ~20x backward-over-forward amplification is a property of the TAPE, "
-                  "measured on two independent modules -- and the tape is shipped training code."),
+    "D58": (USER, "The forward-to-gradient factor is 11.026x (diffusion) and 10.903x (msa_module) at the "
+             "repaired denominator, not the ~20x first filed. of3t-tapeamp REFUTED the "
+             "'belongs to the tape' half on the diffusion leg: 69.53 %% of the factor is "
+             "upstream 0.4.3's own, and our arm beats upstream on BOTH halves. The "
+             "msa_module leg is priced but has no upstream comparison, so D58 stands on "
+             "one unmeasured leg. USER-FACING because the tape is shipped training code."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "
@@ -214,6 +215,14 @@ TABLE = {
              "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
              "gap in an unmerged training path, so it reaches no user today; it is the "
              "campaign's largest open measurement."),
+    "D208": (CAMP, "TRAJECTORY's clause is repointed to a reference-derived bar of 89.2106 % with "
+             "a coupled-scope requirement, and no artifact emits scope.coupled. The condition "
+             "reads NOT MET on both new clauses. Campaign-internal: it is our own charter's "
+             "wording and no shipped number moves."),
+    "D207": (CAMP, "Adding eight tensors to the trajectory's scored set also moved the 573 shared "
+             "tensors -- rel_d 2.2469e-01 against the shipped arm's 2.5643e-01 at k=20, in the "
+             "FLATTERING direction, unexplained. A scope gain carrying an unattributed accuracy "
+             "change is two results presented as one. Campaign-internal: our own measurement."),
     "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
              "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
              "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
@@ -230,10 +239,6 @@ TABLE = {
              "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
              "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "
              "Campaign-internal: an unlocated gradient defect on an unmerged training path."),
-    "D199": (CAMP, "COVERAGE's diffusion_rollout gap rests on a census reason that is wrong about "
-             "upstream: the rollout runs under torch.no_grad() and is the mini rollout in "
-             "training, so it is not differentiated. The clause needs restating in the sense the "
-             "model has. Campaign-internal: it is about this campaign's own coverage definition."),
     "D198": (CAMP, "run_arms.sh's clock_watch truncates the four-device tt-smi dump to device 0's "
              "AICLK fields, so every aiclk log in of3t-trajwide's runs records card 0 whichever "
              "card the arm held; the shipped arm ran on card 1. Recoverable here because 0 and 1 "
@@ -301,9 +306,6 @@ TABLE = {
                    "figures; it changes nothing a user of the shipped tree gets."),
     "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
                    "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
-    "D129": (USER, "conditioned_transition.layer_norm.layer_norm_s.weight reads 4.388x its own "
-                   "bf16 floor and 3.10x A26's bar on 28 of 30 instances -- the first leaf to "
-                   "survive the floor check that closed D8. Measured at the 0.5.0 boundary."),
     "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
                    "the four do not survive reading. A bookkeeping discipline, not a port defect."),
 }

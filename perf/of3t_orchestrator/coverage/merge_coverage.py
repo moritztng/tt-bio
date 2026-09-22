@@ -33,6 +33,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 CENSUS = "perf/of3t_gradients/coverage_census.json"
 PATHS = "perf/of3t_covpaths/COVERAGE_UNION.json"
+# of3t-trainfwd, pass 351: the two paths covpaths CONFIRMED uncovered, now demonstrated
+# to fire against a real OF3 training adapter. Same schema, DISJOINT paths -- it emits
+# only the two and does not re-emit the other nine, so this composes rather than
+# overwrites. Its arms are the charter's own rule: a parameter gradient MOVES against
+# an arm with the path off, not a config key set.
+TRAINFWD = "perf/of3t_trainfwd/COVERAGE_TRAINFWD.json"
 OUT = "perf/of3t_orchestrator/coverage/COVERAGE_MERGED.json"
 
 
@@ -84,6 +90,27 @@ def main() -> int:
         e["census_entry"] = census["conditional_paths"].get(name)
         conditional[name] = e
 
+    # of3t-trainfwd upgrades exactly the two paths covpaths could not reach without an OF3
+    # training forward. It may only UPGRADE: a path it reports uncovered that is already covered
+    # is a contradiction between two rows and must stop the merge, not silently win.
+    trainfwd, trainfwd_sha = load(TRAINFWD)
+    extra = set(trainfwd["union"]) - set(conditional)
+    if extra:
+        print(f"REFUSING: {TRAINFWD} carries paths the eleven do not name: {sorted(extra)}")
+        return 1
+    for name, entry in trainfwd["union"].items():
+        if conditional[name].get("covered") and not entry.get("covered"):
+            print(f"REFUSING: {TRAINFWD} reports {name} UNCOVERED where {PATHS} has it covered. "
+                  f"Two rows disagree about one path; that is a finding, not a merge.")
+            return 1
+        if not entry.get("covered"):
+            continue
+        e = dict(entry)
+        e["source"] = TRAINFWD
+        e["census_entry"] = census["conditional_paths"].get(name)
+        e["superseded"] = {"was": conditional[name].get("covered"), "by_source": PATHS}
+        conditional[name] = e
+
     n_u = sum(1 for v in union.values() if v.get("covered"))
     n_c = sum(1 for v in conditional.values() if v.get("covered"))
     out = {
@@ -93,7 +120,10 @@ def main() -> int:
         "owner": "of3t-orchestrator (D179)",
         "sources": [{"path": CENSUS, "sha256": census_sha, "provides": "union, the 8 loss terms"},
                     {"path": PATHS, "sha256": paths_sha,
-                     "provides": "conditional_paths, the 11 paths"}],
+                     "provides": "conditional_paths, nine of the 11 paths"},
+                    {"path": TRAINFWD, "sha256": trainfwd_sha,
+                     "provides": "model_forward and diffusion_rollout, from an OF3 training "
+                                 "adapter; upgrade-only"}],
         "rule": paths.get("rule"),
         "union": union,
         "conditional_paths": conditional,

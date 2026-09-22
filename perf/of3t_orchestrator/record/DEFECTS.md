@@ -2645,3 +2645,384 @@ only 6 of 1,639 parameter gradients and then died. So 768's 1.558x overshoot is 
 **And a rule fell out of it:** tile parity. 480 (15 tiles) and 544 (17 tiles) are odd 32-tile
 counts and both narrow the fp32-softmax L1 plan to **0 B**, where every even count measured (12,
 14, 16, 18, 20, 24) keeps it.
+
+### D206. A training forward that drives the diffusion modules directly skips a typecast the shipped caller does inline, so fp32 weights met bf16 activations — every loss looked sane while the squared gradient norm read 4.87e+11. FOUND by `of3t-trainfwd`, pass 350. **FIXED** by the row.
+
+`OF3SampleDiffusion.__call__` performs the typecast inline. A training forward that drives `dc`/`dm`
+directly never passes through it, so the arm ran **fp32 weights against bf16 activations** with no
+error raised anywhere.
+
+    squared gradient norm   4.87e+11      against the model denominator 10.2796
+
+**Every loss value looked sane.** That is the whole defect: the loss is computed from activations
+that are individually plausible, so nothing in the forward flags a precision boundary crossed the
+wrong way, and the damage shows up eleven orders of magnitude out in the gradient — which is the
+one number nobody reads until the end of a training step.
+
+**Fixed as a shared method rather than a second copy**: the boundary is now a method both callers
+use, and `ttnn.typecast` has a tape entry, so it is differentiable rather than a hole.
+
+**The class, and why it is worth an entry.** A *loss that looks right is not evidence the gradient
+is right*, and a precision boundary maintained inline in one caller is a trap for every other
+caller by construction — the campaign has the same shape in D153 (a missing reference path resolves
+to nothing and the run continues) and in `firing != code`. **Where two callers must cross the same
+boundary, the boundary belongs to neither of them.** And if an arm reports a squared gradient norm
+eleven orders off its own denominator, that is a configuration fault to find before it is a
+finding: no model produces 4.87e+11 against 10.2796 by being inaccurate.
+
+### D129 UPDATE 2, pass 351 — scoping my own pass-349 sentence, and clearing the campaign's main POSITIVE claim against it.
+
+Pass 349 absorbed `of3t-ditcot` with the sentence *"the diffusion reference cannot be built in the
+checkpoint's architecture"*. That is true of the thing the row measured and **ambiguous about which
+reference**, which matters because one reading would invalidate this campaign's largest positive
+result. Both halves checked this pass rather than assumed.
+
+**What ditcot actually measured.** *"Loading `of3-p2-155k.pt` the way every diffusion reference
+BUILDER does gives `missing_total 3` and `unexpected_total 48`"* — all 48 unexpected keys
+`attention_pair_bias.layer_norm_z`. That reference module has exactly **1** `layer_norm_z` site,
+all-ones, `max|w-1| = 0.0`, where ours runs **24 trained tensors** at mean 0.276-0.568, std
+0.130-0.224. So the defect is in the **module the diffusion reference builders construct**, not in
+every artifact with "reference" in its name. The row refused to form a transport ratio against that
+denominator, per A27, rather than publish one.
+
+**And the pinned bundle is NOT that module.** Checked directly on qb2:
+`/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt`, sha256 `1d4ea9225f…`, holds **4,170**
+tensors, **143** `layer_norm_z` entries, **28** of them under `diffusion_module`, spanning **24
+distinct `diffusion_transformer.blocks.N` indices**. It carries the per-block layout.
+
+**So the campaign's main positive claim stands, and it is worth saying that it was the claim most
+worth attacking.** `MODEL_shipped.json`'s 92.1568 % of the mass at **1.1031x** upstream's own bf16
+— "outside the pairformer trunk the gradient is at upstream's own accuracy" — is scored against
+that bundle over four scopes (`diffusion`, `cond`, `aux`, `msa`, 907 tensors). Its denominator can
+express the checkpoint's architecture, so ditcot's 6.62x does not reach it. **Unchanged, now for a
+measured reason rather than by omission.**
+
+**The correction I owe on my own entry:** "the diffusion reference" is not one object, and pass
+349's sentence should have said *the reference builder's module*. A defect scoped to a builder read
+as scoped to every reference would have put the campaign's best result in doubt for no reason —
+the mirror image of the flattering direction, and the same imprecision either way.
+
+### D199 UPDATE, pass 351. **CLOSED**, and COVERAGE with it — the campaign's first met charter condition.
+
+`of3t-trainfwd` concluded at `bdbe43a95`. Coverage goes **9 of 11 to 11 of 11**, loss terms stay
+8 of 8, and `CHARTER_EVIDENCE.json` reads **1 of 3** for the first time in the campaign.
+
+**The precondition I set at pass 348 is met, which is why this composed now and not then.**
+Inference is **byte-identical, verified TWICE** — after the adapter landed and again after the
+sampler refactor — `ubq.cif` `6a8a43ca…` and `ubq_model_1.cif` `62d94b47…` matching base commit
+`16eac05c1` exactly. A coverage win composed while "did you break inference" was outstanding would
+have been the wrong order.
+
+**Composed upgrade-only, and the guard says so.** `merge_coverage.py` takes
+`COVERAGE_TRAINFWD.json` as a third source pinned by sha256 (`0fd2c866bb8eb1e9`), and **refuses**
+if that row reports a path uncovered where `of3t-covpaths` has it covered: two rows disagreeing
+about one path is a finding, not a merge. Both upgraded entries carry `superseded: {was: false}`,
+so the artifact records that these were the two the census confirmed uncovered.
+
+**Three findings the row left behind, all kept.**
+
+*The objective's contract assumes every label is batch-side and two are not.* `plddt`'s label is a
+function of the prediction, and `edm_scale`'s sigma is drawn per forward. That belongs in
+`objectives.af3_loss`, **not** in a per-model adapter — a UNIFIED-not-per-model call made against
+its own convenience.
+
+*What it deliberately did not ship.* The one-step denoise arm is wired and runs, six of eight terms
+firing, but **3 of 3400 parameter gradients come back non-finite** — always
+`sampler.dc.w_lin_z/w_lin_s/w_lin_n`, whose dW reduces over 147,456 token pairs. Defaults off. **The
+seeds are ruled out by measurement rather than argument**: the largest is `pred_xyz` at 11.5669,
+`losses.mse` already applies upstream's stop-gradient Kabsch, and the seed norm is *identical* for a
+structure rotated 1.1 rad and translated 12 Å. The amplification is inside the diffusion backward
+and is not root-caused. That is an unowned object and it looks like `of3t-tapeamp`'s neighbourhood.
+
+*P5 refuted and reported as a miss:* it predicted over 600 s per step and measured **496.9 s**
+(crop 384, AICLK median 1350 sampled during; 20 steps = 2.76 h).
+
+**And P4 HELD, which is the discipline worth recording.** There is still no unstitched model-scope
+gradient and **D187 stays open** — because the pinned float64 reference was taken with upstream's
+own cotangent and replayed draws, while this forward seeds from our loss and draws its own noise.
+Scoring across that would be exactly the cross-frame error this campaign has already paid for once.
+The row had the most attractive deliverable in the campaign within reach and **refused to form it**,
+on D186's grounds, against its own interest.
+
+### D197 UPDATE 2, pass 352. TRAJECTORY's coupled scope is **88.83498302148425 %**, the projection confirmed to 5.7e-07 — and the shared tensors moved too, in the flattering direction. Still **UNFIXED**.
+
+`of3t-refatom` executed the change `of3t-trajwiden` specified, and ran D203's trap-check first.
+
+**Neither silent failure is present, and the check was committed before it ran** (`26b7fb834`, its
+result then committed pass-and-fail together at `717bf1d20`). It drives `build_ours`/`run_ours`
+unchanged over a one-level one-step partition — the real arm's program, not a replica — for
+**4.84 s**, about **0.3 %** of what it protects:
+
+    1  the eight in the parameter set      PASS   8 of 8, ref_atom_feature_embedder.w_*
+    2  each resolves a gradient            PASS   8 of 8 participating, 988 of 988 overall
+    3  tape_resolves_after_step            PASS   988 = 980 + 8, of_walked 988, rebound 988
+    4  place moved, not function           FAIL   cos and rel L2 pass, norm ratio misses
+
+**581 is the honest 581.** D203 warned that a silent failure would also score 581 tensors instead
+of 573; assertions 1-3 are what separate the two, and they were run before the 0.93 h rather than
+inferred from the result.
+
+**Assertion 4 failed and the bar was not moved.** `plm` norm ratio 0.9988837 against a 1.0e-3
+tolerance — 12 % over — while cosine reads 1 − 1.5e-7 over 917,504 elements and rel L2 1.241e-3.
+The row's proposed mechanism (a `compute_kernel_config=None` matmul on bf16-truncated operands) is
+**refuted by its own control**: truncation overstates the device's norm bias 4.2x on both legs and
+nearest-rounding gets `plm`'s sign wrong. What survives is bracketing — the device sits between two
+**width** variants of one function, 1.8x finer than nearest bf16 and 4.2x coarser than fp32 — which
+answers assertion 4's actual question without re-scoring the bar.
+
+    coupled scope   88.08194359237523 %  ->  88.83498302148425 %   (581 of 761 tensors)
+    points added    0.75303942911        projected 0.75304, confirmed to 5.7e-07
+    resolves        988 of 988 walked at every one of the 20 rungs
+    cost            1620.85 s, 81.04 s/rung   (the 3335.86 s estimate was a shared board pair)
+
+**Against the 99.2594 % bar it still misses**, by 10.417 points.
+
+### D207. Adding tensors to a scored set also moved the shared tensors' trajectory, in the flattering direction, and nothing explains it. FLAGGED by `of3t-refatom`, pass 352. **UNFIXED.**
+
+The widening was expected to be **additive**: eight more tensors, the other 573 unchanged. They did
+not stay unchanged. At k=20 the shared set reads `rel_d` **2.246887e-01** against the shipped arm's
+**2.564253e-01**, and worst per-tensor **3.454769e-01** against **8.110072e-01** — on a *different*
+tensor.
+
+**The row reported it as unexplained precisely because it improves the number**, which is the
+correct instinct and the reason this is a defect entry rather than a footnote. A scope gain that
+quietly carries an unattributed accuracy change is two results presented as one, and the direction
+means nothing would have prompted the question.
+
+**What separates it:** the host-leg arm re-scored over the same 581 names. Not run; not owned.
+
+**The general rule, which is new and belongs in PROTOCOL's vicinity:** *a change that ADDS tensors
+to a scored set must be shown purely additive on the tensors it did not add*, or the gain and the
+movement must be reported as two findings. Same family as D181 (a clause repair that lets you
+declare success) and D195 (an instrument that names a carrier), and it arrived the same way all
+three did — from a row checking the result it wanted to be true.
+
+### D191 UPDATE 2, pass 352. **It is a STEP, not a per-block factor** — created in the backward of blocks 45 and 44, then carried and diluted over the remaining 44. Still **UNFIXED**, and my brief's premise is refuted.
+
+`of3t-tapeattn` concluded. The cotangent ladder at both widths, in-frame float64, upstream's own
+bf16 recipe as the floor at each rung, 56 real tokens:
+
+    rung 46   7.1347e-01   7.4352e-01   1.042
+    rung 45   6.1508e-01   1.1427e+00   1.858
+    rung 44   6.9791e-01   1.5364e+00   2.201
+    rung 43   6.9835e-01   1.5888e+00   2.275
+    rung  0   8.1204e-01   1.4000e+00   1.724
+
+**A per-block factor would compound. This decays monotonically from rung 43**, which is the shape
+of a step that is created once and then diluted. And **rung 44's 2.201x sits against D191's
+model-scope 2.1795x, so all of D191 is present four blocks in** — the other 44 blocks add nothing.
+Pass 347's relocation to "a per-block factor of ~2.9x on the single track's cotangent", which I
+carried into the brief, is **refuted**.
+
+**100 % of the growth is ours**, and that is measured rather than inferred: the float64 reference at
+crop 64 and padded 384 is **bit-identical on the 56 real tokens, rel_l2 exactly 0.0 at all 49 rungs,
+both tracks**.
+
+**The softmax candidate fell to a DECOMPOSITION rather than to a smaller number**, which is the
+methodologically interesting part. `VERBS.json`'s pooled **1.7797x** for softmax is a
+reference-norm-weighted RMS, so it moves when the mass moves:
+
+    384 errors, 64 weights    0.9369x    softmax's own arithmetic, weights held
+    64 errors, 384 weights    2.0923x    reweighting alone, errors held
+
+**Softmax gets 6.3 % BETTER per firing at 384**; only 10 of 48 firings are worse. `matmul` and
+`multiply_` are flat by every reading. That is D195 and "a share moves when its denominator
+collapses" applied to a pooled ratio by the row that owned it.
+
+**Floors taken before any scoring, not after:** A/A determinism exactly 0.0 at both widths (98/98
+bit-identical), wall clock 1.92 % over the byte-identical 384 pair, instrument inert by content sha
+at both widths, and the checkpointed reference bit-identical to the plain one. AICLK n=122, min 800,
+median 1350, qb1 card 2 p150a.
+
+**What it does NOT claim, stated by the row rather than found by me.** The step is **not attributed
+to a named op**. The census sees only the single track (heads = 16), so **the pair track and the
+triangle multiplications run in the same blocks 45/44 and remain live candidates**. And the ladder
+is **saturated** — O(1) relative error from rung 47 down at both widths, floor included — which
+bounds what it can localise.
+
+**The next arm is named and cheap**: pin the single track's softmax backward to its float64 VJP and
+re-score; `tapecensus.py` already computes that VJP.
+
+### D58 UPDATE, pass 353 — the ~20x forward-to-gradient factor is the FUNCTION's, not the tape's, so D58 as filed is **REFUTED**. It and D30 stay **UNFIXED** pending the row's own closure statement.
+
+`of3t-tapeamp` built the control the object had never had: **upstream's own forward-to-gradient
+ratio**, at the same boundary, against the same float64 reference, on the same 547 tensors.
+
+    upstream 0.4.3 bf16 recipe      7.666x        ours  11.026x
+    upstream 0.4.3 fp32 recipe      9.326x        and four orders lower in ABSOLUTE error
+
+**Our arm beats upstream's own on BOTH halves** — the forward by **1.959x**, the gradient by
+**1.362x** — and the arithmetic closes exactly: **1.959 / 1.362 = 1.438**, which *is* the ratio
+excess. Our factor is the larger one precisely because the denominator is the half we beat it on
+hardest. A forward-to-gradient ratio is not a defect measure; it is a quotient of two accuracies,
+and improving the numerator less than the denominator raises it.
+
+**Three precisions span 7.7x to 11.0x, and that range is itself the discriminator.** A dtype
+boundary cannot survive a four-order change in absolute error. The conditioning of the
+Jacobian-transpose product can, and `of3t-bwdaccum` measured exactly that on the trunk. So D58's
+claim that *"the ~20x amplification belongs to the tape, not to any module"* is **refuted**: the
+two independent sightings at 19.6x and 19.8x agreed to two significant figures because they are the
+same property of the same function, not because a shared tape component injected it.
+
+**And the D206-class boundary I put FIRST in the brief is refuted by a call count, not a route
+read.** 1,879 node firings, **zero dtype reconciliations**. The tape has exactly one place a
+cotangent's dtype is reconciled to its forward value's — `autograd.py`'s backward loop — and on the
+diffusion scope it **never fires**: the whole backward runs fp32 against fp32. The only dtype
+crossings are 96 calls of the model's own explicit typecast verb, which is taped and
+differentiated. My lead was worth pricing and it is dead.
+
+**Controls, which are why this reads as a result rather than a story.** A/A bit-identical on all 48
+forward values, the gradient median, the mass-weighted gradient and the ratio — determinism floor
+exactly **0**. A break control that **rolls the cotangent moves the gradient 10.058x and leaves the
+forward bit-identical**, which is the control a ratio needs and the one nobody had run. The
+wall-clock floor is 54 % on that box at load 9-13 and **no claim rests on a timing**. D141's
+fingerprint guard is armed and passes — 761 parameters, 24 per-block `layer_norm_z`, 0 unexpected,
+0 missing — so this is not `of3t-ditcot`'s architecture case. The device arm reproduces bit-for-bit
+across hosts and cards, and upstream's bf16 and fp32 gradients reproduce the qb2 record to every
+digit at `OMP_NUM_THREADS=8`.
+
+**Not closed here.** The row is live and its gate owes a `DEFECTS:` field saying which of D30, D58,
+D129 and D55 it closes, narrows or leaves untouched. I am not closing a USER-FACING defect on my
+own reading of a live row's commit message — that is the closure-plan failure this campaign already
+had, in the other direction.
+
+### D30. **CLOSED as not a defect**, pass 353, by `of3t-tapeamp` against the correct denominator and the correct reference.
+
+Filed at forward 8.34e-03 / gradient 1.6588e-01 / **19.6x**. The number was corrected twice before
+this row touched it: `of3t-tapediverge` read the shipped arm at 1.250047e-01 (**14.75x**) with the
+forward bit-identical, and `of3t-ditref` repaired the denominator to 9.344246e-02 (**11.026x**).
+
+This row prices **7.666x of that 11.026x inside upstream 0.4.3's own bf16 recipe**, with the
+remaining **1.438x** accounted for arithmetically by our forward being **1.96x** more accurate than
+upstream's. And the direct reading settles it: **our gradient is 0.734x upstream's own** on the same
+547 tensors and **0.5865x mass-weighted** on the 761 (`of3t-ditref`'s `VS_FLOOR.json`,
+`ours_over_floor_x` 0.5865346734980963) — **below the reference's own floor**. There is no
+amplification defect at the correct denominator against the correct reference.
+
+**What this does NOT close, named by the row rather than found later:** the tail. A worst tensor at
+**1.850397e+01** is a different object from a median factor and belongs to whichever row owns the
+per-tensor outliers. Unowned.
+
+### D129 UPDATE 3, pass 353. **CLOSED** — dissolved by `of3t-ditref` and absorbed here, the leaf reading below its own floor on every like-for-like statistic. The ratio in circulation for it is not like-for-like.
+
+`of3t-tapeamp` notes, correctly, that D129 was already dissolved and that my brief was wrong to list
+it as waiting on that row. `VS_FLOOR.json`'s `D129_LEAF`
+(`conditioned_transition.layer_norm.layer_norm_s.weight`, n=30 both sides) reads **below its own
+floor on every like-for-like statistic**:
+
+    median          ours 0.08544921051930113   floor 0.12498386673173574   ratio 0.6836819243455522
+    mass-weighted   ours 0.12190333295342548   floor 0.15931532097065704   ratio 0.7652
+
+**The 0.536x in circulation mixes statistics** — it divides the MEDIAN numerator 0.0854492105 by the
+MASS-WEIGHTED floor 1.5931532097e-01. The verdict is unchanged, since 0.684x and 0.765x are both
+under 1, but the quoted figure understates by about 1.3x **in the flattering direction**, and the
+artifact records `ratio_median` explicitly one field away from the two it used. Corrected here
+rather than carried: the like-for-like readings are **0.6837x median** and **0.7652x mass-weighted**.
+
+### D58 UPDATE 2, pass 353. Still **UNFIXED** — narrowed to one leg, and the untouched half is named.
+
+`of3t-tapeamp` refutes the *"belongs to the tape"* half **on the diffusion track** and supplies the
+mechanism that explains the two-significant-figure agreement without an amplifier. It does **not**
+measure `msa_module`: there is no upstream bf16 arm for that boundary anywhere in the campaign, and
+building one is a boundary capture plus a float64 reference, not an afternoon. So D58 stands with
+one leg re-explained and the other unmeasured, and the prediction that would close it is registered
+in that row's DOESNOT.
+
+**D55's forward arm is UNTOUCHED** and the row says so in those words: it measured no
+kernel-config lever, set no `precise_config()`, and did not run the forward-side census D55's
+forward half needs. Its backward half was closed by `of3t-ditcot` on four reductions proved inert
+with measured reach.
+
+**The row stated all four in those words — closes, narrows, leaves alone — and gave its reason:**
+*"the campaign's closure plan has already carried a concluded row as a live owner for days and a
+narrowing described as a closure is how that happens."*
+
+### D58 UPDATE 3, pass 354 — the full reading from `of3t-tapeamp`'s conclusion, and my own triage entry was carrying a figure two revisions stale. Still **UNFIXED**.
+
+**The number.** The "~20x" is **11.026x** (diffusion) and **10.903x** (`msa_module`) at the repaired
+denominator. `of3t-ditref` and `of3t-tapediverge` had already moved it, and **both my brief and
+`UNFIXED_TRIAGE.json`'s D58 entry were still quoting the old one** — corrected this pass.
+
+**The measurement nobody in the campaign had made** was upstream 0.4.3's own **forward accuracy** at
+this boundary. Its gradient was on record (median 1.2940662e-01) and its forward *seconds* were; its
+forward *accuracy* was in no artifact. Both halves, one process, one host:
+
+    arm                        forward          gradient (547)     factor
+    ours, device               8.4748009e-03    9.3442464e-02      11.026x
+    upstream 0.4.3 own bf16    1.6601749e-02    1.2727639e-01       7.666x
+    upstream 0.4.3 own fp32    1.2939393e-06    1.2067747e-05       9.326x
+
+**69.53 % of our factor is upstream's own.** To reach upstream's 7.666x we would have to make our
+forward **1.96x worse**.
+
+**Three independent confirmations it is not a D206-class boundary**, and the third is new:
+
+  * a call census on device — **0 dtype reconciliations in 1,879 node firings**, every firing
+    fp32-against-fp32, the only crossings being 96 calls of the model's own taped `typecast`;
+  * the factor **survives fp32**, four orders of absolute error away;
+  * **the per-block cotangent curve has the SAME SHAPE in both precisions** — same five-block ramp,
+    an 8.191x / 5.726x step at the *same* boundary (19→18), same plateau — while the absolute errors
+    sit **11,792x to 18,350x** apart.
+
+**And the shape answers `of3t-bwdaccum`'s discriminator with NEITHER of its two options.** Not flat
+at the bf16 floor (a wrong leaf backward), not monotone with depth (per-block injection), but
+**ramp / step / saturation** — that discriminator's *third* pre-registered shape, first seen on the
+DiT-24 and present in the reference's own arm. **The step moves relative error 8.191x at 1.399x
+magnitude, so it is a cancellation event**, not an amplification.
+
+Worth setting beside `of3t-tapeattn`'s trunk result from pass 352: a step at blocks 45→44 there, a
+step at 19→18 here, both precision-independent, both cancellation-shaped, in different scopes.
+Whether that is one phenomenon is not established and is not claimed.
+
+**`msa_module` is measured at 10.903x but has no upstream comparison**, because there is no upstream
+bf16 arm for that boundary anywhere in the campaign. So D58's two legs are now: diffusion
+re-explained, msa priced but uncompared.
+
+### D208. TRAJECTORY's clause is REPOINTED to a reference-derived bar of 89.2106 % with a coupled-scope requirement, and no artifact emits the coupled field. **UNFIXED** — the condition reads NOT MET on both new clauses.
+
+`of3t-trajwiden` proposed this and I checked it before making it, because **the bar moves 10.05
+points toward passing** and that is the direction that needs a reason.
+
+**What the clause now reads**, against `perf/of3t_refatom/traj_refatom.json`:
+
+    steps >= 20                                  20                       MET
+    scope.pct_of_model_sq_grad_norm >= 89.2106   88.83498302148425    NOT MET by 0.376
+    scope.coupled is True                        key absent           NOT MET
+    per_step moves (d_theirs, d_ours)            19 of 19 fitted rungs    MET
+
+**Why the old bar was unsatisfiable rather than demanding.** 99.2594 % is the ceiling on what the
+**STATIC single-step** instrument could measure — 100 minus the 0.74055 % applied on the host after
+a `ttnn.to_torch`. A trajectory needs four things where the static instrument needs one: a taped
+device forward **and** backward at scope, a captured 0.4.3 boundary whose cotangent is complete,
+upstream's module runnable standalone at arbitrary weights for 20 steps, and 20 affordable
+optimizer steps on both sides. **Giving two instruments of different reach the same number made the
+weaker one unsatisfiable** — D181 from the other direction, where that rule forbids coupled clauses
+reading different scopes and this was one number read by two scopes.
+
+**The four things I checked before lowering a bar toward passing:**
+
+1. **It does not let the campaign declare success.** 88.83498 against 89.2106 leaves it unmet by
+   0.376 points, and the coupled clause fails outright. Two substantive failures.
+2. **The bar is a measured property of the REFERENCE.** 89.2106 % is the share of upstream's own
+   float64 gradient mass inside `diffusion_module`, summed from `grads_f64_043.pt` in
+   `SECTION_MASS_MEASURED.json`. It would read the same if our port did not exist.
+3. **Nothing is lost by the swap.** Pass 346 declined this repoint on the suspicion that a
+   `clauses` block would be dropped. The `moves` check reads `per_step`, and the new artifact
+   carries all 20 entries with both norms, 19 non-zero each (k=1 is the AF3 warmup no-op). Checked,
+   not assumed.
+4. **What would raise the bar is named**: a capture spanning more than one section AND a taped
+   whole-model device forward+backward. The reference half exists and is digest-pinned
+   (`bundle_min_043`); the device half does not.
+
+**`scope.coupled` is required and unemitted, which is the defect this entry carries.** A UNION of
+per-section trajectories would satisfy a scope number while testing none of the coupling: every
+boundary the campaign holds is a frozen capture of upstream's r = 0 step, so an `aux_heads`
+trajectory reads upstream's step-0 trunk outputs at every k, never our step-k ones. The proposing
+row **killed its own pass-1 number of 97.9849 %** on exactly that ground, which is why the proposal
+is worth taking.
+
+**One mechanical note.** I first wrote the clause with an `==` operator, which `charter_evidence.py`
+does not have — its break control raised `KeyError: '=='` and refused to publish rather than
+emitting an artifact with an unevaluated clause. The vocabulary already had `is`, doing strict
+equality with a type check. The guard refusing to publish on an operator it cannot evaluate is the
+right failure.
