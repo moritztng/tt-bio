@@ -1,0 +1,131 @@
+{
+ "what": "qb1 (published, of3t-modelframe) against qb2 (of3t-frameself --selftest re-run): is the captured boundary/cotangent pair reproducible across hosts?",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "pairs": {
+  "boundary": {
+   "qb1": {
+    "path": "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+    "sha256": "583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2",
+    "bytes": 153359829,
+    "keys": [
+     "pair_mask",
+     "s_in",
+     "single_mask",
+     "z_in"
+    ]
+   },
+   "qb2": {
+    "path": "/home/ttuser/of3t_frameself/boundary_selftest_n384.pt",
+    "sha256": "2dd5639ee8d98f50083c85bb8d5cebda1e1649c81d07668e4e6d495f00caa6f5",
+    "bytes": 153359923,
+    "keys": [
+     "pair_mask",
+     "s_in",
+     "single_mask",
+     "z_in"
+    ]
+   },
+   "file_sha256_identical": false,
+   "tensors": {
+    "pair_mask": {
+     "present_both": true,
+     "shape": [
+      1,
+      384,
+      384
+     ],
+     "bit_identical": true,
+     "norm_qb1": 56.0,
+     "norm_qb2": 56.0,
+     "rel_l2": 0.0
+    },
+    "s_in": {
+     "present_both": true,
+     "shape": [
+      1,
+      384,
+      384
+     ],
+     "bit_identical": true,
+     "norm_qb1": 11757.133052375091,
+     "norm_qb2": 11757.133052375091,
+     "rel_l2": 0.0
+    },
+    "single_mask": {
+     "present_both": true,
+     "shape": [
+      1,
+      384
+     ],
+     "bit_identical": true,
+     "norm_qb1": 7.483314773547883,
+     "norm_qb2": 7.483314773547883,
+     "rel_l2": 0.0
+    },
+    "z_in": {
+     "present_both": true,
+     "shape": [
+      1,
+      384,
+      384,
+      128
+     ],
+     "bit_identical": true,
+     "norm_qb1": 16157800.913600853,
+     "norm_qb2": 16157800.913600853,
+     "rel_l2": 0.0
+    }
+   }
+  },
+  "cotangent": {
+   "qb1": {
+    "path": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+    "sha256": "4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac",
+    "bytes": 152176541,
+    "keys": [
+     "cot"
+    ]
+   },
+   "qb2": {
+    "path": "/home/ttuser/of3t_frameself/cot_selftest_n384.pt",
+    "sha256": "96351379349ba25c3c0763b8b3fae2fc43b07026317e897fd5908aeede4c0f8c",
+    "bytes": 152176565,
+    "keys": [
+     "cot"
+    ]
+   },
+   "file_sha256_identical": false,
+   "tensors": {
+    "cot[0]": {
+     "present_both": true,
+     "shape": [
+      1,
+      384,
+      384
+     ],
+     "bit_identical": true,
+     "norm_qb1": 5.599999708545341e-05,
+     "norm_qb2": 5.599999708545341e-05,
+     "rel_l2": 0.0
+    },
+    "cot[1]": {
+     "present_both": true,
+     "shape": [
+      1,
+      384,
+      384,
+      128
+     ],
+     "bit_identical": true,
+     "norm_qb1": 0.0007601379094210722,
+     "norm_qb2": 0.0007601379094210722,
+     "rel_l2": 0.0
+    }
+   }
+  }
+ }
+}

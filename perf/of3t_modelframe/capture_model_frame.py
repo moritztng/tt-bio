@@ -278,6 +278,85 @@ def run_selftest(model, b, c, grads, a, mode):
     return out
 
 
+def run_cotprobe(cots, loss, published_cot, out_dir, tag):
+    """--cotprobe only: read the stack's output cotangent with a SECOND instrument.
+
+    The published pair's cotangent comes from a tensor hook. `of3t-frameself` has shown the
+    768 trunk tensors reachable only through `cot_s` reproduce `grads_f64_043.pt` exactly while
+    the 1968 reachable through `cot_z` do not, so the hook's `cot_z` is the one term left under
+    suspicion. `torch.autograd.grad(loss, z_out)` answers the same question without a hook and
+    without touching the trunk's backward, which is what makes this cheap: it stops at z_out.
+
+    It also enumerates every graph node that consumes s_out and z_out, which is H-A's "second
+    path" read directly off the tape instead of inferred.
+    """
+    taped = [c for c in cots if c["grad_enabled"]]
+    if len(taped) != 1:
+        raise SystemExit(f"the trunk was taped {len(taped)} times, not once")
+    c = taped[0]
+    s_out, z_out = c["s_out_t"], c["z_out_t"]
+
+    # every node on the tape that takes s_out or z_out as an input
+    targets = {"s_out": s_out.grad_fn, "z_out": z_out.grad_fn}
+    consumers = {k: [] for k in targets}
+    seen, stack, n_nodes = set(), [loss.grad_fn], 0
+    while stack:
+        n = stack.pop()
+        if n is None or id(n) in seen:
+            continue
+        seen.add(id(n)); n_nodes += 1
+        for nf, idx in getattr(n, "next_functions", ()):
+            if nf is None:
+                continue
+            for k, t in targets.items():
+                if nf is t:
+                    consumers[k].append({"consumer": type(n).__name__, "input_index": int(idx)})
+            stack.append(nf)
+
+    t0 = time.time()
+    g_s, g_z = torch.autograd.grad(loss, [s_out, z_out], retain_graph=True, allow_unused=True)
+    t_probe = time.time() - t0
+
+    pub = torch.load(published_cot, map_location="cpu", weights_only=False)
+    pub_s, pub_z = pub["cot"]
+    rec = {}
+    for key, mine, theirs in (("s", g_s, pub_s), ("z", g_z, pub_z)):
+        if mine is None:
+            rec[key] = {"present": False}
+            continue
+        m = mine.detach().to(torch.float64).reshape(-1)
+        t = theirs.to(torch.float64).reshape(-1)
+        tn = float(torch.linalg.vector_norm(t))
+        d = float(torch.linalg.vector_norm(m - t))
+        rec[key] = {"present": True, "bit_identical": bool(torch.equal(m, t)),
+                    "norm_autograd_grad": float(torch.linalg.vector_norm(m)),
+                    "norm_published_hook": tn,
+                    "rel_l2_vs_published_hook": (d / tn) if tn else d,
+                    "ratio_autograd_over_hook":
+                        float(torch.linalg.vector_norm(m)) / tn if tn else None}
+    return {
+        "what": "the stack's output cotangent read by torch.autograd.grad instead of by a "
+                "tensor hook, and every tape node that consumes s_out / z_out",
+        "host": socket.gethostname(), "row": "of3t-frameself", "defect": "D242",
+        "device_involved": False,
+        "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+        "published_cotangent": {"path": str(published_cot),
+                                "sha256": sha256_file(published_cot)},
+        "loss": float(loss),
+        "tape_nodes_walked_from_the_loss": n_nodes,
+        "consumers_of_the_stack_outputs": {k: {"n": len(v), "nodes": v}
+                                           for k, v in consumers.items()},
+        "autograd_grad_vs_the_published_hook": rec,
+        "seconds_autograd_grad": t_probe,
+        "verdict": {
+            "s": ("the hook and autograd.grad agree bit for bit" if rec["s"].get("bit_identical")
+                  else "the hook and autograd.grad DISAGREE on cot_s"),
+            "z": ("the hook and autograd.grad agree bit for bit" if rec["z"].get("bit_identical")
+                  else "the hook and autograd.grad DISAGREE on cot_z"),
+        },
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, type=Path)
@@ -308,6 +387,13 @@ def main() -> int:
                          "a bit-exact forward. This holds everything fixed but the "
                          "differentiator. Opt-in: without it nothing below runs and the file "
                          "produces byte for byte what it produced before.")
+    ap.add_argument("--cotprobe", action="store_true",
+                    help="opt-in. Read the stack's output cotangent a second time with "
+                         "torch.autograd.grad instead of a tensor hook, enumerate every tape "
+                         "node that consumes s_out/z_out, and stop before the full backward. "
+                         "Cheap: it never traverses the trunk. Needs --cotprobe-compare.")
+    ap.add_argument("--cotprobe-compare", type=Path, default=None,
+                    help="the published cotangent file the --cotprobe reading is scored against")
     ap.add_argument("--selftest-compare", type=Path,
                     help="ref_grad.py's own output .pt for this frame (of3t_twoside/ctrl_f64.pt). "
                          "Its s, z, ds_in, dz_in and grads are scored against the real module's "
@@ -418,6 +504,10 @@ def main() -> int:
         if z_out.requires_grad:
             z_out.register_hook(
                 lambda g, sl=slot: sl.__setitem__("cot_z", g.detach().to(torch.float64).clone()))
+        if a.cotprobe:
+            # --cotprobe only. The graph tensors themselves, so autograd.grad can be pointed at
+            # them. Holding a reference does not change the graph.
+            slot["s_out_t"], slot["z_out_t"] = s_out, z_out
         if a.selftest:
             # --selftest only. A counting hook (the existing one overwrites, so a second firing
             # would be invisible) and the real outputs, kept for the elementwise forward check.
@@ -447,6 +537,21 @@ def main() -> int:
         raise SystemExit(f"loss {float(loss)!r} is not bit-identical to the published "
                          f"{a.expect_loss!r} -- this is not the reference's own step, so its "
                          f"boundary and cotangent are not the reference's either")
+
+    if a.cotprobe:
+        if a.cotprobe_compare is None:
+            raise SystemExit("--cotprobe needs --cotprobe-compare <published cot_*.pt>")
+        rc = run_cotprobe(cots, loss, a.cotprobe_compare, a.out_dir, a.tag)
+        h1.remove(); h2.remove()
+        a.out_dir.mkdir(parents=True, exist_ok=True)
+        rp = a.out_dir / f"COTPROBE_{a.tag}.json"
+        rp.write_text(json.dumps(rc, indent=1))
+        print("COTPROBE " + json.dumps(
+            {k: rc[k] for k in ("verdict", "autograd_grad_vs_the_published_hook",
+                                "consumers_of_the_stack_outputs",
+                                "tape_nodes_walked_from_the_loss")}, indent=1), flush=True)
+        print("report " + str(rp), flush=True)
+        return 0
 
     t0 = time.time()
     loss.backward()
