@@ -1,0 +1,90 @@
+{
+  "what": "ONE upstream 0.4.3 PairFormerBlock, run on the capture's own operands.",
+  "host": "tt-quietbox2",
+  "block": 47,
+  "policy": "f64",
+  "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+  "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+  "cap": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "cap_sha256": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5",
+  "tensors_loaded": 57,
+  "probe": {
+    "s_in_norm": 2448727.756823883,
+    "z_in_norm": 15601002.623743173,
+    "cot_s_norm": 3.378536937441942e-05,
+    "cot_z_norm": 0.0005430220033757261,
+    "s_out_norm": 2517493.329013807
+  },
+  "seconds": 24.4,
+  "scores": {
+    "this_arm_vs_CAPTURE_own_grad": {
+      "compared": 57,
+      "mass_weighted_rel_l2": 0.6862807217482152,
+      "median_rel_l2_over_tensors": 0.9406184580894029,
+      "mass_weighted_norm_ratio": 1.4444118204460716,
+      "mass_weighted_cos": 0.9891425729448489,
+      "reference_squared_norm": 0.03452519222771039,
+      "worst_by_rel": {
+        "tensor": "pair_stack.tri_att_end.linear_z.weight",
+        "rel_l2": 2.4775526729436637,
+        "norm_ratio": 2.1198178563207706,
+        "cos": -0.15205068239984645,
+        "ref_norm": 0.006073941031514662,
+        "our_norm": 0.012875648656844181,
+        "ref_sq": 3.6892759654317395e-05,
+        "mass": 0.0010685750686337024
+      },
+      "worst_by_error_mass": {
+        "tensor": "pair_stack.pair_transition.layer_norm.weight",
+        "rel_l2": 1.2572063141413534,
+        "norm_ratio": 2.2477043603207205,
+        "cos": 0.9947053656224274,
+        "ref_norm": 0.05310337551633276,
+        "our_norm": 0.11936068869580974,
+        "ref_sq": 0.0028199684912286497,
+        "mass": 0.08167857466598853
+      }
+    },
+    "this_arm_vs_MODEL_f64": {
+      "compared": 57,
+      "mass_weighted_rel_l2": 0.9922135796699668,
+      "median_rel_l2_over_tensors": 1.5097186827423759,
+      "mass_weighted_norm_ratio": 0.782639385571885,
+      "mass_weighted_cos": 0.5121226156959348,
+      "reference_squared_norm": 0.10960555905607547,
+      "worst_by_error_mass": {
+        "tensor": "pair_stack.pair_transition.layer_norm.weight",
+        "rel_l2": 0.7748081801939295,
+        "norm_ratio": 0.6015643114043712,
+        "cos": 0.6329763004741085,
+        "ref_norm": 0.19841717075462537,
+        "our_norm": 0.11936068869580974,
+        "ref_sq": 0.039369373650270156,
+        "mass": 0.3591913949376266
+      }
+    },
+    "CAPTURE_own_grad_vs_MODEL_f64": {
+      "compared": 57,
+      "mass_weighted_rel_l2": 0.9067718530434289,
+      "median_rel_l2_over_tensors": 1.076094268247947,
+      "mass_weighted_norm_ratio": 0.5166781469593817,
+      "mass_weighted_cos": 0.5001746239297074,
+      "reference_squared_norm": 0.10960555905607547,
+      "worst_by_error_mass": {
+        "tensor": "pair_stack.pair_transition.layer_norm.weight",
+        "rel_l2": 0.8679950641279784,
+        "norm_ratio": 0.26763497994840174,
+        "cos": 0.5944907709799323,
+        "ref_norm": 0.19841717075462537,
+        "our_norm": 0.05310337551633276,
+        "ref_sq": 0.039369373650270156,
+        "mass": 0.3591913949376266
+      }
+    }
+  },
+  "model_reference": {
+    "path": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+    "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+    "matches_pin": true
+  }
+}
