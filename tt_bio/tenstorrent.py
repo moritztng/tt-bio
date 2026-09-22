@@ -3587,7 +3587,56 @@ def softmax_ckc(token: str, default: bool = False):
 # the site on and no tape open to serve them, which is what makes "the flag fired and nothing
 # happened" readable instead of invisible. `served` and `elements` are bumped by
 # `autograd.host_f64_softmax`, which is where the round trip is.
-HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0}
+# `selected` is the one that is NOT a call: it is bumped by `host_f64_softmax_site` at
+# CONSTRUCTION, and it exists because the other four cannot tell an unreached selector from an
+# unused one. D225 is what that costs -- eight construction sites selected this lever and
+# `_fp32_softmax_attention` never consulted it, so the census read 0 served / 0 declined /
+# 0 refused, which is exactly what a model nobody ran reads. `host_f64_softmax_reach()` compares
+# the two halves and says which of the two happened.
+HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
+                          "selected": 0}
+
+
+def host_f64_softmax_reach() -> str:
+    """Whether the host float64 softmax a construction site SELECTED ever reached a call.
+
+    `served`, `declined` and `refused` all require the call to arrive. A selector wired to a
+    branch that never consults it therefore reads zero in all three, which is indistinguishable
+    from a process that never built the model -- the reporting gap D225 hid in for the whole
+    campaign. `selected` counts construction sites, so the pair separates the cases.
+    """
+    s = HOST_F64_SOFTMAX_STATS
+    if not s["selected"]:
+        return "host f64 softmax: not selected at any construction site"
+    if s["served"] or s["refused"]:
+        return ("host f64 softmax: reached -- %d sites selected, %d served, %d refused, "
+                "%d declined" % (s["selected"], s["served"], s["refused"], s["declined"]))
+    return ("host f64 softmax NEVER REACHED: %d construction sites selected it and no call "
+            "arrived at the gate. The selector is answering True for a site whose softmax does "
+            "not consult it." % s["selected"])
+
+
+def _warn_if_host_f64_never_reached() -> None:
+    s = HOST_F64_SOFTMAX_STATS
+    if s["selected"] and not (s["served"] or s["refused"]):
+        print(host_f64_softmax_reach(), file=sys.stderr)
+
+
+_HOST_F64_REACH_ARMED = [False]
+
+
+def _arm_host_f64_reach_warning() -> None:
+    """Report an unreached selector at exit, once, and only in a process that selected one.
+
+    A counter nobody reads closes nothing, and the census that would have caught D225 is run
+    by instruments rather than by the fold. Off unless a site actually turned the lever on, so
+    a shipped inference process registers nothing and prints nothing.
+    """
+    if _HOST_F64_REACH_ARMED[0]:
+        return
+    _HOST_F64_REACH_ARMED[0] = True
+    import atexit
+    atexit.register(_warn_if_host_f64_never_reached)
 
 
 def host_f64_softmax_site(token: str, default: bool = False) -> bool:
@@ -3622,10 +3671,22 @@ def host_f64_softmax_site(token: str, default: bool = False) -> bool:
     Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
     ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
     reaches, so it stays A/B-able without a checkout. Selecting a site is not enough to open the
-    path: `site_softmax` also needs a tape open, so the variable cannot move an inference fold
-    whatever it is set to.
+    path: the gate also needs a tape open, so the variable cannot move an inference fold whatever
+    it is set to.
+
+    WHERE IT REACHES. Two routes, one gate (`host_softmax_or_none`). `site_softmax` is the route
+    for a site whose softmax is `ttnn.softmax`, and `_fp32_softmax_attention`'s tail is the route
+    for every site that sets ``fp32_softmax`` -- the whole OpenFold3 triangle path, AF2's, RF3's
+    atom stacks. The second route did not exist until `of3t-f64route`: eight construction sites
+    selected this lever and the tail never consulted it, so the census read 0 served / 0 declined
+    / 0 refused, which is what an unused lever reads too (D225). `host_f64_softmax_reach()` is
+    the counter that tells those apart now.
     """
-    return _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
+    on = _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
+    if on:
+        HOST_F64_SOFTMAX_STATS["selected"] += 1
+        _arm_host_f64_reach_warning()
+    return on
 
 
 def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
@@ -3647,15 +3708,31 @@ def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
     Off, the selector costs nothing but the argument test it already was: nothing is imported
     and no hook is read.
     """
+    host = host_softmax_or_none(host_f64)
+    if host is not None:
+        return host(x, dim)
+    return ttnn.softmax(x, dim=dim, **kw)
+
+
+def host_softmax_or_none(host_f64: bool):
+    """`site_softmax`'s gate on its own: the host float64 softmax, or None for the device.
+
+    `site_softmax` is the form for a site whose device implementation is `ttnn.softmax`. The
+    fp32-softmax attention tail runs `ttnn.softmax_in_place` or the 5-op `_accurate_softmax`
+    chain, and both CONSUME their input where the host route returns a new tensor and leaves
+    the input alive. A site that has to own that difference asks the gate directly instead of
+    passing its implementation in, and the census is the same counters either way, so one
+    reading covers every site.
+    """
     if host_f64:
         from . import ops
         host = ops.host_softmax_hook()
         if host is not None:
-            return host(x, dim)
+            return host
         HOST_F64_SOFTMAX_STATS["refused"] += 1
     else:
         HOST_F64_SOFTMAX_STATS["declined"] += 1
-    return ttnn.softmax(x, dim=dim, **kw)
+    return None
 
 
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
@@ -3765,6 +3842,7 @@ def _fp32_softmax_attention(
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
     accurate_softmax: bool = False,
+    host_f64: bool = False,
     l1_padded_plan: bool | None = None,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
@@ -3850,7 +3928,8 @@ def _fp32_softmax_attention(
             FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
             return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                                  out_dtype, bias_scale_inv, sh, l1_key, free=free,
-                                                 accurate_softmax=accurate_softmax)
+                                                 accurate_softmax=accurate_softmax,
+                                                 host_f64=host_f64)
         FP32_SOFTMAX_STATS["blocked"] += 1
         parts = []
         # the bias is the same tensor in every block, so its fp32 copy is made once per call
@@ -3866,7 +3945,8 @@ def _fp32_softmax_attention(
                                                            compute_kernel_config, out_dtype,
                                                            bias_scale_inv, sh, l1_key, bias_f,
                                                            free=free,
-                                                           accurate_softmax=accurate_softmax))
+                                                           accurate_softmax=accurate_softmax,
+                                                           host_f64=host_f64))
                 for t in (qs, ks, vs):
                     ttnn.deallocate(t)
         except Exception:
@@ -3898,7 +3978,8 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None, free=False, accurate_softmax=False):
+                                  bias_f=None, free=False, accurate_softmax=False,
+                                  host_f64=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -3913,7 +3994,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         try:
             attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard,
                                          bias_f, accurate_softmax,
-                                         compute_kernel_config)
+                                         compute_kernel_config, host_f64)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
@@ -3924,7 +4005,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             attn_bf = None
     if attn_bf is None:
         attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
-                                     accurate_softmax, compute_kernel_config)
+                                     accurate_softmax, compute_kernel_config, host_f64)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
@@ -3932,7 +4013,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
 
 
 def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
-                       accurate_softmax=False, compute_kernel_config=None):
+                       accurate_softmax=False, compute_kernel_config=None, host_f64=False):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -3973,7 +4054,15 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         if own:
             ttnn.deallocate(bias_f)
         try:
-            if accurate_softmax:
+            host = host_softmax_or_none(host_f64)
+            if host is not None:
+                # The host route is the only one here that does not consume its input, so this
+                # is the one place the tail owns the free. Both device implementations below
+                # write over `attn` or deallocate it themselves.
+                exact = host(attn, -1)
+                ttnn.deallocate(attn)
+                attn = exact
+            elif accurate_softmax:
                 acc = _accurate_softmax(attn, sm_ckc)
                 ttnn.deallocate(attn)
                 attn = acc
@@ -3988,9 +4077,14 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = (_accurate_softmax(sc, sm_ckc) if accurate_softmax
-                else ttnn.softmax(sc, dim=-1,
-                                  compute_kernel_config=sm_ckc))  # fp32 reduction
+        if accurate_softmax:
+            host = host_softmax_or_none(host_f64)
+            attn = host(sc, -1) if host is not None else _accurate_softmax(sc, sm_ckc)
+        else:
+            # `ttnn.softmax` IS this branch's device implementation, so it is `site_softmax`
+            # verbatim: host_f64 off, the call below is byte for byte the one that ships.
+            attn = site_softmax(sc, dim=-1, host_f64=host_f64,
+                                compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
@@ -7597,11 +7691,17 @@ class TriangleAttention(Module):
         bias_in_matmul: str | None = None,
         l1_padded_plan: bool | None = None,
         sdpa_ragged_pad: bool = False,
+        softmax_site: str = "default",
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # The construction site this attention answers to for the host float64 softmax, read
+        # the same way `AttentionPairBias` reads it. Triangle attention is the biggest softmax
+        # in the stack and it takes `_fp32_softmax_attention` at every site that sets
+        # `fp32_softmax`, so without this the lever is selected and never called (D225).
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         # Bytes per core to keep free when the ending variant's pair transpose asks for L1,
         # instead of the multiplicative headroom. 0 keeps the headroom rule. See
         # TRANSPOSE_L1_RESERVE_PER_CORE: it is what makes the 768 aa transpose L1-resident.
@@ -7922,6 +8022,7 @@ class TriangleAttention(Module):
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
                         accurate_softmax=self.accurate_softmax,
+                        host_f64=self._softmax_f64,
                         l1_padded_plan=self.l1_padded_plan,
                     )
             else:
@@ -8409,6 +8510,7 @@ class AttentionPairBias(Module):
                 out_dtype=_dtype(),
                 bias_scale_inv=1.0 / self._bias_scale,
                 accurate_softmax=self.accurate_softmax,
+                host_f64=self._softmax_f64,
             )
         if self.dtype != ttnn.float32:
             return _sdpa_masked(
@@ -9246,6 +9348,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -9282,6 +9388,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
