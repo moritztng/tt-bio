@@ -1,0 +1,24 @@
+=== arm 1: Blackhole (_IS_SMALL_GRID False) ===
+len  padded   pick_off        pick_on         moved
+ 128    128   (128, 128)      (128, 128)      -
+ 256    256   (256, 256)      (256, 256)      -
+ 288    288   (64, 64)        (64, 64)        -
+ 298    320   (64, 64)        (64, 160)       MOVED
+ 320    320   (64, 64)        (64, 160)       MOVED
+ 352    352   (64, 64)        (64, 64)        -
+ 384    384   (64, 64)        (64, 192)       MOVED
+ 512    512   (256, 256)      (256, 256)      -
+ 640    640   (256, 160)      (256, 160)      -
+ 768    768   (256, 256)      (256, 256)      -
+ 896    896   (256, 224)      (256, 224)      -
+1024   1024   (256, 256)      (256, 256)      -
+1088   1088   (256, 256)      (256, 256)      -
+
+moved: [298, 320, 384]
+unchanged (negative control): [128, 256, 288, 352, 512, 640, 768, 896, 1024, 1088]
+
+=== arm 2: Wormhole (_IS_SMALL_GRID True) — the scope, which nothing tested before ===
+moved on a small grid: []  (must be empty)
+in-band pick on WH, 320 aa: (64, 64)  vs BH (64, 160)
+
+CONTROL PASS: only 256 < n <= 384 with a clearing divisor moves, no gate rung is in the band, and a small grid moves nothing at all.
