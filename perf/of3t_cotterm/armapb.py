@@ -76,9 +76,10 @@ def main() -> int:
 
     CAP: dict = {}
     OUTREG: dict = {}
-    HOLD: list = []
+    HOLD: dict = {}
     ERR: list = []
-    STATE = {"apb_calls": 0, "taped_calls": 0, "tagged": 0, "do_hits": 0}
+    STATE = {"apb_calls": 0, "taped_calls": 0, "tagged": 0, "do_hits": 0,
+             "hold_high_water": 0, "do_hits_per_block": {}}
 
     def th(t, dtype=torch.float64):
         return ttnn.to_torch(t).to(dtype).clone()
@@ -120,7 +121,8 @@ def main() -> int:
         out = _real_call(self, s, z, keys_indexing, seq_mask, bias_precomputed)
         if taped and isinstance(out, ag.Tensor):
             OUTREG[id(out)] = i
-            HOLD.append(out)          # keep the object alive so its id cannot be reused
+            HOLD[id(out)] = out       # keep the object alive so its id cannot be reused
+            STATE["hold_high_water"] = max(STATE["hold_high_water"], len(HOLD))
         return out
 
     T.AttentionPairBias.__call__ = apb_call
@@ -136,8 +138,20 @@ def main() -> int:
                 e = CAP.setdefault(i, {})
                 e["do"] = g if "do" not in e else e["do"] + g
                 STATE["do_hits"] += 1
+                STATE["do_hits_per_block"][i] = STATE["do_hits_per_block"].get(i, 0) + 1
             except Exception as exc:                                       # noqa: BLE001
                 ERR.append(f"do in {i}: {type(exc).__name__}: {exc}")
+            # Release the reference the moment the cotangent has landed. Holding one ag.Tensor
+            # per captured site until the end of the run is what made the capture's DRAM cost
+            # grow with the number of sites: `_retire` deallocates an EVICTABLE value, and a
+            # value that is not evictable goes back to the card only when its last Python
+            # reference dies. At 48 sites the taped backward is refused a 1,207,959,552 B DRAM
+            # buffer at 243 s, twice; at 3 sites it completes in 633 s. The pin is only needed
+            # between the output's creation and its cotangent, which is the window this keeps.
+            # Fan-in here is one -- do_hits was exactly 3 over 3 sites -- and
+            # `do_hits_per_block` records it so a second contribution cannot go unnoticed.
+            HOLD.pop(id(self), None)
+            OUTREG.pop(id(self), None)
         return _real_add_grad(self, grad)
 
     ag.Tensor.add_grad = add_grad

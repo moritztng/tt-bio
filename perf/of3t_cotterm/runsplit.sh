@@ -16,5 +16,5 @@ OMP_NUM_THREADS=16 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_cotterm/spli
   --ref-ln "$O/ln_ref_n384.pt"  --dev-ln  "$O/ln_${TAG}_n384.pt" \
   --boundary "$D/boundary_n384.pt" --validate-block 44 $TREEARG \
   --out "$W/perf/of3t_cotterm/SPLIT_${TAG}_N384.json" \
-  --cf-out "$W/perf/of3t_cotterm/CF_${TAG}_N384.json"
+  --cf-out "$O/CF_${TAG}_N384.pt" --cf-channel NULL,DO,A,Z,T_K
 echo "=== split exit $? $(date -u +%FT%TZ) ==="

@@ -146,8 +146,13 @@ def main() -> int:
     ap.add_argument("--blocks", default="")
     ap.add_argument("--validate-block", type=int, default=44)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--cf-out", default="", help="the counterfactual dW/db, in cf.py's format")
-    ap.add_argument("--cf-channel", default="Z")
+    ap.add_argument("--cf-out", default="", help="the counterfactual dW/db, in cf.py's format; "
+                    "one file per name in --cf-channel, the name appended before .pt")
+    ap.add_argument("--cf-channel", default="Z",
+                    help="comma-separated. A CHANNEL (A/Z/DO/W) removes that input's error "
+                         "from the device cotangent; a TERM (T_Q/T_K/T_V/T_GATE) removes that "
+                         "additive term's. Everything else, LOCAL included, is left exactly as "
+                         "the device produced it")
     a = ap.parse_args()
 
     ref = torch.load(a.ref_apb, map_location="cpu", weights_only=False)
@@ -180,7 +185,9 @@ def main() -> int:
                                ref["sites"][vb]["do"].to(torch.float64), mbias, rows)
 
     ARMS = ("REF", "ALL", "A", "Z", "DO", "W")
-    per, acc = {}, {}
+    CFCH = [c.strip() for c in a.cf_channel.split(",") if c.strip()] if a.cf_out else []
+    cfs = {c: {} for c in CFCH}
+    per = {}
     mass = {k: 0.0 for k in ("ref", "e", "e_perp", "e_par", "local", "local_perp",
                              "refres")}
     chan = {nm: {"perp2": 0.0, "e2": 0.0} for nm in ARMS if nm not in ("REF",)}
@@ -273,7 +280,29 @@ def main() -> int:
             row["z_cos"] = (float(torch.dot(zd.reshape(-1), zr.reshape(-1)))
                             / max(nrm(zd) * nrm(zr), 1e-300))
         per[i] = row
-        acc[i] = {nm: res[nm]["g"] for nm in ("REF", "ALL", "Z", "A", "DO", "W")}
+        # The counterfactual is built HERE, per block, rather than by keeping every arm's
+        # tensors to the end: at 48 blocks that is about 4 GB of float64 nobody reads twice.
+        for c in CFCH:
+            # c's OWN error, the same quantity the shares above are taken of: a channel's is
+            # `res[c] - res[REF]`, one input at a time from the device, and a term's is
+            # `res[ALL][t] - res[REF][t]`. The inherited `--cf-out` used `res[ALL] - res[c]`,
+            # which is every channel EXCEPT c -- the opposite arm, and it ranked Z above A
+            # while the shares rank A five times above Z.
+            # NULL removes nothing. It is the control: cf.py REPLACES the device's own dW with
+            # this file's, so every arm also silently drops the three device ops' rounding at
+            # the leaf. NULL carries that and only that, so a channel is read against NULL.
+            if c == "NULL":
+                corr = torch.zeros_like(res["REF"]["g"])
+            elif c.startswith("T_"):
+                corr = res["ALL"][c] - res["REF"][c]
+            else:
+                corr = res[c]["g"] - res["REF"]["g"]
+            gdev_full = dln[i]["g"].to(torch.float64)
+            g_cf = gdev_full.clone()
+            g_cf[:, :rows] = gdev_full[:, :rows] - corr[:, :rows]
+            dW, db = ln_grads(dln[i]["x"].to(torch.float64), g_cf)
+            cfs[c][f"{PRE}{i}.{LEAF}weight"] = dW
+            cfs[c][f"{PRE}{i}.{LEAF}bias"] = db
         print("blk %2d  ||e||=%.6e  ||e_perp||=%.6e (%.2f %%)  LOCAL=%.3e  "
               "Z_perp=%.3e A_perp=%.3e DO_perp=%.3e W_perp=%.3e"
               % (i, row["e_norm"], row["e_perp_norm"], row["across_share_pct"],
@@ -337,21 +366,14 @@ def main() -> int:
     R["per_site"] = per
 
     if a.cf_out:
-        # The counterfactual: the device cotangent with the named channel's error removed,
-        # everything else -- including LOCAL -- left exactly as the device produced it.
-        cf = {}
-        c = a.cf_channel
-        for i in blocks:
-            gdev_full = dln[i]["g"].to(torch.float64)
-            corr = acc[i]["ALL"] - acc[i][c]
-            g_cf = gdev_full.clone()
-            g_cf[:, :rows] = gdev_full[:, :rows] - corr[:, :rows]
-            dW, db = ln_grads(dln[i]["x"].to(torch.float64), g_cf)
-            cf[f"{PRE}{i}.{LEAF}weight"] = dW
-            cf[f"{PRE}{i}.{LEAF}bias"] = db
-        torch.save({"dW_f64dev": cf, "channel": c, "host": os.uname().nodename,
-                    "what": "device cotangent with channel %s's error removed" % c}, a.cf_out)
-        R["cf_out"] = {"path": a.cf_out, "channel": c, "tensors": len(cf)}
+        base = a.cf_out[:-3] if a.cf_out.endswith(".pt") else a.cf_out
+        R["cf_out"] = []
+        for c, cf in cfs.items():
+            path = f"{base}_{c}.pt"
+            torch.save({"dW_f64dev": cf, "channel": c, "host": os.uname().nodename,
+                        "blocks": blocks, "real_rows": rows,
+                        "what": "device cotangent with %s's error removed" % c}, path)
+            R["cf_out"].append({"path": path, "channel": c, "tensors": len(cf)})
 
     json.dump(R, open(a.out, "w"), indent=2)
     print(json.dumps({k: R[k] for k in ("pooled", "channels", "terms", "track",

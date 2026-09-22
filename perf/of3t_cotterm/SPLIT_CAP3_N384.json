@@ -431,9 +431,31 @@
       "z_cos": 0.9996451235875208
     }
   },
-  "cf_out": {
-    "path": "/home/ttuser/.coworker/wt/of3t-cotterm/perf/of3t_cotterm/CF_CAP3_N384.json",
-    "channel": "Z",
-    "tensors": 6
-  }
+  "cf_out": [
+    {
+      "path": "/tmp/of3t/of3t-cotterm/CF_CAP3_N384_NULL.pt",
+      "channel": "NULL",
+      "tensors": 6
+    },
+    {
+      "path": "/tmp/of3t/of3t-cotterm/CF_CAP3_N384_DO.pt",
+      "channel": "DO",
+      "tensors": 6
+    },
+    {
+      "path": "/tmp/of3t/of3t-cotterm/CF_CAP3_N384_A.pt",
+      "channel": "A",
+      "tensors": 6
+    },
+    {
+      "path": "/tmp/of3t/of3t-cotterm/CF_CAP3_N384_Z.pt",
+      "channel": "Z",
+      "tensors": 6
+    },
+    {
+      "path": "/tmp/of3t/of3t-cotterm/CF_CAP3_N384_T_K.pt",
+      "channel": "T_K",
+      "tensors": 6
+    }
+  ]
 }
