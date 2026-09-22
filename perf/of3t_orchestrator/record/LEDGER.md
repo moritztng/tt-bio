@@ -1270,3 +1270,90 @@ Both numbers were in the campaign's own artifact set beside a third arm that ans
 handing a question up as a product decision, check whether an arm that resolves it has already
 been run** — the orchestrator's edge is finding the measurement that already exists before a row
 pays for a new one (pass 379's closing note, and pass 383's R146).
+
+---
+
+### R150. D242's last premise is the SELF-TEST'S GRAPH, and two candidates the row still carries are dead in its own artifacts (pass 387, zero card, committed artifacts only)
+
+`of3t-frameself` has measured every premise of its syllogism and the contradiction survives all
+of them. Two of the things it still lists as open are already answered on its own branch:
+
+- **Parameter sharing is refuted.** `PARAM_IDENTITY.json` (commit `0672abb42`, 20:26 — seven
+  minutes after the state doc that still carries the hypothesis) reports
+  `n_trunk_parameters_also_registered_outside_the_trunk: 0` and no unregistered alias of a trunk
+  parameter. All 761 shared objects are `diffusion_module` <-> `sample_diffusion.diffusion_module`.
+  **The artifact's own `verdict` string says "SHARING FOUND"**, which is true of the model and
+  false of the question the file was built to answer, and that headline is why the hypothesis
+  still reads live. **A verdict string that answers a different question than its row's is a
+  self-inflicted false lead.**
+- **`checkpoint_blocks` is exonerated on BOTH channels**, re-checked this pass against the
+  obvious objection to my own R146: `ckpt_break.py:74` is `(s*cot_s).sum() + (z*cot_z).sum()`
+  with independent random cotangents on both outputs, so it was never blind to a z-only defect.
+
+**What is left is a premise nobody wrote down: that a bit-exact FORWARD implies an identical
+BACKWARD GRAPH.** `run_selftest` (`perf/of3t_modelframe/capture_model_frame.py:161-199`) clones
+the boundary, **re-runs the forward** and differentiates a new graph. It was built to separate
+"the reconstruction is wrong" from "the pair is insufficient", and it answered the first — but it
+is itself a reconstruction, so by construction it cannot see a defect in reconstructing a graph.
+
+**And the replay graph is faithful where it can be checked, which is what makes the gap
+specific.** `vs_this_runs_own_full_model_backward` reads `n_bit_identical: 768` — against the
+capture's OWN backward, same process, dropout disabled (`disabled: true`, 61 modules, rates
+0.15/0.25 pinned to r=0), deterministic kernels on — the injected arm reproduces the s-only class
+bit for bit through 48 checkpointed blocks. So the defect is not the reconstruction, not the
+weights, not the host and **not `grads_f64_043.pt`'s provenance**. The z route alone is the
+object, and its arm carries squared norm 0.4071279988965891 where the reference's whole trunk is
+0.599115204802637 and the s arm alone is 0.5647771875120086.
+
+**The arm, costing one backward on a graph already built**, delivered to the row's brief as
+Amendment 4 rather than to this document, because a decision written into a state doc does not
+reach a running row:
+
+    torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
+                        inputs=list(trunk_params) + [s_in, z_in],
+                        retain_graph=True, allow_unused=True)
+
+**Its falsifier is one scalar whose two possible values are both already banked**, so neither can
+be fitted after the fact. `dL/dz_in`: **0.000848887340907281** (the real backward) means the
+injection is exact on the original graph and the replay's fresh forward is the defect;
+**0.0014907294032500784** (the fresh-graph replay) means it overcounts on the original graph too
+— and then the point to notice is that a tensor hook and `torch.autograd.grad` **read the same
+object**, so they confirm `cot_z`'s VALUE and say nothing about whether that object is the tensor
+the loss consumes, which is the one thing neither instrument can see.
+
+**One correction to the row's reading, offered as a caveat and not a retraction.** Its "a second
+consumer of `z_in` therefore exists and it opposes the stack" is a sound reading of the `dz_in`
+pair, but `dL/dz_in` from the real backward is the total over every consumer while the injected
+one is the stack's contribution alone, so an ordinary second consumer separates them for a
+reason that is not a defect. **A second consumer of `z_in` cannot change the stack's parameter
+gradients.** The parameter gradients are the evidence; `dz_in` is the cheap tell.
+
+Artifact `perf/of3t_orchestrator/frameself/ORIGINAL_GRAPH_ARM.json`.
+
+### R151. D242's defect is in the PAIR channel, which is the channel R143 redirected the campaign toward — the quotient survives and the operating point is the caveat (pass 387)
+
+`of3t-cotcoh`'s R143 is the reading that redirected this campaign: measured like-for-like from one
+entry, our single-track cotangent is **1.0583x** upstream's own bf16 and our pair-track cotangent
+is **4.9964x**. Both legs share the one injected cotangent, so the quotient is within-frame and
+`of3t-frameself`'s sort keeps it. **That is still right, and it now needs its operating point
+stated beside it.**
+
+D242 is `cot_z` and nothing else: the captured pair cotangent puts 0.638 of gradient norm into
+the trunk where the true one puts at most 0.0955, so it is roughly **7x too large** (the
+two-scalar fit reads `b_z` 0.14292915919297092, reciprocal 6.996472977567049) **and pointing
+elsewhere** — no rescaling of it gets the frame below 0.1116 against 0.1229 for deleting it
+outright. So R143's 4.9964x compares our pair track against theirs **at a point where the pair
+channel is driven about seven times too hard and in a substantially wrong direction**.
+
+**Why that is a caveat and not a retraction.** For a quantity that responds near-linearly to its
+cotangent the ratio transfers; **D233 established this one is cancellation-limited** — 99.72 % of
+the `dW` damage lies ACROSS the reference cotangent at 2.3877x while its norm residue is only
+1.1745x, and *"a scale error on g passes the reduction at its own size; a new direction is
+multiplied by the cancellation"*. A ratio read at a grossly wrong input direction is exactly the
+kind this campaign has already measured to be direction-sensitive. **So the pair-track redirect
+stands as a lead and must not be quoted as a measured excess at the training point until the
+frame is repaired and R143 re-read on it.**
+
+The general form, and it is the sibling of A34: **a within-frame quotient survives a broken frame,
+but its OPERATING POINT does not come along for free.** State the point a ratio was read at
+whenever the frame's own defect lies in the channel the ratio is about.
