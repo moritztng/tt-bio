@@ -1508,3 +1508,82 @@ constraint is unaffected either way — with no tape open both are `ttnn.softmax
 report zero. `HOST_F64_SOFTMAX_STATS` counts `served`, `declined` and `refused`, all of which
 require the call to arrive. There is no counter for *never reached*, so an unreachable selector is
 indistinguishable from an unused one.
+
+### D226. `of3t-f64softmax`'s recommendation — renorm takes 99.6 % of the host round trip's ground for a tenth the cost — is TRUE on the diffusion scope and FALSE on the trunk, where the two are additive. FOUND at pass 367 by the orchestrator. FIXED as guidance.
+
+`of3t-f64softmax` concluded GO and recommended the cheap lever over the host round trip, on a
+measurement that is sound **for the scope it was taken on** — the 547-tensor diffusion arm,
+51.1358 % of the mass:
+
+    arm                    v their bf16      cost
+    shipped (CONTROL)      7.426217e+00      1.000x
+    bw_renorm  (Arm A)     1.057023e-01      1.049x
+    host_f64 CODE PATH     7.777580e-02      1.470x
+
+*"It takes 99.6 % of the ground the round trip takes, for a tenth"* — correct there, and the row
+was right to say so.
+
+**It does not transfer to the trunk, and the trunk is where the charter's last clause lives.**
+`of3t-trunkceiling`'s artifacts record `renorm_flag = true` on the shipped control AND on the
+host-f64 arm, with `SOFTMAX_BW_RENORM_STATS = {"applied": 3504, "declined": 0}`. So the trunk's
+shipped **1.029395337772341 already has renorm on**, and the host float64 softmax adds a further
+**1.8556x** on top of it, to 0.5547455957585244. The two are **additive** there, not
+substitutable.
+
+**The reason is structural and it predicts which scope behaves which way.** `SOFTMAX_BW_RENORM`
+is a *backward* correction — every read of the flag is inside a `bw` closure, which is what makes
+its inference cost zero. The host float64 path replaces the *forward* softmax. On the diffusion
+scope the forward softmax is the one `site_softmax` already reaches, so correcting the backward
+recovers most of what an exact forward would. At the trunk the forward is
+`_fp32_softmax_attention`'s inline fp32 reduction, which **renorm never touches and
+`site_softmax` cannot reach** (D225) — so the backward correction and the exact forward are
+attacking different errors and their gains compose.
+
+**Consequence for the decision in front of the campaign.** The trunk's 1.8556x is **not redundant
+with anything already shipped**, and the cheap-lever argument that settled the diffusion scope
+must not be reused to argue against `of3t-f64route`. The 3,504 renorm firings that survive the
+f64 arm are the pair track (`taped_ttnn.py:861` -> `ag.triangle_attention`, softmax recomputed
+inside `_scores`), so even with the route fixed the two levers keep working on different parts of
+the same stack.
+
+**The general lesson**: a cost/benefit verdict is scoped to the arm it was measured on, and
+"cheap lever beats expensive lever" inverts when the expensive one reaches an error the cheap one
+structurally cannot see.
+
+### D227. The trunk's residue is a systematic 12.8 % MAGNITUDE deficit on the `attn_pair_bias.layer_norm_a` affine gradients, and it survives an exact float64 softmax in both tracks. FOUND by `of3t-trunkceiling` (PARTIAL), pass 367. UNFIXED — and it is the campaign's whole remaining object.
+
+The lever axis is exhausted and the row says so with the arithmetic. **No lever set that exists
+reaches 0.5268825372815341 at this boundary**; the measured ceiling is **1.0524836626308578x**
+it. The levers delivered **1.8563207917912123x** of the **1.9537473059622292x** needed —
+**95.01 % of the required factor, leaving 5.25 %** — over six 48-block arms against an A/A
+determinism floor of exactly **0.0**.
+
+**What is left is not precision, it is scale.** A **systematic 12.8 % magnitude deficit**: norm
+ratio **0.872086** against upstream's own bf16 and **0.910191** against float64, concentrated in
+the `attn_pair_bias.layer_norm_a` affine gradients, and it **survived an exact float64 softmax in
+both tracks unchanged**. Our gradients there are consistently too SMALL. That is the signature of
+a missing or mis-scaled term rather than of accumulated rounding, and no amount of arithmetic
+precision will move it.
+
+**The row declined the NO-GO it was permitted to produce, and the reason is measured rather than
+cautious.** Its brief required showing the trunk CANNOT reach its own scope's A26 bar with every
+lever on. What the arms show is narrower: no *existing* lever closes the last 5.25 %, and the
+object holding it is located, unexplained and not obviously silicon. **"A 5.25 % gap behind a
+located, unfixed, un-diagnosed magnitude error is a lead by the campaign's own rule."**
+
+**What a NO-GO would need, recorded so nobody re-derives it**: an arm that removes the 12.8 %
+magnitude deficit and still misses 0.5268825372815341. Until that exists, *"the silicon cannot"*
+is unproven.
+
+**The softmax axis is closed** — exhausted in both tracks, forward and backward, at **1.0004x**
+for the last of it.
+
+**And the census is why the lever result is trustworthy.** A catalogue read would have counted
+this row's dominant lever (**1.6502x**) as already on while it served **zero** calls (D225), and
+would have counted the pair track's softmax as promising when it buys **1.0004x**. Both readings
+required running the census rather than reading the flags.
+
+**No shipped default moved**, shown rather than argued: four changes, three in instruments, and
+the one inside the package is `_VERBS["clamp"]` in `taped_ttnn.py`, purely additive — before it a
+taped tensor handed to `ttnn.clamp` raised, and the only `ttnn.clamp` in the tree is
+`protenix.py`'s distogram floor on an inference path with no tape open.
