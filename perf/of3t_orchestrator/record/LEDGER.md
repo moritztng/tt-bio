@@ -1409,3 +1409,73 @@ R148 understated us, R157 overstates the distance to go, so an audit that only l
 clauses whose wording flatters will miss half of them.
 
 Artifact `perf/of3t_orchestrator/clausestatus/CLAUSE_STATUS.json`.
+
+---
+
+### R158. Two user-facing defects on the SHIPPED selector were missing from the user-facing list for ~35 passes, because an unclassified defect defaults to the least severe class (pass 393, zero card)
+
+I set out to audit which surface each USER-FACING defect reaches, expecting to close the
+charter's priority-1. **The list itself was wrong.**
+
+`UNFIXED_TRIAGE.json` reported **six** USER-FACING defects. Its own `reasons` block marked two
+more — **D10 and D24** — USER-FACING while its `classes` block filed them CAMPAIGN-INTERNAL, and
+`classes` is what the counts, the closure plan and the stamper all read. So both had **no
+closure plan and no owner**. Both are on the shipped inference selector: D10 is *"the confidence
+head mis-ranks diffusion samples"*, measured end to end through the production CLI, and D24's
+own heading in DEFECTS.md reads *"Affects every monomer fold shipped today."* **The corrected
+count is eight.**
+
+**The root cause is a default.** `perf/of3t_orchestrator/defecttriage/triage.py` is the
+classifier, and its `main()` refuses when the UNFIXED set has moved — it had moved by **twenty**,
+so it has refused since roughly pass 358. `stamp_row_counts.py:30-33` kept the file alive
+instead, and its own comment reads *"a newly-visible UNFIXED defect defaults to
+campaign-internal"* with the placeholder *"classified by stamp_row_counts.py; no user-facing
+claim made"*. **An unclassified defect defaults to the LEAST SEVERE class, and the count Moritz
+reads is built on that default.** Fourteen of the twenty still carried the placeholder. Because
+the generator could not run, `classes` froze while `reasons` was hand-edited — by me among
+others — and the two drifted until they disagreed.
+
+Fixed by bringing the table up to date so the generator runs again, which restores the invariant
+that `classes` and `reasons` cannot disagree because both are built from it. Six of the twenty
+are classified on their own evidence; the other fourteen inherit the stamper's default and
+**say so in their `why`**, so the placeholder is visible in the source of truth rather than
+hidden behind a count. A review of those fourteen is owed and is not done here. D56 is dropped,
+no longer UNFIXED, the way D164 was at pass 340. D213 moves to SCOPE-EXCLUDED on its own entry.
+New counts: **5 scope-excluded, 8 USER-FACING, 82 campaign-internal.**
+
+**The closure plan's own guard is what caught it**, on the first regeneration — *"live but
+unplanned: ['D10', 'D24']"*. It has always asserted that the plan and the live set agree; it
+could not fire while the live set was frozen. **A guard that compares two documents is silent
+when one of them stops moving.**
+
+**What the two recovered defects cost a user, measured rather than inferred.** D10: served
+rank-0 CA-RMSD **0.775 A** shipped against **0.760 A** repaired, best-of-5 0.679 A, over a
+28-pair seed floor of **0.226 A** — the repair is real and its gain is well inside the floor,
+which is why the entry says D10 ships as a correctness fix with NO accuracy claim. D24: on
+ubiquitin `disorder` reads 0.0 on all five samples and `iptm` is 0, so all four candidate rules
+reduce to a positive multiple of pTM and `rules.py` puts them on identical served RMSDs sample
+for sample — **the obvious fix is provably inert for a single chain**, and its heading's "affects
+every monomer fold" is true of the RULE, not of the STRUCTURE a monomer user receives. Both now
+have closure-plan entries; both need a merge, and D24 additionally needs one measurement on a
+COMPLEX, where the terms are not degenerate. **Neither measurement softens the classification** —
+a shipped selector that is degenerate and one that does not pick its best sample are real
+defects on the inference path, and what the numbers bound is their consequence.
+
+**And the invariant protecting the other five was run by nothing.** Five of the eight reach only
+the training tape, which cannot be opened from an inference fold — that is Moritz's hard stop of
+2026-09-21 and it is pinned by `tests/test_training_opt_in.py`, cited BY NAME as enforcement in
+`tt_bio/ops.py:59` and `tt_bio/autograd.py:905`. `.github/workflows/ci.yml` ran exactly one test
+file, `tests/test_packaging_smoke.py`; no gate script referenced it; and its one runtime leg
+needs ttnn, which neither pc nor `ubuntu-latest` has. **A test nothing runs gates nothing.**
+Added to CI as its own step — pure AST plus stdlib, no card, no ttnn, measured at 3 passed, 2
+skipped, 0 failed. Its sibling `tests/test_host_f64_softmax_defaults.py` was checked for the same
+treatment and rejected: 37 of its cases FAIL rather than skip without ttnn. The softmax half of
+the hard stop was never resting on the unrun test — `compose_verify.sh` probes it live every pass
+— but the general import-inertness invariant was.
+
+Also corrected in that file: its docstring described `perf/ptxft/tape_block.py` as
+re-implementing four shipped modules "today" while the test's own skip reason already read *"the
+fork is gone, which is the goal"*. The file does not exist.
+
+Artifacts `perf/of3t_orchestrator/userfacing/SURFACE_MAP.json` and the regenerated
+`UNFIXED_TRIAGE.json` / `CLOSURE_PLAN.json`.
