@@ -1474,3 +1474,79 @@ that is correct about the wrong pair of objects, and every one was internally co
 guard fired. **The check is mechanical and cheap: before publishing a ratio or a substitution,
 name the two objects and confirm they differ in exactly one respect.** Writing it here has not
 been enough; it belongs in the compose as an asserter.
+
+### D219. The trunk's carrier is being searched among the wrong verbs: at padded 384 a taped backward fires 60,144 nodes, not 11,856, and the two largest unreached classes are the data-movement ops the search criterion deliberately excluded. FOUND by `of3t-vjpln` (PARTIAL), pass 361. UNFIXED and unowned.
+
+`of3t-vjpln` answered its pre-registered falsifier and the answer is **refutation**:
+**R44 = 2.206861** against a refutation line of 1.90, with the arm demonstrably live — 690 float64
+substitutions at padded 384, `errors {}`, `role_resolution_raises` 0 — and reach widened from
+`allref`'s 10.93 % to **31.17 %** of firings.
+
+    arm       ds@384        ds@64        R44        reach
+    base      1.5364164695  0.6979111335  2.201450   0 of 11856
+    all       1.5381722883  0.6983883143  2.202460   816,  6.88 %
+    allref    1.5379171964  0.6980655147  2.203113   1296, 10.93 %
+    allref2   1.5361722019  0.6960893958  2.206861   3696, 31.17 %
+
+Making every reachable backward in blocks 45 and 44 exact moves `norm_ratio` 1.722041 ->
+1.720991: **0.06 % of the inflation removed at 2.85x the previous reach.** With `of3t-trunkact`'s
+NO-GO on the forward and `of3t-bwdaccum`'s device-lever sweep, the trunk's excess is a property of
+**what the backward reads and how many contributions it accumulates**, not of how any single op
+differentiates.
+
+**The census that matters, and it is new.** At padded 384 one taped backward fires **60,144**
+nodes over **70** distinct `(caller, shape)` pairs — the 11,856 every prior row planned against
+was a different width, five times too small, and a different profile:
+
+    _identity_grad                     15936   26.50 %   NOT reached
+    _sliced                            12912   21.47 %   NOT reached
+    _v_matmul                           8544   14.21 %   reached
+    impl (ttnn.multiply / ttnn.add)     6576   10.93 %   NOT reached
+    _v_permute                          4752    7.90 %   NOT reached
+    _v_softmax                          3888    6.46 %   reached
+    _taped_linear                       2832    4.71 %   reached
+
+**`_identity_grad` and `_sliced` are 47.97 % of the firings and nobody has touched them**, and
+they were excluded on purpose. `of3t-blk4544`'s NEXT block chose `_ref_layer_norm` and
+`_ref_linear` as *"the two largest unreachable verbs that are real arithmetic rather than data
+movement"*. That criterion removed exactly the class the row's own conclusion now points at: if
+the defect is what the backward READS and HOW MANY contributions accumulate, then slicing,
+identity routing and permutation are the ops that decide both. `impl` is a census fact too, not
+an assumption — **two ops, `ttnn.multiply` and `ttnn.add`, and nothing else.**
+
+**Four candidate classes are now measured-excluded in blocks 45/44** — matmul, softmax and
+triangle-attention backwards (`of3t-blk4544`), layer-norm and linear backwards (this row), the
+forward activations (`of3t-trunkact`), and the device accumulation levers (`of3t-bwdaccum`) —
+while **47.97 % of the firings have never been substituted at all.**
+
+And D217 says the mass is in blocks 44, **4 and 0**, so the next arm is the unreached verb classes
+at the blocks that actually carry the error, not more depth in 45/44.
+
+### D220. GRADIENTS' two clauses now read one artifact at one scope, and the coverage leg is MET in the gate. Delivered by `of3t-covadopt` (GO), adopted by the orchestrator at pass 361. FIXED.
+
+`perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json`, sha256
+`15487d253868598f3dd37c8732edf088d0275bfc3dd5b2f816eff8e8f51ce901`, written by
+`perf/of3t_wholemodel/model_scope.py` — of3t-modelboundary's own instrument, **unmodified** — over
+`of3t-refcov`'s composed 3,660-tensor union in one process from one union.
+
+    coverage   99.50523155277438 %   against the 99.2594 bar, over by 0.2458315527743764   MET
+    accuracy    0.5171166332757559   against 0.15210099830945006                3.3998x  FAILS
+
+**Both figures come from the same file at the same scope**, which is what D181 requires and what
+the 3,643 artifact could not give: repointing coverage at `COVERAGE_COMPOSED.json` while accuracy
+stayed on `MODEL_withtrunk_n384.json` is exactly the narrowing that rule forbids. The repoint is
+one line, the artifact path, because the new file carries the same field paths — so the two
+clauses move together and neither can be moved alone.
+
+**The bar moved with the scope and that is stated rather than quietly taken.**
+**0.14735268326440318 -> 0.15210099830945006**, because the instrument recomputes the A26 bar
+from upstream's own bf16 step over exactly the tensors coverage counts, and upstream is worse on
+the seventeen entering ones — its floor goes 0.10592054683439786 -> 0.10937539968339202. That is
+a **looser** bar, so: the accuracy clause still **FAILS**, at 3.3998x instead of 3.5298x, and
+**no charter condition flips on the repoint.** Coverage flips on the measurement, not on the bar.
+
+C2 holds to **5.97e-13** against refcov's independent composition, six orders inside the 1e-9 the
+control asked for.
+
+**Charter: still 2 of 3.** COVERAGE and TRAJECTORY met, GRADIENTS not — and it is now a single
+clause failing rather than two, with the whole of it the pairformer trunk.

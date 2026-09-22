@@ -325,6 +325,13 @@ _ASSERT
             # parsed, stripped of docstrings and compared as ASTs, so any executable difference
             # anywhere refuses and stops the compose.
             :
+          elif "$PY" "$HERE/resolve_superseded_local_def.py" "$_f" "origin/wk/of3t-$r"; then
+            # The row carries a LOCAL copy of something main has since unified -- of3t-rebase's
+            # `sample_ranking_score` against main's landed `rank.ranking_score` (7848e2d17 and
+            # two precision follow-ups). UNIFIED NEVER PER-MODEL, so HEAD wins every hunk, and
+            # the resolver proves the dropped name has zero surviving references rather than
+            # leaving a dangling call that only fails at fold time.
+            :
           elif "$PY" "$HERE/resolve_addadd_test_file.py" "$_f" "origin/wk/of3t-$r"; then
             # Two rows wrote a test file with the same NAME and different contracts. A
             # filename collision is not a disagreement: HEAD keeps the path, the row's suite

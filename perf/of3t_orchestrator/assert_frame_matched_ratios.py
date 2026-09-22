@@ -30,7 +30,9 @@ import pathlib
 import re
 import sys
 
-ART = "perf/of3t_modelboundary/MODEL_withtrunk_n384.json"
+#: Follows the charter. Repointed with it at pass 361; if the two ever diverge this guard
+#: checks an artifact the gate does not grade, which is a silent way to be green.
+ART = "perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json"
 SUMMARY = pathlib.Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
 
 #: Withdrawn at pass 361 (D218), with what to say instead. A live doc may still DISCUSS them --
