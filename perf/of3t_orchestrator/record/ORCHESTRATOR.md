@@ -487,11 +487,7 @@ recorded as blocked on a boundary move for eleven passes while the capture that 
 sat on qb2 — row `of3t-conditioning` dispatched, and it returned **GO**. **D54 (FIXED)**: the
 per-tensor array I told a live row to produce had been on disk three hours, D52's lesson
 recurring against me. **D55 (UNFIXED, RE-LOCATED pass 221)**: the tape gives `precise_config()` to the reductions feeding weight gradients and withholds it from the four inside near-cancellations. **Every line number in the original entry had gone stale** — second sighting of that trap in this file after D31's `tenstorrent.py:7205` → `:7398`, so it is now a defect-writing rule: locate by symbol and by the code text, and give the line as a convenience. Re-located by pattern on `wk/of3t`, the substance holds: `taped_ttnn.py:216` and `autograd.py:612-613` (the softmax backward's `inner`), `autograd.py:847` — where the matmuls at `:842`, `:845-846` and `:859` **all** pass `compute_kernel_config=cfg` and the reduction between them does not — and `autograd.py:595-598` / `:1514-1517`. **And the repair walked past it**: `of3t-apbgrad` inserted a second reduction at `:218-219` and gave it `precise_config()` while leaving the near-cancellation numerator at `:216` without one, so the numerator and denominator of ONE division run at different kernel configs. That does not say the repair is wrong — the renorm arm reads 1.006695e-01, 0.9592x the reachable bar, bit-identical to the host-float64 arm on 547 of 547 tensors — it says there is a **free, untested lever one keyword wide** on the construct D55 argues is the amplifier. Owned: `of3t-tapediverge` AMENDMENT 1.
-**D56 (UNFIXED; mechanism REFUTED pass 232, magnitude COLLAPSED pass 233; argued in full in PASSLOG)**: the ~2,172x floor was scored against **torch fp32**, which 0.4.3 does not use for this island — against the served boundary **we are 1.5513x MORE accurate**. Its cancellation story is refuted by direct measurement: K at `attn_pair_bias.layer_norm_a` is the **LOWEST** of ten LayerNorm sites (median **9.41**, max anywhere 151.79, against D56's interpolated 1.3e+06), bounding any bf16-class evaluation at **0.0184** — **165x short** of 3.040 — and its ~3,000x ladder shortfall is closed because the ladder prices LOCAL conditioning while the error is **inherited**. **And the magnitude collapses 333x under the repair**: matched same-branch A/B with byte-equal forward, 523 tensors each, leaf error mass **878.85 → 2.636**, blocks 5/7/8/12 from **98.93 % → 29.77 %**, block 8's ratio **87.643 → 1.732** and cosine −0.169 → +0.694. The row **refused the cross-run comparison I told it to make**, correctly: the pass-155 artifact has a forward 9.87x better, so differencing would charge a forward change to a backward-only flag and inflate the collapse (114x against 333x). **No surviving mechanism and no surviving magnitude at diffusion scope on the repaired arm**; UNFIXED only because the shipped default is still off.
-`K ≈ 1.3e+06` it rested on was interpolated off the curve being explained, and the directly
-measured K is **172.60**, at which the ladder's own host-fp32 column reads ~1e-06. What
-produces the observed magnitudes is unexplained.
-**D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
+**D56 (UNFIXED; mechanism REFUTED pass 232, magnitude COLLAPSED pass 233; argued in full in PASSLOG)**: the ~2,172x floor was scored against torch fp32, which 0.4.3 does not use for this island; against the served boundary we are **1.5513x MORE accurate**, and the magnitude collapses 333x under the repair. UNFIXED only because the shipped default is still off. In PASSLOG. **D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
 `of3t-adaln`'s float64-softmax arm puts blocks 8, 0 and 12 all inside the bar, block 0 being
 one of the anti-correlated ones, so there is one mechanism. My ladder assumed a *correct*
 softmax perturbed by rounding residue; the real forward is **biased** by 2.27e-02, and a biased
@@ -507,7 +503,15 @@ writes it.
 
 **Still UNFIXED, each stated in one line here and argued in full in PASSLOG, which is where
 their narrative was moved at pass 176 when GAP went over its cap. Re-audited and stamped pass
-325 against the union ledger:** every defect this block names carries the status the ledger has
+338 against the union ledger** — all sixty-two UNFIXED defects are named here, and the entries
+carrying a closed status say so inline. **D123 and D124 (both UNFIXED, both UPSTREAM and
+scope-excluded)**, added this pass because they were the only two the audit found missing:
+OpenFold3's own yaml generator disables the custom-kernel flags on the TRAIN path but leaves them
+on for EVAL, and Lightning runs sanity-check validation first, so their training test cannot start
+where Triton is absent; and two of their training-data manifests are broken, a structure in their
+own subset 404ing on their S3 and the sdist's checked-in yaml being stale against the generator
+meant to produce it. Neither is ours to fix.
+**Audited pass 325 and re-audited pass 338:** every defect this block names carries the status the ledger has
 for it, including the five it lists as already closed (D8 REFUTED, D9 RESOLVED, D19 CLOSED,
 D21 CLOSED, D31 REFUTED). Two changed this pass. **D174 (REFUTED pass 325)**: the missing
 transition output mask is not the trunk's gradient mechanism — all three device arms read
@@ -546,7 +550,7 @@ module's gr...
 
 **D19, D87 and D99 CLOSED, D91 narrowed, on data already collected and with no card; in PASSLOG.** D19's registered refutation condition did not occur — shipped **fell 5.65x** and tb-off **rose 4.26x**, so **D23's trunk half is CONFIRMED, not refuted**.
 
-**D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME — frame-matched it is **0.9565x** its floor; `of3t-frame384` is live on the crop-384 re-derivation. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `24f0aee7525f1042`. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+**D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D189 (UNFIXED)**: A26's floor is upstream's own bf16 step, **host-dependent at 6 %** across qb1/qb2 while float64 agrees to 2e-16, so a ratio whose floor and numerator came off different boxes carries a host term. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME — frame-matched it is **0.9565x** its floor; `of3t-frame384` is live on the crop-384 re-derivation. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `24f0aee7525f1042`. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
 
 **D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched by pattern, not measured per leaf; it sweeps in **D59, D62, D78, D86, D93, D112**, each inheriting its class without its own measurement. In DEFECTS. **D59, D62, D78, D86, D93 and D112**, each UNFIXED on its own entry and each inheriting D118's classification rather than carrying a measurement of its own — which is the defect: a pattern match is not a per-leaf reading. **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
 
@@ -594,9 +598,7 @@ module's gr...
 
 **D121 (UNFIXED as a standing rule; argued in full in PASSLOG)**: a lever can be **UNREACHED while the numbers MOVE**, and the win then gets credited to the wrong lever — it needs two counters, not one.
 
-**D122 (UNFIXED — the instrument is repaired, the BAR is not mine; in PASSLOG)**: the campaign's terminating condition is a keyword test on this very field. Two GAP texts both naming all forty-seven UNFIXED defects, one labelled "(UNFIXED)" and one "(open)", are **refused** and **accepted** — no measurement lies between them, demonstrated by `defecttriage/gate_is_a_keyword_test.py`, which lifts the regex out of the live gate source. **I am not going to use the second one.** Read literally the condition can never be met, because GAP must name D2, D3, D123 and D124, none of them ours to fix. `defecttriage/triage.py` classifies every live UNFIXED defect against the ledger — **4 SCOPE-EXCLUDED, 8 USER-FACING, 32 CAMPAIGN-INTERNAL** — and the gate now reads that file **beside** the keyword test, refusing GO while any UNFIXED defect ships to users. Strictly additive, break-controlled. No new ask: 9597 has held the pin since pass 215.
-
-**One defect closed by reading (pass 220), argued in full in PASSLOG.** **D87** was labelled **SUPERSEDED** at pass 196; that word is not in the status vocabulary `audit_evidence.py` parses, so the conservative clause kept the previous status and D87 was counted UNFIXED for twenty-four passes while its own latest entry says the claim is false against the revision the checkpoint is bound to. Restated as REFUTED; D119's heading, ambiguous the same way, now says UNFIXED; the audit **fails** on that shape from this pass.
+**D122 (UNFIXED — the instrument is repaired, the BAR is not mine; in PASSLOG)**: the campaign's exit criterion was a keyword test on GAP's prose; the instrument is repaired and the BAR belongs to another row. In PASSLOG. **D87** was labelled **SUPERSEDED** at pass 196; that word is not in the status vocabulary `audit_evidence.py` parses, so the conservative clause kept the previous status and D87 was counted UNFIXED for twenty-four passes while its own latest entry says the claim is false against the revision the checkpoint is bound to. Restated as REFUTED; D119's heading, ambiguous the same way, now says UNFIXED; the audit **fails** on that shape from this pass.
 
 **D125 (UNFIXED as a standing discipline; in PASSLOG)**: I scanned `DEFECTS.md` for every defect still carrying UNFIXED on its own heading while another entry declares it closed. Five hits, **one real** (D9, restated RESOLVED). Three are false positives — one is literally the words *"D8 IS NOT CLOSED"* — and the fourth, D24, needed judgement and was settled the same pass by reading the shipped selector, the opposite way to the phrase that raised it. **No guard shipped**: a check firing on correct text is one the next caller deletes. The discipline instead: **a defect is closed on its own heading or it is not closed**, and an entry that resolves an earlier one restates that heading in the same pass.
 
@@ -871,7 +873,7 @@ gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random
 missing term, not rounding.
 
 VERDICT: PARTIAL, re-stamped pass 337, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-four** of3t rows concluded, **one hundred eighty-seven defects** filed, **sixty-one UNFIXED**,
+**Ninety-four** of3t rows concluded, **one hundred eighty-nine defects** filed, **sixty-two UNFIXED**,
 counted over the UNION of `DEFECTS.md` and its rotation archives because the live file holds only
 the tail. The exit criterion is machine-readable and reads **0 of 3**
 (`state/of3t/CHARTER_EVIDENCE.json`, regenerated from the composition every compose, spec lifted
@@ -1018,7 +1020,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 337 over the union's sixty-one UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 48 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 338 over the union's sixty-two UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 49 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
 
 **CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -2526,3 +2528,62 @@ it is named and recorded rather than queued. It is the first card row OF3T shoul
 ### Pass 337 — D180's full statement, moved out of `GAP:` under the cap, verbatim
 
 **D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME — frame-matched it is **0.9565x** its floor; `of3t-frame384` is live on the crop-384 re-derivation. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `24f0aee7525f1042`. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+
+### Pass 338 — every brief this campaign wrote told the dispatcher nothing about its base
+
+`of3t-frame384` is 12 minutes in with no branch yet, which is normal at that age; the worktree
+checkout dominated. Nothing concluded, so nothing to absorb. What the pass found instead was in
+its log.
+
+**D188.** `worker.sh:303-318` picks a fresh row's base from a **`CONTINUES_FROM:`** line, and its
+own comment records the cost of omitting one: *"every such pass silently forks from $DEF and the
+worker has to manually detect + reset (recurred 3x on RFD3, ~5-10min/pass)"*, plus one case that
+forked silently and needed a hand-fixed cherry-pick. **Zero of this campaign's 94 briefs carry that
+line**, including the nine that say *"Base on `wk/of3t`"* in prose. So every OF3T row has been
+starting on `origin/main` and resetting itself, at 5-10 minutes a pass, ninety-four rows deep.
+
+Caught only because `of3t-frame384`'s log reads `fresh worktree ... from origin/main`, `HEAD is now
+at fd70adde2`, and that row's brief tells it to reuse a producer that exists only on `wk/of3t`.
+
+**The lesson is this campaign's founding one, one layer down.** The charter opens with *a decision
+written into a state doc does not reach a running row, because the row reads its brief*. This is
+the same shape: **a decision written into a brief's PROSE does not reach the DISPATCHER, because
+the dispatcher reads specific lines** — `#DISPATCH:`, `DONE_CHECK:`, `CONTINUES_FROM:`, and the
+TASKS `<!--ws:-->` tag. Everything else in a brief is for the agent. That distinction has now cost
+me twice in three passes: the missing ws-tag at 336, and this.
+
+Fixed for `of3t-frame384` with `CONTINUES_FROM: of3t`, verified unambiguous — `git ls-remote
+--heads origin of3t` matches exactly `refs/heads/wk/of3t`, one ref of 94. It does not move that
+row's existing worktree, since worker.sh reuses one across relaunches, so the live session was
+messaged directly with what main lacks: `perf/of3t_trunkg043/`'s producer, `perf/refpath.py` and
+D183's path caveat, and the c64 frame table it pre-registers against.
+
+**Pass 338 addendum — the row came back with a third framing defect, and it had already fixed its
+own base.** `of3t-frame384` reset onto `origin/wk/of3t` at the top of its pass without being told,
+and both n384 reference arms are running.
+
+**D189, its finding and the sharpest of the three.** Same producer, tree, boundary and torch
+2.8.0+cpu at crop 64, qb1 against qb2: float64 squared gradient norm agrees to **2e-16**
+(1.8714981803225077 vs 1.8714981803225081) while **bf16 autocast differs by 6.0 %** (1.9851095175279738
+vs 2.1115345382360076), and the loss by -0.30275363525224397 against -0.3053330322856267. Both
+boxes carry `avx512_bf16`, so it is kernel blocking and accumulation order, not a missing
+instruction — and it lands exactly on the four cancellation-limited LayerNorm affine leaves that
+carry 92.68 % of the trunk's error mass.
+
+**So A26's bar is host-dependent at the percent level while its numerator's reference is not.** The
+0.3147698293887927 the charter quotes has a host, and nothing records which. The row is rebuilding
+both n384 references on qb1 for internal consistency and re-deriving 0.9565x there too, so the
+figure gets a measured host-robustness reading rather than an assertion of one. Nobody asked it to.
+
+**Three framing defects in four passes and they compose:** D186 the reference frame, D187 five
+stitched legs, D189 the host. A published ratio now needs its frame, its leg and its host before it
+means anything.
+
+**And a correction to my own brief-writing.** The row reports `FRAME_TABLE.json` unreadable from its
+base, and it is right about its base: that file reached `wk/of3t` at pass 336's compose
+(`bc065e1d1`) while the row is based on `f00130c43`, which predates it — and
+`SECTION_ATTRIBUTION.json` has not landed at all yet, because pass 337 added it after that pass's
+compose had already read origin. **I cited my own fresh artifacts to a row whose base predates
+them.** The fix is to cite the SOURCE another row already merged — here
+`perf/of3t_apbback/REFAUDIT.json`, which carries the same four numbers — or to name the commit the
+derived file landed in.

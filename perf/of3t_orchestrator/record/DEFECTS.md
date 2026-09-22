@@ -2555,3 +2555,70 @@ weighting mismatch is not one measurement, and the model-scope headline should b
 summary of the table above rather than as a number in its own right.
 
 Published as `perf/of3t_orchestrator/sections/SECTION_ATTRIBUTION.json`.
+
+### D188. Every one of this campaign's 94 briefs told its row to base on `wk/of3t` in PROSE, and none carried the line the dispatcher reads. FOUND by `of3t-orchestrator`, pass 338. **FIXED** going forward.
+
+`worker.sh:303-318` picks a fresh row's base: `origin/$DEF` unless the row's own branch already
+exists, else a **`CONTINUES_FROM:`** line in the brief. Its own comment says what happens without
+one: *"every such pass silently forks from $DEF and the worker has to manually detect + reset
+(recurred 3x on RFD3, ~5-10min/pass)"*, and records one case where a row *"silently forked from
+main instead of its real predecessor branch ... the worker had to notice and hand-fix it with a
+cherry-pick"*.
+
+**Zero of 94 `of3t-*` briefs carry `CONTINUES_FROM:`**, including the nine that say *"Base on
+`wk/of3t`"* in prose. So every OF3T row has been forking from `origin/main` and detecting-and-
+resetting itself, at the 5-10 minutes a pass its author measured. Caught only because
+`of3t-frame384`'s log says `fresh worktree ... from origin/main` and `HEAD is now at fd70adde2`,
+and that row's brief tells it to reuse a producer that exists only on `wk/of3t`.
+
+**The lesson is the campaign's own, one layer down.** *A decision written into a state doc does not
+reach a running row, because the row reads its brief* — the charter's founding lesson. This is the
+same shape: **a decision written into a brief's PROSE does not reach the DISPATCHER, because the
+dispatcher reads specific lines.** `#DISPATCH:`, `DONE_CHECK:`, `CONTINUES_FROM:` and the TASKS
+`<!--ws:-->` tag are read by machines; everything else in a brief is read by an agent. I have now
+been bitten by that distinction twice in three passes — the missing ws-tag at 336 and this.
+
+**Fixed for `of3t-frame384`**, verified unambiguous: `git ls-remote --heads origin of3t` matches
+exactly `refs/heads/wk/of3t`, one ref of the 94 `wk/of3t*`. It does **not** retroactively move that
+row's worktree, because worker.sh reuses an existing one across relaunches, so the live session was
+told directly.
+
+**Standing rule for this campaign:** a brief whose row must start from the composition carries
+`CONTINUES_FROM: of3t` under its `#DISPATCH:` line. Prose saying "base on wk/of3t" is for the agent
+and is not a substitute.
+
+### D189. A26's denominator — "upstream's own bf16 recipe" — is HOST-DEPENDENT at the percent level, while the float64 reference is not. FOUND by `of3t-frame384`, pass 338. **UNFIXED.**
+
+Same producer, same tree, same boundary, same torch 2.8.0+cpu, crop 64, qb1 against qb2:
+
+    float64        squared gradient norm  1.8714981803225077  vs  1.8714981803225081   ->  2e-16
+    bf16 autocast                         1.9851095175279738  vs  2.1115345382360076   ->  6.0 %
+    loss                                 -0.30275363525224397 vs -0.3053330322856267
+
+qb1 is an EPYC 8124P (Zen 4c), qb2 a Ryzen 7 9700X (Zen 5), **both carrying `avx512_bf16`** — so
+this is kernel blocking and accumulation order, not a missing instruction. The float64 arm is
+bit-reproducible across the two boxes to 2e-16; the bf16 arm is not, by 6 %.
+
+**It is consistent rather than alarming, and that is the point.** `of3t-trunkg043` measured 92.68 %
+of the trunk's error mass on four cancellation-limited LayerNorm affine leaves, which are exactly
+the leaves a different summation order moves.
+
+**The consequence for every published ratio.** A26's floor is *upstream's own bf16 step*, so the
+BAR is a host-dependent quantity at the percent level while the numerator's float64 reference is
+not. **Any ratio whose floor came off one box and numerator off another carries a host term**, and
+this campaign has arms from pc, qb1 and qb2 scored against bars from whichever box produced them.
+The 0.3147698293887927 the charter quotes has a host and nothing records which.
+
+**Third framing defect in four passes, and they compose:** D186 (the reference FRAME), D187 (five
+stitched legs with different frames and precisions), D189 (the bar moves by host). Each on its own
+is a caveat; together they mean a published ratio needs its frame, its leg and its host before it
+means anything.
+
+`of3t-frame384` is handling it correctly and without being asked: building BOTH n384 references on
+qb1 so its own ratio is internally consistent, and rebuilding the c64 pair on qb1 to re-derive
+0.9565x there, so the published figure gets a measured host-robustness reading rather than an
+assertion of one.
+
+**What this owes:** every bar-bearing artifact should record the host that produced the FLOOR, not
+only the host that produced the arm. D155 already requires a host for a digest claim; a bar is the
+same kind of claim and has never been held to it.
