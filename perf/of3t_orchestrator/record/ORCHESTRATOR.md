@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **ninety-two dispatched, eighty-nine concluded** as of pass 327 (`of3t-padshape` concluded NO-GO on D175 mid-pass; `of3t-trajretake` launched) (pass 327 adds `of3t-trajretake` for D178, the only GO condition with no owner; namespace `perf/of3t_trajretake/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. Live: `of3t-hostleg`, `of3t-padshape`, this row, and `of3t-trajretake` queued, against a cap of five.) Earlier: **ninety-one dispatched, eighty-eight concluded** as of pass 325 (ninety-one `of3t-*` briefs on disk; `state/concluded` holds ninety of3t markers, two of them this live row's own and stale, so the concluded count excluding mine is eighty-eight). `of3t-ditmodel`, `of3t-pathcov` and `of3t-covpaths` all concluded during pass 325, taking the campaign from five live rows to two. **Pass 325 dispatches `of3t-padshape`** for D175, which REPLACES three rather than adding to the count: pad content and model semantics are both refuted for the trunk's pad-extent scaling, so the object is a shape law and the experiment is a width sweep at 64/128/256/384 rather than a capture. Namespace `perf/of3t_padshape/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. **No new rows this pass** — Moritz, 20:29Z 2026-09-21: *"we're still burning money too fast. do exactly the same with fewer agents in parallel."* Five of3t rows were already out and the fleet is capped at MAX_ROWS_TOTAL=5, so this pass dispatched nothing and instead REDIRECTED a live card row. `of3t-modelboundary` concluded 23:56 with coverage 97.98499 % and the trunk defect. `of3t-ditmodel`, launched 23:58 on qb2 card 0, had its whole object closed by that row's artifacts before it took a measurement — AMENDMENT 2 hands it **D174** (the missing transition mask) with a pre-registered prediction, a break control and the inference A/B it owes; brief mirrored to pc, qb1 and qb2, and the live session messaged directly because a brief edit only lands on the next launch. Earlier: **ninety dispatched, eighty-five concluded** as read at pass 321 (`of3t-barresolve` concluded this pass. This census excludes this row's own markers; `state/concluded` holds eighty-six `of3t-*` files in total, two of them mine and stale while the row is live, which is why VERDICT's count and this one differ by two and both are right. **Pass 319 dispatches `of3t-covpaths`**, CPU-only, no card: the five of GO condition COVERAGE's seven unfired conditional paths that are a batch-selection problem rather than a subsystem one -- `templates`, `bond`, `nucleotide`, `disabled_parameters`, and the `ref_space_uid_to_perm` KeyError behind `multichain_permutation`. `model_forward` and `diffusion_rollout` are deliberately NOT in it: both need the OF3 training forward wired in `tt_bio/train/`, which is a subsystem and a separate object. Namespace `perf/of3t_covpaths/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag all added, and the row may not re-emit `of3t-gradients`' census -- a contradiction with it is a finding for me, not an edit for the row. **And `of3t-pathcov`**, qb2, card=any: path coverage reads `not instrumented` and, on the brief's 2026-09-21 amendment, it outranks further precision on mass already compared -- a parameter can be inside the 92.1568 %, receive a gradient, agree to the bar, and the branch that produced it may never have run. Blocker root-caused at A2 and explicitly not to be re-derived. Namespace `perf/of3t_pathcov/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. **Pass 320 adds the two rows on the coverage bar's critical path**, both card, both independent of each other: `of3t-modelboundary` for the 2736 tensors already compared at another boundary (+5.82817, to 97.98499 %) and `of3t-hostleg` for the 17 host-applied ones whose device module already exists with a PCC gate (+1.52024, to 99.50523 % against the 99.2594 % bar). Namespaces `perf/of3t_modelboundary/` and `perf/of3t_hostleg/`, gate entries, stage hints and TASKS ws-tags added. **Pass 321 adds `of3t-ditmodel`**, which outranks all four: D172 located the campaign's entire model-scope gradient error in one section and no row owns it, both diffusion rows having concluded. Namespace `perf/of3t_ditmodel/`, based on `wk/of3t`, gate entry, stage hint and ws-tag added) (pass 318 adds `of3t-barresolve`, CPU-only, no card: GO condition 3's BAR records `TW.REF_TREE`, a CONSTANT, where the row it is the denominator for reads `openfold3.__file__` back — the composition's D149 guard refuses `trajbar.py` and it is right. Namespace `perf/of3t_barresolve/`, based on `wk/of3t-trajbar`, gate entry and stage hint added, TASKS row written. Two files released to it from a concluded row's namespace, `trajbar.py` and its own artifact; `BAR.json` and the steplogs are read-only, because a number that has to change there is a finding and not an edit.) **eighty-three dispatched, seventy-six concluded, seven live** (pass 307 adds `of3t-trajbar`, CPU-only, `DEPENDS_ON: of3t-trajwide` -- the reachable bar for a 20-step TRAJECTORY, which is D136's fifth pre-registered field and the one thing the condition-3 GO cannot be quoted against because it has never existed: upstream's own bf16-mixed loop scored against upstream's own float64 loop, twenty steps, same init, same order, same 573-tensor denominator. A26's 1.0495450e-01 is a single-STEP gradient bar and does not transfer. Namespace `perf/of3t_trajbar/`, based on `wk/of3t-trajwide`, gate entry and stage hint added, and the brief carries the paragraph saying why `of3t-traj20`'s gain ladder is NOT this bar. Held behind `of3t-trajwide` because both want the same sixteen cores. Pass 307 also tightened `of3t-stepfloor`'s gate with a `STEADY:` measured field: it was passing on a verdict its own charter calls incomplete.) (pass 271: Moritz answered pin 9629 by delegating — *"for all of those. think hard. use your own judgement. and do the right thing"* — and TEN rows were dispatched on the recorded decisions in `state/ask-9629-decision.md`: `of3t-d1-pairbias`, `of3t-d10d24-unify`, `of3t-d56-renorm`, `of3t-d137-tapegate`, `of3t-crop768`, `of3t-d10-d107`, `of3t-d112`, `of3t-d116`, `of3t-d117`, `of3t-d122-d115`, across qb1, qb2 and pc. **`of3t-f64gate` is RETIRED into `of3t-d137-tapegate`** — same deliverable, its dispatch withdrawn so the fleet cannot queue a duplicate, and its one unique requirement handed over as AMENDMENT 1: the inference fold A/B against an A/A floor, because *"not made slower"* is half the constraint and a byte-identical digest does not measure time.) (`of3t-cond043` concluded GO at pass 240) (pass 239 adds `of3t-ditcot`, the campaign's next object — a depth-independent **2.28x** excess in the cotangent transported through a DiT block's backward, `DEPENDS_ON: of3t-trajwide` so it is held until a card frees; namespace `perf/of3t_ditcot/`, based on `wk/of3t`, gate entry and stage hint added. `of3t-condtrans` concluded at pass 237) (pass 236 also adds `of3t-cond043`, CPU-only: D129's floor rebuilt at the **0.4.3** boundary the served checkpoint is bound to, because the 4.388x was measured at 0.5.0 and D120 is the finding that this boundary moves the same arithmetic four orders of magnitude — the 0.4.3 package, the rebuilt capture and its revalidated loss were all checked before the brief was written; namespace `perf/of3t_cond043/`, based on `wk/of3t`, gate entry and stage hint added. Pass 236 adds `of3t-trajwide`, GO condition 3's next rung — the diffusion module at ~89.2 % against the current 36.9462 %; namespace `perf/of3t_trajwide/`, based on `wk/of3t`, gate entry and stage hint added. (pass 235 adds `of3t-condtrans` for the leaf the repair promoted to second place, with the FLOOR as deliverable one; namespace `perf/of3t_condtrans/`, based on `wk/of3t`, gate entry and stage hint added. (pass 229 adds `of3t-lnaffine`, the four LayerNorm affine leaves carrying 59.6 % of the trunk's error mass; namespace `perf/of3t_lnaffine/`, based on `wk/of3t`, gate entry and stage hint added. (pass 226 adds `of3t-optsem`, which owns D107's update-rule semantics, and `of3t-hostops`, which owns D127 — the 3.6438 % that has no device gradient to compute; namespaces `perf/of3t_optsem/` and `perf/of3t_hostops/`, both based on `wk/of3t`, gate entries and stage hints added. (pass 224 adds `of3t-rankunify`, to unify a sample-ranking rule that now reads three different ways across three shipped models; namespace `perf/of3t_rankunify/`, based on `wk/of3t`, gate entry and stage hint added. Pass 222 adds `of3t-rebind`, to land D126 in `tt_bio/`, and `of3t-permalign`, CPU-only, to settle D117 — the experiment D117 itself wrote down and nobody ran; namespace `perf/of3t_permalign/`, based on `wk/of3t`, gate entry and stage hint added. Pass 221 adds `of3t-tapediverge`, the four user-facing defects that are one question — a training step is a different execution than an inference step; namespace `perf/of3t_tapediverge/`, based on `wk/of3t`, gate entry and stage hint added. Pass 220 adds `of3t-modeltraj`, the 20-step trajectory with the MODEL in the loop — GO condition 3, the only one of the five that reads PARTLY; namespace `perf/of3t_modeltraj/`, based on `wk/of3t`, gate entry and stage hint added. Pass 219 added `of3t-theirtest`, GO condition 4. Earlier: pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **ninety-five dispatched, ninety-four concluded** as of pass 342 (`of3t-frame384` concluded at pass 340 with D191; `of3t-widthattr`, dispatched the same pass, concluded NO-GO at 342 having LOCATED it and refuted the softmax hypothesis — the decisive experiment needs a card and has no owner). Every earlier row has finished. **Pass 336 dispatches `of3t-frame384`**, CPU-ONLY and therefore taking no card from BindCraft 2, which runs one row at a time and had two free slots: it builds the crop-384 frame-matched reference, the campaign's highest-value remaining measurement. Namespace `perf/of3t_frame384/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added (pass 329 adds `of3t-apbback`, the trunk's backward — the campaign's largest remaining accuracy object and the first owner it has had; namespace `perf/of3t_apbback/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. Live: `of3t-hostleg`, `of3t-trajretake`, this row, and `of3t-apbback` queued, against a cap of five.) Earlier: **ninety-two dispatched, eighty-nine concluded** as of pass 327 (`of3t-padshape` concluded NO-GO on D175 mid-pass; `of3t-trajretake` launched) (pass 327 adds `of3t-trajretake` for D178, the only GO condition with no owner; namespace `perf/of3t_trajretake/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. Live: `of3t-hostleg`, `of3t-padshape`, this row, and `of3t-trajretake` queued, against a cap of five.) Earlier: **ninety-one dispatched, eighty-eight concluded** as of pass 325 (ninety-one `of3t-*` briefs on disk; `state/concluded` holds ninety of3t markers, two of them this live row's own and stale, so the concluded count excluding mine is eighty-eight). `of3t-ditmodel`, `of3t-pathcov` and `of3t-covpaths` all concluded during pass 325, taking the campaign from five live rows to two. **Pass 325 dispatches `of3t-padshape`** for D175, which REPLACES three rather than adding to the count: pad content and model semantics are both refuted for the trunk's pad-extent scaling, so the object is a shape law and the experiment is a width sweep at 64/128/256/384 rather than a capture. Namespace `perf/of3t_padshape/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. **No new rows this pass** — Moritz, 20:29Z 2026-09-21: *"we're still burning money too fast. do exactly the same with fewer agents in parallel."* Five of3t rows were already out and the fleet is capped at MAX_ROWS_TOTAL=5, so this pass dispatched nothing and instead REDIRECTED a live card row. `of3t-modelboundary` concluded 23:56 with coverage 97.98499 % and the trunk defect. `of3t-ditmodel`, launched 23:58 on qb2 card 0, had its whole object closed by that row's artifacts before it took a measurement — AMENDMENT 2 hands it **D174** (the missing transition mask) with a pre-registered prediction, a break control and the inference A/B it owes; brief mirrored to pc, qb1 and qb2, and the live session messaged directly because a brief edit only lands on the next launch. Earlier: **ninety dispatched, eighty-five concluded** as read at pass 321 (`of3t-barresolve` concluded this pass. This census excludes this row's own markers; `state/concluded` holds eighty-six `of3t-*` files in total, two of them mine and stale while the row is live, which is why VERDICT's count and this one differ by two and both are right. **Pass 319 dispatches `of3t-covpaths`**, CPU-only, no card: the five of GO condition COVERAGE's seven unfired conditional paths that are a batch-selection problem rather than a subsystem one -- `templates`, `bond`, `nucleotide`, `disabled_parameters`, and the `ref_space_uid_to_perm` KeyError behind `multichain_permutation`. `model_forward` and `diffusion_rollout` are deliberately NOT in it: both need the OF3 training forward wired in `tt_bio/train/`, which is a subsystem and a separate object. Namespace `perf/of3t_covpaths/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag all added, and the row may not re-emit `of3t-gradients`' census -- a contradiction with it is a finding for me, not an edit for the row. **And `of3t-pathcov`**, qb2, card=any: path coverage reads `not instrumented` and, on the brief's 2026-09-21 amendment, it outranks further precision on mass already compared -- a parameter can be inside the 92.1568 %, receive a gradient, agree to the bar, and the branch that produced it may never have run. Blocker root-caused at A2 and explicitly not to be re-derived. Namespace `perf/of3t_pathcov/`, based on `wk/of3t`, gate entry, stage hint and TASKS ws-tag added. **Pass 320 adds the two rows on the coverage bar's critical path**, both card, both independent of each other: `of3t-modelboundary` for the 2736 tensors already compared at another boundary (+5.82817, to 97.98499 %) and `of3t-hostleg` for the 17 host-applied ones whose device module already exists with a PCC gate (+1.52024, to 99.50523 % against the 99.2594 % bar). Namespaces `perf/of3t_modelboundary/` and `perf/of3t_hostleg/`, gate entries, stage hints and TASKS ws-tags added. **Pass 321 adds `of3t-ditmodel`**, which outranks all four: D172 located the campaign's entire model-scope gradient error in one section and no row owns it, both diffusion rows having concluded. Namespace `perf/of3t_ditmodel/`, based on `wk/of3t`, gate entry, stage hint and ws-tag added) (pass 318 adds `of3t-barresolve`, CPU-only, no card: GO condition 3's BAR records `TW.REF_TREE`, a CONSTANT, where the row it is the denominator for reads `openfold3.__file__` back — the composition's D149 guard refuses `trajbar.py` and it is right. Namespace `perf/of3t_barresolve/`, based on `wk/of3t-trajbar`, gate entry and stage hint added, TASKS row written. Two files released to it from a concluded row's namespace, `trajbar.py` and its own artifact; `BAR.json` and the steplogs are read-only, because a number that has to change there is a finding and not an edit.) **eighty-three dispatched, seventy-six concluded, seven live** (pass 307 adds `of3t-trajbar`, CPU-only, `DEPENDS_ON: of3t-trajwide` -- the reachable bar for a 20-step TRAJECTORY, which is D136's fifth pre-registered field and the one thing the condition-3 GO cannot be quoted against because it has never existed: upstream's own bf16-mixed loop scored against upstream's own float64 loop, twenty steps, same init, same order, same 573-tensor denominator. A26's 1.0495450e-01 is a single-STEP gradient bar and does not transfer. Namespace `perf/of3t_trajbar/`, based on `wk/of3t-trajwide`, gate entry and stage hint added, and the brief carries the paragraph saying why `of3t-traj20`'s gain ladder is NOT this bar. Held behind `of3t-trajwide` because both want the same sixteen cores. Pass 307 also tightened `of3t-stepfloor`'s gate with a `STEADY:` measured field: it was passing on a verdict its own charter calls incomplete.) (pass 271: Moritz answered pin 9629 by delegating — *"for all of those. think hard. use your own judgement. and do the right thing"* — and TEN rows were dispatched on the recorded decisions in `state/ask-9629-decision.md`: `of3t-d1-pairbias`, `of3t-d10d24-unify`, `of3t-d56-renorm`, `of3t-d137-tapegate`, `of3t-crop768`, `of3t-d10-d107`, `of3t-d112`, `of3t-d116`, `of3t-d117`, `of3t-d122-d115`, across qb1, qb2 and pc. **`of3t-f64gate` is RETIRED into `of3t-d137-tapegate`** — same deliverable, its dispatch withdrawn so the fleet cannot queue a duplicate, and its one unique requirement handed over as AMENDMENT 1: the inference fold A/B against an A/A floor, because *"not made slower"* is half the constraint and a byte-identical digest does not measure time.) (`of3t-cond043` concluded GO at pass 240) (pass 239 adds `of3t-ditcot`, the campaign's next object — a depth-independent **2.28x** excess in the cotangent transported through a DiT block's backward, `DEPENDS_ON: of3t-trajwide` so it is held until a card frees; namespace `perf/of3t_ditcot/`, based on `wk/of3t`, gate entry and stage hint added. `of3t-condtrans` concluded at pass 237) (pass 236 also adds `of3t-cond043`, CPU-only: D129's floor rebuilt at the **0.4.3** boundary the served checkpoint is bound to, because the 4.388x was measured at 0.5.0 and D120 is the finding that this boundary moves the same arithmetic four orders of magnitude — the 0.4.3 package, the rebuilt capture and its revalidated loss were all checked before the brief was written; namespace `perf/of3t_cond043/`, based on `wk/of3t`, gate entry and stage hint added. Pass 236 adds `of3t-trajwide`, GO condition 3's next rung — the diffusion module at ~89.2 % against the current 36.9462 %; namespace `perf/of3t_trajwide/`, based on `wk/of3t`, gate entry and stage hint added. (pass 235 adds `of3t-condtrans` for the leaf the repair promoted to second place, with the FLOOR as deliverable one; namespace `perf/of3t_condtrans/`, based on `wk/of3t`, gate entry and stage hint added. (pass 229 adds `of3t-lnaffine`, the four LayerNorm affine leaves carrying 59.6 % of the trunk's error mass; namespace `perf/of3t_lnaffine/`, based on `wk/of3t`, gate entry and stage hint added. (pass 226 adds `of3t-optsem`, which owns D107's update-rule semantics, and `of3t-hostops`, which owns D127 — the 3.6438 % that has no device gradient to compute; namespaces `perf/of3t_optsem/` and `perf/of3t_hostops/`, both based on `wk/of3t`, gate entries and stage hints added. (pass 224 adds `of3t-rankunify`, to unify a sample-ranking rule that now reads three different ways across three shipped models; namespace `perf/of3t_rankunify/`, based on `wk/of3t`, gate entry and stage hint added. Pass 222 adds `of3t-rebind`, to land D126 in `tt_bio/`, and `of3t-permalign`, CPU-only, to settle D117 — the experiment D117 itself wrote down and nobody ran; namespace `perf/of3t_permalign/`, based on `wk/of3t`, gate entry and stage hint added. Pass 221 adds `of3t-tapediverge`, the four user-facing defects that are one question — a training step is a different execution than an inference step; namespace `perf/of3t_tapediverge/`, based on `wk/of3t`, gate entry and stage hint added. Pass 220 adds `of3t-modeltraj`, the 20-step trajectory with the MODEL in the loop — GO condition 3, the only one of the five that reads PARTLY; namespace `perf/of3t_modeltraj/`, based on `wk/of3t`, gate entry and stage hint added. Pass 219 added `of3t-theirtest`, GO condition 4. Earlier: pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -252,7 +252,7 @@ and the trunk-composed figure likewise: **1.5286636e-01** against a composed bar
 52.898x is the companion the headline needs** and did not carry: on one reference, at one coverage,
 the repaired configuration reads 0.9592x and the tree as it ships reads **52.9x the same bar**.
 
-Recomputed from the artifacts on every compose (172 checks, 0 drifted); that total is a claim about this audit and it is now audited where it is EVALUABLE only — **D130** (pass 236, found and fixed the same pass): the total was computed from confirmations, so any *other* guard that drifted took it down by one and the count guard then reported the lower number as *"the count drifted when checks were added"* — the wrong cause, twice in one session and once in each direction. When another check is down the guard now announces that it could not run and says why; clean runs behave exactly as before, and a genuinely stale count still fires. The probe `perf/of3t_orchestrator/countstable/count_is_not_evaluable_while_drifted.py` **lifts the block out of the live audit** rather than restating it, shows all three states, prints the old rule's false message verbatim beside the new refusal, and fails both assertions when the repair is reverted. **D131** (pass 237) added the 167th: the summary's own triage split — *"N scope-excluded, M USER-FACING, K campaign-internal"* — is now checked against `state/of3t/UNFIXED_TRIAGE.json`, the file the GATE reads, and against the UNFIXED total two sentences above it. It had drifted to **4/10/33** while the file held **4/8/32**, three defects stale and not even summing to the 44 stated beside it. **D133** and **D134** (pass 240) added the 168th and 169th, and both are about the ledger's own readability: a defect that declares **no** status on any heading is invisible to `unfixed`, to the triage and to GAP's naming requirement (**29 of 132** were, frozen as a shrink-only ratchet in `state/of3t/STATUSLESS_BACKLOG.json`), and a status read out of **lower-case prose or a negation** is not a declaration — **D69** read FIXED off the words *"a reading fixed before the arm produced output"* for seventy-one passes, and **D116**'s *"D8 is NOT closed by it"* was stored as CLOSED. The 172nd is new at pass 267 and guards the campaign's longest-lived failure shape: when a declared row **concludes** and VERDICT still carries the figure its result supersedes, the compose fails. One entry — `of3t-trajwide` against *"on a CONFIGURATION (D136)"* — because D136's headline was wrong for **25** passes and A15's shares for over **100** (D146), and both were found by reading rather than by a mechanism. **D135** (pass 241) added the 170th and 171st: **RECORDED** may not retire a defect that ever declared UNFIXED, and the gate's own literal copy of the status vocabulary — it runs from `~/.coworker` and cannot import `status_vocab.py` — is **compared** against `PATTERN` on every compose rather than trusted.
+Recomputed from the artifacts on every compose (174 checks, 0 drifted); that total is a claim about this audit and it is now audited where it is EVALUABLE only — **D130** (pass 236, found and fixed the same pass): the total was computed from confirmations, so any *other* guard that drifted took it down by one and the count guard then reported the lower number as *"the count drifted when checks were added"* — the wrong cause, twice in one session and once in each direction. When another check is down the guard now announces that it could not run and says why; clean runs behave exactly as before, and a genuinely stale count still fires. The probe `perf/of3t_orchestrator/countstable/count_is_not_evaluable_while_drifted.py` **lifts the block out of the live audit** rather than restating it, shows all three states, prints the old rule's false message verbatim beside the new refusal, and fails both assertions when the repair is reverted. **D131** (pass 237) added the 167th: the summary's own triage split — *"N scope-excluded, M USER-FACING, K campaign-internal"* — is now checked against `state/of3t/UNFIXED_TRIAGE.json`, the file the GATE reads, and against the UNFIXED total two sentences above it. It had drifted to **4/10/33** while the file held **4/8/32**, three defects stale and not even summing to the 44 stated beside it. **D133** and **D134** (pass 240) added the 168th and 169th, and both are about the ledger's own readability: a defect that declares **no** status on any heading is invisible to `unfixed`, to the triage and to GAP's naming requirement (**29 of 132** were, frozen as a shrink-only ratchet in `state/of3t/STATUSLESS_BACKLOG.json`), and a status read out of **lower-case prose or a negation** is not a declaration — **D69** read FIXED off the words *"a reading fixed before the arm produced output"* for seventy-one passes, and **D116**'s *"D8 is NOT closed by it"* was stored as CLOSED. The 172nd is new at pass 267 and guards the campaign's longest-lived failure shape: when a declared row **concludes** and VERDICT still carries the figure its result supersedes, the compose fails. One entry — `of3t-trajwide` against *"on a CONFIGURATION (D136)"* — because D136's headline was wrong for **25** passes and A15's shares for over **100** (D146), and both were found by reading rather than by a mechanism. **D135** (pass 241) added the 170th and 171st: **RECORDED** may not retire a defect that ever declared UNFIXED, and the gate's own literal copy of the status vocabulary — it runs from `~/.coworker` and cannot import `status_vocab.py` — is **compared** against `PATTERN` on every compose rather than trusted.
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -463,14 +463,7 @@ dropout mask nothing can reproduce. The rebuild reproduces bit-identically; only
 outstanding. It read 'FIX IN FLIGHT', which is not in the status vocabulary, so it was invisible
 to every guard until this pass.
 rebuilt since 18:55** — six concluded rows' work, the campaign's whole last six hours, is not on
-`wk/of3t`. Two new defects this pass. **D167 (FIXED pass 318)**: D56's landing on `origin/main`
-(`1aa7070f5`, 17:49) conflicts with `of3t-leaves`, `of3t-gradients` and `of3t-apbgrad` in three
-shapes, and the documented "HEAD wins" rule would have resolved the `of3t-gradients` one into an
-unbound `y` and a backward that raises — invisible to a compose that runs test collection and
-never executes the closure. Two shape-based resolvers land it: an `__all__` union that refuses
-unless every unioned name is bound at module level, and a box-against-helper composer that reads
-`softmax_bw_inner` in the composed tree to confirm it carries the renorm branch before dropping
-the inline one. **D168 (OPEN, a reasoning defect not a code one)**: a `named_parameters()` diff
+`wk/of3t`. Two new defects this pass. **D168 (OPEN, a reasoning defect not a code one)**: a `named_parameters()` diff
 cannot see a refactor that adds no parameter, and five functional changes on the trunk and MSA
 path across the 0.4.3 -> 0.5.0 boundary add none. Any claim that a module is out of reach of the
 version boundary owes a version-only arm, not a name diff;
@@ -487,11 +480,7 @@ recorded as blocked on a boundary move for eleven passes while the capture that 
 sat on qb2 — row `of3t-conditioning` dispatched, and it returned **GO**. **D54 (FIXED)**: the
 per-tensor array I told a live row to produce had been on disk three hours, D52's lesson
 recurring against me. **D55 (UNFIXED, RE-LOCATED pass 221)**: the tape gives `precise_config()` to the reductions feeding weight gradients and withholds it from the four inside near-cancellations. **Every line number in the original entry had gone stale** — second sighting of that trap in this file after D31's `tenstorrent.py:7205` → `:7398`, so it is now a defect-writing rule: locate by symbol and by the code text, and give the line as a convenience. Re-located by pattern on `wk/of3t`, the substance holds: `taped_ttnn.py:216` and `autograd.py:612-613` (the softmax backward's `inner`), `autograd.py:847` — where the matmuls at `:842`, `:845-846` and `:859` **all** pass `compute_kernel_config=cfg` and the reduction between them does not — and `autograd.py:595-598` / `:1514-1517`. **And the repair walked past it**: `of3t-apbgrad` inserted a second reduction at `:218-219` and gave it `precise_config()` while leaving the near-cancellation numerator at `:216` without one, so the numerator and denominator of ONE division run at different kernel configs. That does not say the repair is wrong — the renorm arm reads 1.006695e-01, 0.9592x the reachable bar, bit-identical to the host-float64 arm on 547 of 547 tensors — it says there is a **free, untested lever one keyword wide** on the construct D55 argues is the amplifier. Owned: `of3t-tapediverge` AMENDMENT 1.
-**D56 (UNFIXED; mechanism REFUTED pass 232, magnitude COLLAPSED pass 233; argued in full in PASSLOG)**: the ~2,172x floor was scored against **torch fp32**, which 0.4.3 does not use for this island — against the served boundary **we are 1.5513x MORE accurate**. Its cancellation story is refuted by direct measurement: K at `attn_pair_bias.layer_norm_a` is the **LOWEST** of ten LayerNorm sites (median **9.41**, max anywhere 151.79, against D56's interpolated 1.3e+06), bounding any bf16-class evaluation at **0.0184** — **165x short** of 3.040 — and its ~3,000x ladder shortfall is closed because the ladder prices LOCAL conditioning while the error is **inherited**. **And the magnitude collapses 333x under the repair**: matched same-branch A/B with byte-equal forward, 523 tensors each, leaf error mass **878.85 → 2.636**, blocks 5/7/8/12 from **98.93 % → 29.77 %**, block 8's ratio **87.643 → 1.732** and cosine −0.169 → +0.694. The row **refused the cross-run comparison I told it to make**, correctly: the pass-155 artifact has a forward 9.87x better, so differencing would charge a forward change to a backward-only flag and inflate the collapse (114x against 333x). **No surviving mechanism and no surviving magnitude at diffusion scope on the repaired arm**; UNFIXED only because the shipped default is still off.
-`K ≈ 1.3e+06` it rested on was interpolated off the curve being explained, and the directly
-measured K is **172.60**, at which the ladder's own host-fp32 column reads ~1e-06. What
-produces the observed magnitudes is unexplained.
-**D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
+**D56 (UNFIXED; mechanism REFUTED pass 232, magnitude COLLAPSED pass 233; argued in full in PASSLOG)**: the ~2,172x floor was scored against torch fp32, which 0.4.3 does not use for this island; against the served boundary we are **1.5513x MORE accurate**, and the magnitude collapses 333x under the repair. UNFIXED only because the shipped default is still off. In PASSLOG. **D57 (REFUTED)**: I argued a second mechanism owned the nine worst tensors;
 `of3t-adaln`'s float64-softmax arm puts blocks 8, 0 and 12 all inside the bar, block 0 being
 one of the anti-correlated ones, so there is one mechanism. My ladder assumed a *correct*
 softmax perturbed by rounding residue; the real forward is **biased** by 2.27e-02, and a biased
@@ -507,7 +496,15 @@ writes it.
 
 **Still UNFIXED, each stated in one line here and argued in full in PASSLOG, which is where
 their narrative was moved at pass 176 when GAP went over its cap. Re-audited and stamped pass
-325 against the union ledger:** every defect this block names carries the status the ledger has
+338 against the union ledger** — all sixty-two UNFIXED defects are named here, and the entries
+carrying a closed status say so inline. **D123 and D124 (both UNFIXED, both UPSTREAM and
+scope-excluded)**, added this pass because they were the only two the audit found missing:
+OpenFold3's own yaml generator disables the custom-kernel flags on the TRAIN path but leaves them
+on for EVAL, and Lightning runs sanity-check validation first, so their training test cannot start
+where Triton is absent; and two of their training-data manifests are broken, a structure in their
+own subset 404ing on their S3 and the sdist's checked-in yaml being stale against the generator
+meant to produce it. Neither is ours to fix.
+**Audited pass 325 and re-audited pass 338:** every defect this block names carries the status the ledger has
 for it, including the five it lists as already closed (D8 REFUTED, D9 RESOLVED, D19 CLOSED,
 D21 CLOSED, D31 REFUTED). Two changed this pass. **D174 (REFUTED pass 325)**: the missing
 transition output mask is not the trunk's gradient mechanism — all three device arms read
@@ -546,7 +543,9 @@ module's gr...
 
 **D19, D87 and D99 CLOSED, D91 narrowed, on data already collected and with no card; in PASSLOG.** D19's registered refutation condition did not occur — shipped **fell 5.65x** and tb-off **rose 4.26x**, so **D23's trunk half is CONFIRMED, not refuted**.
 
-**D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched against every leaf by pattern rather than measured per leaf; argued in full in DEFECTS. The leaves it sweeps in are **D59, D62, D78, D86, D93 and D112**, each UNFIXED on its own entry and each inheriting D118's classification rather than carrying a measurement of its own — which is the defect: a pattern match is not a per-leaf reading. **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
+**D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D189 (UNFIXED)**: A26's floor is upstream's own bf16 step and is host-dependent while float64 agrees to 2e-16, so a ratio whose floor and numerator came off different boxes carries a host term. Pass 340 bounded it, then measured it: the floor came off **qb2** (`fleet.log:118653`), the swing is **2.0797x** on its crop-64 lower bound and runs toward LENIENCY, and two c64 floors off different boxes read 0.4007237405 and 0.3739375769 — **7.2 % apart, numerators agreeing to 1e-16**. **D190 (UNFIXED)**: a field edit anchored on `index("FIELD:")` matched the name quoted in PROSE and deleted **56,734 characters** of `DOESNOT:`; every content check read the deletion as ordinary staleness. Restored from the mirror; presence is asserted before content, but the anchor-on-a-heading rule is not enforced. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME; the reframing is confirmed (1.8416532191) and does NOT exonerate the trunk. **D191 (UNFIXED, LOCATED pass 342, the campaign's largest object)**: `of3t-widthattr` decomposed the growth — **93.80 % LayerNorm affine**, **74.58 % in blocks 44/4/0**, 83.85 % in 20 of 2,736 tensors, worst `blocks.4.attn_pair_bias.layer_norm_a.weight` at norm ratio 7.3729 and **cos -0.0057**; the softmax backward's scope carries **0.1232 %** and block 47 entire 0.1808 %, so they are separate objects, and it is no width LAW (exponents 1.129/0.964/0.448). Closing it needs one card and two arms. **D193 (UNFIXED)**: I labelled that block-47 result *crop 64*; the capture's masks are (1, 384) — D180 one turn worse, a wrong label not a missing one. The reading: ours **0.8354121633** against upstream's own bf16 floor **0.3739383921** is **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373 and outside the pre-registered band; at 64 it is 1.0251x, the floor moving 1.0000022x where our arm moves 2.1795x. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `1b27f5754b32b8e3` over 293 `.py` files (re-verified on qb2, identical under a rename-sensitive rule too). **D192 (UNFIXED)**: the digest this line carried for eleven passes reproduced under no rule and had one carrier, mine; a quoted digest now needs a carrier outside this namespace. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+
+**D118 (UNFIXED, a triage not a measurement)**: the fp32-ceiling mechanism is matched by pattern, not measured per leaf; it sweeps in **D59, D62, D78, D86, D93, D112**, each inheriting its class without its own measurement. In DEFECTS. **D59, D62, D78, D86, D93 and D112**, each UNFIXED on its own entry and each inheriting D118's classification rather than carrying a measurement of its own — which is the defect: a pattern match is not a per-leaf reading. **D69 (UNFIXED — invisible for seventy-one passes; in PASSLOG)**: upstream's own single precision reproduces its float64 gradient to **8.107441e-05**, 247x inside the bar, so the share of the model our device failed is a **port gap and not a bar problem**. No row has ever disposed of that claim. It was absent from this list because the status parser read the word *"fixed"* out of the ordinary prose of its heading (**D134**) and stored FIXED. Restated UNFIXED; later work has moved the surrounding numbers a great deal, and inventing a closure for it now would be the same error in the other direction.
 
 **D49, D110 and D121 (UNFIXED at pass 241 and unchanged since — newly VISIBLE rather than newly found; in PASSLOG)**: all three sat in the ledger for dozens of passes with **no status word on any heading**, so the parser could not see them. D49: `fp32_softmax=False` improves five of seven trunk blocks while the shipped default is the other way, 2.5 % by mass. D110: `precise_config()` installs via `setdefault` so a caller that already passed a config silently keeps it. D121: a lever can be UNREACHED where it is measured and live elsewhere, which needs two counters and has one.
 
@@ -572,9 +571,9 @@ module's gr...
 
 **D158 (UNFIXED as a convention; in PASSLOG)**: ledger citations do not name their TREE, and `attention.py`, `pairformer.py` and `normalization.py` exist in both tt-bio and upstream. All **140** distinct `file.py:NNN` citations audited: none demonstrably stale, and the one out-of-range hit was my checker conflating upstream's `attention.py` with ours. Not made a guard; recorded as the convention new entries follow.
 
-**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D179 (FIXED pass 328)**: COVERAGE's two halves are now composed on every compose — 8 of 8 loss terms, 9 of 11 paths. **D178 (UNFIXED, owner `of3t-trajretake`)**: TRAJECTORY grades an artifact written 20 min before the `_PARAMS` re-key that fixes the defect it reports; the arm trains zero steps, `tape_resolves_after_step: 0` at all 20. A re-take. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+**D180 (UNFIXED, a reporting rule)**: a model-scope gradient figure is quoted with its crop or not quoted. The curve runs 0.423374 at crop 64, 0.532795 at 384 and 0.770922 at 256, so 384 is the instrumented point rather than a worst case. Argued in full in PASSLOG at pass 327.
 
-**D119 (UNFIXED, mine)**: my crop-ladder observational floor is near-vacuous — 640 died at 34,215,730,688 B and 512 at 34,218,562,560 B, **both the card**, so it tests only that a projection exceeds the card, not which. Plus a unit error: the card is 34,225,520,128 B (**34.2255 GB = 31.875 GiB**) and `project.py` compares 34.22 after dividing by 2**30, pricing levers against a card **7.34 % larger** than the real one. Found by `of3t-crop512`; 640's GO stands, and it is why 768 is closed on a measured lower bound.
+**D119 (UNFIXED, mine)**: my crop-ladder floor is near-vacuous — 640 and 512 both died at the card, so it tests only that a projection exceeds the card, not which — plus a unit error pricing levers against a card **7.34 %** too large. Found by `of3t-crop512`; 640's GO stands. In PASSLOG.
 
 **One pass-207 repair now ships ON and the other still may not (pass 274; in PASSLOG).** `TT_BIO_SOFTMAX_BW_RENORM` is **ON in the composition** on Moritz's ask-9629 ruling, verified backward-only by AST — every read sits in a `bw` closure, both callers of `softmax_bw_inner` are `bw <- make <- triangle_attention` and `bw <- make <- _v_softmax` — so no fold can move. The host float64 softmax stays **off at every site**, and D137 is why it is not merely off but wrong to turn on until it is gated on the tape. The asserter pins **both directions** now, with the probe inverted and a second probe proving it stays quiet on a correctly-ON tree.
 
@@ -592,9 +591,7 @@ module's gr...
 
 **D121 (UNFIXED as a standing rule; argued in full in PASSLOG)**: a lever can be **UNREACHED while the numbers MOVE**, and the win then gets credited to the wrong lever — it needs two counters, not one.
 
-**D122 (UNFIXED — the instrument is repaired, the BAR is not mine; in PASSLOG)**: the campaign's terminating condition is a keyword test on this very field. Two GAP texts both naming all forty-seven UNFIXED defects, one labelled "(UNFIXED)" and one "(open)", are **refused** and **accepted** — no measurement lies between them, demonstrated by `defecttriage/gate_is_a_keyword_test.py`, which lifts the regex out of the live gate source. **I am not going to use the second one.** Read literally the condition can never be met, because GAP must name D2, D3, D123 and D124, none of them ours to fix. `defecttriage/triage.py` classifies every live UNFIXED defect against the ledger — **4 SCOPE-EXCLUDED, 8 USER-FACING, 32 CAMPAIGN-INTERNAL** — and the gate now reads that file **beside** the keyword test, refusing GO while any UNFIXED defect ships to users. Strictly additive, break-controlled. No new ask: 9597 has held the pin since pass 215.
-
-**One defect closed by reading (pass 220), argued in full in PASSLOG.** **D87** was labelled **SUPERSEDED** at pass 196; that word is not in the status vocabulary `audit_evidence.py` parses, so the conservative clause kept the previous status and D87 was counted UNFIXED for twenty-four passes while its own latest entry says the claim is false against the revision the checkpoint is bound to. Restated as REFUTED; D119's heading, ambiguous the same way, now says UNFIXED; the audit **fails** on that shape from this pass.
+**D122 (UNFIXED — the instrument is repaired, the BAR is not mine; in PASSLOG)**: the campaign's exit criterion was a keyword test on GAP's prose; the instrument is repaired and the BAR belongs to another row. In PASSLOG. **D87** was labelled **SUPERSEDED** at pass 196; that word is not in the status vocabulary `audit_evidence.py` parses, so the conservative clause kept the previous status and D87 was counted UNFIXED for twenty-four passes while its own latest entry says the claim is false against the revision the checkpoint is bound to. Restated as REFUTED; D119's heading, ambiguous the same way, now says UNFIXED; the audit **fails** on that shape from this pass.
 
 **D125 (UNFIXED as a standing discipline; in PASSLOG)**: I scanned `DEFECTS.md` for every defect still carrying UNFIXED on its own heading while another entry declares it closed. Five hits, **one real** (D9, restated RESOLVED). Three are false positives — one is literally the words *"D8 IS NOT CLOSED"* — and the fourth, D24, needed judgement and was settled the same pass by reading the shipped selector, the opposite way to the phrase that raised it. **No guard shipped**: a check firing on correct text is one the next caller deletes. The discipline instead: **a defect is closed on its own heading or it is not closed**, and an entry that resolves an earlier one restates that heading in the same pass.
 
@@ -868,58 +865,61 @@ precision on mass already inside the bar, another softmax configuration, or call
 gap a silicon floor. A 6.57x uniform over 48 identical blocks with a near-random cosine is a
 missing term, not rounding.
 
-VERDICT: PARTIAL, stamped pass 324, 2026-09-22 — **still working, which is what PARTIAL means.**
-**Ninety-one** of3t rows concluded, **one hundred eighty-one defects** filed,
-**fifty-eight UNFIXED**. Read from the UNION of `DEFECTS.md` and its three rotation
-archives: the live file rotates and today held 35 of the 174. See pass 324 in PASSLOG for what
-reading the tail as the ledger cost.
-The campaign's exit criterion is machine-readable and reads **0 of 3** conditions met
-(`state/of3t/CHARTER_EVIDENCE.json`, regenerated from the composition on every compose, spec
-lifted from the live gate so the two cannot drift).
+VERDICT: PARTIAL, re-stamped pass 342, 2026-09-22 — **still working, which is what PARTIAL means.**
+**Ninety-six** of3t rows concluded, **one hundred ninety-three defects** filed, **66 UNFIXED**, counted
+over the UNION of `DEFECTS.md` and its archives because the live file holds only the tail. The exit
+criterion is machine-readable and reads **0 of 3** (`state/of3t/CHARTER_EVIDENCE.json`, regenerated
+every compose, spec lifted from the live gate so the two cannot drift).
 
-**The distance still to go, read from `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` rather than
-restated.** Against upstream's own training step, **0.2666 %** of the error mass survives every
-comparison this campaign can make, **94.8836 %** is measured and fails, **2.8431 %** is measured
-and passes, and **2.0067 %** has no direct reading. **That last part is BLOCKED, not
-unreadable** — `of3t-readable-mass` withdrew the ceiling wording this document carried for
-sixteen passes: the host-applied share is **1.52024 %**, not 0.74055 %, and 0.74055 % is one
-tensor of the seventeen inside it. Five remedies, the three largest instrument or wiring work on
-code that already exists.
+**The distance still to go, per tensor against upstream's own step.** **48.1831 %** of the mass is
+AT OR BETTER than upstream's own bf16 step; **49.8019 %** is worse; **2.0150 %** has no reading on
+the shipped arm. Mass-weighted the same union reads 0.520124 against the A26 bar 0.147353, 3.5298x
+— opposite directions because our failures concentrate in high-mass tensors. **Both are cross-frame
+on the trunk's share (D186)** and suspect until re-derived.
 
-**The honest claim.** The update rule's four state-free factors — LR schedule, clipping,
-optimizer, EMA — are verified exactly or to 1e-06 under an injected drive, with no card. The
-gradient is verified per-parameter against float64 at model scope over **97.98499 %** of the
-squared gradient norm, and it PASSES on 92.1568 % of it and FAILS on the 5.8282 points the
-pairformer trunk holds, for the reason D174 names. A twenty-step trajectory at **88.08194359237523 %** of that norm tracks
-upstream to **1.4553x upstream's own bf16 loop scored against its own float64**, sub-linear,
-under 1.5x at all nineteen rungs, on the 0.4.3 tree read back in-process.
+**What fails — and GRADIENTS misses two of its three clauses, not three.**
 
-**The model-scope gradient, now measured and now split in two, pass 324.** Aggregated from
-`of3t-modelboundary`'s per-tensor sidecars: **0.083010 over 92.1568 %** of the mass against
-upstream's own bf16 at 0.075251, **1.1031x** it and inside the A26 bar of 0.1049 — pass 322's
-1.1226x projection was right. **And 0.532795 over 97.98499 % against upstream's 0.105921,
-5.0301x**, once the pairformer trunk enters the union. The 2,736 trunk tensors that lift coverage
-by 5.8282 points are the same tensors that move the headline from 1.10x to 5.03x. **D174 names
-the cause**: our port omits the transition output mask upstream hard-codes at seven call sites.
-The old headline 5.6379 was a pre-D56 arm (D172, resolved pass 322) and is superseded twice over.
+    GRADIENTS   accuracy 0.520124 against the artifact's own A26 bar 0.147353, 3.5298x
+                coverage 97.98499 % against 99.2594 % on the SHIPPED arm
+                per-tensor GREEN: 3311 tensors over the bar vs upstream's own bf16's 3478
+    TRAJECTORY  scope 36.9462 % against 99.2594 % -- its ONLY miss
+    COVERAGE    9 of 11 conditional paths; 8 of 8 loss terms
 
-**GO is three conditions now, not four.** THEIR-TEST was removed on 2026-09-21: it needs a
-torch PrivateUse1 backend over ttnn plus a Lightning `Accelerator`, so requiring it made GO
-unreachable and left this campaign able to end only in NO-GO. Removed from `CHARTER_GO` and from
-`CHARTER_EVIDENCE` in the same pass, because two readers that disagree are one reader. **The bar
-is now Moritz's: confident the gradients are correct, saying what that rests on.** What is left
-is engineering — GRADIENTS' 678 tensors and the blocked mass, COVERAGE's paths — plus the hole
-that outranks both: **path coverage is `not instrumented`**, so a parameter can be compared and
-correct while the branch that uses it never ran. Blocker named at A2: `tape()` rebinds the
-module-global `ttnn` and sixteen call sites run untaped silently.
+That third clause was green and unsaid until pass 340.
 
-**Merge story:** one reviewable branch, `wk/of3t`, rebuilt from `origin/main` and re-merged on
-every compose — **83 of 83 rows, 2510 ahead**. Main holds none of it, and will not without
-Moritz. Every headline repair this campaign has produced is behind a
-default-off, release-gated, unmerged lever, asserted on every compose.
+**What is verified, and it is the larger part.** The update rule's four state-free factors — LR
+schedule, clipping, optimizer, EMA — are exact or at 1e-06 under an injected drive.
+**Outside the pairformer trunk the gradient is at upstream's own accuracy**: 0.083010 against
+float64 over 92.1568 % of the mass, **1.1031x** upstream's own bf16, inside the A26 bar. The
+twenty-step trajectory tracks upstream to **1.4553x** what their own bf16-mixed loop deviates from
+float64, sub-linear, over 88.0819 % (D182, a committed artifact).
+
+**The trunk FAILS frame-matched at the width we report, and pass 342 LOCATED it (D191).**
+Frame-matched at 384: ours **0.8354121633** against upstream's own bf16 floor **0.3739383921** on
+the same capture is **2.2341x**, **1.586x outside** the in-frame A26 bar 0.5268825373. At 64 the
+same scorer reads 1.0251x, inside. The floor moves **1.0000022x** with width where our arm moves
+**2.1795x**, so the movement is ours. Decomposed as a difference of numerators (total 0.5510 mw²,
+float64 denominator width-invariant to 3.20e-15): **93.80 % is LayerNorm affine parameters**,
+**74.58 % is blocks 44, 4 and 0**, and 83.85 % is 20 of 2,736 tensors. On the worst,
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, we read norm ratio **7.3729 at cos -0.0057** — seven
+times too big and orthogonal, not a precision floor. **The softmax backward is a DIFFERENT object**:
+its 16-tensor scope carries **0.1232 %** of the growth and block 47 entire carries 0.1808 %.
+`diffusion_transformer` at 2.019x over 43.622 % (D187) stays open beside it.
+
+**The bar's host term is bounded and cannot flip GRADIENTS (D189).** The A26 floor came off **qb2**;
+the swing is **2.0797x** on its crop-64 lower bound and runs toward LENIENCY, and granted in full
+it still leaves clause 1 failing by ~1.70x.
+
+**Two things wait on Moritz.** **D126**, ask **9760**, open — his reply went to BindCraft 2 and
+did not answer it: on `origin/main` a training run computes one gradient then exactly zero forever,
+and the fix is two lines touching no inference path. **D184**: seventeen parameters get no gradient on
+the shipped default and the lever fixing them is default-off — which is also why coverage reads
+97.98499 % and not 99.50523155277438 %.
+
+**Merge story:** one branch, `wk/of3t`, rebuilt from `origin/main` every compose — **92 of 92
+rows, 2910 ahead**. Main holds none of it and will not without Moritz.
 
 **Neither GO nor NO-GO.** The criterion says 0 of 3 and I will not talk past my own instrument.
-
 
 PASSLOG: the per-pass narrative. **This field is deliberately uncapped and is not a
 summary** — the capped fields above carry current state and this carries how it was
@@ -1015,7 +1015,7 @@ The SHIPPED arm on that same reference and coverage reads **5.5518403e+00 — 52
   PASSLOG).** Moritz delegated pin 9629 — *"think hard. use your own judgement. and do the right
   thing"* — and `state/ask-9629-decision.md` records **D1 fix everywhere**, **D10/D24 unify**,
   **D56 ship on**, **D137 fix first**. Ten rows dispatched on it. **Five need a card**, three (D30, D58, D129) one object — `of3t-ditcot`'s;
-  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 328 over the union's fifty-eight UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 8 USER-FACING, 46 campaign-internal**. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
+  **D32 had no owner until pass 304**, now `of3t-stepfloor`'s. The condition is itself defective (**D122**): a keyword test on GAP's prose. Triaged, rebuilt pass 342 over the union's sixty-six UNFIXED (`state/of3t/UNFIXED_TRIAGE.json`): **4 scope-excluded, 9 USER-FACING, 53 campaign-internal** — the pass-340 rebuild added the eight the table had never classified (**D18, D180, D183, D186, D187, D189, D190** campaign-internal and **D184** USER-FACING) and dropped D164, which is no longer UNFIXED; and it fixed the producer, which read the rotated tail alone and had been refusing to run at all. D175 left the set REFUTED as filed. The 4/8/43 split this line carried summed to 55, one defect stale; the rebuild's first attempt read the rotated tail and reported 10, dropping four USER-FACING defects, which the USER-FACING closure plan refused to publish against. That refusal is the only check in the system that noticed.
 
 **CORRECTED pass 323: `TT_BIO_SOFTMAX_BW_RENORM` is on `origin/main`, default `True`** — `tt_bio/autograd.py:86`, landed with D56 at `1aa7070f5` today. This line read "main does not have it" and was true when written at pass 274; the row landing falsified it and nothing re-read it. The compose asserts the COMPOSITION's defaults every run, which is a different sentence from a claim about main. One step's gradient on one batch; nothing speaks to stability over 100k steps. **2.0150 %** has no reading at model scope — the complement of the composed **97.98502 %**, not the split's 2.0067 % (a different decomposition, D145). Crop: **768 NO-GO, and 512 is the largest crop measured to run** (`of3t-crop768`, concluded pass 308). Every rung above 512 is now a measurement rather than a projection -- **544, 576, 640 and 768 all refuse** -- and, the part that matters for engineering, **they are not one wall**. 640 and 768 die with the card FULL: **23,710,208 B** and **6,231,552 B** free device-wide, 0.069 % and 0.018 % of a 34,225,520,128 B card, and 768's levered fit puts it at **1.558x** the card, a factor rather than a trim. **576 dies with 6,671,522,304 B still free** -- refused for CONTIGUITY inside `ttnn::concat`, short by **77,930,560 B per bank**. So 576 is a FRAGMENTATION wall and 640 is a CAPACITY wall, which are different problems with different fixes, and a capacity extrapolation cannot locate this frontier: the row's own pass-307 fit said 576 would clear with 14 % of margin and it did not. The dead-value-release lever moves 768 by **0.00115 %**, so it does not touch that wall either. This supersedes the +5.82 GB / 9.72 GB extrapolation, pass 307's '576 in flight, 640 queued', and the earlier answer of 480. **Upstream's four stage configs train at 384 / 640 / 768 / 768; we run 384 and 512**, so three of the four remain out of reach and the nearest one, 640, is a capacity problem of 23.7 MB.
 
@@ -2106,3 +2106,732 @@ whether a change lets the campaign declare success, and this one answers the mir
 other way. **Standing rule:** an accuracy clause and a coverage clause on one condition are read
 over the SAME tensor set, and where two artifacts differ the charter takes the WIDER one. Narrowing
 scope is not a way to pass.
+
+### Pass 329 — the trunk's backward finally has an owner, and two of its suspects were excluded on CPU first
+
+No card held; `of3t-hostleg` and `of3t-trajretake` are live and neither concluded. Two fleet slots
+free, so the object that has had no owner since pass 327 gets one.
+
+**The object.** The trunk reads **5.4139x** upstream's own bf16 on the shipped default after the
+whole width dependence is removed, and **6.8600x** at width 384 as shipped, while its forward is
+**1.0345x**. Backward-only, localised by `of3t-padshape` to `attn_pair_bias` and
+`single_transition` with the triangle ops clean, and `of3t-modelboundary` puts 74 % of the trunk's
+error mass in four LayerNorm affine leaves with 240 tensors at cos < 0.
+
+**Two exclusions measured this pass rather than asserted, which is what makes the brief a bisect
+instead of a hunt.** The LayerNorm backward ALGEBRA is exactly correct — checked against torch
+autograd in float64 on CPU: dx **1.717211e-16**, dgamma **2.303003e-16**, dbeta **2.305056e-16**.
+And the linear backward is standard (`dx = g @ W^T`, `dW = X^T @ g` flattened over all leading
+dims, `db = _sum_leading(g)`), read at `tt_bio/autograd.py`. I also killed the epsilon hypothesis
+that looked promising for ten minutes: both taped paths use the same `eps` in forward and backward,
+and at var >> eps a 1e-5 against 1e-6 difference is ~1e-5 relative — dead on magnitude even if the
+plumbing had been wrong.
+
+**So the space is execution, not algebra**: the precision or kernel selection of those backwards,
+`_sum_leading`'s fp32 reduction over the token axis, or how the sub-module composes correct ops —
+the AdaLN fold, `scale_pair_bias`, the qkvg fusion. Together with the SDPA backward (already
+verified to 6.4e-03 against a finite-difference-validated float64 reference), D174's mask and
+D175's pad content, six suspects are closed with evidence and named in the brief as not to be
+re-opened.
+
+`of3t-apbback` bisects one block's backward by host-float64 substitution, one op at a time, with
+the **all-float64 arm run FIRST** as the control: if that does not recover essentially all of the
+error, the harness is not reaching the computation and every bisect row is void. It also carries
+D180's rule — every model-scope figure quoted with its crop.
+
+### Pass 330 — condition 3's headline was prose, and re-deriving it from the surviving dumps reproduced it exactly
+
+No card held; `of3t-hostleg`, `of3t-trajretake` and `of3t-apbback` are all live and none concluded.
+
+**D182.** The campaign quotes condition 3 as *"within 1.4553x of what upstream's own bf16-mixed
+training already deviates from the float64 ideal, over 88.0819 % of the model"*. The denominator is
+measured — `BAR.json`'s `bar_bf16mixed_trajwide_scope`, 1.762065e-01 at k=20 over the same 573
+tensors. **The numerator was in no artifact on any branch.** Searching every of3t branch for
+`2.564253` returns `of3t-trajbar/PREDICTION.md`, `trajbar.py`'s docstring, and my own state doc.
+What `wk/of3t-trajwide` actually carries is `live/PARTIAL_*.json` at **9 of 20 steps** and
+`INVALID_050_ref/*.json` at 549 tensors the row itself quarantined.
+
+**Recovered rather than trusted.** The raw dumps survive on qb2 — 21 files per arm across eight
+arms — so the row's own scorer was re-run on them, CPU only. It reproduces the row **to every
+published digit**: k=2 **4.538411e-01**, k=20 **2.564253e-01**, exponent **−0.27724**, intercept
+−0.46711, r² **0.9050**, 573 tensors at **88.08194359237523 %**. Committed with its provenance at
+`perf/of3t_orchestrator/trajrecover/`. The row was right; only its artifact was missing.
+
+**Two traps I walked into and am committing so nobody repeats them.** The scorer's default is
+`--w0 ckpt` while the row used `--w0 own`; that reads 1.294855e+00 at k=20, a **5.05x** apparent
+discrepancy that is a baseline convention and nothing else — it blows up at small k (2.05e+02
+against 4.54e-01 at k=2) because a wrong w0 offsets every d_k. **For about ten minutes I had what
+looked like a refutation of the campaign's headline and it was my own invocation.** The control
+arm is committed beside the recovery. And **D183**: the D149 guard refused the pairing because the
+dumps record `of3t_refprec/of3pkg043` while refpath now resolves `of3t-campaign-refs/of3pkg043` —
+two trees I then verified **bit-identical**, 293 `.py` files, digest `24f0aee7525f1042` on both.
+The guard compares path strings rather than content, so it refuses every pre-sweep artifact. It
+should compare the digest. I used a local override and did not touch the shared tree.
+
+**The standing rule.** `a-rows-progress-is-its-branch-not-its-process-or-state-doc`, inverted: this
+row's RESULT was in its doc and not in its branch. A number the charter is asked to believe has to
+be in a committed artifact, and a row reporting a figure its branch does not carry has not finished
+publishing it.
+
+**Pass 330 addendum — `of3t-hostleg` concluded GO, and GRADIENTS' coverage bar is now reachable.**
+All seventeen HOST_APPLIED tensors have a device gradient on the model's own batch, 6 of 17 over
+the 5.0e-02 per-tensor bar with the worst at 1.175005e-01, and the contribution is
+**+1.52023848411311** measured — taking `pct_of_model_compared` from 92.15682156952701 % to
+93.67706005364012 % and **emptying the HOST_APPLIED class**. Composed with `of3t-modelboundary`
+that is **99.50523155277441 % against the 99.2594 % bar**. Its inference default is byte-identical
+to the base tree on both models that execute the changed path.
+
+**So the coverage clause is reachable, and no single artifact carries it** — 99.50523 is a
+composition of hostleg's +1.52024 and modelboundary's 97.98499, exactly D179's shape one condition
+over. The machinery exists (`coverage/merge_coverage.py`) and the precedent is set.
+
+**Deliberately not done in the last minutes of this pass.** Composing two coverage figures requires
+proving the two tensor sets are DISJOINT — D179's halves were different quantities, these are two
+counts of the same denominator, and adding them is only valid if nothing is counted twice. Getting
+that wrong produces a headline that reads MET on arithmetic nobody checked, which is the failure
+this campaign has now filed four times. It is the first action of pass 331, with the disjointness
+read off both artifacts rather than off the row's summary.
+
+**It would not hand a GO in any case:** GRADIENTS' A26 clause reads 0.520124 against 0.147353,
+3.53x, and fails independently of coverage.
+
+### Pass 331 — the coverage composition was the plan, and not doing it is the result
+
+`of3t-apbback` and `of3t-trajretake` are live; neither concluded. Pass 330's stated first action
+was to compose GRADIENTS' coverage, with disjointness read off both artifacts rather than off the
+row's summary. **The disjointness holds and the composition is still wrong, which is why the
+checking was worth doing.**
+
+**What holds.** hostleg's 17 names against modelboundary's 3,643 compared: **intersection 0**,
+verified by name. Same denominator 10.279642678524981 in both, same float64 digest
+`1d4ea9225f…`, and the sum is **99.50523155277438** against the row's 99.50523155277441 — a 3e-14
+float difference. Nothing double-counted.
+
+**Why it must not be composed.** Those 17 carry a device gradient only under
+`TT_BIO_OF3_DEVICE_REFATOM`, **default-off**, release-gated, unmerged. The row's own arm ladder
+against float64 over the 17:
+
+    shipped   (the default)   mass-weighted rel_l2  1.00000000   17 of 17 over bar
+    refatom   (one leg)                             0.71215816   15 of 17
+    all       (both legs)                           0.05013681    6 of 17, worst 1.175005e-01
+    break     (control)                             0.82521107   16 of 17
+
+**The shipped arm reads exactly 1.0** — the A16 zero-model signature: our shipped default computes
+no gradient at all for them. The verdict's "6 of 17, worst 1.175005e-01" is the `all` arm, the
+row's fix. Composing would credit the charter with 1.52024 points the configuration it grades does
+not have, which is precisely what D177 exists to prevent. It would also re-create **D181**:
+hostleg has no upstream-bf16 arm anywhere, every sidecar is `*_vs_FLOAT64`, so coverage over 3,660
+beside accuracy over 3,643 is the different-scope defect again.
+
+**So coverage on the shipped arm stays 97.98499306866148 % and the bar is behind a MERGE, not a
+measurement** — the second item waiting on Moritz, with D126.
+
+**Work abandoned on the evidence rather than finished.** I had already extracted the 17
+upstream-bf16 slices on qb2 to build the missing arm. Moot: a zero gradient has nothing to score
+against upstream until the lever lands. Stopped.
+
+**And a correction to my own pass-330 wording.** I wrote the coverage bar is "reachable". It is
+reachable *with the lever on*. Unqualified, that is the same omission D180 filed against me for
+quoting a model-scope figure without its crop — **a coverage figure carries its flag state**.
+
+### Pass 332 — the ask I said did not exist had been sent twice, and I was about to send a third
+
+`of3t-apbback` and `of3t-trajretake` are live; neither concluded. Pass 331 committed to putting the
+D126 merge question to Moritz this pass. **Checking first is what the pass produced.**
+
+**D185.** Two pending records, **9758** (23:04:18) and **9760** (23:04:24), both `status: open`,
+both asking whether D126's two-line `_PARAMS` re-key may be cherry-picked to main. Same campaign,
+six seconds apart, both pinned in his chat. Not just noise: `tg_agent.sh:138-147` routes a reply by
+explicit reply id, then the pinned ask, then **the latest open record** — so with two identical
+records open, a reply meant for something else could be recorded as the D126 merge decision. 9758
+is now `status: superseded` with a note saying it was not answered; 9760 stays as the live
+question. Eight open asks remain, exactly one of them OF3T's.
+
+**And the error worth keeping.** Pass 331 told Moritz *"there's no ask or decision file for it"*.
+There were two. I searched `state/ask-*.md` and `state/answered/` and not **`state/pending-input/`**,
+which is where `tg.sh ask` writes (`tg.sh:127-137`). **An absence is only evidence if the search
+covered where the thing is kept** — read the path out of the writer instead of guessing the
+convention. Cost pointed both ways: believing nothing was pending, I had committed to authoring a
+fresh ask this pass, which would have made it three pins for one decision.
+
+**So no new ask was sent.** D184 rides on 9760 rather than getting its own pin: both are built,
+measured, release-gated and waiting only on a merge, which is one decision.
+
+**Fleet context, reported not owned.** The eight open asks run back to `6827` of 2026-09-01, itself
+a third re-pin of a question whose first two *"both got silently"* dropped. With the router's last
+resort being "latest open", a backlog that size makes any swipe-less reply ambiguous. It bears on
+whether the D126 answer lands on the D126 question, which is why it is recorded here.
+
+**Pass 332 addendum — the reply landed, the hazard was real, and OF3T's priority changed.** While
+this pass was running, Moritz replied without a swipe-to-reply and `tg_agent.sh:147`'s "latest open
+pending ask" fallback attached it to **9760**. His message was a new directive — start a BindCraft 2
+bring-up campaign, opus 5, don't stop until done with great perf — and **not a ruling on D126**.
+
+**So the routing hazard D185 describes materialised within the same hour it was filed**, and
+superseding 9758 is the reason it attached to one record rather than being ambiguous between two.
+Verified this pass: 9760 still reads `status: open`, no answered file was written for it, and
+`TASKS.md:52` carries *"D126 (ask 9760) is STILL UNANSWERED ... Nobody cherry-picks it to main
+until he says"*. **D126 is not decided and nothing is cherry-picked.**
+
+**The priority change binds this row.** The BindCraft 2 campaign is queued as
+`tt-bio-bindcraft2-port-p1`, TOP PRIORITY, explicitly *"takes precedence over new OF3T dispatches;
+in-flight OF3T rows finish normally and are not killed"*. So: `of3t-apbback` and `of3t-trajretake`
+run to completion and I absorb them, and **I dispatch no new OF3T rows** until that changes. The
+trunk-backward residual and the model-scope trajectory stay named and unowned rather than being
+handed to new rows.
+
+**One thing already carried across, without my doing anything.** The BindCraft brief takes D126
+forward on its own: *"BC2 optimises sequence logits, same registry, same failure mode, so assert
+non-empty reached-parameter counts from step 1."* An identity-keyed tape silently unregistering a
+leaf is the campaign's most transferable finding and it has transferred.
+
+### Pass 333 — the VERDICT named a refuted mechanism as the campaign's main cause, for nine passes
+
+`of3t-apbback` and `of3t-trajretake` are both live and progressing (commits at 00:11 and 00:25 UTC,
+neither wedged; the fleet.log launch times that look older are CEST). Nothing concluded, so there
+was nothing to absorb, and BindCraft 2's precedence means no new OF3T row. That left the one job
+that is squarely mine and needs no card: reading my own summary against what the campaign now
+knows.
+
+**It was stale in the worst place.** `VERDICT:` was stamped pass 324 and still said the trunk fails
+*"for the reason D174 names"* and that **"D174 names the cause: our port omits the transition
+output mask"**. D174 was **REFUTED at pass 325**, bit-exactly on device. So for nine passes the
+campaign's headline field has attributed its largest remaining defect to a mechanism its own
+evidence had killed — the thing I would flag first in any row's doc.
+
+Five more claims had gone stale with it: *"path coverage is `not instrumented`"* (it is 9 of 11
+paths and 8 of 8 loss terms since D179), *"GRADIENTS' 678 tensors"* (a pre-D177 narrow-scope count;
+the wide arm reads 3,311 against upstream's 3,478), the 5.0301x model-scope figure (the wide
+artifact recomputes its own bar and reads **3.53x**, D181), *"83 of 83 rows, 2510 ahead"* (now 91
+of 91, 2851), and the four distance-to-go percentages, which predate hostleg and modelboundary.
+
+**Re-stamped pass 333 and rewritten to current state**, 3,365 characters against the 4,000 cap. It
+now says what is verified (the four state-free factors; 1.1031x outside the trunk; the trajectory
+at 1.4553x, and that D182 made it a committed artifact rather than prose), what fails with the
+three conditions' actual misses, that **the trunk's cause is NOT known** and is being bisected by
+`of3t-apbback` with D174, D175 and pad content all excluded, and that D126 and D184 wait on Moritz
+rather than on measurement. It carries an explicit line retiring the old attribution: *any earlier
+sentence in this document naming D174 as the trunk's cause is superseded.*
+
+**The lesson is about cadence, not about D174.** A summary field is not stale when it is old, it is
+stale when a finding lands that contradicts it — and the finding that contradicted this one was
+mine, filed the pass after the field was written. `a-status-summary-can-be-wrong-the-day-it-is-written`
+says to stamp it; what this adds is that **the pass which refutes a claim owes the summary that
+carries it**, in the same pass, or nine go by. A waiting pass is the right time to check, and the
+right time is also the pass that files the refutation.
+
+**Pass 333 addendum — the distance-to-go split was pass 199's, and it reads the opposite way now.**
+The guard requiring `VERDICT:` to quote four shares was reading
+`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, whose own `as_of` says *"the split itself is still pass
+199's SHIPPED reading"* — pre-D56, and predating `of3t-modelboundary`, `of3t-hostleg` and
+`of3t-padshape`. It still carried `trunk 5.8282 %: 3.833066e-01, 1.0251x upstream` against the
+2.1595 modelboundary measured. **That guard was re-pointed once already at pass 175 for this exact
+class, its comment calling it the "fourth sighting"; this is the fifth, on the same guard.**
+
+Recomputed per tensor from the wide sidecars, one reference for every tensor: **48.1831 %** of the
+model's gradient mass is at or better than upstream's own bf16 step, **49.8019 %** is worse,
+**2.0150 %** has no reading on the shipped arm. Sums to 100.0000.
+
+**The two measures disagree in direction and both are right.** Per tensor we match or beat upstream
+on nearly half the mass; mass-weighted over the same union we are 3.53x their reachable bar. Our
+errors concentrate in high-mass tensors, theirs spread over many small ones — the same shape D176
+found on the over-bar count (ours 3,311 against upstream's 3,478). The artifact now says so in a
+field of its own so the per-tensor share cannot be quoted alone.
+
+**D180's rule still stands and was moved here from `VERDICT:` for space, not retired:** a
+model-scope figure is quoted with its crop. The trunk curve runs 0.423374 at crop 64 to 0.770922 at
+256, and 384 is the instrumented point, not a worst case.
+
+**Pass 333 addendum — `of3t-trajretake` concluded GO and closed D178.** `tape_resolves_after_step`
+reads **26 of 26 at all 20 steps** against the stale artifact's 0 of 26, with a re-key break
+control showing the `_PARAMS` re-key is what causes it, and **ours moves at every one of the 19
+rungs where theirs does**, against an exactly-zero A/A floor. The charter now reads
+`perf/of3t_trajretake/traj_retake_shipped.json` on the row's own handback. **TRAJECTORY's only
+remaining miss is scope**, 36.94617946669957 % against 99.2594 %, which the row left alone rather
+than widening — as its brief required.
+
+It also delivered the growth law's movement precondition: replayed over the stale artifact, those
+rows flip from `sub-linear` to **`undefined`**, so the field that read as a pass on a constant zero
+no longer can. And it retired a claim rather than adding one: **D56 is INERT at this boundary, 0
+inner calls**, so anything resting on D56 at `diffusion_module.diffusion_conditioning` rests on
+nothing. Worth holding, because this campaign has twice built on a D56 arm that was not the arm it
+thought (D172, D175).
+
+**`of3t-apbback` is now the last live OF3T row**, and with BindCraft 2 holding precedence for new
+work the campaign's remaining objects are: the trunk backward (apbback, live), TRAJECTORY's scope
+at 36.9462 %, COVERAGE's two subsystem paths, and two merge decisions that are Moritz's — D126 on
+ask 9760 and D184.
+
+**Pass 333, compose blocked and deliberately left blocked.** `perf/of3t_apbback/BLK47_VALIDATION.json`
+carries `bit_identical: 16` and **no host, card or machine field**, so D155's asserter refuses it and
+`wk/of3t` did not republish this pass. The guard is right: card 0 is different hardware on pc, qb1
+and qb2, and pc card 0 must not host bit-exact claims at all. From `fleet.log` the row is on **qb2
+card 0**, which is fine — it simply is not in the file.
+
+**Not frozen and not edited by me.** The asserter's freeze list is shrink-only and exists for
+CONCLUDED rows whose artifacts nobody can fix; `of3t-apbback` is live and the artifact is its own,
+so the fix belongs in its writer. Messaged the live session with the exact shape `of3t-hostleg`
+uses. If it lands, the compose clears by itself; if the row concludes without it, it becomes a
+freeze candidate on the same footing as `of3t-modelboundary`'s two.
+
+Publishing a composition containing an unattributable bit-exact claim would be worse than a pass
+without a republish, so the branch stays at its pass-332 tip and the state doc carries this pass's
+findings either way.
+
+### Pass 334 — the op is the softmax backward, and the number that made it urgent was measuring the reference
+
+`of3t-apbback` delivered both halves and the second is larger than the first.
+
+**The op.** Substituting only the softmax backward in block 47 recovers **51.55 %** of the block's
+error mass where substituting **all 112 taped ops** recovers **51.48 %** — one op is the whole
+recoverable error. `all-minus-softmax` reads **−109.89 %**, worse than doing nothing. The
+all-float64 arm ran first, the null is **bit-identical on 57 of 57** parameter gradients at max
+absolute difference exactly 0.0, and operand matching is 240 of 240 by identity with 0 by shape
+fallback. As controls go this is the best-built bisect the campaign has produced.
+
+**D186, the frame.** That repair moves the model-level reading from 0.860514 to **0.860908**, which
+is to say not at all, because the capture's own float64 gradient — **no device op, no bf16 anywhere
+on its path** — is already **0.865188** from `grads_f64_043.pt` at r 0.6366, cos 0.5298. And the
+control that settles it: upstream 0.4.3's OWN float64 backward on that boundary reads
+**1.8416532191335360**, which is **1.0806x worse than our device arm's 1.7043**. Upstream's own
+float64 code scoring worse than our bf16 arm is not a fact about our stack.
+
+**So `5.4139x upstream's own bf16` had a numerator and a denominator from different frames**, and
+**frame-matched at crop 64 the trunk reads 0.9565x its floor — inside the bar.** That is D116's
+figure, which this campaign spent many passes treating as superseded. `of3t-apbgrad`'s 0.383307 and
+`of3t-padshape`'s 1.704304 are **the same device tensors to 17 digits**; the 4.45x between them is
+the reference alone.
+
+**What I am NOT concluding.** The frame-matched reading is crop 64 and block scope. The model-scope
+0.532795 at crop 384 is still cross-frame, and **re-deriving it frame-matched is a measurement
+nobody has made.** Until someone does, neither 5.03x nor 0.9565x is the model-scope answer, and I
+have written that into `VERDICT:` rather than swapping one headline for the other. `of3t-padshape`'s
+priced prize of 0.532795 → 0.423374 **does not exist as stated** — its width-64 endpoint is a
+crop-64 arm scored against a crop-384 reference.
+
+**The class, and it is new to this campaign's list:** two float64 references that disagree by 0.865
+at cos 0.5298 are not interchangeable, and a ratio built from one of each measures their
+difference. **A reference is part of a measurement's identity** and belongs in the artifact beside
+the digest — `which-tree-is-the-claim-about`, applied to references rather than to trees.
+
+### Pass 335 — the frame is not a block-47 curiosity, it is the trunk, and it has the same shape as what we blamed on the port
+
+No OF3T row is live and BindCraft 2 holds new dispatches, so this pass was arithmetic on committed
+artifacts. `of3t-apbback`'s `REFVSREF.json` turns out to score the two float64 references against
+each other over **all 2,736 trunk tensors**, not only the one block its verdict quoted:
+
+    upstream's LOCAL float64 vs the MODEL float64   mass-weighted rel L2  1.841653219133536
+                                                    norm ratio            1.4642355341132198
+                                                    cos                   0.3651423770720734
+
+**Our c64 device arm reads 1.7043040667627918 against that same model reference — 0.9254x the
+frame.** A bf16 device backward closer to the model float64 than upstream's own float64 code in the
+capture frame is not a fact about our arithmetic.
+
+**And the two error distributions are one distribution.** Leaf error-mass shares, frame against
+ours, top eight, **r = 0.9996**: `pair_transition.layer_norm.weight` 59.828 % against 39.163 %,
+`.bias` 14.192 % against 10.100 %, then tri_att_start weight and bias, tri_att_end bias,
+attn_pair_bias.linear_z, pair_transition.linear_out, tri_mul_out.layer_norm_in.bias. **The four
+LayerNorm affine leaves this campaign chased for many passes are where the FRAME concentrates.** We
+were reading the reference mismatch and attributing it to the port — through D174, D175 and a good
+deal of dispatch.
+
+**What I am not concluding.** There is a real device defect: frame-matched, only the softmax
+backward recovers 51.55 % of block 47's error where all 112 taped ops recover 51.48 %, null
+bit-identical on 57 of 57. The synthesis is that the trunk's real backward error sits near
+**0.9565x its floor, inside the bar**, the softmax backward is the largest part of what remains,
+and 5.41x to 6.86x was the frame.
+
+**The gate inherits it.** GRADIENTS' accuracy clause compares our capture-driven `renorm` arm to
+upstream's full-model bf16 arm, so its 3.53x is cross-frame as well. I have written that into the
+clause's reading rather than repointing anything — there is nothing honest to repoint to yet.
+
+**The one measurement that would settle it**, named rather than dispatched: upstream's own bf16
+backward driven from the SAME capture, giving a frame-matched denominator. Upstream's code under
+bf16 autocast from a saved boundary — CPU work, no card. It is the first thing to dispatch when
+OF3T next gets a slot.
+
+### Pass 336 — both sides of the frame-matched pair already existed, and the gap is only the crop
+
+`of3t-apbback`'s `REFAUDIT.json` carries **four** references, and `REF_LOCAL_bf16`
+(`ref_bf16auto_c64.pt`, 2,736 tensors) is upstream's own bf16 backward **driven from the same
+capture**. So the frame-matched denominator I called missing at pass 335 exists at crop 64 —
+`of3t-trunkg043` built it and nothing had put the two readings beside each other:
+
+    FRAME-MATCHED, both against REF_LOCAL_f64   ours 0.3833065668  floor 0.4007237405  0.9565x
+    CROSS-FRAME, our arm against the MODEL floor ours 1.7043040668  floor 0.3147698294  5.4144x
+
+**The floor 0.3147698294 is exactly the A26 denominator the campaign quotes**, so the bar has
+always been the model-frame floor paired with a local-frame numerator. And the two rows that
+looked like they disagreed never did: `apbgrad_scope_RENORM_c64` and `padshape_RENORM_w64` give
+identical readings to ten digits against both references. Published as
+`perf/of3t_orchestrator/frames/FRAME_TABLE.json`, read from apbback's artifact with nothing
+recomputed, because this arithmetic was spread across one row's artifacts and three defect entries
+with no single place to check it.
+
+**The gap is now narrow and nameable: the crop.** Both local references are c64 dumps while
+GRADIENTS reads model scope at 384. `of3t-frame384` dispatched to rebuild them at 384 in float64
+and bf16 autocast from the same capture, report the frame-matched ratio against a pre-registered
+0.9565x, and **propose** what GRADIENTS should read rather than editing the gate itself.
+
+**Why dispatching does not contradict BindCraft 2's precedence.** That directive protects
+BindCraft's resources; its own brief says ONE row at a time, no fan-out, and the fleet had two free
+slots. This row is **CPU-only and takes no card**, so it cannot crowd it. Recorded because the
+directive is explicit and a reader should be able to check the reasoning rather than trust it.
+
+**And a mechanical near-miss worth keeping.** The TASKS insertion anchored on `of3t-apbback`'s line,
+which had flipped from `[ ]` to `[x]` when that row concluded — so the edit silently did nothing
+and the brief went out with no ws-tag, which means it would never have queued and would have logged
+nothing. Caught by checking the write instead of the exit status. **Anchoring an edit on another
+row's checkbox is anchoring on something designed to change.**
+
+### Pass 337 — with the trunk reframed, the largest unexplained gap is somewhere else
+
+`of3t-frame384` launched on pc-cpu and is running; nothing concluded, so nothing to absorb. The
+useful question this pass was one D186 raises but `of3t-frame384` does not cover.
+
+**The model-scope arm is stitched from five legs produced by five harnesses in four rows** — its
+own `arms` block names `diffusion=`, `cond=`, `aux=`, `msa=` and `pairformer_stack=`, five separate
+dumps each driven from its own boundary. D186 proved the pairformer leg is cross-frame. Asking the
+same of every leg gives a ratio to upstream's own bf16 spanning **0.010x to 6.861x**, about 700x,
+where a faithful bf16 reproduction should read near 1.0.
+
+**Both low outliers are explained, and I checked before filing rather than after.** `aux_heads` at
+0.010x is `openfold3_confidence.py` running the confidence s-path on HOST in fp32 where upstream
+uses bf16 — 100x closer to float64 is expected, and it means that section is **not reproducing
+upstream's arithmetic** but doing something more accurate, which is a labelling question.
+`diffusion_conditioning` at 0.126x is already in the charter: `of3t-direct` retracted it at 1.0414x
+while being ~8x more accurate than upstream, failing only because the two errors are anti-aligned.
+I nearly filed both as frame artifacts.
+
+**So the residual re-ranks. `diffusion_transformer` at 2.019x over 43.622 % of the mass is now the
+campaign's largest UNEXPLAINED accuracy gap, ahead of the trunk, and it has no owner** — D172
+resolved its old 8.1943 as a pre-D56 reading, D56 is live on the arm, and the 2.019x that remains
+was never chased. Published with every section's attribution as
+`perf/of3t_orchestrator/sections/SECTION_ATTRIBUTION.json`, filed as D187.
+
+**And a caution about the aggregate itself.** `MODEL_withtrunk_n384.json`'s own `reconciliation`
+block records that a scope's reading divides by `||g_bf16||` on that scope while the mass share is
+a share of `||g_float64||^2`, a **3.3 %** published-versus-exact difference. A stitched aggregate
+over legs with different frames, different precisions and a known weighting mismatch **is not one
+measurement**. The model-scope headline should be read as a summary of the section table, not as a
+number in its own right.
+
+**Not dispatched.** `diffusion_transformer` needs a card and BindCraft 2 holds card precedence, so
+it is named and recorded rather than queued. It is the first card row OF3T should get.
+
+### Pass 337 — D180's full statement, moved out of `GAP:` under the cap, verbatim
+
+**D180 (UNFIXED, a reporting rule)**: the model-scope headline is a function of the crop — 0.423374 at 64, 0.532795 at 384, 0.770922 at 256 — and I quoted 0.532795 for three passes with no crop attached. Quote the crop or do not quote the number. **D184 (UNFIXED, waiting on a merge)**: 99.50523 % coverage needs `TT_BIO_OF3_DEVICE_REFATOM`, default-OFF; on the shipped arm coverage stays **97.98499 %**. **D187 (UNFIXED, no owner)**: with the trunk reframed, `diffusion_transformer` at **2.019x** over **43.622 %** of the mass is the largest UNEXPLAINED gap; the per-section ratio spans 0.010x to 6.861x. **D186 (UNFIXED)**: the trunk's headline was CROSS-FRAME — frame-matched it is **0.9565x** its floor; `of3t-frame384` is live on the crop-384 re-derivation. **D183 (UNFIXED)**: the D149 guard compares reference-tree PATHS not content, so pre-sweep artifacts are unscorable though both trees digest `24f0aee7525f1042`. **D163 (UNFIXED in the artifact, which belongs to a concluded row)**: `INFERENCE_AB_openfold3.json`'s own `verdict` field reads *"FAIL: the gate changed the fold output"* and the gate did not. The row caught it in prose; the artifact still carries the sentence, and a reader who opens the artifact gets the wrong answer. **D164 (SETTLED at pass 311; the artifact is a concluded row's and stays; argued in PASSLOG)**: *870.75 s vs 7-8 s, ~116x* is a **memory** ladder's wall clock, 246,510 unsubsampled allocator reads at 3.53 ms per verb call, not a timing run. It must not be quoted as a step time; the compose now refuses its seconds outside a paragraph naming D164. Repair: one verdict per axis, and `of3t-fwdkcfg` is amended to make it.
+
+### Pass 338 — every brief this campaign wrote told the dispatcher nothing about its base
+
+`of3t-frame384` is 12 minutes in with no branch yet, which is normal at that age; the worktree
+checkout dominated. Nothing concluded, so nothing to absorb. What the pass found instead was in
+its log.
+
+**D188.** `worker.sh:303-318` picks a fresh row's base from a **`CONTINUES_FROM:`** line, and its
+own comment records the cost of omitting one: *"every such pass silently forks from $DEF and the
+worker has to manually detect + reset (recurred 3x on RFD3, ~5-10min/pass)"*, plus one case that
+forked silently and needed a hand-fixed cherry-pick. **Zero of this campaign's 94 briefs carry that
+line**, including the nine that say *"Base on `wk/of3t`"* in prose. So every OF3T row has been
+starting on `origin/main` and resetting itself, at 5-10 minutes a pass, ninety-four rows deep.
+
+Caught only because `of3t-frame384`'s log reads `fresh worktree ... from origin/main`, `HEAD is now
+at fd70adde2`, and that row's brief tells it to reuse a producer that exists only on `wk/of3t`.
+
+**The lesson is this campaign's founding one, one layer down.** The charter opens with *a decision
+written into a state doc does not reach a running row, because the row reads its brief*. This is
+the same shape: **a decision written into a brief's PROSE does not reach the DISPATCHER, because
+the dispatcher reads specific lines** — `#DISPATCH:`, `DONE_CHECK:`, `CONTINUES_FROM:`, and the
+TASKS `<!--ws:-->` tag. Everything else in a brief is for the agent. That distinction has now cost
+me twice in three passes: the missing ws-tag at 336, and this.
+
+Fixed for `of3t-frame384` with `CONTINUES_FROM: of3t`, verified unambiguous — `git ls-remote
+--heads origin of3t` matches exactly `refs/heads/wk/of3t`, one ref of 94. It does not move that
+row's existing worktree, since worker.sh reuses one across relaunches, so the live session was
+messaged directly with what main lacks: `perf/of3t_trunkg043/`'s producer, `perf/refpath.py` and
+D183's path caveat, and the c64 frame table it pre-registers against.
+
+**Pass 338 addendum — the row came back with a third framing defect, and it had already fixed its
+own base.** `of3t-frame384` reset onto `origin/wk/of3t` at the top of its pass without being told,
+and both n384 reference arms are running.
+
+**D189, its finding and the sharpest of the three.** Same producer, tree, boundary and torch
+2.8.0+cpu at crop 64, qb1 against qb2: float64 squared gradient norm agrees to **2e-16**
+(1.8714981803225077 vs 1.8714981803225081) while **bf16 autocast differs by 6.0 %** (1.9851095175279738
+vs 2.1115345382360076), and the loss by -0.30275363525224397 against -0.3053330322856267. Both
+boxes carry `avx512_bf16`, so it is kernel blocking and accumulation order, not a missing
+instruction — and it lands exactly on the four cancellation-limited LayerNorm affine leaves that
+carry 92.68 % of the trunk's error mass.
+
+**So A26's bar is host-dependent at the percent level while its numerator's reference is not.** The
+0.3147698293887927 the charter quotes has a host, and nothing records which. The row is rebuilding
+both n384 references on qb1 for internal consistency and re-deriving 0.9565x there too, so the
+figure gets a measured host-robustness reading rather than an assertion of one. Nobody asked it to.
+
+**Three framing defects in four passes and they compose:** D186 the reference frame, D187 five
+stitched legs, D189 the host. A published ratio now needs its frame, its leg and its host before it
+means anything.
+
+**And a correction to my own brief-writing.** The row reports `FRAME_TABLE.json` unreadable from its
+base, and it is right about its base: that file reached `wk/of3t` at pass 336's compose
+(`bc065e1d1`) while the row is based on `f00130c43`, which predates it — and
+`SECTION_ATTRIBUTION.json` has not landed at all yet, because pass 337 added it after that pass's
+compose had already read origin. **I cited my own fresh artifacts to a row whose base predates
+them.** The fix is to cite the SOURCE another row already merged — here
+`perf/of3t_apbback/REFAUDIT.json`, which carries the same four numbers — or to name the commit the
+derived file landed in.
+
+### Pass 339 — the campaign had already tested reduction-order sensitivity, on the arm where it does not matter
+
+`of3t-frame384` is progressing well and has nothing to absorb yet: it pre-registered before the
+first run (`aebc887f9`) and built the crop-384 scorer (`46f2a1b6a`), on `wk/of3t` at `f00130c43`
+after resetting its own base. Its prediction is a **band, not a point** — ours 0.30 to 0.90, the
+in-frame floor 0.30 to 0.90, the ratio 0.70 to 1.30 — with the falsification condition written out
+and **three candidate mechanisms named in advance** so the answer cannot be retrodicted onto
+whichever one fits. That is the discipline this campaign has been trying to build, arriving from a
+row rather than from me.
+
+So the pass did what D189 owes instead: find out which published numbers carry a host term.
+
+**`of3t-refprec` DID test reduction order — on the fp32 arm.** `THREAD_COUNT_FLOOR.json` scores the
+same fp32 arm at `OMP_NUM_THREADS` 3 against 7 and reads **1.7335891859774135e-05** mass-weighted,
+175 tensors bit-identical, cos 0.99999999985. Reduction order moves fp32 by nothing. D189 measured
+the **bf16** arm moving **6.0e-02** across hosts — about **3,500x** more. The campaign holds a
+correct reassurance about reduction order that **does not cover the arm the bar is made of**. The
+tell was even inside it: that comparison's worst tensor is a `layer_norm_z.bias` at rel 6.269, the
+same cancellation-limited leaf family D189's 6 % lands on. The shape was visible; its magnitude on
+bf16 was not.
+
+**And the A26 floor's producing host is recorded nowhere.** Six of that row's JSON outputs carry no
+`host`, `hostname` or `machine` field, and `NOTES.md` names none. The pinned
+`arm4_bf16_autocast/grads_f64.pt` that IS the 0.3147698293887927 the charter quotes has a producing
+host nobody can now name from the record. So D189 is not hypothetical here — it is **unresolvable
+for the bar we quote**, though re-derivable on a named host, which is what `of3t-frame384` is doing
+for its own ratio.
+
+Nothing dispatched: BindCraft 2 holds new work and the one live row is on the critical path.
+
+## Pass 340 — the floor's host is qb2 after all, the host term swings the bar toward leniency by 2.08x, and it cannot flip GRADIENTS
+
+**I corrected my own pass-339 finding.** Pass 339 said the A26 floor's producing host was "not
+recoverable from the artifacts". Three records converge on **qb2** and I had already had one of
+them open: `perf/of3t_modelboundary/MODEL_withtrunk_n384.json` carries a top-level
+**`"host": "tt-quietbox2"`** — I printed that file's key list, quoted `bars` out of it, and did not
+read the key sitting next to them. Its bf16 input is
+`/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt`, a qb2 home; and
+`fleet.log:118653` reads `launched of3t-refprec on qb2-cpu-of3t-refprec`. The narrow claim that
+survives is that refprec's own outputs do not self-attribute (`REFPREC.json` has exactly one key,
+`arms`) and that a scoring artifact's `host` names the host that SCORED, not by construction the
+host that produced the dump — here they coincide, checkably, but only because a path happened to
+carry a home directory.
+
+**The host term is larger and more dangerous than "6 %", derived from D189's own three numbers with
+no new run.** `||g_bf16||/||g_f64||` is 1.0299058646915684 on qb1 and 1.0621953361011056 on qb2, so
+by the reverse triangle inequality the floor F is `>= 0.029905864691568418` on one box and
+`>= 0.062195336101105614` on the other — **2.0797036548701033x** between the two lower bounds. The
+bar is `sqrt(2) * F / R` (`of3t_wholemodel/model_scope.py:228`, recomputed exactly to
+0.14735268326440318), so **the host whose bf16 is sloppier hands the port a bigger bar**: A26 is in
+principle passable by choosing where the reference runs, port untouched.
+
+**Same data, three numbers — 6.37 %, 3.14 %, 108 %.** D189's headline 6.0 % is on the SQUARED
+gradient norm at crop 64. It is 6.3687 % in `||g||^2`, 3.1352 % in `||g||`, and 107.97 % in the
+floor's lower bound. Not a distance, not at model scope.
+
+**And it is bounded: D189 is not why GRADIENTS is red.** Clause 1 fails by **3.5298x**
+(0.5201243840984896 against 0.14735268326440318). Granting the crop-64 host swing at face value on
+the bar still leaves ~1.70x. Where the host term does bite is a ratio near 1.0 — the frame-matched
+**0.9565x** — which is a measured argument for `of3t-frame384` pre-registering a BAND (0.70-1.30)
+rather than a point: the band is wider than the host term.
+
+**GRADIENTS' third clause is green and no summary said so.**
+`renorm_vs_FLOAT64.n_over_per_tensor_bar = 3311` against
+`UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar = 3478`: our renorm arm puts FEWER tensors over the
+per-tensor bar than upstream's own bf16 recipe does. It was never listed as a miss, so the
+instrument was right; the prose only ever named the two that fail.
+
+**VERDICT was 8,758 characters against its own 4,000 cap** and is now 3,879 — re-stamped at pass
+340 with the stale figures corrected (65 UNFIXED not 62; 92 of 92 rows and 2,910 ahead, not 91 and
+2,851).
+
+`of3t-frame384` is alive and needed nothing from me: it reset its own base, pre-registered before
+its first run, and its commit `1ed6fca90` already carries D189's owed fix for its own scorer —
+"the scorer records the host that produced the FLOOR, not only the arm". The two worker.sh PIDs on
+it are a parent and its subshell, not a duplicate launch. Nothing dispatched; BindCraft 2 holds
+card precedence.
+
+**And then I did the thing this document has an entry about.** Re-stamping `VERDICT:` I spliced on
+`t.index('VERDICT:')`. The first `VERDICT:` in the doc is a PASSLOG sentence reading *"This doc
+lost `DOESNOT:`, `GAP:`, `VERDICT:` and the ENDGAME"* — an entry about an earlier pass losing those
+fields. The splice landed there and took **`DOESNOT:`, 56,734 characters**, with it. Filed as
+**D190**, restored from the published mirror at `af370f9b8`, and the diff against that mirror is
+now confined to the VERDICT block and this entry.
+
+**The interesting half is that the compose did NOT go quiet.** It printed four DRIFT lines, all
+true and all aimed at the wrong thing — *"PROVES/DOESNOT does not quote 0.0121 — the artifact has
+moved and the summary Moritz reads has not"*, and a cap breach on PROVES, which had not changed by
+one character and only appeared oversized because its terminator was gone. Every content check
+finds its field by a lookahead to the NEXT heading, so a deleted field returns `None`, the haystack
+is empty, and **deletion is indistinguishable from staleness**. Presence is now asserted before
+content over `PROVES, DOESNOT, GAP, VERDICT, PASSLOG`, with a break control: deleting `DOESNOT:`
+fires it, an EMPTY `DOESNOT:` does not. A second field turned out to be long gone — `DIRECTIVE-
+STATUS` now reads with a COMMA, inside `PASSLOG:`, and the cap loop skips what it cannot find, so
+nothing ever said so.
+
+**The triage producer could not run at all.** `defecttriage/triage.py` reads `DEFECTS.md` alone,
+and after a rotation it reported 8 defects unclassified and **48 "classified but no longer
+UNFIXED"** — the 48 had not been closed, their headings had been archived out of the tail. It now
+reads the union (`defects_union.py`, written at pass 324 for exactly this; the guards had been
+pointed at it and the producer had not), which leaves the real discrepancy: **8 genuinely
+unclassified defects** and D164, no longer UNFIXED. Rebuilt: 63 UNFIXED, **4 / 9 / 50**.
+
+**One of the eight I got wrong in the self-flattering direction, and a guard caught it.** I first
+wrote D184 CAMPAIGN-INTERNAL on the D37 reading — the defect AS FILED is about a coverage figure.
+The USER-FACING closure plan refused the compose, and it was right: training is on main (D126 is a
+training run on `origin/main` computing one gradient and then zero forever), so a user who trains
+today silently loses seventeen parameters. Restored to USER-FACING. A reclassification that moves a
+defect OUT of USER-FACING is the one that flatters the campaign, and this is the second time a
+producer of mine has needed the closure plan to say no.
+
+**Late in the pass, `of3t-frame384` answered — and the answer is that the trunk fails.** Commit
+`fb217fb68`, its crop-384 frame-matched reading: ours **0.8354121633** against upstream's own bf16
+floor **0.3739383921** on the same capture is **2.2341x**, against an in-frame A26 bar
+0.5268825373 — **1.586x outside it, and outside the band the row pre-registered before its first
+run**. Through the same scorer at crop 64 it reads 1.0251x, inside. **The floor is flat in width to
+six digits and our arm is 2.18x worse at 384 than at 64**, so the width dependence is ours alone.
+Filed as **D191** and it is now the campaign's largest object; `VERDICT:` and `GAP:` were both
+amended in this pass rather than the next, because the claim they carried is the one that died.
+
+**D186 stands and stops being a defence.** The frame is real and confirmed at this width —
+`ref_f64_n384` against `grads_f64_043` reads 1.8416532191 at cos 0.36514, which is why cross-frame
+ratios here are UNREADABLE rather than merely pessimistic. But with the frame removed the trunk
+still fails by 1.586x. My pass-336 synthesis that the trunk sits "0.9565x its floor, inside the
+bar" was a crop-64 reading; I had flagged 384 as missing and it was the axis, exactly as D180 says.
+
+**It also measured D189 by accident, which is the best kind of confirmation.** This row's c64
+floor, same scope and same capture as mine, is 0.3739375769 against the 0.4007237405 in my
+`FRAME_TABLE.json` — **7.2 % apart, with the numerators agreeing to 1e-16** (it reproduces
+`of3t-apbback`'s 0.38330656678). That difference alone moves the c64 ratio from 0.9565x to 1.0251x,
+across the 1.0 line. Earlier in this same pass I had written that the host term bites exactly where
+a ratio sits near 1.0; a floor built on another box then demonstrated it. And the other half is
+measured beside it: qb1 against qb2's banked c64 float64 is max absdiff **3.22e-14**, so float64 is
+host-stable to 1e-14 while the bf16 floor moved 7.2 %.
+
+Controls I did not have to take on trust: A/A exactly 0, A16 1.0000000000000002, CROSSFRAME
+reproduces the published 2.159527121735274 to the last digit, and the activation-checkpointing flag
+the row added to `ref_grad.py` is inert — 2736/2736 bit-identical, max absolute difference exactly
+0.0. References built on qb1, CPU only, no card: float64 1629.18 s / 24.88 GB peak RSS, bf16
+autocast 793.78 s / 11.15 GB.
+
+## Pass 341 — a digest I published eleven passes ago was the campaign's tree identity and reproduces under no rule
+
+I set out to fix **D183** (the D149 guard compares reference-tree PATHS, not content) and found
+that the evidence D183 rests on was a number I made up.
+
+**What I checked, on qb2, against the campaign's own rule.**
+`of3t-campaign-refs/tree_digest.py` — A24-AMENDMENT: sha256 over the SORTED per-file sha256 of
+every `.py` under the package root:
+
+    /home/ttuser/of3t_refprec/of3pkg043/openfold3        293 files   1b27f5754b32b8e3...
+    /home/ttuser/of3t-campaign-refs/of3pkg043/openfold3  293 files   1b27f5754b32b8e3...
+
+**D183's finding stands — the two trees are identical.** What does not stand is
+`24f0aee7525f1042`, which `perf/of3t_orchestrator/trajrecover/RECOVERY.json` published at pass 330
+as their digest and which then propagated into `DEFECTS.md`, `ORCHESTRATOR.md` twice and `GAP:`.
+It is produced by none of the three `tree_digest` implementations in the tree. Filed as **D192**.
+
+**The discriminator was countable the whole time.** `1b27f5754b32b8e3` is carried by **seven**
+artifacts across five namespaces — `of3t-barresolve` (3), `of3t-d112`, `of3t-trunk043ref`,
+`perf/refpath.py`, and `compose_verify.sh` itself. `24f0aee7525f1042` was carried by **one**: the
+file that invented it, mine. So the obvious guard — *is this digest in a committed artifact?* —
+would have **passed** it. The rule that works is CORROBORATION: a carrier outside
+`perf/of3t_orchestrator/`, i.e. a row that took the measurement. Built into `audit_evidence.py`
+over the summary fields; on today's three quoted digests it passes `1b27f5754b32b8e3` (7 carriers)
+and `39bce7750297a920` (11) and fails the fabricated one.
+
+**And the campaign had written the warning down before I hit it.** `tree_digest.py`'s docstring:
+*"a digest quoted without its rule cannot be reproduced -- `of3t-auxheads043` published 8f035f4e
+for the same 0.4.3 sdist under a different rule, and neither number is wrong, they are answers to
+different questions."* Mine was not an answer to a different question. It was an answer to none.
+
+**I also checked D183 on a rule stronger than the one it was filed under.** The A24-AMENDMENT rule
+hashes CONTENT only, so it is blind to a RENAME — a tree with one `.py` renamed digests
+identically, confirmed on a synthetic pair. A renamed module is a different function, so I ran the
+path-sensitive reading too (sha256 over relative path + bytes, path-sorted): `3989e62e5674f792` on
+**both** trees. Identical under the weaker rule and the stronger one.
+
+**Three `tree_digest` implementations exist and two of them disagree in kind** — `of3t-barresolve`
+and `of3t-d112` hash content only, `of3t_orchestrator/version_boundary_at_source.py` hashes path +
+content. Same tree, different values, and nothing says so.
+
+**Why D183's code fix is not in this commit, stated rather than quietly skipped.** Both
+`perf/refpath.py` and the guard itself (`perf/of3t_trajwide/trajwide.py:966-973`) are absent from
+`wk/of3t-orchestrator` AND from `origin/main`; they reach the composition only through other rows'
+branches. Adding either here is an add/add conflict against every branch that carries it — the
+dark-branch trap this campaign has already paid for. The fix belongs to a row whose base has the
+files, and D183's update now records both verified digests so that row does not re-derive them.
+
+`of3t-widthattr` launched at the end of pass 340 and has not committed yet; nothing to absorb.
+
+## Pass 342 — D191 is located, and the block this campaign has instrumented hardest carries 0.18 % of it
+
+`of3t-widthattr` (commit `8d74c4ab4`, `GROWTH.json`, qb1, CPU only, no card) decomposed the trunk's
+excess at padded width 384 over width 64 as a **difference of numerators** — total **0.5509895585**
+in mw², additive by construction, against a float64 denominator width-invariant to **3.20e-15**, so
+this is absolute error growing and not a share moving.
+
+    by leaf family   attn_pair_bias.layer_norm_a.weight  34.89 %
+                     attn_pair_bias.layer_norm_a.bias    27.43 %
+                     single_transition.layer_norm.bias   10.22 %
+                     single_transition.layer_norm.weight  7.39 %   four families: 79.93 %
+                     ALL LayerNorm affine, 24 families:                     93.80 %
+    by block         44: 30.38 %    4: 25.05 %    0: 19.15 %       three of 48: 74.58 %
+    concentration    83.85 % in 20 of 2,736 tensors
+
+**The standing hypothesis is refuted, and I am the one who registered it.** I asked whether the op
+carrying 51.55 % of block 47's error carries the width growth. Its 16-tensor scope carries
+**0.1232 %**; **block 47 entire carries 0.1808 %**. So D191 and the softmax-backward finding are
+two objects, and the block the campaign has instrumented hardest across dozens of passes is
+essentially absent from the failure at the width we actually report.
+
+**It is also not a width LAW and I had been carrying it as one.** The three sections scale with
+different exponents — `attn_pair_bias` 1.1286, `single_transition` 0.9645, `pair_stack` 0.4477 —
+so there is nothing to fit, which is what D175's refutation (non-monotone, shape-keyed) predicted.
+
+**On the worst tensor this is not a precision floor.**
+`blocks.4.attn_pair_bias.layer_norm_a.weight`, 18.65 % of the growth by itself, reads norm ratio
+**7.3729 at cos -0.0057**: seven times too large and orthogonal to the reference. A bf16 rounding
+story does not produce an orthogonal gradient.
+
+**Independent confirmation of the floor:** `floor_384 / floor_64 = 1.0000021801307795` where our
+own arm moves **2.1794882627817005** — `of3t-frame384`'s "flat in width" holds on the tensors that
+carry the growth, tensor by tensor.
+
+**And the row caught me in a wrong crop label, which I verified rather than accepted.** My brief
+told it `of3t-apbback`'s block-47 result was "at crop 64". I read the capture directly on qb2:
+`/home/ttuser/of3t_gradients/cap/block47_boundary.pt` carries `single_mask (1, 384)` and
+`pair_mask (1, 384, 384)`. It is a crop-**384** object, and `N384_OOM.json` is the record of that
+row moving to a single-block n384 reference because the full stack would not fit. Filed as **D193**:
+this is **D180 one turn worse** — the crop was quoted and was wrong, in the brief that framed the
+row's central question as cross-width when both readings are at the same width. The row answered
+the substantive question correctly regardless, and the 51.55 % figure is unaffected and slightly
+strengthened, being a reading at the width the campaign reports. A wrong label is worse than a
+missing one because it survives review, and the capture records the truth in a tensor shape, so
+this is mechanisable and is not mechanised.
+
+**Recorded rather than buried, from the row's own findings list:** the two device arms D191 is
+computed from differ in `tri_att_sdpa_hifi`. Inert at width 64 by construction and unreachable from
+84.52 % of the growth by code, so the result stands, but any row differencing these arms must match
+it.
+
+**What closes D191 needs a card**: one c64 and one n384 device arm with `tri_att_sdpa_hifi` matched
+and the fp32-softmax L1 plan pinned to the same shard geometry at both widths — the growth
+surviving that makes it the pair track's chunking, collapsing makes it the single track's softmax
+partition. Not dispatched; BindCraft 2 holds card precedence and the row has not concluded yet.
+
+The row's own P1 pre-registration failed as written — it predicted the float64 reference would
+agree across widths to 1e-10 per tensor and 0 of 2,736 tensors are bit-identical — and it said so
+plainly before showing that the property held with 27 orders of margin (3.699e-14 mass-weighted;
+the 48 movers are all `attn_pair_bias.layer_norm_z.bias` with reference norms at 1e-17 to 1e-19,
+under the campaign's own A14 floor). That is the discipline this campaign has been trying to build.
