@@ -735,6 +735,16 @@ def run_ours(G, blocks, cot, *, steps, warmup, log, d_out, brk="none",
         print(f"namemap: {nm_report['slots_resolved']} of {nm_report['slots_unnamed']} "
               f"unnamed slots resolved, {nm_report['reference_names_added']} reference "
               f"names added", flush=True)
+        if nm_report["unresolved"]:
+            # Silent narrowing is the failure mode that reads as success here: an emitter
+            # that does not resolve simply is not written, the dump reverts to the 581 the
+            # fingerprint found, and the scored percentage goes back to 88.83 with nothing
+            # complaining. A resolution that does not cover every unnamed slot is a stop.
+            raise SystemExit(
+                "namemap: %d of %d unnamed slots did not resolve; refusing to run an arm "
+                "whose dump would quietly narrow. First: %s" % (
+                    len(nm_report["unresolved"]), nm_report["slots_unnamed"],
+                    nm_report["unresolved"][0]))
         CK.release()
 
     permute_report = None
