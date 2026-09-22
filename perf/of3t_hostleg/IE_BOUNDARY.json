@@ -1,6 +1,6 @@
 {
- "loss": 1.2675981521606445,
- "dtype": "float32",
+ "loss": 1.267624369070698,
+ "dtype": "float64",
  "seed": 20260919,
  "n_query": 32,
  "n_key": 128,
@@ -87,12 +87,12 @@
  },
  "grad_f64_n": 93,
  "cot_norms": {
-  "cot_cl": 0.01160385229822606,
-  "cot_plm": 4.2613225581556505e-10,
-  "cot_ai": 0.12269849964749585
+  "cot_cl": 0.01160291962814726,
+  "cot_plm": 4.28054352615927e-10,
+  "cot_ai": 0.12269679356796952
  },
- "out": "/home/ttuser/of3t_hostleg/ie_boundary_f32.pt",
- "sha256": "8fd5b2c8e3ac6e9d526843973503efafb0ff62badd8d0d0cfdf26daf15920682",
+ "out": "/home/ttuser/of3t_hostleg/ie_boundary.pt",
+ "sha256": "f8777e66fbaf3dc4f56948d32a72efd1d8d46799f17e1a6e0917a51c393d5f9f",
  "provenance": {
   "batch": "/home/ttuser/of3t_hostleg/bundle_ref/batch_step003.pt",
   "batch_sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
@@ -117,7 +117,7 @@
    ],
    "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
   },
-  "autocast": "upstream"
+  "autocast": "removed"
  },
- "elapsed_s": 1018.8
+ "elapsed_s": 1849.8
 }

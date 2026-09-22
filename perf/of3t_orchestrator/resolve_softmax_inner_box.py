@@ -92,14 +92,50 @@ def _inline_target(nodes):
     return target
 
 
+def _hunks(s: str, start: str, mid: str, end: str):
+    """Every conflict hunk's (i, j, k) offsets, in file order.
+
+    A file can carry two independent conflicts that each have their own correct resolution --
+    `tt_bio/autograd.py` at pass 358 carried the `__slots__` union AND this softmax shape, and
+    every resolver here was written against a file with exactly one hunk, so the pair stopped
+    the compose although both halves were resolvable. Resolvers are hunk-scoped now and the
+    caller re-runs the chain while markers remain.
+    """
+    out, pos = [], 0
+    while True:
+        i = s.find(start, pos)
+        if i < 0:
+            return out
+        j = s.find(mid, i)
+        k = s.find(end, j) if j >= 0 else -1
+        if j < 0 or k < 0:
+            return out
+        out.append((i, j, k))
+        pos = k + len(end)
+
+
+
+def _shape(s, hunk, start, mid, end):
+    """Is this hunk the inline-against-helper shape? Cheap test, used to pick the hunk."""
+    i, j, k = hunk
+    ours, theirs = s[i + len(start):j], s[j + len(mid):k]
+    if (HELPER in ours) == (HELPER in theirs):
+        return None
+    return hunk
+
+
 def resolve(path: pathlib.Path, theirs_ref: str) -> int:
     s = path.read_text()
     start, mid, end = "<<<<<<< HEAD\n", "=======\n", f">>>>>>> {theirs_ref}\n"
-    if start not in s or end not in s or s.count(start) != 1:
+    hunks = _hunks(s, start, mid, end)
+    if not hunks:
         return 2
-    i = s.index(start)
-    j = s.index(mid, i)
-    k = s.index(end, j)
+    for _h in hunks:
+        if _shape(s, _h, start, mid, end) is not None:
+            i, j, k = _h
+            break
+    else:
+        return 2
     sides = {"ours": s[i + len(start):j], "theirs": s[j + len(mid):k]}
     parsed = {w: _stmts(t) for w, t in sides.items()}
     if any(v is None for v in parsed.values()):
@@ -143,13 +179,14 @@ def resolve(path: pathlib.Path, theirs_ref: str) -> int:
     helper_lines = [ln for ln in sides[hw].splitlines() if ln.strip()]
     body = "\n".join(box_line + helper_lines)
     new = s[:i] + body + "\n" + s[k + len(end):]
-    if "<<<<<<<" in new or ">>>>>>>" in new:
-        return 2
-    try:
-        ast.parse(new)
-    except SyntaxError as e:
-        print(f"  {path}: the composed backward does not parse -- {e}", file=sys.stderr)
-        return 1
+    if new.count("<<<<<<<") != len(hunks) - 1:
+        return 2                               # resolved anything other than exactly this hunk
+    if "<<<<<<<" not in new:
+        try:
+            ast.parse(new)                     # only parseable once the LAST hunk is gone
+        except SyntaxError as e:
+            print(f"  {path}: the composed backward does not parse -- {e}", file=sys.stderr)
+            return 1
     if HELPER not in body or (box_reads and "box[" not in body):
         print(f"  {path}: the resolution dropped one side", file=sys.stderr)
         return 2

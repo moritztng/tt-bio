@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import resource
 import sys
 import time
 
@@ -105,6 +106,13 @@ def main() -> int:
     ap.add_argument("--fd-eps", type=float, default=1e-5)
     ap.add_argument("--pad-scale", type=float, default=1.0, metavar="K",
                     help="multiply the boundary's pad rows/columns by K, nothing else")
+    ap.add_argument("--checkpoint", action="store_true",
+                    help="recompute each block's activations in the backward instead of keeping "
+                         "them live (torch.utils.checkpoint, use_reentrant=False). Needed at "
+                         "crop 384: the plain float64 arm's saved activations do not fit in any "
+                         "host we have. Recompute of an eval()-mode block with no dropout is "
+                         "deterministic, so this must be BIT-IDENTICAL to the plain arm, and "
+                         "that identity is checked at crop 64 rather than assumed.")
     ap.add_argument("--permute-cot", type=int, default=0, metavar="SEED",
                     help="BREAK control: permute the cotangent over the REAL token positions "
                          "only. Everything else -- weights, masks, boundary -- is untouched.")
@@ -166,10 +174,18 @@ def main() -> int:
                     "what": "the same cotangent, paired with the wrong token positions"}
     cs, cz = cot_s.to(dt), cot_z.to(dt)
 
-    def fwd(s, z):
-        for m in mods:
-            s, z = m(s, z, sm, pm)
-        return s, z
+    if a.checkpoint:
+        from torch.utils.checkpoint import checkpoint
+
+        def fwd(s, z):
+            for m in mods:
+                s, z = checkpoint(m, s, z, sm, pm, use_reentrant=False)
+            return s, z
+    else:
+        def fwd(s, z):
+            for m in mods:
+                s, z = m(s, z, sm, pm)
+            return s, z
 
     ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if a.policy == "bf16auto"
            else torch.autocast("cpu", enabled=False))
@@ -230,6 +246,9 @@ def main() -> int:
            "gradient": {"tensors": len(grads), "with_gradient": len(sq), "none": n_none,
                         "squared_norm_total": sum(sq.values())},
            "seconds_forward_backward": fwd_back_s,
+           "checkpointed": bool(a.checkpoint),
+           "threads": a.threads,
+           "peak_rss_gb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 ** 2),
            "out": a.out}
 
     if a.fd:
@@ -272,11 +291,13 @@ def main() -> int:
 
     with open(a.report, "w") as fh:
         json.dump(rep, fh, indent=2)
+    rep["peak_rss_gb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 ** 2)
     print(json.dumps({"policy": a.policy, "loss": rep["loss"], "s_norm": rep["s_norm"],
                       "z_norm": rep["z_norm"],
                       "grad_sq_norm": rep["gradient"]["squared_norm_total"],
                       "with_gradient": rep["gradient"]["with_gradient"],
                       "fd_rel": rep.get("finite_difference", {}).get("rel"),
+                      "peak_rss_gb": round(rep["peak_rss_gb"], 2),
                       "seconds": round(time.perf_counter() - t0, 1)}))
     return 0
 
