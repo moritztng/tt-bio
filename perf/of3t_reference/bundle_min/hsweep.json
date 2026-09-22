@@ -1,0 +1,178 @@
+{
+  "what": "Finite-difference step-size sweep at trained weights, on the 5nw3 batch, float64. The point of the sweep is that a single h cannot tell truncation from a different derivative: truncation falls as h^2, so only h-independence exposes the latter.",
+  "n_entries": 6,
+  "h_values": [
+    "1e-07",
+    "1e-06",
+    "1e-05",
+    "0.0001",
+    "0.001"
+  ],
+  "finding": "Entries inside the recycled trunk show a difference quotient that is FLAT across h and LARGER than the analytic gradient by an entry-specific factor. Entries outside it converge normally. Their trunk runs num_recycles + 1 passes over the same weights and tapes only the last (model.py:230), so the finite difference measures the total derivative through every cycle while the analytic gradient is the partial derivative through the final one. No h reconciles two different functions; the validation must run at num_recycles = 0.",
+  "entries": [
+    {
+      "param": "msa_module.blocks.0.msa_att_row.linear_v.weight",
+      "index": "40, 49",
+      "analytic": -0.0001979991,
+      "h": {
+        "0.001": {
+          "fd": -0.0003360615,
+          "rel_err": 0.4108
+        }
+      },
+      "fd_spread_across_h": 0.0,
+      "fd_over_analytic": 1.6972880179758392,
+      "in_recycled_trunk": true
+    },
+    {
+      "param": "pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.weight",
+      "index": "46",
+      "analytic": -0.0003784617,
+      "h": {
+        "0.001": {
+          "fd": -0.002187403,
+          "rel_err": 0.827
+        },
+        "0.0001": {
+          "fd": -0.002365736,
+          "rel_err": 0.84
+        },
+        "1e-05": {
+          "fd": -0.002168274,
+          "rel_err": 0.8255
+        },
+        "1e-06": {
+          "fd": -0.002168279,
+          "rel_err": 0.8255
+        },
+        "1e-07": {
+          "fd": -0.002168274,
+          "rel_err": 0.8255
+        }
+      },
+      "fd_spread_across_h": 0.08346747058843414,
+      "fd_over_analytic": 5.843638074869927,
+      "in_recycled_trunk": true
+    },
+    {
+      "param": "pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_in.bias",
+      "index": "21",
+      "analytic": 0.0001686951,
+      "h": {
+        "0.001": {
+          "fd": 0.001024372,
+          "rel_err": 0.8353
+        },
+        "0.0001": {
+          "fd": 0.001004056,
+          "rel_err": 0.832
+        },
+        "1e-05": {
+          "fd": 0.001004055,
+          "rel_err": 0.832
+        },
+        "1e-06": {
+          "fd": 0.001004055,
+          "rel_err": 0.832
+        },
+        "1e-07": {
+          "fd": 0.001004052,
+          "rel_err": 0.832
+        }
+      },
+      "fd_spread_across_h": 0.01983654375558868,
+      "fd_over_analytic": 5.97597677703739,
+      "in_recycled_trunk": true
+    },
+    {
+      "param": "pairformer_stack.blocks.41.pair_stack.tri_att_start.layer_norm.weight",
+      "index": "24",
+      "analytic": 0.0007602893,
+      "h": {
+        "0.001": {
+          "fd": 0.000785638,
+          "rel_err": 0.03227
+        },
+        "0.0001": {
+          "fd": 0.0007663762,
+          "rel_err": 0.007942
+        },
+        "1e-05": {
+          "fd": 0.0007663777,
+          "rel_err": 0.007944
+        },
+        "1e-06": {
+          "fd": 0.0007663775,
+          "rel_err": 0.007944
+        },
+        "1e-07": {
+          "fd": 0.0007663747,
+          "rel_err": 0.007941
+        }
+      },
+      "fd_spread_across_h": 0.024519307874619017,
+      "fd_over_analytic": 1.0130733393196512,
+      "in_recycled_trunk": true
+    },
+    {
+      "param": "pairformer_stack.blocks.41.pair_stack.tri_mul_out.linear_a_g.weight",
+      "index": "102, 71",
+      "analytic": -0.0001061626,
+      "h": {
+        "0.001": {
+          "fd": -0.0001625638,
+          "rel_err": 0.3469
+        },
+        "0.0001": {
+          "fd": -0.0001625646,
+          "rel_err": 0.347
+        },
+        "1e-05": {
+          "fd": -0.0001625647,
+          "rel_err": 0.347
+        },
+        "1e-06": {
+          "fd": -0.0001625639,
+          "rel_err": 0.3469
+        },
+        "1e-07": {
+          "fd": -0.0001625644,
+          "rel_err": 0.347
+        }
+      },
+      "fd_spread_across_h": 5.536257256228718e-06,
+      "fd_over_analytic": 1.5312763628622508,
+      "in_recycled_trunk": true
+    },
+    {
+      "param": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_o.weight",
+      "index": "581, 521",
+      "analytic": 0.0001318805,
+      "h": {
+        "0.001": {
+          "fd": 0.0001121327,
+          "rel_err": 0.1497
+        },
+        "0.0001": {
+          "fd": 0.0001318805,
+          "rel_err": 1.785e-08
+        },
+        "1e-05": {
+          "fd": 0.0001318805,
+          "rel_err": 8.317e-08
+        },
+        "1e-06": {
+          "fd": 0.0001318805,
+          "rel_err": 2.515e-07
+        },
+        "1e-07": {
+          "fd": 0.000131879,
+          "rel_err": 1.204e-05
+        }
+      },
+      "fd_spread_across_h": 0.14974010562592652,
+      "fd_over_analytic": 0.9700497040881707,
+      "in_recycled_trunk": false
+    }
+  ]
+}
