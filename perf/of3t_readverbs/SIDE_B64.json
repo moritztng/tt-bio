@@ -1,0 +1,43 @@
+{
+ "pin": "",
+ "blocks": "",
+ "err_blocks": "44,4,0",
+ "cap": 4,
+ "rc": 0,
+ "host": "qb1",
+ "hostname": "tt-quietbox",
+ "card": "qb1 (tt-quietbox) card 0, p150a Blackhole",
+ "seconds": 42.3,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/of3t-readverbs/tt_bio/__init__.py",
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "0",
+  "TT_BIO_LEASE_CARDS": "0",
+  "RV_PIN": "",
+  "RV_BLOCKS": "",
+  "RV_ERRBLOCKS": "44,4,0"
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 384,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 0,
+  "l1_refused": 0,
+  "l1_cores": 110,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 240,
+  "declined": 0
+ }
+}

@@ -7,9 +7,6 @@
    "D205"
   ],
   "MERGE": [
-   "D10",
-   "D24",
-   "D56",
    "D184"
   ],
   "RELEASE": [
@@ -17,17 +14,9 @@
   ]
  },
  "plan": {
-  "D10": {
-   "asked": "pin 9629, together with D24 -- ANSWERED 2026-09-21 (state/ask-9629-decision.md)",
-   "closes_when": "it lands on main. DECIDED 2026-09-21 on ask 9629: unify, on consistency grounds, because no accuracy argument survives either way -- of3t-rankunify withdrew it. Built, verified in the tree at pass 278, not merged",
-   "evidence_held": "+0.046 A and +0.020 A on the two changed models, 9 of 12 changed folds the WRONG way, every difference inside its seed floor, p = 0.146",
-   "needs": "MERGE",
-   "one_line": "the confidence head mis-ranks diffusion samples, and that is what makes D1's repair serve worse",
-   "would_a_row_help": false
-  },
   "D184": {
    "asked": "not yet asked. It belongs with D126 in one merge question rather than as a separate ask: both are built, measured, release-gated and waiting only on Moritz",
-   "closes_when": "`TT_BIO_OF3_DEVICE_REFATOM` stops being default-off. `of3t-hostleg` wired both legs and measured them: the `all` arm reads mass-weighted rel_l2 0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 per-tensor bar, worst 1.175005e-01, and its inference default is byte-identical to the base tree on both models that execute the changed path. Nothing further is measurable until it lands",
+   "closes_when": "REWRITTEN pass 363: not the flag. `of3t-covdefault` NO-GO'd flipping it (+198.476 ms cold / +50.231 ms warm on openfold3) and `of3t-refcov` then reached those gradients WITHOUT it -- `git diff -- tt_bio/` empty, the arm constructing RefAtomFeatureEmbedder directly -- taking coverage to 99.50523155277438 %. The symbol does not exist on origin/main at all. What is left is the narrower true statement that on the shipped inference default those seventeen parameters receive no gradient, which matters to TRAINING and not to a user's fold; it closes when a shipped training route reaches them. Superseded text: `of3t-hostleg` wired both legs and measured them: the `all` arm reads mass-weighted rel_l2 0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 per-tensor bar, worst 1.175005e-01, and its inference default is byte-identical to the base tree on both models that execute the changed path. Nothing further is measurable until it lands",
    "evidence_held": "the shipped arm reads rel_l2 exactly 1.00000000 on all seventeen -- the A16 zero-model signature, so the default computes no gradient for them at all. The arm ladder is shipped 1.00000000, refatom 0.71215816, all 0.05013681, break 0.82521107. CORRECTED at pass 358 (D212): this field said landing the flag takes GRADIENTS' coverage to 99.50523155277438 %, crediting all seventeen. `of3t-covdefault` measured the key-set diff and the flag reaches EIGHT -- 97.98499306866148 % + 0.7530394291090192 = 98.73803249777050 %, which is 0.52 points SHORT of the 99.2594 % bar. The other nine cannot enter the reading at all: `input_embedder` reads n_compared 0 of 98 in the boundary artifact. And the flag is now a measured inference regression (+198.476 ms cold, +50.231 ms warm on openfold3), so the coverage route does not run through it -- it runs through the TRAINING ADAPTER, which `tt_bio/train/` confines to training by construction. Row `of3t-refcov`",
    "needs": "MERGE",
    "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
@@ -48,14 +37,6 @@
    "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",
    "would_a_row_help": true
   },
-  "D24": {
-   "asked": "pin 9629, together with D10 -- ANSWERED 2026-09-21",
-   "closes_when": "the same as D10: the decision is made and the merge is not",
-   "evidence_held": "the family computes ONE rule on the branch; the accuracy claim is explicitly WITHDRAWN",
-   "needs": "MERGE",
-   "one_line": "three shipped models computed three different ranking rules; one rule now exists and nothing is merged",
-   "would_a_row_help": false
-  },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
    "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a memory-ladder run's wall clock at 3.53 ms per verb call and is not a timing at all -- the same backward clean reads 222.48 s, so this row must re-establish its own baseline before it extends one",
@@ -72,15 +53,6 @@
    "row": "of3t-fwdkcfg",
    "would_a_row_help": true
   },
-  "D56": {
-   "asked": "pin 9629 -- ANSWERED 2026-09-21: SHIP IT ON. It is default-ON in the composition since pass 274, verified backward-only by AST, and not merged",
-   "closes_when": "TT_BIO_SOFTMAX_BW_RENORM stops being default-off. The mechanism is refuted and the magnitude collapsed on the repaired arm; what keeps it UNFIXED is that the SHIPPED configuration is still the unrepaired one",
-   "evidence_held": "matched same-branch A/B: leaf error mass 878.85 -> 2.636 (333x), block 8 norm ratio 87.643 -> 1.732 with cos -0.169 -> +0.694, 523 tensors both arms",
-   "needs": "MERGE",
-   "one_line": "a diffusion-scope concentration that the softmax-backward repair collapses 333x",
-   "what_it_costs": "read from taped_ttnn.py at pass 259, because the ask should not have gone out without it. The lever adds EXACTLY TWO OPS inside the softmax backward rule -- one `ttnn.sum(y, dim, keepdim=True, compute_kernel_config=precise_config())` and one `ttnn.divide` -- on the shapes the existing `inner` reduction already uses. It lives in `bw`, so it runs ONLY under the tape: an inference fold cannot execute it and the inference cost is zero STRUCTURALLY, not by measurement, and the fold A/B agrees: three legs at 512 aa, flag on / off / on, all three the same CIF sha256 on an A/A floor of exactly zero (land-standing, 04ad2cf7a). TRAINING COST MEASURED at pass 311, and this field said for sixteen passes that it could not be: `of3t-stepfloor` re-ran the pass-54 trunk rung with the lever OFF and the probe inert -- backward 356.00 s against 357.32 s with it ON, so the lever is +0.37 %, 1.32 s of a 357 s backward, at a 1350 MHz median over 69 DURING samples. The baseline this field said did not exist is D32's, and D32 now has one. Caveat the row raised itself: the two arms are separate processes and the forward moved 13.53 -> 4.04 s on a warm JIT cache, so the STEP-scope ON/OFF pair has to be re-taken inside one process; the backward-only figure is unaffected because the lever lives in `bw`.",
-   "would_a_row_help": false
-  },
   "D58": {
    "closes_when": "the same locating measurement as D30. Two independent sightings make it a property to explain rather than a coincidence to chase",
    "evidence_held": "diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- different ops, different track, same factor to two significant figures",
@@ -95,11 +67,8 @@
   }
  },
  "user_facing": [
-  "D10",
-  "D24",
   "D32",
   "D55",
-  "D56",
   "D58",
   "D184",
   "D205",

@@ -1,0 +1,1455 @@
+{
+ "pin": "identity2",
+ "blocks": "45,44",
+ "chunk": 16,
+ "rc": 0,
+ "seconds": 42.6,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/of3t-vjpln/tt_bio/__init__.py",
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "2",
+  "TT_BIO_LEASE_CARDS": "2,2",
+  "VJP_PIN": "identity2",
+  "VJP_BLOCKS": "45,44"
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 384,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 0,
+  "l1_refused": 0,
+  "l1_cores": 110,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 240,
+  "declined": 0
+ },
+ "pin_blocks": [
+  44,
+  45
+ ],
+ "blocks_seen": 48,
+ "nodes_selected": 154,
+ "substitutions": {
+  "layer_norm block44": 17,
+  "layer_norm block45": 17,
+  "linear block44": 33,
+  "linear block45": 33,
+  "matmul block44": 22,
+  "matmul block45": 22,
+  "softmax block44": 5,
+  "softmax block45": 5
+ },
+ "substitutions_total": 154,
+ "float32_writeback_tensors": 334,
+ "float32_writeback_lossy": 0,
+ "errors": {},
+ "moved": [
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "forward": {
+  "_identity_grad [1, 4, 64, 64]": 288,
+  "_identity_grad [64, 4, 64, 64]": 576,
+  "_identity_grad [64, 64, 128]": 576,
+  "_sliced [1, 16, 64, 24]": 144,
+  "_sliced [1, 64, 64, 128]": 1296,
+  "_taped_layer_norm [1, 64, 384]": 288,
+  "_taped_layer_norm [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [64, 64, 128]": 288,
+  "_taped_linear [1, 64, 1536]": 432,
+  "_taped_linear [1, 64, 384]": 432,
+  "_taped_linear [1, 64, 64, 128]": 720,
+  "_taped_linear [1, 64, 64, 16]": 144,
+  "_taped_linear [1, 64, 64, 512]": 288,
+  "_taped_linear [64, 64, 128]": 288,
+  "_taped_linear [64, 64, 384]": 288,
+  "_taped_linear [64, 64, 4]": 288,
+  "_v_concat [1, 64, 64, 128]": 144,
+  "_v_concat_heads [64, 1, 64, 128]": 288,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 432,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 864,
+  "_v_matmul [1, 128, 64, 64]": 288,
+  "_v_matmul [1, 16, 64, 32]": 144,
+  "_v_matmul [1, 16, 64, 64]": 144,
+  "_v_matmul [1, 64, 64, 512]": 288,
+  "_v_matmul [64, 4, 64, 32]": 288,
+  "_v_matmul [64, 4, 64, 64]": 288,
+  "_v_matmul [64, 64, 128]": 288,
+  "_v_permute [1, 128, 64, 64]": 576,
+  "_v_permute [1, 16, 24, 64]": 144,
+  "_v_permute [1, 16, 64, 64]": 144,
+  "_v_permute [1, 4, 64, 64]": 288,
+  "_v_permute [1, 64, 384]": 144,
+  "_v_permute [64, 4, 32, 64]": 288,
+  "_v_permute [64, 64, 128]": 288,
+  "_v_reshape [1, 1, 64, 1536]": 144,
+  "_v_reshape [1, 384, 64]": 144,
+  "_v_reshape [1, 64, 64, 128]": 288,
+  "_v_reshape [1, 64, 64, 4]": 288,
+  "_v_reshape [64, 1, 64, 384]": 288,
+  "_v_reshape [64, 64, 128]": 576,
+  "_v_softmax [1, 16, 64, 64]": 144,
+  "_v_softmax [64, 4, 64, 64]": 288,
+  "_v_transpose [1, 16, 32, 64]": 144,
+  "_v_transpose [1, 64, 128, 64]": 288,
+  "_v_transpose [1, 64, 64, 128]": 288,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 288,
+  "impl [1, 16, 64, 64]": 432,
+  "impl [1, 4, 64, 64]": 864,
+  "impl [1, 64, 1536]": 144,
+  "impl [1, 64, 384]": 432,
+  "impl [1, 64, 64, 128]": 1584,
+  "impl [1, 64, 64, 512]": 144,
+  "impl [64, 4, 64, 64]": 288,
+  "impl [64, 64, 128]": 288,
+  "silu [1, 64, 1536]": 144,
+  "silu [1, 64, 64, 512]": 144
+ },
+ "backward": {
+  "_identity_grad [1, 4, 64, 64]": 192,
+  "_identity_grad [64, 4, 64, 64]": 384,
+  "_identity_grad [64, 64, 128]": 384,
+  "_sliced [1, 16, 64, 24]": 48,
+  "_sliced [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [1, 64, 384]": 96,
+  "_taped_layer_norm [1, 64, 64, 128]": 528,
+  "_taped_layer_norm [64, 64, 128]": 192,
+  "_taped_linear [1, 64, 1536]": 144,
+  "_taped_linear [1, 64, 384]": 144,
+  "_taped_linear [1, 64, 64, 128]": 480,
+  "_taped_linear [1, 64, 64, 16]": 48,
+  "_taped_linear [1, 64, 64, 512]": 192,
+  "_taped_linear [64, 64, 128]": 192,
+  "_taped_linear [64, 64, 384]": 192,
+  "_taped_linear [64, 64, 4]": 192,
+  "_v_concat [1, 64, 64, 128]": 96,
+  "_v_concat_heads [64, 1, 64, 128]": 192,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 144,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 576,
+  "_v_matmul [1, 128, 64, 64]": 192,
+  "_v_matmul [1, 16, 64, 32]": 48,
+  "_v_matmul [1, 16, 64, 64]": 48,
+  "_v_matmul [1, 64, 64, 512]": 192,
+  "_v_matmul [64, 4, 64, 32]": 192,
+  "_v_matmul [64, 4, 64, 64]": 192,
+  "_v_matmul [64, 64, 128]": 192,
+  "_v_permute [1, 128, 64, 64]": 384,
+  "_v_permute [1, 16, 24, 64]": 48,
+  "_v_permute [1, 16, 64, 64]": 48,
+  "_v_permute [1, 4, 64, 64]": 192,
+  "_v_permute [1, 64, 384]": 48,
+  "_v_permute [64, 4, 32, 64]": 192,
+  "_v_permute [64, 64, 128]": 192,
+  "_v_reshape [1, 1, 64, 1536]": 48,
+  "_v_reshape [1, 384, 64]": 48,
+  "_v_reshape [1, 64, 64, 128]": 192,
+  "_v_reshape [1, 64, 64, 4]": 192,
+  "_v_reshape [64, 1, 64, 384]": 192,
+  "_v_reshape [64, 64, 128]": 384,
+  "_v_softmax [1, 16, 64, 64]": 48,
+  "_v_softmax [64, 4, 64, 64]": 192,
+  "_v_transpose [1, 16, 32, 64]": 48,
+  "_v_transpose [1, 64, 128, 64]": 192,
+  "_v_transpose [1, 64, 64, 128]": 192,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 192,
+  "impl [1, 16, 64, 64]": 144,
+  "impl [1, 4, 64, 64]": 384,
+  "impl [1, 64, 1536]": 48,
+  "impl [1, 64, 384]": 144,
+  "impl [1, 64, 64, 128]": 1056,
+  "impl [1, 64, 64, 512]": 96,
+  "impl [64, 4, 64, 64]": 192,
+  "impl [64, 64, 128]": 192,
+  "silu [1, 64, 1536]": 48,
+  "silu [1, 64, 64, 512]": 96
+ },
+ "vjpln": {
+  "refs_added": [
+   "_taped_layer_norm",
+   "_taped_linear"
+  ],
+  "g_reshaped_to_operand": 0,
+  "role_resolution_raises": 0,
+  "forward_model_check": {
+   "what": "refvjp's modelled forward against the device's own out_v, per node key. FD and autograd both differentiate the modelled forward, so only this says the modelled forward is the shipped one.",
+   "sampled_per_key": 8,
+   "firings_checked": 0,
+   "firings_skipped": 0,
+   "worst_rel_l2": null,
+   "worst_key": null,
+   "per_key": {}
+  }
+ }
+}
