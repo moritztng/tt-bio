@@ -460,20 +460,17 @@ scope-excluded, 6 USER-FACING, 80 campaign-internal) over the union of `DEFECTS.
 **Distance to go, per tensor** (`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator
 10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
 tensor by tensor, **49.8019 %** worse, **2.0150 %** unread. Mass weighted on the frame-matched
-artifact the clause reads 0.27095922968432157 against 0.15210099830945006. Both true, and they
-are not in tension: our failures concentrate in high-mass tensors, which is the same fact as the
-trunk holding 85.63 % of the error mass on 6.3256 % of the gradient mass.
+artifact the clause reads 0.27095922968432157 against 0.15210099830945006. Our failures concentrate in high-mass
+tensors, the same fact as the trunk below.
 
 
 **Pass 379 is the first pass where GRADIENTS is a statement about our gradient.**
 `of3t-modelframe` built the frame-matched trunk arm D237 said the clause needed — the real trunk
 entry and the real incoming cotangent from the full-model float64 backward on `batch_step003` —
 and the clause reads **0.27095922968432157 against the 0.15210099830945006 bar, 1.7814x. It
-fails, and the remaining gap is ours.** The boundary mismatch was worth **1.9085x** of the
-published 0.5171166332757559 and was **not** the whole gap, which is the honest half of the
-result: my own pass-378 projection of 1.0674x is **dead**, falsified at 1.3295x outside its
-pre-registered 15 % band, and this document says so rather than carrying it. The trunk must fall
-**2.2349x** for the clause to clear.
+fails, and the remaining gap is ours.** The boundary mismatch was worth **1.9085x** of the published
+0.5171166332757559 and was **not** the whole gap; my pass-378 projection of 1.0674x is **dead**,
+falsified at 1.3295x outside its band (PASSLOG). The trunk must fall **2.2349x**.
 
 **What fails is one object and it is now located to a module class.** The trunk is **6.3256 %**
 of the reference squared gradient norm and carries **85.63 %** of the model's error mass, at
@@ -483,19 +480,21 @@ carry 93.80 %** of the excess with a width-invariant signature: `attn_pair_bias.
 42.00 % of the error mass, `pair_stack.pair_transition.layer_norm` 32.41 % at 4.5815x upstream's
 own level, `tri_att_start.layer_norm` 3.3080x. **Hot-spot patching cannot close it** — the top
 twelve leaves at upstream's own bf16 level still leave the clause at 1.0340x — so the lever has
-to move the whole stack. Three rows exclude any single op's arithmetic: `of3t-vjpln` made 690
-backward substitutions exact in float64 and the ratio moved the **wrong way**. The carrier is
-the cancelling reduction, and `of3t-lnreduce` is dispatched on it.
+to move the whole stack. `of3t-vjpln` made 690 backward substitutions exact in
+float64 and the ratio moved the **wrong way**, so the carrier is the cancelling reduction.
 
 **Outside the trunk we are better than upstream's own bf16 step.** Ten sections pool to
-0.1026990533692057 against the 0.15210099830945006 bar, **0.6752x, passing alone**, spread
-0.005x to 1.823x, seven of eleven strictly better than their own bf16 (D221).
+0.1026990533692057 against the 0.15210099830945006 bar, **0.6752x, passing alone**, seven of
+eleven strictly better than their own bf16, spread 0.005x to 1.823x (D221).
 
 **The 3-4.6x is a ~2 mantissa-bit deficit** (R131, CPU simulation, no card): a 22-bit
 accumulator reads **3.928** against the 4.000 the deficit predicts, and bf16 accumulation is
 excluded at 65,237x. **It is NOT the softmax ceiling** — asserted and retracted inside this pass;
-the sites are **10.1 bits apart** (softmax 12.3-17.6, trunk 1.6-2.2). **Two bits is small**, so
-the trunk may not need the host round trip the softmax did.
+the sites are **10.1 bits apart** (softmax 12.3-17.6, trunk 1.6-2.2). **Two bits is small**, so the trunk
+may not need the host round trip the softmax did. **And the requirement is 1.16 bits** (R132,
+composition control at rel_difference exactly 0.0), inside that deficit: 1.0 bit still fails at
+1.0655x, 1.5 clears at 0.8920x, a perfect trunk reads 0.6752x. **The charter is reachable with
+margin, which is why this ends on PARTIAL and not NO-GO.**
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** The per-pass
 narrative, including the superseded CEIL_HF projection and its correction, is in PASSLOG.

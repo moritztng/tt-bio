@@ -1372,3 +1372,36 @@ it *after* dispatch. **A pre-registered falsifier is itself a claim and it can b
 it is published.** Where the check is this cheap, not running it is the defect. The brief, the
 TASKS line and the row's gate were all amended in the same pass, together, because a decision in
 a state doc does not reach a running row.
+
+### R132. The charter is REACHABLE, and the target is 1.16 mantissa bits. From `of3t-orchestrator`, pass 379.
+
+The campaign has been quoting the trunk's requirement as a factor: *it must fall 2.2349x.* In the
+unit the mechanism actually works in, that is **1.16 mantissa bits** — and the measured deficit
+is about two. So the charter is not merely reachable, it is reachable with margin.
+
+`perf/of3t_orchestrator/lnladder/what_a_bit_buys.py`, on the frame-matched artifact, using the
+scorer's own identity composition with the control reproducing the published headline at
+**rel_difference exactly 0.0**:
+
+    trunk now          0.9969599834
+    trunk admissible   0.4460890156    must fall 2.2349x = 1.16 bits
+    recover 1.0 bit    clause 0.1620649490   1.0655x bar   FAILS
+    recover 1.5 bits   clause 0.1356689782   0.8920x bar   clears
+    recover 2.0 bits   clause 0.1203186752   0.7910x bar   clears
+    perfect trunk      clause 0.1026990534   0.6752x bar
+
+**Two things this settles.**
+
+- **NO-GO is not available on the arithmetic.** The gate requires a terminal NO-GO to show the
+  charter is unreachable. A perfect trunk reads 0.6752x the bar and the required recovery, 1.16
+  bits, sits *inside* an independently measured ~2-bit deficit. That is the opposite of
+  unreachable, and it is why this pass ends on PARTIAL rather than reaching for a verdict.
+- **One bit is not enough.** A half-measure recovering a single bit leaves the clause at 1.0655x
+  and failing. The gap between "nearly" and "clears" is about half a bit, so `of3t-lnreduce` is
+  told to report its recovery in bits rather than only in factors.
+
+**The method note, which is the reusable part.** Converting the requirement from a factor into
+mantissa bits is what made it comparable to the mechanism at all: 2.2349x is an opaque number,
+1.16 bits is immediately readable against a measured 2-bit deficit, and it is the same change of
+unit that showed the trunk and the softmax are 10.1 bits apart rather than one ceiling (R131).
+**When a defect's mechanism is precision, state the requirement in bits.**
