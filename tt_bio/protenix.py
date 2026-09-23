@@ -168,14 +168,15 @@ def bucketed_width(N: int, mult: int | None = None) -> int:
     return _w(N, mult or _token_pad_multiple()) if _token_bucket() else N
 
 
-def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None):
+def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None,
+                        own_z: bool = False):
     """`token_axis.bucketed_pairformer` under this family's flag and multiple.
 
     The mechanism lives in token_axis.py next to the census; this is the two lines that decide
     whether protenix-v2 / opendde / opendde-abag use it and how wide.
     """
     from .token_axis import bucketed_pairformer as _bp
-    return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
+    return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias, own_z)
 
 
 def _msa_host_offload_min_bytes():
@@ -1482,7 +1483,7 @@ class ConfidenceHead:
         oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
         z = z + F.linear(oh, self._g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight"))
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
+        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev, own_z=True)
         s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
         zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
 
@@ -1632,7 +1633,7 @@ class ConfidenceHead:
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,c_z)
+        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev, own_z=True)  # (1,N,384),(1,N,N,c_z)
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
