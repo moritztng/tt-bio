@@ -100,7 +100,8 @@ non-dividing fallback, on a path shared by rf3, boltz-2, protenix-v2, openfold3 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK` offers a dividing chunk below the production pick before one
 that pads. It is on, bounded to chunks of 128 and up. At 896 aa it restores the fused kernel to
 all 1088 calls and is worth **+9.5000 s, 1.1005x** (104.00 s to 94.50 s, two interleaved pairs on
-a p300c, both arm orders, A/A floor 0.635 %, effect 15.83x that floor, bit-exact over 12 legs).
+a p300c, both arm orders, A/A floor 0.635 %, effect 15.83x that floor, bit-exact on RoseTTAFold3; OpenBind moves 0.07 A, see
+[tuning-flags](tuning-flags.md)).
 At 1088 aa it does not restore the kernel at all, so something other than the padding mask blocks
 that rung, and the fold A/B agrees: **+0.2500 s at 1.25x its own floor, which is inert.**
 

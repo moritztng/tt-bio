@@ -1659,9 +1659,10 @@ def _triatt_dtype():
 #    1088 aa  160.90 -> 161.15 s   +0.2500 s   1.0016x   A/A floor 0.124 %   inert, and the bound
 #                                                        now makes it a no-op by construction
 #
-# Bit-exact: one CIF sha256 across 12 legs at 896 and 6 at 1088, both arms, two processes each.
-# 0.000000 A against the 0.60 A bar, 1.84 A seed floor. Expected rather than lucky -- q_chunk
-# splits output rows and the online softmax reduces over k, so no reduction order changes.
+# Bit-exact on rf3: one CIF sha256 across 12 legs at 896 and 6 at 1088, both arms, since q_chunk
+# splits output rows and the online softmax reduces over k. NOT bit-exact on openbind at 896: the
+# narrower chunk frees L1 for one more persistent-mask call, a different kernel. Scored on PepN
+# (3B34, 891 aa), 3 seeds: 0.071 A move vs the 0.60 A bar, -0.0001 A vs the deposited structure.
 _SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", True)
 
 
