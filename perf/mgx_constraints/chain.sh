@@ -36,25 +36,36 @@ d = json.load(open(sys.argv[1])); d["released"] = time.time(); json.dump(d, open
 P
 }
 C=
+declare -A AVOID      # card -> epoch until which it is skipped, after someone else opened it
 take() {
   while :; do
     for c in $C $POOL; do
       case " 1 24 25 26 27 " in *" $c "*) continue;; esac
+      [ "${AVOID[$c]:-0}" -gt "$(date +%s)" ] && continue
       if free "$c"; then C=$c; claim "$c"; return; fi
     done
     sleep 30
   done
 }
+# fold <model> <tag> <run.sh args...>: rerun on another card while the open loses the card to a
+# co-tenant (exit 75, nothing ran). A JSON claim holds no flock, so another row's fold that
+# opens the chip regardless wins it; that is a scheduling miss, not a result.
+fold() {
+  local M=$1 T=$2; shift 2
+  while :; do
+    take; echo "$(date -u +%FT%TZ) $M $T card $C"
+    ./run.sh "$M" "$C" "$T" "$@"
+    grep -q "^EXIT=75 " "out/$M/$T/run.log" || break
+    AVOID[$C]=$(( $(date +%s) + 600 )); C=
+  done
+  [ -n "$C" ] && claim "$C"
+}
 I=inputs
 for M in "$@"; do
-  take; echo "$(date -u +%FT%TZ) $M cons card $C"
-  ./run.sh "$M" "$C" cons --diffusion_samples 5 -- $I/sfti_cyclic_ss.yaml $I/sfti_cyclic.yaml \
+  fold "$M" cons --diffusion_samples 5 -- $I/sfti_cyclic_ss.yaml $I/sfti_cyclic.yaml \
       $I/sfti_ss.yaml $I/sfti_linear.yaml $I/cyclic.yaml $I/bond_ligand.yaml \
       $I/bond_protein_cys.yaml $I/modification.yaml
-  claim "$C"
-  take; echo "$(date -u +%FT%TZ) $M base card $C"
-  ./run.sh "$M" "$C" base -- $I/base.yaml
-  claim "$C"
+  fold "$M" base -- $I/base.yaml
 done
-release "$C"
+[ -n "$C" ] && release "$C"
 echo CHAIN_DONE
