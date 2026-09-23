@@ -36,13 +36,16 @@ HOLDER = "worker:mgx-ceilings"
 
 
 def _descendants(root: int) -> list[int]:
+    # Not Path.glob: it stats each match outside any try, and a pid that exits mid-scan raises
+    # ESRCH, which glob does not swallow. That killed the handoff thread on 2026-09-23, so the
+    # walk kept the chip and its own fold's worker waited 120 s and gave up (esmfold2 1536).
     kids: dict[int, list[int]] = {}
-    for st in Path("/proc").glob("[0-9]*/stat"):
+    for pid in filter(str.isdigit, os.listdir("/proc")):
         try:
-            f = st.read_text().rsplit(")", 1)[1].split()
+            f = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
         except OSError:
             continue
-        kids.setdefault(int(f[1]), []).append(int(st.parent.name))
+        kids.setdefault(int(f[1]), []).append(int(pid))
     out, todo = [], list(kids.get(root, []))
     while todo:
         pid = todo.pop()
