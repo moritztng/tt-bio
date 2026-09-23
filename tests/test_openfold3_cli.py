@@ -161,9 +161,9 @@ def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
 
 def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp_path):
     """The two OF3 refusals, at the door a real fold goes through. The table's full cross
-    product lives in tests/test_input_capabilities.py; this pins the OF3 arms specifically,
-    because the OF3 query is built with covalent_bonds=None and would otherwise drop a bond
-    block in silence."""
+    product lives in tests/test_input_capabilities.py; this pins the OF3 arms specifically:
+    a disulfide is a bond OF3 was trained without, and would otherwise reach it as a token
+    layout it never saw."""
     from tt_bio.capabilities import check_capabilities
     from tt_bio.main import _read_bio_chains
 
@@ -171,7 +171,7 @@ def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp
                         "      sequence: GACGAC\n"
                         "constraints:\n  - bond:\n      atom1: [A, 1, SG]\n"
                         "      atom2: [A, 4, SG]\n")
-    with pytest.raises(RuntimeError, match="covalent bond"):
+    with pytest.raises(RuntimeError, match="two standard polymer residues"):
         check_capabilities(p, _read_bio_chains(p), "openfold3", echo=None)
 
     lig = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n"

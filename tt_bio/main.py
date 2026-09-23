@@ -2481,6 +2481,46 @@ def _read_bio_constraints(path):
     return bonds
 
 
+def _read_cyclic(path) -> list[str]:
+    """Chain ids whose entry says ``cyclic: true`` (the Boltz YAML flag), in input order."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return []
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    out = []
+    for entry in doc.get("sequences") or []:
+        for sub in (entry or {}).values():
+            if isinstance(sub, dict) and sub.get("cyclic"):
+                ids = sub.get("id", "A")
+                out += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                        else [c.strip() for c in str(ids).split(",")])
+    return out
+
+
+def _read_bio_bonds(path, chains):
+    """Every covalent bond a token-bond model has to see: the `bond` constraints plus, for
+    each ``cyclic: true`` protein, the head-to-tail amide that closes it (C of the last
+    residue to N of the first).
+
+    That amide is how upstream Protenix expresses a cyclic peptide (its
+    docs/infer_json_format.md), and Protenix and OpenDDE have no other cyclic signal: no
+    relpos wrap, no cyclic flag. Models that do have one (Boltz-2, RF3, the OF3 family) read
+    ``_read_cyclic`` directly instead. A nucleic-acid ring would need an O3'-P link the
+    featurizer does not place, so it is refused rather than folded open.
+    """
+    bonds = _read_bio_constraints(path)
+    cyclic = set(_read_cyclic(path))
+    for cid, seq, _sp, mt, _mods in chains:
+        if cid not in cyclic:
+            continue
+        if mt != "protein":
+            raise click.ClickException(
+                f"{path.name}: `cyclic: true` on {mt} chain {cid}: this model closes a ring "
+                "as a peptide bond, so only a protein chain can be cyclic. Use --model boltz2.")
+        bonds.append(((cid, len("".join(seq.split())), "C"), (cid, 1, "N")))
+    return bonds
+
+
 def cap_a3m_text(text, max_seqs):
     """``text`` truncated to its first ``max_seqs`` alignment records (the query is record 0).
 
