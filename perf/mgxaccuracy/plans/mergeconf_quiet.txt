@@ -1,0 +1,8 @@
+# The merge confirmation again, at quiet load.
+#
+# The first mergeconf run landed inside the 15:16Z load spike (median 181.3, peak 495.5 on 64
+# cores) and its 161.9 s is therefore an artifact, not a rate. Completion and the DURING AICLK
+# were still good, so the merge IS confirmed -- this only replaces the wall time with one taken
+# at a load this box treats as quiet, because a contaminated second is a poor number to hand
+# back for "report the wall time".
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 1 --steps 400 --host-threads 2 --timeout 7200 --tag mergeconfquiet
