@@ -68,6 +68,14 @@ def main():
         write(f"screen_nesso1_ysk4_{k}", [{"tag": f"n_screen_ysk4_{k}", "surface": "nesso1",
                                            "input": f"perf/mgx_affinity/out/shards/ysk4_{k}"}])
     write("screen_boltz2_lck", [{"tag": "b_screen_lck", "surface": "boltz2", "input": f"{IN}/screen/lck"}])
+    # The four DAVIS salts the first LCK screen lost to standardize(), re-run after the fix.
+    salts = HERE / "out/shards/lck_salts"
+    if not salts.exists():
+        salts.mkdir(parents=True)
+        for rid in ("d30_9926054", "d54_11984591", "d63_25127112", "d66_44150621"):
+            shutil.copy(HERE / f"inputs/screen/lck/{rid}.yaml", salts / f"{rid}.yaml")
+    write("salts_boltz2_lck", [{"tag": "b_lck_salts", "surface": "boltz2",
+                                "input": "perf/mgx_affinity/out/shards/lck_salts"}])
 
 
 if __name__ == "__main__":
