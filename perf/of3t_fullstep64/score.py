@@ -45,9 +45,15 @@ def head_of(n):
 
 
 def section_of(n):
-    """Top-level module; aux_heads split by head."""
+    """Top-level module; aux_heads split by head, the diffusion module by sub-module.
+
+    The diffusion module's own glue (`linear_s`, `layer_norm_s`, `layer_norm_a`) reads as
+    `diffusion_module.linear_s` etc., one section per tensor, beside its four stacks.
+    """
     parts = n.split(".")
-    return ".".join(parts[:2]) if parts[0] == "aux_heads" else parts[0]
+    if parts[0] == "sample_diffusion":
+        parts = parts[1:]
+    return ".".join(parts[:2]) if parts[0] in ("aux_heads", "diffusion_module") else parts[0]
 
 
 def load_device(path, shapes):

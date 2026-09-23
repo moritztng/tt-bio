@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The full training step of `perf/of3t_trainfwd/trainfwd_run.py --arm full`, in upstream 0.4.3.
 
-    ref_step.py --mode f64|bf16 --out-dir D [--replay-draws draws.pt] [--fd]
+    ref_step.py --mode f64|bf16 --out-dir D [--replay-draws draws.pt] [--fd] [--denoise]
 
 Our step is: trunk (one cycle) -> distogram head; the 20-step rollout, detached, one sample;
 the confidence Pairformer on the rolled-out structure; the `af3` objective in float64 on host,
@@ -27,6 +27,15 @@ is r = 0 (`bundle_min.disable_dropout`).
 `--mode f64` samples the rollout draws under `torch.manual_seed(--seed)` and writes them before
 the backward starts, so the device arms can begin replaying them. `--mode bf16` replays them and
 is upstream's own bf16-autocast recipe (`bundle_min.cast_policy("bf16")`, float32 parameters).
+
+`--denoise` (of3t-denoise) adds the adapter's one-step denoise arm, which is what trains the
+diffusion module: the ground truth noised with the adapter's own draw
+(`tt_bio.train.openfold3.denoise_draw`, the seed and the atom count, nothing else), upstream's
+`diffusion_module` called the way upstream's training step calls it with one sample, the denoised
+atoms gathered to the token axis at `start_atom_index`, and `pred_xyz` / `pred_dist` handed to the
+same objective with the same EDM scale. `use_conditioning` is fixed True (upstream draws it with
+probability `use_conditioning_prob`) and there is no `centre_random_augmentation` of the truth;
+both are adapter departures and recorded as such.
 
 `--fd` (f64 only) is the A40 gating control: the loss re-evaluated from a fresh forward at the
 same point, and a central finite difference along u = g / ||g||, with the rollout's structure held
@@ -273,10 +282,43 @@ def labels(batch_path: Path):
     return OpenFold3Dataset(batch_path).batch([0])
 
 
-def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None):
+def safe_pdist(p):
+    """Pairwise distance whose gradient is 0 where the distance is 0.
+
+    `losses.dist_grad_to_coords`, the device arm's backward, divides by max(d, 1e-10) and so
+    sends nothing through a zero distance (the diagonal, and pad tokens parked at the origin).
+    A bare sqrt would send NaN there.
+    """
+    sq = ((p[:, None, :] - p[None, :, :]) ** 2).sum(-1)
+    nz = sq > 0
+    return torch.where(nz, torch.sqrt(torch.where(nz, sq, torch.ones_like(sq))),
+                       torch.zeros_like(sq))
+
+
+def denoise_arm(model, batch, s_input, s, z, draw, chunk):
+    """The adapter's one-step denoise, in upstream's modules. `draw` is `denoise_draw`'s."""
+    sigma, eps = draw
+    dt = s.dtype
+    amask = batch["atom_mask"]                                           # [1, n_atom]
+    xl_true = batch["ground_truth"]["atom_positions"][0] * amask[0, :, None]
+    xl_noisy = (xl_true + sigma * torch.as_tensor(eps, dtype=dt)) * amask[0, :, None]
+    xl = model.diffusion_module(
+        batch=batch, xl_noisy=xl_noisy[None, None], token_mask=batch["token_mask"],
+        atom_mask=amask, t=torch.full((1, 1), sigma, dtype=dt), si_input=s_input, si_trunk=s,
+        zij_trunk=z, use_conditioning=True, chunk_size=chunk,
+        use_high_precision_attention=True, _mask_trans=True)[0, 0]          # [n_atom, 3]
+    tok = batch["token_mask"][0]
+    real = torch.nonzero(tok > 0, as_tuple=True)[0]
+    rep = batch["start_atom_index"][0].long()[real]
+    pred = xl.new_zeros(tok.shape[-1], 3).index_put((real,), xl[rep])
+    return {"pred_xyz": pred, "pred_dist": safe_pdist(pred)}
+
+
+def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None, draw=None):
     """One forward of the step. Returns outputs, the rolled-out atoms and the draw recorder.
 
     `repr_x` given: the rollout is skipped and that token-scope structure is scored (FD).
+    `draw` given: the denoise arm runs on it (`denoise_arm`).
     """
     chunk = model.settings.memory.train.chunk_size
     from openfold3.core.model.structure.diffusion_module import create_noise_schedule
@@ -284,6 +326,8 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None)
 
     s_input, s, z = model.run_trunk(batch=batch, num_cycles=1, inplace_safe=False)
     out = {"distogram_logits": model.aux_heads.distogram(z=z)}
+    if draw is not None:
+        out.update(denoise_arm(model, batch, s_input, s, z, draw, chunk))
 
     tok = batch["token_mask"]                                  # [1, N]
     xl, rec = None, None
@@ -317,6 +361,7 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None)
 
 
 def objective(lab, out):
+    """Our `af3` objective in float64 on host. A denoise run's EDM scale is already on `lab`."""
     from tt_bio.train import objectives
     from tt_bio.train.losses import of3_loss_weights
     host = {k: v.detach().to(torch.float64).numpy() for k, v in out.items()}
@@ -335,6 +380,8 @@ def main() -> int:
     ap.add_argument("--build-seed", type=int, default=20260919)
     ap.add_argument("--replay-draws", type=Path)
     ap.add_argument("--fd", action="store_true")
+    ap.add_argument("--denoise", action="store_true",
+                    help="add the adapter's one-step denoise arm (of3t-denoise)")
     ap.add_argument("--fd-h", default="1e-3,1e-4,1e-5")
     ap.add_argument("--fd-from", type=Path,
                     help="run --fd against a banked grads_f64.pt instead of a fresh backward")
@@ -370,6 +417,19 @@ def main() -> int:
         checkpoint_leaves(model.msa_module)
         checkpoint_leaves(model.template_embedder)
     batch = bm.move(torch.load(a.batch, weights_only=False), "cpu", dtype)
+    draw = None
+    if a.denoise:
+        from tt_bio.train import losses
+        from tt_bio.train.openfold3 import denoise_draw
+        gt = batch["ground_truth"]
+        if not bool((gt["start_atom_index"][0].long() == batch["start_atom_index"][0][
+                torch.nonzero(batch["token_mask"][0] > 0, as_tuple=True)[0]].long()).all()):
+            raise SystemExit("ground_truth.start_atom_index != start_atom_index[real]: the "
+                             "adapter and this gather would pick different atoms")
+        n_atom = int(gt["atom_positions"].shape[-2])
+        draw = denoise_draw(a.seed, n_atom)
+        sigma_data = float(model.diffusion_module.sigma_data)
+        lab["edm_scale"] = float(losses.edm_scale(draw[0], sigma_data))
     replay = None
     if a.replay_draws:
         replay = torch.load(a.replay_draws, weights_only=False)["torch_randn"]
@@ -377,7 +437,8 @@ def main() -> int:
         raise SystemExit("only the float64 run samples draws; pass --replay-draws")
 
     import openfold3
-    rec = {"row": "of3t-fullstep64", "mode": a.mode, "host": socket.gethostname(),
+    rec = {"row": "of3t-denoise" if a.denoise else "of3t-fullstep64", "mode": a.mode,
+           "host": socket.gethostname(),
            "threads": a.threads,
            "malloc_env": {k: v for k, v in os.environ.items() if k.startswith("MALLOC_")}, "openfold3": openfold3.__file__, "torch": torch.__version__,
            "batch": {"file": a.batch.name, "sha256": got}, "checkpoint": ck,
@@ -387,12 +448,26 @@ def main() -> int:
                "representative atom = start_atom_index (first atom); upstream: CB / CA(gly)",
                "confidence Pairformer not detached from the trunk; upstream detaches its inputs",
                "resolved_logits [N_token, 46] read as 46 classes; upstream [N_atom, 2] gathered"]}
+    if a.denoise:
+        rec["denoise"] = {
+            "draw": "tt_bio.train.openfold3.denoise_draw(seed, n_atom)", "seed": a.seed,
+            "n_atom": n_atom, "sigma": draw[0], "edm_scale": lab["edm_scale"],
+            "sigma_data": sigma_data,
+            "noise_sha256_f32": hashlib.sha256(np.asarray(draw[1], np.float32).tobytes()).hexdigest(),
+            "noise_sha256_f64": hashlib.sha256(np.asarray(draw[1], np.float64).tobytes()).hexdigest()}
+        rec["adapter_departures"] += [
+            "denoise: one sample, use_conditioning fixed True; upstream no_samples and a "
+            "use_conditioning_prob draw",
+            "denoise: no centre_random_augmentation of the ground truth before noising",
+            "denoise: pred_xyz at token scope (start_atom_index) scored by our mse / smooth_lddt; "
+            "upstream scores every atom"]
 
     policy = bm.cast_policy("removed" if a.mode == "f64" else "bf16", "cpu")
     t_f = time.time()
     saved = DiskSaved(a.disk_checkpoint) if a.disk_checkpoint else None
     with policy, (saved.hooks() if saved else _Null()):
-        out, xl, repr_x, drec = trunk_and_heads(model, batch, cfg=cfg, seed=a.seed, replay=replay)
+        out, xl, repr_x, drec = trunk_and_heads(model, batch, cfg=cfg, seed=a.seed, replay=replay,
+                                                draw=draw)
     if saved:
         rec["disk_saved"] = {"n": saved.n, "gb": saved.bytes / 2 ** 30,
                              "ram_storage_gb": sum(saved.ram.values()) / 2 ** 30}
@@ -466,11 +541,12 @@ def main() -> int:
                 for n, p in params:
                     p.copy_(base[n] + h * (grads[n] / gnorm))
                 with bm.cast_policy("removed", "cpu"):
-                    o, _, _, _ = trunk_and_heads(model, batch, repr_x=repr_x)
+                    o, _, _, _ = trunk_and_heads(model, batch, repr_x=repr_x, draw=draw)
                 return objective(lab, o)[0]
 
         fd = {"direction": "u = g / ||g||, every parameter with a gradient",
-              "expected_directional_derivative": gnorm, "rollout": "frozen at the base forward"}
+              "expected_directional_derivative": gnorm, "rollout": "frozen at the base forward",
+              "denoise": "same sigma and noise" if draw is not None else None}
         t_fd = time.time()
         l0 = loss_at(0.0)
         fd["loss_refresh"] = l0

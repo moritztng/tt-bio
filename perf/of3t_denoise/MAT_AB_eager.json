@@ -1,0 +1,86 @@
+{
+ "mode": "eager",
+ "rollout_sha": "c3724915c19667bd",
+ "rollout_first": [
+  [
+   3.3999292850494385,
+   7.398240566253662,
+   -8.513492584228516
+  ],
+  [
+   2.093069076538086,
+   7.188344955444336,
+   -7.980088233947754
+  ]
+ ],
+ "pred_xyz": {
+  "sum": 1112.4111328125,
+  "abs": 1319.4970703125
+ },
+ "pred_dist": {
+  "sum": 53834.521131038666,
+  "abs": 53834.521131038666
+ },
+ "distogram_logits": {
+  "sum": 6829982.540527344,
+  "abs": 10861454.816894531
+ },
+ "plddt_logits": {
+  "sum": -64154.822442996316,
+  "abs": 115276.02693684446
+ },
+ "pde_logits": {
+  "sum": -1833373.7119750977,
+  "abs": 1865215.2217407227
+ },
+ "pae_logits": {
+  "sum": -396011.15846692026,
+  "abs": 575816.2157102674
+ },
+ "resolved_logits": {
+  "sum": -1.8130979537963867,
+  "abs": 5905.105703949928
+ },
+ "wc": {
+  "('layer_norm_z.weight', False)": [
+   "DataType.FLOAT32",
+   [
+    16
+   ]
+  ],
+  "('blocks.0.attention_pair_bias.linear_ada_out.weight', True)": [
+   "DataType.FLOAT32",
+   [
+    128,
+    128
+   ]
+  ],
+  "('blocks.0.attention_pair_bias.linear_ada_out.bias', False)": [
+   "DataType.FLOAT32",
+   [
+    128
+   ]
+  ],
+  "('blocks.0.attention_pair_bias.linear_z.weight', True)": [
+   "DataType.FLOAT32",
+   [
+    16,
+    4
+   ]
+  ],
+  "('blocks.0.attention_pair_bias.mha.linear_q.weight', True)": [
+   "DataType.FLOAT32",
+   [
+    128,
+    128
+   ]
+  ],
+  "('blocks.0.attention_pair_bias.mha.linear_q.bias', False)": [
+   "DataType.FLOAT32",
+   [
+    128
+   ]
+  ]
+ },
+ "n_wc": 43
+}
