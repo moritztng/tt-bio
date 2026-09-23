@@ -15,23 +15,324 @@
     "tt-galaxy-wh-l": {
       "recorded": "2026-09-23",
       "host": "j10glx02",
-      "commit": "34dd9414",
+      "commit": "26615433",
       "models": {
         "protenix-v2": {
           "grid": "8x9",
           "recorded": "2026-09-23",
           "host": "j10glx02",
-          "commit": "34dd9414",
-          "host_threads": null,
+          "commit": "26615433",
+          "host_threads": 2,
           "runtime_s": {
-            "640": 269.1,
-            "512": 175.0,
-            "256": 83.8,
-            "1024": 468.7,
-            "768": 305.9,
-            "896": 378.5
+            "512": 101.0,
+            "640": 168.3,
+            "896": 330.8,
+            "256": 36.3,
+            "1024": 434.9,
+            "768": 245.6
           },
           "levers": {
+            "512": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path [carried from p300c]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 160
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p300c]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 2416 calls at 512 and 640, 4512 at 768), so the ungated call site is not reached [carried from p300c]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 160,
+                "declined": 1048,
+                "frac": 0.13245033112582782,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 636,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 80,
+                  "h-clamped-to-H": 30,
+                  "ratio-shrunk": 526
+                },
+                "reason": "declines all 636 calls on ratio-shrunk x526, base-unraised x80, h-clamped-to-H x30: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
@@ -337,7 +638,7 @@
                 "how": "stats-dict"
               }
             },
-            "512": {
+            "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 0,
@@ -396,7 +697,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -426,21 +727,21 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:512x512x64": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 160,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded [carried from p300c]"
+                "rejects": {
+                  "k_tiles=2:(2,2)": 160
+                },
+                "reason": "declines all 160 calls on k_tiles=2:(2,2) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -469,25 +770,25 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 2416 calls at 512 and 640, 4512 at 768), so the ungated call site is not reached [carried from p300c]"
+                "reason": "declines all 0 calls: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 4512 calls at 768 and above), so the ungated call site is not reached [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 2256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 4512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 4512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -495,9 +796,13 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1208,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 1207
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -591,10 +896,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 160,
-                "declined": 1048,
-                "frac": 0.13245033112582782,
-                "how": "wrap"
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: the pair tensor outgrows aggregate L1 at this size, so `_l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)` (tt_bio/tenstorrent.py:2827) answers DRAM for every one of the 1208 pair transposes. The L1 route served 1208/1208 at 256 aa and 160/1208 at 512-768, so this is the 1.25 headroom closing with size, not a guard change; the fallback is the DRAM permute, which is bit-identical"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1560,351 +1866,187 @@
                 "frac": 0.0,
                 "how": "stats-dict"
               }
-            },
-            "896": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2256,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 405,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path [carried from p300c]"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(9, 8)",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 160,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 160
-                },
-                "reason": "declines all 160 calls on k_tiles=2:(2,2) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 1048,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 4512 calls at 768 and above), so the ungated call site is not reached [carried from p300c]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 2256,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 4512,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 4512,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 1208,
-                "frac": 0.5,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 1,
-                  "pm_over_l1": 1207
-                }
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c]"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag. [carried from p300c] [carried from p150a]"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 0,
-                "declined": 1208,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 1208 calls: the pair tensor outgrows aggregate L1 at this size, so `_l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)` (tt_bio/tenstorrent.py:2827) answers DRAM for every one of the 1208 pair transposes. The L1 route served 1208/1208 at 256 aa and 160/1208 at 512-768, so this is the 1.25 headroom closing with size, not a guard change; the fallback is the DRAM permute, which is bit-identical"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 0,
-                "declined": 636,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 80,
-                  "h-clamped-to-H": 30,
-                  "ratio-shrunk": 526
-                },
-                "reason": "declines all 636 calls on ratio-shrunk x526, base-unraised x80, h-clamped-to-H x30: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384, and Protenix-v2's pair channel is c=256, outside it on purpose (the L1 cap is its crash fix, tenstorrent.py:231), so the height stays at the base (base-unraised), the L1 cap pulls it under (ratio-shrunk), or H is shorter than the height (h-clamped-to-H). The Blackhole elif reads the same budget the other way round and raises. The lever has no Wormhole raise to decline"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "none",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict"
-              }
             }
           },
           "runtime_reps_s": {
-            "640": [
-              271.2,
-              269.1,
-              262.5
-            ],
             "512": [
-              158.7,
-              183.4,
-              175.0,
-              171.5,
-              181.6
+              102.6,
+              103.3,
+              101.0,
+              99.3,
+              99.6
             ],
-            "256": [
-              58.1,
-              93.7,
-              79.3,
-              97.2,
-              83.8
-            ],
-            "1024": [
-              455.4,
-              468.7,
-              492.6
-            ],
-            "768": [
-              317.9,
-              305.9,
-              277.7
+            "640": [
+              167.3,
+              168.6,
+              168.3
             ],
             "896": [
-              378.5,
-              379.3,
-              339.6
+              325.9,
+              339.3,
+              330.8
+            ],
+            "256": [
+              36.8,
+              36.1,
+              36.5,
+              34.8,
+              36.3
+            ],
+            "1024": [
+              434.4,
+              436.3,
+              434.9
+            ],
+            "768": [
+              242.6,
+              245.6,
+              248.4
             ]
           },
+          "aiclk": {
+            "512": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 109
+            },
+            "640": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 103
+            },
+            "896": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 191
+            },
+            "256": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 51
+            },
+            "1024": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 250
+            },
+            "768": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 144
+            }
+          },
+          "load": {
+            "512": {
+              "max": 1.63,
+              "rep_median": [
+                1.36,
+                1.34,
+                1.31,
+                1.25,
+                1.06
+              ]
+            },
+            "640": {
+              "max": 1.19,
+              "rep_median": [
+                1.03,
+                1.08,
+                0.96
+              ]
+            },
+            "896": {
+              "max": 2.43,
+              "rep_median": [
+                1.6,
+                1.58,
+                1.37
+              ]
+            },
+            "256": {
+              "max": 1.57,
+              "rep_median": [
+                1.35,
+                1.17,
+                1.19,
+                1.28,
+                1.12
+              ]
+            },
+            "1024": {
+              "max": 1.64,
+              "rep_median": [
+                1.16,
+                1.15,
+                1.35
+              ]
+            },
+            "768": {
+              "max": 2.1,
+              "rep_median": [
+                1.71,
+                1.42,
+                1.6
+              ]
+            }
+          },
           "structure": {
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0195,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 133.9103,
+              "radius_of_gyration_A": 112.642,
+              "plddt_mean": 0.824006,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 133.910 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 112.6 A outside [11.8, 58.9]"
+              ]
+            },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
@@ -1921,20 +2063,20 @@
                 "radius of gyration 116.0 A outside [12.8, 64.1]"
               ]
             },
-            "512": {
-              "file": "cdk2x2_512.cif",
+            "896": {
+              "file": "cdk2x2_896.cif",
               "steps": 6,
-              "n_ca": 512,
-              "clash_frac": 0.0195,
+              "n_ca": 896,
+              "clash_frac": 0.0067,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.9103,
-              "radius_of_gyration_A": 112.642,
-              "plddt_mean": 0.824006,
+              "ca_ca_median_A": 132.328,
+              "radius_of_gyration_A": 111.665,
+              "plddt_mean": 0.759444,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.910 A outside [3.6, 4.0]",
+                "median CA-CA 132.328 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.6 A outside [11.8, 58.9]"
+                "radius of gyration 111.7 A outside [14.6, 72.8]"
               ]
             },
             "256": {
@@ -1984,27 +2126,11 @@
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 112.4 A outside [13.7, 68.7]"
               ]
-            },
-            "896": {
-              "file": "cdk2x2_896.cif",
-              "steps": 6,
-              "n_ca": 896,
-              "clash_frac": 0.0067,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.328,
-              "radius_of_gyration_A": 111.665,
-              "plddt_mean": 0.759444,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 132.328 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.7 A outside [14.6, 72.8]"
-              ]
             }
           },
           "refused": {
-            "1280": "'cdk2x2_1280.yaml' has 1280 residues, and protenix-v2 is measured to handle at most 1024 residues on wormhole_b0 (measured with alignments up to 8832 rows) -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, esmc-6b, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the la",
-            "1536": "'cdk2x2_1536.yaml' has 1536 residues, and protenix-v2 is measured to handle at most 1024 residues on wormhole_b0 (measured with alignments up to 8832 rows) -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, esmc-6b, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the la"
+            "1280": "'cdk2x2_1280.yaml' has 1280 residues, and protenix-v2 is measured to handle at most 1024 residues on wormhole_b0 (measured with alignments up to 8832 rows) -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, esmc-6b, pxdesign, rfd3, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roo",
+            "1536": "'cdk2x2_1536.yaml' has 1536 residues, and protenix-v2 is measured to handle at most 1024 residues on wormhole_b0 (measured with alignments up to 8832 rows) -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, esmc-6b, pxdesign, rfd3, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roo"
           },
           "rungs_carried": [
             "256",
@@ -2014,24 +2140,17 @@
             "896",
             "1024"
           ],
-          "reps": 3,
-          "sigma_runtime_512": 0.0565,
-          "exponents": null,
-          "sigma_runtime": {
-            "256": 0.1869,
-            "512": 0.0565
-          },
+          "exponents_skipped": "no noise measurement (rung 512 absent from the ladder)",
           "exponents_measured": {
-            "256->512": 1.062,
-            "512->640": 1.928,
-            "640->768": 0.703,
-            "768->896": 1.381,
-            "896->1024": 1.601
-          },
-          "exponents_skipped": "recorded on whglx between 00:45Z and 05:43Z on 2026-09-23 by a process started before cells carried a load stamp, uncapped, while the host sat at 2.5-11.8x nproc (1-min loadavg 547 at 01:31Z, 754 at 02:51Z, 316 at 04:37Z, 162 at 05:17Z on 64 cores): the runtimes are the host's, re-time on a quiet box at cap 2"
+            "256->512": 1.476,
+            "512->640": 2.288,
+            "640->768": 2.073,
+            "768->896": 1.932,
+            "896->1024": 2.049
+          }
         }
       },
-      "host_threads": null
+      "host_threads": 2
     },
     "p150a": {
       "recorded": "2026-09-20",
