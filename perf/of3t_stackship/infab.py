@@ -38,6 +38,9 @@ def _dump():
     t = sys.modules.get("ttnn")
     out["raw_ops"] = ({n: getattr(getattr(t, n, None), "__qualname__", repr(getattr(t, n, None)))
                        for n in ("softmax", "layer_norm")} if t is not None else None)
+    out["taped_ttnn_imported"] = "tt_bio.taped_ttnn" in sys.modules
+    out["tensor_getitem"] = (getattr(t.Tensor.__getitem__, "__qualname__", None)
+                             if t is not None else None)
     print("STACKSHIP_CENSUS " + json.dumps(out), flush=True)
 atexit.register(_dump)
 '''
@@ -58,7 +61,7 @@ def clock(card: int, stop: threading.Event, out: list):
         stop.wait(3)
 
 
-def fold(py, tree: Path, spec, out: Path, card: str):
+def fold(py, tree: Path, spec, out: Path, card: str, holder: str = "worker:of3t-stackship"):
     subprocess.run(["rm", "-rf", str(out)], check=False)
     out.mkdir(parents=True)
     sc = out.parent / ("_sc_" + out.name)
@@ -66,7 +69,7 @@ def fold(py, tree: Path, spec, out: Path, card: str):
     (sc / "sitecustomize.py").write_text(SITE)
     env = {k: v for k, v in os.environ.items() if not k.startswith("TT_BIO_")}
     env.update({"TT_VISIBLE_DEVICES": card, "TT_BIO_LEASE_CARDS": card,
-                "TT_BIO_LEASE_HOLDER": "worker:of3t-stackship", "OMP_NUM_THREADS": "8",
+                "TT_BIO_LEASE_HOLDER": holder, "OMP_NUM_THREADS": "8",
                 "PYTHONPATH": str(sc) + os.pathsep + str(tree)})
     if spec["kind"] == "predict":
         cmd = [py, "-m", "tt_bio.main", "predict", str(tree / spec["fixture"]), "--model",
@@ -118,6 +121,7 @@ def main() -> int:
     ap.add_argument("--models", default=",".join(MODELS))
     ap.add_argument("--python", default="/home/ttuser/tt-bio-dev/env/bin/python3")
     ap.add_argument("--quiet", default="")
+    ap.add_argument("--holder", default="worker:of3t-stackship")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     trees = {"before": Path(a.before), "after": Path(a.after)}
@@ -128,7 +132,8 @@ def main() -> int:
     for m in a.models.split(","):
         runs = []
         for i, side in enumerate(("before", "after", "before", "after")):
-            r = fold(a.python, trees[side], MODELS[m], Path(a.workdir) / m / f"{side}{i}", a.card)
+            r = fold(a.python, trees[side], MODELS[m], Path(a.workdir) / m / f"{side}{i}", a.card,
+                     a.holder)
             r["side"] = side
             runs.append(r)
             print(f"INFAB {m} {side} rc={r['rc']} {r['seconds']}s clk={r['aiclk_mhz_sampled_DURING']} "
@@ -148,6 +153,8 @@ def main() -> int:
             "exact_counters_all_zero": all(not any(s.values()) and not any(l.values())
                                            for s, l in fired),
             "raw_ops_at_exit": sorted({json.dumps(p.get("raw_ops")) for p in cen}),
+            "taped_ttnn_imported_any": any(p.get("taped_ttnn_imported") for p in cen),
+            "tensor_getitem_at_exit": sorted({str(p.get("tensor_getitem")) for p in cen}),
             "census_processes": len(cen),
             "seconds": {r["side"] + str(i): r["seconds"] for i, r in enumerate(runs)},
             "aiclk": {r["side"] + str(i): r["aiclk_mhz_sampled_DURING"] for i, r in enumerate(runs)},
