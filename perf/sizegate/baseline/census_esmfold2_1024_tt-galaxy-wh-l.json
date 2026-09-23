@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/agent/wt-mgxi-rec/perf/size512/fixtures/cdk2x2_1024.yaml",
+    "/home/agent/wt-mgxi-head/perf/size512/fixtures/cdk2x2_1024.yaml",
     "--model",
     "esmfold2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/agent/wt-mgxi-rec/perf/sizegate/work-record-esmfold2/out_esmfold2-1024-rep0"
+    "/home/agent/wt-mgxi-head/perf/sizegate/work-record-esmfold2/out_esmfold2-1024-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -25,8 +25,8 @@
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
       "resolved": "True",
-      "served": 538,
-      "declined": 180,
+      "served": 578,
+      "declined": 1180,
       "rejects": null,
       "gauges": null
     },
@@ -35,8 +35,8 @@
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
       "resolved": "True",
-      "served": 538,
-      "declined": 180,
+      "served": 578,
+      "declined": 1180,
       "rejects": null,
       "gauges": null
     },
@@ -45,7 +45,7 @@
       "how": "stats",
       "counter": "tt_bio.esmc.L1_FC1_STATS",
       "resolved": "True",
-      "served": 68866,
+      "served": 73986,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -55,7 +55,7 @@
       "how": "stats",
       "counter": "tt_bio.esmc.L1_LN_STATS",
       "resolved": "True",
-      "served": 34433,
+      "served": 36993,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -65,7 +65,7 @@
       "how": "stats",
       "counter": "tt_bio.esmc.L1_SLICE_STATS",
       "resolved": "True",
-      "served": 538,
+      "served": 578,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -75,7 +75,7 @@
       "how": "stats",
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
       "resolved": "True",
-      "served": 538,
+      "served": 578,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -85,7 +85,7 @@
       "how": "stats",
       "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
       "resolved": "True",
-      "served": 538,
+      "served": 578,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -95,7 +95,7 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 2168,
+      "served": 2488,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -146,9 +146,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 68866,
+      "declined": 73986,
       "rejects": {
-        "dtype:(8,32)": 68866
+        "dtype:(8,32)": 73986
       },
       "gauges": null
     },
@@ -157,7 +157,7 @@
       "how": "stats",
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
-      "served": 1084,
+      "served": 1244,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -187,7 +187,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
-      "served": 4336,
+      "served": 4976,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -197,7 +197,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 2168,
+      "served": 2488,
       "declined": 0,
       "rejects": null,
       "gauges": null
