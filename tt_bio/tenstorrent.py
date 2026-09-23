@@ -9198,7 +9198,7 @@ class Transition(Module):
         """
         if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
             u = self(x, memory_config)
-            ttnn.add_(x, u)
+            x = ttnn.add_(x, u)
             ttnn.deallocate(u)
             return x
         # The transition's intermediates are L1-resident, which is the tuning this module
