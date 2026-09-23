@@ -137,6 +137,14 @@ def main() -> int:
                          "another one. Keeps a comparison on one chip, which the speed bar "
                          "requires; past it, measuring on a second chip beats measuring nothing")
     ap.add_argument("--stop-on-fail", action="store_true")
+    ap.add_argument("--top", type=int, default=0,
+                    help="this model's RECORDED ladder top. With --stop-on-fail, a rung that "
+                         "fails BELOW it does not stop the walk: the walk exists to find the "
+                         "first failure ABOVE the recorded top, and a failure below it is a "
+                         "regression to investigate rather than the ceiling being hunted. "
+                         "Stopping there would spend a night's device time learning nothing "
+                         "about the sizes the campaign asked about. Such a rung is recorded and "
+                         "shouted about, never silently skipped")
     a = ap.parse_args()
     for _sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(_sig, _bail)
@@ -197,9 +205,16 @@ def main() -> int:
             print(f"{a.model} {size}: gave up after {a.tries} contention retries", flush=True)
             return 1
         last = json.loads(pathlib.Path(a.out).read_text().splitlines()[-1])
-        if last["verdict"] != "PASS" and a.stop_on_fail:
-            print(f"STOP: {a.model} {size} {last['verdict']} ({last['mechanism']})", flush=True)
-            break
+        if last["verdict"] != "PASS":
+            below_top = 0 < a.top and size < a.top
+            print(f"{'REGRESSION' if below_top else 'FAIL'}: {a.model} {size} "
+                  f"{last['verdict']} ({last['mechanism']})", flush=True)
+            if below_top:
+                print(f"  ^ BELOW this model's recorded top of {a.top}, so it is a regression "
+                      f"and not the ceiling this walk is hunting. Continuing to the rungs the "
+                      f"campaign asked about; this rung still stands as a finding.", flush=True)
+            elif a.stop_on_fail:
+                break
     print(f"{a.model} WALK COMPLETE {time.strftime('%FT%TZ', time.gmtime())}", flush=True)
     return 0
 
