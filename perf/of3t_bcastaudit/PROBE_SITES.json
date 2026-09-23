@@ -1,0 +1,48 @@
+{
+ "reps": 8,
+ "forms": {
+  "multiply FLOAT32xBFLOAT16 [1, 29, 128, 128]x[1, 29, 128, 1]": {
+   "sites": [
+    "openfold3 openfold3_atom_transformer.py:113",
+    "openfold3 openfold3_diffusion_module.py:347",
+    "openfold3-msa openfold3_atom_transformer.py:113",
+    "openfold3-msa openfold3_diffusion_module.py:347"
+   ],
+   "per_rep_wrong_unlike_rep0": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "clean": true
+  }
+ }
+}
