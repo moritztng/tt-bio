@@ -2161,6 +2161,18 @@ class Protenix:
             _sync("linear_z")
             return pb
 
+        transitions = []
+        for nm in ("transition_z1", "transition_z2"):
+            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
+            transitions.append((nm, Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                                               dtype=self.diffusion.dtype)))
+
+        def _transitions(pz):
+            for nm, t in transitions:
+                pz = t(pz, add_to_input=True)
+                _sync(nm)
+            return pz
+
         def _whole():
             zt = _z_proj(z_trunk_tt) if compress else z_trunk_tt
             _sync("z_trunk LN+proj")
@@ -2169,12 +2181,15 @@ class Protenix:
                 ttnn.deallocate(zt)
             # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
             # (the 3D path doesn't chunk pair tensors -> OOM at large N).
-            return ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+            return _transitions(ttnn.reshape(pz, (1, N, N, pz.shape[-1])))
 
         def _rows(rb):
-            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
-            # concat ever materializes; pz assembles on the host (an exact round trip in the
-            # blocks' own dtype) and uploads once.
+            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z, channel concat
+            # or conditioned pair ever materializes on the device. The transitions are row-local
+            # too, so each block runs them before it goes to the host, and pz comes back
+            # assembled there. Uploading the whole pz for them instead was the next refusal:
+            # protenix-v2 at 1536 asked for 2415919104 B (fp32), 192 MiB/bank against a
+            # 188 MiB largest block with 430 MiB/bank free.
             blocks = []
             for s in range(0, N, rb):
                 e = min(s + rb, N)
@@ -2183,11 +2198,10 @@ class Protenix:
                     zt = _z_proj(zt)
                 pb = _cond(zt, relpe[s:e])
                 ttnn.deallocate(zt)
-                blocks.append(torch.Tensor(ttnn.to_torch(pb)))
+                pb = _transitions(ttnn.reshape(pb, (1, e - s, W, pb.shape[-1])))
+                blocks.append(self._to_host(pb))
                 ttnn.deallocate(pb)
-            pz = ttnn.from_torch(torch.cat(blocks, dim=0), layout=ttnn.TILE_LAYOUT,
-                                 device=get_device(), dtype=self.diffusion.dtype)
-            return ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+            return torch.cat(blocks, dim=1)
 
         rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
         if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
@@ -2199,13 +2213,7 @@ class Protenix:
             pz = _T.row_block_after_refusal(
                 self._paircond_rows_refused, (N, W, cz, str(self.diffusion.dtype)),
                 _whole, _rows, rows=rb, tag="protenix pair conditioning")
-        for nm in ("transition_z1", "transition_z2"):
-            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-            t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
-                           dtype=self.diffusion.dtype)
-            pz = t(pz, add_to_input=True)
-            _sync(nm)
-        return _pz_cond_probe(pz, _z_sha)
+        return pz if torch.is_tensor(pz) else _pz_cond_probe(pz, _z_sha)
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
