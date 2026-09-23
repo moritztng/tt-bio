@@ -913,9 +913,8 @@ class _WorkerState:
         # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
         bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
-        # Upstream's featurizer reads at most ESMFOLD2_MSA_ROWS, so that is the depth unless the
-        # user asked for less. A deep alignment the chip cannot hold whole streams through the MSA
-        # encoder by depth (esmfold2.MSAEncoderModel) instead of being cut.
+        # Upstream's featurizer reads at most ESMFOLD2_MSA_ROWS, so that is the pool unless the
+        # user asked for less; the MSA encoder draws its per-loop subsample from it.
         max_msa = min(cfg.get("msa_cap") or ESMFOLD2_MSA_ROWS, ESMFOLD2_MSA_ROWS)
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
         # has one; ESMFold2-Fast does not (model.msa_encoder is None), so there's

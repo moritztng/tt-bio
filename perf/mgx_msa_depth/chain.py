@@ -100,7 +100,7 @@ def fold(card, model, yaml, extra, out_root, timeout):
                TT_BIO_LEASE_CARDS=str(card), TT_BIO_LEASE_HOLDER=ME, TT_BIO_LEASE_DIR=str(LEASES),
                TT_BIO_SIZE_LIMIT="0", TT_METAL_LOGGER_LEVEL="FATAL", TT_BIO_LEASE_TIMEOUT="60",
                TT_METAL_CACHE=str(HOME / ".cache/tt-metal-cache-msad"))
-    # MSAD_ENTRY swaps the entry point for an A/B driver (force_stream.py); default is the CLI.
+    # MSAD_ENTRY swaps the entry point for an A/B driver; default is the CLI.
     entry = shlex.split(os.environ.get("MSAD_ENTRY", "-m tt_bio.main"))
     cmd = [PY, *entry, "predict", yaml, "--model", model, "--out_dir", str(out_dir),
            "--accelerator", "tenstorrent", "--override", "--debug", "--host_threads", "2", *extra]

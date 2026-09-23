@@ -1200,68 +1200,36 @@ class OuterProductMean(Module):
         self.W = self.torch_to_tt("W.weight")
         self.Wout = self.torch_to_tt("Wout.weight"); self.Wout_b = self.torch_to_tt("Wout.bias", transform=_ROW)
 
-    def _rows(self, parts, recip_blk, L, s=0, e=None):  # rows s:e of every a -> [B,Bl,L,256]
-        """`parts` is [(a [B,L,M_c,32], b2 [B,M_c,L*32])], one per depth chunk. One part is the
-        single full-depth matmul; several contract depth chunk by chunk into one product, which
-        reassociates the bf16 depth sum and so runs only for an alignment the chip refused whole
-        (`MSAEncoderModel`)."""
+    def _rows(self, a_blk, b2, recip_blk, L, M):  # a_blk [B,Bl,M,32] -> [B,Bl,L,256]
         ck = self.compute_kernel_config
-        prod = None
-        for a, b2 in parts:
-            a_blk = a if e is None else a[:, s:e, :, :]
-            B, Bl, M = a_blk.shape[0], a_blk.shape[1], a_blk.shape[2]
-            a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))   # [B,Bl*32,M]
-            p = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
-            if prod is None:
-                prod = p
-            else:
-                ttnn.add_(prod, p)
-                ttnn.deallocate(p)
+        B, Bl = a_blk.shape[0], a_blk.shape[1]
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))   # [B,Bl*32,M]
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
         prod = ttnn.permute(ttnn.reshape(prod, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))  # [B,Bl,L,32,32]
         outer = ttnn.reshape(prod, (B, Bl, L, 1024))
         out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
-    def _project(self, mm):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
+    def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
         ck = self.compute_kernel_config
         x = self._lin(ttnn.layer_norm(mm, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
+        if mf is not None:  # masked MSA entries contribute nothing to the outer product
+            x = ttnn.multiply(x, mf)
         return ttnn.chunk(x, 2, dim=-1)
 
-    def _depth_part(self, m):  # [B,L,M,128] -> (a [B,L,M,32], b2 [B,M,L*32])
+    def __call__(self, m, recip_nvalid, mf=None):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]; mf [B,L,M,1] or None
+        ck = self.compute_kernel_config
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         # The LayerNorm transient is a full [B,L,M,128] (2 GiB at L=1024, M=8192);
         # rows are independent, so build a/b in row blocks.
         blocks = _msa_row_blocks(L, M)
         if blocks:
-            parts = [self._project(m[:, s:e]) for s, e in blocks]
+            parts = [self._project(m[:, s:e], None if mf is None else mf[:, s:e]) for s, e in blocks]
             a = ttnn.concat([p[0] for p in parts], dim=1)
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
-            a, b = self._project(m)  # [B,L,M,32]
-        return a, ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
-
-    def __call__(self, m, recip_nvalid):  # m [B,L,M,128], or a list of depth chunks; recip [B,L,L,1]
-        from tt_bio import tenstorrent
-        if isinstance(m, list):
-            # Depth chunks parked on the host by the streamed encoder: each goes up for its
-            # projection and only the c=32 projections stay, never joined along depth.
-            parts = []
-            for c in m:
-                d = tenstorrent.host_unpark(c)
-                parts.append(self._depth_part(d))
-                if d is not c:
-                    ttnn.deallocate(d)
-        else:
-            parts = [self._depth_part(m)]
-        try:
-            return self._pair(parts, recip_nvalid)
-        finally:
-            for a, b2 in parts:
-                ttnn.deallocate(a)
-                ttnn.deallocate(b2)
-
-    def _pair(self, parts, recip_nvalid):
-        B, L = parts[0][0].shape[0], parts[0][0].shape[1]
+            a, b = self._project(m, mf)  # [B,L,M,32]
+        b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
@@ -1270,7 +1238,7 @@ class OuterProductMean(Module):
         from tt_bio import tenstorrent
         chunk = tenstorrent.pair_row_tile(L)
         if chunk:
-            return self._row_blocked(parts, recip_nvalid, L, chunk)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
         # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
         # pass -- which was right at every size it was measured at and is not at 1536.
         # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
@@ -1289,13 +1257,14 @@ class OuterProductMean(Module):
         # shared with the pair transition rather than written out again here.
         return tenstorrent.row_block_after_refusal(
             _OPM_ROWS_REFUSED, L,
-            lambda: self._rows(parts, recip_nvalid, L),
-            lambda rows: self._row_blocked(parts, recip_nvalid, L, rows),
+            lambda: self._rows(a, b2, recip_nvalid, L, M),
+            lambda rows: self._row_blocked(a, b2, recip_nvalid, L, M, rows),
             rows=_opm_fallback_rows(L), tag="opm")
 
-    def _row_blocked(self, parts, recip_nvalid, L, chunk):
+    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
         """`_rows` over `chunk`-row blocks. A further refusal is the caller's to shrink."""
-        outs = [self._rows(parts, recip_nvalid[:, s:min(s + chunk, L), :, :], L, s, min(s + chunk, L))
+        outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+                           recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
                 for s in range(0, L, chunk)]
         return ttnn.concat(outs, dim=1)
 
@@ -1312,28 +1281,17 @@ class MSAPairWeightedAveraging(Module):
         self.Wv = self.torch_to_tt("Wv.weight"); self.Wgate = self.torch_to_tt("Wgate.weight")
         self.Wout = self.torch_to_tt("Wout.weight")
 
-    def token_weights(self, pair):
-        """The token weights [B,L,L,8] on the host, softmax over j. A function of `pair` alone,
-        so a depth-chunked MSA computes them once for every chunk."""
-        ck = self.compute_kernel_config
-        bias = self._lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
-        # non-learned 5D contraction on host (head_width 16 is sub-tile)
-        attn = torch.softmax(torch.Tensor(ttnn.to_torch(bias)).float(), dim=-2)  # over j
-        ttnn.deallocate(bias)
-        return attn
-
-    def __call__(self, m, pair, attn=None):
+    def __call__(self, m, pair):
         """Returns `m + update`: the residual is folded into the row loop so a
-        second full [B,L,M,c] copy never has to sit on the chip alongside `m`.
-
-        Every MSA row is updated on its own (the contraction is over tokens), so a depth
-        chunk of `m` with the whole alignment's `attn` gives exactly that chunk's rows."""
+        second full [B,L,M,c] copy never has to sit on the chip alongside `m`."""
         ck = self.compute_kernel_config
         lin = self._lin
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         h, dh = self.n_heads, self.head_width
-        if attn is None:
-            attn = self.token_weights(pair)
+        bias = lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
+        # non-learned 5D contraction on host (head_width 16 is sub-tile)
+        bias_t = torch.Tensor(ttnn.to_torch(bias)).float()
+        attn = torch.softmax(bias_t, dim=-2)  # over j
         blocks = _msa_row_blocks(L, M) or [(0, L)]
         rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
         v_t, gate_t = [], []
@@ -1351,24 +1309,6 @@ class MSAPairWeightedAveraging(Module):
         return tenstorrent._acc_concat(upd, 1, False)
 
 
-# Encoder calls (their [B,L,M,35] feature shape) that DRAM refused whole, and the depth they
-# settled at. `row_block_after_refusal` fills it.
-_MSA_DEPTH_REFUSED: dict[tuple, int] = {}
-
-
-def _msa_depth_rows(L: int) -> int:
-    """Alignment rows per chunk for the streamed encoder: a 256 MiB [B,L,rows,128] bf16 chunk,
-    32-aligned. The chunk is one step's working set beside the pair, so it shrinks as L grows."""
-    return max(32, ((256 << 20) // (L * 128 * 2)) // 32 * 32)
-
-
-def _park(t):
-    """A device tensor moved to the host in device layout (the same tile bytes)."""
-    h = ttnn.from_device(t)
-    ttnn.deallocate(t)
-    return h
-
-
 class MSAEncoderBlock(Module):
     def __init__(self, n_heads_msa, msa_head_width, is_final, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
@@ -1381,28 +1321,15 @@ class MSAEncoderBlock(Module):
         self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
         self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
 
-    def __call__(self, m, pair, recip_nvalid):
+    def __call__(self, m, pair, recip_nvalid, mf=None):
         # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
         # residual adds in place. A fresh sum is a third pair tensor beside the MSA: 3abq at 1536
         # with its MSA was refused the pair-transition sum, 1193803776 B against a 64.7 MiB/bank
         # largest block.
-        u = self.opm(m, recip_nvalid)
+        u = self.opm(m, recip_nvalid, mf)
         ttnn.add_(pair, u)
         ttnn.deallocate(u)
-        if not self.is_final and isinstance(m, list):
-            # Depth chunks parked on the host (`MSAEncoderModel._streamed`): each comes up, is
-            # updated by the same per-row ops and goes back. Nothing here reduces along depth.
-            from tt_bio import tenstorrent
-            attn = self.mpwa.token_weights(pair)
-            out = []
-            for c in m:
-                d = tenstorrent.host_unpark(c)
-                t = self.mpwa(d, None, attn=attn)
-                if d is not c:
-                    ttnn.deallocate(d)
-                out.append(_park(_msa_transition_residual(t, self.msa_transition)))
-            m = out
-        elif not self.is_final:
+        if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
             m = _msa_transition_residual(m, self.msa_transition)
         for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
@@ -1429,55 +1356,15 @@ class MSAEncoderModel(Module):
             for i in range(n_layers)
         ]
 
-    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid):
-        """`x_pair` [B,L,L,c_z] and `m_feat` [B,L,M,35] arrive on the host; the rest on device.
-
-        The whole alignment is held on the chip first, the path every fold that fits was
-        measured on. If DRAM refuses any of it, the encoder runs again from the host copies with
-        `m` parked on the host in depth chunks (`_streamed`), the protenix trunk's mechanism:
-        esmfold2 at 1024 tokens against 16384 rows asks for the whole 4 GiB `m` at once. The
-        memo sends later recycles of that shape straight to the chunked form."""
-        from tt_bio import tenstorrent
-
-        def whole():
-            up = lambda t: ttnn.from_torch(t, device=self.device, layout=ttnn.TILE_LAYOUT, dtype=_DTYPE)
-            return self._whole(up(x_pair), x_inputs, up(m_feat), recip_nvalid)
-
-        return tenstorrent.row_block_after_refusal(
-            _MSA_DEPTH_REFUSED, tuple(m_feat.shape), whole,
-            lambda rows: self._streamed(x_pair, x_inputs, m_feat, recip_nvalid, rows),
-            rows=_msa_depth_rows(int(m_feat.shape[1])), tag="esmfold2 msa depth")
-
-    def _embed(self, feat, x_inputs):
-        return ttnn.add(self._lin(feat, self.embed_w), ttnn.unsqueeze(self._lin(x_inputs, self.project_w), 2))
-
-    def _whole(self, pair, x_inputs, m_feat, recip_nvalid):
-        m = self._embed(m_feat, x_inputs)
+    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid, mf=None):
+        ck = self.compute_kernel_config
+        lin = self._lin
+        m = ttnn.add(lin(m_feat, self.embed_w), ttnn.unsqueeze(lin(x_inputs, self.project_w), 2))
         # The features are an MSA-sized upload used only here; the blocks hold `m` beside it.
         ttnn.deallocate(m_feat)
+        pair = x_pair
         for block in self.blocks:
-            m, pair = block(m, pair, recip_nvalid)
-        return pair
-
-    def _streamed(self, x_pair, x_inputs, m_feat, recip_nvalid, rows):
-        """`_whole` with `m` on the host as `rows`-deep chunks, each uploaded for its one read.
-
-        The embedding, MPWA and the MSA transition are per alignment row; OPM contracts the
-        chunks one at a time into one product, the one step that reassociates (a bf16 depth
-        sum), scored against the upstream reference in perf/mgx_msa_depth."""
-        import gc
-        gc.collect()        # the refused attempt's tensors, still referenced from its traceback
-        print(f"[esmfold2 msa depth] streaming the {m_feat.shape[2]}-row alignment in {rows}-row "
-              f"depth chunks", flush=True)
-        m = []
-        for s in range(0, m_feat.shape[2], rows):
-            f = ttnn.from_torch(m_feat[:, :, s:s + rows].contiguous(), device=self.device,
-                                layout=ttnn.TILE_LAYOUT, dtype=_DTYPE)
-            m.append(_park(self._embed(f, x_inputs)))
-            ttnn.deallocate(f)
-        pair = ttnn.from_torch(x_pair, device=self.device, layout=ttnn.TILE_LAYOUT, dtype=_DTYPE)
-        for block in self.blocks:
-            m, pair = block(m, pair, recip_nvalid)
+            m, pair = block(m, pair, recip_nvalid, mf)
         return pair
 
 
@@ -1496,9 +1383,9 @@ class MSAEncoder(TorchWrapper):
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
         ft = self._from_torch
-        # The pair and the MSA feature stay on the host: the module uploads them itself, whole
-        # or in depth chunks.
-        out = self.module(x_pair.float(), ft(x_inputs), m_feat.float(), ft((1.0 / n_valid).float()))
+        # An all-ones mask (no column masking) multiplies by one: skip it.
+        mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
+        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out)
 
 

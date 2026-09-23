@@ -1,4 +1,4 @@
-# Vendored from github.com/Biohub/esm @ b6b0e88 (MIT, Copyright 2026 Chan Zuckerberg
+# Vendored from esm 3.4.1 on PyPI (github.com/Biohub/esm; MIT, Copyright 2026 Chan Zuckerberg
 # Biohub, Inc.; see tt_bio/_vendor/esm/LICENSE). Modified: absolute `esm.` imports
 # rewritten to `tt_bio._vendor.esm.` for in-tree vendoring.
 """Taxonomy-paired MSA construction for ESMFold2 inference.
@@ -19,7 +19,7 @@ from tt_bio._vendor.esm.models.esmfold2.constants import (
     PROTEIN_RESIDUE_TO_RES_TYPE,
     PROTEIN_UNK_RES_TYPE,
 )
-from tt_bio._vendor.esm.utils.msa.msa import MSA
+from tt_bio._vendor.esm.utils.msa.msa import MSA, is_a3m_insertion
 
 _KEY_RE = re.compile(r"key=(-?\d+)")
 
@@ -51,9 +51,13 @@ def msa_to_res_type_and_deletions(
     insertions and are not emitted; their count is accumulated into the
     next non-insertion position's deletion value. ``L`` is the query
     length after stripping insertions from row 0.
+
+    If ``msa.deletions`` is set (e.g. by :meth:`MSA.from_a3m`) it is returned
+    directly: the stored sequences may already be insertion-stripped, which would
+    otherwise yield all-zero deletions.
     """
     query = msa.entries[0].sequence
-    L = sum(1 for ch in query if not (ch.islower() or ch == "."))
+    L = sum(1 for ch in query if not is_a3m_insertion(ch))
     M = msa.depth
 
     res_type = np.full((M, L), MSA_GAP_TOKEN_ID, dtype=np.int64)
@@ -63,7 +67,7 @@ def msa_to_res_type_and_deletions(
         col = 0
         ins = 0
         for ch in entry.sequence:
-            if ch == "." or (ch.islower() and ch != "-"):
+            if is_a3m_insertion(ch):
                 ins += 1
                 continue
             if col >= L:
@@ -78,6 +82,11 @@ def msa_to_res_type_and_deletions(
                 deletions[r, col] = float(ins)
                 ins = 0
             col += 1
+
+    if msa.deletions is not None:
+        msg = f"stored deletions {msa.deletions.shape} != expected {(M, L)}"
+        assert msa.deletions.shape == (M, L), msg
+        deletions = msa.deletions.astype(np.float32)
     return res_type, deletions
 
 
