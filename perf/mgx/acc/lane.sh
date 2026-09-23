@@ -14,21 +14,27 @@ LEASES=/home/agent/leases; HOST=j10glx02; HOLDER=worker:mgx-accuracy
 PY=/home/agent/env/bin/python
 mkdir -p "$OUT"
 
-free_card() {
+free_card() {  # the lease is the flock (tt_bio/device_lease.py); a record alone can be stale
   for c in $(seq 0 31); do
     case $c in 1|24|25|26|27) continue;; esac
     f=$LEASES/$HOST-card$c.json
-    if [ ! -e "$f" ] || python3 -c "import json,sys; sys.exit(0 if json.load(open('$f')).get('released') else 1)" 2>/dev/null; then
-      echo $c; return 0
+    if [ ! -s "$f" ] || python3 -c "import json,sys; sys.exit(0 if json.load(open('$f')).get('released') else 1)" 2>/dev/null; then
+      flock -n "$f" true 2>/dev/null && { echo $c; return 0; }
     fi
   done
   return 1
 }
 
-lease() {  # card released(null|epoch)
-  python3 - "$LEASES/$HOST-card$1.json" "$1" "$2" $$ <<'EOF'
+lease() {  # card released(null|epoch); writes only under the card's free flock, releases only our own record
+  flock -n "$LEASES/$HOST-card$1.json" python3 - "$LEASES/$HOST-card$1.json" "$1" "$2" $$ <<'EOF'
 import json, sys, time
 p, card, rel, pid = sys.argv[1:]
+try:
+    cur = json.load(open(p))
+except Exception:
+    cur = {}
+if rel != "null" and cur.get("holder") not in (None, "worker:mgx-accuracy"):
+    sys.exit(0)  # another worker took the card after our fold ended
 json.dump({"host": "j10glx02", "card": card, "holder": "worker:mgx-accuracy", "pid": int(pid),
            "acquired": time.time(), "released": None if rel == "null" else time.time()}, open(p, "w"))
 EOF
@@ -82,5 +88,8 @@ clk = [int(l.split()[1]) for l in open(f"{out}/{tag}.aiclk") if l.split()[1:2] a
 row.update(tag=tag, tree=tree, commit=commit, card=int(card),
            aiclk_mhz={"n": len(clk), "min": min(clk), "median": statistics.median(clk), "max": max(clk)} if clk else None)
 open(f"{out}/results.jsonl", "a").write(json.dumps(row) + "\n")
+sys.exit(3 if row.get("rc") == 75 else 0)
 EOF
+  # rc 75 = another process won the card between our pick and the fold's open; nothing ran.
+  [ $? = 3 ] && [ "${tag%+++}" = "$tag" ] && echo "$tag+ $tree $model $fx" >> "$JOBS"
 done
