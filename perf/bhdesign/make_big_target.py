@@ -8,8 +8,29 @@ The design models' capacity axis is TARGET residues, and the largest target this
 1DP0 chain A at 1011 -- which is why `capacity_gate.EXEMPT` says pxdesign's own fixture source
 cannot reach a 1536 bar. Stacking two real chains reaches it without inventing coordinates: each
 chain keeps its deposited geometry, and the second is translated clear of the first along +x so
-nothing clashes. It is a two-chain target, which is what a real complex is, and not one chain with
-a 150 A jump in its backbone -- that would read as a break to anything that scores geometry.
+nothing clashes, rather than becoming one chain with a 150 A jump in its backbone that would read
+as a break to anything scoring geometry.
+
+CAPACITY ONLY. THE OUTPUT IS NOT A VALID INPUT FOR A QUALITY QUESTION.
+-----------------------------------------------------------------------------------------------
+The chains are placed out of contact on purpose, so the file is two proteins rather than a
+complex, and a rung cut ABOVE the first chain's length stops being a design problem. Measured on
+`targets/big_1831.cif` (chain A 1008, chain B 823, centroids 246.9 A apart, closest atoms
+162.40 A):
+
+    512-residue crop   one chain, Rg  23.4 A     a target
+    1536-residue crop  two bodies, Rg 123.3 A    two targets in one file
+
+PXDesign conditions on a distogram that resolves only 2-22 A, so on the 1536 crop chain B can be
+translated 10 A or rotated 30 degrees WITHOUT CHANGING ONE BIT of the input: its placement is not
+a function of the input and no model can recover it. Measured consequence -- pxdesign `fit_rmsd`
+95.183 A against its own 15 A release gate on all 8 designs, and a binder delivered 14-41 A off
+the target with zero atom pairs within 5 A, against 0.0755 A and 77-166 contacts at 512.
+
+So use this to ask whether a size RUNS. To ask whether what comes back is any good, build the
+other kind of target with `perf/mgxaccuracy/make_contact_target.py`, which cuts a real assembly
+and refuses one whose conditioning graph is disconnected. `perf/mgxaccuracy/rigidity.py` is the
+check. Full record in `state/mgx-design-accuracy.md`.
 """
 import argparse
 import pathlib
@@ -82,6 +103,26 @@ def main():
     body += ["#"]
     a.out.write_text("\n".join(body) + "\n")
     print(f"{a.out}: {total_res} residues, {len(out_rows)} atoms, {len(a.parts)} chains")
+
+    # Say it at the point of creation, not only in the docstring. A fixture that is sound for
+    # capacity and invalid for quality is exactly the kind of thing a later reader picks up for
+    # the wrong question (it happened: state/mgx-design-accuracy.md).
+    if len(a.parts) > 1:
+        import sys
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+        from perf.mgxaccuracy.contact import conditioning_graph
+        meta = [(r["label_asym_id"], r["label_seq_id"], r["label_atom_id"]) for r in out_rows]
+        import numpy as np
+        xyz = np.array([[float(r["Cartn_x"]), float(r["Cartn_y"]), float(r["Cartn_z"])]
+                        for r in out_rows])
+        g = conditioning_graph(meta, xyz)
+        print(f"sub-22 A conditioning graph: {len(g['components'])} component(s) "
+              f"sizes {g['components'][:4]}, inter-chain edges {g['inter_chain_edges']}")
+        if len(g["components"]) > 1:
+            print(f"WARNING: CAPACITY FIXTURE ONLY. The conditioning graph is disconnected, so "
+                  f"any crop spanning more than one component leaves the relative placement "
+                  f"undetermined and cannot be used to judge design QUALITY. Use "
+                  f"perf/mgxaccuracy/make_contact_target.py for that. See this file's docstring.")
 
 
 if __name__ == "__main__":
