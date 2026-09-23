@@ -130,8 +130,13 @@ def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
         # for 7.
         gen = sorted((out_dir / "intermediate_designs").glob("*.cif")) \
             if (out_dir / "intermediate_designs").is_dir() else []
-        ranked = sorted((out_dir / "final_ranked_designs").rglob("*.cif")) \
-            if (out_dir / "final_ranked_designs").is_dir() else []
+        # The budget set is `final_ranked_designs/final_<N>_designs/*.cif` at ITS top level.
+        # An rglob there counts three other things: each design's pre-refolding copy under
+        # before_refolding/, and the wider intermediate_ranked_<M>_designs/ set. A --budget 4
+        # run reads as 24 ranked designs that way.
+        fr = out_dir / "final_ranked_designs"
+        ranked = [c for d in sorted(fr.glob("final_*_designs")) for c in sorted(d.glob("*.cif"))] \
+            if fr.is_dir() else []
         return len(gen), [{"ranked": len(ranked)}]
     cifs = sorted(out_dir.rglob("*.cif"))
     return len(cifs), rows
