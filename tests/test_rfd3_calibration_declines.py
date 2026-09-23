@@ -38,12 +38,13 @@ class Fixture:
         self.times = list(times or [])  # `_mm_time` results, last one repeats
         self.live = []
         self.overlaps = []              # reference-output names alive together, per allocation
+        self.timing = False             # inside `_mm_time`, where every output is transient
 
     # -- the pieces model.py calls ------------------------------------------------------------
     def linear(self, a, b, **kw):
-        ref = "program_config" not in kw
-        name = ({"rx": "rref", "x": "ref"}.get(a.name, "cand") if ref else "cand")
-        if ref:
+        kept = "program_config" not in kw and not self.timing
+        name = {"rx": "rref", "x": "ref"}.get(a.name, "cand") if kept else "cand"
+        if kept:
             if name == self.refuse:
                 raise RuntimeError(f"Out of Memory: Not enough space to allocate {name}")
             self.overlaps.append(sorted(t.name for t in self.live
@@ -57,7 +58,11 @@ class Fixture:
         return FakeTensor("rx" if seed == 0 else "rw", self.live)
 
     def time(self, fn):
-        fn()
+        self.timing = True
+        try:
+            fn()
+        finally:
+            self.timing = False
         return self.times.pop(0) if len(self.times) > 1 else self.times[0]
 
     def candidates(self, x, w, grid):
