@@ -563,11 +563,9 @@ class OpenDDE:
             "sym_id": feats["sym_id"].index_select(0, parent),
             "token_index": ifd["structural_token_index"],
         })
+        # The structural pair's only consumer, so the conditioning frees it (confidence runs
+        # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
         pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
-        # The structural pair tensor's only consumer was the pair conditioning above
-        # (confidence runs on the residue axis). Free it before the sampler stage: at
-        # Ns=2113 it is 3.2 GiB the confidence pairformer will need back.
-        ttnn.deallocate(z_st)
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0

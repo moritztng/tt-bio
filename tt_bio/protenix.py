@@ -2092,7 +2092,8 @@ class Protenix:
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
-        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host.
+        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host, and
+        frees `z_trunk_tt`, whose only reader this is.
 
         When c_z_pair_diffusion < c_z (OpenDDE: pair-diffusion channel compressed to 128 vs
         the shared Trunk's c_z=384; Protenix-v2 keeps them equal, 256==256, no compression),
@@ -2126,17 +2127,31 @@ class Protenix:
                     _f.write(f"{tag} done\n")
 
         _w_relpe = self._w[C + "relpe.linear_no_bias.weight"]
-        relpe = ttnn.linear(T(relp), T(_w_relpe.t().contiguous()),
-                            **paircond_mm_kw(self.compute_kernel_config,
-                                             self.diffusion.dtype, _w_relpe.shape[0]))
-        _sync("relpe linear")
-        if self.diffusion._diffusion_fp32:
-            z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
-            _sync("typecast")
-        z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
-        _sync("reshape-3d")
-        N, W, cz = (int(d) for d in z_trunk_tt.shape)
+        w_relpe = T(_w_relpe.t().contiguous())
+        N, W = int(relp.shape[0]), int(relp.shape[1])
+        z_in = z_trunk_tt
+        z_trunk_tt = ttnn.reshape(z_trunk_tt, (N, W, -1))
+        cz = int(z_trunk_tt.shape[-1])
         compress = C + "linear_no_bias_z_trunk.weight" in self._w
+        transitions = []
+        for nm in ("transition_z1", "transition_z2"):
+            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
+            transitions.append((nm, Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                                               dtype=self.diffusion.dtype)))
+
+        def _relpe(rp):
+            out = ttnn.linear(T(rp), w_relpe,
+                              **paircond_mm_kw(self.compute_kernel_config,
+                                               self.diffusion.dtype, _w_relpe.shape[0]))
+            _sync("relpe linear")
+            return out
+
+        def _cast(zt):
+            if not self.diffusion._diffusion_fp32 or zt.dtype == self.diffusion.dtype:
+                return zt
+            out = ttnn.typecast(zt, self.diffusion.dtype)
+            _sync("typecast")
+            return out
 
         def _z_proj(zt):
             # OpenDDE's compression of z_trunk to c_z_pair_diffusion (see the docstring).
@@ -2168,47 +2183,45 @@ class Protenix:
             _sync("linear_z")
             return pb
 
-        transitions = []
-        for nm in ("transition_z1", "transition_z2"):
-            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-            transitions.append((nm, Transition(PW.remap_transition(sub), self.compute_kernel_config,
-                                               dtype=self.diffusion.dtype)))
-
-        def _transitions(pz):
+        def _chain(zt, rp):
+            """cast, compress, concat + LN + projection, both transitions: every step is
+            per (i, j) position, so a row block of the output is this chain on that block."""
+            zf = _cast(zt)
+            zp = _z_proj(zf) if compress else zf
+            _sync("z_trunk LN+proj")
+            if zf is not zt and zp is not zf:
+                ttnn.deallocate(zf)
+            relpe = _relpe(rp)
+            pz = _cond(zp, relpe)
+            ttnn.deallocate(relpe)
+            if zp is not zt:
+                ttnn.deallocate(zp)
+            # keep the pair tensor 4D (1,n,N,c) so Transition uses its chunked H/W path
+            # (the 3D path doesn't chunk pair tensors -> OOM at large N).
+            pz = ttnn.reshape(pz, (1, int(pz.shape[0]), N, pz.shape[-1]))
             for nm, t in transitions:
                 pz = t(pz, add_to_input=True)
                 _sync(nm)
             return pz
 
         def _whole():
-            zt = _z_proj(z_trunk_tt) if compress else z_trunk_tt
-            _sync("z_trunk LN+proj")
-            pz = _cond(zt, relpe)
-            if compress:
-                ttnn.deallocate(zt)
-            # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
-            # (the 3D path doesn't chunk pair tensors -> OOM at large N).
-            return _transitions(ttnn.reshape(pz, (1, N, N, pz.shape[-1])))
+            return _pz_cond_probe(_chain(z_trunk_tt, relp), _z_sha)
 
         def _rows(rb):
-            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z, channel concat
-            # or conditioned pair ever materializes on the device. The transitions are row-local
-            # too, so each block runs them before it goes to the host, and pz comes back
-            # assembled there. Uploading the whole pz for them instead was the next refusal:
-            # protenix-v2 at 1536 asked for 2415919104 B (fp32), 192 MiB/bank against a
-            # 188 MiB largest block with 430 MiB/bank free.
+            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size relpe, cast, LN'd z,
+            # channel concat or transition ever materializes. Each finished block goes to the
+            # host, which is where the conditioned pair is returned. OpenDDE's structural pair
+            # at 1536 residues (2987 tokens) wanted a 2300133376 B fp32 relpe before any block.
             blocks = []
             for s in range(0, N, rb):
                 e = min(s + rb, N)
-                zt = z_trunk_tt[s:e]
-                if compress:
-                    zt = _z_proj(zt)
-                pb = _cond(zt, relpe[s:e])
-                ttnn.deallocate(zt)
-                pb = _transitions(ttnn.reshape(pb, (1, e - s, W, pb.shape[-1])))
-                blocks.append(self._to_host(pb))
+                zt = z_trunk_tt if e - s == N else z_trunk_tt[s:e]
+                pb = _chain(zt, relp[s:e])
+                if zt is not z_trunk_tt:
+                    ttnn.deallocate(zt)
+                blocks.append(Protenix._to_host(pb).reshape(e - s, N, -1))
                 ttnn.deallocate(pb)
-            return torch.cat(blocks, dim=1)
+            return torch.cat(blocks, dim=0)
 
         rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
         if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
@@ -2220,7 +2233,9 @@ class Protenix:
             pz = _T.row_block_after_refusal(
                 self._paircond_rows_refused, (N, W, cz, str(self.diffusion.dtype)),
                 _whole, _rows, rows=rb, tag="protenix pair conditioning")
-        return pz if torch.is_tensor(pz) else _pz_cond_probe(pz, _z_sha)
+        # The input pair's only reader was this chain.
+        ttnn.deallocate(z_in)
+        return pz
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
