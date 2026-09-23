@@ -18,14 +18,20 @@ TWO DEFINITIONS OF THE THREE AGGREGATES, AND ONLY ONE OF THEM CAN CARRY AN ANGLE
 
   mass_weighted of3t-trunkg043/score.py (A23): rel is a mass-weighted QUADRATIC mean of the
                 per-tensor rel, while norm_ratio and cos are mass-weighted ARITHMETIC means of
-                the per-tensor ratio and cosine. The identity holds per tensor and NOT on these
-                three aggregates. On R149 shipped arm rel = 0.9153623104186986 while
-                sqrt(1 + r^2 - 2 r cos) on its own reported r and cos is 0.6855, a 25 %
-                residual. So R149 numbers are quoted as published and compared arm to arm, and
-                no angle is ever read off them.
+                the per-tensor ratio and cosine.
 
-Both are computed for every arm. The ladder comparison to R149 uses mass_weighted, because that
-is the definition R149 numbers are in; every split uses concatenated.
+                THE REL IS THE SAME NUMBER IN BOTH DEFINITIONS AND THE r AND cos ARE NOT. The
+                weight is w_t = ||g_t||^2 / sum_u ||g_u||^2, so
+                sum_t w_t rel_t^2 = sum_t ||a_t - g_t||^2 / sum_u ||g_u||^2 = e2 / r2, exactly.
+                The mass weighting is what collapses the quadratic mean onto the concatenated
+                relative error, and it is why R149 published rel compare to this row with no
+                conversion. The two arithmetic means collapse onto nothing, so the identity
+                fails on the mass_weighted triple: on the shipped arm here the residual is 50.6 %
+                in the graded space and 70.0 % against float64. An angle read off a
+                mass_weighted cos is not the angle of any vector pair, and this row reads none.
+
+Both are computed for every arm. The ladder comparison to R149 is exact because the rel agree by
+construction; every split uses the concatenated r and cos.
 
 CPU only, no device is opened. The device arms are read as banked tensors.
 """
@@ -211,10 +217,15 @@ def main() -> int:
         "DEFINITIONS": {
             "concatenated": "three norms of one vector pair over the 2,736 tensors. "
                             "rel^2 = 1 + r^2 - 2 r cos is an identity. Every split is here.",
-            "mass_weighted": "of3t-trunkg043/score.py (A23). rel is a quadratic mean, r and cos "
-                             "are arithmetic means, so the identity does NOT hold and no angle "
-                             "is read off it. R149 table is in this definition, so the ladder "
-                             "comparison is too.",
+            "mass_weighted": "of3t-trunkg043/score.py (A23). Its rel EQUALS the concatenated "
+                             "rel: mass weighting by the reference squared norm collapses "
+                             "sum_t w_t rel_t^2 onto e2/r2, so the ladder comparison to R149 is "
+                             "exact and needs no conversion. Its r and cos are arithmetic means "
+                             "of the per-tensor r and cos, collapse onto nothing, and break the "
+                             "identity, so no angle is read off them.",
+            "rel_agrees_between_the_two_definitions": "checked per arm below. A difference would "
+                                                      "mean the two scorers disagree about which "
+                                                      "tensors are in scope, not about algebra.",
         },
         "CONTROLS": {}, "ARMS": {}, "LADDER_vs_R149": {}, "THE_LEVER_DECOMPOSED": {},
     }
@@ -287,6 +298,13 @@ def main() -> int:
                                "vs-float64 -- CONTRAST ONLY, not carried across (R174)"),
                 "mass_weighted": mw_triple(g, f64, keys)},
         }
+        e["rel_agrees_between_definitions"] = {
+            sp: {"concatenated": e[sp]["concatenated"]["rel_l2"],
+                 "mass_weighted": e[sp]["mass_weighted"]["rel_l2"],
+                 "rel_difference": abs(e[sp]["concatenated"]["rel_l2"]
+                                       - e[sp]["mass_weighted"]["rel_l2"])
+                 / e[sp]["concatenated"]["rel_l2"]}
+            for sp in ("GRADED_SPACE_vs_upstream_bf16", "CONTRAST_vs_float64")}
         e["x_A26_bar_mass_weighted"] = (
             e["GRADED_SPACE_vs_upstream_bf16"]["mass_weighted"]["rel_l2"] / bar)
         mb = e["GRADED_SPACE_vs_upstream_bf16"]["split"]["shares_of_the_measured_error"]["magnitude"]
@@ -347,6 +365,56 @@ def main() -> int:
                     conc[base]["f64"], conc[tag]["f64"],
                     "the same pair against float64 -- contrast only, not carried"),
             }
+
+    # ---- the answer the row exists to give ------------------------------------------------
+    key = base + "_to_VERB" if base and (base + "_to_VERB") in out["THE_LEVER_DECOMPOSED"] else None
+    if key:
+        g = out["THE_LEVER_DECOMPOSED"][key]["GRADED_SPACE_vs_upstream_bf16"]
+        f = out["THE_LEVER_DECOMPOSED"][key]["CONTRAST_vs_float64"]
+        out["THE_ANSWER"] = {
+            "question": "does the exact softmax close the ANGLE, or did it only ever close the "
+                        "magnitude? R149 measured it on the double-counted functional, where "
+                        "62.52 % of the trunk error was magnitude.",
+            "IT_CLOSES_THE_ANGLE": g["angle"]["degrees_closed"] > 0
+                                   and g["direction_only"]["share_of_the_total_move"] > 0.5,
+            "in_the_graded_space": {
+                "angle_before_degrees": g["base"]["angle_degrees"],
+                "angle_after_degrees": g["lever"]["angle_degrees"],
+                "degrees_closed": g["angle"]["degrees_closed"],
+                "fraction_of_the_angle_closed": g["angle"]["fraction_of_the_base_angle_closed"],
+                "cos_before": g["base"]["cos"], "cos_after": g["lever"]["cos"],
+                "direction_only_share_of_the_move_in_rel":
+                    g["direction_only"]["share_of_the_total_move"],
+                "magnitude_only_share_of_the_move_in_rel":
+                    g["magnitude_only"]["share_of_the_total_move"],
+            },
+            "and_it_closes_the_magnitude_too": {
+                "norm_ratio_before": g["base"]["norm_ratio"],
+                "norm_ratio_after": g["lever"]["norm_ratio"],
+                "got_closer_to_1": g["magnitude"]["got_closer_to_1"],
+                "why_this_does_not_make_it_a_magnitude_lever":
+                    "the counterfactual separates them. Give the shipped arm the lever norm "
+                    "ratio and keep its direction and rel falls by "
+                    f"{g['magnitude_only']['move']:.6g}; give it the lever direction and keep "
+                    f"its norm ratio and rel falls by {g['direction_only']['move']:.6g}. The "
+                    "direction carries the larger part of a move that is not additive in "
+                    "either.",
+            },
+            "the_two_spaces_disagree_and_the_float64_one_is_not_carried": {
+                "graded_space_direction_share": g["direction_only"]["share_of_the_total_move"],
+                "float64_direction_share": f["direction_only"]["share_of_the_total_move"],
+                "graded_space_degrees_closed": g["angle"]["degrees_closed"],
+                "float64_degrees_closed": f["angle"]["degrees_closed"],
+                "why": "R174. The two divide by different denominators and a share taken in one "
+                       "says nothing about the other. The clause is graded against upstream own "
+                       "bf16, so that is the space the answer is given in.",
+            },
+            "WHAT_THIS_IS_NOT": "this is the frame384 frame, not the model frame. The trunk cos "
+                                "of 0.6976277066165968 that must reach 0.9002916509340195 is a "
+                                "MODEL-frame quantity on a different arm and a different "
+                                "boundary. This row says what the lever does to an angle; it "
+                                "does not project that onto the clause.",
+        }
 
     worst, failed = 0.0, []
     for tag, v in out["ARMS"].items():
