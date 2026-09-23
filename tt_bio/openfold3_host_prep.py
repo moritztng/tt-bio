@@ -31,6 +31,7 @@ import math
 
 import torch
 import torch.nn.functional as F
+import ttnn
 
 from ._vendor.openfold3.core.utils.atom_attention_block_utils import (
     convert_single_rep_to_blocks,
@@ -216,8 +217,6 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     ``OF3AtomTransformer`` (P7). Host: ``relu(linear_q(...))`` + mean aggregation to
     tokens via ``atom_to_token_mean``.
     """
-    import ttnn
-
     from .openfold3_atom_transformer import OF3AtomTransformer
 
     enc = _sub(sd, "input_embedder.atom_attn_enc")
