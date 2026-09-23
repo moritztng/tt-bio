@@ -7574,7 +7574,7 @@
             "896",
             "1024"
           ],
-          "exponents_skipped": "no noise measurement (rung 512 absent from the ladder)",
+          "exponents_skipped": "256 aa was timed at 2.2x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
             "256->512": 1.277,
             "512->640": 1.656,
