@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Fan design jobs across chips, one job per chip, and report the aggregate rate.
+
+This is the row's data-parallelism instrument. Throughput on a Galaxy is not one chip's
+seconds times 27 -- the 27 chips share one 64-core host, and every designer does real host
+work (featurisation, the mmCIF writer, boltzgen's filtering). So the question "designs per
+hour across the usable chips" has to be MEASURED with several chips running at once, and the
+per-chip rate compared against the same job run alone.
+
+    python3 perf/mgxscale/fan.py --plan perf/mgxscale/plans/px_batch.txt \
+        --out perf/mgxscale/results/px_batch.jsonl
+
+A plan file is one job per line: the arguments to `job.py`, minus --card/--out/--holder.
+Blank lines and #-comments are skipped. A job whose chip cannot be found waits rather than
+failing: losing a race for a chip is contention, not a result (`perf/mgxdesign/walk.py`).
+"""
+import argparse
+import json
+import os
+import pathlib
+import shlex
+import subprocess
+import sys
+import time
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from perf.mgxscale.job import free_cards  # noqa: E402
+
+PY = os.environ.get("LADDER_PY") or sys.executable
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--plan", required=True)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--holder", default="worker:mgx-design-scale")
+    ap.add_argument("--max-concurrent", type=int, default=8)
+    ap.add_argument("--work", default=str(pathlib.Path.home() / "mgxscale-work"))
+    ap.add_argument("--wait-s", type=int, default=120, help="poll period when no chip is free")
+    args = ap.parse_args()
+
+    jobs = [l.strip() for l in pathlib.Path(args.plan).read_text().splitlines()
+            if l.strip() and not l.strip().startswith("#")]
+    out = pathlib.Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    print(f"[fan] {len(jobs)} job(s), cap {args.max_concurrent}, out {out}", flush=True)
+
+    live: list[tuple[subprocess.Popen, int, str]] = []
+    queue = list(enumerate(jobs))
+    mine: set[int] = set()
+    while queue or live:
+        while queue and len(live) < args.max_concurrent:
+            free = [c for c in free_cards() if c not in mine]
+            if not free:
+                break
+            idx, spec = queue.pop(0)
+            card = free[0]
+            mine.add(card)
+            cmd = [PY, "-u", str(ROOT / "perf/mgxscale/job.py")] + shlex.split(spec) + [
+                "--card", str(card), "--out", str(out), "--holder", args.holder,
+                "--work", args.work]
+            log = pathlib.Path(args.work) / f"fan_{idx}_card{card}.log"
+            log.parent.mkdir(parents=True, exist_ok=True)
+            fh = log.open("w")
+            p = subprocess.Popen(cmd, cwd=str(ROOT), stdout=fh, stderr=subprocess.STDOUT,
+                                 start_new_session=True)
+            live.append((p, card, spec))
+            print(f"[fan] +card{card} pid{p.pid}: {spec}", flush=True)
+        if not live:
+            time.sleep(args.wait_s)
+            continue
+        time.sleep(15)
+        for ent in list(live):
+            p, card, spec = ent
+            if p.poll() is not None:
+                live.remove(ent)
+                mine.discard(card)
+                print(f"[fan] -card{card} rc={p.returncode}: {spec}", flush=True)
+
+    rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    n = sum(r.get("n_designs", 0) for r in rows)
+    span = time.time() - t0
+    print(f"[fan] done: {n} design(s) from {len(rows)} job(s) in {span / 3600:.2f} h "
+          f"= {3600 * n / span:.2f} designs/h aggregate", flush=True)
+
+
+if __name__ == "__main__":
+    main()
