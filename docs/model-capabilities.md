@@ -70,8 +70,9 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   would return a confident structure for one anyway. `openbind` is the checkpoint upstream
   trained for co-folding, and it is the same implementation.
 - **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
-- **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. Express
-  the cyclisation as a covalent `bond` constraint on the models that take one.
+- **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. On
+  `protenix-v1`, `protenix-v2`, `opendde` and `opendde-abag`, write the closure as a `bond`
+  from `C` of the last residue to `N` of residue 1; the refusal on those models says the same.
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
   model folds the modified chemistry except RF3, which carries modified residues through its
   own JSON/CIF spec rather than through this YAML.
