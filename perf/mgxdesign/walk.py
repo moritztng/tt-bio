@@ -91,12 +91,16 @@ def main() -> int:
         size, _, contig = item.partition(":")
         size = int(size)
         for attempt in range(1, a.tries + 1):
-            cards = free_cards()
-            if not cards:
-                print(f"[{time.strftime('%FT%TZ', time.gmtime())}] {a.model} {size}: "
-                      f"no free chip, waiting", flush=True)
+            # Waiting for a chip is not a retry. Every one of the 27 unblocked chips can be busy
+            # for half an hour on this box, and charging that to the retry budget made a walk
+            # give up on a saturated Galaxy without ever having run a rung.
+            waited = 0
+            while not (cards := free_cards()):
+                if waited % 600 == 0:
+                    print(f"[{time.strftime('%FT%TZ', time.gmtime())}] {a.model} {size}: "
+                          f"no free chip, waiting ({waited // 60} min so far)", flush=True)
                 time.sleep(60)
-                continue
+                waited += 60
             # RANDOM, not the first free chip. Three of these drivers run at once against one
             # lease dir, and taking cards[0] made all three pick the same chip every minute:
             # two lose the race, retry, and pick the same one again. Spreading the choice is
