@@ -959,14 +959,6 @@ class _WorkerState:
                     cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
 
         report_progress("prep")
-        # A deep MSA is what makes an ESMFold2 fold OOM a 12 GB Wormhole chip: every
-        # tensor in the MSA encoder scales with residues*depth, and 788 aa at the default
-        # depth 8192 asks for 1.54 GiB in a single block. Bound that product by the one
-        # measured to fit rather than let the allocation fail. No-op on Blackhole.
-        if self.accelerator == "tenstorrent":
-            from tt_bio.tenstorrent import msa_depth_cap
-            max_msa = msa_depth_cap(
-                sum(len(seq) for _c, seq, _s, mt, _mo in chains if mt != "ligand"), max_msa)
         # Only protein chains carry an MSA; a nucleic or ligand chain keeps msa=None, and a
         # ligand's `seq` is its CCD/SMILES spec, so hashing it for an alignment is meaningless.
         paired = _paired_msa(path, chains, msa_dir, cfg) if uses_msa else None
