@@ -1,0 +1,21 @@
+# CATCHER for the two merges that reach boltzgen, owed to the orchestrator merge rule.
+#
+# 58bc87b94 (stage residency: reset_static_cache after the trunk and the structure module)
+# and cc908c377 (TokenDistanceRecycle rebuilds v from its parts instead of doubling the
+# pairformer's output) both reach boltzgen. The second one changes numbers, and it is NOT
+# conditional on anything in the step yaml: both shipped checkpoints carry
+# use_token_distances=True, read straight out of them (results/token_distance_fires.txt).
+#
+# 512 rather than 1536, deliberately. It finishes in about an hour instead of five, and it
+# lands on the SAME target and size as an eight-design cell this row already measured on the
+# pre-fix engine -- gpb dimer A1-512 + 80, scRMSD median 8.455, range 0.865-12.897. So the
+# catcher is also the AFTER of a before/after on a fixture whose BEFORE is already banked,
+# which is the only way to show a numerical change by effect rather than by diff.
+#
+# Two designs is what the rule asks for and is not a distribution: n=2 against n=8 cannot
+# resolve a shift (results/power.txt), so the catcher reports ok/fail, wall, DURING AICLK and
+# the scRMSD values, and any size claim waits for the full arm.
+#
+# Runs from ~/wt-mgx-catcher on whglx, a second worktree at this branch's head, so the two
+# 1536 arms still running out of ~/wt-mgx-design-accuracy at 7cf87b844 keep their tree.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag catcher
