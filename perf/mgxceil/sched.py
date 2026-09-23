@@ -7,6 +7,9 @@ walk that was refused before its first fold (it wrote no row).
 
     python perf/mgxceil/sched.py --tag P --jobs jobsP.txt --max 3
 
+--max counts every chip this row's holder has leased, so a second sched can take over a queue
+while the first one's walks finish.
+
 Job lines are chain.sh's: <model> <sizes csv>[@depth] [tt-bio args...]. Rows land in
 <scratch>/<tag>_<model>.jsonl, one file per job so a refusal is visible as an empty one.
 """
@@ -50,6 +53,19 @@ def free_cards(busy: set[int]) -> list[int]:
             continue
         if not meta or meta.get("released"):
             out.append(c)
+    return out
+
+
+def held(holder: str) -> set[int]:
+    """Chips this row holds right now, including walks a previous sched started."""
+    out = set()
+    for f in LEASES.glob(f"{HOST}-card*.json"):
+        try:
+            meta = json.loads(f.read_text() or "{}")
+        except (OSError, ValueError):
+            continue
+        if meta.get("holder") == holder and not meta.get("released"):
+            out.add(int(meta["card"]))
     return out
 
 
@@ -101,7 +117,7 @@ def main() -> int:
                 pending.insert(0, job)
             else:
                 log(f"card {card} {job[0]}: done, {len(rows)} rows, last {rows[-1]['verdict']}")
-        if pending and len(running) < a.max:
+        if pending and len(set(running) | held(ENV["TT_BIO_LEASE_HOLDER"])) < a.max:
             cards = free_cards(set(running))
             if cards:
                 card, job = cards[0], pending.pop(0)
