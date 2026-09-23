@@ -790,8 +790,6 @@ class _WorkerState:
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
             raise RuntimeError("no sequences")
-        if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
-            raise RuntimeError("esmfold2 needs at least one protein chain")
         check_capabilities(path, chains, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
