@@ -174,7 +174,7 @@ class ConfidenceHead(Module):
                                        bucketed_width)
         s, z = bucketed_pairformer(
             self.pairformer, s, z, self.device,
-            bucketed_width(int(z.shape[1]), TOKEN_BUCKET), own_z=True)
+            bucketed_width(int(z.shape[1]), TOKEN_BUCKET))
         return self.heads(s, z)
 
     def heads(self, s, z):
