@@ -8,6 +8,9 @@ worker processes, so a counter read in the launcher is always zero; this writes 
 `sitecustomize.py` onto PYTHONPATH instead, and every process of the run wraps
 `ttnn.transformer.scaled_dot_product_attention` and dumps its own counts at exit.
 
+`tt_bio.triatt_sdpa` runs the same wheel kernels through `ttnn.generic_op` and is counted too
+(site suffixed `[triatt_sdpa]`); it declines a None bias, so those rows are counts only.
+
 One key per (caller file:line, B, H, Lq, Lk, d, mask shape or None, q_chunk, k_chunk, grid).
 The first call of each key is also scored by effect, off the returned tensor:
   * `pcc_fp32`: the op's output against torch fp32 SDPA on the same q, k, v and mask;
@@ -111,6 +114,54 @@ if os.environ.get("SDPA_CENSUS_DIR"):
 
     ttnn.transformer.scaled_dot_product_attention = _wrap
     atexit.register(_dump)
+
+    # tt_bio.triatt_sdpa drives the same wheel kernels through ttnn.generic_op, so it never
+    # reaches the op above. It declines a None bias, so it is only counted, as served calls.
+    import importlib.util
+
+    def _shape_sdpa(q, k, v, bias, scale, q_chunk, k_chunk, *a, **kw):
+        B, H, L, d = (int(x) for x in q.shape)
+        return B, H, L, d, bias, q_chunk, k_chunk, q.dtype
+
+    def _shape_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, *a, **kw):
+        B, L = int(x.shape[0]), int(x.shape[1])
+        return B, n_heads, L, head_dim, bias, q_chunk, k_chunk, x.dtype
+
+    def _served(fn, op, shape):
+        def call(*a, **kw):
+            o = fn(*a, **kw)
+            if o is not None:
+                B, H, L, d, bias, qc, kc, dt = shape(*a, **kw)
+                key = json.dumps([f"{_site()} [{op}]", B, H, L, L, d,
+                                  None if bias is None else [int(x) for x in bias.shape],
+                                  qc, kc, None, str(dt), False])
+                r = _rows.setdefault(key, {"calls": 0})
+                r["calls"] += 1
+                if r["calls"] == 1 or r["calls"] % 256 == 0:
+                    _dump()
+            return o
+        return call
+
+    class _Finder:
+        def find_spec(self, name, path=None, target=None):
+            if name != "tt_bio.triatt_sdpa":
+                return None
+            sys.meta_path.remove(self)
+            try:
+                spec = importlib.util.find_spec(name)
+            finally:
+                sys.meta_path.insert(0, self)
+            run = spec.loader.exec_module
+
+            def exec_module(m):
+                run(m)
+                m.sdpa = _served(m.sdpa, "triatt_sdpa", _shape_sdpa)
+                m.sdpa_fused_qkv = _served(m.sdpa_fused_qkv, "triatt_sdpa_fused_qkv",
+                                           _shape_fused_qkv)
+            spec.loader.exec_module = exec_module
+            return spec
+
+    sys.meta_path.insert(0, _Finder())
 '''
 
 FIELDS = ("site", "B", "H", "Lq", "Lk", "d", "mask", "q_chunk", "k_chunk", "grid", "dtype",
