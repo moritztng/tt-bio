@@ -134,6 +134,7 @@ def main() -> int:
           f"{sum(v is None for v in grads.values())} parameters with no gradient", flush=True)
     if a.dump:
         torch.save({"policy": a.policy, "grads": grads, "boundary": str(a.boundary)}, a.dump)
+        torch.save(z.detach().to(torch.float64), a.dump.replace(".pt", "_z.pt"))
 
     full, per = score_grads(grads, ref_grad)
     rep = {
