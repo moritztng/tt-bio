@@ -1,0 +1,21 @@
+# CHUNKABLE, shown: the same 10 samples folded at different --max_parallel_samples widths.
+# Memory per width gives the per-sample slope inside a chunk; kept structures, compared sample by
+# sample across widths, say whether a chunk boundary changes any sample (analyze.py chunk).
+boltz2 768 10 steps=6 probe=1 mps=1 keep=1
+boltz2 768 10 steps=6 probe=1 mps=2 keep=1
+boltz2 768 10 steps=6 probe=1 mps=10 keep=1
+boltz2 768 10 steps=6 probe=1 keep=1
+protenix-v2 768 10 steps=6 probe=1 mps=1 keep=1
+protenix-v2 768 10 steps=6 probe=1 mps=2 keep=1
+protenix-v2 768 10 steps=6 probe=1 mps=10 keep=1
+protenix-v2 768 10 steps=6 probe=1 keep=1
+boltz2 1536 25 steps=6 probe=1 mps=1
+boltz2 1536 25 steps=6 probe=1 mps=10
+# The 6-step structures above are mostly noise, so they only answer bit-identity. Whether a
+# width's numerics matter is asked at production steps, against the samples' own spread.
+boltz2 256 10 keep=1
+boltz2 256 10 mps=1 keep=1
+boltz2 256 10 mps=10 keep=1
+protenix-v2 256 10 keep=1
+protenix-v2 256 10 mps=1 keep=1
+protenix-v2 256 10 mps=10 keep=1

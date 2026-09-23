@@ -1,0 +1,43 @@
+# The sample axis at each model's largest accepted size on main (size_limits wormhole_b0 row,
+# boltz2 and protenix-v1 unguarded, 1536). Size guard ON: this is what a user can submit.
+# 25 before 5 and 10, so a failure at 25 is bisected by the points after it.
+boltz2 1536 1 steps=6 probe=1
+boltz2 1536 25 steps=6 probe=1
+protenix-v1 1536 1 steps=6 probe=1
+protenix-v1 1536 25 steps=6 probe=1
+esmfold2 1024 1 steps=6 probe=1
+esmfold2 1024 25 steps=6 probe=1
+esmfold2-fast 1152 1 steps=6 probe=1
+esmfold2-fast 1152 25 steps=6 probe=1
+protenix-v2 1024 1 steps=6 probe=1
+protenix-v2 1024 25 steps=6 probe=1
+openfold3 1024 1 steps=6 probe=1
+openfold3 1024 25 steps=6 probe=1
+openbind 960 1 steps=6 probe=1
+openbind 960 25 steps=6 probe=1
+opendde 1024 1 steps=6 probe=1
+opendde 1024 25 steps=6 probe=1
+opendde-abag 1024 1 steps=6 probe=1
+opendde-abag 1024 25 steps=6 probe=1
+rf3 1088 1 steps=6 probe=1
+rf3 1088 25 steps=6 probe=1
+boltz2 1536 5 steps=6 probe=1
+protenix-v1 1536 5 steps=6 probe=1
+esmfold2 1024 5 steps=6 probe=1
+esmfold2-fast 1152 5 steps=6 probe=1
+protenix-v2 1024 5 steps=6 probe=1
+openfold3 1024 5 steps=6 probe=1
+openbind 960 5 steps=6 probe=1
+opendde 1024 5 steps=6 probe=1
+opendde-abag 1024 5 steps=6 probe=1
+rf3 1088 5 steps=6 probe=1
+boltz2 1536 10 steps=6 probe=1
+protenix-v1 1536 10 steps=6 probe=1
+esmfold2 1024 10 steps=6 probe=1
+esmfold2-fast 1152 10 steps=6 probe=1
+protenix-v2 1024 10 steps=6 probe=1
+openfold3 1024 10 steps=6 probe=1
+openbind 960 10 steps=6 probe=1
+opendde 1024 10 steps=6 probe=1
+opendde-abag 1024 10 steps=6 probe=1
+rf3 1088 10 steps=6 probe=1

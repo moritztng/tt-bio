@@ -426,6 +426,7 @@ class OpenFold3(Module):
             ttnn.deallocate(xl_init_dev)
             ttnn.deallocate(xl_final_dev)
             samples.append(xl_final)
+            dram_peak("diffusion sample done")
             print(f"  [fold] sample {sample_index}: xl_final std={float(xl_final.std()):.4f} "
                   f"range=[{float(xl_final.min()):.2f},{float(xl_final.max()):.2f}]")
 
@@ -440,6 +441,7 @@ class OpenFold3(Module):
                 for sample in samples
             ]
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
+            dram_peak(f"confidence done [samples={len(samples)}]")
         else:
             best_index = 0
         return OpenFold3FoldResult(samples, confidence, best_index)
