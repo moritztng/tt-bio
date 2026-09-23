@@ -1,0 +1,1 @@
+$HOME/env/bin/python perf/mgx_sdpa/census.py --out $S/census_$TREE.jsonl --label rfd3-binder -- design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir $S/o/$TREE-rfd3

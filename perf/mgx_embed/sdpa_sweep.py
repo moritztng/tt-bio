@@ -15,7 +15,8 @@ against torch's fp32 SDPA. One row per (config, arm). The arms:
   zero  an all-zero [1, 1, L, L] additive mask, which changes nothing mathematically (what
         tenstorrent.fused_sdpa passes in place of None)
   bias  a real [1, H, L, L] bias, N(0, 2) in bf16, shared over the batch the way a pair model's
-        triangle attention shares it; the reference takes the same bf16 bias
+        triangle attention shares it; the reference takes the same bf16 bias, times the scale,
+        because ttnn scales the mask with the scores (rows before `bias_ref` did not)
 
 --configs takes explicit B,H,L,d,q_chunk,k_chunk tuples separated by `;`, for the shapes a census
 names; otherwise the product of --batch/--heads/--dims/--lengths/--chunks is swept. --grid
@@ -33,8 +34,11 @@ def _pcc(a, b):
 
 
 def _reference(q, k, v, bias, scale):
+    # ttnn's SDPA computes softmax((q k^T + mask) * scale): it scales the mask with the scores,
+    # where torch adds it after. So the reference takes bias * scale.
     # One batch row at a time: a triangle-attention shape has B = L, and [B, H, L, L] fp32 scores
     # at 1536 tokens would be 58 GB.
+    bias = None if bias is None else bias * scale
     return torch.cat([torch.nn.functional.scaled_dot_product_attention(
         q[b:b + 1], k[b:b + 1], v[b:b + 1], attn_mask=bias, scale=scale)
         for b in range(q.shape[0])])
@@ -83,7 +87,7 @@ def main():
                 if arm not in refs:
                     refs[arm] = _reference(q, k, v, bias if arm == "bias" else None, d ** -0.5)
                 row = dict(grid=[gx, gy], arch=str(dev.arch()), B=B, d=d, H=H, L=L, q_chunk=qc,
-                           k_chunk=kc, mask=arm != "none", arm=arm)
+                           k_chunk=kc, mask=arm != "none", arm=arm, bias_ref="scaled")
                 cfg = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy),
                                              exp_approx_mode=False, q_chunk_size=qc, k_chunk_size=kc)
                 try:

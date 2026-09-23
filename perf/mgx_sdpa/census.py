@@ -88,10 +88,12 @@ if os.environ.get("SDPA_CENSUS_DIR"):
                 mh = ttnn.to_torch(mask).float()
                 mh = mh[:, :, :Lq, :Lk]
             scale = kw.get("scale")
+            # ttnn scales the mask with the scores: softmax((q k^T + mask) * scale).
             ref = torch.nn.functional.scaled_dot_product_attention(
-                qh, kh, vh, attn_mask=mh, scale=scale)
+                qh, kh, vh, attn_mask=None if mh is None else mh * scale, scale=scale)
             oh = ttnn.to_torch(o).float()[:B, :H, :Lq, :d]
             r["pcc_fp32"] = _pcc(oh, ref)
+            r["ref"] = "mask*scale"
             if mask is None:
                 z = ttnn.from_torch(torch.zeros(B, 1, Lq, Lk, dtype=torch.bfloat16),
                                     device=q.device(), layout=ttnn.TILE_LAYOUT)
