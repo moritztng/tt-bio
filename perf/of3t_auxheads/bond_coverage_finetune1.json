@@ -1,0 +1,136 @@
+{
+ "instrument": "PROTOCOL SS6: bond term fires, with its gradient contribution measured",
+ "stage": "finetune_1",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "index": 0,
+ "dtype": "float32",
+ "seed": 20260920,
+ "target": {
+  "token_bonds_nnz": 172,
+  "token_bonds_pairs": 86,
+  "loss_weight_bond": 4.0,
+  "n_tokens_real": 384
+ },
+ "arms": {
+  "bond4": {
+   "weight": 4.0,
+   "loss": 0.16268952190876007,
+   "breakdown": {
+    "plddt_loss": 2.0919764041900635,
+    "pde_loss": 1.321932077407837,
+    "experimentally_resolved_loss": 0.0016630279133096337,
+    "pae_loss": 2.528242588043213,
+    "confidence_loss": 0.0005943813594058156,
+    "mse_loss": 0.6056285500526428,
+    "bond_loss": 0.0,
+    "diffusion_loss": 0.12762480974197388,
+    "distogram_loss": 1.1490111351013184,
+    "scaled_distogram_loss": 0.034470334649086,
+    "loss": 0.16268952190876007
+   }
+  },
+  "bond0": {
+   "weight": 0.0,
+   "loss": 0.16268952190876007,
+   "breakdown": {
+    "plddt_loss": 2.0919764041900635,
+    "pde_loss": 1.321932077407837,
+    "experimentally_resolved_loss": 0.0016630279133096337,
+    "pae_loss": 2.528242588043213,
+    "confidence_loss": 0.0005943813594058156,
+    "mse_loss": 0.6056285500526428,
+    "diffusion_loss": 0.12762480974197388,
+    "distogram_loss": 1.1490111351013184,
+    "scaled_distogram_loss": 0.034470334649086,
+    "loss": 0.16268952190876007
+   }
+  }
+ },
+ "bond_gradient_contribution": {
+  "squared_norm_with_bond": 0.2834103698681804,
+  "squared_norm_of_difference": 0.0,
+  "share_of_squared_gradient_norm": 0.0,
+  "n_params_moved": 0,
+  "n_params": 4170
+ },
+ "by_section": {
+  "input_embedder": {
+   "sq": 0.0005143222749369242,
+   "delta_sq": 0.0,
+   "n": 98,
+   "share_of_own": 0.0
+  },
+  "layer_norm_z": {
+   "sq": 7.908656024528782e-06,
+   "delta_sq": 0.0,
+   "n": 2,
+   "share_of_own": 0.0
+  },
+  "linear_z": {
+   "sq": 7.747304497233302e-07,
+   "delta_sq": 0.0,
+   "n": 1,
+   "share_of_own": 0.0
+  },
+  "template_embedder": {
+   "sq": 2.243789235954783e-05,
+   "delta_sq": 0.0,
+   "n": 96,
+   "share_of_own": 0.0
+  },
+  "msa_module_embedder": {
+   "sq": 0.0002800567467141526,
+   "delta_sq": 0.0,
+   "n": 2,
+   "share_of_own": 0.0
+  },
+  "msa_module": {
+   "sq": 0.0037986545386039326,
+   "delta_sq": 0.0,
+   "n": 227,
+   "share_of_own": 0.0
+  },
+  "layer_norm_s": {
+   "sq": 3.3330522997970887e-06,
+   "delta_sq": 0.0,
+   "n": 2,
+   "share_of_own": 0.0
+  },
+  "linear_s": {
+   "sq": 1.5841524473203265e-07,
+   "delta_sq": 0.0,
+   "n": 1,
+   "share_of_own": 0.0
+  },
+  "pairformer_stack": {
+   "sq": 0.020053486237021557,
+   "delta_sq": 0.0,
+   "n": 2736,
+   "share_of_own": 0.0
+  },
+  "diffusion_module": {
+   "sq": 0.15866304448926608,
+   "delta_sq": 0.0,
+   "n": 761,
+   "share_of_own": 0.0
+  },
+  "aux_heads": {
+   "sq": 0.10006619283525928,
+   "delta_sq": 0.0,
+   "n": 244,
+   "share_of_own": 0.0
+  }
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "total_s": 1789.9867451190948
+}

@@ -1,0 +1,70 @@
+{
+ "instrument": "aux_heads forward bisection against upstream 0.4.3 float64",
+ "arm": "padded",
+ "n_tokens": 384,
+ "use_zij_trunk_embedding": true,
+ "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+ "bar": 0.05,
+ "rows": [
+  {
+   "stage": "embed_z",
+   "rel_l2": 0.0017169237418025271,
+   "ref_norm": 15590021.775033431
+  },
+  {
+   "stage": "block0_s",
+   "rel_l2": 0.03402593096021063,
+   "ref_norm": 2546841.364757058,
+   "our_norm": 2553913.856262089
+  },
+  {
+   "stage": "block0_z",
+   "rel_l2": 0.01690794538350873,
+   "ref_norm": 15594167.160179798,
+   "our_norm": 15618969.077637572
+  },
+  {
+   "stage": "block1_s",
+   "rel_l2": 0.034629393072381665,
+   "ref_norm": 2549077.0187332323,
+   "our_norm": 2556359.3141164714
+  },
+  {
+   "stage": "block1_z",
+   "rel_l2": 0.022386789298094147,
+   "ref_norm": 15597251.636633145,
+   "our_norm": 15603110.932105847
+  },
+  {
+   "stage": "block2_s",
+   "rel_l2": 0.036305070049582236,
+   "ref_norm": 2571347.4513096204,
+   "our_norm": 2577207.3844068623
+  },
+  {
+   "stage": "block2_z",
+   "rel_l2": 0.029791851769698178,
+   "ref_norm": 15598253.133344553,
+   "our_norm": 15568321.690661415
+  },
+  {
+   "stage": "block3_s",
+   "rel_l2": 0.0619207005550299,
+   "ref_norm": 2575275.9054920846,
+   "our_norm": 2598853.7158744484
+  },
+  {
+   "stage": "block3_z",
+   "rel_l2": 0.04482125643947159,
+   "ref_norm": 15622838.51074106,
+   "our_norm": 15668992.8991793
+  }
+ ],
+ "first_stage_over_bar": "block3_s",
+ "worst": {
+  "stage": "block3_s",
+  "rel_l2": 0.0619207005550299,
+  "ref_norm": 2575275.9054920846,
+  "our_norm": 2598853.7158744484
+ }
+}
