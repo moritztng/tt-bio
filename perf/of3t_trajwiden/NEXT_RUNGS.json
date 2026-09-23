@@ -1,0 +1,102 @@
+{
+ "what": "which rung to drive next, ordered by what its reading would be WORTH rather than by how much mass it adds. A trajectory scores d_k = w_k - w_0 driven by our gradient, so a section whose single-step gradient already sits near the zero-gradient baseline cannot produce a trajectory reading that carries information -- it can only saturate.",
+ "why_this_exists": "the obvious order is by mass, which puts pairformer_stack (+5.8282) first. That is also the most expensive rung (11.41 h, FLOOR.json) and, frame-matched, the one whose gradient is nearest saturation. Checking the static readings first cost minutes and reordered 11.41 h of box time.",
+ "the_baseline_every_reading_is_against": {
+  "zero_gradient_mass_weighted_rel_l2": 1.0,
+  "source": "perf/of3t_trunkg043/SCORE_c64.json A16_zero_gradient_baseline, measured not asserted, exactly_one true. A reading of 0.9 against this is not a pass."
+ },
+ "already_in_the_trajectory": {
+  "diffusion_module": {
+   "pct_of_model": 88.08194359237523,
+   "trajectory_rel_d_k20": 0.2564253,
+   "static_gradient_vs_float64": {
+    "diffusion_conditioning": 0.007865384774093601,
+    "diffusion_transformer": 0.11670185505910508
+   },
+   "amplification_static_to_trajectory": "the diffusion arm's static gradient is 0.0079 (conditioning) to 0.1167 (transformer) mass-weighted against float64, and its 20-step trajectory reads 0.2564. So a 20-step trajectory reads LARGER than the single-step gradient it is driven by, roughly 2.2x here, because the error accumulates and because d_k differences two small quantities. That factor is what makes a static reading near 1.0 a refusal rather than a warning."
+  }
+ },
+ "candidate_rungs_in_the_order_TO_DRIVE_THEM": [
+  {
+   "rung": "aux_heads",
+   "rank": 1,
+   "pct_of_model_to_add": 2.8431,
+   "static_gradient_mass_weighted_rel_l2_vs_float64": 0.0023114566006225273,
+   "static_gradient_median_over_tensors": 1.0152023472138278,
+   "mass_weighted_cos": 0.9999974543242095,
+   "n_compared": 180,
+   "source": "MODEL_d56_retake.json per_section d56on_vs_FLOAT64",
+   "verdict": "DRIVE FIRST. The lowest mass-weighted gradient error of any section in the model against float64, 0.00231 with cos 1.00000, and 180 of 244 tensors compared. A small module with no 48-noise-level sample axis, so cheap.",
+   "caveat": "its MEDIAN over tensors is 1.01520 while its MASS-WEIGHTED reading is 0.00231, so the section's mass sits in a few tensors that agree almost exactly while the typical tensor is at saturation. A15/D17 in miniature. A trajectory scores rel_d over the CONCATENATION, which is the mass-weighted quantity, so this rung is the right one to drive -- but its per-tensor picture must be reported beside the headline, not instead of it.",
+   "AMENDED_2026-09-22_pass2": {
+    "what_was_wrong": "this entry ranked aux_heads first on 0.0023114566 mass-weighted against float64 and explained its MEDIAN of 1.01520 as mass concentration, A15/D17 in miniature. The concentration is real but it is NOT what puts the median at 1.0. The mechanism is a MISSING MASK, and the arm that shows it existed before this row started.",
+    "the_arm_pair": {
+     "source": "perf/of3t_auxgrad/grad_M_masked.json and grad_N_unmasked.json, of3t-auxgrad's re-take of instrument A at aux scope, 176 tensors, same reference, same boundary",
+     "M_masked": {
+      "mass_weighted_rel_l2": 0.002271382484742019,
+      "median_rel_l2": 0.05365712665085962,
+      "n_over_per_tensor_bar": 89,
+      "forward_worst_head": "experimentally_resolved_logits",
+      "forward_worst_rel_l2": 0.005052371041859388,
+      "forward_heads_over_bar": 0
+     },
+     "N_unmasked": {
+      "mass_weighted_rel_l2": 0.0022995509589748215,
+      "median_rel_l2": 1.0481785319823138,
+      "n_over_per_tensor_bar": 171,
+      "forward_worst_head": "pae_logits",
+      "forward_worst_rel_l2": 0.5177081904801654,
+      "forward_heads_over_bar": 4
+     },
+     "n_tensors": 176,
+     "n_heads": 5
+    },
+    "what_the_pair_says": "the MASS-WEIGHTED reading is insensitive to the mask -- 0.002271 masked against 0.002300 unmasked, a 1.3 % difference -- while the MEDIAN over tensors moves 19.5x, 0.05366 to 1.04818, and the count over the per-tensor bar goes 89 to 171 of 176. The FORWARD decides it: masked, 0 of 5 heads are over bar with a worst of 0.00505; unmasked, 4 of 5 are over bar with pae_logits at 0.51771. PROTOCOL A18's first clause is that a disagreeing forward invalidates the gradient taken at it, so the unmasked gradient is taken at a forward that disagrees.",
+    "which_number_the_campaign_carries": "MODEL_d56_retake.json's aux_heads figure comes from perf/of3t_auxheads/aux_instrument.py via scoperun.sh, which passes no --mask and whose instrument has no such flag. So the 0.00231 the campaign carries -- and that this entry ranked on -- is arm N, the unmasked one. of3t-auxgrad's own docstring says of that arm's 2.2996e-03: 'the gradient of a different function'.",
+    "why_the_ranking_SURVIVES_anyway": "a trajectory scores rel_d over the CONCATENATION, which is the mass-weighted quantity, and that quantity is the same to 1.3 % under both masks. So aux_heads is still the right rung to drive first. What changes is HOW: it must be driven with the masks ON, and the unmasked arm must be run beside it as the control, because otherwise the trajectory is seeded by a forward that disagrees with upstream on 4 of 5 heads and the reading cannot be attributed.",
+    "live_tree_check": {
+     "file": "tt_bio/openfold3_confidence.py",
+     "forward_device_signature": "forward_device(self, si_input_d, si_trunk_d, zij_trunk_d, oh_d, use_zij_trunk_embedding=True, pair_mask_d=None, attn_mask_d=None)",
+     "status": "the mask repair from of3t-auxfind IS landed and IS plumbed, and both arguments DEFAULT TO NONE -- the source comment says so outright: 'Both default to None, so the shipped default is unchanged and every existing caller computes the same function.' A landed lever at default off is not a landed win.",
+     "who_calls_it": "the only tt_bio call site is openfold3_confidence.py:387, the inference s_path=='device' branch, and it passes no masks. _S_PATH_DEFAULT is 'host', so inference does not reach it by default either. The source states 'Training does not read this -- it calls forward_device directly', and there is NO shipped training caller of the confidence head in tt_bio.",
+     "consequence": "the mask setting for a training trajectory at aux scope is a HARNESS choice, not a shipped-code fact. Neither arm can be called 'the shipped trajectory'. So this row runs BOTH and says which is which, rather than picking one and naming it shipped."
+    },
+    "the_general_error_to_note": "the mechanism was retrodicted. A15/D17 concentration FITS a median near 1.0 and is a real property of this section, so it read as an explanation; the arm that actually moves the median by 19.5x was already on disk in a sibling namespace. Naming a plausible mechanism is not measuring one."
+   }
+  },
+  {
+   "rung": "msa_module",
+   "rank": 2,
+   "pct_of_model_to_add": 1.2317,
+   "static_gradient_mass_weighted_rel_l2_vs_float64": 0.0891536427177135,
+   "static_gradient_median_over_tensors": 0.027085093215302673,
+   "mass_weighted_cos": 0.9960184649483356,
+   "n_compared": 154,
+   "source": "MODEL_d56_retake.json per_section d56on_vs_FLOAT64",
+   "verdict": "DRIVE SECOND. 0.08915 mass-weighted against float64, comparable to the diffusion_transformer's 0.11670 that already sits inside a working trajectory, and its median over tensors is 0.02709, better behaved than aux_heads.",
+   "caveat": "154 of 227 tensors compared, so 0.0083 % of model mass inside the section has no device gradient and stays out of scope."
+  },
+  {
+   "rung": "pairformer_stack",
+   "rank": 3,
+   "pct_of_model_to_add": 5.8282,
+   "static_gradient_mass_weighted_rel_l2_vs_float64": 0.8354121633458239,
+   "static_gradient_median_over_tensors": 0.662982930436947,
+   "mass_weighted_cos": 0.9091058234385611,
+   "mass_weighted_norm_ratio": 0.9981898696200321,
+   "n_compared": 2736,
+   "over_per_tensor_bar": 2735,
+   "source": "perf/of3t_frame384/FRAME_N384.json MATCHED.ours_vs_REF_LOCAL_f64_n384, crop 384, FRAME-MATCHED: our arm against the local float64 reference taken at the same boundary, not against the model-frame bundle. The cross-frame reading in the same file is 2.1595 and would be the wrong number to use here.",
+   "verdict": "DEFER, and not on cost. Frame-matched at crop 384 this arm reads 0.8354 mass-weighted against float64, where the zero-gradient baseline is exactly 1.0 and 2735 of 2736 tensors are over the per-tensor bar. Applying the ~2.2x static-to-trajectory amplification the diffusion arm exhibits, a 20-step trunk trajectory would read at or above saturation, so the 11.41 h would buy a number that says 'saturated' and nothing more.",
+   "what_would_change_it": "the trunk's SINGLE-STEP gradient error has to come down first. of3t-frame384's own leaf attribution puts 93.80 % of the failure on LayerNorm affine; that is a porting target, and it is cheaper to measure at one step than at twenty.",
+   "do_not_read_the_c64_numbers_as_this": "SCORE_c64.json reads 5.5069 (SHIPPED) and 9.0252 (FLIPPED) at crop 64. Those are a different padded width AND a different arm configuration from the crop-384 frame-matched 0.8354. Quoting either as 'the trunk arm' would repeat the cross-frame error this campaign has already made once on this exact section."
+  }
+ ],
+ "what_this_does_to_the_reachable_ceiling": {
+  "with_aux_and_msa_only": 92.15674359237524,
+  "note": "92.1567 %, which is the static instrument's ENTIRE coverage (92.1568 %, MODEL_d56_retake.json). So the two cheap low-error rungs take the trajectory to the static instrument's own reach, and the expensive high-mass rung is the one that would saturate. 97.9849 % still needs the trunk, and the trunk needs porting first."
+ },
+ "AMENDMENT_LOG": [
+  "2026-09-22 pass 2: aux_heads' entry amended in place. The median-near-1.0 was attributed to mass concentration; it is a missing mask, and of3t-auxgrad's M/N arm pair measures it. The first-place ranking survives because a trajectory scores the mass-weighted quantity, which moves only 1.3 % between the arms. See candidate_rungs[0].AMENDED_2026-09-22_pass2."
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 180",
+ "headline": "A hypothesis that would have been a large finding, checked and REFUTED by the campaign's own record: the softmax block on the 51.1358 % is NOT an inference verdict misapplied to training. Both device levers were evaluated against the training bar and both miss it by two orders of magnitude.",
+
+ "what_I_suspected": "of3t-softmax's VERDICT is NO-GO and its own DOESNOT says plainly 'it does not prove anything about training: this is an inference-path measurement and every number above was taken on the inference path.' THE_ANSWER cites that NO-GO beside the 51.1358 %. That looked like the campaign blocking a TRAINING scope on an INFERENCE decision -- the same category error as scoring against the wrong revision, and worth a large correction if true.",
+
+ "why_it_is_not_true": "the training case was closed separately and earlier, by an UPPER BOUND that needs no independence assumption: assume the lever helps EVERY tensor in the 547-tensor arm by its full measured gradient factor, which cannot be beaten by any amount of sequential coupling. Under that most-generous assumption the shippable device levers leave the diffusion arm at 3.3641 (168.2x over bar) and 1.7242 (86.2x over bar) against a needed 378x improvement. A two-order-of-magnitude shortfall under a conservative bound does not flip; the measured factors would have to be ~100x wrong.",
+
+ "so_the_three_levers_are": {
+  "shipped (no compute_kernel_config)": {"rel_rms_vs_f64": 2.029e-02, "arm_gradient": 7.426217, "verdict": "fails 91.31x the reachable bar"},
+  "precise_config()": {"rel_rms_vs_f64": 1.646e-03, "cost": "1.46x/op", "arm_bound": 3.3641, "verdict": "168.2x over bar -- does not reach it"},
+  "_accurate_softmax": {"rel_rms_vs_f64": 5.156e-04, "cost": "4.71x/op", "arm_bound": 1.7242, "verdict": "86.2x over bar -- does not reach it"},
+  "float64 on the host": {"arm_gradient": 0.0777758, "verdict": "0.9563x the reachable bar, PASSES -- but it is a host computation on a tape verb, not a lever that can run in training"}
+ },
+
+ "the_honest_position_this_leaves": "the 51.1358 % is blocked by something real: the only configuration that reaches the training bar is a host float64 softmax, which is a measurement instrument rather than a runnable training path, and the two device levers that could run are bounded 86x and 168x short. That is a genuine ceiling, not a decision anyone declined to make, and it should not be presented to Moritz as a tradeoff he can settle by accepting a performance cost -- because buying the cost does not buy the parity.",
+
+ "the_hygiene_defect_found_while_checking": "NO_SOFTMAX_LEVER_REACHES_THE_BAR.json recorded PARTIAL_WITHDRAWAL_AT_PASS_160 withdrawing its float64 row's 0.1370, and the field `the_residual_that_survives_a_perfect_softmax` went on carrying 0.1370 as live content for twenty passes. A withdrawal recorded in a neighbouring field does not stop the withdrawn figure being read out of its own. Nulled at pass 180 with the original text kept under WITHDRAWN_TEXT_KEPT_FOR_AUDIT.",
+
+ "why_this_is_published_as_a_negative": "the campaign's record is large enough that a plausible-sounding gap is often already closed somewhere in it, and the check cost one pass against a correction that would have been wrong. D90 was escalated before reading and had to be withdrawn; this one was read before escalating and did not.",
+
+ "provenance": "of3t-orchestrator pass 180 on pc, CPU only, no new measurement. Read from state/of3t-softmax.md (VERDICT, COST, DOESNOT) and perf/of3t_orchestrator/NO_SOFTMAX_LEVER_REACHES_THE_BAR.json (the_bound, PARTIAL_WITHDRAWAL_AT_PASS_160)."
+}

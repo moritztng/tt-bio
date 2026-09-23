@@ -1,0 +1,23 @@
+{
+ "what": "D174 on the torch reference, on CPU, in seconds: what can a REAL token see of the pad?",
+ "tokens": 24,
+ "real_tokens": 10,
+ "A_over_A": {
+  "s_bit_identical": true,
+  "z_bit_identical": true
+ },
+ "real_block": {
+  "s_absdiff": 0.0,
+  "z_absdiff": 0.0,
+  "s_rel": 0.0,
+  "z_rel": 0.0,
+  "s_norm": 18.770462036132812,
+  "z_norm": 40.26219940185547
+ },
+ "padded_region": {
+  "s_norm_unmasked": 0.018465863540768623,
+  "s_norm_masked": 0.0,
+  "z_norm_unmasked": 0.02884284220635891,
+  "z_norm_masked": 0.0
+ }
+}

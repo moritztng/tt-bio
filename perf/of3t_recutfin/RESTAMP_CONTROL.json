@@ -1,0 +1,127 @@
+{
+ "what": "of3t-recutfin job 1, control: the restamped artifact against the one of3t-recut banked.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recutfin",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this compares two JSON documents",
+ "banked": {
+  "path": "perf/of3t_recut/MODEL_RECUT_composed3660_n384.json",
+  "bytes": 56856
+ },
+ "new": {
+  "path": "/home/ttuser/of3t_recutfin/MODEL_RECUT_composed3660_n384.json",
+  "bytes": 57872
+ },
+ "keys_added": [
+  "injection"
+ ],
+ "keys_removed": [],
+ "n_leaves_differing": 0,
+ "differences": [],
+ "CONTRACT_KEYS": [
+  {
+   "key": "inputs.float64.sha256",
+   "present_in_new": true,
+   "new": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "present_in_banked": true,
+   "banked": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "unchanged": true
+  },
+  {
+   "key": "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+   "present_in_new": true,
+   "new": 0.22072451195864032,
+   "present_in_banked": true,
+   "banked": 0.22072451195864032,
+   "unchanged": true
+  },
+  {
+   "key": "stats.renorm_vs_FLOAT64.n_over_per_tensor_bar",
+   "present_in_new": true,
+   "new": 3312,
+   "present_in_banked": true,
+   "banked": 3312,
+   "unchanged": true
+  },
+  {
+   "key": "stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar",
+   "present_in_new": true,
+   "new": 3494,
+   "present_in_banked": true,
+   "banked": 3494,
+   "unchanged": true
+  },
+  {
+   "key": "coverage_total.pct_of_model_compared",
+   "present_in_new": true,
+   "new": 99.50523155277438,
+   "present_in_banked": true,
+   "banked": 99.50523155277438,
+   "unchanged": true
+  },
+  {
+   "key": "bars.A26_reachable_bar_vs_their_bf16",
+   "present_in_new": true,
+   "new": 0.15210099830945006,
+   "present_in_banked": true,
+   "banked": 0.15210099830945006,
+   "unchanged": true
+  },
+  {
+   "key": "injection.convention",
+   "present_in_new": true,
+   "new": "graph-cut-external",
+   "present_in_banked": false,
+   "banked": null,
+   "unchanged": true
+  }
+ ],
+ "injection": {
+  "convention": "graph-cut-external",
+  "what_the_single_value_means": "the convention every INJECTED scope was driven by. It is one string only because disagreeing injected scopes are refused; read by_scope for which scope carries it.",
+  "n_scopes": 6,
+  "n_injected": 1,
+  "key_form": "ARM:SCOPE, the same identifier --arm uses",
+  "by_scope": {
+   "renorm:diffusion": {
+    "convention": "not_injected"
+   },
+   "renorm:input_embedder": {
+    "convention": "not_injected"
+   },
+   "renorm:cond": {
+    "convention": "not_injected"
+   },
+   "renorm:aux": {
+    "convention": "not_injected"
+   },
+   "renorm:msa": {
+    "convention": "not_injected"
+   },
+   "renorm:pairformer_stack": {
+    "convention": "graph-cut-external",
+    "correction": {
+     "path": "/home/ttuser/of3t_recut/cot_external.pt",
+     "sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+    }
+   }
+  }
+ },
+ "correction_digest": {
+  "expected_from_COTANGENTS.json": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+  "computed_by_the_composer": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+ },
+ "checks": {
+  "only_key_added_is_injection": true,
+  "no_key_removed": true,
+  "byte_identical_once_the_stamp_is_stripped": true,
+  "no_leaf_differs_by_repr": true,
+  "every_contract_key_present": true,
+  "the_six_existing_values_are_unchanged": true,
+  "convention_reads_graph_cut_external": true,
+  "per_scope_map_is_the_briefs_table": true,
+  "exactly_one_scope_is_injected": true,
+  "correction_digest_is_the_banked_cot_external": true
+ },
+ "verdict": "the stamp is additive: every value the banked artifact carried comes back bit-identical and the only new key is `injection`"
+}

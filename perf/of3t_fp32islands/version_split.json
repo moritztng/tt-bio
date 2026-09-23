@@ -1,0 +1,65 @@
+[
+ {
+  "row": "layer_norm FORWARD  [1,384,384]",
+  "arms": {
+   "floor_bf16_out": 0.0016684671128007313,
+   "0.4.3 (bf16, autocast disabled)": 0.0016684671135313136,
+   "0.5.0 (fp32 upcast, bf16 out)": 0.0016684671135351354,
+   "0.5.0 fp32 value, unrounded": 6.479485697686947e-08,
+   "ours bf16 + precise_config": 0.0019325417145638654,
+   "ours fp32 storage + precise": 0.0012533806947050404
+  }
+ },
+ {
+  "row": "layer_norm BACKWARD d(gamma)  [384]",
+  "arms": {
+   "floor_bf16_out": 0.0016459046415892966,
+   "0.4.3 (bf16)": 0.006603603243648598,
+   "0.5.0 (fp32)": 1.4074979048628952e-07,
+   "ours bf16 (as shipped)": 0.004256869043957244,
+   "ours fp32 storage": 0.0014262175168354317
+  }
+ },
+ {
+  "row": "layer_norm BACKWARD dx  [1,384,384]",
+  "arms": {
+   "floor_bf16_out": 0.0016580702496566627,
+   "0.4.3 (bf16)": 0.002416324280998717,
+   "0.5.0 (fp32)": 6.971752503104629e-08,
+   "ours bf16 (as shipped)": 0.004273496721410043,
+   "ours fp32 storage": 0.002088418178109397
+  }
+ },
+ {
+  "row": "attention REGION  tri-att [16,4,384,32]",
+  "arms": {
+   "floor_bf16_out": 0.001659112288024452,
+   "0.4.3 (bf16 throughout)": 0.007259394509048005,
+   "0.5.0 (fp32 region, value inside)": 2.8241815685591577e-07,
+   "0.4.3 shape w/ fp32 scores only": 0.0016640123281849014,
+   "ours bf16 + precise_config": 0.007192778061406537,
+   "ours fp32 storage + precise": 0.0017011354460627225
+  }
+ },
+ {
+  "row": "softmax FORWARD  APB [1,16,384,384]",
+  "arms": {
+   "floor_bf16_out": 0.0016175673007996479,
+   "0.4.3 (softmax_no_cast, bf16)": 0.0016175673010402798,
+   "0.5.0 (fp32 region)": 9.02979971811559e-08,
+   "ours no compute_kernel_config": 0.022688793712442014,
+   "ours bf16 + precise_config": 0.0017123229444438591,
+   "ours fp32 storage + precise": 0.0005110115511930118
+  }
+ },
+ {
+  "row": "softmax BACKWARD dx  APB [1,16,384,384]",
+  "arms": {
+   "floor_bf16_out": 0.0016543892991308909,
+   "0.4.3 (bf16)": 0.002248632563664405,
+   "0.5.0 (fp32)": 1.4299061625337159e-07,
+   "ours bf16 (as shipped)": 0.003518368795322182,
+   "ours fp32 storage": 0.0008192929769570177
+  }
+ }
+]

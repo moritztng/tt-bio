@@ -1,0 +1,59 @@
+{
+ "defect": "D237 UPDATE 2",
+ "what": "the pass-377 projection is CORRECTED DOWNWARD: on the lever reading that is a valid gradient the frame-matched clause reads 1.0674x the bar and FAILS, not 0.8986x passing.",
+ "host": "pc",
+ "device_involved": false,
+ "inputs": {
+  "graded": {
+   "path": "/tmp/of3t/of3t-orchestrator/graded3660.json",
+   "sha256": "15487d253868598f3dd37c8732edf088d0275bfc3dd5b2f816eff8e8f51ce901"
+  }
+ },
+ "lever_source": "of3t-f64route, qb1 card 2, p150a, AICLK 1350 median DURING (374 and 416 samples over the two arms). ROUTE_HF 2527 s, VERB_HF 2753 s.",
+ "bar": 0.15210099830945006,
+ "trunk_allowance": 0.44608901561034203,
+ "trunk_A26_perfect": 0.4212097971234601,
+ "cases": {
+  "no_lever": {
+   "trunk_in_frame_reading": null,
+   "lever_factor": 1.0,
+   "implied_multiple_of_their_bf16": 2.2340903768268046,
+   "x_t": 0.6654021566584541,
+   "model_reading": 0.19635234908555793,
+   "x_bar": 1.290933992991146,
+   "passes": false,
+   "why": "the trunk as it ships"
+  },
+  "CEIL_HF_hybrid_RETRACTED_AS_A_TARGET": {
+   "trunk_in_frame_reading": 0.5547455957585244,
+   "lever_factor": 1.8556169632402584,
+   "implied_multiple_of_their_bf16": 1.2039609580447357,
+   "x_t": 0.35858809756542437,
+   "model_reading": 0.1366779871538191,
+   "x_bar": 0.8986001977169618,
+   "passes": true,
+   "why": "5285 taped calls; the 912 untaped blocks take the device softmax forward and the float64 Jacobian. Forward and backward disagree: not shippable, not a gradient. This is the number my pass-377 projection used and it was wrong to."
+  },
+  "ROUTE_HF_consistent": {
+   "trunk_in_frame_reading": 0.7734340172378431,
+   "lever_factor": 1.3309413793934355,
+   "implied_multiple_of_their_bf16": 1.6785790955308424,
+   "x_t": 0.4999485078461572,
+   "model_reading": 0.16235083592657124,
+   "x_bar": 1.0673883651721197,
+   "passes": false,
+   "why": "7442 of 7442 tail blocks, forward AND Jacobian the same softmax. The honest lever."
+  }
+ },
+ "what_is_now_necessary_and_what_is_left": {
+  "frame_fix_alone": "without it a bit-exactly perfect trunk reads 3.1624x the bar (D237)",
+  "lever_alone": "without it the frame-matched clause reads 1.2909x (FAILS)",
+  "both": "1.0674x (FAILS), so both are necessary and neither is sufficient",
+  "remaining_factor_on_the_trunk": 1.12073709585098,
+  "remaining_reading": "the trunk must reach 0.4460890156 and the projection puts it at 0.4999485078",
+  "owner_of_the_remainder": "of3t-cotterm -- the AttentionPairBias across-component cotangent error. This replaces '12.8 % deficit' and '5.25 % left' with a quantity that is scoped to the clause the charter applies."
+ },
+ "collateral": "of3t-trunkceiling's 12.8 % norm deficit, its located unexplained object, reads 3.6 % on ROUTE_HF (norm ratio 0.964213 against 0.872203). It pays in cosine (0.856707 -> 0.782945) and the rel L2 is the net.",
+ "inference_hard_constraint": "of3t-f64route measured base == off == on BYTE FOR BYTE on openfold3, rf3 and protenix-v2, 18 folds, qb1 card 3 p150a, AICLK median 1350 on every one and no arm under 1200, with TT_BIO_HOST_F64_SOFTMAX_AB=all forced at every site. Digests identical. The training-only constraint holds on the landed route.",
+ "caveat": "a PROJECTION. The multiple of upstream's own bf16 is measured in frame and carried onto the model boundary, which has 3.12x less trunk gradient mass. of3t-modelframe measures it."
+}

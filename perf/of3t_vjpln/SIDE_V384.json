@@ -1,0 +1,3473 @@
+{
+ "pin": "allref2",
+ "blocks": "45,44",
+ "chunk": 16,
+ "rc": 0,
+ "seconds": 838.4,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/of3t-vjpln/tt_bio/__init__.py",
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "2,1",
+  "VJP_PIN": "allref2",
+  "VJP_BLOCKS": "45,44"
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 384,
+  "blocks": 6754,
+  "fused": 6765,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 6532,
+  "l1_refused": 11,
+  "l1_cores": 96,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 3888,
+  "declined": 0
+ },
+ "pin_blocks": [
+  44,
+  45
+ ],
+ "blocks_seen": 48,
+ "nodes_selected": 690,
+ "substitutions": {
+  "layer_norm block44": 27,
+  "layer_norm block45": 27,
+  "linear block44": 59,
+  "linear block45": 59,
+  "matmul block44": 178,
+  "matmul block45": 178,
+  "softmax block44": 81,
+  "softmax block45": 81
+ },
+ "substitutions_total": 690,
+ "float32_writeback_tensors": 1274,
+ "float32_writeback_lossy": 413,
+ "errors": {},
+ "moved": [
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001672845618610007,
+    0.0006183500453419274
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017490856996650326,
+    0.0006252361136927931
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001672333492522599,
+    0.0005943610774306548
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004666336971639367,
+    0.0018362491698363339,
+    0.0017424151547417164
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016992615234393599,
+    0.0006587928324092922
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0014185676977071398,
+    0.0016454494178423694
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.006820792457131713
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0018464159873237817,
+    0.0016125205407069893
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016611372816714637,
+    0.001248423307475631
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0042569850479191595,
+    0.018116948111484222,
+    0.10536411158050611
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017177908187540304,
+    0.0005887274186329081
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001726285181278897,
+    0.0005682320087014033
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001748702643558525,
+    0.0005908532314586063
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0041611207496224005,
+    0.010272753530919507,
+    0.00156622897899802
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017068228370734967,
+    0.000584025662942676
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0015709381356265638,
+    0.0017152384248751886
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0009132264237100511
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0018312479600134015,
+    0.0022829850789129504
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.002068180529448685,
+    0.001675164747170043
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.000755352166498887
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016467617430628136,
+    0.00176576286276092
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017400579815311107,
+    0.00166963282303455
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.00048145684461172226
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016901497848643729,
+    0.0016187836182036054
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001644654121446081,
+    0.00048766663132362883
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001684289957547858,
+    0.0005525319171371126
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016951847635703003,
+    0.0005188056080053337
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004147096478191712,
+    0.01737692183315808,
+    0.0016610948611034176
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016910216156040558,
+    0.0006514835166892179
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016286644198997991,
+    0.0017514692830615443
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0003230991609807813
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016354898776721686,
+    0.0016701038600239726
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0019513379291927928,
+    0.0017391991835293056
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0003996626413813676
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001653861186796589,
+    0.0016764201738410612
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001685161157390006,
+    0.0016220013405218211
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0005344353384432833
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017438147303856972,
+    0.0017542842349744382
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016710351466473698,
+    0.0005934011917857317
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001715386327187569,
+    0.0005229807999597695
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001708699928311797,
+    0.0005985030157038132
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0041521621270167895,
+    0.0059759907741624325,
+    0.0016683390875450743
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016864070143096457,
+    0.0005225652087653178
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0036742000131071706,
+    0.003783955147342051,
+    0.0017477362849840493
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016345757375770668,
+    0.0016618387715079143
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017331838763796857,
+    0.0005225182247174938
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001687025699025394,
+    0.0005262256817320102
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0040415149765500894,
+    0.00244980875111334,
+    0.0015787212623866122
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001688385791623469,
+    0.000544459087081907
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.003708189816624303,
+    0.004475421847929892,
+    0.0015628887538312853
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001569252376417774,
+    0.0016817706211345288
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017210629180923092,
+    0.00046368064489549064
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017042785408204226,
+    0.0005326911683376273
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004135320981634209,
+    0.013521898607547787,
+    0.0016555529088852037
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001652434750331734,
+    0.0006192246337368236,
+    0.001718418750767651
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001707270060409472,
+    0.0006323352805249594
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0037572219565494523,
+    0.07893272336366536,
+    0.0017383346685802138
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017157030944789733,
+    0.0003926475736807349
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017306007951001727,
+    0.0003971949392321449
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017293547160453393,
+    0.00039572505828761295
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004070558844899572,
+    0.0014125708891577497,
+    0.0019355042861009316
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016866710637799894,
+    0.000387279246583418
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0015595156828248768,
+    0.001676212448662568
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0007119201405776271
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001727943636714442,
+    0.0016892225558167793
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001925374608760557,
+    0.001670747192538297
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0004699853199025028
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016308408822807948,
+    0.0016912512993314441
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0018196447553917546,
+    0.001650269396603545
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0007198434720089893
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001710614454061828,
+    0.0017143441742458253
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016918609300098227,
+    0.000598224879364241
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017019004075249334,
+    0.00042545309616761
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017114717419693599,
+    0.00041318378503620734
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004131068376138453,
+    0.003989379728269706,
+    0.0016650805616355586
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.001689190022500694,
+    0.00036550463536238266
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001642708258192979,
+    0.0016347920265467337
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0005795652221087947
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017326246487260792,
+    0.0016177854568490463
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016155178241273778,
+    0.0016929972805556385
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0005311343259293406
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017494212875411575,
+    0.00173192905073363
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016921157279946688,
+    0.0017475119735017143
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0004707098298879855
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016810170489708369,
+    0.0017014463858016776
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016874775247266197,
+    0.0005445299492174131
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001728112404784929,
+    0.000448326334308462
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016953559375710641,
+    0.0004037296925933144
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004314609326156895,
+    0.0069754286279056525,
+    0.001713387145640644
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016829610010006876,
+    0.0003985221566419086
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0037579679634132026,
+    0.002581907923521817,
+    0.0015471248209435137
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017029606354873653,
+    0.0016674312129700414
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017232579381069118,
+    0.0004156208177279528
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016981555031591496,
+    0.0004552301858131795
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004145615261600942,
+    0.002560716629923225,
+    0.0015923534767288083
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0016848271126937377,
+    0.00039527440569742697
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.0038672360147621043,
+    0.002678990185757255,
+    0.0019219174074058924
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.00170807386592804,
+    0.001682192677131321
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.001731878560334321,
+    0.0004114827352027485
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 45,
+   "rel_moved": [
+    0.0017070295380160467,
+    0.00044831281441289213
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 45,
+   "rel_moved": [
+    0.004151775065296194,
+    0.0015914143201280365,
+    0.0015240051562211395
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0017248459753856594,
+    0.0011162333293557893
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0016958143955956195,
+    0.0012273027366730882
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0017314721056751873,
+    0.001388260315477092
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.00376364461569737,
+    0.020243623771261154,
+    0.00221773175515496
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0016827332129014704,
+    0.0013512737124903446
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016618604362931637,
+    0.0018574154606087977
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.05363460272832032
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.001622334625887089,
+    0.001789273080854214
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0015116599140968423,
+    0.0005058006125444624
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.004090418583759208,
+    0.01494930772717035,
+    0.05539170458977517
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0017119194723107121,
+    0.0005033769414597731
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0017689642792511663,
+    0.0005190156399864851
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0016965398092296795,
+    0.000507326719594168
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    0.0036930177347145564,
+    0.014648571063831639,
+    0.0016981254207898537
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "layer_norm",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "linear",
+   "block": 44,
+   "rel_moved": [
+    0.0017027179896623996,
+    0.0004888814055588037
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.001770931005705579,
+    0.001809970480824009
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.000630638158247433
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.001711272153942882,
+    0.0016325582247570462
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016427731621806176,
+    0.0016508694698931733
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.00042255720386791436
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016984202272582807,
+    0.001810106223670712
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.002111112103146859,
+    0.0017637447655774324
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0010996228051568752
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016565928107842133,
+    0.0016489372442781208
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    null,
+    null
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    null
+   ]
+  }
+ ],
+ "forward": {
+  "_identity_grad [1, 4, 384, 384]": 288,
+  "_identity_grad [10, 4, 384, 384]": 6,
+  "_identity_grad [12, 4, 384, 384]": 2,
+  "_identity_grad [16, 4, 384, 384]": 2,
+  "_identity_grad [20, 4, 384, 384]": 21128,
+  "_identity_grad [21, 4, 384, 384]": 40,
+  "_identity_grad [22, 4, 384, 384]": 36,
+  "_identity_grad [23, 4, 384, 384]": 34,
+  "_identity_grad [24, 4, 384, 384]": 6,
+  "_identity_grad [30, 4, 384, 384]": 26,
+  "_identity_grad [31, 4, 384, 384]": 26,
+  "_identity_grad [32, 4, 384, 384]": 26,
+  "_identity_grad [33, 4, 384, 384]": 24,
+  "_identity_grad [34, 4, 384, 384]": 26,
+  "_identity_grad [35, 4, 384, 384]": 22,
+  "_identity_grad [36, 4, 384, 384]": 22,
+  "_identity_grad [384, 384, 128]": 576,
+  "_identity_grad [4, 4, 384, 384]": 1112,
+  "_identity_grad [6, 4, 384, 384]": 2,
+  "_sliced [1, 16, 384, 24]": 144,
+  "_sliced [1, 384, 384, 128]": 1152,
+  "_sliced [1, 64, 384, 128]": 864,
+  "_sliced [10, 4, 384, 32]": 6,
+  "_sliced [12, 4, 384, 32]": 3,
+  "_sliced [16, 4, 384, 32]": 3,
+  "_sliced [20, 4, 384, 32]": 15846,
+  "_sliced [21, 4, 384, 32]": 57,
+  "_sliced [22, 4, 384, 32]": 51,
+  "_sliced [23, 4, 384, 32]": 48,
+  "_sliced [24, 4, 384, 32]": 6,
+  "_sliced [30, 4, 384, 32]": 36,
+  "_sliced [31, 4, 384, 32]": 36,
+  "_sliced [32, 4, 384, 32]": 36,
+  "_sliced [33, 4, 384, 32]": 33,
+  "_sliced [34, 4, 384, 32]": 36,
+  "_sliced [35, 4, 384, 32]": 30,
+  "_sliced [36, 4, 384, 32]": 30,
+  "_sliced [4, 4, 384, 32]": 834,
+  "_sliced [6, 4, 384, 32]": 3,
+  "_taped_layer_norm [1, 384, 384, 128]": 720,
+  "_taped_layer_norm [1, 384, 384]": 288,
+  "_taped_layer_norm [1, 64, 384, 128]": 864,
+  "_taped_layer_norm [384, 384, 128]": 288,
+  "_taped_linear [1, 384, 1536]": 432,
+  "_taped_linear [1, 384, 384, 128]": 576,
+  "_taped_linear [1, 384, 384, 16]": 144,
+  "_taped_linear [1, 384, 384]": 432,
+  "_taped_linear [1, 64, 384, 128]": 864,
+  "_taped_linear [1, 64, 384, 512]": 1728,
+  "_taped_linear [384, 384, 128]": 288,
+  "_taped_linear [384, 384, 4]": 288,
+  "_v_concat [1, 384, 384, 128]": 144,
+  "_v_concat [384, 4, 384, 32]": 288,
+  "_v_concat_heads [384, 1, 384, 128]": 288,
+  "_v_create_qkv_heads [1, 16, 384, 32]": 432,
+  "_v_create_qkv_heads [384, 4, 384, 32]": 864,
+  "_v_matmul [1, 128, 384, 384]": 288,
+  "_v_matmul [1, 16, 384, 32]": 144,
+  "_v_matmul [1, 16, 384, 384]": 144,
+  "_v_matmul [1, 384, 384, 512]": 288,
+  "_v_matmul [10, 4, 384, 32]": 2,
+  "_v_matmul [10, 4, 384, 384]": 2,
+  "_v_matmul [12, 4, 384, 32]": 1,
+  "_v_matmul [12, 4, 384, 384]": 1,
+  "_v_matmul [16, 4, 384, 32]": 1,
+  "_v_matmul [16, 4, 384, 384]": 1,
+  "_v_matmul [20, 4, 384, 32]": 5282,
+  "_v_matmul [20, 4, 384, 384]": 5282,
+  "_v_matmul [21, 4, 384, 32]": 19,
+  "_v_matmul [21, 4, 384, 384]": 19,
+  "_v_matmul [22, 4, 384, 32]": 17,
+  "_v_matmul [22, 4, 384, 384]": 17,
+  "_v_matmul [23, 4, 384, 32]": 16,
+  "_v_matmul [23, 4, 384, 384]": 16,
+  "_v_matmul [24, 4, 384, 32]": 2,
+  "_v_matmul [24, 4, 384, 384]": 2,
+  "_v_matmul [30, 4, 384, 32]": 12,
+  "_v_matmul [30, 4, 384, 384]": 12,
+  "_v_matmul [31, 4, 384, 32]": 12,
+  "_v_matmul [31, 4, 384, 384]": 12,
+  "_v_matmul [32, 4, 384, 32]": 12,
+  "_v_matmul [32, 4, 384, 384]": 12,
+  "_v_matmul [33, 4, 384, 32]": 11,
+  "_v_matmul [33, 4, 384, 384]": 11,
+  "_v_matmul [34, 4, 384, 32]": 12,
+  "_v_matmul [34, 4, 384, 384]": 12,
+  "_v_matmul [35, 4, 384, 32]": 10,
+  "_v_matmul [35, 4, 384, 384]": 10,
+  "_v_matmul [36, 4, 384, 32]": 10,
+  "_v_matmul [36, 4, 384, 384]": 10,
+  "_v_matmul [384, 384, 128]": 288,
+  "_v_matmul [384, 384, 384]": 288,
+  "_v_matmul [4, 4, 384, 32]": 278,
+  "_v_matmul [4, 4, 384, 384]": 278,
+  "_v_matmul [6, 4, 384, 32]": 1,
+  "_v_matmul [6, 4, 384, 384]": 1,
+  "_v_permute [1, 128, 384, 384]": 576,
+  "_v_permute [1, 16, 24, 384]": 144,
+  "_v_permute [1, 16, 384, 384]": 144,
+  "_v_permute [1, 384, 384]": 144,
+  "_v_permute [1, 4, 384, 384]": 288,
+  "_v_permute [10, 4, 32, 384]": 2,
+  "_v_permute [12, 4, 32, 384]": 1,
+  "_v_permute [16, 4, 32, 384]": 1,
+  "_v_permute [20, 4, 32, 384]": 5282,
+  "_v_permute [21, 4, 32, 384]": 19,
+  "_v_permute [22, 4, 32, 384]": 17,
+  "_v_permute [23, 4, 32, 384]": 16,
+  "_v_permute [24, 4, 32, 384]": 2,
+  "_v_permute [30, 4, 32, 384]": 12,
+  "_v_permute [31, 4, 32, 384]": 12,
+  "_v_permute [32, 4, 32, 384]": 12,
+  "_v_permute [33, 4, 32, 384]": 11,
+  "_v_permute [34, 4, 32, 384]": 12,
+  "_v_permute [35, 4, 32, 384]": 10,
+  "_v_permute [36, 4, 32, 384]": 10,
+  "_v_permute [384, 384, 128]": 288,
+  "_v_permute [4, 4, 32, 384]": 278,
+  "_v_permute [6, 4, 32, 384]": 1,
+  "_v_reshape [1, 1, 384, 1536]": 144,
+  "_v_reshape [1, 384, 384, 128]": 288,
+  "_v_reshape [1, 384, 384, 4]": 288,
+  "_v_reshape [1, 384, 384]": 144,
+  "_v_reshape [384, 1, 384, 384]": 288,
+  "_v_reshape [384, 384, 128]": 576,
+  "_v_softmax [1, 16, 384, 384]": 144,
+  "_v_softmax [10, 4, 384, 384]": 2,
+  "_v_softmax [12, 4, 384, 384]": 1,
+  "_v_softmax [16, 4, 384, 384]": 1,
+  "_v_softmax [20, 4, 384, 384]": 5282,
+  "_v_softmax [21, 4, 384, 384]": 19,
+  "_v_softmax [22, 4, 384, 384]": 17,
+  "_v_softmax [23, 4, 384, 384]": 16,
+  "_v_softmax [24, 4, 384, 384]": 2,
+  "_v_softmax [30, 4, 384, 384]": 12,
+  "_v_softmax [31, 4, 384, 384]": 12,
+  "_v_softmax [32, 4, 384, 384]": 12,
+  "_v_softmax [33, 4, 384, 384]": 11,
+  "_v_softmax [34, 4, 384, 384]": 12,
+  "_v_softmax [35, 4, 384, 384]": 10,
+  "_v_softmax [36, 4, 384, 384]": 10,
+  "_v_softmax [4, 4, 384, 384]": 278,
+  "_v_softmax [6, 4, 384, 384]": 1,
+  "_v_transpose [1, 16, 32, 384]": 144,
+  "_v_transpose [1, 384, 128, 384]": 288,
+  "_v_transpose [1, 384, 384, 128]": 288,
+  "checkpoint [1, 384, 384, 128]": 48,
+  "checkpoint [1, 384, 384]": 48,
+  "impl [1, 128, 384, 384]": 288,
+  "impl [1, 16, 384, 384]": 432,
+  "impl [1, 384, 1536]": 144,
+  "impl [1, 384, 384, 128]": 1584,
+  "impl [1, 384, 384]": 432,
+  "impl [1, 4, 384, 384]": 864,
+  "impl [1, 64, 384, 512]": 864,
+  "impl [10, 4, 384, 384]": 2,
+  "impl [12, 4, 384, 384]": 1,
+  "impl [16, 4, 384, 384]": 1,
+  "impl [20, 4, 384, 384]": 5282,
+  "impl [21, 4, 384, 384]": 19,
+  "impl [22, 4, 384, 384]": 18,
+  "impl [23, 4, 384, 384]": 16,
+  "impl [24, 4, 384, 384]": 2,
+  "impl [30, 4, 384, 384]": 12,
+  "impl [31, 4, 384, 384]": 12,
+  "impl [32, 4, 384, 384]": 12,
+  "impl [33, 4, 384, 384]": 11,
+  "impl [34, 4, 384, 384]": 12,
+  "impl [35, 4, 384, 384]": 10,
+  "impl [36, 4, 384, 384]": 10,
+  "impl [384, 384, 128]": 288,
+  "impl [4, 4, 384, 384]": 278,
+  "impl [6, 4, 384, 384]": 1,
+  "silu [1, 384, 1536]": 144,
+  "silu [1, 64, 384, 512]": 864
+ },
+ "backward": {
+  "_identity_grad [1, 4, 384, 384]": 192,
+  "_identity_grad [20, 4, 384, 384]": 14592,
+  "_identity_grad [384, 384, 128]": 384,
+  "_identity_grad [4, 4, 384, 384]": 768,
+  "_sliced [1, 16, 384, 24]": 48,
+  "_sliced [1, 384, 384, 128]": 768,
+  "_sliced [1, 64, 384, 128]": 576,
+  "_sliced [20, 4, 384, 32]": 10944,
+  "_sliced [4, 4, 384, 32]": 576,
+  "_taped_layer_norm [1, 384, 384, 128]": 432,
+  "_taped_layer_norm [1, 384, 384]": 96,
+  "_taped_layer_norm [1, 64, 384, 128]": 576,
+  "_taped_layer_norm [384, 384, 128]": 192,
+  "_taped_linear [1, 384, 1536]": 144,
+  "_taped_linear [1, 384, 384, 128]": 384,
+  "_taped_linear [1, 384, 384, 16]": 48,
+  "_taped_linear [1, 384, 384]": 144,
+  "_taped_linear [1, 64, 384, 128]": 576,
+  "_taped_linear [1, 64, 384, 512]": 1152,
+  "_taped_linear [384, 384, 128]": 192,
+  "_taped_linear [384, 384, 4]": 192,
+  "_v_concat [1, 384, 384, 128]": 96,
+  "_v_concat [384, 4, 384, 32]": 192,
+  "_v_concat_heads [384, 1, 384, 128]": 192,
+  "_v_create_qkv_heads [1, 16, 384, 32]": 144,
+  "_v_create_qkv_heads [384, 4, 384, 32]": 576,
+  "_v_matmul [1, 128, 384, 384]": 192,
+  "_v_matmul [1, 16, 384, 32]": 48,
+  "_v_matmul [1, 16, 384, 384]": 48,
+  "_v_matmul [1, 384, 384, 512]": 192,
+  "_v_matmul [20, 4, 384, 32]": 3648,
+  "_v_matmul [20, 4, 384, 384]": 3648,
+  "_v_matmul [384, 384, 128]": 192,
+  "_v_matmul [384, 384, 384]": 192,
+  "_v_matmul [4, 4, 384, 32]": 192,
+  "_v_matmul [4, 4, 384, 384]": 192,
+  "_v_permute [1, 128, 384, 384]": 384,
+  "_v_permute [1, 16, 24, 384]": 48,
+  "_v_permute [1, 16, 384, 384]": 48,
+  "_v_permute [1, 384, 384]": 48,
+  "_v_permute [1, 4, 384, 384]": 192,
+  "_v_permute [20, 4, 32, 384]": 3648,
+  "_v_permute [384, 384, 128]": 192,
+  "_v_permute [4, 4, 32, 384]": 192,
+  "_v_reshape [1, 1, 384, 1536]": 48,
+  "_v_reshape [1, 384, 384, 128]": 192,
+  "_v_reshape [1, 384, 384, 4]": 192,
+  "_v_reshape [1, 384, 384]": 48,
+  "_v_reshape [384, 1, 384, 384]": 192,
+  "_v_reshape [384, 384, 128]": 384,
+  "_v_softmax [1, 16, 384, 384]": 48,
+  "_v_softmax [20, 4, 384, 384]": 3648,
+  "_v_softmax [4, 4, 384, 384]": 192,
+  "_v_transpose [1, 16, 32, 384]": 48,
+  "_v_transpose [1, 384, 128, 384]": 192,
+  "_v_transpose [1, 384, 384, 128]": 192,
+  "checkpoint [1, 384, 384, 128]": 48,
+  "checkpoint [1, 384, 384]": 48,
+  "impl [1, 128, 384, 384]": 192,
+  "impl [1, 16, 384, 384]": 144,
+  "impl [1, 384, 1536]": 48,
+  "impl [1, 384, 384, 128]": 1056,
+  "impl [1, 384, 384]": 144,
+  "impl [1, 4, 384, 384]": 384,
+  "impl [1, 64, 384, 512]": 576,
+  "impl [20, 4, 384, 384]": 3648,
+  "impl [384, 384, 128]": 192,
+  "impl [4, 4, 384, 384]": 192,
+  "silu [1, 384, 1536]": 48,
+  "silu [1, 64, 384, 512]": 576
+ },
+ "vjpln": {
+  "refs_added": [
+   "_taped_layer_norm",
+   "_taped_linear"
+  ],
+  "g_reshaped_to_operand": 0,
+  "role_resolution_raises": 0,
+  "forward_model_check": {
+   "what": "refvjp's modelled forward against the device's own out_v, per node key. FD and autograd both differentiate the modelled forward, so only this says the modelled forward is the shipped one.",
+   "sampled_per_key": 8,
+   "firings_checked": 0,
+   "firings_skipped": 0,
+   "worst_rel_l2": null,
+   "worst_key": null,
+   "per_key": {}
+  }
+ }
+}

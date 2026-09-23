@@ -1,0 +1,62 @@
+{
+ "n_tokens": 64,
+ "before": {
+  "walked": 188,
+  "head_cache_weights": 0,
+  "distogram_present": false,
+  "distogram_path": null
+ },
+ "after": {
+  "walked": 204,
+  "head_cache_weights": 16,
+  "distogram_present": true,
+  "distogram_path": "_wd_cache.('distogram.linear.weight', True, DataType.BFLOAT16)",
+  "seed_ones": {
+   "head_weights_with_gradient": 16,
+   "head_weights_nonzero_gradient": 16,
+   "distogram_abs_sum": 2.7150080986320972,
+   "per_weight_abs_sum": {
+    "_wd_cache.('distogram.linear.weight', True, DataType.BFLOAT16)": 2.7150080986320972,
+    "_wd_cache.('experimentally_resolved.layer_norm.bias', False, DataType.FLOAT32)": 0.008959054946899414,
+    "_wd_cache.('experimentally_resolved.layer_norm.weight', False, DataType.FLOAT32)": 0.0035268825329239917,
+    "_wd_cache.('experimentally_resolved.linear.weight', True, DataType.FLOAT32)": 157.60382422880502,
+    "_wd_cache.('pae.layer_norm.bias', False, DataType.BFLOAT16)": 8.996850967407227,
+    "_wd_cache.('pae.layer_norm.weight', False, DataType.BFLOAT16)": 5.252337098121643,
+    "_wd_cache.('pae.linear.weight', True, DataType.BFLOAT16)": 13.959286370780319,
+    "_wd_cache.('pairformer_embedding.linear_distance.weight', True, DataType.BFLOAT16)": 19827.196677088737,
+    "_wd_cache.('pairformer_embedding.linear_i.weight', True, DataType.BFLOAT16)": 348066.6331603378,
+    "_wd_cache.('pairformer_embedding.linear_j.weight', True, DataType.BFLOAT16)": 285998.84697185457,
+    "_wd_cache.('pde.layer_norm.bias', False, DataType.BFLOAT16)": 26.277420043945312,
+    "_wd_cache.('pde.layer_norm.weight', False, DataType.BFLOAT16)": 7.948963850736618,
+    "_wd_cache.('pde.linear.weight', True, DataType.BFLOAT16)": 10.235668573383009,
+    "_wd_cache.('plddt.layer_norm.bias', False, DataType.FLOAT32)": 5.7383618131279945,
+    "_wd_cache.('plddt.layer_norm.weight', False, DataType.FLOAT32)": 2.5085261386730053,
+    "_wd_cache.('plddt.linear.weight', True, DataType.FLOAT32)": 227.8823489954675
+   }
+  },
+  "seed_zero": {
+   "head_weights_with_gradient": 16,
+   "head_weights_nonzero_gradient": 0,
+   "distogram_abs_sum": 0.0,
+   "per_weight_abs_sum": {
+    "_wd_cache.('distogram.linear.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('experimentally_resolved.layer_norm.bias', False, DataType.FLOAT32)": 0.0,
+    "_wd_cache.('experimentally_resolved.layer_norm.weight', False, DataType.FLOAT32)": 0.0,
+    "_wd_cache.('experimentally_resolved.linear.weight', True, DataType.FLOAT32)": 0.0,
+    "_wd_cache.('pae.layer_norm.bias', False, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pae.layer_norm.weight', False, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pae.linear.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pairformer_embedding.linear_distance.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pairformer_embedding.linear_i.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pairformer_embedding.linear_j.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pde.layer_norm.bias', False, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pde.layer_norm.weight', False, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('pde.linear.weight', True, DataType.BFLOAT16)": 0.0,
+    "_wd_cache.('plddt.layer_norm.bias', False, DataType.FLOAT32)": 0.0,
+    "_wd_cache.('plddt.layer_norm.weight', False, DataType.FLOAT32)": 0.0,
+    "_wd_cache.('plddt.linear.weight', True, DataType.FLOAT32)": 0.0
+   }
+  }
+ },
+ "verdict": "LANDS"
+}

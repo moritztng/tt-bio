@@ -1,0 +1,13 @@
+{
+  "what": "of3t-apbleaf: tensor-by-tensor identity between two gradient files.",
+  "label": "control 3: the hooked float64 reference vs the banked one",
+  "a": "/home/ttuser/of3t_frame384/ref_f64_n384.pt",
+  "b": "/tmp/of3t/of3t-apbleaf/ref_ln_n384.pt",
+  "tensors_compared": 2736,
+  "only_in_a": 0,
+  "only_in_b": 0,
+  "tensors_that_moved": 0,
+  "bit_identical": true,
+  "worst_relative_move": 0.0,
+  "worst_tensor": null
+}

@@ -1,0 +1,146 @@
+{
+ "what": "the per-step cost of a 20-step trajectory at each scope rung, measured on one host at one thread count, with the extrapolation to 20 steps and its residual against the two rungs the campaign has already paid in full.",
+ "host": "tt-quietbox2",
+ "host_detail": {
+  "cpu": "x86_64",
+  "cores": 16,
+  "threads_used": 16,
+  "torch": "2.8.0+cpu",
+  "python": "3.12.3",
+  "loadavg_at_start": [
+   2.4736328125,
+   2.06201171875,
+   2.04052734375
+  ]
+ },
+ "reference_tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "policy": "float64 on every parameter and every activation, checkpoint upcast at load",
+ "crop": 384,
+ "sha256": {
+  "diffusion_boundary": "ea80f18e651dae517e3cdc0563c8e6b27d9a4c6bd2e32d8066dd7c4c70b060e6",
+  "checkpoint": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "boundary_aux_heads": "09fe8da010fecd17f15f7cfdce1d8786cbad2098a54a41eace3e0d195c04a534",
+  "boundary_msa_module": "ca142fe906547d4c0b4cb30dbf8449a72bd218e984dd61f4ae09d50c4d4d879f"
+ },
+ "diffusion_boundary_path": "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt",
+ "diffusion_boundary_path_note": "the capture refpath names on qb2 under of3t_softgrad; this host carries the byte-identical copy under of3t_hostleg, a concluded slug's directory. The digest above is what binds it, not the path.",
+ "model_sq_norm": 10.279642678524981,
+ "anchors": {
+  "diffusion_module.diffusion_conditioning": {
+   "artifact": "perf/of3t_trajretake/traj_retake_shipped.json",
+   "pct_of_model": 36.94617946669957,
+   "steps": 20,
+   "both_sides_s": 129.63047623634338,
+   "host": "tt-quietbox2",
+   "threads": null,
+   "note": "one process, the two sides zipped, so this is the pair"
+  },
+  "diffusion_module": {
+   "artifact": "perf/of3t_trajwiden/traj_widen_shipped.json",
+   "pct_of_model": 88.08194359237523,
+   "steps": 20,
+   "device_s": 3335.8588473796844,
+   "reference_s": 9056.806815862656,
+   "both_sides_s": 12392.66566324234,
+   "host": "tt-quietbox2",
+   "threads": 3,
+   "note": "sides decoupled, each its own process"
+  }
+ },
+ "rungs": {
+  "diffusion_module.diffusion_conditioning": {
+   "rung": "diffusion_module.diffusion_conditioning",
+   "build_s": 0.5075197219848633,
+   "n_parameters": 26,
+   "pct_of_model": 36.94617946669957,
+   "per_level": {
+    "1": {
+     "forward_s": 1.7589058876037598,
+     "backward_s": 0.29310107231140137,
+     "one_fwd_bwd_s": 2.052006959915161
+    },
+    "12": {
+     "forward_s": 1.8163435459136963,
+     "backward_s": 0.47622060775756836,
+     "one_fwd_bwd_s": 2.2925641536712646
+    }
+   },
+   "accumulation": {
+    "samples_per_step": 4,
+    "levels_per_sample": 12
+   },
+   "ref_per_step_s": 9.170256614685059,
+   "ref_20_step_s": 183.40513229370117,
+   "peak_rss_gb_process_so_far": 12.234512329101562
+  },
+  "aux_heads": {
+   "rung": "aux_heads",
+   "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+   "boundary_sha256": "09fe8da010fecd17f15f7cfdce1d8786cbad2098a54a41eace3e0d195c04a534",
+   "n_reference_param_grads": 244,
+   "n_with_gradient": 244,
+   "cotangent_keys": [
+    "distogram_logits",
+    "experimentally_resolved_logits",
+    "pae_logits",
+    "pde_logits",
+    "plddt_logits"
+   ],
+   "n_forward_calls_in_capture": 1,
+   "build_s": 2.293929100036621,
+   "n_parameters": 244,
+   "forward_s": 47.93605995178223,
+   "outputs_seeded": [
+    "distogram_logits",
+    "plddt_logits",
+    "experimentally_resolved_logits",
+    "pae_logits",
+    "pde_logits"
+   ],
+   "outputs_not_in_cotangents": [],
+   "backward_s": 150.6313087940216,
+   "one_fwd_bwd_s": 198.56736874580383,
+   "n_params_with_grad_after_backward": 244,
+   "accumulation": {
+    "samples_per_step": 1,
+    "why": "the capture records one forward call for this section, so one forward is one step"
+   },
+   "ref_per_step_s": 198.56736874580383,
+   "ref_20_step_s": 3971.3473749160767,
+   "peak_rss_gb_process_so_far": 19.91870880126953
+  },
+  "msa_module": {
+   "rung": "msa_module",
+   "boundary": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+   "boundary_sha256": "ca142fe906547d4c0b4cb30dbf8449a72bd218e984dd61f4ae09d50c4d4d879f",
+   "n_reference_param_grads": 227,
+   "n_with_gradient": 227,
+   "cotangent_keys": [
+    "out"
+   ],
+   "n_forward_calls_in_capture": 1,
+   "build_s": 0.5769655704498291,
+   "n_parameters": 227,
+   "checkpointed": {
+    "attr": "blocks_per_ckpt",
+    "value": 1
+   },
+   "forward_s": 51.81549644470215,
+   "outputs_seeded": [
+    "out"
+   ],
+   "outputs_not_in_cotangents": [],
+   "backward_s": 209.11454439163208,
+   "one_fwd_bwd_s": 260.93004083633423,
+   "n_params_with_grad_after_backward": 227,
+   "accumulation": {
+    "samples_per_step": 1,
+    "why": "the capture records one forward call for this section, so one forward is one step"
+   },
+   "ref_per_step_s": 260.93004083633423,
+   "ref_20_step_s": 5218.600816726685,
+   "peak_rss_gb_process_so_far": 20.605712890625
+  }
+ },
+ "elapsed_s": 477.89585971832275
+}

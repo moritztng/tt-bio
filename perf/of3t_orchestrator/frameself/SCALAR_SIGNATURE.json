@@ -1,0 +1,71 @@
+{
+ "what": "D242's signature: the control's overshoot is ONE SCALAR, not a chain effect.",
+ "host": "pc",
+ "device_involved": false,
+ "source": {
+  "path": "/tmp/of3t/of3t-orchestrator/ctrl.json",
+  "sha256": "1e632a84689b10dab1a3cf8e4db764db2d7088fdf007bc31ac9c513060078e57",
+  "blocks": 48
+ },
+ "bar_preregistered": 1e-12,
+ "control_rel_l2": 0.7945281613194305,
+ "ratio_over_48_blocks": {
+  "mean": 1.7459945321684116,
+  "median": 1.738543630066481,
+  "stdev": 0.07061705256492842,
+  "coefficient_of_variation": 0.04044517394749607,
+  "min": 1.509770595055442,
+  "max": 2.11131270063797,
+  "outside_1p6_to_1p9": {
+   "44": 1.509770595055442,
+   "46": 2.11131270063797
+  },
+  "n_outside": 2
+ },
+ "rel_l2_over_48_blocks": {
+  "mean": 0.7619746554121256,
+  "stdev": 0.06702450830742505,
+  "min": 0.6006323445513618,
+  "max": 1.1438341288340046,
+  "first_block_touched_by_backward": {
+   "block": "47",
+   "rel_l2": 0.7849281738435908,
+   "norm_ratio": 1.6790846854374897
+  },
+  "last_block_touched_by_backward": {
+   "block": "0",
+   "rel_l2": 0.7680847449669249,
+   "norm_ratio": 1.732145384507488
+  }
+ },
+ "best_scalar_fit_over_48_blocks": {
+  "scale_arm_to_ref": {
+   "mean": 0.5696212910986072,
+   "median": 0.5716543455995005,
+   "stdev": 0.020566429805431177,
+   "min": 0.46541259242745897,
+   "max": 0.6402208374051042,
+   "reciprocal_of_median": 1.7493088396822885
+  },
+  "relative_residual_after_best_scalar": {
+   "mean": 0.10505815861722706,
+   "median": 0.08950314250776042,
+   "stdev": 0.05078670262780135,
+   "min": 0.05114557550674285,
+   "max": 0.30026146582125685,
+   "argmax_block": "47"
+  },
+  "orders_of_magnitude_residual_is_above_the_bar": 10.951838283917258,
+  "control_rel_l2_reduced_by": 8.877097932628907
+ },
+ "decomposition": {
+  "residual_norm_over_reference": 0.7945281613194305,
+  "residual_component_along_reference": 0.7303804346344547,
+  "cos_residual_to_reference": 0.9192631176490345,
+  "rel_l2_reconstructed_from_ratio_and_cos": 0.7945281613194305,
+  "control_rel_l2_published": 0.7945281613194305,
+  "agrees_with_published_rel_l2_to": 0.0
+ },
+ "reading": "TWO COMPONENTS, not one. A single scalar near 1.749 explains most of the overshoot: it is constant to a 4 % coefficient of variation across 48 independently-parameterised blocks, it is full size at block 47 before any trunk-internal accumulation can have happened, and fitting it reduces the control from 0.7945 to a median 0.0895. But 0.0895 is still EIGHT ORDERS above the 1e-12 bar, so removing the scalar does not make the frame pass. of3t-twoside's own summary calls that residual 'small'; it is small against 0.79 and enormous against the bar, which is the name-your-reference trap (R133) in a new dress.",
+ "what_it_does_not_say": "It does not name the scalar, and it does not say whether the two components share a cause. It does not distinguish a scaled cotangent from a uniformly scaled backward: a per-block norm ratio cannot. And the residual is not flat -- it is 0.3003 at block 47, the first the backward touches, against a 0.0895 median, so the structured part is concentrated at the entry and attenuates with depth. Any fix that removes only the scale must still be scored against the 1e-12 bar, not against 0.7945."
+}

@@ -1,0 +1,418 @@
+{
+ "AA_floor_seconds": 30.27,
+ "AA_floor_seconds_per_arm": {
+  "base": 30.04,
+  "off": 30.27,
+  "on": 4.58
+ },
+ "AB_seconds": {
+  "off_minus_base": -1.07,
+  "on_minus_off": -0.89
+ },
+ "arms": {
+  "base": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 8
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 20.77,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 9
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 24.95,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 18
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 50.81,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 9
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 25.43,
+    "softmax_census": {},
+    "tail": ""
+   }
+  ],
+  "off": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 8
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 21.72,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 18
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 51.99,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "e09514452089c976ba07102922df66afc2c5ff82a0ab81fc9783049168a9b1e2"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 10
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 25.97,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 8
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 22.26,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ],
+  "on": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "8f3ab749607ee0a40f5f295c4b605c6d0bfd9a1a359ee8618f7fa049e38f8c86"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 8
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 22.76,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "3a34279d372dc529ff54b9de2156072a77668d971e7b70b9525c8f251785f8ac"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 10
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 26.61,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 9
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 23.71,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "afb2cf1520a993f87c01ff5ab9b9e0522b2677b5a5b149bf3ee15ab086228ac4"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 8
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 22.03,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ]
+ },
+ "arms_below_1200MHz": [],
+ "base_equals_off": true,
+ "base_equals_on": false,
+ "card": "0",
+ "clock": {
+  "base": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 8
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 9
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 18
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 9
+   }
+  ],
+  "off": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 8
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 18
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 10
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 8
+   }
+  ],
+  "on": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 8
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 10
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 9
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 8
+   }
+  ]
+ },
+ "digest_stable_within_arm": false,
+ "digests": {
+  "base": [
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   }
+  ],
+  "off": [
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "e09514452089c976ba07102922df66afc2c5ff82a0ab81fc9783049168a9b1e2"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   }
+  ],
+  "on": [
+   {
+    "cdk2x2_128.cif": "8f3ab749607ee0a40f5f295c4b605c6d0bfd9a1a359ee8618f7fa049e38f8c86"
+   },
+   {
+    "cdk2x2_128.cif": "3a34279d372dc529ff54b9de2156072a77668d971e7b70b9525c8f251785f8ac"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "afb2cf1520a993f87c01ff5ab9b9e0522b2677b5a5b149bf3ee15ab086228ac4"
+   }
+  ]
+ },
+ "fixture": "/home/moritz/.coworker/wt/of3t-d137ab/perf/size512/fixtures/cdk2x2_128.yaml",
+ "median_seconds": {
+  "base": 25.19,
+  "off": 24.12,
+  "on": 23.23
+ },
+ "model": "protenix-v2",
+ "readable_above_the_floor": {
+  "off_minus_base": false,
+  "on_minus_off": false
+ },
+ "reps": 4,
+ "seconds": {
+  "base": [
+   20.77,
+   24.95,
+   50.81,
+   25.43
+  ],
+  "off": [
+   21.72,
+   51.99,
+   25.97,
+   22.26
+  ],
+  "on": [
+   22.76,
+   26.61,
+   23.71,
+   22.03
+  ]
+ },
+ "softmax_calls_per_fold": {
+  "off": 0,
+  "on": 0
+ },
+ "verdict": "FAIL: digests are not stable within an arm, so nothing here is comparable"
+}

@@ -1,0 +1,51 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 195. CPU only, no device. An ARBITRATION: no measurement here is mine.",
+ "headline": "The pairformer trunk is not a 13.0x wall and never was a 46.67x product defect. Both of its tracks are reachable today -- the pair track as shipped, the single track under a flag that is already landed and deliberately held -- and what is actually left is one measurement nobody has taken: its gradient against a 0.4.3 reference.",
+
+ "what_the_campaign_had_been_publishing": {
+  "trunk_gradient": "5.8282 % of the model MEASURED AND FAILING at 5.367727e+00, 13.0x upstream's own all-bf16 run",
+  "trunk_forward": "one block's masked z error of 7.811e-03 composing near-linearly to 2.792e-01 over 48 blocks, five times what rounding predicts, 'the disagreement is ours'",
+  "D90": "the OF3 trunk forward disagreement is in SHIPPED INFERENCE at 46.67x upstream's bf16; every OF3 fold JapanFold serves runs this stack",
+  "status": "all three were live quotes in PROVES, DOESNOT and VERDICT at the start of this pass, and all three were already superseded by concluded rows"
+ },
+
+ "what_the_rows_actually_established": {
+  "revision": {
+   "row": "of3t-trunk043ref",
+   "finding": "the reference had been built on upstream 0.5.0 while `of3-p2-155k` is bound to 0.4.3. Rebuilt on 0.4.3 over the same captured boundary and the same weights, the PAIR track's forward reads 4.947045e-02 -- 0.9894x the 5.0e-02 bar, PASSES -- and 9.596x upstream's own bf16 rather than 46.67x.",
+   "share_of_the_old_number_that_was_the_revision": "92.08 %, measured directly as 0.5.0's own float64 stack against 0.4.3's",
+   "rigour": "2 of 2 release trees built and run in full, 2736 of 2736 tensors loaded into each with 0 missing and 0 unexpected, whole-tree digests pinned before loading (0.4.3 1b27f575, 0.5.0 092fb575 byte-identical to the sdist), and the digest routine given a break control first -- pointed at the parent directory it now fails loudly, where its first version reported ABSENT for the six files that decide the function and returned a correct-looking whole-tree digest anyway."
+  },
+  "orientation": {
+   "row": "of3t-foldab",
+   "finding": "tt-bio ships the RIGHT bias orientation for this checkpoint. 0.4.3's `TriangleAttention.forward` takes no `transpose_bias` argument at all and builds the bias from the already-transposed x; 0.5.0 adds the argument and `PairBlock.tri_att_end` passes True. Read from source BEFORE any fold ran, then measured: 0.4.3 == 0.5.0-with-the-flag-off at rel_l2 0.000000e+00, bit-exact.",
+   "the_trap_it_avoided": "OpenFold zero-initialises `mha.linear_o`, so a freshly constructed layer emits an identically zero tensor and every rel_l2 reads 0/0 -- a comparison that cannot fail. Caught by drawing one weight set into both layers and asserting the output norms non-zero (2.018379 and 2.018795) before reading any ratio.",
+   "consequence": "the arm labelled `fix` in perf/of3t_foldab/ is a MISNOMER -- it is 0.5.0's convention applied to a preview2 checkpoint. Its 0.435 A on 1UBQ and 1.332 A on a shallow-MSA 117 aa target measure what applying the WRONG release's convention costs, not damage the shipped path carries. OF3Trunk resolves `tri_att_end_bias_follows_pair = not is_openbind(state_dict)`, so preview2 gets 0.4.3's orientation and OpenBind gets 0.5.0's: each checkpoint gets its own release's convention and the wiring is right on both."
+  },
+  "single_track": {
+   "row": "of3t-trunkcliff",
+   "finding": "the remaining single-track failure is NOT a precision loss. It is `scale_pair_bias=False` (D1). AttentionPairBias folds the pair bias inside its own score scale, (q.k^T + z) * d**-0.5, so a reference adding the bias UNSCALED needs it pre-baked by sqrt(head_dim); not pre-baking leaves the token pair bias at 1/sqrt(24) = 0.2041 of the reference value in all 48 blocks.",
+   "float64_identity": "with the bias pre-scaled the single-track update reproduces upstream 0.4.3 at rel 7.882e-17 / 2.993e-16 / 4.204e-16 / 8.579e-16 at blocks 8 / 44 / 45 / 46 -- an identity, not a fit",
+   "why_it_looked_like_a_cliff": "the single track's own growth collapses the logits. |q.k|max falls 13916.7 -> 6366.7 -> 975.1 -> 873.5 over blocks 8/44/45/46 while |bias|max only moves 53.88 -> 83.21 -> 29.44 -> 22.75, so bias/q.k goes 0.0039 -> 0.0131 -> 0.0302 -> 0.0260. A bias 4.899x too small is invisible at 0.4 % of the logits and dominant at 3 %, and the error tracks that ratio one for one.",
+   "on_device": "scale_pair_bias=True alongside the existing tri_att_scale_pair_bias=False: single track 1.065338e-01 -> 1.655263e-02, inside both the 5.0e-02 bar and A26's 7.071068e-02; pair track BIT-IDENTICAL (z norm 1040888.017681702 in both arms), which is what a flag reaching one of the layer's two kernels must do",
+   "residual_after_the_flip": "1.655263e-02 is 2.48x upstream's own composed bf16 (6.681863e-03), above A26's reachable sqrt(2) -- genuine bf16 excess remains, 35x smaller than the convention was",
+   "held": "of3t-confhead concluded that D1+D10 together serves 0.149 A worse at rank 0 over nine ship and eight fix seeds, and that fixing the selector did not rescue it. Nothing is flipped; compose_verify.sh still asserts the shipped default."
+  }
+ },
+
+ "the_restated_position": {
+  "trunk_pair_track_forward": "PASSES as shipped, 4.947045e-02",
+  "trunk_single_track_forward": "FAILS as shipped at 1.065338e-01; PASSES at 1.655263e-02 under an already-landed flag held for a measured 0.149 A reason",
+  "trunk_gradient": "UNREAD against 0.4.3 in either arm. of3t-pairformer's 1.061553e+01 is VOID under A18 -- taken at a forward that disagreed on BOTH tracks against a 0.5.0 reference.",
+  "mass_split_before": {"reproduced_or_reachable": 92.1651, "measured_and_failing": 5.8282, "unread": 2.0067},
+  "mass_split_after": {"reproduced_or_reachable": 92.1651, "measured_and_failing": 0.0, "unread": 7.8349, "never_readable_within_that": 0.74055},
+  "both_sum_to": 100.0,
+  "if_trunkg043_passes": "92.1651 + 5.8282 = 97.9933 % of the model's squared gradient norm measured-or-reachable"
+ },
+
+ "the_product_question_this_leaves_and_it_is_not_mine_to_answer": "our port DELIBERATELY computes a different function from upstream at the trunk's token attention, because computing upstream's function serves 0.149 A worse at rank 0 -- and the reason it serves worse is D10, a separate defect in the confidence head's ranking. For inference that is a defensible trade and of3t-confhead made it on delivered structures. For a TRAINING-REPRODUCTION claim it is load-bearing in a way it is not for inference: you cannot reproduce a training step for a function you do not compute. That is why of3t-trunkg043 reads the FLIPPED arm as the scope's reading and reports the SHIPPED arm beside it, rather than either flipping a default or quietly scoring the arm we ship.",
+
+ "an_error_of_mine_caught_in_the_same_pass": "my first draft of D114 filed the single-track deficit as UNFIXED and the campaign's sharpest remaining defect, proposed re-running `s_fp32_residual` (already refuted twice by of3t-rebase with the lever shown firing), and dispatched a row named `of3t-trunkcliff` to root-cause it -- a slug that already existed, concluded, having root-caused it. Caught by grepping concluded rows' VERDICTS for the slug before writing the brief. The name I invented independently was the name the row that already answered the question had been given, because it described the phenomenon.",
+
+ "provenance": "of3t-orchestrator pass 195 on pc, CPU only, no device opened. Every number here is quoted from state/of3t-trunk043ref.md, state/of3t-foldab.md, state/of3t-trunkcliff.md, state/of3t-pairformer.md and state/of3t-confhead.md. This file contains no measurement of mine; its contribution is the arbitration and the propagation of three withdrawals into fields that were still quoting them."
+}

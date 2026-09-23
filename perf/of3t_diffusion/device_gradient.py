@@ -29,6 +29,9 @@ import time
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_tape"))
+sys.path.insert(0, os.path.join(os.getcwd(), "perf"))
+
+import refpath  # noqa: E402
 
 CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 CAP = "/home/ttuser/of3t_diffusion_cap"
@@ -48,6 +51,12 @@ def main() -> int:
     # capture it reads is part of the measurement. Defaults are the published 0.5.0 paths.
     p.add_argument("--cap", default=CAP,
                    help="captured diffusion boundary to score against")
+    p.add_argument("--ref-tree", default=refpath.OF3PKG, dest="ref_tree",
+                   help="the upstream tree this arm's denominator is claimed to be on. "
+                        "Resolved IN THIS PROCESS by refpath.assert_resolved() and recorded in "
+                        "provenance.ref_tree, because a reference named in prose is not a "
+                        "reference read back (D149). Pass --ref-tree '' to skip, which is what "
+                        "a run on a host without the reference trees has to do.")
     p.add_argument("--out-dir", default=OUT)
     p.add_argument("--dump-per-tensor", action="store_true", dest="dump_per_tensor",
                    help="also inline the per-tensor array in the main report. The array is "
@@ -72,11 +81,126 @@ def main() -> int:
                         "verbatim, installed into taped_ttnn._VERBS so it is scope-agnostic and "
                         "reaches all 24 DiT blocks and both atom transformers. What is left "
                         "after it is what the softmax cannot explain.")
+    p.add_argument("--ckc-census", action="store_true", dest="ckc_census",
+                   help="AMENDMENT 1's ckc_on arm. Wraps the SHIPPED softmax tape rule with a "
+                        "census of the `compute_kernel_config` each call actually passes, and "
+                        "changes no arithmetic. Run it with TT_BIO_SOFTMAX_CKC=1 to answer what "
+                        "that flag routes into this scope: the flag hands the CALLER's config to "
+                        "`ttnn.softmax_in_place` inside `_fp32_softmax_attention`, which is the "
+                        "trunk's triangle-attention path, so whether it reaches the diffusion "
+                        "module at all is a measurement and not a reading of the source. "
+                        "`FP32_SOFTMAX_STATS` is published beside it.")
+    p.add_argument("--softmax-lever", default="", dest="softmax_lever",
+                   choices=["", "precise", "accurate"],
+                   help="a SHIPPABLE softmax lever, unlike --softmax-f64 which is a host "
+                        "bound. `precise` adds precise_config() to the forward softmax call "
+                        "and leaves the shipped backward alone; `accurate` runs "
+                        "tenstorrent._accurate_softmax in the forward and adds "
+                        "precise_config() to the backward reduction. Both are of3t-adaln's "
+                        "block-8 rules verbatim, installed on the tape verb so they reach "
+                        "all 24 DiT blocks and both atom transformers. Mutually exclusive "
+                        "with --softmax-f64; the intercept count is published and a zero is "
+                        "a hard failure.")
+    p.add_argument("--host-f64", default="", dest="host_f64",
+                   help="comma-separated tape verbs to compute, forward and backward, on the "
+                        "host in float64 -- the same BOUND the softmax got, generalised. "
+                        "`layer_norm,multiply,multiply_,add,add_` bounds everything the "
+                        "conditioned transition does except its matmuls; adding `linear` "
+                        "bounds those too. Scope-agnostic like the softmax bound, so it "
+                        "bounds MORE than the transition and is therefore an upper bound on "
+                        "what the transition can contribute. Each verb's intercept count is "
+                        "published and a zero is a hard failure.")
+    p.add_argument("--softmax-site-f64", action="store_true", dest="softmax_site_f64",
+                   help="the SUPPORTED host float64 softmax path, selected the way a model "
+                        "selects it: `TT_BIO_HOST_F64_SOFTMAX_AB=all`, resolved per construction "
+                        "site by `tenstorrent.host_f64_softmax_site`. Unlike --softmax-f64 this "
+                        "patches nothing -- the arm runs the shipped call sites with the site "
+                        "flag on, so what it measures is the code path rather than a rule "
+                        "installed over the tape verb. `HOST_F64_SOFTMAX_STATS` is published and "
+                        "a zero served count is a hard failure.")
+    p.add_argument("--softmax-bw-renorm", action="store_true", dest="softmax_bw_renorm",
+                   help="of3t-apbgrad's repair: `inner = sum(g*y)/sum(y)` in the softmax "
+                        "backward instead of `sum(g*y)`, which restores the vanishing row sum "
+                        "that `d_logits` is supposed to have and that `ttnn.softmax` breaks by "
+                        "returning rows summing to 0.9769. Sets TT_BIO_SOFTMAX_BW_RENORM=1 "
+                        "before the first tt_bio import. Combines with --softmax-site-f64, "
+                        "where it is expected to be a no-op because a float64 softmax already "
+                        "sums to one; that combination is the control, not a lever.")
+    p.add_argument("--ln-capture", default="", dest="ln_capture",
+                   help="comma-separated checkpoint-name SUFFIXES whose LayerNorm sites should "
+                        "have their own operands and incoming cotangent captured in float64, "
+                        "for of3t-lnaffine's conditioning and isolation measurements at this "
+                        "scope. Changes no arithmetic: the shipped rule runs first and this "
+                        "wraps the tape node's backward closure afterwards. Written to "
+                        "--ln-out. A site asked for and never seen is a hard failure.")
+    p.add_argument("--ln-out", default="", dest="ln_out",
+                   help="where --ln-capture writes its accumulators")
+    p.add_argument("--verb-census", action="store_true", dest="verb_census",
+                   help="count every tape verb without changing any arithmetic, so the cost "
+                        "of a bound is known before it is paid")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
+    p.add_argument("--device-refatom", action="store_true", dest="device_refatom",
+                   help="of3t-hostleg. Run `atom_attn_enc.ref_atom_feature_embedder` INSIDE each "
+                        "structure's tape instead of reading cl0/plm0 off the host, so its eight "
+                        "bias-free linears receive a gradient. They hold 0.75304 %% of the "
+                        "model's squared gradient norm and READABLE_MASS.json files them as "
+                        "HOST_APPLIED: the shipped forward severed the graph at a ttnn.to_torch, "
+                        "so no cotangent could reach them. Default off, so every arm this "
+                        "instrument has already published is unchanged.")
     a = p.parse_args()
     t0 = time.perf_counter()
+
+    # Before the first tt_bio import: `host_f64_softmax_site` is resolved at module CONSTRUCTION,
+    # so an environment set after the modules are built decides nothing. The arm names the env
+    # var the models read rather than reaching into the selector, because a flag that only this
+    # harness can set is not the code path.
+    if a.softmax_site_f64:
+        os.environ["TT_BIO_HOST_F64_SOFTMAX_AB"] = "all"
+    if a.softmax_bw_renorm:
+        os.environ["TT_BIO_SOFTMAX_BW_RENORM"] = "1"
+
+    # THE DENOMINATOR IS AN INPUT AND IT IS READ BACK, NOT NAMED (A24, D149).
+    # `of3t-ditcot` published 0.7055 / 0.2584 / 0.1065 while its state doc discussed 0.4.3 and
+    # 0.5.0; only `provenance.cap` said which capture answered and nothing said which package
+    # built it. Two fields close that here, and both are readings rather than constants:
+    #   ref_tree    -- `openfold3.__file__` resolved in THIS process. The tree is prepended and
+    #                  unwound again so nothing downstream sees it; the dep trees are NOT
+    #                  installed, because `import openfold3` alone is all a resolution needs and
+    #                  this process must keep the venv's torch and ttnn.
+    #   cap_stamp   -- `<cap>/REFTREE.json`, written by perf/of3t_ditref/capstamp.py, which
+    #                  fingerprints the capture's own grad_f64 key set. 761 parameters with 24
+    #                  per-block `attention_pair_bias.layer_norm_z` is 0.4.3; 738 with none is
+    #                  0.5.0. That is the field that makes the version a measurement.
+    ref_tree, cap_stamp = None, None
+    if a.ref_tree:
+        _saved = list(sys.path)
+        try:
+            refpath.install(a.ref_tree, deps=())
+            ref_tree = refpath.assert_resolved(a.ref_tree)
+            print(f"REF_TREE resolved: {ref_tree}", flush=True)
+        finally:
+            sys.path[:] = _saved
+            sys.modules.pop("openfold3", None)
+    _stamp = os.path.join(a.cap, "REFTREE.json")
+    if os.path.exists(_stamp):
+        cap_stamp = json.load(open(_stamp))
+        _fp = cap_stamp.get("capture_fingerprint", {})
+        print(f"CAP_STAMP {a.cap}: {cap_stamp.get('REF_TREE_resolved')} -- "
+              f"{_fp.get('n_parameters')} parameters, "
+              f"{_fp.get('n_perblock_layer_norm_z')} per-block layer_norm_z, "
+              f"missing {cap_stamp.get('checkpoint', {}).get('missing_keys')}, "
+              f"unexpected {cap_stamp.get('checkpoint', {}).get('unexpected_keys')}", flush=True)
+        if ref_tree and cap_stamp.get("REF_TREE_resolved") != ref_tree:
+            raise SystemExit(
+                f"--ref-tree resolved {ref_tree} but the capture at {a.cap} is stamped "
+                f"{cap_stamp.get('REF_TREE_resolved')}. Scoring our arm against a capture built "
+                f"on a different upstream is the 6.62x of3t-ditcot measured; say which you "
+                f"meant.")
+    else:
+        print(f"CAP_STAMP {a.cap}: ABSENT -- run perf/of3t_ditref/capstamp.py --cap {a.cap}",
+              flush=True)
 
     import torch
     import ttnn
@@ -123,7 +247,19 @@ def main() -> int:
             fp_clash.add(f)
         fp_name[f] = k
 
-    reg = {}
+    # D83. THE ORIENTATION IS RECORDED HERE, NOT INFERRED FROM SHAPE AT COMPARISON TIME.
+    # `_w_tt` puts `w.t()` on the card, so the taped dW rule returns the gradient in the
+    # device's orientation and the comparison has to put it back. It used to do that with
+    # `if shape != want and shape[::-1] == want: gt = gt.t()`, which CANNOT FIRE ON A SQUARE
+    # WEIGHT -- and 87 of the 547 compared tensors are square. Every one of them was scored
+    # as dW against dW^T: rel_l2 1.40 (= sqrt(2)), norm ratio 1.00, cosine 0.002, in every
+    # arm, unmoved by any precision lever, because a transpose is norm-preserving and
+    # decorrelating. That was 56.03 % of the float64-softmax bound's squared error and none
+    # of it was the port's. The fingerprint is deliberately transpose-invariant, so it could
+    # never have caught this either. Here the tensor handed to `ttnn.from_torch` is compared
+    # to the checkpoint tensor BIT-EXACTLY in both orientations, so the answer is a fact
+    # about the load and not an inference from a shape.
+    reg, orient = {}, {}
     orig_from_torch = ttnn.from_torch
 
     def recording_from_torch(tensor, *args, **kw):
@@ -132,7 +268,18 @@ def main() -> int:
             if torch.is_tensor(tensor) and tensor.is_floating_point():
                 f = fingerprint(tensor)
                 if f in fp_name and f not in fp_clash:
-                    reg[id(v)] = fp_name[f]
+                    nm = fp_name[f]
+                    reg[id(v)] = nm
+                    ck = dmsd[nm]
+                    same = tensor.shape == ck.shape and bool(torch.equal(tensor, ck))
+                    flip = (tensor.dim() == 2 and ck.dim() == 2
+                            and tensor.shape == ck.t().shape
+                            and bool(torch.equal(tensor, ck.t().contiguous())))
+                    # A symmetric square weight satisfies both and the orientation does not
+                    # matter; anything that satisfies neither (a reshape, a pad, a fuse) is
+                    # recorded as unknown and falls back to the shape test, which is correct
+                    # for it because it is not a plain transpose.
+                    orient[id(v)] = "N" if same else ("T" if flip else "?")
         except Exception:
             pass
         return v
@@ -201,6 +348,25 @@ def main() -> int:
     # same as the shipped one because nothing fired is not a bound, so the count is published
     # and a zero count is a hard failure.
     softmax_calls = [0]
+    trace = []
+    fwd_trace = []
+    ckc_seen = {}
+    if a.ckc_census:
+        from tt_bio import taped_ttnn as TT
+        import tt_bio.tenstorrent as _TT
+
+        _shipped_sm = TT._VERBS["softmax"]
+
+        def ckc_census_rule(shipped, args, kwargs):
+            softmax_calls[0] += 1
+            k = repr(kwargs.get("compute_kernel_config"))
+            ckc_seen[k] = ckc_seen.get(k, 0) + 1
+            return _shipped_sm(shipped, args, kwargs)
+
+        TT._VERBS["softmax"] = ckc_census_rule
+        TT._SHIM.__dict__.pop("softmax", None)
+        print(f"[{time.perf_counter()-t0:.0f}s] ckc census installed; "
+              f"_SOFTMAX_CKC={_TT._SOFTMAX_CKC}", flush=True)
     if a.softmax_f64:
         from tt_bio import taped_ttnn as TT
 
@@ -227,6 +393,176 @@ def main() -> int:
         print(f"[{time.perf_counter()-t0:.0f}s] float64 softmax bound installed on the tape verb",
               flush=True)
 
+    # The two levers that could actually ship. of3t-adaln scored these on ONE block; at scope
+    # they have never been scored at all, and one block is not the arm. Same counter, same
+    # zero-count hard failure: a lever that fires nothing is the shipped arm under another
+    # name, which is exactly how the first sandwich arm reported two identical columns.
+    if a.softmax_lever:
+        if a.softmax_f64:
+            print("FAILED: --softmax-lever and --softmax-f64 are mutually exclusive; one is a "
+                  "shippable lever and the other is a host bound", flush=True)
+            return 2
+        from tt_bio import taped_ttnn as TT
+        from tt_bio.autograd import precise_config
+        from tt_bio.tenstorrent import _accurate_softmax, _SOFTMAX_PRECISE_CKC
+        probe = os.environ.get("OF3T_SOFTGRAD_PROBE") == "1"
+        bad = []
+        shipped_softmax_rule = TT._VERBS["softmax"]
+        # of3t-nanfloor: the config on the CHAIN's forward reduction, made A/B-able instead of
+        # assumed. This row was dispatched on the premise that the published
+        # `softmax_accurate` arm ran that reduction at the op default; it has passed
+        # `_SOFTMAX_PRECISE_CKC` since the arm was written, so the only way to say what that
+        # argument is worth at scope is to run the counterfactual. The default is the shipped
+        # arm unchanged, and the census records what reached the op rather than what the
+        # source says (D110).
+        _sum_ckc = (None if os.environ.get("OF3T_NANFLOOR_SUM_CKC") == "none"
+                    else _SOFTMAX_PRECISE_CKC)
+        sum_ckc_census = {"fwd_precise": 0, "fwd_none": 0, "bw_precise": 0}
+
+        def precise_forward_rule(shipped, args, kwargs):
+            """precise_config() on the FORWARD softmax call, backward untouched.
+
+            of3t-adaln's rule wrote this with `kwargs.setdefault(...)`, and every softmax call
+            site in this path passes `compute_kernel_config=self._softmax_ckc` EXPLICITLY
+            (openfold3_diffusion_transformer.py:209, openfold3_atom_transformer.py:184).
+            `softmax_ckc` returns None when the site flag is off, so the key is present with
+            value None and `setdefault` cannot write it: the arm fired 1,440 times and returned
+            all 547 gradient tensors bit-identical to shipped. Assignment, not setdefault, and
+            the config is the shipped `_SOFTMAX_PRECISE_CKC` rather than a second copy of it."""
+            softmax_calls[0] += 1
+            kwargs = dict(kwargs)
+            kwargs["compute_kernel_config"] = _SOFTMAX_PRECISE_CKC
+            return shipped_softmax_rule(shipped, args, kwargs)
+
+        def accurate_forward_rule(shipped, args, kwargs):
+            """of3t-adaln's `accurate_forward_rule`: _accurate_softmax in the forward, the
+            shipped backward with precise_config() on its reduction."""
+            softmax_calls[0] += 1
+            x = TT._wrap(args[0])
+            dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+            # `_accurate_softmax` reduces over the last axis only. A call on any other axis
+            # would silently become a MIXED arm, so it throws rather than reporting.
+            nd = len(x.value.shape)
+            if dim not in (-1, nd - 1):
+                raise AssertionError(
+                    f"--softmax-lever accurate got dim={dim} on a rank-{nd} tensor; "
+                    f"_accurate_softmax only reduces the last axis")
+            # `_accurate_softmax` verbatim returns NaN here, and the reason belongs where the
+            # arm is defined. `ttnn.max` rounds its result to bf16, so on a row whose keys are
+            # ALL masked (-1e9, which the atom encoder block-sparse attention produces for a
+            # padded query block) the reduction comes back 1.76e6 ABOVE the true row max. Every
+            # exponent is then -1.76e6, `exp` underflows the whole row to zero, the sum is zero
+            # and the divide is 0/0. Measured standalone in FULLY_MASKED_ROW_OVERFLOW.json:
+            # 114,688 non-finite entries, exactly the masked rows, where the fused kernel on the
+            # same input is finite.
+            # The repair is one op. Clamping the exponent at -60 is a no-op where the max is
+            # right -- exp(-60) is 8.8e-27 against a row sum of 1 -- and turns a fully-masked
+            # row into a uniform distribution, which is masked out downstream anyway. -88 does
+            # NOT work: exp(-88) is subnormal in fp32 and flushes to zero, so the sum is zero
+            # again. This is the chain a shipped version would have to carry.
+            xv = x.value
+            _m = ttnn.max(xv, dim=-1, keepdim=True)
+            _d = ttnn.subtract(xv, _m)
+            ttnn.deallocate(_m)
+            _d = ttnn.maximum(_d, -60.0)
+            ttnn.exp(_d, output_tensor=_d)
+            _s = ttnn.sum(_d, dim=-1, keepdim=True, compute_kernel_config=_sum_ckc)
+            sum_ckc_census["fwd_precise" if _sum_ckc is not None else "fwd_none"] += 1
+            y0 = ttnn.divide(_d, _s)
+            ttnn.deallocate(_d)
+            ttnn.deallocate(_s)
+            if y0.dtype != xv.dtype:
+                _q = ttnn.typecast(y0, xv.dtype, memory_config=y0.memory_config())
+                ttnn.deallocate(y0)
+                y0 = _q
+            n = softmax_calls[0]
+            if probe:
+                xf = torch.isfinite(ttnn.to_torch(x.value)).all().item()
+                yf = torch.isfinite(ttnn.to_torch(y0)).all().item()
+                if not (xf and yf):
+                    bad.append(f"fwd call {n} shape {tuple(x.value.shape)} "
+                               f"x_finite={xf} y_finite={yf}")
+            box = [y0]
+
+            def make():
+                def bw(g):
+                    y = box[0]
+                    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True,
+                                     compute_kernel_config=_SOFTMAX_PRECISE_CKC)
+                    sum_ckc_census["bw_precise"] += 1
+                    d = ttnn.multiply(y, ttnn.subtract(g, inner))
+                    if probe:
+                        gf = torch.isfinite(ttnn.to_torch(g)).all().item()
+                        yf = torch.isfinite(ttnn.to_torch(y)).all().item()
+                        inf_ = torch.isfinite(ttnn.to_torch(inner)).all().item()
+                        df = torch.isfinite(ttnn.to_torch(d)).all().item()
+                        if not (gf and yf and inf_ and df):
+                            bad.append(f"bw call {n} shape {tuple(y.shape)} g={gf} y={yf} "
+                                       f"inner={inf_} out={df}")
+                    x.add_grad(d)
+                return bw
+
+            out = TT._tape(y0, [x], make)
+            if out.node is not None:
+                out.box = box
+            return out
+
+        TT._VERBS["softmax"] = {"precise": precise_forward_rule,
+                                "accurate": accurate_forward_rule}[a.softmax_lever]
+        TT._SHIM.__dict__.pop("softmax", None)
+
+        if os.environ.get("OF3T_SOFTGRAD_PROBE") in ("2", "3"):
+            # Wrap every verb, softmax included, and record (verb, whether the gradient handed
+            # to its closure was finite) in backward execution order. The first False names the
+            # verb whose CONSUMER produced the infinity, and the entries before it are the last
+            # healthy steps, so the pair localises the creation to one op.
+            fwdprobe = os.environ.get("OF3T_SOFTGRAD_PROBE") == "3"
+
+            def wrap(name, rule):
+                def impl(shipped, args, kwargs):
+                    out = rule(shipped, args, kwargs)
+                    if fwdprobe:
+                        try:
+                            v = getattr(out, "value", out)
+                            shp = tuple(v.shape)
+                            okf = bool(torch.isfinite(ttnn.to_torch(v)).all().item())
+                            fwd_trace.append((name, okf, shp))
+                        except Exception:
+                            pass
+                    nd = getattr(out, "node", None)
+                    if nd is not None and getattr(nd, "fn", None) is not None:
+                        inner_fn = nd.fn
+
+                        def checked(g, _n=name, _f=inner_fn):
+                            ok = bool(torch.isfinite(ttnn.to_torch(g)).all().item())
+                            trace.append((_n, ok, tuple(g.shape)))
+                            return _f(g)
+
+                        nd.fn = checked
+                    return out
+                return impl
+
+            for _nm, _rule in list(TT._VERBS.items()):
+                TT._VERBS[_nm] = wrap(_nm, _rule)
+                TT._SHIM.__dict__.pop(_nm, None)
+            print("PROBE2 armed on", len(TT._VERBS), "verbs", flush=True)
+        print(f"[{time.perf_counter()-t0:.0f}s] softmax lever '{a.softmax_lever}' installed on "
+              f"the tape verb", flush=True)
+
+    # The same bound on the other verbs, in this row's own namespace so the shared instrument
+    # keeps one hook rather than six rules.
+    hf64_verbs = [v for v in a.host_f64.split(",") if v]
+    if hf64_verbs or a.verb_census:
+        sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_residual"))
+        import host_f64 as HF
+        if a.verb_census:
+            HF.census_install()
+            print(f"[{time.perf_counter()-t0:.0f}s] verb census installed", flush=True)
+        if hf64_verbs:
+            HF.install(hf64_verbs)
+            print(f"[{time.perf_counter()-t0:.0f}s] float64 bound installed on "
+                  f"{','.join(hf64_verbs)}", flush=True)
+
     aux = build_dm_device_aux(
         dev, ft, cl0=cl0, plm0=plm0, atom_mask=atom_mask, atom_to_token_index=a2t,
         npe_q_indices=npe_q, npe_k_indices=npe_k, zij_mask=zij_mask,
@@ -246,14 +582,49 @@ def main() -> int:
             mod = OF3DiffusionModule(dmsd, cfg)
     finally:
         ttnn.from_torch = orig_from_torch
+    rafe_mod, rafe_ins = None, None
+    if a.device_refatom:
+        from tt_bio.openfold3 import RefAtomFeatureEmbedder
+        ttnn.from_torch = recording_from_torch
+        try:
+            with device_dtype_override(act):
+                rafe_mod = RefAtomFeatureEmbedder(rafe, cfg)
+        finally:
+            ttnn.from_torch = orig_from_torch
+        # The transfers are hoisted out of the structure loop: they are constant across the 48
+        # structures, and the eight weights have to accumulate the same 48 contributions the
+        # module's other leaves do, so only the MODULE is re-run inside each tape.
+        with device_dtype_override(act):
+            rafe_ins = HP.ref_atom_device_inputs(dev, feats, atom_mask, NP)
+        print(f"[{time.perf_counter()-t0:.0f}s] ref_atom_feature_embedder on the card: "
+              f"{len(rafe)} weights, {len(rafe_ins)} hoisted inputs", flush=True)
     walked = _device_weights(mod)
+    if rafe_mod is not None:
+        walked.update({f"ref_atom_feature_embedder.{k}": v
+                       for k, v in _device_weights(rafe_mod).items()})
     for t in walked.values():
         ag.parameter(t)
     named = {id(t): reg.get(id(t)) for t in walked.values()}
+    orient_by_name = {reg[i]: o for i, o in orient.items() if i in reg}
     n_named = sum(1 for v in named.values() if v)
     print(f"[{time.perf_counter()-t0:.0f}s] module built: {len(walked)} device weights "
           f"reachable, {n_named} carry a checkpoint name, {len(reg)} recorded at load",
           flush=True)
+
+    # of3t-condtrans' operand probe, in that row's own namespace so the shared instrument keeps
+    # one hook rather than a capture rule. Installed HERE because it needs `named`, which only
+    # exists once the module is built.
+    ln_want = [v for v in a.ln_capture.split(",") if v]
+    LNC = None
+    if ln_want:
+        sys.path.insert(0, os.path.join(os.getcwd(), "perf", "of3t_condtrans"))
+        import ln_capture as LNC
+        n_sites = LNC.install(named, ln_want)
+        print(f"[{time.perf_counter()-t0:.0f}s] ln-capture armed on {n_sites} sites "
+              f"matching {ln_want}", flush=True)
+        if not n_sites:
+            raise SystemExit("--ln-capture matched no named weight; a probe that captures "
+                             "nothing reads exactly like a site with no error")
 
     si_trunk_d = ft(sq(kw["si_trunk"]).float().unsqueeze(0))
     zij_d = ft(zij_ref.reshape(1, n_token, n_token, -1).float())
@@ -362,6 +733,10 @@ def main() -> int:
         tk0 = time.perf_counter()
         try:
             with device_dtype_override(act), ag.tape():
+                if rafe_mod is not None:
+                    # cl0/plm0 come from the card now, so the cotangent the module sends back
+                    # reaches the eight linears instead of stopping at a host value.
+                    call["cl0"], call["plm0"] = rafe_mod(*rafe_ins)
                 res = mod(call["si_trunk"], call["si"], call["zij"], call["cl0"], call["plm0"],
                           call["rl_noisy"], call["xl_noisy"],
                           aux["amc_d"], aux["amc_na_d"], aux["idx_tt"], aux["flat_tt"],
@@ -418,8 +793,17 @@ def main() -> int:
         gt = to_t(g.value if hasattr(g, "value") else g)
         want = shape_by_name[nm]
         gt = gt.reshape(gt.shape[-len(want):]) if gt.dim() > len(want) else gt
-        if tuple(gt.shape) != want and tuple(gt.shape)[::-1] == want:
+        # D83: orientation from the recorded load, with the old shape test kept only for the
+        # weights whose load was not a plain transpose ("?"). The shape test is a no-op on a
+        # square weight, which is exactly the case it used to get wrong.
+        o = orient_by_name.get(nm, "?")
+        if o == "T" and gt.dim() == 2:
             gt = gt.t().contiguous()
+        elif o != "N" and tuple(gt.shape) != want and tuple(gt.shape)[::-1] == want:
+            gt = gt.t().contiguous()
+        if tuple(gt.shape) != want:
+            raise AssertionError(f"{nm}: gradient {tuple(gt.shape)} is not {want} after "
+                                 f"orientation {o}")
         rows[nm] = gt
 
     if a.dump_grads:
@@ -431,6 +815,15 @@ def main() -> int:
         torch.save({f"diffusion_module.{nm}": g.cpu() for nm, g in rows.items()}, a.dump_grads)
         print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(rows)} device gradient tensors to "
               f"{a.dump_grads}", flush=True)
+
+    if LNC is not None:
+        rep_ln = LNC.report()
+        if not rep_ln:
+            raise SystemExit("--ln-capture saw no backward call at any matched site")
+        out_ln = a.ln_out or os.path.join(a.out_dir, f"LN_CAPTURE{a.tag}.pt")
+        torch.save({"sites": rep_ln, "want": ln_want, "structs": which}, out_ln)
+        print(f"[{time.perf_counter()-t0:.0f}s] ln-capture wrote {len(rep_ln)} sites to "
+              f"{out_ln}", flush=True)
 
     tot_ref_sq = sum(float(v.double().pow(2).sum()) for v in ref_grad.values() if v is not None)
     cmp_rows, worst, worst_n = [], -1.0, None
@@ -477,8 +870,54 @@ def main() -> int:
            "over_5e-2": sum(1 for d, _, _ in cmp_rows if d > 5.0e-2),
            "zero_model_median": zmed,
            "per_tensor": (per_tensor if a.dump_per_tensor else None),
+           "orientation_recorded_at_load": {
+               "N": sum(1 for o in orient_by_name.values() if o == "N"),
+               "T": sum(1 for o in orient_by_name.values() if o == "T"),
+               "?": sum(1 for o in orient_by_name.values() if o == "?")},
+           "square_2d_compared": sum(1 for nm in rows
+                                     if len(shape_by_name[nm]) == 2
+                                     and shape_by_name[nm][0] == shape_by_name[nm][1]),
            "softmax_f64_bound": bool(a.softmax_f64),
+           "softmax_lever": a.softmax_lever or None,
+           "chain_sum_ckc": ("none" if os.environ.get("OF3T_NANFLOOR_SUM_CKC") == "none"
+                             else "precise") if a.softmax_lever == "accurate" else None,
+           "chain_sum_ckc_census": (sum_ckc_census if a.softmax_lever == "accurate" else None),
+           "ckc_census": (ckc_seen or None),
+           "tt_bio_softmax_ckc_flag": (
+               __import__("tt_bio.tenstorrent", fromlist=["x"])._SOFTMAX_CKC
+               if a.ckc_census else None),
+           "fp32_softmax_stats": (
+               dict(__import__("tt_bio.tenstorrent", fromlist=["x"]).FP32_SOFTMAX_STATS)
+               if a.ckc_census else None),
+           "nonfinite_probe": (bad[:40] if a.softmax_lever == "accurate" else None),
+           "nonfinite_probe_count": (len(bad) if a.softmax_lever == "accurate" else None),
+           "probe2_len": len(trace) or None,
+           "probe3_len": len(fwd_trace) or None,
+           "probe3_first_bad": next(
+               ({"index": i, "verb": v, "shape": list(s),
+                 "previous": [{"verb": pv, "finite": pok, "shape": list(ps)}
+                              for pv, pok, ps in fwd_trace[max(0, i - 8):i]]}
+                for i, (v, ok, s) in enumerate(fwd_trace) if not ok),
+               ("ALL FINITE" if fwd_trace else None)),
+           "probe2_first_bad": next(
+               ({"index": i, "verb": v, "shape": list(s),
+                 "previous": [{"verb": pv, "finite": pok, "shape": list(ps)}
+                              for pv, pok, ps in trace[max(0, i - 8):i]]}
+                for i, (v, ok, s) in enumerate(trace) if not ok),
+               ("ALL FINITE" if trace else None)),
            "softmax_calls_intercepted": softmax_calls[0],
+           "softmax_site_f64": bool(a.softmax_site_f64),
+           "host_f64_softmax_stats": dict(T.HOST_F64_SOFTMAX_STATS),
+           "host_f64_softmax_ab": os.environ.get("TT_BIO_HOST_F64_SOFTMAX_AB") or None,
+           "softmax_bw_renorm_asked": bool(a.softmax_bw_renorm),
+           "softmax_bw_renorm_live": __import__(
+               "tt_bio.taped_ttnn", fromlist=["x"])._SOFTMAX_BW_RENORM,
+           "host_f64_verbs": hf64_verbs or None,
+           "host_f64_calls_intercepted": (
+               {v: __import__("host_f64").CALLS.get(v, 0) for v in hf64_verbs}
+               if hf64_verbs else None),
+           "verb_census": (dict(sorted(__import__("host_f64").CALLS.items()))
+                           if a.verb_census else None),
            "cotangent_permuted": bool(a.permute_cot),
            "grads_dumped_to": a.dump_grads or None,
            "per_tensor_dumped": bool(a.dump_per_tensor),
@@ -489,6 +928,7 @@ def main() -> int:
            # artifact's identity is its digest plus its recorded inputs.
            "provenance": {"cap": a.cap, "ckpt": CKPT, "out_dir": a.out_dir, "tag": a.tag,
                           "structs": a.structs, "mask_ones": bool(a.mask_ones),
+                          "ref_tree": ref_tree, "cap_stamp": cap_stamp,
                           "argv": sys.argv},
            "best10": [(n, d) for d, n, _ in cmp_rows[:10]],
            "worst10": [(n, d) for d, n, _ in cmp_rows[-10:]],
@@ -512,9 +952,29 @@ def main() -> int:
     print(json.dumps({k: v for k, v in rep.items() if k not in ("best10", "worst10", "per_tensor")},
                      indent=1, default=str), flush=True)
     print("wrote", path, "and", side, flush=True)
-    if a.softmax_f64 and softmax_calls[0] == 0:
-        print("FAILED: --softmax-f64 intercepted 0 softmax calls, so this arm is the shipped "
-              "arm under another name", flush=True)
+    if hf64_verbs:
+        counts, zero = __import__("host_f64").report(hf64_verbs)
+        print("host_f64 intercepts:", counts, flush=True)
+        if zero:
+            print(f"FAILED: --host-f64 intercepted 0 calls for {zero}, so those verbs are the "
+                  f"shipped ones under another name", flush=True)
+            return 3
+    if a.ckc_census and softmax_calls[0] == 0:
+        print("FAILED: --ckc-census saw 0 softmax calls, so the census is empty rather than "
+              "informative", flush=True)
+        return 3
+    if a.softmax_bw_renorm and not __import__(
+            "tt_bio.taped_ttnn", fromlist=["x"])._SOFTMAX_BW_RENORM:
+        print("FAILED: --softmax-bw-renorm asked for the repair and the module read the flag "
+              "as off, so this arm is the shipped arm under another name", flush=True)
+        return 3
+    if a.softmax_site_f64 and T.HOST_F64_SOFTMAX_STATS["served"] == 0:
+        print("FAILED: --softmax-site-f64 served 0 softmax calls, so this arm is the shipped arm "
+              "under another name", flush=True)
+        return 3
+    if (a.softmax_f64 or a.softmax_lever) and softmax_calls[0] == 0:
+        print(f"FAILED: {'--softmax-f64' if a.softmax_f64 else '--softmax-lever'} intercepted "
+              f"0 softmax calls, so this arm is the shipped arm under another name", flush=True)
         return 3
     return 1 if err is not None else 0
 

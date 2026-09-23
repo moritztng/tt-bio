@@ -1,0 +1,28 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176",
+ "headline": "The campaign's 38.1862 % positive result rests on exactly TWO upstream modules, and both are now VERIFIED revision-inert -- not asserted. The revision audit that cost the trunk a withdrawn escalation, cost aux_heads its interpretability and cost A18 some of its authority does NOT touch the good news.",
+
+ "why_this_needed_checking": "D90/D92/D93/D94 established that every upstream module backing a measured scope differs between 0.4.3 and 0.5.0, and that D22's inertness audit covered the DiT path only. The campaign's own rule is to check the PASSING cases before generalising from the failing ones. 38.1862 % of the model is claimed to already agree as well as an independent bf16 port could; if either module behind it differs functionally, that claim is measuring the revision.",
+
+ "the_two_modules_and_the_whole_38_pct": {
+  "diffusion_conditioning": {
+   "mass_pct": 36.9462,
+   "diff_lines": 2,
+   "the_change": "0.5.0 constructs linear_s with linear_init_params.linear_s where 0.4.3 passed linear_init_params.linear_z -- a call site reading the right values from the wrong key.",
+   "why_inert_VERIFIED": "under diffusion_cond_init both keys are the BYTE-IDENTICAL dict {'bias': False, 'init': 'default'}, in BOTH release trees. Same bias (so the same state_dict keys and shapes) and the same init scheme (which a loaded checkpoint overwrites anyway). It is a cosmetic correctness fix.",
+   "how_it_was_checked": "not by the diff's size and not by the parameter's name -- by resolving what the call site actually reads, in both trees. That is the discipline D90 cost us: check the call site, then check what the call site resolves to."
+  },
+  "msa_module": {
+   "mass_pct": 1.24,
+   "diff_lines": 20,
+   "why_inert_VERIFIED": "every change is clear_cache_between_blocks plumbing and torch.cuda.empty_cache() becoming empty_device_cache(device), plus a copyright line. No arithmetic, no masking, no dtype, and no control flow that runs unless the caller opts into cache clearing. (D94.)"
+  },
+  "sum": "36.9462 + 1.24 = 38.1862 -- the two modules ARE the positive result, with nothing else in it."
+ },
+
+ "the_contrast_worth_holding": "the same audit, run the same way on the same two release trees, found the trunk scored against the wrong revision (0.2104, 85.6 % of its disagreement), found aux_heads backed by two NON-inert modules so its A18 failure may be an artefact, and found a second trunk precision difference worth 6.070e-03. It did not find a single functional difference behind the 38.1862 %. An audit that only ever confirmed what its author hoped would be worth little; this one cost three withdrawals first.",
+
+ "what_this_does_NOT_say": "it does not re-verify the DIFFUSION TRANSFORMER, which D22 read and judged inert and which carries the 51.1358 % that needs an accurate softmax -- that is a different claim on a different scope and it is still D22's reading rather than mine. It does not touch D95: these are gradient, parameter-space figures, where padding dilution is weak, but the A18 FORWARDS underneath them were computed on padded activations and of3t-maskaudit is dispatched against exactly that.",
+
+ "provenance": "of3t-orchestrator pass 176 on pc, CPU only, no device. Read from ~/.coworker/scratch/of3t-reference/upstream{,050}: core/model/layers/diffusion_conditioning.py, core/model/latent/msa_module.py, and projects/of3_all_atom/config/linear_init_config.py in both trees."
+}

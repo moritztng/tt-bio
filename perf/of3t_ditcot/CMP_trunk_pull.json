@@ -1,0 +1,60 @@
+{
+ "a": "/tmp/of3t/ditcot/trunk_base1.pt",
+ "b": "/tmp/of3t/ditcot/trunk_pull.pt",
+ "compared": 2736,
+ "bit_identical": 2736,
+ "moved": 0,
+ "bit_identical_frac": 1.0,
+ "max_rel": 0.0,
+ "top_moved": [],
+ "host": "qb2",
+ "card": 0,
+ "aiclk_mhz_during": null,
+ "reemit": {
+  "what": "provenance added; comparison fields recomputed from the same dumps and unchanged field for field",
+  "why": "D155 / AMENDMENT 1: a bit_identical claim that does not name its host cannot be attributed to healthy hardware",
+  "by": "perf/of3t_ditref/reemit_cmp_provenance.py",
+  "at": "2026-09-21T19:30:50Z",
+  "reemit_ran_on": "tt-quietbox2",
+  "fields_reproduced": [
+   "a",
+   "b",
+   "compared",
+   "bit_identical",
+   "moved",
+   "bit_identical_frac",
+   "max_rel",
+   "top_moved"
+  ],
+  "numbers_unchanged": true,
+  "card_evidence": {
+   "run_kcfg.sh": "TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0, literal in the script",
+   "run_kcfg_trunk.sh": "TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0, literal in the script",
+   "opiso.py": "tt_bio.tenstorrent.get_device() under of3t-ditcot's card-0 lease grant; tt-bio refuses a card outside the grant and refuses an unpinned open"
+  },
+  "aiclk_note": "of3t-ditcot captured no AICLK on these arms, so none is recorded rather than reconstructed. These twelve are bit-equality comparisons of dumps already on disk, not timings: no clock-dependent number is claimed here. The arms' own A/A (CMP_AA, CMP_t1_AA, CMP_t3_AA, CMP_trunk_AA) is the hardware-health control -- a degraded card breaks bit-identity, it does not manufacture it.",
+  "inputs": {
+   "a": {
+    "path": "/tmp/of3t/ditcot/trunk_base1.pt",
+    "bytes": 1184548997,
+    "mtime_utc": "2026-09-21T17:35:56Z"
+   },
+   "b": {
+    "path": "/tmp/of3t/ditcot/trunk_pull.pt",
+    "bytes": 1184546253,
+    "mtime_utc": "2026-09-21T17:37:10Z"
+   }
+  },
+  "loadavg_start": [
+   0.31298828125,
+   0.4951171875,
+   2.3251953125
+  ],
+  "loadavg_end": [
+   0.3681640625,
+   0.50390625,
+   2.31787109375
+  ],
+  "recompute_seconds": 2.8
+ }
+}

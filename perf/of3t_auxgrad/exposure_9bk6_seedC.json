@@ -1,0 +1,59 @@
+{
+ "samples": [
+  {
+   "default": {
+    "plddt_mean": 0.7969810366630554,
+    "ptm": 0.811519,
+    "iptm": 0.763865
+   },
+   "masked": {
+    "plddt_mean": 0.7969810366630554,
+    "ptm": 0.811519,
+    "iptm": 0.763865,
+    "d_plddt_mean": 0.0,
+    "d_ptm": 0.0,
+    "d_iptm": 0.0,
+    "plddt_atom_max_abs_delta": 0.0,
+    "plddt_atom_bit_equal": true,
+    "pae_logits_max_abs_delta": 0.0,
+    "pae_logits_bit_equal": true,
+    "plddt_logits_max_abs_delta": 0.0
+   },
+   "negctl": {
+    "plddt_mean": 0.7844134569168091,
+    "ptm": 0.798085,
+    "iptm": 0.745121,
+    "d_plddt_mean": -0.012567579746246338,
+    "d_ptm": -0.013433999999999946,
+    "d_iptm": -0.018743999999999983,
+    "plddt_atom_max_abs_delta": 0.15178489685058594,
+    "plddt_atom_bit_equal": false,
+    "pae_logits_max_abs_delta": 8.024933099746704,
+    "pae_logits_bit_equal": false,
+    "plddt_logits_max_abs_delta": 3.217646598815918
+   }
+  }
+ ],
+ "mask_stats": {
+  "source": "aux['repr_batch']['token_mask'] == features['token_mask'] as the shipped CLI builds it",
+  "n_token": 164,
+  "min": 1.0,
+  "max": 1.0,
+  "n_zero": 0,
+  "padding_fraction": 0.0,
+  "n_token_at_confidence_head": 164,
+  "zij_trunk_token_axis": 164,
+  "repr_x_mask_n_zero": 0,
+  "repr_x_mask_equals_token_mask": true,
+  "bucket_enabled": true,
+  "bucket_multiple": 32,
+  "trunk_token_axis_padded_to": 192,
+  "trunk_tok_pad": 28
+ },
+ "arms": [
+  "default",
+  "masked",
+  "negctl"
+ ],
+ "pid": 291494
+}

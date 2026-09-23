@@ -1,0 +1,98 @@
+# Workstream: of3t-traj20
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=300 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-traj20
+
+OF3T row `of3t-traj20` — **PROTOCOL §7, the assembled 20-step trajectory. It has never been run,
+and §8's completion sentence requires it.** This is the last un-run instrument in the campaign.
+
+## Base your worktree on `wk/of3t`, not `main`
+
+    git fetch origin && git checkout -B wk/of3t-traj20 origin/wk/of3t
+
+You need the composition: the tape, the optimizer, the schedule and the clipping all live there
+and all four are already proven individually. This row assembles them.
+
+## Why this row exists, and why it is not redundant with everything already proven
+
+§4 proved the LR schedule (109,005 comparisons, 0 mismatches), §4 proved the clipping, §5 proved
+the optimizer and the §4/§5 seam — **each in isolation, under controlled drive**. §3 is proving
+the per-parameter gradients scope by scope. None of that can catch **WIRING**: a component
+applied in the wrong order, called at the wrong time, fed stale state, or not called at all.
+That is §7's one job, and §7 says plainly it "does not need to be long to do it".
+
+The campaign's PROVES field is honest that this is missing — it claims the state-free half
+exactly and, for the model-dependent half, only that the machinery exists. `of3t-trajectory`,
+whose name suggests it owned this, returned **NO-GO on a ONE-STEP gradient comparison** and says
+so itself: *"this is one step, at one boundary."* So: never run.
+
+## What §7 fixes in advance, and none of it is yours to choose
+
+- **N = 20**, fixed at pass 1. It exceeds the gradient-accumulation cycle so clipping and
+  optimizer state engage, and every step sits inside the 1000-step linear warmup so the LR moves
+  on all 20 and a frozen schedule shows immediately.
+- **Compare the UPDATE, not the weights** (§7a). `d_k = w_k - w_0` per tensor, scored as
+  `||d_k_ours - d_k_ref||_2 / (||d_k_ref||_2 + 1e-30)`. This is load-bearing: with warmup to
+  `max_lr=1e-3` from `base_lr=0`, 20 steps move the weights by a relative ~1e-4, so a relative L2
+  on `w_k` is dominated by `w_0` — identical on both stacks **by construction** — and would read
+  ~0 for a correct implementation *and* for one computing garbage. Comparing weights makes this
+  entire instrument vacuous.
+- **k = 1 is not a rung, and not free either** (A10). `lr(1)` is exactly 0, so a correct
+  implementation has `d_1 = 0` and any two correct implementations agree bit-exactly — including
+  with one computing garbage, which is why it cannot be quoted as a pass. But `of3t-gradients`
+  measured **our `d_1` at 0.0139 where theirs is exactly 0**, because `recipes.py:119` wires
+  `af3_lr(s)` while `AdamW.step` increments before it reads: our step 1 ran at `lr(1)` where
+  theirs runs at `lr(0)`. **Report `d_1` for both sides and treat any non-zero value as a defect
+  to localise.** D11 is recorded CLOSED by `of3t-updaterule` — this run is the end-to-end check
+  that it really is.
+- **Discrimination starts at k = 2** (A9). `d_2 = 7.309e-04` in absolute terms is a real update
+  whose relative comparison is well-posed; the earlier reasoning that it "reads the tolerance"
+  conflated the size of the update with the precision of comparing it.
+- **The bar is the SHAPE, not a magnitude.** Linear or sub-linear growth in k passes;
+  **super-linear FAILS at any magnitude, including inside the per-step bars.** Do not convert
+  this into a threshold on `d_20`.
+
+## Controls
+
+Two, both measured. A control that breaks the comparison; and an arm showing the instrument
+**can fail** — deliberately mis-wire one component (apply the LR after the step, or feed the
+optimizer stale gradients) and demonstrate super-linear divergence. §3e's rule applies here: a
+bar that has not been shown capable of failing is not evidence.
+
+## Rules
+
+- **Pre-register before you run**, including what a super-linear shape would mean and what you
+  would do next. A shape read off a curve after seeing it is not a bar.
+- Report `d_k` for **every** k from 1 to 20, not just the endpoint — the shape is the result and
+  an endpoint hides it.
+- `PARITY MEANS ACCURACY, NOT BIT-EXACTNESS`. **CLOCK DISCIPLINE** on any perf number.
+- Change no shipped default; `compose_verify.sh` asserts `scale_pair_bias=False` and the
+  release-gated confidence masks stay off.
+- Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-traj20`; do NOT merge to
+  main. Your push from qb2 may silently not reach origin — commit early in small self-contained
+  steps and check with `git ls-remote origin wk/of3t-traj20`.
+
+## AMENDMENT 1 (of3t-orchestrator, pass 179) — append-only. What your base actually is.
+
+**Your base is adequate — but it is not what I implied, so here is the measured truth.** I told
+you to cut from `wk/of3t`. `origin/wk/of3t` has been stuck at `6a98aec4f` since pass 175 while
+the composition I verify and quote reached 134 commits further on, because `compose_verify.sh`
+rebuilds that branch locally and deliberately does not push it (D101, mine).
+
+Checked by ancestry rather than assumed:
+
+    present in your base: updaterule (with the D11 schedule off-by-one CLOSED), tape,
+                          gradients, reference, pairbias, confhead, conditioning,
+                          adaln, softmax, trajectory
+    absent:               trunk043ref, trunkcliff, auxfind, auxgrad, maskaudit,
+                          auxheads043, trunkgrad
+
+**Every row that produced what §7 assembles is present**, including the D11 fix this run is
+partly meant to re-check end to end. The seven absent rows are pass-176+ trunk and aux_heads
+work that §7 does not touch. **So do not re-cut and do not wait** — carry on.
+
+One thing to carry from those absent rows, because it bears on how you read your own result:
+the trunk's gradient is now measured at **5.367727e+00**, worse than a measured zero model at
+1.0. If your 20-step trajectory diverges, that is a plausible contributor and **not** evidence
+of a wiring fault on its own. Your bar is the **shape** in k, not the magnitude — linear or
+sub-linear passes even if the absolute numbers are large, super-linear fails even if they are
+small. That separation is exactly why §7's bar was written as a shape.

@@ -1,0 +1,179 @@
+{
+ "AA_scope_identical": true,
+ "DECOMPOSITION": {
+  "layout_alone_x": 2.730835909471192,
+  "matching_the_weight_x": 2.426075594746664,
+  "reading": "The control separates the two. Moving to the shared LAYOUT with a weight that is not the reference's accounts for the first factor; matching the reference's actual all-ones weight accounts for the second. Both halves are real, so the gain is not an artifact of the layout being kinder on its own.",
+  "total_x": 6.625214353225869
+ },
+ "VERDICT": "D141 is material and it dominates this scope. Running our port in the reference's architecture moves the scope median rel_l2 from 0.7055 to 0.1065, 6.62x, and the D129 leaf improves in 24 of 24 blocks with a median per-block factor of 7.08x. That is LARGER than the 2.28x this row was chartered to attribute to an op, so the 2.28x cannot survive the boundary intact and a per-op ablation against this reference would have named an op for an architecture difference.",
+ "arms": {
+  "ours": "the checkpoint as trained: 24 per-block trained layer_norm_z",
+  "ours2": "A/A rerun of ours",
+  "refarch": "the reference's architecture: per-block dropped, one shared layer_norm_z at all-ones",
+  "refarch_rand": "CONTROL: the shared LAYOUT with a random N(1, 0.2) weight, seed 20260921"
+ },
+ "leaf": "conditioned_transition.layer_norm.layer_norm_s.weight",
+ "leaf_blocks": 24,
+ "leaf_blocks_improved_by_refarch": 24,
+ "leaf_by_block": {
+  "0": {
+   "ours": 0.38916921254931275,
+   "ours_over_refarch": 6.087589269197751,
+   "refarch": 0.06392829662777154,
+   "refarch_rand": 0.10348076049363406
+  },
+  "1": {
+   "ours": 2.1199876993488047,
+   "ours_over_refarch": 4.306485970608131,
+   "refarch": 0.49227786037566845,
+   "refarch_rand": 0.45263955951581836
+  },
+  "10": {
+   "ours": 0.8241961371577035,
+   "ours_over_refarch": 7.777483891073602,
+   "refarch": 0.10597207897835088,
+   "refarch_rand": 0.2793850126359486
+  },
+  "11": {
+   "ours": 1.0709252586131386,
+   "ours_over_refarch": 7.825820856825892,
+   "refarch": 0.13684510266792635,
+   "refarch_rand": 0.1601041409008792
+  },
+  "12": {
+   "ours": 1.0477429552083426,
+   "ours_over_refarch": 4.358392800617419,
+   "refarch": 0.24039663314878762,
+   "refarch_rand": 0.48762701812270903
+  },
+  "13": {
+   "ours": 0.5845933873801121,
+   "ours_over_refarch": 10.056434498602767,
+   "refarch": 0.05813127778650923,
+   "refarch_rand": 0.08138136466274355
+  },
+  "14": {
+   "ours": 0.4997334749652623,
+   "ours_over_refarch": 4.89114166823134,
+   "refarch": 0.10217113076300821,
+   "refarch_rand": 0.11622300217381917
+  },
+  "15": {
+   "ours": 1.265313692625617,
+   "ours_over_refarch": 3.7745527786536055,
+   "refarch": 0.33522214864272165,
+   "refarch_rand": 0.3266260599272427
+  },
+  "16": {
+   "ours": 1.3783568079521051,
+   "ours_over_refarch": 10.631627194519218,
+   "refarch": 0.12964683418006523,
+   "refarch_rand": 0.18076287646051212
+  },
+  "17": {
+   "ours": 0.4511310113836696,
+   "ours_over_refarch": 4.6224050910648025,
+   "refarch": 0.09759659798223104,
+   "refarch_rand": 0.21849754798047208
+  },
+  "18": {
+   "ours": 0.6531836370486029,
+   "ours_over_refarch": 11.62442245275398,
+   "refarch": 0.05619063138004376,
+   "refarch_rand": 0.274372167001117
+  },
+  "19": {
+   "ours": 0.15125665731248497,
+   "ours_over_refarch": 7.666595782158292,
+   "refarch": 0.019729311628048734,
+   "refarch_rand": 0.38164875548357885
+  },
+  "2": {
+   "ours": 0.6652530256939683,
+   "ours_over_refarch": 6.15388447867141,
+   "refarch": 0.10810294343347712,
+   "refarch_rand": 0.47003634881956174
+  },
+  "20": {
+   "ours": 0.3829317783160447,
+   "ours_over_refarch": 6.922132354310396,
+   "refarch": 0.05531991570163982,
+   "refarch_rand": 0.28392069953485066
+  },
+  "21": {
+   "ours": 0.1602077467955387,
+   "ours_over_refarch": 1.7349084745923031,
+   "refarch": 0.09234363030775264,
+   "refarch_rand": 0.28692938884052027
+  },
+  "22": {
+   "ours": 1.022652029049471,
+   "ours_over_refarch": 10.439972262734129,
+   "refarch": 0.09795543544688003,
+   "refarch_rand": 0.35825925955092425
+  },
+  "23": {
+   "ours": 0.17285264697933653,
+   "ours_over_refarch": 8.169454410227635,
+   "refarch": 0.02115840768545523,
+   "refarch_rand": 0.039766798914497484
+  },
+  "3": {
+   "ours": 0.5381428882727998,
+   "ours_over_refarch": 7.6270155909677095,
+   "refarch": 0.07055746534858212,
+   "refarch_rand": 0.3441138449681471
+  },
+  "4": {
+   "ours": 0.5069903345972356,
+   "ours_over_refarch": 3.4313066514735677,
+   "refarch": 0.14775430647666238,
+   "refarch_rand": 0.23237819377059635
+  },
+  "5": {
+   "ours": 1.0571711044097472,
+   "ours_over_refarch": 3.366270200925426,
+   "refarch": 0.31404820210781614,
+   "refarch_rand": 0.2427853669850572
+  },
+  "6": {
+   "ours": 0.40192923015289334,
+   "ours_over_refarch": 3.727079763438451,
+   "refarch": 0.10784025447904284,
+   "refarch_rand": 0.2387213568983083
+  },
+  "7": {
+   "ours": 0.9723086436155649,
+   "ours_over_refarch": 7.22834200585056,
+   "refarch": 0.13451337012396292,
+   "refarch_rand": 0.378367256861679
+  },
+  "8": {
+   "ours": 1.2430404546135374,
+   "ours_over_refarch": 10.589476692955353,
+   "refarch": 0.11738450262046186,
+   "refarch_rand": 0.2617768023495293
+  },
+  "9": {
+   "ours": 0.5156498552533605,
+   "ours_over_refarch": 11.652220012371842,
+   "refarch": 0.04425335727491113,
+   "refarch_rand": 0.13312377660085106
+  }
+ },
+ "leaf_median_of_per_block_ratio_ours_over_refarch": 7.075237180080478,
+ "leaf_median_rel_l2": {
+  "ours": 0.6188885122143575,
+  "refarch": 0.10407160487067954,
+  "refarch_rand": 0.26807448467532313
+ },
+ "scope_median_rel_l2": {
+  "ours": 0.7055436041332523,
+  "ours_AA": 0.7055436041332523,
+  "refarch": 0.10649370216825024,
+  "refarch_rand": 0.2583617718246118
+ },
+ "what": "D141 priced: what the reference's all-ones layer_norm_z costs, measured on our port, which runs both layouts.",
+ "why_our_side": "Upstream 0.5.0's DiffusionAttentionPairBias has no layer_norm_z member at all, so the reference CANNOT be built in the checkpoint's architecture and this is not a strict=False loading bug. Our OF3DiffusionTransformer picks the layout off the state dict, so our side is the only one that can run both."
+}

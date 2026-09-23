@@ -1,0 +1,114 @@
+{
+ "what": "of3t-covadopt, pre-registered. What model_scope.py must read over the composed 3,660, from committed artifacts only.",
+ "statistic": "mass_weighted_rel_l2 = sqrt(sum ||a-b||^2 / sum ||b||^2), agreement.stat",
+ "validation_of_the_lever_per_tensor_artifact": {
+  "what": "refcov's C2 drift recomputed from the dump-per-tensor artifact. It must reproduce the published C2, or the per-tensor file is not the scoring the composition used and nothing below stands.",
+  "worst_rel_diff": 0.740350719969133,
+  "refcov_C2_worst_rel_diff": 0.740350719969133,
+  "worst_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "refcov_C2_worst_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "mass_weighted_rel_diff": 0.13949978615214453,
+  "refcov_C2_mass_weighted_rel_diff": 0.13949978615214453,
+  "worst_agrees": true,
+  "tensor_agrees": true
+ },
+ "counts": {
+  "union_n_tensors": 3660,
+  "n_compared": 3660,
+  "n_reference_tensors": 4170,
+  "n_union_tensors_absent_from_float64_reference": 0
+ },
+ "coverage_total_pct_of_model_compared": 99.50523155277378,
+ "coverage_bar": 99.2594,
+ "model_squared_gradient_norm_measured": 10.279642678524981,
+ "renorm_vs_FLOAT64": {
+  "mass_weighted_rel_l2": 0.5276985077644326,
+  "mass_weighted_norm_ratio": 1.1004334067676342,
+  "mass_weighted_cos": 0.8780576615307508,
+  "n": 3660,
+  "n_rel_measurable": 3605,
+  "n_over_per_tensor_bar": 3314,
+  "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight",
+  "worst_rel_l2": 642.7051680533705,
+  "pct_of_model_mass": 99.50523155277435,
+  "cross_check_refcov_headline_after": 0.5276985077644327,
+  "cross_check_rel_difference": 2.1038964641544254e-16
+ },
+ "C1_restricted_to_the_original_3643": {
+  "what": "the new artifact restricted to the published 3,643. It CANNOT reproduce MODEL_withtrunk_n384.json, because --device-refatom moves cl0/plm0 onto the card and they are an input to the whole DiffusionModule (refcov C2).",
+  "vs_FLOAT64_predicted": 0.5317397054265057,
+  "vs_FLOAT64_published": 0.5327948845677762,
+  "predicted_difference": -0.0010551791412705125,
+  "n_tensors_that_must_be_BIT_IDENTICAL": 3096,
+  "n_tensors_that_must_move": 547,
+  "per_tensor_worst_rel_diff": 0.740350719969133,
+  "per_tensor_worst_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "per_tensor_mass_weighted_rel_diff": 0.13949978615214453,
+  "vs_UPSTREAM_BF16_point_estimate": 0.5191070833786806,
+  "vs_UPSTREAM_BF16_published": 0.5201243840984896
+ },
+ "reference_digests": {
+  "float64": {
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "matches_pin": true
+  },
+  "upstream_bf16": {
+   "sha256": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "matches_pin": true
+  },
+  "upstream_f32": {
+   "sha256": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548",
+   "matches_pin": true
+  }
+ },
+ "UPSTREAM_BF16_vs_FLOAT64": {
+  "mass_weighted_rel_l2": 0.10937539968339202,
+  "mass_weighted_norm_ratio": 1.0169569913507965,
+  "mass_weighted_cos": 0.9942596203184944,
+  "n_over_per_tensor_bar": 3494,
+  "published_over_3643": {
+   "mass_weighted_rel_l2": 0.10592054683439786,
+   "n_over_per_tensor_bar": 3478
+  },
+  "_sums": {
+   "ref_sq": 10.2287822500641,
+   "diff_sq": 0.12236669759611418,
+   "arm_sq": 10.578622173854377
+  }
+ },
+ "UPSTREAM_F32_vs_FLOAT64": {
+  "mass_weighted_rel_l2": 7.381018979951686e-05,
+  "mass_weighted_norm_ratio": 0.9999992391765058,
+  "mass_weighted_cos": 0.9999999972763155,
+  "n_over_per_tensor_bar": 175,
+  "published_over_3643": {
+   "mass_weighted_rel_l2": 7.4177415630308e-05,
+   "n_over_per_tensor_bar": 175
+  },
+  "_sums": {
+   "ref_sq": 10.2287822500641,
+   "diff_sq": 5.572583409600161e-08,
+   "arm_sq": 10.228766685474314
+  }
+ },
+ "bars": {
+  "upstream_own_bf16_floor_vs_float64": 0.10937539968339202,
+  "norm_ratio_bf16_over_float64": 1.0169569913507965,
+  "perfect_port_reads_floor_over_r": 0.10755164732985574,
+  "A26_reachable_bar_vs_their_bf16": 0.15210099830945006,
+  "published_A26_over_3643": 0.14735268326440318
+ },
+ "renorm_vs_UPSTREAM_BF16": {
+  "not_predictable_exactly": "no arm was ever scored against upstream's bf16 step with --device-refatom on, so this leg is the one new measurement. It gets a bound and an estimate.",
+  "rigorous_interval": [
+   0.4113478855437074,
+   0.6264511802034187
+  ],
+  "point_estimate_holding_the_published_geometry": 0.5152430230050384,
+  "published_geometry_cos": 0.13751229136794343,
+  "published_over_3643": 0.5201243840984896,
+  "x_A26_bar_point_estimate": 3.3875058594735488,
+  "clause_verdict_predicted": "FAIL -- the A26 clause is expected to read about 3.39x its bar. This row does not flip it.",
+  "falsifier": "a reading outside the rigorous interval means the composition or the references are not what this predicts, and stops the row. A reading inside the interval but more than 5 % from the point estimate means the entering tensors and the lever change the geometry more than the published set's average -- reportable, not a stop."
+ }
+}
