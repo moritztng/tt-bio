@@ -1,0 +1,8 @@
+# pxdesign's --num_designs IS its batch axis, and the CLI help makes a claim about it: "8 at a
+# time runs about 1.25x faster per design than 1; past 8 it gets slower again". That claim is
+# what a production entrant sizes a job on, and it has never been checked at a competition-sized
+# target. Same 512-residue target, same 400 upstream steps, one job per chip.
+--model pxdesign --target-res 512 --designs 2 --steps 400 --host-threads 2 --timeout 14400 --tag batch
+--model pxdesign --target-res 512 --designs 4 --steps 400 --host-threads 2 --timeout 14400 --tag batch
+--model pxdesign --target-res 512 --designs 16 --steps 400 --host-threads 2 --timeout 21600 --tag batch
+--model pxdesign --target-res 512 --designs 32 --steps 400 --host-threads 2 --timeout 25200 --tag batch
