@@ -778,9 +778,10 @@ def _getitem(x: Tensor, index):
 # `x[...]` on a RAW handle is a method of `ttnn.Tensor`, not a verb of the `ttnn` module, so
 # `_swap` never reaches it. When the receiver is a registered parameter the slice is a fresh
 # tensor with a new id, the parameter lookup misses, and the weight trains as a constant: the
-# MSA module's per-head `m`/`g`/`o` projections did (D262). Every such slice that did not come
-# back taped is recorded here, by its first tt-bio frame, and `take_raw_param_slices` hands the
-# list to the caller's guard.
+# MSA module's per-head `m`/`g`/`o` projections did (D262). While the tape is installed such a
+# slice goes through `_getitem`, like one on a taped tensor. One that still comes back raw (a
+# slice inside a verb's own shipped call, where the lookup is off) is recorded by its first
+# tt-bio frame, and `take_raw_param_slices` hands the list to the caller's guard.
 _RAW_PARAM_SLICES: list = []
 _SHIPPED_GETITEM = ttnn.Tensor.__getitem__
 
@@ -795,11 +796,13 @@ def _tt_bio_site() -> str:
     return "<outside tt_bio>"
 
 
-def _param_getitem(self, *args, **kwargs):
-    out = _SHIPPED_GETITEM(self, *args, **kwargs)
+def _param_getitem(self, index):
+    p = ag._param_on_tape(self)
+    if p is not None:
+        return _getitem(p, index)
     if ag.parameter_for(self) is not None:
         _RAW_PARAM_SLICES.append(_tt_bio_site())
-    return out
+    return _SHIPPED_GETITEM(self, index)
 
 
 def take_raw_param_slices() -> list:
