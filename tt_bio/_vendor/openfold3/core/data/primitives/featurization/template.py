@@ -227,15 +227,15 @@ def create_template_distogram(
         torch.Tensor:
             The distogram template feature [N_templates, N_token, N_token, N_bins].
     """
-    distogram = np.sum(
-        (
-            pseudo_beta_atom_coords[..., None, :]
-            - pseudo_beta_atom_coords[..., None, :, :]
-        )
-        ** 2,
-        axis=-1,
-        keepdims=True,
+    diff = (
+        pseudo_beta_atom_coords[..., None, :]
+        - pseudo_beta_atom_coords[..., None, :, :]
     )
+    # Same sum, same order, as np.sum(diff ** 2, axis=-1) over the three components.
+    distogram = (
+        diff[..., 0] * diff[..., 0] + diff[..., 1] * diff[..., 1]
+    ) + diff[..., 2] * diff[..., 2]
+    del diff
 
     # Generate squared bin edges
     lower = np.linspace(min_bin, max_bin, n_bins) ** 2
@@ -243,10 +243,19 @@ def create_template_distogram(
         [lower[1:], np.array([inf_value], dtype=lower.dtype)], axis=-1
     )
 
-    # Bin the distogram
-    template_distogram = torch.tensor(
-        ((distogram > lower) * (distogram < upper)).astype(distogram.dtype),
-        dtype=torch.float,
+    # Bin the distogram: bin k holds lower[k] < d < upper[k]. The edges are sorted, so at most
+    # one bin matches, and it is the last edge strictly below d. Indexing that bin directly
+    # gives the same one-hot as comparing every pair against every edge, which at 1280 tokens
+    # was a float64 [T, N, N, n_bins] broadcast and ~80 s of host time per fold. NaN
+    # coordinates sort past every edge and fail `d < upper`, so they get no bin, as before.
+    k = np.searchsorted(lower, distogram, side="left") - 1
+    k_safe = np.clip(k, 0, n_bins - 1)
+    hit = (k >= 0) & (distogram < upper[k_safe])
+    template_distogram = torch.zeros(distogram.shape + (n_bins,), dtype=torch.float)
+    template_distogram.scatter_(
+        -1,
+        torch.from_numpy(k_safe[..., None]),
+        torch.from_numpy(hit[..., None].astype(np.float32)),
     )
 
     return (
