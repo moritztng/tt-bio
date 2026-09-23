@@ -2515,7 +2515,7 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
-                              mod_names=None):
+                              mod_names=None, chain_ids=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
@@ -2528,9 +2528,14 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     cannot name it: a `modifications:` residue or a CCD ligand chain. Both are tokenized
     per atom and carry restype UNK, so without it the writer names them "LIG" and a user
     who asked for SEP reads back a ligand, or who asked for ATP reads back an unnamed
-    one."""
+    one.
+
+    `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
+    are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
+    a chain by the id it submitted read the wrong one."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
+    import numpy as np
 
     from tt_bio.data import const
     from tt_bio.protenix_data import restype_to_resname
@@ -2557,9 +2562,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     arr.add_annotation("occupancy", float); arr.occupancy[:] = 1.0
     arr.add_annotation("b_factor", float)
     arr.b_factor[:] = b_factors.numpy().astype("float32") if b_factors is not None else 0.0
+    label = (lambda n: str(chain_ids[n])) if chain_ids else _chain_label
+    # set, not assigned per atom: the default chain_id dtype is <U4 and truncates a longer id
+    arr.set_annotation("chain_id", np.array([label(int(asym[t])) for t in a2t]))
     for i in range(coords.shape[0]):
         t = a2t[i]
-        arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
         arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
