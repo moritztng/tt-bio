@@ -10273,7 +10273,7 @@ class PairformerLayer(Module):
         (D174), already shaped to broadcast. `Pairformer` builds them once per stack call rather
         than once per block; a caller that passes neither computes exactly what it does today."""
         wide = self.z_fp32_residual and ops.taping()
-        if not wide and trans_mask_z is None:
+        if not ops.taping() and trans_mask_z is None:
             # Each op returns z + its update. Where its blocks join on the host they carry their own
             # rows of z and z is freed before the upload, so a pair too big to sit beside its update
             # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
