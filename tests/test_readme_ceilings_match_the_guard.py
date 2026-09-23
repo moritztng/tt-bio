@@ -7,10 +7,8 @@ ceilings, and one of them re-added a stale table row for a model another branch 
 moved, which would have re-published 627 for rf3 after it went to 1095.
 
 The invariant is one-directional on purpose. Every row in the table must match the guard.
-The reverse is NOT required: rf3 has a measured ceiling and is deliberately absent from the
-table, because the prose under it says it folds every rung to the top of its ladder, and
-`nesso1` is absent because it has no measured limit at all. Requiring a row
-for every ceiling would force those editorial calls into the table.
+The reverse is NOT required: `nesso1` is absent because it has no measured limit at all, and
+requiring a row for every ceiling would force that editorial call into the table.
 
 The published number carries its own UNIT, read off the row rather than assumed: boltzgen's
 14786 is atoms in the target, not residues, and a failure message that called it residues would

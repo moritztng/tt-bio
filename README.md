@@ -137,14 +137,14 @@ under 1024:
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
+| `rf3` | 1536 | 1600 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
-model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `nesso1` has no measured limit and
-is never refused.
+model, the limit and any model that does take the input. `nesso1` has no measured
+limit and is never refused.
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
 target's atom count and atoms per residue vary with what the target is made of: the 14786-atom
