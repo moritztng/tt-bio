@@ -18,6 +18,11 @@ structure-token axis is exercised; without it every 3Di token is '#' (sequence-o
 Flattened PCC is dominated by a few large channels and reads 0.999 on vectors that disagree
 residue by residue, so each row also carries the per-residue cosine (min, 1st percentile,
 median), the pooled cosine and the relative L2 error.
+
+Every length is embedded --repeat times in one process (default 2), all lengths once and then
+again, and each pass is scored. A repeated shape takes ttnn's program-cache path instead of a
+fresh compile, and a production run embeds many same-bucket sequences in one process, so a
+first-pass-only score describes a path most sequences never take.
 """
 import argparse
 import json
@@ -96,6 +101,7 @@ def main():
     ap.add_argument("--ref-cache", default=None,
                     help="directory of cached reference arrays, keyed by model/L/3Di")
     ap.add_argument("--ref-only", action="store_true", help="fill --ref-cache, open no device")
+    ap.add_argument("--repeat", type=int, default=2, help="passes over every length, each scored")
     a = ap.parse_args()
     torch.set_grad_enabled(False)
     is_saprot = a.model.startswith("saprot")
@@ -142,13 +148,13 @@ def main():
         run = lambda aa, _s: mod.embed_sequences(model, {"q": aa})[0].per_residue
 
     with open(a.out, "a") as fh:
-        for L, (aa, s) in cases.items():
+        for rep, (L, (aa, s)) in ((r, c) for r in range(a.repeat) for c in cases.items()):
             with during() as clk:
                 t = time.time()
                 dev = run(aa, s)
                 wall = time.time() - t
             assert dev.shape[0] == L, f"device returned {dev.shape[0]} rows for {L} residues"
-            row = {"model": a.model, "fast": a.fast, "L": L, "structure_tokens": bool(struc),
+            row = {"model": a.model, "fast": a.fast, "L": L, "rep": rep, "structure_tokens": bool(struc),
                    "n_3di_resolved": sum(c != "#" for c in s), "device_wall_s": round(wall, 1),
                    "aiclk": clk.summary(), "ref_wall_s_all": round(t_ref, 1),
                    "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
