@@ -86,7 +86,7 @@ defect it found, which is fixed.
 | ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
 | covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
 | cyclic chains (`cyclic: true`) | **not supported** — loud error. Upstream's query format carries `Chain.cyclic` and derives a `cyclic_mask` feature from it; neither was vendored, so the fold would return a linear structure. Use `--model rf3` or `boltz2` |
-| paired MSA | **not ported** — complexes fold on per-chain unpaired MSAs |
+| paired MSA | ported; a complex with two or more different protein sequences reads its ColabFold paired MSA as `colabfold_paired`, with upstream 0.5.0's fix that keeps those rows (PR #373) |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
 
@@ -223,8 +223,9 @@ checkpoint, not AF3. tt-bio's job is to reproduce it faithfully, which the parit
 measures; whether the checkpoint is good enough for your target is a separate question,
 and the confidence outputs are the way to answer it.
 
-Complexes fold on unpaired per-chain MSAs. Ligands, covalent bonds and PAE output are
-not there yet.
+A complex with two or more different protein sequences folds with a species-paired MSA
+above the per-chain ones, as upstream does. Ligands, covalent bonds and PAE output are not
+there yet.
 
 ## Reproducing the parity legs
 

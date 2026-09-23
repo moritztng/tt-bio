@@ -224,9 +224,11 @@ ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-ms
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
 `--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
-without an MSA (lower accuracy; for batch-screening orphan sequences). OpenDDE multi-chain
-predictions still request paired MSAs from `--msa_server_url`; use `--single_sequence` to
-prevent all network MSA requests. ESMFold2 is single-sequence.
+without an MSA (lower accuracy; for batch-screening orphan sequences). A complex with two or
+more different protein sequences also gets a species-paired MSA, searched once per complex, the
+way each model's upstream pairs; a homodimer is not paired. RF3 is the exception: its upstream
+pairs by taxonomy IDs that ColabFold alignments do not carry, so it folds unpaired there too.
+ESMFold2 needs no MSA and uses one when a source is given.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
@@ -727,7 +729,7 @@ Model-specific options are labelled below.
 | `--override` | `False` | Re-run from scratch |
 | `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenBind-0/OpenDDE/RF3 when no local DB is found |
 | `--single_sequence` | `False` | **(Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
-| `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`; OpenDDE pairing still uses `--msa_server_url` |
+| `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`. A complex is not paired through it unless its paired MSA is already in `--msa_dir` |
 | `--write_pae` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
