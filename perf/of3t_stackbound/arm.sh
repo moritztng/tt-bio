@@ -13,7 +13,8 @@ cd "$W"
 O=/home/ttuser/of3t_stackbound
 H=$W/perf/of3t_stackbound
 mkdir -p "$O"
-CARD=1
+CARD=${ARM_CARD:-1}        # qb1 card 1 (p150a) by default; qb2 relocation passes ARM_CARD=3 ARM_BOARD=p300c
+WANT=${ARM_BOARD:-p150a}
 SMI=/home/ttuser/.local/bin/tt-smi
 B=$O/boundary_model_sb.pt
 C=$O/cot_external_sb.pt
@@ -42,7 +43,7 @@ fi
 unset TT_MESH_GRAPH_DESC_PATH
 BOARD=$("$SMI" -s 2>/dev/null | python3 -c "
 import sys,json;d=json.load(sys.stdin);print(d['device_info'][$CARD]['board_info']['board_type'])")
-[ "$BOARD" = p150a ] || { echo "card $CARD is a $BOARD, not p150a -- refusing"; exit 3; }
+[ "$BOARD" = "$WANT" ] || { echo "card $CARD is a $BOARD, not $WANT -- refusing"; exit 3; }
 
 source /home/ttuser/tt-bio-dev/env/bin/activate
 ENV=(TT_BIO_SOFTMAX_BW_RENORM=1 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
