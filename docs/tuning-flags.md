@@ -1067,14 +1067,19 @@ interleaved pairs on a p300c, both arm orders, board-pair sibling card verified 
 sampled during every leg at 1200 MHz or above, against an A/A floor of 0.635 %. The effect is
 15.83x that floor and the arms do not overlap.
 
-**Accuracy: bit for bit.** One mmCIF digest across all 12 legs at 896 residues and all 6 at 1088,
-both arms, two independent processes each. The chunk width splits output rows while the online
-softmax reduces over the key axis, so no reduction order changes.
+**Accuracy.** On RoseTTAFold3 it is bit for bit: one mmCIF digest across 12 legs at 896 residues
+and 6 at 1088, both arms. The chunk width splits output rows and the online softmax reduces over
+the key axis, so the attention itself rounds the same. On OpenBind it is not, because the
+narrower chunk leaves enough L1 for one more call to take the persistent-mask kernel, which rounds
+differently. On aminopeptidase N (PDB 3B34, 891 residues, padded to 896) at default settings over
+three seeds, the flag moves the structure 0.061 to 0.081 A, under the 0.60 A bar and 11x under
+the smallest seed-to-seed distance (0.82 A). Distance to the deposited structure changes by
+-0.0001 A on average (0.60 to 0.79 A either way). `perf/land_standing/narrowq_openbind_pepn.md`
+has the table.
 
-896 is the only length in the measured corpus where this changes what a fold does. Auditing 142
-baseline censuses leaves RoseTTAFold3 at 896 and 1088 as the only rungs where the fused path is
-declined for this reason, and at 1088 the bound makes the flag a no-op. Everywhere else the
-ladder is byte for byte what it is today.
+Two models change output at 896 residues: RoseTTAFold3, which gets the speedup, and OpenBind,
+which gets the precision change above. A size-ladder census with only this flag flipped leaves
+Protenix-v2 at 896 and OpenBind at 640 identical. At 1088 the bound makes the flag a no-op.
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK=0` is the way back.
 
