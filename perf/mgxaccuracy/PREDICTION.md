@@ -89,3 +89,43 @@ observation that argues against it: the 512 rungs use the identical code path an
 0.0755 A, and `conditioned_tokens` is recorded as 1536 on the failing runs, so the mask is the
 right size. It is not fully excluded, and P1 discriminates it: a misindexing that depends only
 on multi-chain input would fail on the gpb dimer too.
+
+## P4 — pre-registered reading of the boltzgen 1536 arms
+
+Written at 17:15Z on 2026-09-23, while both arms were still in step 3 and no 1536 scRMSD
+existed. The point is the same as above: the rule has to be fixed before the number, or the
+number picks the rule.
+
+**The two arms.** `gpb_dimer_1646` cropped to 1536 + an 80-residue binder (the headline arm,
+conditioning graph one component, 8316 inter-chain edges) and `big_1831` at 1536 + 80 (the
+withdrawal arm, two components, zero inter-chain edges). Eight designs each.
+
+**What each number has to clear, in this order.**
+
+1. *The across-target floor.* Two 512 targets measured here have medians **8.46 and 10.59 A**.
+   A 1536 median inside 8.46-10.59 is **not** evidence of a size effect, whatever the test
+   says, because two targets of the same size already differ by that much.
+2. *The test.* Tie-aware Mann-Whitney, two-sided 0.05, gpb-1536 against gpb-512 — **paired by
+   target**, never pooled across targets. `report.py` prints the pooled comparison too and it
+   is the optimistic one.
+3. *The power.* `power.py` says n=8 per size gives **49 %** against a doubling of the median
+   and **34 %** against 1.5x. So a non-significant result is reported as *this study could not
+   see an effect of that size*, with the power quoted, and never as *there is no effect*.
+
+**P4a.** The gpb 1536 arm's median lands **inside** the 8.46-10.59 band and does not separate
+from gpb 512 at n=8. Predicted because pxdesign's fit_rmsd on the same target rose only 1.55x
+over 2.7x the tokens, and because the 512 medians are already dominated by target difficulty.
+
+**REFUTED IF** the gpb 1536 median is above 10.59 A *and* the paired test separates. That
+would be the first real size effect this campaign has seen, and the next step is the shared-
+noise step comparison against fp32 on the same 1616-token input.
+
+**P4b.** The `big_1831` 1536 arm reads WORSE than the gpb one, because its conditioning graph
+is disconnected. If instead the two agree, then boltzgen — unlike pxdesign — does not depend
+on the conditioning the fixture destroys, and the fixture's disqualification is specific to
+models that condition on a 22 A-clamped distogram. Either outcome is informative; this one is
+a genuine open question rather than a prediction with a favourite.
+
+**What no outcome here can establish.** With one target per size in each arm, a size effect and
+a target effect are the same number. Separating them needs three targets per size, each
+measured at both — stated in the QUALITY section as the ceiling this row hits, not buried.
