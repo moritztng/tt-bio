@@ -93,7 +93,7 @@ Every command names its model with `--model`:
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein and ligand chains, with covalent `bond` constraints, cyclic peptides, modified residues and per-chain templates; nucleic acids are refused. Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
-- **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Modified residues, cyclic chains and covalent bonds to a ligand or modified residue are supported; a bond between two standard residues (a disulfide), `templates:` and pocket constraints are refused. Weights download from the IPD on first use.
+- **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Modified residues and covalent bonds to a ligand or modified residue are supported; cyclic chains, a bond between two standard residues (a disulfide), `templates:` and pocket constraints are refused. Weights download from the IPD on first use.
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
@@ -493,13 +493,12 @@ when comparing numbers against another implementation.
 
 ### Input Format
 
-ESMFold2 accepts proteins, DNA, RNA and ligands, and no constraints.
-Protenix-v1 and Protenix-v2 accept proteins, DNA, RNA,
-ligands, and covalent `bond` constraints. OpenFold3 accepts proteins, DNA and RNA
-plus per-chain templates, and rejects ligands and constraints with a named error.
-OpenDDE accepts proteins and ligands
-and honors covalent `bond` constraints between them. Boltz-2 additionally supports affinity, pocket/contact constraints,
-potentials, and user-supplied templates.
+ESMFold2, Protenix-v1 and Protenix-v2 accept proteins, DNA, RNA, ligands and covalent `bond`
+constraints. OpenFold3 accepts proteins, DNA and RNA plus per-chain templates, and refuses
+ligands. OpenDDE accepts proteins and ligands with `bond` constraints. Boltz-2 additionally
+supports affinity, pocket/contact constraints, potentials, and user-supplied templates. Which
+model takes cyclic chains and which kind of bond is in
+[`docs/model-capabilities.md`](docs/model-capabilities.md).
 
 Create a YAML file describing your complex:
 
@@ -634,7 +633,7 @@ For affinity targets, the same `results.json` entry also contains:
 
 #### Constraints
 
-Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2, Protenix-v2, and OpenDDE**. OpenFold3 does not support any `constraints:` block yet and rejects one with a named error rather than folding without it.
+Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). A covalent `bond` to a ligand or a modified residue works on every structure model that takes the ligand. A bond between two standard residues (a disulfide) works on Boltz-2, ESMFold2, Protenix and OpenDDE; RF3 and the OpenFold3 family refuse it by name.
 
 **Pocket Constraints** (binding site):
 ```yaml
@@ -656,12 +655,12 @@ constraints:
       force: false
 ```
 
-**Bond Constraints** (covalent link, e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2, Protenix-v2, and OpenDDE):
+**Bond Constraints** (covalent link, e.g. a covalent inhibitor, glycosylation, or disulfide):
 ```yaml
 constraints:
   - bond:
       atom1: [A, 10, SG]     # [chain, residue, atom]
-      atom2: [B, 1, C12]     # ligand atom by name; polymer atoms by residue
+      atom2: [B, 1, C1]      # SMILES ligand: element + count in SMILES order
 ```
 
 > **OpenDDE + covalent bonds:** OpenDDE honors a `bond` constraint between a protein

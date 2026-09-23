@@ -20,7 +20,7 @@ changing the structure. That prints a warning and the fold runs.
 | `openbind` | yes | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
 | `opendde` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
 | `opendde-abag` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
+| `rf3` | yes | yes | yes | yes | refused | yes | refused | refused | yes | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language.
@@ -77,10 +77,11 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **no protein chain** -- an input made only of RNA, DNA or ligands. ESMFold2 conditions its
   trunk on a protein language model, so it needs at least one protein chain.
 - **cyclic** -- `cyclic: true` on a protein chain closes the backbone head to tail. Each model
-  gets it the way its upstream expresses a ring: Boltz-2, RF3 and the OpenFold3 family wrap the
+  gets it the way its upstream expresses a ring: Boltz-2 and the OpenFold3 family wrap the
   relative position encoding, and Protenix, OpenDDE and ESMFold2, which have no such encoding,
   receive the closing amide bond (C of the last residue to N of the first). On those three, only a
-  protein chain can be cyclic.
+  protein chain can be cyclic. RF3 refuses it: its cyclic offset brings the ends within 2.4-2.9 A
+  but never forms the bond, in upstream RF3 as here.
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
   model folds the modified chemistry.
 - **templates** -- a precomputed template alignment per protein chain. There is no template
@@ -92,16 +93,16 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **residue-residue bond** -- a `bond` between two standard polymer residues, such as a
   disulfide. RF3 and the OpenFold3 family refuse it: both were trained with those bonds removed
   from their data, so neither can read one. Boltz-2, Protenix, OpenDDE and ESMFold2 take it.
+- **pocket/contact** -- a binding constraint. It needs a constraint embedder in the
+  checkpoint, which only Boltz-2 has.
+- **affinity** -- a predicted binding affinity for a named binder chain. Boltz-2 has the
+  affinity head; `tt-bio affinity --model nesso1` predicts affinity without folding.
 
 A ligand atom in a `bond` is named the same way on every model: its element and its 1-based
 count among that element's atoms in the SMILES string, hydrogens not counted. In
 `C=CC(=O)N`, `C1` is the first carbon written, `O1` the oxygen and `N1` the nitrogen. A CCD
 ligand uses the CCD's own atom names. Boltz-2 also accepts the names its output structures
 carry, and refuses a name that would mean different atoms under the two schemes.
-- **pocket/contact** -- a binding constraint. It needs a constraint embedder in the
-  checkpoint, which only Boltz-2 has.
-- **affinity** -- a predicted binding affinity for a named binder chain. Boltz-2 has the
-  affinity head; `tt-bio affinity --model nesso1` predicts affinity without folding.
 
 ## Outputs
 
