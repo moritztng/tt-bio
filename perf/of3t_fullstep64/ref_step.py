@@ -472,7 +472,9 @@ def main() -> int:
     policy = bm.cast_policy("removed" if a.mode == "f64" else "bf16", "cpu")
     t_f = time.time()
     saved = DiskSaved(a.disk_checkpoint) if a.disk_checkpoint else None
-    with policy, (saved.hooks() if saved else _Null()):
+    # --fd-from never backpropagates this forward, so it runs without a graph and spills nothing;
+    # the exact-loss assertion below is what says it is still the banked forward.
+    with policy, (saved.hooks() if saved else _Null()), (torch.no_grad() if a.fd_from else _Null()):
         out, xl, repr_x, drec = trunk_and_heads(model, batch, cfg=cfg, seed=a.seed, replay=replay,
                                                 draw=draw)
     if saved:
@@ -543,6 +545,19 @@ def main() -> int:
         gnorm = rec["squared_gradient_norm"] ** 0.5
         base = {n: p.detach().clone() for n, p in params}
 
+        if draw is not None:
+            # mse's Kabsch fit is a stop-gradient (losses.weighted_rigid_align), so the analytic
+            # gradient holds it constant. Freeze it at the base forward, as the rollout is.
+            from tt_bio.train import losses
+            align, frozen = losses.weighted_rigid_align, []
+
+            def frozen_align(*args, **kw):
+                if not frozen:
+                    frozen.append(align(*args, **kw))
+                return frozen[0]
+
+            losses.weighted_rigid_align = frozen_align
+
         def loss_at(h):
             with torch.no_grad():
                 for n, p in params:
@@ -553,7 +568,8 @@ def main() -> int:
 
         fd = {"direction": "u = g / ||g||, every parameter with a gradient",
               "expected_directional_derivative": gnorm, "rollout": "frozen at the base forward",
-              "denoise": "same sigma and noise" if draw is not None else None}
+              "denoise": "same sigma and noise" if draw is not None else None,
+              "alignment": "frozen at the base forward" if draw is not None else None}
         t_fd = time.time()
         l0 = loss_at(0.0)
         fd["loss_refresh"] = l0
