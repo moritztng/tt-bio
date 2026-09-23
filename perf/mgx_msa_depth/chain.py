@@ -146,6 +146,14 @@ def fold(card, model, yaml, extra, out_root, timeout):
             "aiclk_n": len(ts), "load1": os.getloadavg()[0], **d}
 
 
+def done(out, model, rung, extra):
+    """Two chains may share OUT.jsonl and a queue tail; the second skips what the first wrote."""
+    if not out.exists():
+        return False
+    rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    return any(r["model"] == model and r["rung"] == rung and r["extra"] == extra for r in rows)
+
+
 def main():
     out = Path(sys.argv[1]).resolve()
     timeout = int(os.environ.get("MSAD_TIMEOUT", "10800"))
@@ -155,6 +163,9 @@ def main():
     for job in sys.argv[2:]:
         model, yaml, *rest = job.split(":", 2)
         extra = shlex.split(rest[0]) if rest else []
+        if done(out, model, Path(yaml).stem, extra):
+            print(f"skip {job}: another chain already wrote its row", flush=True)
+            continue
         while True:
             card = take(card)
             row = fold(card, model, yaml, extra, out_root, timeout)
