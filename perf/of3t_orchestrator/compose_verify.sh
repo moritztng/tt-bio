@@ -330,6 +330,10 @@ _ASSERT
             # main's PairformerLayer add_to_input residuals against the of3t transition masks:
             # main's form unmasked (every inference caller), update-then-add masked (pass 424).
             :
+          elif [ "$_f" = "tt_bio/tenstorrent.py" ] && "$PY" "$HERE/resolve_pairformer_z_residual.py" "$_f"; then
+            # the composed layer against of3t-msafwd's fp32 pair residual: main's block when plain
+            # (not taped-wide, unmasked), msafwd's otherwise (pass 424).
+            :
           elif [ "$_f" = "tt_bio/openfold3_msa_embedder.py" ] && "$PY" "$HERE/resolve_msa_block_residual.py" "$_f"; then
             # main's host-parked MSA chunks against of3t-msafwd's fp32 pair residual (pass 420).
             :
