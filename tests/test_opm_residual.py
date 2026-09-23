@@ -63,3 +63,5 @@ def test_parked_chunks_are_the_device_chunks(dev):
     out = opm(parked, None, None, residual=ft(zh))
     assert torch.equal(ttnn.to_torch(out), ref)
     assert all(p.storage_type() != ttnn.StorageType.DEVICE for p in parked)   # still parked
+    host = list(T.msa_depth_chunks(mh, 32, park=True))       # tilized on the host, never uploaded
+    assert torch.equal(ttnn.to_torch(opm(host, None, None, residual=ft(zh))), ref)

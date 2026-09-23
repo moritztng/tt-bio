@@ -109,14 +109,16 @@ class MSAModuleBlock:
         # update's buffer and never writes `z` itself.
         #
         # A deep alignment arrives as a host tensor (the trunk's `msa_embed`) or as the
-        # previous block's depth chunks, and stays chunks: one upload serves both of this block's
-        # reads, and the whole [depth, tokens, c_m] tensor never exists on the device.
+        # previous block's depth chunks, and stays chunks parked on the host: OPM and the update
+        # each upload a chunk for their read, so the whole [depth, tokens, c_m] tensor never
+        # exists on the device and the pair stack runs without it. Held there as a chunk list it
+        # was 2.79 GB at 1536 tokens x 14191 rows, and triangle attention was refused beside it.
         if torch.is_tensor(m):
-            m = list(msa_depth_chunks(m))
+            m = list(msa_depth_chunks(m, park=True))
         upd = self.opm(m, None, None)
         z = ttnn.add_(upd, z)
         if self.has_msa_update and isinstance(m, list):
-            m = msa_update_chunks(m, z, self.pwa, self.msa_transition, attn_mask)
+            m = msa_update_chunks(m, z, self.pwa, self.msa_transition, attn_mask, park=True)
         elif self.has_msa_update:
             upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
             if own_m:

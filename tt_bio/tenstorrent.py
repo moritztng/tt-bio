@@ -5345,12 +5345,15 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
     return m
 
 
-def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE):
+def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE, park=False):
     """`m` [1, depth, tokens, c] cut along depth, lazily: one private device chunk per step.
 
     A host tensor is uploaded a chunk at a time, a device tensor is sliced, and a list is
     already chunks. A slice that spans the whole depth can come back as `m` itself, so chunks of a
-    device tensor are not the caller's to free (`msa_update_chunks(own=False)`)."""
+    device tensor are not the caller's to free (`msa_update_chunks(own=False)`).
+
+    With `park`, a host tensor's chunks are tilized on the host and stay there, in the form
+    `msa_update_chunks(park=True)` leaves them: each consumer uploads a chunk for its one read."""
     if isinstance(m, list):
         yield from m
         return
@@ -5358,7 +5361,7 @@ def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE):
     for s in range(0, D, rows):
         if torch.is_tensor(m):
             yield ttnn.from_torch(m[:, s:s + rows].contiguous(), layout=ttnn.TILE_LAYOUT,
-                                  device=get_device(), dtype=ttnn.bfloat16)
+                                  device=None if park else get_device(), dtype=ttnn.bfloat16)
         else:
             yield m[:, s:min(s + rows, D), :, :]
 
