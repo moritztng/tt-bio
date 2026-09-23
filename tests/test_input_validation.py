@@ -207,22 +207,46 @@ def test_a_blank_sequence_is_refused_for_every_model_at_the_reader(tmp_path):
 
 
 def test_undeclared_non_standard_residue_is_refused_by_name():
-    """A residue outside the 20 standard ones has no reference conformer.
+    """A residue outside the 20 standard ones and X has no reference conformer.
 
     Undeclared, the conformer lookup died on `KeyError('UNK')` eight frames into the
     featurizer, naming neither the residue nor the fix. Reached from `predict` through
-    an X in a sequence and from `design --model pxdesign` through any target structure
+    a U in a sequence and from `design --model pxdesign` through any target structure
     carrying a modified residue (MSE is in most selenomethionine-phased entries).
     """
-    with pytest.raises(ValueError, match=r"non-standard residue\(s\) at 6X"):
-        build_complex_features([("ACDEFXGHIK", None, "protein")])
+    with pytest.raises(ValueError, match=r"non-standard residue\(s\) at 6U.*SEC"):
+        build_complex_features([("ACDEFUGHIK", None, "protein")])
 
 
-@pytest.mark.skipif(not os.path.exists(os.path.expanduser("~/.boltz/mols/MSE.pkl")),
+def test_a_named_modified_residue_in_a_structure_is_not_folded_as_unk():
+    """X folds as UNK, but a structure's MSE is a residue with atoms UNK does not have."""
+    from tt_bio.protenix_data import res_names_to_sequence
+
+    assert res_names_to_sequence(["ALA", "UNK", "MSE"]) == "AX?"
+    with pytest.raises(ValueError, match=r"non-standard residue\(s\) at 3\?"):
+        build_complex_features([(res_names_to_sequence(["ALA", "UNK", "MSE"]), None,
+                                 "protein")])
+
+
+def test_x_is_one_unk_token_with_upstream_protenix_atoms():
+    """Upstream Protenix maps X to the CCD's UNK: one residue token, restype 20, atoms N CA C
+    O CB CG. Measured feature for feature against protenix 0.5.0's own featurizer on
+    ubiquitin T12X: every token and atom feature but ref_pos is identical, and ref_pos is
+    the random conformer it is for every standard residue too."""
+    feats = build_complex_features([("ACDEFXGHIK", None, "protein")])
+    atoms = (feats["atom_to_token_idx"] == 5).nonzero().flatten()
+    names = ["".join(chr(c + 32) for c in r).strip()
+             for r in feats["ref_atom_name_chars"][atoms].argmax(-1).tolist()]
+    assert feats["restype"].shape[0] == 10
+    assert int(feats["restype"][5].argmax()) == 20
+    assert names == ["N", "CA", "C", "O", "CB", "CG"]
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.expanduser("~/.boltz/mols/SEC.pkl")),
                     reason="CCD mols not downloaded")
 def test_declaring_the_residue_as_a_modification_clears_the_refusal():
-    feats = build_complex_features([("ACDEFXGHIK", None, "protein")],
-                                   modifications=[[{"position": 6, "ccd": "MSE"}]])
+    feats = build_complex_features([("ACDEFUGHIK", None, "protein")],
+                                   modifications=[[{"position": 6, "ccd": "SEC"}]])
     assert feats["restype"].shape[0] == feats["residue_index"].shape[0]
 
 

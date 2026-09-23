@@ -9,18 +9,18 @@ The one exception is `properties: affinity`, which only omits an extra output ra
 changing the structure. That prints a warning and the fold runs.
 
 <!-- BEGIN CAPABILITY TABLE (generated: python3 -m tt_bio.capabilities) -->
-| model | ligand | RNA | DNA | cyclic | modifications | templates | structure template | bond constraint | residue-residue bond | pocket/contact | affinity |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
-| `esmfold2` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `esmfold2-fast` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
+| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | templates | structure template | bond constraint | residue-residue bond | pocket/contact | affinity |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
+| `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
+| `protenix-v1` | yes | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
+| `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
+| `openfold3` | refused | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
+| `openbind` | yes | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
+| `opendde` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
+| `opendde-abag` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
+| `rf3` | yes | yes | yes | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language.
@@ -56,6 +56,10 @@ properties:
   - affinity: {binder: L}
 ```
 
+An `X` in a protein sequence folds as an unknown residue (UNK). Any other letter outside the 20
+standard amino acids, such as `U`, is refused: declare that residue under `modifications:` with
+its CCD code (`SEC` for selenocysteine).
+
 A FASTA gives the same chains without the keyed features: `>A|protein|msa.a3m`,
 `>R|rna`, `>D|dna`, `>L|ccd` (the sequence line is the code) or `>L|smiles`.
 
@@ -70,6 +74,8 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   would return a confident structure for one anyway. `openbind` is the checkpoint upstream
   trained for co-folding, and it is the same implementation.
 - **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
+- **no protein chain** -- an input made only of RNA, DNA or ligands. ESMFold2 conditions its
+  trunk on a protein language model, so it needs at least one protein chain.
 - **cyclic** -- `cyclic: true` on a protein chain closes the backbone head to tail. Each model
   gets it the way its upstream expresses a ring: Boltz-2, RF3 and the OpenFold3 family wrap the
   relative position encoding, and Protenix, OpenDDE and ESMFold2, which have no such encoding,
@@ -100,8 +106,9 @@ carry, and refuses a name that would mean different atoms under the two schemes.
 ## Outputs
 
 Every structure model writes a ranked `.cif`/`.pdb` per sample and per-atom pLDDT in the
-B-factor column. `--diffusion_samples N` draws N samples and writes all of them, best first.
-`--seed` makes a run reproducible: two runs at the same seed give byte-identical files.
+B-factor column. Chains keep the ids you submitted, so a ligand sent as `L` comes back as `L`.
+`--diffusion_samples N` draws N samples and writes all of them, best first. `--seed` makes a
+run reproducible: two runs at the same seed give byte-identical files.
 
 `--output_format pdb` has to fit the format's fixed columns, which mmCIF does not. The chain id
 gets one column, so chain names longer than one character are rewritten `A`, `B`, `C`... in the

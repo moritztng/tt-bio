@@ -34,6 +34,8 @@ FEATURES: dict[str, tuple[str, str]] = {
     "ligand": ("a ligand chain", "the complex would fold without the ligand"),
     "rna": ("an RNA chain", "the complex would fold without the RNA"),
     "dna": ("a DNA chain", "the complex would fold without the DNA"),
+    "protein_free": ("an input with no protein chain",
+                     "there is no protein for the model to fold it with"),
     "cyclic": ("`cyclic: true`", "the fold would return a linear structure"),
     "modifications": ("`modifications:`", "the fold would return the unmodified residue"),
     "templates": ("`templates:`", "the fold would ignore the template you supplied"),
@@ -80,9 +82,11 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
     # fold_complex call). A `bond` is upstream's covalent_bonds, which its pair init reads
     # through token_bonds; `cyclic: true` is the head-to-tail amide on the same route, as on
-    # Protenix. It has no template, pocket or affinity path.
-    "esmfold2": _row(templates=REFUSED, pocket=REFUSED, affinity=NOTED),
-    "esmfold2-fast": _row(templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # Protenix. It has no template, pocket or affinity path, and its trunk is conditioned on
+    # the protein language model, so a complex needs at least one protein.
+    "esmfold2": _row(protein_free=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "esmfold2-fast": _row(protein_free=REFUSED, templates=REFUSED, pocket=REFUSED,
+                          affinity=NOTED),
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
     # `cyclic: true` reaches it as the head-to-tail amide bond (main._read_bio_bonds), the
@@ -109,13 +113,13 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # for molecule types and refuses a third entity type by name ("Unsupported entity type
     # 'rna' (only protein, ligand)"), which is why the chain columns here record a verdict
     # this module does not apply itself.
-    "nesso1": _row(rna=REFUSED, dna=REFUSED, cyclic=NOTED, modifications=NOTED,
-                   templates=NOTED, template_structure=NOTED, bond=NOTED, polymer_bond=NOTED,
-                   pocket=NOTED),
+    "nesso1": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED,
+                   modifications=NOTED, templates=NOTED, template_structure=NOTED, bond=NOTED,
+                   polymer_bond=NOTED, pocket=NOTED),
 }
 
 #: Molecule-type features: they come from the parsed chain list, not from a yaml key.
-CHAIN_FEATURES = frozenset({"ligand", "rna", "dna"})
+CHAIN_FEATURES = frozenset({"ligand", "rna", "dna", "protein_free"})
 
 #: Models whose molecule types their own reader enforces, so check_capabilities is called
 #: with no chain list and the chain columns are a record rather than an enforcement. Only
@@ -150,6 +154,9 @@ WHY: dict[tuple[str, str], str] = {
         f"{fam} was trained with bonds between two standard residues removed from its data, "
         "so it cannot read one; a bond to a ligand or a modified residue does reach it")
        for m, fam in (("openfold3", "OpenFold3"), ("openbind", "OpenFold3"), ("rf3", "RF3"))},
+    ("nesso1", "protein_free"): "it scores a protein-ligand pair",
+    **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
+       "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
 }
 
 WHY.update({(m, "template_structure"): "this model takes a template as a per-chain "
@@ -164,6 +171,16 @@ def honoured_by(feature: str) -> tuple[str, ...]:
     """The --model ids that honour ``feature``, read off CAPABILITY so a hint cannot go
     stale when a port gains the feature."""
     return tuple(sorted(m for m, caps in CAPABILITY.items() if caps[feature] == HONOURED))
+
+
+def _alternatives(feature: str, found, model: str) -> list[str]:
+    """Where to send an input ``model`` refuses for ``feature``: the models that honour it and
+    refuse nothing else the input carries. An RNA-only input on esmfold2 should hear about the
+    models that fold RNA with no protein, not about OpenDDE, which takes no RNA at all. Falls
+    back to every model that honours the feature when none takes the whole input."""
+    every = [m for m in honoured_by(feature) if m != model]
+    whole = [m for m in every if all(CAPABILITY[m][f] != REFUSED for f in found)]
+    return whole or every
 
 
 #: Output/limit flags and the --model ids that actually read each one. A flag a model does
@@ -246,6 +263,8 @@ def detect(path, chains=None) -> dict[str, str]:
         hits = [cid for cid, _s, _sp, m, _mo in (chains or []) if m == mt]
         if hits:
             found[mt] = "chain(s) " + ", ".join(hits)
+    if chains and not any(m == "protein" for _c, _s, _sp, m, _mo in chains):
+        found["protein_free"] = "chain(s) " + ", ".join(c for c, *_r in chains)
     doc = _yaml_doc(path)
     per_chain: dict[str, list[str]] = {"cyclic": [], "modifications": [], "templates": []}
     for entry in doc.get("sequences") or []:
@@ -313,7 +332,7 @@ def check_capabilities(path, chains, model: str, echo=_click_note) -> dict[str, 
         lines = []
         for f in refused:
             label, generic = FEATURES[f]
-            others = ", ".join(how(m) for m in honoured_by(f) if m != model)
+            others = ", ".join(how(m) for m in _alternatives(f, found, model))
             lines.append(f"  - {label} ({found[f]}): {WHY.get((model, f), generic)}."
                          + (f" Honoured by: {others}." if others else ""))
         tail = ELSEWHERE.get(model)
@@ -324,7 +343,7 @@ def check_capabilities(path, chains, model: str, echo=_click_note) -> dict[str, 
         for f in FEATURES:
             if f in found and caps[f] == NOTED:
                 label, effect = FEATURES[f]
-                others = ", ".join(how(m) for m in honoured_by(f) if m != model)
+                others = ", ".join(how(m) for m in _alternatives(f, found, model))
                 echo(f"Note: {how(model)} ignores {label} ({found[f]} in "
                      f"{Path(path).name}): {effect}."
                      + (f" Use {others} for it." if others else ""))
@@ -337,6 +356,7 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("ligand", "ligand"),
     ("rna", "RNA"),
     ("dna", "DNA"),
+    ("protein_free", "no protein chain"),
     ("cyclic", "cyclic"),
     ("modifications", "modifications"),
     ("templates", "templates"),
