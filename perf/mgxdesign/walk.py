@@ -19,6 +19,7 @@ So this driver owns the card choice and the retry, and the ladder still owns the
     python3 perf/mgxdesign/walk.py --model rfd3 --plan 512:A1-412,100 1024:A1-924,100 ...
 """
 import argparse
+import fcntl
 import json
 import os
 import pathlib
@@ -37,21 +38,38 @@ CONTENTION = "device contention, nothing ran"
 
 
 def free_cards() -> list[int]:
+    """The chips whose lease flock can be taken right now.
+
+    THE FLOCK IS THE LEASE, not the JSON beside it. `tt_bio/device_lease.py` says so in its
+    own docstring -- "a dead holder's lock is simply gone, so the next acquire succeeds
+    immediately. There is no pid-liveness scan to get wrong" -- and the metadata is written
+    INSIDE the lock, so a holder that took a SIGKILL never gets to set `released` and its
+    record says `"released": null` forever. Reading that JSON, as the first version of this
+    function did, marks every crashed row's chip as permanently held: it saw 6 free chips on a
+    box that was cycling rungs constantly, and all three walks sat in "no free chip, waiting".
+
+    Probing the lock is the same test the engine will apply a second later, so a chip that
+    passes here is one the rung can really open. The probe releases immediately, so this
+    races with other leasers by design -- losing that race is what the contention retry is
+    for, and it is a far cheaper error than never trying at all.
+    """
     out = []
     for c in range(32):
         if c in BLOCKED:
             continue
         f = LEASES / f"{HOST}-card{c}.json"
-        if not f.is_file():
-            out.append(c)
-            continue
         try:
-            d = json.loads(f.read_text())
-        except Exception:
-            continue                      # a half-written lease is not evidence of a free chip
-        held = d.get("released") is None or pathlib.Path(f"/proc/{d['pid']}").exists()
-        if not held:
+            fd = os.open(str(f), os.O_RDWR | os.O_CREAT, 0o664)
+        except OSError:
+            continue        # not ours to open (a lease dir owned by another user)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_UN)
             out.append(c)
+        except OSError:
+            pass            # a live holder owns it
+        finally:
+            os.close(fd)
     return out
 
 
