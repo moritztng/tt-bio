@@ -1408,3 +1408,54 @@ def test_every_boards_own_rungs_have_a_fixture(rg):
                 assert rung % 32 == 0, f"{card}: rung {rung} is not a multiple of 32"
                 f = rg._size_ladder_fixture(model, rung)
                 assert f.exists(), f"{card}/{model} has no fixture at rung {rung}: {f}"
+
+
+def _resume_above_the_guard(rg, monkeypatch, tmp_path, prev):
+    """Record openfold3 at 1280,1536 on the Galaxy, where its guard refuses both, on top of a
+    fragment holding ``prev`` (or nothing)."""
+    guard = ("'cdk2x2_1280.yaml' has 1280 residues, and openfold3 is measured to handle at "
+             "most 1024 residues on wormhole_b0")
+    base = tmp_path / "size_ladder_baseline.json"
+    base.write_text(json.dumps({"format": 1, "cards": {}}))
+    frag = tmp_path / "size_ladder_baseline.d" / "openfold3.json"
+    frag.parent.mkdir()
+    if prev:
+        frag.write_text(json.dumps({"cards": {"tt-galaxy-wh-l": {"models": {"openfold3": prev}}}}))
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: "tt-galaxy-wh-l")
+    monkeypatch.setattr(rg, "_repo_commit", lambda: "abc1234")
+    monkeypatch.setattr(rg, "_size_ladder_same_engine", lambda a, b: True)
+    monkeypatch.setattr(rg, "_run_census_fold", lambda *a, **k: {"refused": guard})
+    out = rg.run_size_ladder(True, True, base, models=["openfold3"], rungs=(1280, 1536),
+                             fragment=True)
+    entry = (json.loads(frag.read_text())["cards"]["tt-galaxy-wh-l"]["models"]["openfold3"]
+             if frag.exists() else None)
+    return out, entry, guard
+
+
+def test_a_resume_pass_above_the_guard_records_the_refusals_and_keeps_the_ladder(
+        rg_fresh, monkeypatch, tmp_path):
+    """The top rungs of a capped model are refusals, and a resume pass that asks only for them
+    must add them to the ladder it resumes. It used to stop at "every rung requested is above
+    this model's size guard" and record nothing, so a model capped at 1024 could never gain its
+    1280 and 1536 cells except by re-walking the whole ladder in one run."""
+    prev = {"host": socket.gethostname(), "commit": "abc1234", "grid": "8x9", "reps": 3,
+            "sigma_runtime_512": 0.05, "sigma_runtime": {"256": 0.2, "512": 0.05},
+            "runtime_s": {"256": 20.0, "512": 60.0, "768": 190.0},
+            "levers": {r: {"X": dict(FIRING)} for r in ("256", "512", "768")}}
+    out, entry, guard = _resume_above_the_guard(rg_fresh, monkeypatch, tmp_path, prev)
+
+    assert out["gate"] is True, out
+    assert entry["refused"] == {"1280": guard, "1536": guard}
+    assert entry["runtime_s"] == prev["runtime_s"]
+    assert entry["grid"] == "8x9"
+    # the 256 aa noise came along with its rung, so the median-of-3 it earned survives
+    assert entry["reps"] == 3
+
+
+def test_a_resume_pass_above_the_guard_with_nothing_beneath_it_records_nothing(
+        rg_fresh, monkeypatch, tmp_path):
+    out, entry, guard = _resume_above_the_guard(rg_fresh, monkeypatch, tmp_path, None)
+
+    assert out["gate"] is False
+    assert "is above this model's size guard" in out["error"]
+    assert entry is None

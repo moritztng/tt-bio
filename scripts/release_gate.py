@@ -3632,10 +3632,15 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     """
     if not prev:
         return []
-    if not meas.get("runtime_s"):
+    if not meas.get("runtime_s") and not meas.get("refused"):
         return []
+    # A pass whose every rung was refused never opened a device, so it has no grid of its own
+    # to disagree with. That is the resume pass above a model's guard (openfold3 at 1280,1536 on
+    # the Galaxy), and requiring a grid there made the recorder unable to add a refusal to a
+    # ladder it had just measured.
+    refusal_only = not meas.get("runtime_s")
     same = prev.get("host") == stamp["host"] \
-        and prev.get("grid") == meas.get("grid") \
+        and (prev.get("grid") == meas.get("grid") or refusal_only) \
         and _size_ladder_same_engine(prev.get("commit"), stamp["commit"])
     old_rt, old_ref_all = prev.get("runtime_s") or {}, prev.get("refused") or {}
     measured = set(meas["runtime_s"]) | set(meas.get("refused") or {})
@@ -3675,6 +3680,15 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
             meas.setdefault("refused", {})[r] = old_ref_all[r]
     if meas.get("sigma") is None and prev.get("sigma_runtime_512") is not None:
         meas["sigma"] = prev["sigma_runtime_512"]
+    # The per-rung noise too, not only the middle rung's. The exponent block is recomputed from
+    # these after a carry, and it sets the rep count from the noisiest rung: without the 256 aa
+    # sigma a resume pass rewrote a reps=3 entry as reps=1, a single draw at the rung that needs
+    # the median most.
+    for r, sg in (prev.get("sigma_runtime") or {}).items():
+        if r in spare and r in meas["runtime_s"]:
+            meas.setdefault("sigmas", {}).setdefault(r, sg)
+    if refusal_only:
+        meas["grid"] = prev.get("grid")
     return sorted(spare, key=int)
 
 
@@ -4499,6 +4513,15 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             reps_other = max(1, int((old_models.get(m) or {}).get("reps") or 1))
             meas = _size_ladder_measure_model(m, ladders[m], workdir,
                                               SIZE_LADDER_SIGMA_REPS, reps_other)
+            all_refused = None
+            if meas.get("refused") and meas.get("error") and not meas.get("runtime_s"):
+                # Every rung asked for is above the guard. On a full ladder that is a model with
+                # a ceiling under 256 and stays an error; on a resume pass it is the refusal the
+                # arm exists to record, so keep it and let the carry below supply the rungs
+                # beneath it. Nothing to carry puts the error back.
+                all_refused = meas["error"]
+                meas = {"levers": {}, "runtime_s": {}, "refused": meas["refused"], "sigma": None,
+                        "sigmas": {}, "census_jsons": {}, "grid": None, "drift": []}
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
@@ -4530,6 +4553,12 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
+            if all_refused and not meas["runtime_s"]:
+                print(f"  [size-ladder] {m}: NOT RECORDED — {all_refused}, and no same-engine "
+                      f"rungs to carry beneath it", flush=True)
+                legs.append({"model": m, "gate": False, "error": all_refused,
+                             "findings": [all_refused]})
+                continue
             if carried_rungs:
                 block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
                                                           meas.get("sigmas"))
