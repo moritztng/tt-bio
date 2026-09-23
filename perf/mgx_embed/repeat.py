@@ -11,6 +11,11 @@ an attention mask and a key-valid tensor that an unpadded one does not.
 other pass in reverse order, `alloc` holds an extra --alloc-mb device buffer from pass 1 on. A
 program-cache hit that reuses a stale buffer address is invisible when every pass allocates
 the same buffers at the same addresses, which is what a roomy chip does.
+
+--fill-leave-mb fills device DRAM after the model loads, before pass 0, until about that many
+MB stay free, so a roomy chip runs in the headroom a smaller one has: esmc-6b leaves ~180 MB
+of a 12 GiB Wormhole chip. It allocates in shrinking blocks down to 1 MB until the allocator
+refuses, then frees blocks until the target is free again.
 """
 import argparse
 import json
@@ -27,6 +32,29 @@ from accuracy import pdb_sequence  # noqa: E402
 from batch import library  # noqa: E402
 
 
+def fill(leave_mb):
+    """Hold bare DRAM blocks until roughly `leave_mb` MB of the device stays free."""
+    import ttnn
+    from tt_bio.tenstorrent import get_device
+    dev, held = get_device(), []
+    for mb in (1024, 256, 64, 16, 4, 1):
+        rows = mb * 2 ** 20 // (2 * 1024)
+        while True:
+            try:
+                held.append((mb, ttnn.allocate_tensor_on_device(
+                    ttnn.Shape([1, 1, rows, 1024]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+                    ttnn.DRAM_MEMORY_CONFIG)))
+            except Exception:
+                break
+    freed = 0
+    while held and freed < leave_mb:
+        mb, t = held.pop()
+        ttnn.deallocate(t)
+        freed += mb
+    print(json.dumps({"fill_held_mb": sum(m for m, _ in held), "fill_freed_mb": freed}), flush=True)
+    return held
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -38,6 +66,7 @@ def main():
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--perturb", choices=("none", "reverse", "alloc"), default="none")
     ap.add_argument("--alloc-mb", type=int, default=64)
+    ap.add_argument("--fill-leave-mb", type=int, default=0)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     import torch
@@ -51,6 +80,7 @@ def main():
         model = mod.load_esmc(a.model, fast=a.fast)
         seqs = library(pdb_sequence(a.pdb), a.n, a.min, a.max)
 
+    filled = fill(a.fill_leave_mb) if a.fill_leave_mb else []
     passes, held = [], None
     for p in range(a.passes):
         if p == 1 and a.perturb == "alloc":
@@ -64,7 +94,7 @@ def main():
             items.reverse()
         out = mod.embed_sequences(model, dict(items), batch_size=1)
         passes.append({e.id: e.per_residue.astype(np.float64) for e in out})
-    del held
+    del held, filled
     with open(a.out, "a") as fh:
         for sid, seq in (seqs.items() if not a.model.startswith("saprot") else
                          ((k, v[0]) for k, v in seqs.items())):
@@ -75,6 +105,7 @@ def main():
                 cos = (d * base).sum(1) / (np.linalg.norm(d, axis=1) * np.linalg.norm(base, axis=1))
                 row = {"model": a.model, "fast": a.fast, "id": sid, "L": len(seq),
                        "tokens": tokens, "padded": tokens % mod.BUCKET != 0, "pass": p, "perturb": a.perturb,
+                       "fill_leave_mb": a.fill_leave_mb,
                        "bit_equal": bool(np.array_equal(d, base)),
                        "cos_min_vs_pass0": float(cos.min()),
                        "max_abs_vs_pass0": float(np.abs(d - base).max()),
