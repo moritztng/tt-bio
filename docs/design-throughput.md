@@ -84,6 +84,6 @@ tt-bio design specs.json --model rfd3 --from_pdb --num_designs 32 --devices 0,1,
 
 BoltzGen's default is 10000 designs. Through the complete pipeline that is 734 card-hours,
 about 27 hours on a 27-card Galaxy; generation alone is 320 card-hours. The same count through
-PXDesign is 120 card-hours, under 5 hours. Five targets at the full default, full pipeline,
+PXDesign is 119 card-hours, under 5 hours. Five targets at the full default, full pipeline,
 is under six days of one Galaxy. The practical limit on a campaign is how many designs you
 want to filter, not how long the hardware takes to make them.
