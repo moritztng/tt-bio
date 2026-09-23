@@ -50,3 +50,30 @@ def test_explicit_overrides_even_when_equal_to_a_default():
     10 on boltz2 is honored (not clamped to 3) — the override is unconditional."""
     assert _resolve(3, "protenix-v2") == 3
     assert _resolve(10, "boltz2") == 10
+
+
+def test_worker_reads_an_explicit_zero_as_zero():
+    """`cfg.get(...) or default` read 0 as unset: rf3 ran 10 cycles, openfold3 4."""
+    from tt_bio.worker import _recycles
+    assert _recycles({"recycling_steps": 0}, 10) == 0
+    assert _recycles({"recycling_steps": None}, 10) == 10
+    assert _recycles({}, 3) == 3
+
+
+@pytest.mark.parametrize("model,ok", [("protenix-v2", False), ("protenix-v1", False),
+                                      ("opendde", False), ("opendde-abag", False),
+                                      ("rf3", False), ("boltz2", True), ("esmfold2", True),
+                                      ("openfold3", True), ("openbind", True)])
+def test_zero_recycles_refused_where_it_means_no_trunk(model, ok):
+    """Models that count trunk cycles refuse 0; the N+1 models accept it. None always passes."""
+    import click
+    from tt_bio.main import _check_recycling_steps as check
+    check(None, model)
+    check(1, model)
+    if ok:
+        check(0, model)
+    else:
+        with pytest.raises(click.BadParameter, match="counts trunk cycles"):
+            check(0, model)
+    with pytest.raises(click.BadParameter):
+        check(-1, model)

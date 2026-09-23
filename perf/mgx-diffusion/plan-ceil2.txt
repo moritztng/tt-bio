@@ -1,0 +1,6 @@
+opendde-abag 1024 1 steps=6 probe=1
+opendde-abag 1024 25 steps=6 probe=1
+opendde 1024 1 steps=6 probe=1
+opendde 1024 25 steps=6 probe=1
+openbind 960 25 steps=6 probe=1
+openbind 960 1 steps=6 probe=1
