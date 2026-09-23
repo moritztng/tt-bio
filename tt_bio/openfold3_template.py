@@ -30,6 +30,7 @@ so the device port is gated against the real trunk input, not a re-computation.
 """
 from __future__ import annotations
 
+import torch
 import ttnn
 
 from .tenstorrent import (Module, PairformerLayer, accurate_softmax_site,
@@ -43,7 +44,7 @@ _TRI_DIMS = (16, 4)
 class TemplatePairFeatureEmbedder(Module):
     """OF3 ``TemplatePairEmbedderAllAtom`` feature embedder (leg 1).
 
-    Inputs (device bf16):
+    Inputs (device bf16, or host tensors for ``feat``):
         feat: dict of per-template feature tensors, each [N_templ, N, N, c_in] (the
               mask products precomputed on host): ``distogram`` (39),
               ``pseudo_beta_pair_mask`` (1), ``restype_ti``/``restype_tj`` (32),
@@ -72,16 +73,25 @@ class TemplatePairFeatureEmbedder(Module):
 
     def features(self, feat):
         """``a``: the eight feature linears summed. A function of ``feat`` alone, so the
-        trunk computes it once and hands it back on every later recycle."""
-        lin = self._lin
-        a = lin(feat["distogram"], self.w_dgram)
-        a = ttnn.add(a, lin(feat["pseudo_beta_pair_mask"], self.w_pbm))
-        a = ttnn.add(a, lin(feat["restype_ti"], self.w_aa1))
-        a = ttnn.add(a, lin(feat["restype_tj"], self.w_aa2))
-        a = ttnn.add(a, lin(feat["unit_vec_x"], self.w_x))
-        a = ttnn.add(a, lin(feat["unit_vec_y"], self.w_y))
-        a = ttnn.add(a, lin(feat["unit_vec_z"], self.w_z))
-        return ttnn.add(a, lin(feat["backbone_frame_pair_mask"], self.w_bb))
+        trunk computes it once and hands it back on every later recycle.
+
+        A host feature is uploaded, projected and freed one at a time, so only ``a`` is
+        left on the device. The eight features are 288 tile-padded bf16 channels per
+        template slot against ``a``'s 64: at 1536 tokens that is 1.27 GiB per slot that
+        otherwise sat through the whole trunk, and a real template adds a slot."""
+        a = None
+        for key, w in (("distogram", self.w_dgram), ("pseudo_beta_pair_mask", self.w_pbm),
+                       ("restype_ti", self.w_aa1), ("restype_tj", self.w_aa2),
+                       ("unit_vec_x", self.w_x), ("unit_vec_y", self.w_y),
+                       ("unit_vec_z", self.w_z), ("backbone_frame_pair_mask", self.w_bb)):
+            v = feat[key]
+            x = ttnn.from_torch(v.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                dtype=ttnn.bfloat16) if torch.is_tensor(v) else v
+            y = self._lin(x, w)
+            if x is not v:
+                ttnn.deallocate(x)
+            a = y if a is None else ttnn.add(a, y)
+        return a
 
     def __call__(self, feat, z, a=None):
         lin = self._lin

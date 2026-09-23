@@ -1,0 +1,2 @@
+# First point: learn the progress-event format and the probe's tags at a cheap shape.
+boltz2 256 5 steps=6 probe=1
