@@ -34,9 +34,10 @@ def main() -> int:
     assert set(exact) <= {"softmax", "layer_norm"}, exact
 
     cwd = os.getcwd()
-    for p in ("", "perf/of3t_trunkceiling", "perf/of3t_bwdaccum", "perf/of3t_trunkg043",
-              "perf/of3t_gradients"):
-        sys.path.insert(0, os.path.join(cwd, p))
+    # Written in the order they are searched (D149: a loop of insert(0, p) reverses it).
+    sys.path[0:0] = [os.path.join(cwd, p) for p in (
+        "perf/of3t_gradients", "perf/of3t_trunkg043", "perf/of3t_bwdaccum",
+        "perf/of3t_trunkceiling", "")]
     sys.path.insert(0, HERE)
 
     from tt_bio import autograd as ag
