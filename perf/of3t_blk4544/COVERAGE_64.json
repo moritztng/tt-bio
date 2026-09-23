@@ -1,0 +1,752 @@
+{
+ "side": "perf/of3t_blk4544/SIDE_I64B.json",
+ "backward_firings_total": 11856,
+ "distinct_nodes": 58,
+ "firings_with_an_exact_vjp": 1296,
+ "pct_with_an_exact_vjp": 10.9312,
+ "coverage": {
+  "all": {
+   "firings": 816,
+   "pct": 6.8826
+  },
+  "allref": {
+   "firings": 1296,
+   "pct": 10.9312
+  },
+  "identity": {
+   "firings": 816,
+   "pct": 6.8826
+  },
+  "pairattn": {
+   "firings": 576,
+   "pct": 4.8583
+  },
+  "paircontract": {
+   "firings": 192,
+   "pct": 1.6194
+  },
+  "sm16": {
+   "firings": 48,
+   "pct": 0.4049
+  },
+  "sm4": {
+   "firings": 192,
+   "pct": 1.6194
+  }
+ },
+ "unreached_but_refable": [],
+ "nodes": [
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 1056,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_sliced",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 864,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_create_qkv_heads",
+   "shape": [
+    64,
+    4,
+    64,
+    32
+   ],
+   "firings": 576,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 528,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 480,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_identity_grad",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "firings": 384,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_identity_grad",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 384,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    1,
+    128,
+    64,
+    64
+   ],
+   "firings": 384,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 384,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    4,
+    64,
+    64
+   ],
+   "firings": 384,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_identity_grad",
+   "shape": [
+    1,
+    4,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    1,
+    64,
+    64,
+    512
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    64,
+    64,
+    384
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    64,
+    64,
+    4
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_concat_heads",
+   "shape": [
+    64,
+    1,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    1,
+    128,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "all",
+    "allref",
+    "identity",
+    "paircontract"
+   ]
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    1,
+    64,
+    64,
+    512
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "allref"
+   ]
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    64,
+    4,
+    64,
+    32
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "all",
+    "allref",
+    "identity",
+    "pairattn"
+   ]
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "all",
+    "allref",
+    "identity",
+    "pairattn"
+   ]
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "allref"
+   ]
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    1,
+    4,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    64,
+    4,
+    32,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    1,
+    64,
+    64,
+    4
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    64,
+    1,
+    64,
+    384
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_softmax",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "all",
+    "allref",
+    "identity",
+    "pairattn",
+    "sm4"
+   ]
+  },
+  {
+   "caller": "_v_transpose",
+   "shape": [
+    1,
+    64,
+    128,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_transpose",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    128,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    64,
+    4,
+    64,
+    64
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "firings": 192,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    1,
+    64,
+    1536
+   ],
+   "firings": 144,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "firings": 144,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_create_qkv_heads",
+   "shape": [
+    1,
+    16,
+    64,
+    32
+   ],
+   "firings": 144,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "firings": 144,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "firings": 144,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "firings": 96,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_concat",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 96,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    64,
+    64,
+    512
+   ],
+   "firings": 96,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "silu",
+   "shape": [
+    1,
+    64,
+    64,
+    512
+   ],
+   "firings": 96,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_sliced",
+   "shape": [
+    1,
+    16,
+    64,
+    24
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_taped_linear",
+   "shape": [
+    1,
+    64,
+    64,
+    16
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    1,
+    16,
+    64,
+    32
+   ],
+   "firings": 48,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "allref"
+   ]
+  },
+  {
+   "caller": "_v_matmul",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "allref"
+   ]
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    1,
+    16,
+    24,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_permute",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    1,
+    1,
+    64,
+    1536
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_reshape",
+   "shape": [
+    1,
+    384,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "_v_softmax",
+   "shape": [
+    1,
+    16,
+    64,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": true,
+   "selected_by": [
+    "all",
+    "allref",
+    "identity",
+    "sm16"
+   ]
+  },
+  {
+   "caller": "_v_transpose",
+   "shape": [
+    1,
+    16,
+    32,
+    64
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "checkpoint",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "checkpoint",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "impl",
+   "shape": [
+    1,
+    64,
+    1536
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  },
+  {
+   "caller": "silu",
+   "shape": [
+    1,
+    64,
+    1536
+   ],
+   "firings": 48,
+   "has_exact_vjp": false,
+   "selected_by": []
+  }
+ ]
+}

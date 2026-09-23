@@ -1,0 +1,66 @@
+{
+ "what": "of3t-recut job 3: the corrected trunk arm, and the control that says the shortcut is allowed.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recut",
+ "defect": "D242",
+ "device_involved": true,
+ "note": "this script is CPU arithmetic over three banked device arms; the AICLK and host_quiet of the two arms it composes are in DEV_RENORM_MODEL_N384_DELTA.json and DEV_RENORM_MODEL_N384_EXTERNAL.json",
+ "arms": {
+  "banked_cot_s_cot_z": {
+   "path": "/home/ttuser/of3t_modelframe/dev_RENORM_model_n384_nocaptures.pt",
+   "sha256": "b9047e4438f21fd24f7b761730a848f983f004795ab1bb6ae5af6201a302a557"
+  },
+  "delta_only": {
+   "path": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_delta.pt",
+   "sha256": "ffaf154a2c0155065ddfa71d76acdc5d49520ea9ccbb2e819e9458b92fc0c87b"
+  },
+  "end_to_end_external": {
+   "path": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt",
+   "sha256": "c0a1b121cf32beae6d9ef285522eb4e245d2fa429a5eafb01573d5af9a4e0461"
+  }
+ },
+ "squared_norms": {
+  "banked": 1.7632166444022186,
+  "delta_only": 0.35370756145013055,
+  "corrected": 0.6639844969006535
+ },
+ "LINEARITY_CONTROL": {
+  "what": "the shortcut's result against the arm the device actually ran end to end on (cot_s, cot_z - delta)",
+  "shortcut_vs_end_to_end": {
+   "n_tensors": 2736,
+   "n_bit_identical": 768,
+   "rel_l2_as_is": 0.022082387758133298,
+   "norm_ratio_arm_over_ref": 0.9982574988544168,
+   "cos": 0.9997572792894556,
+   "ref_squared_norm": 0.6663045466650765,
+   "arm_squared_norm": 0.6639844969006539,
+   "worst_rel_l2": 0.11555717002550078,
+   "worst_tensor": "pairformer_stack.blocks.29.pair_stack.tri_att_start.layer_norm.weight"
+  },
+  "reference_for_the_bar": {
+   "source": "perf/of3t_frameself/TWOBASIS.json",
+   "sum_identity_rel_l2": 6.435383259300361e-15,
+   "what": "|| g_sonly + g_zonly - g_ctrl || / || g_ctrl || in this same setup, on the CPU reference. The device arm is bf16, so its own linearity residual is a measurement, not this number."
+  },
+  "cancellation": {
+   "norm_banked": 1.3278616812011026,
+   "norm_delta_only": 0.5947331850923828,
+   "norm_of_the_difference": 0.8148524387278064,
+   "amplification_of_a_relative_error": 2.3594392983533914,
+   "implied_per_arm_relative_error": 0.00935916756728778,
+   "bf16_unit_roundoff": 0.00390625,
+   "what": "the subtraction cancels two arms into a smaller result, so each arm's own rounding is amplified by this factor in the difference. The implied per-arm error is the residual divided by it, and it sits at bf16 scale, so this reads as the taped backward's own rounding rather than a wrong identity."
+  },
+  "verdict": "the shortcut and the end-to-end arm differ by 2.208239e-02, far outside the float64 reference's own 6.435383e-15. On a bf16 taped backward the injection is linear only to its own rounding, so the SHORTCUT IS WITHDRAWN on device arms and the end-to-end arm is this row's corrected trunk. The repair itself is untouched: the float64 reference reproduces grads_f64_043 to 1.6952505222168708e-14 over all 2,736 tensors."
+ },
+ "out": {
+  "path": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_shortcut.pt",
+  "sha256": "7d4a7f81c753be6be03e8dce581846f566dcd42901b9898fc3be83f748dcb00f",
+  "bytes": 1332385261
+ },
+ "THE_CORRECTED_TRUNK_IS": {
+  "path": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt",
+  "why": "the arm the device ran end to end on (cot_s, cot_z - delta), not the subtraction, because the subtraction failed its own control",
+  "the_shortcut_is_kept_at": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_shortcut.pt"
+ }
+}

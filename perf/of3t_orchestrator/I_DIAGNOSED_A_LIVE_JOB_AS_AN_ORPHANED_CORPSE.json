@@ -1,0 +1,39 @@
+{
+ "as_of": "2026-09-20 18:5x CEST (qb2 local 16:5x), of3t-orchestrator pass 182",
+ "supersedes": "FLEET_AN_ORPHANED_WEDGE_HOLDS_TWO_QB2_DEVICES.json, DELETED not labelled. Every claim in it about the process was wrong. It is reproduced nowhere; this file is the record.",
+
+ "headline": "I reported a qb2 process as an orphaned wedge holding two devices with no owner and no lease. It is none of those things. It is a healthy multiprocessing spawn child of a live A/B benchmark that holds the benchlock and is correctly pinned to one card. I did not kill it -- that decision was right -- but the report was wrong and is withdrawn.",
+
+ "what_it_actually_is": {
+  "265319": "multiprocessing spawn_main child -- a worker waiting on its queue",
+  "265284": "python3 -m tt_bio.main predict .../perf/size512/fixtures/...",
+  "264900": "perf/xmsoftmax/fold_ab_flip.py --models protenix-v2 --rungs 352,1088",
+  "191952": "benchlock.sh pvx-gate-land -- IT HOLDS THE BENCHLOCK",
+  "191923": "perf/pvx_gate_land/shipped_fold_wide_k.sh",
+  "191922": "bash -c cd /home/ttuser/tt-bio-dev && CARD=2 nohup bash perf/pvx_gate_land/shipped_fold_wide_k.sh",
+  "owner": "the pvx-gate-land campaign, alive, four levels above the pid I read"
+ },
+
+ "the_three_errors_and_what_each_one_actually_was": [
+  {
+   "claimed": "no live owner -- orphaned",
+   "why_wrong": "I read ppid ONE generation and stopped. The parent's own ppid (264900) was printed in my very first ps line and I did not follow it. The owner was four levels up, alive the whole time. One ppid hop does not establish orphanhood; walking to init does."
+  },
+  {
+   "claimed": "owner is sizeladder, which has no live worker and no concluded marker",
+   "why_wrong": "I inferred the owning campaign from a PATH IN ARGV -- `perf/size512/fixtures/` -- and `size512` is a fixture directory, not a campaign. I then searched for `worker.sh sizeladder*`, found nothing, and read that absence as CONFIRMING the orphan. It only confirmed that I had guessed the wrong owner. A search for an owner you named by guessing cannot corroborate the guess."
+  },
+  {
+   "claimed": "wedged: 100 % CPU in futex_do_wait, nothing written for 4.5 h",
+   "why_wrong": "for a multiprocessing spawn child, 100 % CPU in futex_do_wait is the NORMAL shape of a worker spinning on a queue while a sibling computes -- and a 2-rung A/B flip at 1088 has long compute phases that write nothing. Both readings are what health looks like here. The recorded p300c wedge signature is not `100 % CPU in futex` on its own, and I matched on the part instead of the pattern."
+  }
+ ],
+
+ "the_one_claim_that_survives_but_much_weaker": "I said it held devices with NO LEASE, so pick_card could double-allocate. It holds no LEASE FILE, true -- but it is not unlocked: it holds the BENCHLOCK and is pinned CARD=2. The fleet has two authorities on card occupancy, not one, and reading only `state/leases/` sees half. That is a real and much smaller point than the one I filed, and it is a question for whoever owns pick_card, not an incident.",
+
+ "and_one_factual_correction": "two fds, ONE device. `ls -l /proc/265319/fd` resolves both fd 13 and fd 14 to /dev/tenstorrent/2. I wrote `2 Tenstorrent device fds held` and then read it as two devices. Devices 0, 1 and 3 are free.",
+
+ "the_near_miss": "had I acted on my own report I would have killed a live benchmark mid-run while it held the benchlock. The reason I did not is the reason that held up: it was not my process, so the decision was not mine. That instinct was load-bearing here in a way the evidence was not.",
+
+ "the_check_that_would_have_caught_it_in_one_line": "walk the ancestry to init before writing the word orphan: `p=PID; while read pp cmd; do echo $p $cmd; p=$pp; done` -- this campaign already records `fleet-kill-outer-pid-leaves-orphan-engine`, which is the SAME tree read from the other end. I had the shape in memory and applied it only downward."
+}

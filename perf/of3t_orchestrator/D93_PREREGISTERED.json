@@ -1,0 +1,24 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176 -- WRITTEN AND COMMITTED BEFORE THE ARMS WERE READ",
+ "what": "Quantify D93 -- 0.5.0's trunk passes use_high_precision_attention=True where 0.4.3's does not, and 0.5.0's _attention also moved the score-value matmul inside the high-precision region. I said this needed CUDA. It does not: the flag selects a DTYPE POLICY, and a policy can be written out by hand. Three arms, bf16 base, 48-block trunk, the same real captured boundary, with _attention replaced by an explicit implementation.",
+
+ "the_arms": {
+  "A": "0.4.3's trunk as 0.4.3 ships it -- use_high_precision never passed; scores, softmax and the score-value matmul all at the input dtype",
+  "B": "high precision at 0.4.3's PLACEMENT -- scores and softmax fp32, then .to(value.dtype) before the value matmul",
+  "C": "high precision at 0.5.0's PLACEMENT -- scores, softmax AND value matmul fp32, one downcast on exit. This is what the reference bundle runs."
+ },
+ "A_vs_C_is_the_whole_of_D93": "and B_vs_C isolates the moved einsum from the flag itself.",
+
+ "denominator_A15": "relative L2 against the fp32 output of the same stack on the same boundary, restricted to the 56 REAL tokens in both numerator and denominator (D95). Norm ratio and error cosine reported beside every distance. Headline is the SINGLE track s, which is where attn_pair_bias writes; the pair track is reported beside it and should move only by coupling.",
+
+ "the_comparator": "of3t-trunkfwd's SHIPPED masked single-track disagreement, 1.012900e-01, against upstream's own bf16 single of 2.830522e-03 (its 35.78x). Per PROTOCOL A27 I compare ABSOLUTE distances, not ratios -- that is the error that produced D96.",
+
+ "branches_fixed_in_advance": {
+  "MATERIAL": "d(A,C) >= 0.02, i.e. >= ~20 % of the port's own 0.1013 single-track disagreement -- D93 is a FIRST-ORDER term, the single-track reading is partly revision rather than port, and it reopens.",
+  "SECOND_ORDER": "d(A,C) < 0.005, < ~5 % -- D93 is confirmed small, quantified, and closes. This is what I have been ASSUMING since correcting D96, so it is the branch I am most at risk of wanting.",
+  "MIDDLE": "0.005 <= d(A,C) < 0.02 -- material but not dominant; report the fraction and do not round it to either neighbour."
+ },
+ "ordering_check": "B sits between A and C in how much of the attention is fp32, so d(B,C) < d(A,C) is expected. If d(B,C) > d(A,C) the two effects do not order and the arm is suspect rather than interesting.",
+
+ "what_this_still_cannot_claim": "the explicit policy reproduces the ARITHMETIC that CUDA autocast selects, not the CUDA kernels. Autocast also touches ops outside _attention. So this sizes the specific change D93 names and does not size 'what the whole reference does differently under autocast'."
+}

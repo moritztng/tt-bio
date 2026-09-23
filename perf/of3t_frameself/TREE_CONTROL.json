@@ -1,0 +1,16 @@
+{
+ "what": "the capture's tree against the replay's tree, contents only",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself", "defect": "D242", "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "capture_tree": {"path": "/home/ttuser/of3t-campaign-refs/of3pkg043", "used_by": "of3t-modelframe/capture.sh, on qb1",
+                  "n_py_files": 293, "sha256_of_concatenated_py": "84d2e62bcc80c09102fe31fcf0fde10babec8628e37cd22ea69f61b2ddd73947",
+                  "pairformer_py_sha256": "bb94fa0cf53d096b7170e56062460e61f26c249d7c7e632f020ef8af1b99daa5"},
+ "replay_tree":  {"path": "/home/ttuser/of3t_refprec/of3pkg043", "used_by": "of3t-twoside/arms.sh -> ref_grad.py, on qb2",
+                  "n_py_files": 293, "sha256_of_concatenated_py": "84d2e62bcc80c09102fe31fcf0fde10babec8628e37cd22ea69f61b2ddd73947",
+                  "pairformer_py_sha256": "bb94fa0cf53d096b7170e56062460e61f26c249d7c7e632f020ef8af1b99daa5"},
+ "identical_py_contents": true,
+ "pairformer_identical": true,
+ "non_py_differences": "Only in /home/ttuser/of3t_refprec/of3pkg043: PKG-INFO",
+ "verdict": "the two trees are the same code; a tree difference is NOT the cause of D242"
+}

@@ -1,0 +1,22 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 187 -- a reachability read of the composed branch, CPU only, no measurement",
+ "why": "the five recipe divergences SS7 found are fixed on `wk/of3t-wirefix`, release-gated and unmerged, and somebody will eventually have to decide whether to land them. That decision turns on blast radius, and I had only checked half of it: I verified `train_loop` has no production callers but not the two changes inside `AdamW`.",
+ "the_three_gates_between_these_fixes_and_anything_that_ships": [
+  {
+   "level": "the recipe",
+   "finding": "`train_loop` is the only thing carrying the changed defaults (weight_decay=0.0, betas=(0.9,0.95), plateau_until=50000) and it has NO production callers -- git grep finds it only in tests, docs and this campaign's own harness."
+  },
+  {
+   "level": "the optimizer",
+   "finding": "`AdamW` is constructed in exactly one non-test place in the whole tree: tt_bio/train/recipes.py:134, inside train_loop. Every other construction is a test."
+  },
+  {
+   "level": "the optimizer's internals",
+   "finding": "both changes inside AdamW are gated on the per-sample accumulator being non-empty -- `per_sample = bool(self.accum)` at optim.py:192 guarding the participation division, and `if self.accum:` at optim.py:281 guarding _reduce's new branch. self.accum is filled only by train_loop's new one-sample-at-a-time loop, so on any other path both branches are dead code."
+  }
+ ],
+ "what_that_means_for_the_landing_decision": "landing the five fixes CANNOT change any shipped inference path, any other model, or any existing caller, because there is no path from a shipped entry point to the changed code. The framing 'a risky merge of training-recipe changes' overstates it: it is a contained change to an entry point nothing currently calls. AdamW's own class default stays weight_decay=0.01, deliberately, so even a future direct constructor is unaffected.",
+ "and_the_flip_side_which_must_be_said_in_the_same_breath": "the same three gates mean the fixes DELIVER NOTHING until something calls train_loop. SS7 passing is a statement about an entry point no product uses. That is not an argument against landing them -- an unused correct path beats an unused wrong one, and the next thing to call it inherits the fix -- but nobody should read 'the update rule is reproduced' as 'the shipped product now trains correctly'. The shipped product does not train at all.",
+ "what_this_does_NOT_settle": "whether to land them. That is Moritz's call and this file does not make it -- it removes the blast-radius objection and states the cost of not landing (the next caller of train_loop inherits five divergences if they are dropped). The campaign's standing constraint is unchanged: release-gated, branch only, nothing merged by this row.",
+ "provenance": "of3t-orchestrator pass 187 on pc, CPU only. Read from origin/wk/of3t-wirefix: tt_bio/train/recipes.py, tt_bio/train/optim.py, and a tree-wide grep for AdamW constructors and train_loop references. No figure here is a measurement."
+}

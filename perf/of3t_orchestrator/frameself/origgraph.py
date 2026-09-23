@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""of3t-orchestrator pass 387: D242's premises all hold, so the SELF-TEST'S GRAPH is the premise.
+
+`of3t-frameself` has now measured every premise of its own syllogism and the contradiction
+survives all of them: same module object, `stack_entered_times` 1, hook fired once, the
+cotangent confirmed bit-identical by `torch.autograd.grad` as a second instrument, the forward
+bit-exact elementwise on the real rows, `checkpoint_blocks` exonerated on BOTH channels, and
+`PARAM_IDENTITY.json` reporting `n_trunk_parameters_also_registered_outside_the_trunk: 0` with
+zero unregistered aliases. Chain rule then forces the injected parameter gradient to equal the
+real one. It does not, on the 1,968 tensors `cot_z` reaches.
+
+**There is one premise left and nobody has written it down: that a bit-exact FORWARD implies an
+identical BACKWARD GRAPH.** `run_selftest` (`perf/of3t_modelframe/capture_model_frame.py:161`)
+does not differentiate the original graph. It builds a NEW one:
+
+    s_in = b["s_in"].detach().clone().requires_grad_(True)
+    ...
+    s_out, z_out = stack(s=s_in, z=z_in, single_mask=sm, pair_mask=pm, **kw)
+    loss2 = (s_out * cot_s).sum() + (z_out * cot_z).sum()
+    loss2.backward()
+
+so it re-runs the forward from the saved boundary and differentiates THAT. It is the same module
+and the same cotangent, and its outputs match bit for bit -- but two graphs whose outputs agree
+to the last bit can still save different things for backward. The selftest was built to separate
+"`ref_grad.py`'s reconstruction is wrong" from "the captured pair is insufficient", and it
+answered the first. It cannot see this, by construction, because it is itself a reconstruction.
+
+Its kwarg filter is a latent instrument risk and NOT this defect: `kw` keeps only
+`int/float/bool/None`, but the artifact shows `call_kwargs_replayed` equal to
+`call_kwargs_nontensor_at_the_taped_call` on all seven, so nothing was dropped here. Worth
+fixing, worth not chasing.
+
+And the replay graph is FAITHFUL where it can be checked, which is what makes the remaining gap
+specific. Against THIS RUN'S OWN full-model backward -- same process, same weights, dropout
+disabled, deterministic kernels on -- the injected arm is **bit-identical on 768 of 2,736
+tensors**, exactly the s-only class, and wrong on the other 1,968. A fresh forward that
+reproduces 768 parameter gradients bit for bit through 48 checkpointed blocks is not a
+structurally different graph. So the reference FILE is not the suspect either: the comparison
+that fails is against the capture's own backward in its own process.
+
+THE EXPERIMENT, and it needs no new forward: inside the capture, on the ORIGINAL graph, before
+`loss.backward()`, ask autograd for the same thing the replay asks a fresh graph for.
+
+    gB, dsB, dzB = torch.autograd.grad(
+        outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z),
+        inputs=list(trunk_params) + [s_in, z_in],
+        retain_graph=True, allow_unused=True)
+
+THE FALSIFIER IS ONE SCALAR AND BOTH ITS VALUES ARE ALREADY BANKED, so it is pre-registered
+before the arm runs. `of3t-frameself` measured the norm of `dL/dz_in` two ways:
+
+    the real full-model backward      0.000848887340907281
+    the fresh-graph replay            0.0014907294032500784
+
+  * `dzB` -> 0.000848887340907281  means the cotangent injection is EXACT on the original graph.
+    The defect is then the replay's fresh forward, the captured pair is insufficient in a way a
+    bit-exact forward cannot show, and every arm this campaign ran through `ref_grad.py` on a
+    captured boundary inherits it. The next question becomes what the original graph saved that
+    a replay from the boundary does not rebuild.
+  * `dzB` -> 0.0014907294032500784 means the injection overcounts on the ORIGINAL graph too.
+    With sharing refuted and the hook confirmed, that leaves the reference file's provenance,
+    and `grads_f64_043.pt` becomes the object under test rather than the frame.
+  * anything else is a third answer and the more interesting one.
+
+A caveat on the first branch, so it is not over-read: `dL/dz_in` from the real backward is the
+TOTAL over every consumer of `z_in`, while the injected one is the stack's contribution alone. If
+`z_in` has any other consumer the two differ for an ordinary reason. That is why the arm must
+read `gB` -- the PARAMETER gradients, which no other consumer of `z_in` can touch -- and use
+`dzB` only as the cheap tell. `of3t-frameself`'s "a second consumer of `z_in` therefore exists
+and it opposes the stack" is a sound reading of the `dz_in` pair, but a second consumer of `z_in`
+cannot change the stack's own parameter gradients, so it is not evidence about the defect.
+
+Zero card, zero model run. This file is the reasoning and the pre-registration; the arm belongs
+to `of3t-frameself`, whose process and whose namespace it runs in.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+BANKED = {
+    "dz_in_real_full_model_backward": 0.000848887340907281,
+    "dz_in_fresh_graph_replay": 0.0014907294032500784,
+    "ds_in_both": 0.009204973933437452,
+    "trunk_rel_l2_injected_vs_reference": 0.7945281613194322,
+    "trunk_rel_l2_with_cot_z_dropped": 0.1229230122173261,
+    "s_only_class_residual": 0.0,
+    "s_only_class_n_tensors": 768,
+    "mixed_class_n_tensors": 1968,
+    "bit_identical_vs_this_runs_own_backward": 768,
+    "z_arm_squared_norm": 0.4071279988965891,
+    "reference_squared_norm": 0.599115204802637,
+    "s_arm_squared_norm": 0.5647771875120086,
+    "bar": 1e-12,
+}
+
+
+def main() -> int:
+    out = {
+        "what": __doc__.strip().splitlines()[0],
+        "row_that_owns_the_arm": "of3t-frameself",
+        "defect": "D242",
+        "device_involved": False,
+        "why_no_aiclk": "CPU only, no Tenstorrent device is opened; nothing here is a timing",
+        "the_premise_nobody_wrote_down":
+            "that a bit-exact forward implies an identical backward graph. run_selftest "
+            "(perf/of3t_modelframe/capture_model_frame.py:161-199) re-runs the forward from the "
+            "saved boundary and differentiates a NEW graph, so it is itself a reconstruction and "
+            "cannot see a defect in reconstructing one.",
+        "the_kwarg_filter_is_a_latent_risk_not_this_defect":
+            "kw keeps only int/float/bool/None, but call_kwargs_replayed equals "
+            "call_kwargs_nontensor_at_the_taped_call on all seven, so nothing was dropped here.",
+        "and_the_replay_graph_is_faithful_where_it_can_be_checked":
+            "against THIS RUN'S OWN full-model backward the injected arm is BIT-IDENTICAL on 768 "
+            "of 2,736 tensors (n_bit_identical: 768), exactly the s-only class. A fresh forward "
+            "that reproduces 768 parameter gradients bit for bit through 48 checkpointed blocks "
+            "is not a structurally different graph -- and it rules the reference FILE out too, "
+            "because the failing comparison is against the capture's own backward.",
+        "premises_already_measured_and_holding": {
+            "module_object": "the same; stack_entered_times 1",
+            "hook_firings": "s 1, z 1 on outputs and on inputs",
+            "cotangent": "torch.autograd.grad agrees with the hook BIT-IDENTICALLY on both "
+                         "cot_s (5.599999708545341e-05) and cot_z (0.0007601379094210722)",
+            "forward": "bit-exact elementwise, whole tensor and restricted to the 56 real rows",
+            "checkpoint_blocks": "exonerated by the orchestrator at pass 383 (R146) -- and "
+                                 "re-checked this pass against the objection that it might have "
+                                 "driven only one channel: ckpt_break.py:74 is "
+                                 "`(s*cot_s).sum() + (z*cot_z).sum()` with independent random "
+                                 "cotangents on BOTH outputs, so the z channel was covered.",
+            "parameter_sharing": "PARAM_IDENTITY.json -- 761 objects carry two names and every "
+                                 "one is diffusion_module <-> sample_diffusion.diffusion_module; "
+                                 "n_trunk_parameters_also_registered_outside_the_trunk is 0 and "
+                                 "unregistered aliases of a trunk parameter are 0.",
+            "the_s_path": "768 tensors reachable only through cot_s reproduce the reference at "
+                          "residual EXACTLY 0.0, a* 0.9999999999999974.",
+        },
+        "THE_ARM": {
+            "where": "inside the capture, on the ORIGINAL graph, before loss.backward()",
+            "call": "torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z), "
+                    "inputs=list(trunk_params) + [s_in, z_in], retain_graph=True, "
+                    "allow_unused=True)",
+            "extra_cost": "one backward on a graph already built -- no extra forward",
+            "read": "gB, the parameter gradients, scored against grads_f64_043.pt's trunk "
+                    "section by the row's existing scorer",
+        },
+        "PREREGISTERED_FALSIFIER": {
+            "the_scalar": "the norm of dL/dz_in returned by the same call",
+            "both_values_are_already_banked_so_neither_can_be_fitted_after_the_fact": True,
+            "if_it_reads": {
+                str(BANKED["dz_in_real_full_model_backward"]):
+                    "the injection is exact on the original graph. The defect is the replay's "
+                    "fresh forward: the captured pair is insufficient in a way a bit-exact "
+                    "forward cannot show, and every ref_grad.py arm on a captured boundary "
+                    "inherits it.",
+                str(BANKED["dz_in_fresh_graph_replay"]):
+                    "the injection overcounts on the ORIGINAL graph too. Then the two "
+                    "instruments that agreed on cot_z agreed about its VALUE and not about "
+                    "WHICH TENSOR the loss consumes, which is the one thing a hook and "
+                    "autograd.grad on the same object cannot separate, and the next arm is to "
+                    "identify z_out's consumers rather than to re-read its gradient.",
+                "anything else": "a third answer, and the more interesting one.",
+            },
+            "the_sharper_restriction_if_the_row_wants_one_number":
+                "torch.autograd.grad(outputs=z_out, grad_outputs=cot_z, inputs=trunk_params) on "
+                "the ORIGINAL graph, compared against the banked g_zonly (squared norm "
+                "0.4071279988965891). The s route is already bit-identical on 768 tensors, so "
+                "the z route alone is the whole object.",
+            "the_caveat_that_keeps_it_honest":
+                "dL/dz_in from the real backward is the TOTAL over every consumer of z_in while "
+                "the injected one is the stack's contribution alone, so an ordinary second "
+                "consumer separates them for a reason that is not a defect. gB -- the parameter "
+                "gradients, which no consumer of z_in can touch -- is the reading; dz_in is the "
+                "cheap tell.",
+        },
+        "banked_numbers_this_rests_on": BANKED,
+        "SUPERSEDED_IN_PART_AT_PASS_389": {
+            "what_closed": "the second falsifier branch named grads_f64_043.pt's provenance as "
+                           "the object under test if the injection overcounts on the original "
+                           "graph. of3t-frameself's --blockprobe closed that: a second "
+                           "instrument reads the reference at 3.0392623414001263e-15 (block 47) "
+                           "and 4.1031090433915236e-15 (block 46), the two blocks where the "
+                           "replay is worst. The reference is right.",
+            "so_that_branch_now_reads":
+                "a tensor hook and torch.autograd.grad read the SAME OBJECT, so three readings "
+                "confirm cot_z's VALUE and none of them says whether that object is the tensor "
+                "the loss consumes. The next arm is to enumerate z_out's consumers.",
+            "and_the_arm_itself_is_still_owed_and_is_now_cheaper":
+                "--blockprobe prunes the graph to one block (135.2 s measured against a 340.6 s "
+                "forward) and capture_model_frame.py:653-656 already holds s_out_t and z_out_t, "
+                "so the cotangent-driven call is one extra grad_outputs= argument. What "
+                "blockprobe ran is torch.autograd.grad(LOSS, params), which is loss-driven and "
+                "is not this. See PARTITION_ENTAILED.json.",
+        },
+        "DOESNOT": "this names no mechanism and moves no number. It identifies the one premise "
+                   "of D242's syllogism that was never written down, and specifies an arm that "
+                   "costs one backward and splits the remaining hypothesis space in two.",
+    }
+    print(json.dumps(out, indent=1))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

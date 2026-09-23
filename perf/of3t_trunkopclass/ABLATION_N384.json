@@ -1,0 +1,105 @@
+{
+  "what": "of3t-trunkopclass: score the class-scoped ablation arms, with the A/A floor FIRST.",
+  "host": "tt-quietbox",
+  "inputs": {
+    "f64": "/home/ttuser/of3t_frame384/ref_f64_n384.pt",
+    "bf16auto": "/home/ttuser/of3t_frame384/ref_bf16auto_n384.pt",
+    "aa": [
+      "/tmp/of3t/of3t-trunkopclass/dev_BASE_A_c64.pt",
+      "/tmp/of3t/of3t-trunkopclass/dev_BASE_B2_c64.pt"
+    ],
+    "base": "BASE=/tmp/of3t/of3t-trunkopclass/dev_NBASE_n384.pt",
+    "arm": [
+      "APB_all=/tmp/of3t/of3t-trunkopclass/dev_NAPB_n384.pt"
+    ],
+    "ceiling": "perf/of3t_trunkopclass/CEILING_N384.json",
+    "out": "perf/of3t_trunkopclass/ABLATION_N384.json"
+  },
+  "aa_floor": {
+    "a": "/tmp/of3t/of3t-trunkopclass/dev_BASE_A_c64.pt",
+    "b": "/tmp/of3t/of3t-trunkopclass/dev_BASE_B2_c64.pt",
+    "n_a": 2736,
+    "n_b": 2736,
+    "n_common": 2736,
+    "n_only_in_a": 0,
+    "n_only_in_b": 0,
+    "n_tensors_moved": 0,
+    "bit_identical": true,
+    "worst_rel_move": 0.0,
+    "worst_tensor": null
+  },
+  "arms": {
+    "BASE": {
+      "f64": {
+        "n": 2736,
+        "mass_weighted_rel_l2": 0.8354121633458242,
+        "mass_weighted_norm_ratio": 1.1893385000067866,
+        "mass_weighted_cos": 0.7216669539086011,
+        "abs_err_sq": 1.3061438128322396,
+        "ref_sq": 1.8714981803225017,
+        "median_rel_l2_over_tensors": 0.6556091005899494,
+        "worst_rel_l2_over_tensors": 216.66415644045875,
+        "worst_tensor_by_relative_error": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.bias",
+        "worst_tensor_by_absolute_error": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight",
+        "worst_absolute_error": 0.4663804457319854,
+        "n_below_norm_floor": 48,
+        "n_over_per_tensor_bar_5e-2": 2687
+      },
+      "bf16auto": {
+        "n": 2736,
+        "mass_weighted_rel_l2": 1.029395337772344,
+        "mass_weighted_norm_ratio": 1.154805552202203,
+        "mass_weighted_cos": 0.5515738556764991,
+        "abs_err_sq": 2.1035218708025667,
+        "ref_sq": 1.9851011361181048,
+        "median_rel_l2_over_tensors": 0.8230135156048547,
+        "worst_rel_l2_over_tensors": 53.85151875300575,
+        "worst_tensor_by_relative_error": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.bias",
+        "worst_tensor_by_absolute_error": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight",
+        "worst_absolute_error": 0.6602327750152446,
+        "n_below_norm_floor": 0,
+        "n_over_per_tensor_bar_5e-2": 2732
+      },
+      "mass_weighted_rel_l2_vs_bf16auto": 1.029395337772344,
+      "fraction_of_base_error_mass_removed": 0.0,
+      "ceiling_trunk_in_frame": null,
+      "fraction_of_ceiling_reached": null
+    },
+    "APB_all": {
+      "f64": {
+        "n": 2736,
+        "mass_weighted_rel_l2": 0.9743787456867573,
+        "mass_weighted_norm_ratio": 1.288359518590627,
+        "mass_weighted_cos": 0.6638117250719321,
+        "abs_err_sq": 1.7768264611690903,
+        "ref_sq": 1.8714981803225017,
+        "median_rel_l2_over_tensors": 0.652486379062896,
+        "worst_rel_l2_over_tensors": 199.7451414456443,
+        "worst_tensor_by_relative_error": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.bias",
+        "worst_tensor_by_absolute_error": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight",
+        "worst_absolute_error": 0.7373572669532201,
+        "n_below_norm_floor": 48,
+        "n_over_per_tensor_bar_5e-2": 2687
+      },
+      "bf16auto": {
+        "n": 2736,
+        "mass_weighted_rel_l2": 1.1630960484880253,
+        "mass_weighted_norm_ratio": 1.250951453511783,
+        "mass_weighted_cos": 0.4844660908431361,
+        "abs_err_sq": 2.6854297659205497,
+        "ref_sq": 1.9851011361181048,
+        "median_rel_l2_over_tensors": 0.8226574109775138,
+        "worst_rel_l2_over_tensors": 30.43245457363284,
+        "worst_tensor_by_relative_error": "pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.bias",
+        "worst_tensor_by_absolute_error": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.weight",
+        "worst_absolute_error": 0.9346914241831018,
+        "n_below_norm_floor": 0,
+        "n_over_per_tensor_bar_5e-2": 2732
+      },
+      "mass_weighted_rel_l2_vs_bf16auto": 1.1630960484880253,
+      "fraction_of_base_error_mass_removed": -0.2766350581826684,
+      "ceiling_trunk_in_frame": null,
+      "fraction_of_ceiling_reached": null
+    }
+  }
+}

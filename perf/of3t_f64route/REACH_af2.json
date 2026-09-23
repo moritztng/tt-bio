@@ -1,0 +1,55 @@
+{
+ "what": "a MODULE-LEVEL reach probe, not a fold: AF2 has no tt-bio predict entry point and its 4.67 GB parameter archive is not on this host",
+ "env": "TT_BIO_HOST_F64_SOFTMAX_AB=all",
+ "before": {
+  "served": 0,
+  "declined": 0,
+  "refused": 0,
+  "elements": 0,
+  "selected": 0,
+  "tail": 0,
+  "served_taped": 0,
+  "served_raw": 0
+ },
+ "sites": {
+  "af2.msa": {
+   "selector": true,
+   "arrivals": 1,
+   "refused": 1,
+   "tail": 1,
+   "out_shape": [
+    1,
+    8,
+    64,
+    32
+   ]
+  },
+  "af2.tri_att": {
+   "selector_start": true,
+   "arrivals": 1,
+   "refused": 1,
+   "tail": 1,
+   "out_shape": [
+    1,
+    64,
+    64,
+    128
+   ]
+  }
+ },
+ "after": {
+  "served": 0,
+  "declined": 0,
+  "refused": 2,
+  "elements": 0,
+  "selected": 2,
+  "tail": 2,
+  "served_taped": 0,
+  "served_raw": 0
+ },
+ "selected_per_site": {
+  "af2.msa": 1,
+  "af2.tri_att": 1
+ },
+ "reach": "host f64 softmax: reached -- 2 sites selected, 0 served, 2 refused, 0 declined"
+}

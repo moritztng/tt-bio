@@ -1,0 +1,112 @@
+{
+ "instrument": "perf/of3t_orchestrator/lnladder/ladder_shape.py",
+ "host": "pc",
+ "question": "of3t-lnreduce's brief makes 'flat in K' the falsifier of the reduction hypothesis. Is that sound?",
+ "method": "sequential accumulation of K zero-mean terms, running sum rounded to m significand bits after every add, median of 160 trials, math.fsum reference, float64 throughout. No torch, no device.",
+ "rows": [
+  {
+   "K": 64,
+   "cancellation_factor_median": 8.823580058006243,
+   "rel_err_bf16": 0.007401151157481147,
+   "rel_err_tt_fp32_19b": 3.5184211510189594e-06,
+   "rel_err_tt_fp32_22b": 4.838496391870377e-07,
+   "rel_err_ieee_fp32": 1.2140825422422703e-07,
+   "ratio_22b_over_ieee_fp32": 3.985310902283656,
+   "ratio_19b_over_ieee_fp32": 28.980081902181393,
+   "ratio_bf16_over_ieee_fp32": 60960.856448953426
+  },
+  {
+   "K": 256,
+   "cancellation_factor_median": 18.935729368680725,
+   "rel_err_bf16": 0.016522072151090195,
+   "rel_err_tt_fp32_19b": 6.810829750640251e-06,
+   "rel_err_tt_fp32_22b": 9.685534722479343e-07,
+   "rel_err_ieee_fp32": 2.465820912544944e-07,
+   "ratio_22b_over_ieee_fp32": 3.927914907852339,
+   "ratio_19b_over_ieee_fp32": 27.62094244553582,
+   "ratio_bf16_over_ieee_fp32": 67004.34758677574
+  },
+  {
+   "K": 1024,
+   "cancellation_factor_median": 44.01380721746878,
+   "rel_err_bf16": 0.03508639024926593,
+   "rel_err_tt_fp32_19b": 1.7953485571384834e-05,
+   "rel_err_tt_fp32_22b": 1.9095292486457367e-06,
+   "rel_err_ieee_fp32": 5.196403842339501e-07,
+   "ratio_22b_over_ieee_fp32": 3.674712948765039,
+   "ratio_19b_over_ieee_fp32": 34.54982737312021,
+   "ratio_bf16_over_ieee_fp32": 67520.52248785479
+  },
+  {
+   "K": 4096,
+   "cancellation_factor_median": 77.35971131162398,
+   "rel_err_bf16": 0.05473308910908336,
+   "rel_err_tt_fp32_19b": 3.154018741451999e-05,
+   "rel_err_tt_fp32_22b": 3.721842625483681e-06,
+   "rel_err_ieee_fp32": 8.38986479787323e-07,
+   "ratio_22b_over_ieee_fp32": 4.43611752411927,
+   "ratio_19b_over_ieee_fp32": 37.59320105195879,
+   "ratio_bf16_over_ieee_fp32": 65237.152716641875
+  },
+  {
+   "K": 16384,
+   "cancellation_factor_median": 142.47509767250438,
+   "rel_err_bf16": 0.12285607046468801,
+   "rel_err_tt_fp32_19b": 5.765675739856488e-05,
+   "rel_err_tt_fp32_22b": 7.347100265499719e-06,
+   "rel_err_ieee_fp32": 2.0046705965889222e-06,
+   "ratio_22b_over_ieee_fp32": 3.664991284853127,
+   "ratio_19b_over_ieee_fp32": 28.761212688344713,
+   "ratio_bf16_over_ieee_fp32": 61284.91667096611
+  },
+  {
+   "K": 65536,
+   "cancellation_factor_median": 279.70133054655804,
+   "rel_err_bf16": 0.2608230916166343,
+   "rel_err_tt_fp32_19b": 0.00014128222395135085,
+   "rel_err_tt_fp32_22b": 1.4207463286542536e-05,
+   "rel_err_ieee_fp32": 4.174361350509129e-06,
+   "ratio_22b_over_ieee_fp32": 3.4035058524125406,
+   "ratio_19b_over_ieee_fp32": 33.84523094391895,
+   "ratio_bf16_over_ieee_fp32": 62482.15468572764
+  },
+  {
+   "K": 147456,
+   "cancellation_factor_median": 501.14581518867,
+   "rel_err_bf16": 0.37303000575678347,
+   "rel_err_tt_fp32_19b": 0.00018020407748934548,
+   "rel_err_tt_fp32_22b": 2.6197937518252992e-05,
+   "rel_err_ieee_fp32": 4.761036528638461e-06,
+   "ratio_22b_over_ieee_fp32": 5.502570156869802,
+   "ratio_19b_over_ieee_fp32": 37.849757380643204,
+   "ratio_bf16_over_ieee_fp32": 78350.5867919608
+  }
+ ],
+ "ratio_spread_over_K": {
+  "tt_fp32_22b_over_ieee_fp32": 1.6167359174568074,
+  "tt_fp32_19b_over_ieee_fp32": 1.3703282375421115,
+  "bf16_over_ieee_fp32": 1.2852605976356148
+ },
+ "slope_log2_ratio_vs_log2_K": {
+  "tt_fp32_22b_over_ieee_fp32": 0.015466948051072684,
+  "tt_fp32_19b_over_ieee_fp32": 0.027014887638393426,
+  "bf16_over_ieee_fp32": 0.01249452718745514,
+  "//": "0 means the ratio is flat in K; 0.5 would mean it grows like sqrt(K)"
+ },
+ "slope_log2_abs_err_vs_log2_K": {
+  "bf16": 0.4996892536734803,
+  "tt_fp32_19b": 0.5142096141244185,
+  "tt_fp32_22b": 0.5026616745370979,
+  "ieee_fp32": 0.48719472648602513
+ },
+ "median_ratio": {
+  "tt_fp32_22b_over_ieee_fp32": 3.927914907852339,
+  "tt_fp32_19b_over_ieee_fp32": 33.84523094391895,
+  "bf16_over_ieee_fp32": 65237.152716641875
+ },
+ "predicted_ratio_from_bit_deficit": {
+  "tt_fp32_22b_over_ieee_fp32": 4.0,
+  "tt_fp32_19b_over_ieee_fp32": 32.0,
+  "bf16_over_ieee_fp32": 65536.0
+ }
+}

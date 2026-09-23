@@ -1,0 +1,101 @@
+{
+ "what": "Where does the captured cotangent live: real tokens or pads?",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "boundary": "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+ "cotangent": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+ "real_tokens": 56,
+ "tokens": 384,
+ "tensors": [
+  {
+   "name": "cot_s",
+   "shape": [
+    1,
+    384,
+    384
+   ],
+   "squared_norm": 3.1359996735707848e-09,
+   "norm": 5.599999708545336e-05,
+   "masked_in_squared_norm": 3.1359996735707864e-09,
+   "masked_out_squared_norm": -1.6543612251060553e-24,
+   "share_masked_in": 1.0000000000000004,
+   "nonzero": 21504,
+   "nonzero_masked_in": 21504,
+   "nonzero_masked_out": 0,
+   "numel": 147456,
+   "max_abs": 5.649445424041621e-06,
+   "max_abs_masked_out": 0.0
+  },
+  {
+   "name": "cot_z",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "squared_norm": 5.778096413390395e-07,
+   "norm": 0.0007601379094210731,
+   "masked_in_squared_norm": 5.778096413390378e-07,
+   "masked_out_squared_norm": 1.6940658945086007e-21,
+   "share_masked_in": 0.9999999999999971,
+   "nonzero": 401408,
+   "nonzero_masked_in": 401408,
+   "nonzero_masked_out": 0,
+   "numel": 18874368,
+   "max_abs": 3.599049445128421e-05,
+   "max_abs_masked_out": 0.0
+  },
+  {
+   "name": "s_in",
+   "shape": [
+    1,
+    384,
+    384
+   ],
+   "squared_norm": 138230177.61125124,
+   "norm": 11757.133052375108,
+   "masked_in_squared_norm": 31624301.193951733,
+   "masked_out_squared_norm": 106605876.41729951,
+   "share_masked_in": 0.22878000839215934,
+   "nonzero": 147456,
+   "nonzero_masked_in": 21504,
+   "nonzero_masked_out": 125952,
+   "numel": 147456,
+   "max_abs": 292.34634069719675,
+   "max_abs_masked_out": 139.6994103770579
+  },
+  {
+   "name": "z_in",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "squared_norm": 261074530365429.88,
+   "norm": 16157800.913658699,
+   "masked_in_squared_norm": 4133683905.2303543,
+   "masked_out_squared_norm": 261070396681524.66,
+   "share_masked_in": 1.5833348046032586e-05,
+   "nonzero": 18874368,
+   "nonzero_masked_in": 401408,
+   "nonzero_masked_out": 18472960,
+   "numel": 18874368,
+   "max_abs": 9304.147027449688,
+   "max_abs_masked_out": 9304.147027449688
+  }
+ ],
+ "pair_mask_true": 3136,
+ "pair_mask_numel": 147456,
+ "cot_s_nonzero_value_stats": {
+  "n": 21504,
+  "n_distinct_abs": 21504,
+  "min_abs": 3.1873583406782683e-13,
+  "max_abs": 5.649445424041621e-06,
+  "mean": -2.087646307871927e-24
+ }
+}

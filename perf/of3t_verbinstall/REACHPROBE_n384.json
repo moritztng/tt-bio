@@ -1,0 +1,47 @@
+{
+ "identity": {
+  "after_install": {
+   "verb_softmax_is_ours": true,
+   "verb_softmax_in_place_is_ours": true,
+   "ttnn_softmax_is_ours": true,
+   "ttnn_softmax_in_place_is_ours": true,
+   "shim_cached_softmax": false,
+   "shim_cached_softmax_in_place": false,
+   "autograd_module": 135346046707296,
+   "taped_module": 135346047084608,
+   "ttnn_module": 135346890327040,
+   "installed": true
+  },
+  "at_exit": {
+   "verb_softmax_is_ours": false,
+   "verb_softmax_in_place_is_ours": false,
+   "ttnn_softmax_is_ours": false,
+   "ttnn_softmax_in_place_is_ours": false,
+   "shim_cached_softmax": true,
+   "shim_cached_softmax_in_place": true,
+   "autograd_module": 135346046707296,
+   "taped_module": 135346047084608,
+   "ttnn_module": 135346890327040,
+   "installed": false
+  }
+ },
+ "HOST_F64_SOFTMAX_STATS": {
+  "served": 0,
+  "declined": 7451,
+  "refused": 0,
+  "elements": 0,
+  "selected": 3,
+  "tail": 7451,
+  "served_taped": 0,
+  "served_raw": 0
+ },
+ "counters": {
+  "verb": 0,
+  "raw": 1742,
+  "raw_elements": 21856518144
+ },
+ "call_sites": {
+  "RAW tenstorrent.py:4117 _fp32_softmax_tail": 1694,
+  "RAW tenstorrent.py:8829 __call__": 48
+ }
+}
