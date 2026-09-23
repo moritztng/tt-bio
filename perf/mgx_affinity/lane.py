@@ -10,8 +10,8 @@ wall, the scalars the CLI wrote, host load and AICLK sampled DURING, and the DRA
 plan sets "census": true (the census drains the pipeline at every tag, so a census job is never a
 timing).
 
-Chips: a card is taken only when its lease JSON says released, or its holder pid is dead, and its
-flock is free. The lane re-writes its own lease between jobs (the engine marks the card released
+Chips: a card is taken only when its lease JSON says released more than 120 s ago, or its holder
+pid is dead, and its flock is free. The lane re-writes its own lease between jobs (the engine marks the card released
 when each job exits), so a sibling row cannot take the chip mid-plan. The five cardblocked chips
 are never candidates. Every job runs with 2 host threads: nesso1 through OMP/MKL, since
 `tt-bio affinity` has no --host_threads, and boltz2 through predict's own flag.
@@ -51,7 +51,10 @@ def free(c):
     except (OSError, ValueError):
         d = {"released": 1}
     mine = d.get("holder") == ME and d.get("pid") == os.getpid()
-    if not (mine or d.get("released") or not os.path.exists(f"/proc/{d.get('pid')}")):
+    # A sibling chain releases between its folds and re-claims within seconds; a release is
+    # only an idle chip once it is two minutes old.
+    idle = d.get("released") and time.time() - float(d["released"]) > 120
+    if not (mine or idle or not os.path.exists(f"/proc/{d.get('pid')}")):
         return False
     with open(lease(c), "a") as fh:
         try:

@@ -161,6 +161,7 @@ from tt_bio.distributed import (
 from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
+    bind_host_threads,
     build_local_workers,
     conflicting_mpi_env,
     mpi_env_warning,
@@ -3865,9 +3866,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
               help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use (default: all cores). Set it when you run "
+                   "one affinity screen per card side by side, as for `predict`.")
 @torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices):
+                 num_workers, seed, ccd, cache, devices, host_threads):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -3895,6 +3899,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         if len(ids) > 1:
             raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
         os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _cap_worker_threads(1, host_threads)
+    bind_host_threads()
     use_tt = accelerator == "tenstorrent"
     if use_tt:
         _require_ttnn()
