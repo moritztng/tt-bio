@@ -1467,3 +1467,94 @@ on contiguity". I verified the SEPARATION and not the MECHANISM NAME, which is
 `verify-the-rows-noun-not-only-its-numbers` in the one form I had not met: I re-derived the
 split that made the finding possible and copied the word that made it wrong. A brief's framing
 is inherited by the row that reads it, and this one got the right answer despite mine.
+
+### R186. A pre-registered disjunction can smuggle an unjustified POSITIVE claim into one of its branches, and landing on that branch does not license it (pass 414, zero card)
+
+`of3t-verbinstall`'s FALSIFIER is a model of the form: two sides written down in
+`PREREGISTERED.md` at `a06118403`, **2026-09-22 20:30:38Z**, and the arm run four hours later at
+00:33Z — so the pre-registration genuinely precedes the measurement, which I checked rather than
+accepted. It landed on the second side to four significant figures: `ROUTE_NORAW`
+**0.5605474136179824** against `ROUTE_HF`'s **0.5605347900452246**, a move of **+0.0023 %** with
+all raw serves gone. The suppression is verified and not assumed — `suppressed_raw 1869`,
+`served_raw 0`, `served_taped 9184` — and the row is right that an arm with 0 suppressed would
+have been ROUTE_HF wearing a label. **The candidate mechanism is refuted as the carrier.**
+
+**But the pre-registered second side said two things, and only one of them was earned.** It read:
+*"the raw serves are not the carrier, **the 472 extra taped serves are**, and the candidate
+mechanism above is dead."* Refuting the raw serves establishes the negative half. It establishes
+the positive half **only if raw-serves and the-472 exhaust the space**, and they do not:
+`ROUTE_NORAW` serves **9,184** taped where the verb arm serves **5,901**, a difference of 3,283,
+not 472. The "472" came from an earlier census pairing (`CENSUS_VERB_HF` vs `CENSUS_ROUTE_HF2`,
+5,757 − 5,285) taken on different arms, and it was stale by the time these arms ran.
+
+**The row declined the attribution and was right to**: *"which subset of the taped population
+carries it is not isolated here and is not claimed."* That is the correct reading of its own
+pre-registration, taken against the pre-registration's own words, which is harder than following
+them. **The lesson for how this campaign writes pre-registrations**: an "A or B" is a claim that
+A and B are exhaustive, and that claim needs its own argument. A branch that says *"not A,
+therefore B"* should be written as *"not A; what carries it is then open"* unless exhaustiveness
+was established when the two sides were fixed. Otherwise pre-registration — the instrument that
+exists to stop post-hoc rescue — becomes the vehicle for a conclusion nobody tested.
+
+### R187. The arm that makes MORE softmaxes exact is the WORSE arm, and that breaks the framing the whole softmax ladder was argued from (pass 414, zero card)
+
+Falling out of the same falsifier, and sharper than the question it was built to answer.
+
+    arm          exact softmaxes                      vs float64
+    ROUTE_NORAW  9,184 taped (exact fwd AND Jacobian)  0.5605474136179824
+    PKG_HF3B     5,901 verb + 1,742 raw                0.4175214198121818
+
+**The arm that makes more softmaxes exact — and their Jacobians too — is 34.26 % farther from
+the true gradient.** So the gap is not raw-versus-taped in either direction, and the "consistent
+arm" framing the route was argued from is wrong on *both* sides of it: consistency of the
+softmax population does not order these arms, and adding exactness moved the reading the wrong
+way. Which subset of the taped population carries it is not isolated and is not claimed.
+
+**Why this matters beyond D245.** The campaign's best trunk number, 1.0525x, is a softmax-lever
+number, and the mental model behind every rung of that ladder has been *more exact softmax ->
+closer gradient*. That model is now falsified by a controlled within-frame A/B. It does not make
+the 1.0525x wrong — it was measured, and the package install now reproduces it bit-exactly — but
+it removes the reason anyone had for expecting the lever to generalise. **`of3t-angle` is
+measuring whether that lever closes the ANGLE on the repaired functional, and this is the second
+independent reason to think the answer may be no**: the first is that the repair left a 99.7 %
+direction error where the lever's gains were measured against a 62.52 % magnitude one.
+
+A non-monotone response to exactness usually means errors that partially cancel. Nothing here
+establishes that, and it is named as the obvious candidate rather than as a finding.
+
+### R188. The exact softmax CLOSES THE ANGLE — it is a direction lever, not a magnitude one — and the campaign's headline moves 1.0525x -> 1.2224x (pass 414, zero card)
+
+`of3t-angle` concluded **GO** and answered the question the repair opened. On the repaired
+injection, frame384 frame, concatenated triple, vs upstream's own bf16 / vs float64:
+
+    arm                         rel                   cos           angle
+    shipped `--lever all`       1.5603 / 1.3785       0.3140 / 0.5390   71.6968° / 57.3839°
+    verb `ceiling_hf`           0.6515 / 0.7886       0.8106 / 0.7398   35.8461° / 42.2895°
+    verb+module `ceiling_hf3`   0.6512 / 0.7881       0.8107 / 0.7400   35.8351° / 42.2685°
+
+**Shipped to verb closes 35.8506° of a 71.6968° angle — 50.003 % of it — in the space the
+clause is graded in.** And the counterfactual prices the two axes apart rather than asserting
+which mattered: the lever's norm ratio at the shipped direction drops rel by 0.3303 (36.3 % of
+the move), its direction at the shipped norm ratio drops it by 0.6153 (**67.7 %**). **It did
+not only ever close the magnitude, and no rescaling substitutes for the direction it buys.**
+
+**The A/A floor is exactly 0** — SHIP_A and SHIP_B bit-identical on 2,736/2,736 tensors — which
+is the strongest floor this campaign has had under a direction claim, and it does a second job
+for free: SHIP_A ran with `host_quiet.py` green and SHIP_B red, and they are **bit-identical**.
+That is a direct measurement that load does not move an accuracy reading, which until now this
+campaign had only argued (R182, and `a-firing-question-is-load-insensitive`). Arms interleaved
+shipped/shipped/verb/module-wide in one session, AICLK sampled DURING at median 1350 MHz, A42
+satisfied with one correction cited in every arm, and no timing quoted from a shared box.
+
+**The headline moves, and downward.** What the campaign quoted as **1.0525x** its in-frame bar
+reads **1.2224x** on the repaired functional. The best lever is worse than believed and is
+still the best lever.
+
+**What this does NOT establish, and the row is the one who said so first.** The clause's
+requirement — cos 0.6976277 -> 0.9002917, 43.61 % of a 45.763° angle — is **a different arm on
+a different boundary**, and `of3t-angle` explicitly declined to project onto it. 50.003 %
+closed there and 43.61 % needed here are two numbers about two frames; the temptation to read
+"more than enough" off them is exactly the cross-frame quotient A37 and D218 bar, and it is
+more tempting than usual because it points somewhere good. **Dispatched `of3t-modelever` to
+MEASURE it** rather than infer it: the package install on the model-frame trunk arm, re-scored
+against `CLAUSE.json`'s pre-registered levels, no bar moved.

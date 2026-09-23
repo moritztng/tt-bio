@@ -1278,7 +1278,7 @@ an inference fold by construction.
 
 Evidence `perf/of3t_orchestrator/softmaxarm/SOFTMAX_ARM_TABLE.json`. See LEDGER R149.
 
-### D246. A global `install()`/`uninstall()` pair whose owner is a constant STRING cannot distinguish two callers, so turning the exact softmax on via `install(exact_softmax=True)` is still torn down by an unrelated bracket — the cell the ownership fix did not cover and the two new tests do not reach. **UNFIXED** — found by `of3t-orchestrator` at pass 414 auditing `of3t-verbinstall`'s landed `27d24c6b3`, no card; filed to that row as an amendment. **SHIPPED-CODE defect, not campaign-internal** (`tt_bio/autograd.py`).
+### D246. A global `install()`/`uninstall()` pair whose owner is a constant STRING cannot distinguish two callers, so turning the exact softmax on via `install(exact_softmax=True)` is still torn down by an unrelated bracket — the cell the ownership fix did not cover and the two new tests do not reach. **FIXED on `wk/of3t-verbinstall` at `8ab8c791f`, RELEASE-GATED AND UNMERGED** — found by `of3t-orchestrator` at pass 414 auditing that row's `27d24c6b3`, no card; filed to the row, which closed it the same pass. **The repair is better than the one proposed**: rather than a per-call handle or withdrawing the docstring's equivalence claim, the flag now sits on BOTH halves — `uninstall(exact_softmax=True)` is the counterpart of `install(exact_softmax=True)`, and a bare `uninstall()` cannot disarm what it did not arm — which RESTORES the advertised equivalence instead of retracting it. Verified in source at pass 414: `def uninstall(*, exact_softmax: bool = False)`. Three tests close all four cells of the 2x2 by test rather than by reading, plus one the row added unprompted, that a bare `uninstall()` still restores the four inference hooks — the flag must not quietly make `uninstall()` a no-op for everything else. **SHIPPED-CODE defect, not campaign-internal** (`tt_bio/autograd.py`).
 
 `27d24c6b3` correctly fixed D245's sibling failure — R176's inert package install, where
 `train/lora.py:608-615`'s discovery bracket closed first and took the lever with it. The repair
@@ -1317,7 +1317,7 @@ returned by `install()` and required by `uninstall()`, or a depth count so nesti
 rather than *named*. If the pair is judged not worth saving, the honest repair is to withdraw the
 docstring's equivalence claim instead. Either way the third test closes the 2x2 by test.
 
-### D247. `tenstorrent._assert_local_dispatch` is a fail-fast startup probe with NO timeout, so a chip that wedges instead of throwing hangs it forever while every liveness signal reads green. **UNFIXED** — cost `of3t-verbinstall` 230 minutes of card time (two arms, 115 min each, nothing computed); filed by `of3t-orchestrator` at pass 414, verified in the shipped file, no card. **SHIPPED-CODE, and it reaches every card user, not just this campaign.**
+### D247. `tenstorrent._assert_local_dispatch` is a fail-fast startup probe with NO timeout, so a chip that wedges instead of throwing hangs it forever while every liveness signal reads green. **FIXED on `wk/of3t-verbinstall` at `8ab8c791f`, RELEASE-GATED AND UNMERGED** — cost `of3t-verbinstall` 230 minutes of card time (two arms, 115 min each, nothing computed); filed by `of3t-orchestrator` at pass 414, verified in the shipped file, no card. **SHIPPED-CODE, and it reaches every card user, not just this campaign.**
 
 `tt_bio/tenstorrent.py:5575`. Its own docstring states the purpose: *"Probe with one trivial op
 so a mis-initialized worker fails HERE, at startup, and gets respawned ... instead of silently
@@ -1425,3 +1425,50 @@ for both.** `of3t-crop768` read 544 and 576 as one failure, *"contiguity inside
 **D205 stays UNFIXED**: 576's cause is repaired but unmerged, 512 is not yet re-confirmed on
 the new card, and where the capacity wall truly sits above 576 is still open — 640 refused with
 23,710,208 B free, 0.069 % of the card, which is a genuine capacity refusal rather than waste.
+
+### D249. Three concluded rows have been exempted from the D155 host guard for the SAME cause — their artifact writers emit no host field — and each exemption is permanent, on a list documented as shrink-only. **UNFIXED** — named by `of3t-orchestrator` at pass 414 while adding the third exemption. **CAMPAIGN-INTERNAL** (the writers are `perf/` scripts, not shipped `tt_bio` code).
+
+`assert_digest_claims_name_their_card.py`'s `FROZEN` map says *"the list may only shrink -- a
+frozen entry that gets fixed and stays listed is also a failure."* **It has grown three times**,
+and every growth after the original `of3t-d137ab` trio has the same sentence attached: *the
+hardware is good and merely unrecorded; the writer emits no host field; the fix is one line in
+the writer, not a re-run.*
+
+    of3t-modelboundary  2 artifacts   aa.py        emits no host field
+    of3t-apbleaf        5 artifacts   its writer   emits no host field
+    of3t-verbinstall    1 artifact    armdiff.py   emits no host field   <- pass 414
+
+**The shape of the defect is that the fix is always cheap, always someone else's, and always
+too late.** Each writer is in a row's own namespace; by the time the guard fires at compose the
+row has concluded, A33 forbids editing its artifacts, and the only move left is a permanent
+exemption. `of3t-apbleaf` was warned twice while live and concluded without acting;
+`of3t-verbinstall` was warned once, in Amendment 4 at pass 414, told explicitly that it becomes
+a FAILURE on conclusion, and concluded without acting. **The live-row deferral exists precisely
+so a row CAN act, and three rows in a row have not.** So the warning is not the mechanism that
+works.
+
+**Closes when a row cannot write a digest claim without a host**, which means the stamp belongs
+in the shared writer path rather than in each row's script — a one-call helper that emits host,
+board and card, with the guard failing any digest artifact that lacks it regardless of who
+wrote it. That converts a warning nobody acts on into an error at the point of writing, when it
+costs one line, instead of at compose, when it costs an exemption.
+
+**Cost of not fixing it is not zero and is not the exemptions.** It is that the campaign's
+machine-readable evidence is losing exactly the field D155 was raised to protect, one concluded
+row at a time, while the guard reports green.
+
+
+**Addendum to D247, pass 414 — closed, and the bound is where it belongs.** The timeout is on the
+PROBE, not on its callers, so every model and every `get_device()` caller gets it rather than one
+row's launches. Verified in source: `def _assert_local_dispatch(dev, timeout_s=None)` with
+`_probe_deadline(timeout_s)` and a `_DISPATCH_PROBE_TIMEOUT_S` default of **120 s against a
+measured 1.6 s** healthy open-plus-dispatch on a qb1 p150a — a ~75x margin that needs no tuning.
+It expires into the SAME `RuntimeError` path a throw takes and closes the device on the way, so a
+wedge and a throw are one outcome. Both directions are pinned and **the test for the wedging case
+never returns without the fix**, which is a real break control rather than an assertion.
+
+The row also sharpened the evidence: during those 230 minutes the liveness signals did not merely
+look ambiguous, they looked HEALTHY — 100 % CPU with CPU-time tracking elapsed to the second,
+AICLK pinned at 1350 MHz against 800 on the idle cards, and 9 W over idle. **A wedged chip was
+drawing power and clocked up while computing nothing.** That is a stronger statement of
+`chip-holder-at-100pct-cpu-can-be-a-corpse` than the entry it was filed under.
