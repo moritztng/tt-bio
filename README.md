@@ -120,12 +120,9 @@ templates and affinity are one generated matrix:
 [`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
 refused by name before the fold starts, never accepted and dropped.
 
-Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
-model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
-because the failure is an L1 layout clash that follows the padded tile shape rather than the
-residue count -- a model can fold 608 residues and throw at 576. So the size a model is safe up
-to is the largest one below its first measured failure, which for several models on Wormhole is
-under 1024:
+Every structure model folds at least 1024 residues on a single 12 GiB Wormhole chip. The limit
+below is the largest size that folded, under the first measured failure where one was found,
+walked with the settings the platform sends:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
@@ -134,7 +131,7 @@ under 1024:
 | `openfold3` | 1536 | 1664 |
 | `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
+| `protenix-v2` | 1408 (residues; a ligand adds tokens) | none found yet; 1536 not yet walked |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rf3` | 1536 | 1600 |

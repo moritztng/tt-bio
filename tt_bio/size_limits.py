@@ -436,33 +436,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            msa_rows=8832, ladder_ligand_atoms=0,
-            evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
-                     "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
-                     "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
-                     "unique alignment rows, 730.5 s, DRAM peak 5.79 GiB = 48% of the card "
-                     "(perf/capacity/wh_1024_protenix-v2_msa8832.json). Depth is the load-bearing "
-                     "part: the failing tensor here scales with tokens x rows, so the "
-                     "single-sequence 1024 fold measured the same day (476.8 s, pLDDT 0.745, "
-                     "digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the same rung "
-                     "pre-merge on the fix branch) would not have been evidence for this row on "
-                     "its own. Both needed 938989d7: under the shipped W-chunk gate this band did "
-                     "not OOM, it hung the chip, which is why the row called 1024 UNTESTED for a "
-                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2). "
-                     "The wall is on TOKENS and not on the polymer: the failing tensor scales "
-                     "with tokens x rows, and the ladder was walked with capacity_gate.py "
-                     "--tokens. ladder_ligand_atoms=0 records that those rungs were apo, so 1024 "
-                     "residues is 1024 tokens and a ligand's heavy atoms are counted against the "
-                     "same 1024 instead of being invisible to the residue count. "
-                     "DOES NOT REPRODUCE AT 8192 ROWS, 2026-09-11 on the j10glx02 Galaxy "
-                     "(ws:wh-seqlen-structure, perf/whceil): 1024, 1088 and 1152 aa all fold "
-                     "(1215 s, 1452 s, 1626 s) and the first failure is 1300, not 1095 -- "
-                     "3493068800 B, 277.6 MiB per bank against a 1024.0 MiB bank, 296.0 MiB "
-                     "free, largest block 197.6 MiB, fragmentation. That ladder is apo at 8192 "
-                     "rows and this row was walked deeper, so the two are not the same "
-                     "configuration and the cap stays where it is; what no longer holds at "
-                     "this depth is the number above it",
+            residues=1408, pass_at=1408, fail_at=None, binds=LADDER_TOP,
+            mechanism=NO_FAILURE, msa_rows=8192, ladder_ligand_atoms=0,
+            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02 card 3, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows, the --max_msa_seqs default (ws:mgx-ceilings, "
+                     "perf/mgxceil). 1024 folds in 913.5 s, 1152 in 1292.5 s, 1280 in 1486.7 s "
+                     "and 1408 in 1881.7 s, AICLK median 1000 MHz sampled during every fold, at "
+                     "host load 52-214 on 64 cores. 1536 has not run to an outcome yet (its chip "
+                     "was taken mid-walk), so nothing above 1408 is measured. The earlier row "
+                     "(1024, fail 1095) was walked at 8832 rows, deeper than the default allows; "
+                     "the 2026-09-11 whglx ladder at 8192 rows already folded 1152 on the tree "
+                     "before pair-residency. The wall is on TOKENS (the failing tensor scales "
+                     "with tokens x rows), so ladder_ligand_atoms=0 counts a ligand against it",
         ),
     },
     "rfd3": {
