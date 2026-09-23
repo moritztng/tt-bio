@@ -81,7 +81,9 @@ class Fixture:
         return self
 
     def leaked(self):
-        return [t for t in self.live if t.alive]
+        """Calibration's own scratch, still alive. `x`/`w` are the caller's and a candidate
+        output is a Python temporary that real ttnn frees on refcount, so neither is a leak."""
+        return [t for t in self.live if t.alive and t.name in ("rx", "rw", "rref", "ref")]
 
 
 def calibrate(fx, x_name="x"):
@@ -99,14 +101,14 @@ def test_the_two_screens_never_hold_both_reference_outputs(monkeypatch):
 def test_a_random_screen_that_does_not_fit_declines_and_frees_what_it_built(monkeypatch):
     fx = Fixture(refuse="rref", times=[0.010]).install(monkeypatch)
     assert calibrate(fx) is None
-    assert fx.leaked() == [] or all(t.name in ("x", "w") for t in fx.leaked())
+    assert fx.leaked() == []
 
 
 def test_a_live_screen_that_does_not_fit_declines(monkeypatch):
     """The random screen can fit and the live one still not: the model grows between them."""
     fx = Fixture(refuse="ref", times=[0.010]).install(monkeypatch)
     assert calibrate(fx) is None
-    assert [t for t in fx.leaked() if t.name in ("rx", "rw", "rref")] == []
+    assert fx.leaked() == []
 
 
 def test_a_shape_under_the_time_floor_allocates_nothing(monkeypatch):
@@ -119,7 +121,7 @@ def test_a_candidate_that_beats_the_budget_is_still_chosen(monkeypatch):
     """The decline paths must not cost the win: a faster exact candidate still comes back."""
     fx = Fixture(times=[0.010, 0.001]).install(monkeypatch)
     assert calibrate(fx) == "pc-a"
-    assert fx.leaked() == [] or all(t.name in ("x", "w") for t in fx.leaked())
+    assert fx.leaked() == []
 
 
 @pytest.mark.parametrize("refuse", ["rref", "ref"])
