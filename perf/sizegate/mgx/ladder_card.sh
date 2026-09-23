@@ -12,6 +12,10 @@ export PYTHONPATH=$root RELEASE_GATE_CENSUS_PYTHONPATH=$root
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:mgx-instrument
 export TT_BIO_LEASE_DIR=$HOME/leases TT_METAL_LOGGER_LEVEL=FATAL
 export TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxi
+# OpenFold3/OpenBind parameters carry no licence, so tt-bio never downloads them; whglx has
+# no copy in ~/.boltz. Kept out of ~/.boltz on purpose: the live app runs as this account.
+export TT_BIO_OPENFOLD3=$HOME/mgxi-weights/of3-p2-155k.pt
+export TT_BIO_OPENBIND=$HOME/mgxi-weights/of3-ob-2025-06-30-174k.pt
 # Its own scratch per mode: the recorder deletes its workdir on exit, so a probe sharing the
 # record pass's dir would lose its fold to the other process's cleanup.
 export RELEASE_GATE_SIZE_WORKDIR=$root/perf/sizegate/work-$mode-$model
