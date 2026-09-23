@@ -73,10 +73,11 @@ def _baseline(levers=None):
     }
 
 
-def _check(rg, runtime_s, levers=None, base=None, grid="13x10"):
+def _check(rg, runtime_s, levers=None, base=None, grid="13x10", load=None):
     lv = dict(levers or FIRING)
     meas = {"levers": {str(r): {"K2": dict(lv)} for r in RUNGS},
-            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}, "grid": grid}
+            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}, "grid": grid,
+            "load": load or {}}
     rg._size_ladder_measure_model = lambda *a, **k: meas
     return rg._size_ladder_check_model("boltz2", RUNGS, base or _baseline(),
                                        pathlib.Path("/tmp"))
@@ -91,6 +92,39 @@ def test_scaling_cliff_at_the_large_rung_fails(rg):
     r = _check(rg, {**BASE_RUNTIME, "768": 90.0})
     assert r["gate"] is False
     assert any("512->768" in f and "exponent" in f for f in r["findings"])
+
+
+def test_an_overloaded_rung_voids_its_intervals_and_nothing_else(rg):
+    """whglx sat at 8-11x nproc while the Galaxy baseline was recorded, and nesso1's five
+    256 aa reps there read 10.5 to 89.9 s. A cliff read through such a rung is the scheduler's.
+    The interval is VOID, named, and not scored; the quiet interval beside it still gates, and
+    the same cliff on a quiet host still fails."""
+    cliff = {**BASE_RUNTIME, "768": 90.0}
+    quiet = {r: {"max": 0.9} for r in BASE_RUNTIME}
+    busy = {**quiet, "768": {"max": 8.4}}
+    r = _check(rg, cliff, load=busy)
+    assert r["gate"] is True
+    assert set(r["exponents_void"]) == {"512->768"}
+    assert "768 aa was timed at 8.4x nproc" in r["exponents_void"]["512->768"]
+    assert "256->512" in r["exponents"]
+    assert _check(rg, cliff, load=quiet)["gate"] is False
+    # a lever going dark is load-blind and still fails on the busy host
+    dark = {"resolved": "True", "served": 0, "declined": 10, "frac": 0.0, "how": "stats"}
+    assert _check(rg, dict(BASE_RUNTIME), levers=dark, load=busy)["gate"] is False
+
+
+def test_a_baseline_timed_on_an_overloaded_host_records_no_exponent(rg):
+    """The recorder's half of the same rule: an exponent written down at 8x nproc would fail
+    every later check on a quiet box. It is skipped with the rung and the load named, the way a
+    model with no noise measurement already is."""
+    rt = {"256": 90.0, "512": 110.7, "768": 181.6}
+    block, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, 0.05, load={"256": {"max": 1.1}, "512": {"max": 9.0}, "768": {"max": 1.2}})
+    assert block is None
+    assert "512 aa was timed at 9.0x nproc" in skip
+    block, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, 0.05, load={r: {"max": 1.1} for r in rt})
+    assert skip is None and set(block["exponents"]) == {"256->512", "512->768"}
 
 
 def test_uniform_slowdown_does_not_fail_the_exponent_leg(rg):

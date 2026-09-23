@@ -3530,7 +3530,24 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None):
+def _size_ladder_overloaded(load: dict | None, rungs) -> str | None:
+    """The first of ``rungs`` whose fold ran above the gate's load ceiling, as a reason, or None.
+
+    A rung timed at 8x nproc measures the scheduler: nesso1's five 256 aa reps on whglx read
+    10.5 to 89.9 s. An exponent over such a rung is noise in both directions, so a baseline must
+    not record one and a check must not fail on one. A cell with no load stamp predates the
+    stamp and is not judged here.
+    """
+    for r in rungs:
+        x = ((load or {}).get(str(r)) or {}).get("max")
+        if x is not None and x > gate_guard.DEFAULT_LOAD_CEILING:
+            return (f"{r} aa was timed at {x:.1f}x nproc, above the "
+                    f"{gate_guard.DEFAULT_LOAD_CEILING}x load ceiling")
+    return None
+
+
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None,
+                                load: dict | None = None):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
     derived from the measured noise floor. Returns (block, skip_reason).
 
@@ -3567,6 +3584,9 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
     if sigma is None:
         return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
                       f"from the ladder)")
+    busy = _size_ladder_overloaded(load, rungs)
+    if busy:
+        return None, f"{busy}: the runtimes are the host's, re-time on a quiet box"
     reps_sigma = max([sigma] + list((sigmas or {}).values()))
     reps, sigma_eff = 1, sigma
     if reps_sigma > 0.12:
@@ -3918,7 +3938,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         findings.extend(_size_ladder_exemption_findings(b_levers, where))
         findings.extend(_size_ladder_compare_levers(b_levers, meas["levers"][str(rung)],
                                                     where))
-    measured_k = {}
+    measured_k, void = {}, {}
     drifted = False
     for interval, be in (base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
@@ -3926,6 +3946,10 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         t2 = meas["runtime_s"].get(str(n2))
         if t1 is None or t2 is None:
             continue  # custom RELEASE_GATE_SIZE_RUNGS narrower than the baseline
+        busy = _size_ladder_overloaded(meas.get("load"), (n1, n2))
+        if busy:
+            void[interval] = busy
+            continue
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
         if abs(k - be["k"]) > be["tol"]:
@@ -3938,6 +3962,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
+            **({"exponents_void": void} if void else {}),
             "baseline_from": " ".join(str(base_model.get(k)) for k in
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
@@ -4566,7 +4591,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block = skip = None
             if err is None:
                 block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                                                          meas.get("sigmas"),
+                                                          meas.get("load"))
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -4587,7 +4613,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                             meas.setdefault(k, {}).update(m2.get(k) or {})
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"],
-                                                                  meas.get("sigmas"))
+                                                                  meas.get("sigmas"),
+                                                                  meas.get("load"))
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
@@ -4601,7 +4628,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 continue
             if carried_rungs:
                 block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                                                          meas.get("sigmas"),
+                                                          meas.get("load"))
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
@@ -5580,6 +5608,8 @@ def main() -> int:
             print(f"{l['model']:<15}{cells}{wall:>9}  {verdict}")
             for f in (l.get("findings") or []):
                 print(f"    FAIL {f}")
+            for iv, why in (l.get("exponents_void") or {}).items():
+                print(f"    VOID k{iv}: {why}, not scored")
         for m in dict.fromkeys(design):
             print(f"{m:<15}axis: {SIZE_LADDER_DESIGN[m]['axis']}, design run with "
                   f"{' '.join(SIZE_LADDER_DESIGN[m]['steps'])}")
@@ -5593,8 +5623,12 @@ def main() -> int:
                   "BASELINE RECORD FAILED — a model did not fold (see above)")
         else:
             _headline("size-ladder",
-                      "GATE PASS — lever census and scaling exponents match the recorded "
-                      "baseline at every rung" if sl["gate"] else
+                      ("GATE PASS — lever census matches the recorded baseline at every "
+                       "rung; exponent intervals marked VOID above ran on an overloaded host "
+                       "and were not scored"
+                       if any(l.get("exponents_void") for l in sl["legs"]) else
+                       "GATE PASS — lever census and scaling exponents match the recorded "
+                       "baseline at every rung") if sl["gate"] else
                       "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
                       "if this change is intentional, re-record with --size-ladder-record")
 
