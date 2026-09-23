@@ -76,12 +76,16 @@ def main():
         print("no rows")
         return 1
 
-    print(f"{'model':9} {'tgt':>5} {'ask':>4} {'got':>4} {'steps':>5} {'wall_s':>8} "
+    # The binder column is not decoration. Without it the 1536 pxdesign refusal (a
+    # 160-residue binder, 1696 tokens, over the recorded 1664-token wall) sits directly above
+    # a 1536 PASS and reads as the same job failing and passing.
+    print(f"{'model':9} {'tgt':>5} {'bndr':>5} {'ask':>4} {'got':>4} {'steps':>5} {'wall_s':>8} "
           f"{'s/design':>9} {'des/h':>7} {'AICLK med':>12} {'load':>9} {'card':>4} verdict")
     for r in sorted(rows, key=lambda r: (r["model"], r["target_res"], r["asked"])):
         spd = r.get("s_per_design")
         rate = r.get("designs_per_h")
-        print(f"{r['model']:9} {r['target_res']:>5} {r['asked']:>4} {r.get('n_designs', 0):>4} "
+        print(f"{r['model']:9} {r['target_res']:>5} {r.get('binder', '-'):>5} "
+              f"{r['asked']:>4} {r.get('n_designs', 0):>4} "
               f"{r.get('steps', '-'):>5} {r.get('wall_s', 0):>8.1f} "
               f"{(f'{spd:.1f}' if spd else '-'):>9} {(f'{rate:.2f}' if rate else '-'):>7} "
               f"{fmt_clock(r):>12} {fmt_load(r):>9} {str(r.get('card', '-')):>4} "
@@ -92,14 +96,15 @@ def main():
     for r in rows:
         if r["verdict"] == "FAIL" or not r.get("designs_per_h"):
             continue
-        k = (r["model"], r["target_res"])
+        k = (r["model"], r["target_res"], r.get("binder"))
         if k not in best or r["designs_per_h"] > best[k]["designs_per_h"]:
             best[k] = r
-    for (model, tgt), r in sorted(best.items()):
+    for (model, tgt, bndr), r in sorted(best.items()):
         rate = r["designs_per_h"]
         chip_h_10k = BG_DEFAULT_DESIGNS / rate
         per_window = rate * 24 * WINDOW_DAYS * USABLE_CHIPS
-        print(f"{model} @ {tgt} res: {rate:.2f} designs/h/chip at n={r['n_designs']} per job\n"
+        print(f"{model} @ {tgt} res + {bndr} binder: {rate:.2f} designs/h/chip "
+              f"at n={r['n_designs']} per job\n"
               f"    {BG_DEFAULT_DESIGNS} designs (boltzgen's shipped default) = "
               f"{chip_h_10k:.0f} chip-hours = {chip_h_10k / 24:.1f} chip-days "
               f"= {chip_h_10k / USABLE_CHIPS:.1f} h on {USABLE_CHIPS} chips\n"
