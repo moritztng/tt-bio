@@ -102,6 +102,15 @@ FROZEN = {
     # warned while live -- Amendment 4, pass 414 -- that this becomes a FAILURE the moment it
     # concludes. It concluded without acting, which is now the THIRD row to do so; see D249.
     "perf/of3t_verbinstall/ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json": "of3t-verbinstall, concluded; qb1 p150a established from the filesystem, armdiff.py emits no host field",
+    # `of3t-composed64` (STOP) and `of3t-ieatom` (GO), concluded pass 426. Same class as
+    # modelboundary: good hardware, unrecorded. Both state docs carry a HOST field naming
+    # tt-quietbox2 p300c, card 1 (composed64) and card 3 (ieatom), and PW64F, the other side of
+    # every comparison, is of3t-pwaslice's arm on qb2 card 2 (f89f871ce). The writer, cmp.py,
+    # emits no host field. No arm touched pc card 0.
+    "perf/of3t_composed64/CMP_PW64F_CM64.json": "of3t-composed64, concluded; qb2 card 1 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_CM64F.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_PF64C.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_PF64F.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
     "perf/of3t_apbback/BLK47_VALIDATION.json": "of3t-apbback; bit_identical is float64-vs-float64, no device on either side",
 }
 
