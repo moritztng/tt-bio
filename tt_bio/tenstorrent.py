@@ -70,6 +70,9 @@ PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
 # Triangle-attention shapes whose whole-tensor path DRAM refused, and the row block they settled
 # at. See TriangleAttention.__call__.
 _TRIATT_WHOLE_REFUSED: dict = {}
+# The same for the always-blocked path (above SEQ_LEN_MORE_CHUNKING): shapes whose 512-row block
+# DRAM refused, and the block they settled at.
+_TRIATT_BLOCK_REFUSED: dict = {}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -8076,8 +8079,15 @@ class TriangleAttention(Module):
                 ("tri_att", tuple(x.padded_shape), self.ending), x,
                 lambda: self._attend_pair(x, attn_mask, rows, add_to_input))
 
+        key = (tuple(x.padded_shape), self.ending)
         if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
-            return blocked(TRIANGLE_ATT_CHUNK_SIZE)
+            # A block can be refused too: the affinity bias is [rows, heads, S, S], 10070523904 B
+            # for nesso1 at 1568 tokens, and whether 839 MB per bank is still contiguous depends
+            # on what ran before it (refused with 907 MB free, 823 MB largest block). Halving
+            # moves row boundaries only.
+            return row_block_after_refusal(
+                _TRIATT_BLOCK_REFUSED, key, lambda: blocked(TRIANGLE_ATT_CHUNK_SIZE), blocked,
+                rows=TRIANGLE_ATT_CHUNK_SIZE // 2, tag="tri_att")
         # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
         # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
         # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
@@ -8085,8 +8095,7 @@ class TriangleAttention(Module):
         # which never builds more than one block of them, and a size that fits keeps its single
         # pass byte for byte.
         return row_block_after_refusal(
-            _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
-            lambda: self._attend_pair(x, attn_mask, None), blocked,
+            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None), blocked,
             rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
 
     def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
