@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fold the template cells of the given models on at most two whglx chips at a time, taking a
-# chip only when its lease file is absent or released and its flock is free. A model whose
+# chip only when its lease file is absent or released (>90 s ago) and its flock is free. A model whose
 # batch lost the chip to a co-tenant at open (DeviceInUseError) goes back on the queue.
 #   sched.sh <model> ...   (logs to perf/mgx_template_cif/sched.log)
 
@@ -13,7 +13,9 @@ free_card() {
     case " 1 24 25 26 27 " in *" $c "*) continue;; esac
     [ -n "${RUN[$c]:-}" ] && continue
     f=$L/j10glx02-card$c.json
-    if [ -f "$f" ] && grep -q '"released": null' "$f"; then continue; fi
+    # Released more than 90 s ago: a row that runs batches back to back releases for a moment
+    # between them and re-takes the chip at once.
+    if [ -f "$f" ] && ! python3 -c "import json,sys,time; r=json.load(open(sys.argv[1]))['released']; sys.exit(0 if r and time.time()-r>90 else 1)" "$f" 2>/dev/null; then continue; fi
     flock -n "$f" true 2>/dev/null || continue
     echo "$c"; return 0
   done
