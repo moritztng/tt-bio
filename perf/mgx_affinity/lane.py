@@ -11,10 +11,9 @@ plan sets "census": true (the census drains the pipeline at every tag, so a cens
 timing).
 
 Chips: a card is taken only when its lease JSON says released more than 120 s ago, or its holder
-pid is dead, and its flock is free. The lane re-writes its own lease between jobs (the engine marks the card released
-when each job exits), so a sibling row cannot take the chip mid-plan. The five cardblocked chips
-are never candidates. Every job runs with 2 host threads: nesso1 through OMP/MKL, since
-`tt-bio affinity` has no --host_threads, and boltz2 through predict's own flag.
+pid is dead, and its flock is free. The lane re-writes its own lease between jobs (the engine
+marks the card released when each job exits), so a sibling row cannot take the chip mid-plan. The five cardblocked chips
+are never candidates. Every job runs at --host_threads 2.
 """
 import argparse
 import csv
@@ -138,7 +137,8 @@ def scalars(surface, out):
 
 def command(job, out):
     if job["surface"] == "nesso1":
-        return [PY, "-m", "tt_bio.main", "affinity", job["input"], "--out_dir", str(out), *job.get("args", [])]
+        return [PY, "-m", "tt_bio.main", "affinity", job["input"], "--out_dir", str(out),
+                "--host_threads", "2", *job.get("args", [])]
     return [PY, "-m", "tt_bio.main", "predict", job["input"], "--model", "boltz2", "--out_dir", str(out),
             "--single_sequence", "--host_threads", "2", "--accelerator", "tenstorrent", "--seed", "0",
             *job.get("args", [])]
