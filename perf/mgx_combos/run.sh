@@ -14,7 +14,7 @@ for job in "$@"; do
   s=$(basename "${f%.*}")_s$n; out=perf/mgx_combos/out/$m; mkdir -p "$out"
   [ -f "$out/$s.log" ] && grep -q '^EXIT=0' "$out/$s.log" && continue
   start=$(date +%s)
-  echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) $*" > "$out/$s.log"
+  echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) size_limit=${TT_BIO_SIZE_LIMIT:-on} $*" > "$out/$s.log"
   $HOME/env/bin/python -m tt_bio.main predict "$f" --model "$m" --out_dir "$out/$s" \
       --diffusion_samples "$n" --host_threads 2 --accelerator tenstorrent >> "$out/$s.log" 2>&1
   echo "EXIT=$? WALL=$(( $(date +%s) - start ))s" >> "$out/$s.log"
