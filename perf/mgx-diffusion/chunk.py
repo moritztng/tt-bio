@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 
 def ca(path):
     st = gemmi.read_structure(str(path))
-    return np.array([a.pos.tolist() for r in st[0].all() for a in r if a.name == "CA"])
+    return np.array([c.atom.pos.tolist() for c in st[0].all() if c.atom.name == "CA"])
 
 
 def kabsch_rmsd(p, q):
