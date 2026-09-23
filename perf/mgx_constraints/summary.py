@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-KEY = {"n_c": "ring_closed", "sg_ligand": "bonded", "sg_sg": None}
+KEY = {"n_c": "ring_closed", "sg_ligand": "bonded", "sg_sg": None, "p_og1": None}
 
 
 def main():
