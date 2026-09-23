@@ -1,0 +1,7 @@
+# The interaction the ceiling row could not see: target size and design COUNT are orthogonal
+# axes, and mgx-design-ceiling walked size at one design per job. A 1536-residue target that
+# folds at 1 design may refuse at 8, because the batch axis multiplies the diffusion working
+# set and nothing else.
+--model pxdesign --target-res 1536 --designs 8 --steps 400 --host-threads 2 --timeout 28800 --tag ceilscale
+--model boltzgen --target-res 1536 --designs 8 --bg-steps design --host-threads 2 --timeout 28800 --tag ceilscale
+--model rfd3 --target-res 1536 --designs 2 --steps 100 --batch_size 2 --contig A1-1008,B1-428,100 --host-threads 2 --timeout 28800 --tag ceilscale
