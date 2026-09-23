@@ -19,6 +19,7 @@ import importlib.util
 import json
 import pathlib
 import socket
+import sys
 
 import pytest
 
@@ -1309,6 +1310,7 @@ def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, m
         return {"levers": {"FLAG": dict(FIRING)}, "runtime_s": 90.0 if tag == "warmup" else 40.0,
                 "wall": 60.0, "census_json": tmp_path / "c.json", "grid": "11x10",
                 "aiclk": {"card": "2", "min": 800, "median": 1350, "max": 1350, "n": 9},
+                "load": {"max": 8.5 if tag == "rep1" else 0.4, "median": 0.3, "n": 12},
                 "structure": {"file": "pred.cif", "n_ca": 512, "clash_frac": 0.0,
                               "geometry_ok": True, "geometry_fail": []}}
 
@@ -1321,7 +1323,32 @@ def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, m
     assert out["runtime_reps_s"]["512"] == [40.0, 40.0]
     assert out["aiclk"]["512"] == {"card": "2", "min": 800, "max": 1350,
                                    "rep_median": [1350, 1350], "n": 18}
+    # the worst rep's load, because one oversubscribed rep is enough to void the median
+    assert out["load"]["512"] == {"max": 8.5, "rep_median": [0.3, 0.3]}
     assert out["structure"]["512"]["n_ca"] == 512
+
+
+def test_every_fold_records_the_host_load_it_ran_under(rg_fresh, monkeypatch):
+    """whglx ran at 8.5x nproc during the MGX re-record and nesso1's 256 aa reps read 10.5 to
+    89.9 s. A runtime with no load beside it cannot be told apart from a regression."""
+    monkeypatch.setattr(rg_fresh.os, "getloadavg", lambda: (128.0, 0.0, 0.0))
+    monkeypatch.setattr(rg_fresh.os, "cpu_count", lambda: 64)
+    sampled = type("S", (), {"load": [0.5, 9.0, 1.0]})()
+    assert rg_fresh._load_cell(sampled) == {"max": 9.0, "median": 1.0, "n": 3}
+    # a fold shorter than one period still gets a reading, taken at its end
+    assert rg_fresh._load_cell(rg_fresh._NoClock()) == {"max": 2.0, "median": 2.0, "n": 1}
+
+
+def test_the_sampler_finds_tt_smi_off_the_path(monkeypatch, tmp_path):
+    """The path was hardcoded to /home/ttuser/.local/bin, which does not exist on whglx, so
+    every Galaxy cell was recorded with aiclk None and nothing said why."""
+    sys.path.insert(0, str(REPO_ROOT))
+    from perf import clocksample
+    smi = tmp_path / "tt-smi"
+    smi.write_text("#!/bin/sh\n")
+    smi.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert clocksample._tt_smi() == str(smi)
 
 
 def test_the_clock_is_not_attributed_to_a_card_that_was_not_pinned(rg_fresh, monkeypatch):
@@ -1352,6 +1379,7 @@ def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
             "runtime_reps_s": {"256": [16.1], "512": [36.8, 37.0]},
             "aiclk": {"256": {"card": "0", "min": 1350, "max": 1350,
                               "rep_median": [1350], "n": 4}},
+            "load": {"256": {"max": 8.5, "rep_median": [8.1]}},
             "structure": {"512": {"n_ca": 512, "clash_frac": 0.0}}}
     meas = {"runtime_s": {"1536": 528.0}, "levers": {"1536": {"X": dict(FIRING)}},
             "grid": "11x10", "sigma": 0.04}
@@ -1359,6 +1387,7 @@ def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
     assert rg_fresh._size_ladder_carry_rungs(meas, prev, stamp) == ["256", "512"]
     assert meas["runtime_reps_s"] == {"256": [16.1], "512": [36.8, 37.0]}
     assert meas["aiclk"]["256"]["rep_median"] == [1350]
+    assert meas["load"] == {"256": {"max": 8.5, "rep_median": [8.1]}}
     assert meas["structure"]["512"]["n_ca"] == 512
     # 512 had no clock recorded, and carrying must not invent one
     assert "512" not in meas["aiclk"]

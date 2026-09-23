@@ -2759,6 +2759,7 @@ class _NoClock:
     """Stands in for the sampler when it cannot run, so the caller has nothing to sample
     rather than a clock nobody read."""
     clocks: dict = {}
+    load: list = []
 
     def __enter__(self):
         return self
@@ -2871,6 +2872,19 @@ def _aiclk_cell(clk) -> dict | None:
             "n": len(xs)}
 
 
+def _load_cell(clk) -> dict:
+    """The host's 1-min loadavg / nproc over the fold, sampled beside the clock.
+
+    whglx ran at 8.5x nproc while the MGX rows re-recorded it, and nesso1's five reps at 256 aa
+    read 10.5 to 89.9 s there: the scheduler, not the engine. The lever census is load-blind and
+    stays valid; runtime_s is not, and the speed bar voids any comparison holding a rung above
+    gate_guard.DEFAULT_LOAD_CEILING. A fold shorter than one sampling period gets the value at
+    its end, so no cell is ever recorded without one.
+    """
+    xs = sorted(getattr(clk, "load", None) or [os.getloadavg()[0] / (os.cpu_count() or 1)])
+    return {"max": round(xs[-1], 2), "median": round(xs[len(xs) // 2], 2), "n": len(xs)}
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -2934,7 +2948,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
-    aiclk = _aiclk_cell(clk)
+    aiclk, load = _aiclk_cell(clk), _load_cell(clk)
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
                          f" ({_keep_failed_fold_log(log, label)})"}
@@ -2994,7 +3008,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall, "runtime_src": where,
             "census_json": census_json, "grid": census.get("grid"), "aiclk": aiclk,
-            "structure": _size_ladder_structure(out_dir)}
+            "load": load, "structure": _size_ladder_structure(out_dir)}
 
 
 def _size_ladder_dark(entry: dict) -> bool:
@@ -3346,7 +3360,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     # 195.1 at 1152 and 196.3 at 1088 are an inversion or two draws from one spread, and it
     # cannot say whether a cell that moved between passes moved because the engine did or
     # because the chip was at 800 MHz instead of 1350.
-    reps_s, aiclk, structure = {}, {}, {}
+    reps_s, aiclk, load, structure = {}, {}, {}, {}
     # Per-rung noise, not just the middle rung's. The loop below already has every rep's
     # runtime for every rung, so this costs no folds -- it was being thrown away.
     sigmas = {}
@@ -3417,6 +3431,10 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                 "max": max(c["max"] for c in cells),
                                 "rep_median": [c["median"] for c in cells],
                                 "n": sum(c["n"] for c in cells)}
+        loads = [r["load"] for r in runs if r.get("load")]
+        if loads:
+            load[str(rung)] = {"max": max(c["max"] for c in loads),
+                               "rep_median": [c["median"] for c in loads]}
         if rung in sigma_rungs and len(ts) > 1:
             sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
             if rung == sigma_rung:
@@ -3427,7 +3445,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
             "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
-            "structure": structure,
+            "load": load, "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -3661,6 +3679,7 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
         return []
     old_lv = prev.get("levers") or {}
     old_reps, old_clk = prev.get("runtime_reps_s") or {}, prev.get("aiclk") or {}
+    old_load = prev.get("load") or {}
     old_st = prev.get("structure") or {}
     for r in spare:
         if r in old_rt:
@@ -3674,6 +3693,8 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
                 meas.setdefault("runtime_reps_s", {})[r] = old_reps[r]
             if r in old_clk:
                 meas.setdefault("aiclk", {})[r] = old_clk[r]
+            if r in old_load:
+                meas.setdefault("load", {})[r] = old_load[r]
             if r in old_st:
                 meas.setdefault("structure", {})[r] = old_st[r]
         elif r in old_ref_all:
@@ -4543,8 +4564,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
                         for k in ("levers", "runtime_s", "census_jsons",
-                                  "runtime_reps_s", "aiclk", "structure"):
-                            meas[k].update(m2[k])
+                                  "runtime_reps_s", "aiclk", "load", "structure"):
+                            meas.setdefault(k, {}).update(m2.get(k) or {})
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"],
                                                                   meas.get("sigmas"))
@@ -4571,6 +4592,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 entry["runtime_reps_s"] = meas["runtime_reps_s"]
             if meas.get("aiclk"):
                 entry["aiclk"] = meas["aiclk"]
+            if meas.get("load"):
+                entry["load"] = meas["load"]
             if meas.get("structure"):
                 entry["structure"] = meas["structure"]
             if m in SIZE_LADDER_DESIGN:
