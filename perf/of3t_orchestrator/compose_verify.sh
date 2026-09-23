@@ -448,6 +448,31 @@ if ! git merge --no-edit -q wk/of3t-orchestrator; then
   fi
 fi
 
+# (0c) D265: a row based on an earlier composition carries that composition's PairformerLayer
+# route, and git merges it into the current resolver's route WITHOUT a conflict by nesting one
+# inside the other. Collapse it, then require the engine to be the tree the last device arm
+# scored. A clean merge is not a verified tree: this is the one place the two were assumed equal.
+if "$PY" "$HERE/collapse_nested_pairformer_route.py" tt_bio/tenstorrent.py; then
+  git add tt_bio/tenstorrent.py
+  git commit -q -m "compose: collapse the nested PairformerLayer route a 3-way merge built (D265)"
+  echo "  NOTE D265: nested PairformerLayer route collapsed to the outer ops.taping() route"
+fi
+# SCORED_TREE is the newest tree a device training arm scored on the composed base. While main
+# has not moved past it, tt_bio/ here must equal it byte for byte; once main moves, the difference
+# is main's and a re-score is owed, which is announced rather than failed.
+SCORED_TREE="06b91c5ce"   # of3t-ieatom PF64F, pass 426
+if git merge-base --is-ancestor origin/main "$SCORED_TREE"; then
+  _sd="$(git diff --name-only "$SCORED_TREE" HEAD -- tt_bio/)"
+  if [ -n "$_sd" ]; then
+    echo "COMPOSE: tt_bio/ differs from the scored tree $SCORED_TREE, so the branch is not the"\
+         "step that was measured:"; printf '  %s\n' $_sd; exit 1
+  fi
+  echo "ok    tt_bio/ is byte-identical to the scored tree $SCORED_TREE (D265)"
+else
+  echo "  NOTE main moved past the scored tree $SCORED_TREE; the composed engine is not the one"\
+       "measured and a re-score is owed"
+fi
+
 # (1) ancestry, asserted AFTER the merges
 for r in $PRESENT; do
   git merge-base --is-ancestor "origin/wk/of3t-$r" HEAD \
