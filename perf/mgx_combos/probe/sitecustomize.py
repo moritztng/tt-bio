@@ -78,8 +78,8 @@ def _hash_wrap(qual, fn):
         n = _calls[qual]
         _calls[qual] += 1
         ins = []
-        if qual == "TrunkModule.forward":        # the featurised inputs, before any device work
-            _digests(a[1:4], "in", ins)
+        if qual == "TrunkModule.forward":        # s_inputs, s_init, z_init, feats: host inputs, before any device work
+            _digests(a[1:5], "in", ins)
         r = fn(*a, **kw)
         outs = []
         try:
