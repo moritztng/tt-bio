@@ -28,6 +28,49 @@ import sys
 STRICT_A = 2.0
 PERMISSIVE_A = 4.0
 
+# The two instruments the ceiling row used, each with the bars that mean something for it.
+# clash fraction has no published bar: `tt_bio/size_limits.py` records per-model BANDS, which
+# are model-specific, so this prints the distribution and leaves the judging to the reader.
+METRICS = {
+    "scrmsd": {"label": "scRMSD (A) — isolated refold, Kabsch CA-RMSD",
+               "fmt": "{:>9.2f}", "bars": (("<=2A", STRICT_A), ("<=4A", PERMISSIVE_A))},
+    "clash_frac": {"label": "clash fraction — heavy-atom clashes < 2.0 A / atoms",
+                   "fmt": "{:>9.5f}", "bars": ()},
+}
+
+
+def _geom_rows(r: dict) -> list[float] | None:
+    """Per-design clash fraction from a `perf/mgxscale/batchqa.py --geometry` record.
+
+    The same question as scRMSD, asked by the other instrument the ceiling row used, so it
+    gets the same treatment: a distribution, not a draw."""
+    if "geometry" not in r:
+        return None
+    out = []
+    for g in r["geometry"]:
+        c = g.get("checks", g)
+        cl = c.get("clashes") or {}
+        n, k = c.get("n_atoms"), cl.get("n")
+        if k is not None and n:
+            out.append(k / n)
+    return out or None
+
+
+def _from_out_dir(name: str) -> tuple[str, int | None, int]:
+    """(model, size, offset) from a batchqa out_dir like `out_boltzgen_1536_d8_s400_tag`.
+
+    batchqa records the directory, not the axes; job.py's tag is the only place they are
+    written down, so this reads them back rather than asking the caller to retype them."""
+    parts = name.removeprefix("out_").split("_")
+    model = parts[0] if parts else "?"
+    size = off = None
+    for i, x in enumerate(parts[1:], 1):
+        if size is None and x.isdigit():
+            size = int(x)
+        elif x.startswith("o") and x[1:].isdigit():
+            off = int(x[1:])
+    return model, size, off or 0
+
 
 def load(paths) -> list[dict]:
     """One record per (model, size, crop offset) cell, from either shape of row.
@@ -46,6 +89,13 @@ def load(paths) -> list[dict]:
             if not line:
                 continue
             r = json.loads(line)
+            geom = _geom_rows(r)
+            if geom is not None:
+                model, size, off = _from_out_dir(r.get("out_dir", ""))
+                out.append({"model": model, "size": size, "offset": off, "scrmsd": geom,
+                            "side": "device", "card": None, "aiclk": None, "load": None,
+                            "src": p.name})
+                continue
             d = r.get("dsg") or r
             sc = d.get("scrmsd")
             if not sc or d.get("error"):
@@ -72,11 +122,10 @@ def load(paths) -> list[dict]:
     return out
 
 
-def cell(vals: list[float]) -> dict:
+def cell(vals: list[float], bars) -> dict:
     s = sorted(vals)
     return {"n": len(s), "min": s[0], "median": st.median(s), "max": s[-1],
-            "le2": sum(v <= STRICT_A for v in s) / len(s),
-            "le4": sum(v <= PERMISSIVE_A for v in s) / len(s)}
+            "bars": [sum(v <= t for v in s) / len(s) for _, t in bars]}
 
 
 def mannwhitney(a: list[float], b: list[float]) -> tuple[float, str]:
@@ -105,6 +154,8 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("jsonl", nargs="+")
     ap.add_argument("--model", default="boltzgen")
+    ap.add_argument("--metric", default="scrmsd", choices=sorted(METRICS),
+                    help="which metric the input files carry; sets the bars and the format")
     args = ap.parse_args()
 
     rows = [r for r in load(args.jsonl) if r["model"] == args.model]
@@ -123,17 +174,22 @@ def main() -> int:
             + (f" AICLK {r['aiclk']}" if r["aiclk"] else "")
             + (f" load {r['load']}" if r["load"] else ""))
 
-    print(f"\n{'='*94}\ndesignability by target — {args.model}   "
-          f"(scRMSD, isolated refold, Kabsch CA-RMSD)\n{'='*94}")
-    print(f"{'side':<10}{'size':>6}{'offset':>8}{'n':>4}"
-          f"{'min':>8}{'median':>9}{'max':>8}{'<=2A':>7}{'<=4A':>7}   provenance")
+    spec = METRICS[args.metric]
+    fmt, bars = spec["fmt"], spec["bars"]
+    print(f"\n{'='*100}\nby target — {args.model}   {spec['label']}\n{'='*100}")
+    head = (f"{'side':<10}{'size':>6}{'offset':>8}{'n':>4}"
+            + "".join(f"{h:>9}" for h in ("min", "median", "max"))
+            + "".join(f"{name:>7}" for name, _ in bars))
+    print(head + "   provenance")
     for k in sorted(cells):
         side, size, off = k
-        c = cell(cells[k])
-        print(f"{side:<10}{size:>6}{off:>8}{c['n']:>4}{c['min']:>8.2f}{c['median']:>9.2f}"
-              f"{c['max']:>8.2f}{c['le2']*100:>6.0f}%{c['le4']*100:>6.0f}%   {meta[k][0]}")
+        c = cell(cells[k], bars)
+        line = (f"{side:<10}{size:>6}{off:>8}{c['n']:>4}"
+                + fmt.format(c["min"]) + fmt.format(c["median"]) + fmt.format(c["max"])
+                + "".join(f"{v*100:>6.0f}%" for v in c["bars"]))
+        print(f"{line}   {meta[k][0]}")
         for extra in meta[k][1:]:
-            print(f"{'':<59}{extra}")
+            print(f"{'':<{len(line)}}   {extra}")
 
     # The floor: how far apart are two targets of the SAME size?
     print(f"\n{'-'*94}\nfixed-size spread across targets — the floor a size effect must beat"
@@ -146,8 +202,8 @@ def main() -> int:
             continue
         floors[(side, size)] = (min(meds), max(meds))
         print(f"{side:<10}{size:>6}  {len(meds)} targets, medians "
-              f"{' / '.join(f'{m:.2f}' for m in sorted(meds))} A"
-              f"   -> spread {max(meds) - min(meds):.2f} A")
+              f"{' / '.join(fmt.format(m).strip() for m in sorted(meds))}"
+              f"   -> spread {fmt.format(max(meds) - min(meds)).strip()}")
 
     # Only now the size comparison.
     print(f"\n{'-'*94}\n512 vs 1536\n{'-'*94}")
@@ -159,14 +215,14 @@ def main() -> int:
             continue
         ma, mb = st.median(a), st.median(b)
         u, verdict = mannwhitney(a, b)
-        print(f"{side}: pooled median {ma:.2f} A at 512 (n={len(a)}) vs {mb:.2f} A at 1536 "
-              f"(n={len(b)});  U={u:.0f}  {verdict}")
+        print(f"{side}: pooled median {fmt.format(ma).strip()} at 512 (n={len(a)}) vs "
+              f"{fmt.format(mb).strip()} at 1536 (n={len(b)});  U={u:.0f}  {verdict}")
         fl = floors.get((side, 512))
         if fl:
             inside = fl[0] <= mb <= fl[1]
             print(f"     the 1536 pooled median is "
                   f"{'INSIDE' if inside else 'OUTSIDE'} the 512 across-target band "
-                  f"{fl[0]:.2f}-{fl[1]:.2f} A")
+                  f"{fmt.format(fl[0]).strip()}-{fmt.format(fl[1]).strip()}")
     print()
     return 0
 
