@@ -17,11 +17,17 @@ sys.path.insert(0, str(HERE.parent / "of3t_tapeamp"))
 from amp_arm import score_grads  # noqa: E402
 
 S = Path("/home/ttuser/of3t_msaamp")
-B = torch.load(S / "cap043b/boundary_msa_module.pt", map_location="cpu", weights_only=False)
+# argv: [prefix boundary]. No prefix is the 384 capture; "crop64_" is Addendum 1's crop.
+P = sys.argv[1] if len(sys.argv) > 1 else ""
+B = torch.load(sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else S / "cap043b/boundary_msa_module.pt",
+               map_location="cpu", weights_only=False)
 REF = B["param_grads"]
-ours_rep = json.loads((HERE / "ours.json").read_text())
+# argv[3]: which of our arms. Default is the orientation-fixed arm, "ours" is the legacy one.
+OT = sys.argv[3] if len(sys.argv) > 3 else f"{P}ours_fixed"
+ours_rep = json.loads((HERE / f"{OT}.json").read_text())
 MATCH = {r["name"] for r in ours_rep["gradient"]["rows"]}
-UP = ["bf16auto", "bf16auto_AA", "f32", "f64", "bf16in", "bf16auto_BREAK"]
+UP = (["bf16auto", "bf16auto_AA", "f32", "f64", "bf16in", "bf16auto_BREAK"] if not P
+      else ["bf16auto", "f32", "f64"])
 
 
 def load(tag):
@@ -63,12 +69,12 @@ def grouped(per_o, per_u, key):
     return dict(sorted(out.items(), key=lambda kv: -kv[1]["err_o"]))
 
 
-rep = {"matched_scope_n": len(MATCH), "arms": {}}
-G = {"ours": load("ours")}
+rep = {"matched_scope_n": len(MATCH), "ours_arm": OT, "arms": {}}
+G = {"ours": load(OT)}
 F = {"ours": ours_rep["forward"]["rel_l2_real_block"]}
 for t in UP:
-    G[t] = load(t)
-    F[t] = json.loads((HERE / f"AMP_{t}.json").read_text())["FORWARD"]["real_block"]
+    G[t] = load(P + t)
+    F[t] = json.loads((HERE / f"AMP_{P}{t}.json").read_text())["FORWARD"]["real_block"]
 PER = {}
 for t, g in G.items():
     m, per = score_grads(g, REF, names=MATCH)
@@ -93,7 +99,7 @@ for stat, key in (("mass_weighted", "mass_weighted_rel"), ("median", "median_rel
          "F_ours_over_upstream": o["forward_real_block"] / u["forward_real_block"],
          "R_ours": Ro, "R_upstream_bf16": Ru, "R_ours_over_upstream": Ro / Ru,
          "branch": br, "B4_no_conditioning": Ru < 2.0}
-    if br == "B3":
+    if br == "B3" and "bf16in" in rep["arms"]:
         Gin = rep["arms"]["bf16in"]["matched"][key]
         worst3 = sorted(PER["ours"], key=lambda n: -PER["ours"][n])[:3]
         keep = MATCH - set(worst3)
@@ -116,16 +122,16 @@ rep["TOP_TENSORS_by_error_mass_ours"] = sorted(
     ({"name": n, "rel_ours": PER["ours"][n], "rel_upstream_bf16": PER["bf16auto"][n],
       "share_of_ours_error_mass": PER["ours"][n] ** 2 * float((REF[n].double() ** 2).sum())
       / o["matched"]["error_mass"]} for n in MATCH), key=lambda e: -e["share_of_ours_error_mass"])[:12]
-aa = [json.loads((HERE / f"AMP_{t}.json").read_text()) for t in ("bf16auto", "bf16auto_AA")]
-rep["AA_bit_identical"] = {
+aa = [] if P else [json.loads((HERE / f"AMP_{t}.json").read_text()) for t in ("bf16auto", "bf16auto_AA")]
+rep["AA_bit_identical"] = None if P else {
     "forward": aa[0]["FORWARD"] == aa[1]["FORWARD"],
     "per_tensor": aa[0]["PER_TENSOR"] == aa[1]["PER_TENSOR"],
-    "ours_forward": json.loads((HERE / "ours.json").read_text())["forward"]
-    == json.loads((HERE / "ours_AA.json").read_text())["forward"],
+    "ours_forward": ours_rep["forward"]
+    == json.loads((HERE / f"{OT}_AA.json").read_text())["forward"],
     "ours_per_tensor": sorted((r["name"], r["rel_l2"]) for r in ours_rep["gradient"]["rows"])
     == sorted((r["name"], r["rel_l2"]) for r in
-              json.loads((HERE / "ours_AA.json").read_text())["gradient"]["rows"])}
-(HERE / "AMPLIFICATION.json").write_text(json.dumps(rep, indent=1) + "\n")
+              json.loads((HERE / f"{OT}_AA.json").read_text())["gradient"]["rows"])}
+(HERE / f"{OT.replace('ours', 'AMPLIFICATION')}.json").write_text(json.dumps(rep, indent=1) + "\n")
 for t, e in rep["arms"].items():
     m = e["matched"]
     print(f"{t:15s} F {e['forward_real_block']:.6e}  G_mw {m['mass_weighted_rel']:.6e}  "

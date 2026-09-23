@@ -22,7 +22,7 @@ import ttnn
 from . import ops
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site, pwa_single_shot_bytes, triatt_sdpa_hifi_site,
+    _z_residual, accurate_softmax_site, pwa_single_shot_bytes, triatt_sdpa_hifi_site,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -71,8 +71,10 @@ class MSAModuleBlock:
     single source of truth for the OF3 block ordering.
     """
 
-    def __init__(self, block_remap, compute_kernel_config, transpose_bias: bool = True):
+    def __init__(self, block_remap, compute_kernel_config, transpose_bias: bool = True,
+                 z_fp32_residual: bool = False):
         ckc = compute_kernel_config
+        self.z_fp32_residual = z_fp32_residual
         self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc,
                                   scale_bias=True)
         self.has_msa_update = "pair_weighted_averaging" in block_remap
@@ -87,7 +89,8 @@ class MSAModuleBlock:
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"),
-            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"))
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"),
+            z_fp32_residual=z_fp32_residual)
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
@@ -111,9 +114,12 @@ class MSAModuleBlock:
         # copies live either way. The `z` residual needs no such care: it lands in the OPM
         # update's buffer and never writes `z` itself.
         upd = self.opm(m, None, None)
-        z = ttnn.add_(upd, z)
+        # Training only (PairformerLayer's z_fp32_residual): the pair residual held in fp32.
+        wide = self.z_fp32_residual and ops.taping()
+        z = _z_residual(z, z, upd, True) if wide else ttnn.add_(upd, z)
         if self.has_msa_update:
-            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
+            zc = ttnn.typecast(z, ttnn.bfloat16) if z.dtype == ttnn.float32 else ttnn.clone(z)
+            upd = ttnn.reshape(self.pwa(m, zc, attn_mask), tuple(m.shape))
             m = ttnn.add_(upd, m)
             # Each residual leaves the previous `m` buffer free somewhere in the middle of the
             # heap, and the next one needs its whole width contiguous: at 960 tokens x 14191 rows
@@ -145,9 +151,12 @@ class MSAModule:
     s_trunk/z_trunk rather than chasing it further.
     """
 
-    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
+    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True,
+                 z_fp32_residual: bool = False):
+        # z_fp32_residual fires only under a tape, and then `z` comes back fp32.
         self.blocks = [
-            MSAModuleBlock(b, compute_kernel_config, transpose_bias=transpose_bias)
+            MSAModuleBlock(b, compute_kernel_config, transpose_bias=transpose_bias,
+                           z_fp32_residual=z_fp32_residual)
             for b in remap_msa_module(state_dict, prefix="msa_module")
         ]
 

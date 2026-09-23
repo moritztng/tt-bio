@@ -20,7 +20,7 @@ trap 'kill $SIDE 2>/dev/null' EXIT
 echo "=== ours $TAG board=$(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_card_type) card=$DEV host=$(hostname) load[$(cut -d' ' -f1-3 /proc/loadavg)] host_quiet_before=$Q0 $(date -u +%FT%TZ) ==="
 T0=$(date +%s)
 "$PY" perf/of3t_auxheads/msa_instrument.py \
-  --boundary $S/cap043b/boundary_msa_module.pt \
+  --boundary ${BND:-$S/cap043b/boundary_msa_module.pt} \
   --reference-grads /home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt \
   --dump-grads "$S/grads_$TAG.pt" "$@" --out "perf/of3t_msaamp/$TAG.json"
 RC=$?; T1=$(date +%s); kill $SIDE 2>/dev/null
