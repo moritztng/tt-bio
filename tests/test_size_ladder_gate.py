@@ -1380,3 +1380,31 @@ def test_the_clash_metric_is_calibrated_on_deposited_structures(rg_fresh):
     cas = mod._parse_cif(gt[0].read_text())
     half = [(c, r, x / 2, y / 2, z / 2, b) for c, r, x, y, z, b in cas]
     assert len(mod.clashing_atoms(half)) / len(half) > 0.5
+
+
+def test_the_ladder_is_read_off_the_cli_not_retyped(monkeypatch, tmp_path):
+    """A predict or affinity model registered later is on the ladder with no second edit, and an
+    exempted one stays off it. SIZE_LADDER_MODELS used to be typed by hand and checked after the
+    fact, so the arm covered a new model only once somebody remembered to retype the tuple."""
+    import tt_bio.main as cli
+    monkeypatch.setattr(cli, "PREDICT_MODELS", cli.PREDICT_MODELS + ("newfold",))
+    monkeypatch.setattr(cli, "AFFINITY_MODELS", cli.AFFINITY_MODELS + ("newbind",))
+    spec = importlib.util.spec_from_file_location(
+        "release_gate_derived", REPO_ROOT / "scripts" / "release_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert {"newfold", "newbind"} <= set(mod.SIZE_LADDER_MODELS)
+    assert not set(mod.SIZE_LADDER_MODELS) & set(mod.SIZE_LADDER_EXEMPT)
+    assert mod._size_ladder_coverage_gap() == []
+
+
+def test_every_boards_own_rungs_have_a_fixture(rg):
+    """The fixture test above walks the ladder of the board it runs on. A board's extra rungs
+    (the Galaxy's 1280 and 1536, p150a's four) are only folded on that board, so without this a
+    missing fixture would first show up as a failed fold on the one machine that owns the rung."""
+    for card in rg.SIZE_LADDER_CARD_RUNGS:
+        for model in rg.SIZE_LADDER_MODELS:
+            for rung in rg._size_ladder_model_rungs(model, card=card):
+                assert rung % 32 == 0, f"{card}: rung {rung} is not a multiple of 32"
+                f = rg._size_ladder_fixture(model, rung)
+                assert f.exists(), f"{card}/{model} has no fixture at rung {rung}: {f}"
