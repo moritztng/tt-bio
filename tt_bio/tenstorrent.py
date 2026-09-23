@@ -474,6 +474,13 @@ _TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
 # fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
 _RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
 TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
+# Trimul shapes whose L1 mask clashed with the channel matmul's static circular buffers. The L1
+# test above reserves a fixed 640 KiB per core, but the matmul plan's buffers grow with the axis:
+# OpenDDE's refiner at 1280 residues (a 78-tile structural axis, 8x9 Wormhole grid) put the mask's
+# 174080 B per core at the top of L1 and the circular-buffer region ended 19744 B inside it. A
+# shape in here keeps its mask in DRAM. Recorded on the throw, which lands at program validation
+# before any kernel runs, so the retry is safe, and a placement is bit-exact.
+_TRIMUL_MASK_DRAM_SHAPES: set = set()
 RESIDUAL_L1_STATS = [0, 0]              # [update produced into L1, into DRAM]
 # in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
 # output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
@@ -7114,6 +7121,7 @@ class TriangleMultiplication(Module):
         # and the one nothing asks for is never built.
         mask_moved_ok = (mask is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         _mask_moved_memo: dict = {}
+        mask_key = _trimul_chunk_key(H, self._hidden, batch)
 
         def mask_moved(transposed: bool):
             if transposed not in _mask_moved_memo:
@@ -7130,9 +7138,9 @@ class TriangleMultiplication(Module):
                 # the caller's buffer, so it needs a copy of its own. Both are this call's to
                 # free and go when the memo does. `_PAIR_L1_CONSUMER_RESERVE` keeps the matmul's
                 # per-core circular buffers clear underneath it.
-                l1 = _TRIMUL_MASK_L1 and _l1_fits(
-                    _padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2), 1.0,
-                    _PAIR_L1_CONSUMER_RESERVE)
+                l1 = (_TRIMUL_MASK_L1 and mask_key not in _TRIMUL_MASK_DRAM_SHAPES
+                      and _l1_fits(_padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2),
+                                   1.0, _PAIR_L1_CONSUMER_RESERVE))
                 if transposed:
                     m = (ttnn.transpose(m, -2, -1, memory_config=ttnn.L1_MEMORY_CONFIG)
                          if l1 else ttnn.transpose(m, -2, -1))
@@ -7358,8 +7366,24 @@ class TriangleMultiplication(Module):
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
                 oom = large_seq and _dram_oom(e)
-                if not oom and (large_seq or "clash with L1 buffers" not in msg):
+                # On the DRAM path the only L1 tensor this call holds is the moved mask, so a
+                # clash there is the mask against the matmul's buffers: move it and retry.
+                mask_clash = (large_seq and "clash with L1 buffers" in msg
+                              and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
+                                      for _m in _mask_moved_memo.values()))
+                if not oom and not mask_clash and (large_seq or "clash with L1 buffers" not in msg):
                     raise
+                if mask_clash:
+                    _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
+                    for _transposed, _m in list(_mask_moved_memo.items()):
+                        # Everything but the untransposed DRAM view is this call's own copy.
+                        if _transposed or _m.memory_config().buffer_type == ttnn.BufferType.L1:
+                            ttnn.deallocate(_m)
+                    _mask_moved_memo.clear()
+                    print(f"[tt-bio] trimul mask in L1 clashed with the channel matmul's circular "
+                          f"buffers (seq {H}): moving the mask to DRAM and retrying. The tt-metal "
+                          f"'critical' line above is expected and handled; the result is unchanged.",
+                          file=sys.stderr, flush=True)
                 if oom and _DEVICE_ACC_TRIAL[0]:
                     raise       # the device-held chunks may be the cause: try the host join first
                 for _t in x_chunks:
@@ -7400,6 +7424,8 @@ class TriangleMultiplication(Module):
                           f"{chunk_size} x group {group}. The tt-metal 'Out of Memory' line "
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
+                    continue
+                if mask_clash:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
