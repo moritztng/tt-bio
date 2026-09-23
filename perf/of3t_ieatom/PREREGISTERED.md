@@ -32,3 +32,22 @@ Read from the two references only, no arm involved:
    diffusion stacks move less than 0.01.
 
 A miss on 3 to 8 is a finding, reported as measured. The tolerances above are not moved.
+
+## Arm 1 (PF64, bf16 encoder, c2e0df77f on PW64F's tree): the predictions missed
+
+Measured, not moved: the 93 concatenated 1.97 (predicted 0.6, interval 0.3 to 1.2; bf16 1.43),
+`linear_q.0.weight` 1.46, 32 of 93 at or better than bf16, loss 1.81124 (|Δ|/loss 1.0e-2 against
+the predicted 1e-3), global rel 0.1862 (predicted 0.1348 +- 0.003). Unread 0 and placed-but-empty
+0 held. Cause, measured by ref_sinput.py: the bf16 encoder's s_input is rel 3.70e-3 from float64
+against the host leg's 5.04e-4. The encoder is redone at fp32 (0c2320397).
+
+## Arm 2 (PF64B, fp32 encoder), committed before it runs
+
+1. s_input (the bf16 tensor the trunk reads) vs float64: 1.2e-3 (interval 0.8e-3 to 1.8e-3).
+   The host leg's fp32 s_input stays 5.04e-4; bf16 rounding alone costs about 1.1e-3.
+2. Global rel 0.1348 +- 0.005; trunk head within 0.02 of 0.1947; diffusion head within 0.01 of
+   0.1341.
+3. The 93 concatenated: 0.8 (interval 0.3 to 1.6), better than bf16 with probability 0.7, within
+   3x bf16 with probability 0.97. `linear_q.0.weight` 0.7.
+4. Loss |Δ|/loss < 2e-3 against PW64F.
+5. Unread 0, placed-but-empty 0, no section worse than PW64F by more than 3x its bf16 rel.

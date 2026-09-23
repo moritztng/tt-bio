@@ -43,7 +43,8 @@ def main() -> int:
         invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
         atom_to_token_mean=aux["atom_to_token_mean"], token_mask=tok, n_atom=n_atom,
         n_token=n_token, nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
-    ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
+    ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"],
+                                    dtype=m.input_atom_enc._act_dtype)
     d = m.input_atom_enc(ref_in, a["amc_d"], a["kidx_tt"], a["valid_d"], a["mb_d"], a["pm_d"],
                          a["amc_na_d"], a["mean_d"], ft(token_feats.unsqueeze(0)),
                          n_atom, aux["NP"], aux["nb"])
