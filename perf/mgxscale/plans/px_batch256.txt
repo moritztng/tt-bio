@@ -1,0 +1,7 @@
+# The batch claim in `--num_designs`' help and README.md ("8 at a time runs about 1.25x faster
+# per design than one at a time; past 8 it gets slower again") measured 1.45x at 8 and 1.52x at
+# 16 on a 512-residue target, so either the claim is stale or the ratio moves with target size.
+# A second size decides which, and the help text is not touched until it does.
+--model pxdesign --target-res 256 --designs 1 --steps 400 --host-threads 2 --timeout 14400 --tag batch256
+--model pxdesign --target-res 256 --designs 8 --steps 400 --host-threads 2 --timeout 14400 --tag batch256
+--model pxdesign --target-res 256 --designs 16 --steps 400 --host-threads 2 --timeout 14400 --tag batch256
