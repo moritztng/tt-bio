@@ -281,7 +281,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=8192,
+            msa_rows=16384,
             evidence="1536 residues fold at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23 "
                      "(ws:mgx-bigalloc, perf/whceil/ladder.py, chip 20, tt-bio c8f75a9f0): "
                      "cdk2x2_1536_d8192 with all 10 trunk recycles, PASS in 5223.9 s at AICLK "
@@ -304,7 +304,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "fixture, whose repeats have no defined arrangement. 1536 is the MGX target "
                      "and nothing above it was walked, hence LADDER_TOP. The previous row, 1024 "
                      "on GWH02 at the same depth with 1088 failing on the j10glx02 Galaxy, is "
-                     "what these fixes moved",
+                     "what these fixes moved. AT 16384 ROWS, the most the featurizer keeps "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 18, tt-bio 2f7e0606c): "
+                     "cdk2_1536_d16384 PASS in 5951 s at AICLK 1000 MHz on 563 samples taken "
+                     "DURING the fold, ten refusals absorbed, msa_depth 16384 in results.json, "
+                     "CA-CA median 3.83 A with 98.0 % in band, so this row holds at every depth a "
+                     "user reaches",
         ),
     },
     "opendde-abag": {
