@@ -1,0 +1,150 @@
+{
+ "note": "paths are relative to the tt-bio repo root; run folds from there",
+ "msa_source": "ColabFold API via tt_bio.data.msa.run_mmseqs2, use_env=True, use_pairing=False; one unpaired a3m per chain, no pairing",
+ "fixtures": {
+  "7aqx_1024": {
+   "rung": 1024,
+   "kind": "pdb-complex",
+   "pdb": "7AQX",
+   "tokens": 1012,
+   "yaml": "perf/mgx/ref/fixtures/7aqx_1024.yaml",
+   "ground_truth": "perf/mgx/ref/fixtures/gt/7aqx.cif.gz",
+   "chains": [
+    {
+     "ids": [
+      "A",
+      "B"
+     ],
+     "length": 364,
+     "msa": "perf/mgx/ref/fixtures/msa/7aqx_A.a3m",
+     "msa_rows": 171,
+     "msa_sha256_16": "88af2b8e6e6f8dd8"
+    },
+    {
+     "ids": [
+      "C",
+      "D"
+     ],
+     "length": 142,
+     "msa": "perf/mgx/ref/fixtures/msa/7aqx_C.a3m",
+     "msa_rows": 11059,
+     "msa_sha256_16": "60a548a467d310d5"
+    }
+   ]
+  },
+  "2ad6_1280": {
+   "rung": 1280,
+   "kind": "pdb-complex",
+   "pdb": "2AD6",
+   "tokens": 1280,
+   "yaml": "perf/mgx/ref/fixtures/2ad6_1280.yaml",
+   "ground_truth": "perf/mgx/ref/fixtures/gt/2ad6.cif.gz",
+   "chains": [
+    {
+     "ids": [
+      "A",
+      "C"
+     ],
+     "length": 571,
+     "msa": "perf/mgx/ref/fixtures/msa/2ad6_A.a3m",
+     "msa_rows": 14743,
+     "msa_sha256_16": "08be93a08aa30791"
+    },
+    {
+     "ids": [
+      "B",
+      "D"
+     ],
+     "length": 69,
+     "msa": "perf/mgx/ref/fixtures/msa/2ad6_B.a3m",
+     "msa_rows": 395,
+     "msa_sha256_16": "b9200d1f23320dab"
+    }
+   ]
+  },
+  "3abq_1536": {
+   "rung": 1536,
+   "kind": "pdb-complex",
+   "pdb": "3ABQ",
+   "tokens": 1518,
+   "yaml": "perf/mgx/ref/fixtures/3abq_1536.yaml",
+   "ground_truth": "perf/mgx/ref/fixtures/gt/3abq.cif.gz",
+   "chains": [
+    {
+     "ids": [
+      "A",
+      "C"
+     ],
+     "length": 453,
+     "msa": "perf/mgx/ref/fixtures/msa/3abq_A.a3m",
+     "msa_rows": 5448,
+     "msa_sha256_16": "5cf8d4214b7e839c"
+    },
+    {
+     "ids": [
+      "B",
+      "D"
+     ],
+     "length": 306,
+     "msa": "perf/mgx/ref/fixtures/msa/3abq_B.a3m",
+     "msa_rows": 6893,
+     "msa_sha256_16": "0c035d07d011b0fc"
+    }
+   ]
+  },
+  "cdk2x2_1024": {
+   "rung": 1024,
+   "kind": "tiled-cdk2x2",
+   "tokens": 1024,
+   "yaml": "perf/mgx/ref/fixtures/cdk2x2_1024.yaml",
+   "ground_truth": null,
+   "chains": [
+    {
+     "ids": [
+      "A"
+     ],
+     "length": 1024,
+     "msa": "perf/size512/fixtures/cdk2x2_1024.a3m",
+     "msa_rows": 35,
+     "msa_sha256_16": "644b2608d8f989d2"
+    }
+   ]
+  },
+  "cdk2x2_1280": {
+   "rung": 1280,
+   "kind": "tiled-cdk2x2",
+   "tokens": 1280,
+   "yaml": "perf/mgx/ref/fixtures/cdk2x2_1280.yaml",
+   "ground_truth": null,
+   "chains": [
+    {
+     "ids": [
+      "A"
+     ],
+     "length": 1280,
+     "msa": "perf/size512/fixtures/cdk2x2_1280.a3m",
+     "msa_rows": 35,
+     "msa_sha256_16": "1db6b9839cbdd1b7"
+    }
+   ]
+  },
+  "cdk2x2_1536": {
+   "rung": 1536,
+   "kind": "tiled-cdk2x2",
+   "tokens": 1536,
+   "yaml": "perf/mgx/ref/fixtures/cdk2x2_1536.yaml",
+   "ground_truth": null,
+   "chains": [
+    {
+     "ids": [
+      "A"
+     ],
+     "length": 1536,
+     "msa": "perf/size512/fixtures/cdk2x2_1536.a3m",
+     "msa_rows": 35,
+     "msa_sha256_16": "0a3c445a576e661f"
+    }
+   ]
+  }
+ }
+}
