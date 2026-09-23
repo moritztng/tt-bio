@@ -960,8 +960,12 @@ class _WorkerState:
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
+                # One entry per chain, None off protein: build_complex_features walks this
+                # list in step with `chains`, so a protein-only list ran out on the first
+                # complex that also carried a nucleic-acid or ligand chain.
                 paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
-                               for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
+                               if mt == "protein" else None
+                               for _cid, cseq, _spec, mt, _mods in chains]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
                 paired_a3ms = None

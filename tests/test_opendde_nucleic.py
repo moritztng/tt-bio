@@ -11,7 +11,7 @@ import pytest
 
 from tt_bio.opendde_data import (NUCLEIC_BACKBONE_ATOMS, STRUCTURAL_TOKEN_ROLES,
                                  _atom_names, build_structural_token_features)
-from tt_bio.protenix_data import build_complex_features
+from tt_bio.protenix_data import MSA_GAP_IDX, build_complex_features
 
 _MOL_DIR = os.path.expanduser("~/.boltz/mols")
 pytestmark = pytest.mark.skipif(
@@ -41,3 +41,20 @@ def test_nucleotide_backbone_base_split(mt, seq):
         assert slots == list(range(len(slots)))
     # the protein chain's split is unchanged: M K W split, G stays whole
     assert role[[i for i, p in enumerate(parent.tolist()) if p < 4]].tolist() == [1, 2, 1, 2, 1, 1, 2]
+
+
+def test_paired_msa_survives_a_nucleic_chain():
+    # Two protein chains paired, one RNA chain between them with no paired a3m: the protein
+    # chains keep their paired rows and the RNA columns read as gaps, as upstream pairs only
+    # protein chains. The list is parallel to `chains`, so the RNA entry is None.
+    a, b = "MKGWL", "AVPET"
+    pa, pb = f">q\n{a}\n>s1\nMKGWV\n>s2\nMRGWL\n", f">q\n{b}\n>s1\nAVPES\n>s2\nAIPET\n"
+    feats = build_complex_features([(a, f">q\n{a}\n", "protein"), ("GACU", None, "rna"),
+                                    (b, f">q\n{b}\n", "protein")],
+                                   mol_dir=_MOL_DIR, paired_a3ms=[pa, None, pb])
+    unpaired = build_complex_features([(a, f">q\n{a}\n", "protein"), ("GACU", None, "rna"),
+                                       (b, f">q\n{b}\n", "protein")], mol_dir=_MOL_DIR)
+    msa = feats["msa"]
+    assert msa.shape[0] == unpaired["msa"].shape[0] + 2       # two paired rows on top
+    assert (msa[:2, 5:9] == MSA_GAP_IDX).all()                  # RNA columns
+    assert not (msa[:2, :5] == MSA_GAP_IDX).any() and not (msa[:2, 9:] == MSA_GAP_IDX).any()
