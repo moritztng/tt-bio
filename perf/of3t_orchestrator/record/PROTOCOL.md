@@ -1994,3 +1994,34 @@ different corrections is not a comparison, and nothing in the numbers will say s
 **WHY THIS IS A42 AND NOT A FOOTNOTE TO A41.** A41 makes the injection correct for one arm.
 A42 makes it the same for two. They are different failures: A41's shows up as a wrong absolute
 reading, A42's only as a wrong RATIO, and the ratio is what this campaign's clause is made of.
+
+## A43 — 2026-09-23, pass 414. AN ANGLE MAY ONLY BE READ FROM A TRIPLE THAT SATISFIES THE IDENTITY, AND THE RESIDUAL MUST BE PUBLISHED WITH IT.
+
+`of3t-angle` found that this campaign has **two different definitions of the same three
+aggregates**, and only one of them can carry a direction claim.
+
+`of3t-trunkg043/score.py`'s `mass_weighted_rel_l2` is a mass-weighted **quadratic** mean of the
+per-tensor `rel`, while its `mass_weighted_norm_ratio` and `mass_weighted_cos` are **arithmetic**
+means of the per-tensor ratio and cosine. `rel^2 = 1 + r^2 - 2 r cos` holds **per tensor** and
+does **not** hold on those three aggregates. Measured, on R149's shipped arm: reported `rel`
+0.9153623104186986, while the identity on its own reported `r = 1.03126580227174` and
+`cos = 0.7726139589404469` gives 0.6855 — **a 25 % residual**.
+
+The concatenated definition (`perf/of3t_recut/n384_check.py:40-67`) takes the three as norms of
+**one vector pair**, where the identity is exact and an angle is a real angle. Every split this
+campaign reads a direction from — the trunk's 45.763 degrees, the 35.561 before the repair, the
+35.13 in float64 space — is in that definition, and each carries its own residual between
+1.1e-16 and 2.1e-15.
+
+**THE RULE.** A `cos`, an angle, a magnitude/direction share, or any "what would a perfect
+rescaling leave" number may be read **only** from a triple whose identity residual is published
+beside it and is at float64 noise. An aggregate that does not satisfy the identity is a
+perfectly good summary of error MAGNITUDE and carries **no** direction information — quote its
+`rel`, never its `cos`.
+
+**AND THE TWO DEFINITIONS MAY NOT BE MIXED IN ONE COMPARISON.** A ladder whose rungs are
+mass-weighted (because that is the definition the published rung is in) and whose split is
+concatenated is reporting two different things; report both per arm, labelled, as `of3t-angle`
+does, and never divide one by the other. This is A37's disease in a new axis: not two frames,
+but two *aggregations* of one frame. `a-reference-is-part-of-the-measurements-identity` — so is
+the aggregation.

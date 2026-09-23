@@ -1,0 +1,8 @@
+host_quiet GREEN before ours load[1.91 3.50 2.66] 2026-09-23T01:36:20Z
+host_quiet GREEN before ours_AA load[1.91 3.38 2.64] 2026-09-23T01:36:45Z
+host_quiet GREEN before bf16auto bf16auto load[1.92 3.24 2.62] 2026-09-23T01:37:19Z
+host_quiet GREEN before bf16auto bf16auto_AA load[1.77 2.93 2.60] 2026-09-23T01:39:42Z
+host_quiet GREEN before f32 f32 load[1.80 2.72 2.58] 2026-09-23T01:42:06Z
+host_quiet GREEN before f64 f64 load[1.74 2.63 2.58] 2026-09-23T01:44:31Z
+host_quiet GREEN before bf16auto bf16in --bf16-inputs load[1.92 2.84 2.70] 2026-09-23T01:47:58Z
+host_quiet GREEN before bf16auto bf16auto_BREAK --break-cot load[1.71 2.57 2.62] 2026-09-23T01:50:21Z

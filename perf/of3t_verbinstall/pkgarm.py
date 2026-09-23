@@ -52,7 +52,14 @@ def main() -> int:
                 "`ttnn.softmax`, which is the only thing that reaches "
                 "`autograd.triangle_attention._scores` in the forward and in the chunked "
                 "backward's recompute. A zero in `raw` means the pair track ran on the card.",
-        "installed_from": "tt_bio.autograd.exact_softmax() -> install(exact_softmax=True)",
+        # The path ACTUALLY taken. `exact_softmax()` reaches `_install_exact_softmax`
+        # directly and never calls `install()`. The two were equivalent until ownership was
+        # added; they now differ in owner and in survival under a foreign `uninstall()`. A
+        # row whose defect WAS "the install did not survive" cannot stamp the path that
+        # would not have survived.
+        "installed_from": "tt_bio.autograd.exact_softmax() -> _install_exact_softmax(owner='exact_softmax')",
+        "not_taken": "install(exact_softmax=True), owner 'install', counterpart "
+                     "uninstall(exact_softmax=True)",
         "counters": stats,
         "argv": rest,
     }

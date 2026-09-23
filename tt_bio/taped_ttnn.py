@@ -38,7 +38,7 @@ import ttnn
 
 from . import autograd as ag
 from .autograd import Tensor, precise_config
-from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
+from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
@@ -161,8 +161,8 @@ def _v_matmul(shipped, args, kwargs):
             if a.requires_grad:
                 da = (ttnn.matmul(g, b.value, transpose_b=not tb,
                                   compute_kernel_config=cfg) if not ta else
-                      ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                  compute_kernel_config=cfg))
+                      _matmul(b.value, g, transpose_a=tb, transpose_b=True,
+                              compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
@@ -174,13 +174,13 @@ def _v_matmul(shipped, args, kwargs):
                 # (1, 4, 64, 32) value in AttentionPairBias.
                 if (not ta and not tb and len(a.value.shape) > 2
                         and len(b.value.shape) == 2):
-                    db = ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
-                                     compute_kernel_config=cfg, dtype=ttnn.float32)
+                    db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                 compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    db = (ttnn.matmul(a.value, g, transpose_a=not ta,
-                                      compute_kernel_config=cfg) if not tb else
-                          ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                      compute_kernel_config=cfg))
+                    db = (_matmul(a.value, g, transpose_a=not ta,
+                                  compute_kernel_config=cfg) if not tb else
+                          _matmul(g, a.value, transpose_a=True, transpose_b=ta,
+                                  compute_kernel_config=cfg))
                 b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -1189,10 +1189,13 @@ def tape():
     if _SHIMMED:
         yield                       # already open; the outermost block owns the swap
         return
-    prev = ag.install()
+    prev = ag._install_hooks()
     _swap(True)
     try:
-        yield
+        # Softmax and layer norm exact for the forward (`autograd.exact_training`). The
+        # backward opens the same scope for itself, since it runs after this block closes.
+        with ag._training_exact("tape"):
+            yield
     finally:
         _swap(False)
         ag.forget_wrappers()

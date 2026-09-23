@@ -1,0 +1,5281 @@
+{
+ "summary": {
+  "n_trimul": 116,
+  "first_walk_n": 3636,
+  "walk_after_n": 3952,
+  "draw_mismatch": 0,
+  "cache_entries": 232,
+  "cache_in_first_walk": 0,
+  "cache_leaf": 0,
+  "cache_with_grad": 0,
+  "norm_in_with_grad": 116,
+  "g_out_with_grad": 116,
+  "late_n": 316,
+  "late_leaf": 0,
+  "late_with_grad": 0
+ },
+ "late": [
+  {
+   "path": "confidence_head.pf.blocks.0.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.0.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.0.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.0.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.1.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.1.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.1.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.1.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.2.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.2.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.2.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.2.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.3.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.3.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.3.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "confidence_head.pf.blocks.3.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.0.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.0.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.0.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.0.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.1.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.1.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.1.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.1.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.10.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.10.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.10.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.10.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.11.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.11.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.11.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.11.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.12.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.12.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.12.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.12.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.13.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.13.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.13.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.13.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.14.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.14.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.14.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.14.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.15.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.15.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.15.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.15.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.16.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.16.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.16.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.16.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.17.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.17.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.17.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.17.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.18.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.18.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.18.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.18.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.19.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.19.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.19.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.19.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.2.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.2.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.2.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.2.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.20.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.20.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.20.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.20.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.21.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.21.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.21.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.21.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.22.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.22.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.22.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.22.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.23.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.23.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.23.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.23.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.24.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.24.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.24.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.24.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.25.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.25.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.25.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.25.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.26.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.26.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.26.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.26.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.27.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.27.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.27.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.27.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.28.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.28.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.28.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.28.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.29.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.29.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.29.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.29.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.3.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.3.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.3.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.3.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.30.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.30.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.30.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.30.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.31.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.31.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.31.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.31.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.32.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.32.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.32.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.32.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.33.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.33.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.33.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.33.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.34.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.34.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.34.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.34.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.35.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.35.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.35.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.35.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.36.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.36.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.36.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.36.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.37.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.37.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.37.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.37.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.38.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.38.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.38.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.38.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.39.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.39.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.39.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.39.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.4.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.4.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.4.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.4.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.40.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.40.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.40.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.40.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.41.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.41.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.41.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.41.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.42.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.42.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.42.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.42.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.43.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.43.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.43.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.43.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.44.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.44.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.44.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.44.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.45.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.45.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.45.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.45.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.46.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.46.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.46.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.46.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.47.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.47.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.47.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.47.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.5.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.5.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.5.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.5.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.6.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.6.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.6.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.6.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.7.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.7.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.7.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.7.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.8.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.8.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.8.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.8.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.9.triangle_multiplication_end._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.9.triangle_multiplication_end._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.9.triangle_multiplication_start._gp_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.pairformer.blocks.9.triangle_multiplication_start._gp_gout_cache.(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.0.triangle_multiplication_end._gp_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.0.triangle_multiplication_end._gp_gout_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.0.triangle_multiplication_start._gp_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.0.triangle_multiplication_start._gp_gout_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.1.triangle_multiplication_end._gp_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.1.triangle_multiplication_end._gp_gout_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.1.triangle_multiplication_start._gp_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b')).0",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  },
+  {
+   "path": "trunk.template.ps.blocks.1.triangle_multiplication_start._gp_gout_cache.(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))",
+   "in_first_walk": false,
+   "leaf": false,
+   "grad": null
+  }
+ ],
+ "trimuls": [
+  {
+   "trimul": "trunk.pairformer.blocks.0.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.656985828952722e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0165792316589098e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.0.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.573605417672828e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7027538999458603e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.1.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.528464407255899e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2087815071394774e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.1.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.652953476163264e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.6544401949272962e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.2.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.43895665758408e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0201906298601721e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.2.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.083215629368665e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.0806403513159616e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.3.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.3857588969313734e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.528560332902126e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.3.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.025095262252149e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.6835079855024414e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.4.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7645472705352985e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.5711826884413886e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.4.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.799412898085331e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7008823336811804e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.5.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.6505874794020427e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3517718829466584e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.5.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.633888206160053e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0092268583310732e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.6.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.248080766959417e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1176258326351758e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.6.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.863395598754581e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4768453741060162e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.7.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.9751134326319924e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.391295470924753e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.7.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.197064045068701e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0039609046528092e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.8.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.578134675123858e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3747428465893892e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.8.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.862430346560097e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.244528468210846e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.9.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.7734216765711404e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.249641389118206e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.9.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0711486065729051e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4470937624508e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.10.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4884226272510881e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.798774671973922e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.10.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.048273609809062e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1406505296873394e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.11.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.293239611981002e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.772254564574257e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.11.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3485758349385242e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2097472005321647e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.12.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0135199620018585e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.5437295074611852e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.12.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1284352451873753e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.503690143940588e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.13.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.422958195721484e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.984941716263951e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.13.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.52017758769489e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2649454826303344e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.14.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.843766638083065e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.438226718256915e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.14.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.160113889540574e-08
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.1648907877624655e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.15.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.5657227048228796e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4390028558313976e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.15.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1095231164879827e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3009957330789077e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.16.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.892900450785211e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.745266966000867e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.16.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.276024149023675e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.808212943118993e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.17.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.6887586040199144e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.86545084752598e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.17.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.042358631330084e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.287570620998053e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.18.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.9243829360428447e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.598478497992158e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.18.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.895706399387076e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.91612387125145e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.19.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3617155529697177e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.7003999421576944e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.19.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.07300480331831e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3508930180714616e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.20.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.704703578300378e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3875002425499286e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.20.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.009766477073177e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.358867287126137e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.21.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.8650891969171623e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.137095011448734e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.21.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7849163823559385e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.982044064298692e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.22.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.270407658950187e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.280234215714088e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.22.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.06276823120665e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.806244755637792e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.23.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.28866175261558e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0303609591089706e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.23.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.776233801251615e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.247105008749437e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.24.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.192874359024821e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.3821807507461283e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.24.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.621139341363721e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.451665586223995e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.25.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.226292326160572e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.5469141495208188e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.25.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.579435621490766e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.646827659106922e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.26.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.746768171972386e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.656533032354803e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.26.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.3496949457494034e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.645544819152571e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.27.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.844872751913274e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.178304752033135e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.27.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.025405569312389e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.8891417604975484e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.28.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.6092282598752488e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.604066828208808e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.28.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.278016568051691e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.5503406778856804e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.29.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.679516874026486e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.579403072781736e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.29.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.352611271275433e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.897225796030343e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.30.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.0775286001140416e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.737897747194635e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.30.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.1148225172894438e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.736187061509445e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.31.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2555256946746734e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.177398159770643e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.31.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.4601285567792974e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.614882310692674e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.32.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.137631510796356e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.853396760961523e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.32.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1961745156446412e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.441178953272809e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.33.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.473419521705234e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.537945111640141e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.33.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.89892808683111e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.764949500638183e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.34.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7350632039990486e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.7440347144038e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.34.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.958863473666122e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.813926146156098e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.35.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.727241213045499e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.714796234532422e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.35.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.784495313416877e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.759173869676006e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.36.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.5590116039384815e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.362607125943714e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.36.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.49323962074939e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.923412596085563e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.37.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.4409908650398294e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.47732524010115e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.37.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.5401279702030295e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.7293610272973397e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.38.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.081147307109146e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.43759107083405e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.38.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.920655611855955e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.488393064560178e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.39.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.8708887859396475e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.829534624787371e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.39.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.004339940622708e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.005452687931314e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.40.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.4751873093614936e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.386852163714895e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.40.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.5479553277399748e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.591625921326986e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.41.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.126579824327483e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.88719242191524e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.41.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.930678431586496e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.264659718032681e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.42.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0671341164913096e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.454723192327505e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.42.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3438573465592412e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.868442829288763e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.43.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.195686181564985e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.823549302536378e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.43.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.6963428023516e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.46471936832404e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.44.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.041730387520211e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.956854504616675e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.44.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.423208847927447e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.980660230377102e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.45.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.5528718642939255e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.34756831878308e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.45.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4830869459833048e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.994100966982582e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.46.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 0.0010050479365816128
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 9.447034331637709e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.46.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.2092268419457326e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0385298624660072e-06
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.47.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 0.0006668302356860963
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.80584889471689e-07
+   }
+  },
+  {
+   "trimul": "trunk.pairformer.blocks.47.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.441177284748014e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0893521836920428e-06
+   }
+  },
+  {
+   "trimul": "trunk.template.ps.blocks.0.triangle_multiplication_start.",
+   "gp_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.3869973503055633e-08
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.967462882045937e-08
+   }
+  },
+  {
+   "trimul": "trunk.template.ps.blocks.0.triangle_multiplication_end.",
+   "gp_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.670540354751284e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.9290678094690508e-07
+   }
+  },
+  {
+   "trimul": "trunk.template.ps.blocks.1.triangle_multiplication_start.",
+   "gp_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.2608081788610956e-08
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.722088896583976e-08
+   }
+  },
+  {
+   "trimul": "trunk.template.ps.blocks.1.triangle_multiplication_end.",
+   "gp_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(64, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.132568739871346e-09
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 5.923350030525674e-09
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.1825908977264608e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.705196485390399e-07
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.0.pair_stack.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.151205529964955e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.5526115662667636e-07
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.1843589912973194e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.198473067551983e-07
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.1.pair_stack.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.080371154764712e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.9625465748758416e-06
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.447613061103322e-07
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.180490679729236e-07
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.2.pair_stack.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2351858300729823e-05
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.040666962637878e-06
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 8.212049102479524e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1459448970943244e-06
+   }
+  },
+  {
+   "trimul": "trunk.msa_module.blocks.3.pair_stack.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 6.393982873512116e-06
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.275096981317626e-06
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.0.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.635875025573116e-12
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4848841836836278e-11
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.0.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.304175973635911e-12
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.707347750533097e-12
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.1.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 3.166621326185525e-12
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 4.5090724905205854e-12
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.1.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.532614044783037e-13
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 2.9800672120819126e-12
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.2.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.2883532008272797e-12
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.9276413373316276e-12
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.2.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.7058762016936303e-12
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.4310443982240235e-12
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.3.triangle_multiplication_start.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 7.682440053568041e-14
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.1488949934192137e-13
+   }
+  },
+  {
+   "trimul": "confidence_head.pf.blocks.3.triangle_multiplication_end.",
+   "gp_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": [
+     {
+      "in_first_walk": false,
+      "leaf": false,
+      "grad": null
+     }
+    ]
+   },
+   "gp_gout_cache": {
+    "(128, 1, ('p_a', 'g_a', 'p_b', 'g_b'))": {
+     "in_first_walk": false,
+     "leaf": false,
+     "grad": null
+    }
+   },
+   "in_norm_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.0632098555804938e-13
+   },
+   "g_out_weight": {
+    "in_first_walk": true,
+    "leaf": true,
+    "grad": 1.9064071726411485e-13
+   }
+  }
+ ]
+}

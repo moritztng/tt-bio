@@ -969,6 +969,11 @@ AlphaFold 2 learning-rate schedule. Each is an argument, and the loop clips ever
 separately, so a batch of 8 is 8 forwards per step. See
 [`docs/training.md`](docs/training.md) for what each one costs if you get it wrong.
 
+A training step runs softmax and layer norm in float64 on the host, which is what brings the
+OpenFold3 gradient inside its accuracy bar against upstream. It makes a step slower;
+`--device-ops` puts them back on the device kernels. Inference is unaffected. See
+[`docs/training.md`](docs/training.md#softmax-and-layer-norm-run-in-float64-during-training-by-default).
+
 Four things the API enforces rather than documents, because each is a bug we hit:
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose

@@ -34,6 +34,11 @@ SOURCE = "SOURCE"          # a source repair with NO measurement in it: no card,
                            # inherits an expensive item's excuse for still being open.
 
 PLAN = {
+    # D246 and D247 were here for one pass and are gone because they CLOSED, not because the plan
+    # shrank to look better: `of3t-verbinstall` fixed both at `8ab8c791f` the same pass they were
+    # filed, and both repairs were verified in source rather than taken from the commit message.
+    # D246's fix is better than the one proposed to it -- the flag now sits on both halves, so the
+    # docstring's advertised equivalence is RESTORED rather than withdrawn. Release-gated, unmerged.
     # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
     # non-determinism is pc card 0, a faulty card root-caused 2026-08-17, not a protenix
     # property. Filing it USER-FACING was my error -- a row reporting a digest instability
@@ -153,56 +158,6 @@ PLAN = {
         "would_a_row_help": True,
         "asked": ("not yet asked. The complex-side measurement has no owner"),
     },
-    "D247": {
-        "needs": SOURCE,
-        "one_line": "a fail-fast startup probe with NO timeout: it guards the chip that THROWS, not the chip that WEDGES",
-        "closes_when": ("`_assert_local_dispatch` bounds its own dispatch -- a timeout expiring "
-                        "into the RuntimeError path its `except` already builds, which also "
-                        "closes the device -- so a wedge and a throw produce the SAME fast "
-                        "respawnable outcome its docstring promises. The bound must be on the "
-                        "probe, not on its callers: a per-row pre-flight leaves the defect "
-                        "shipped for everyone else. No card and no decision: this is source"),
-        "evidence_held": ("`tt_bio/tenstorrent.py:5575`, called at `:6005` from every "
-                          "`get_device()`. The body wraps from_torch/add/synchronize_device in "
-                          "`try/except Exception`, so a chip that THROWS is handled as designed; "
-                          "a chip that WEDGES never reaches the except, because "
-                          "`ttnn.synchronize_device(dev)` blocks indefinitely and there is no "
-                          "timeout, alarm or watchdog in the function. Verified in the shipped "
-                          "file at pass 414, not taken from the row's report. It cost "
-                          "`of3t-verbinstall` 230 minutes -- two arms, 115 min each, nothing "
-                          "computed, every liveness signal green -- and that is a FLOOR, since "
-                          "it bills every card row on any model. The row bounded its own launches "
-                          "at `b77e89f27`; the probe is unchanged"),
-        "would_a_row_help": False,
-        "row": "of3t-verbinstall",
-    },
-    "D246": {
-        "needs": SOURCE,
-        "one_line": "a constant owner TOKEN tells two APIs apart, not two callers -- so install(exact_softmax=True) is still torn down by an unrelated bracket",
-        "closes_when": ("the install()/uninstall() pair carries a per-call identity -- a handle "
-                        "returned by install() and required by uninstall(), or a depth count so "
-                        "nesting is COUNTED rather than NAMED -- and the 2x2's fourth cell "
-                        "(on via install, foreign teardown) is pinned by a test. If the pair is "
-                        "judged not worth saving, the honest close is to withdraw the docstring's "
-                        "equivalence claim instead. No card and no decision: this is source"),
-        "evidence_held": ("`27d24c6b3` correctly root-caused R176 -- `train/lora.py:608-615` "
-                          "brackets the DISCOVERY forward in a conditional install/uninstall pair, "
-                          "that pair closes first, and all 1,742 exact softmaxes were spent in a "
-                          "discarded forward while the scored step ran on the device softmax "
-                          "(0.702981502944001, CTRL_B to sixteen digits). The repair's OWNER is a "
-                          "constant string: `exact_softmax()` records \"exact_softmax\" "
-                          "(autograd.py:1101), `install(exact_softmax=True)` records \"install\" "
-                          "(:2129), and `uninstall()` passes \"install\" (:2141) -- so the guard at "
-                          ":1064 discriminates between the two APIs and not between two callers of "
-                          "the same one. The two new tests pin CM+foreign and install+own, the two "
-                          "SAFE cells, and together read as 'both directions'. Latent in-repo "
-                          "(pkgarm.py:45 uses the CM, which is why R176's failure IS repaired), "
-                          "user-facing out of it: `exact_softmax()`'s docstring at :1093 still "
-                          "calls the unprotected path 'the same thing without the block', and the "
-                          "fix is what made that false"),
-        "would_a_row_help": False,
-        "row": "of3t-verbinstall",
-    },
     "D210": {
         "needs": RELEASE,
         "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",
@@ -223,16 +178,31 @@ PLAN = {
         "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
                   "has not been built"),
     },
+    # Pass 414: every field here was stale and one was wrong. `row` named `of3t-ditcot`, which
+    # did not answer this; the row that narrowed it is `of3t-tapeamp`, concluded 2026-09-22. The
+    # one_line and evidence quoted 19.6x/19.8x, two revisions out of date. I read this entry and
+    # dispatched against it, which is how the staleness surfaced.
     "D58": {
         "needs": CARD,
-        "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
-        "closes_when": ("the same locating measurement as D30. Two independent sightings make it a "
-                        "property to explain rather than a coincidence to chase"),
-        "evidence_held": ("diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- "
-                          "different ops, different track, same factor to two significant figures"),
+        "one_line": "HALF-ANSWERED: the diffusion leg is re-explained (11.026x, of which 7.666x is upstream 0.4.3's OWN bf16 factor); msa_module's leg is still unmeasured",
+        "closes_when": ("an upstream bf16 arm at the `msa_module` boundary, priced the way "
+                        "`of3t-tapeamp` priced diffusion: same boundary, same float64 reference, "
+                        "one process, one host. If msa_module's factor is also mostly upstream's "
+                        "own, D58 closes as not a defect; if it is not, there is a real "
+                        "module-specific amplifier and it is worth the capture. No such arm "
+                        "exists anywhere in the campaign -- it is a boundary capture plus a "
+                        "float64 reference, not an afternoon, which is why it is still open"),
+        "evidence_held": ("`of3t-tapeamp` (GO, 2026-09-22) refuted the 'belongs to the tape' half "
+                          "ON THE DIFFUSION TRACK: our 11.026x contains 7.666x of upstream's own, "
+                          "upstream's fp32 recipe shows 9.326x at four orders of magnitude lower "
+                          "absolute error so the factor survives a precision change no dtype "
+                          "boundary could explain, and the census finds 0 dtype reconciliations "
+                          "in 1,879 node firings. Our arm beats upstream on BOTH halves -- "
+                          "forward 1.959x, gradient 1.362x -- so our factor is larger only "
+                          "because the denominator is the half we beat hardest. That row did NOT "
+                          "measure msa_module and said so; D30 and D129 are closed"),
         "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D30", "D129"],
+        "row": "of3t-msaamp",   # dispatched pass 414, scoped to the one unmeasured leg
     },
     "D205": {
         "needs": CARD,
@@ -251,6 +221,7 @@ PLAN = {
                           "LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile "
                           "counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every "
                           "even count measured keeps it"),
+        "row": "of3t-cropwall",   # dispatched pass 414; it overturned the mechanism (D248)
         "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
                  "(D204: nothing checked that it ever was)",
     },

@@ -1,0 +1,121 @@
+{
+ "tokens": 64,
+ "weight_dtype": "DataType.FLOAT32",
+ "si_dtype": "DataType.BFLOAT16",
+ "zij_dtype": "DataType.BFLOAT16",
+ "w_lin_s": {
+  "grad_dtype": "DataType.FLOAT32",
+  "shape": [
+   833,
+   384
+  ],
+  "bad": 0,
+  "n": 319872,
+  "bad_rows_head": [],
+  "n_bad_rows": 0
+ },
+ "w_lin_n": {
+  "grad_dtype": "DataType.FLOAT32",
+  "shape": [
+   256,
+   384
+  ],
+  "bad": 0,
+  "n": 98304,
+  "bad_rows_head": [],
+  "n_bad_rows": 0
+ },
+ "w_lin_z": {
+  "grad_dtype": "DataType.FLOAT32",
+  "shape": [
+   267,
+   128
+  ],
+  "bad": 0,
+  "n": 34176,
+  "bad_rows_head": [],
+  "n_bad_rows": 0
+ },
+ "bare_matmul_transpose_a": {
+  "K833_M384_xFLOAT32_gFLOAT32": {
+   "bad": 0,
+   "n": 319872,
+   "rel_finite_part": 0.0013423276941798763
+  },
+  "K833_M384_xFLOAT32_gBFLOAT16": {
+   "bad": 160121,
+   "n": 319872,
+   "rel_finite_part": 2.6795611813844342e+26
+  },
+  "K833_M384_xBFLOAT16_gFLOAT32": {
+   "bad": 0,
+   "n": 319872,
+   "rel_finite_part": 1.4145189513191754
+  },
+  "K833_M384_xBFLOAT16_gBFLOAT16": {
+   "bad": 0,
+   "n": 319872,
+   "rel_finite_part": 0.00041308877531859815
+  },
+  "K256_M384_xFLOAT32_gFLOAT32": {
+   "bad": 0,
+   "n": 98304,
+   "rel_finite_part": 0.001168412459647608
+  },
+  "K256_M384_xFLOAT32_gBFLOAT16": {
+   "bad": 49152,
+   "n": 98304,
+   "rel_finite_part": 1.230809079169382
+  },
+  "K256_M384_xBFLOAT16_gFLOAT32": {
+   "bad": 0,
+   "n": 98304,
+   "rel_finite_part": 1.4069101537418038
+  },
+  "K256_M384_xBFLOAT16_gBFLOAT16": {
+   "bad": 0,
+   "n": 98304,
+   "rel_finite_part": 0.0003123390301679184
+  },
+  "K267_M128_xFLOAT32_gFLOAT32": {
+   "bad": 0,
+   "n": 34176,
+   "rel_finite_part": 0.0011745489538664878
+  },
+  "K267_M128_xFLOAT32_gBFLOAT16": {
+   "bad": 16894,
+   "n": 34176,
+   "rel_finite_part": 2.2697798613223925e+27
+  },
+  "K267_M128_xBFLOAT16_gFLOAT32": {
+   "bad": 0,
+   "n": 34176,
+   "rel_finite_part": 1.4143418610444922
+  },
+  "K267_M128_xBFLOAT16_gBFLOAT16": {
+   "bad": 0,
+   "n": 34176,
+   "rel_finite_part": 0.0003137853029194937
+  },
+  "K768_M384_xFLOAT32_gFLOAT32": {
+   "bad": 0,
+   "n": 294912,
+   "rel_finite_part": 0.0013431020658009531
+  },
+  "K768_M384_xFLOAT32_gBFLOAT16": {
+   "bad": 147456,
+   "n": 294912,
+   "rel_finite_part": 1.2198210360102135
+  },
+  "K768_M384_xBFLOAT16_gFLOAT32": {
+   "bad": 0,
+   "n": 294912,
+   "rel_finite_part": 1.4130570341802806
+  },
+  "K768_M384_xBFLOAT16_gBFLOAT16": {
+   "bad": 0,
+   "n": 294912,
+   "rel_finite_part": 0.0004107011915459945
+  }
+ }
+}
