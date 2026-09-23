@@ -836,7 +836,7 @@
                   "fill_preconditions": 1088,
                   "pm_over_l1": 1087
                 },
-                "reason": "KNOWN DEFECT, not an exemption. Dark at 896 and 1088 only, serving all 1088 calls at 768 and at 1024. Once L1 refuses every q_chunk wider than the fixed 256 production pick, a fallback that does not DIVIDE the padded length sets use_padded_mask and fails the hoisted-fill precondition, so the whole call drops to the stock op. Costs 16.7 s (6.8%) at 896. Fix on wk/perf-scale-rf3 behind TT_BIO_TRIATT_NARROW_Q_FALLBACK, off by default pending a fold A/B."
+                "reason": "KNOWN DEFECT, not an exemption. Dark at 896 and 1088 only, serving all 1088 calls at 768 and at 1024. Once L1 refuses every q_chunk wider than the fixed 256 production pick, a fallback that does not DIVIDE the padded length sets use_padded_mask and fails the hoisted-fill precondition, so the whole call drops to the stock op. Costs 16.7 s (6.8%) at 896. Fixed at 896 by TT_BIO_TRIATT_NARROW_Q_FALLBACK, on by default: +9.5000 s, 1.1005x, A/A floor 0.635 %, bit-exact. At 1088 the flag does not restore the kernel and the bound makes it a no-op, so that rung stays dark for another reason."
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
