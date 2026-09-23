@@ -1,0 +1,16 @@
+aux_heads.pairformer_embedding 231 tensors
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.bias errshare 0.163 rel 27.5 bf16 0.409 |a|/|ref| 27.7
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.weight errshare 0.069 rel 21.2 bf16 0.691 |a|/|ref| 20.9
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.weight errshare 0.064 rel 21.6 bf16 0.358 |a|/|ref| 21.5
+  aux_heads.pairformer_embedding.linear_i.weight                         errshare 0.039 rel 19.1 bf16 0.335 |a|/|ref| 19.1
+  aux_heads.pairformer_embedding.linear_j.weight                         errshare 0.034 rel 18.8 bf16 0.339 |a|/|ref| 18.9
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_in.weight errshare 0.032 rel 29.2 bf16 0.221 |a|/|ref| 30
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.bias errshare 0.031 rel 13.8 bf16 0.292 |a|/|ref| 14.1
+  aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.bias errshare 0.027 rel 23.2 bf16 0.33 |a|/|ref| 23.3
+aux_heads.experimentally_resolved 3 tensors
+  aux_heads.experimentally_resolved.linear.weight                        errshare 0.947 rel 0.218 bf16 0.0386 |a|/|ref| 0.884
+  aux_heads.experimentally_resolved.layer_norm.bias                      errshare 0.044 rel 0.0338 bf16 0.00482 |a|/|ref| 1.01
+  aux_heads.experimentally_resolved.layer_norm.weight                    errshare 0.008 rel 0.16 bf16 0.0302 |a|/|ref| 0.992
+PE ratio min/p10/med/p90/max [0.168, 0.87, 12.79, 26.031, 1030806196823.853]
+PE cos [-0.745, 0.041, 0.258, 0.951, 0.999]
+best scalar 2.0139596139312195 rel after rescale 5.657450621132475
