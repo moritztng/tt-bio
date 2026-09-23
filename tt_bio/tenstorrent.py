@@ -8043,7 +8043,19 @@ class TriangleAttention(Module):
                 x = ttnn.from_torch(h.contiguous(), layout=ttnn.TILE_LAYOUT,
                                     device=get_device(), dtype=ttnn.bfloat16)
                 return ttnn.reshape(x, (1, *x.shape))
-            x = ttnn.concat(parts, dim=0)
+            if self.ending:
+                # Row block s:e of the transposed pair is column strip s:e of the output, so each
+                # block is transposed back on its own and the strips joined along columns: the
+                # same bytes as joining then transposing, without a third full pair tensor beside
+                # the input and the join. At OpenDDE's c_z=384 that third copy is 909115392 B at
+                # 1088 tokens, and it is where the fold was refused.
+                strips = []
+                for p in parts:
+                    strips.append(_pair_transpose(p, ttnn.DRAM_MEMORY_CONFIG))
+                    ttnn.deallocate(p)
+                x = _acc_concat(strips, 1, False)
+                return ttnn.reshape(x, (1, *x.shape))
+            x = _acc_concat(parts, 0, False)
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
