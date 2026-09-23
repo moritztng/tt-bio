@@ -225,12 +225,12 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
-@pytest.mark.parametrize("model", ["boltz2", "rf3"])
+@pytest.mark.parametrize("model", ["boltz2", "rf3", "protenix-v1"])
 def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
     """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
-    existed boltz2 was never refused and rf3 stopped at the top of an old ladder, so 1792 and 1600
-    were admitted and died on the chip; each row has to turn that into a refusal without losing
-    the 1536 that folds."""
+    existed boltz2 and protenix-v1 were never refused and rf3 stopped at the top of an old ladder,
+    so 1792, 1664 and 1600 were admitted and died on the chip; each row has to turn that into a
+    refusal without losing the 1536 that folds."""
     c = sl.ceiling(model, "wormhole_b0")
     assert c.binds == sl.MEMORY and c.fail_at > c.residues >= 1536
     sl.check(model, 1536, arch="wormhole_b0")
@@ -684,7 +684,7 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
 #: MSA track's DRAM defects are fixed -- so they stopped exercising the hatch and started asserting
 #: that a passing size raises. `residues + 1` is over the cap for BOTH kinds of row: one with a
 #: recorded negative control, and one that is simply the top of its ladder with nothing above it
-#: measured (which is what openfold3 became). Derived, so it cannot go stale when a ladder moves.
+#: measured (which openfold3 was until its 1088 failure was measured). Derived, so it cannot go stale.
 def _over_cap(model="openfold3", arch="wormhole_b0"):
     row = sl.ceiling(model, arch)
     assert row.measured and row.residues, (model, arch)

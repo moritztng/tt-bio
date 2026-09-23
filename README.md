@@ -131,13 +131,14 @@ under 1024:
 |---|---:|---:|
 | `boltz2` | 1664 | 1792 |
 | `opendde`, `opendde-abag` | 1024 | 1088 |
-| `openfold3` | 1024 | none found; top of the ladder |
+| `openfold3` | 1024 | 1088 |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rf3` | 1536 | 1600 |
+| `protenix-v1` | 1536 | 1664 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |

@@ -243,14 +243,6 @@ def _unmeasured(evidence: str, counts: str = RESIDUES) -> Ceiling:
     return Ceiling(None, None, None, UNMEASURED, UNKNOWN, evidence, counts=counts)
 
 
-# Shared by every model that carries no ceiling of its own. Spelled once because the reason is one
-# reason, and a reader who sees it eight times should see the same sentence eight times.
-_INHERITS_DEMO_FENCE = (
-    "no measured engine ceiling. The catalog's 1024 for this model is LIMITS['max_residues'], the "
-    "platform's free-demo fence, which no ladder walked to a failure -- so tt-bio does not refuse "
-    "on it. Walking a ladder here is outstanding work, not a missing guard."
-)
-
 # model id (as it appears in a CLI --model choice) -> arch (ttnn.get_arch_name()) -> Ceiling
 #
 # The Wormhole rows are copied from the ladders recorded in japanfold/catalog.py, each attributed to
@@ -368,11 +360,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=14190,
-            evidence="its own ladder, measured 2026-09-07 on GWH02 at 14190 alignment rows on "
+            evidence="first failure measured 2026-09-23 on origin/main 8906d35a0, j10glx02 card "
+                     "31, guard off, --host_threads 2, apo CDK2 tiled with the same 14190 "
+                     "alignment rows (ws:mgx-ceilings, perf/mgxceil): 1088 fails after 286.8 s in "
+                     "the MSA track's transition (openfold3_msa_embedder.py msa_transition, "
+                     "reassembled in tenstorrent.py _acc_concat), one 2424307712 B request, "
+                     "192.7 MiB per bank, on a chip 66.7 percent full with 341.4 MiB free and a "
+                     "102.8 MiB largest block, AICLK median 1000 MHz. Before this the row was "
+                     "LADDER_TOP at 1024 with nothing above it walked. The ladder under it is "
+                     "its own, measured 2026-09-07 on GWH02 at 14190 alignment rows on "
                      "every rung -- the deepest real ColabFold alignment this pipeline has "
-                     "produced. Monotone with NO failure found: 640/672/704/736/768/800/832/896/"
+                     "produced. Monotone with no failure up to 1024: 640/672/704/736/768/800/832/896/"
                      "960/1024 all fold, in 219/229/287/319/324/384/435/666/453/642 s. 1024 is "
                      "the platform's own max_residues fence, so there is nothing above it to walk "
                      "to. Every rung was scored for structure and not just for returning: 0 "
@@ -757,7 +757,23 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "more work and restamps every capacity cell",
         ),
     },
-    "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "protenix-v1": {
+        "wormhole_b0": Ceiling(
+            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=DRAM,
+            msa_rows=8192,
+            evidence="walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 29, guard off, "
+                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
+                     "(ws:mgx-ceilings, perf/mgxceil). 1024 folds in 281.8 s, 1152 in 362.9 s, "
+                     "1280 in 407.2 s, 1408 in 484.3 s and 1536 in 554.0 s, AICLK median 1000 MHz "
+                     "sampled during every fold. 1664 fails in the diffusion conditioner's pair "
+                     "transition (protenix.py _diffusion_pair_cond, tenstorrent.py Transition "
+                     "reassembling its chunks in _acc_concat), one 1417674752 B request, 112.7 MiB "
+                     "per bank, on a chip 91.6 percent full with 86.5 MiB free and a 75.0 MiB "
+                     "largest block: less free memory than the request, so residency and not "
+                     "layout. Until this row it was unmeasured and never refused, so 1664 and "
+                     "above was admitted and died on the chip",
+        ),
+    },
     "nesso1": {
         "wormhole_b0": _unmeasured(
             "no ceiling, and unusually this is a positive result rather than an untested gap: the "
