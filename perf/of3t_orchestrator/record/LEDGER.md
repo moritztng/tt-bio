@@ -1270,3 +1270,70 @@ the entry; this is what satisfying it looks like in practice, and it cost the ro
 compare-two-banked-artifacts run with no device involved.
 
 Not yet a result: the lever arm is still running and nothing about the clause has moved.
+
+### R191. The lever works on the clause's own arm and is NOT enough: 1.4511706984958472x -> 1.3037867474869442x, a third of the excess (pass 414, zero card)
+
+`of3t-modelever` put the exact softmax on the model-frame trunk arm and re-scored. **The clause
+still FAILS.**
+
+    clause        1.4511706984958472x  ->  1.3037867474869442x     bar 0.15210099830945006
+    excess        0.451171             ->  0.303787                32.67 % of it closed
+    angle closed  14.19 % in the graded space, against the 43.61 % the clause needs
+    and against float64 the trunk gets WORSE
+
+**A third.** The campaign's best lever, applied exactly where the clause lives, buys about a
+third of what the clause needs, and the clause must still fall a further **23.30 %**.
+
+**The provenance is the strongest this campaign has produced and it is why the number is
+believable.** The A/A floor is **exactly 0** — SHIP_A and SHIP_B bit-identical on 2,736/2,736 —
+and SHIP_A is bit-identical **to `of3t-recut`'s banked `dev_RENORM_model_n384_external.pt`**,
+the artifact the repointed clause was scored on, digests cited both ways. The banked arm
+composed through this row's own scorer reproduces the clause at **0.22072451195864032 exactly**,
+and the recomposition identity has `rel_difference 0.0`. **The EXACT arm differs from SHIP_A by
+the `exact_softmax()` scope alone**, so this is a lever on the clause's arm rather than a
+projection onto it — which is what `of3t-angle`'s reading could never be. **No bar moved**: all
+five pre-registered levels are unchanged, including `upstreams_own_floor_here` at 0.8525301041731214
+and `section_A26_level` at 0.9700522560698159, both of which would PASS.
+
+**And the barred shortcut turns out to have been accurate, which is worth knowing precisely
+because we did not use it.** The row pre-registered the in-frame projection as a LEVEL with an
+aliveness band — *"within 15 % ... outside that the projection is dead and the campaign must
+stop carrying it"* — and measured the multiple at **2.180720496587762** against a projection of
+**2.2340903768268046**: **2.4 % off, alive.** A37 still bars a cross-frame quotient as
+*evidence*; what this licenses is the cheaper thing — **an in-frame multiple on this frame
+family is a sound SCREEN**, good to a few percent, so a future lever can be triaged in-frame
+before anyone spends a model-frame arm on it. The discipline was to measure rather than project,
+and the measurement is what turned a barred number into a calibrated tool.
+
+**Where this leaves the charter.** Not unreachable: `upstreams_own_floor_here` passes at 0.8525x
+and the trunk's norm ratio vs float64 is now **1.0644759387772336** against upstream's own
+**1.0568409490651478** on the same scope — we are close to upstream on magnitude and the residue
+is still direction. But the best lever the campaign has is now spent on this arm, it delivered a
+third, and **nothing else of comparable size is currently identified.** That is the honest state.
+
+**One process note: the D155 warning worked, once, when it came with the fix.** D249 records
+three rows warned while live that concluded without acting. `of3t-modelever` was warned at pass
+414 **and given the writer-level repair and a row to copy**, and it stamped host, board and card
+from the provenance in `pairdiff.py` rather than joining the freeze list. The difference was not
+the warning.
+
+**Addendum to R191, same pass — the guard would have failed the one row that complied.**
+`of3t-modelever` did stamp its artifacts (verified: `host tt-quietbox2`, `board p300c`,
+`card 1`, plus `host_quiet` state), and the D155 guard went on warning about all three. The
+guard's `host_of()` read the **top level only**, and the row had put host/board/card in a
+**per-compared-artifact provenance block** — which is the *right* place for them, because one
+file compares two arms that could come from different boxes.
+
+So the row that finally acted on a warning three rows had ignored was the row the guard was
+about to fail, and the freeze it would have forced would then have been cited as **a fourth
+instance of D249** — a defect record manufactured out of a checker's blind spot. **A guard that
+punishes the one row that listened is worse than no guard**, and the failure mode is specific:
+the guard tested *where the field is* when the property it cares about is *whether the host is
+recoverable*.
+
+Presence is recursive now, and the exclusion is separately widened to every host/card pair at
+any depth — **strictly stronger** than the top-level scan it replaces, since a nested `pc card
+0` could previously have hidden from it. And the first attempt at that widening was wrong in a
+way worth keeping: I regexed `json.dumps(d)` and **the break control caught it immediately** —
+JSON inserts `": ` between `card` and its value, which breaks the adjacency `BANNED` matches on.
+The probe that exists so a guard cannot quietly stop guarding is what said so.
