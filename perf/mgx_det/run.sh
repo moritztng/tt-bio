@@ -14,7 +14,7 @@ L=$HOME/leases ME=worker:mgx-determinism OUT=${OUT:-$HOME/scratch/mgxdet}
 QUIET=$HOME/mgx-quiet-window
 D=$OUT/$TAG; mkdir -p "$D/in"
 free() { $HOME/env/bin/python - "$L/j10glx02-card$1.json" "$ME" "$$" "$1" <<'P'
-import json, os, sys
+import fcntl, json, os, sys
 f, me, pid, card = sys.argv[1:]
 try:
     d = json.load(open(f))
@@ -22,6 +22,11 @@ except (OSError, ValueError):
     d = {"released": 1}
 if not (d.get("holder") == me and str(d.get("pid")) == pid):
     if not (d.get("released") or not os.path.exists(f"/proc/{d.get('pid')}")):
+        sys.exit(1)
+with open(f, "a") as fh:                          # a fold that holds the card holds this flock
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
         sys.exit(1)
 for p in os.listdir("/proc"):                     # no live process may have the card pinned
     try:
@@ -34,7 +39,10 @@ P
 }
 claim() { printf '{"host": "j10glx02", "card": "%s", "holder": "%s", "pid": %s, "acquired": %s, "released": null, "note": "held between folds by a mgx-determinism chain"}\n' \
     "$1" "$ME" "$$" "$(date +%s)" > "$L/j10glx02-card$1.json"; }
-release() { $HOME/env/bin/python -c "import json,sys,time; f=sys.argv[1]; d=json.load(open(f)); d['released']=time.time(); json.dump(d,open(f,'w'))" "$L/j10glx02-card$1.json"; }
+release() {  # only a lease this chain still holds: tt-bio rewrites it with the fold's pid at open
+  $HOME/env/bin/python -c "import json,sys,time; f=sys.argv[1]; d=json.load(open(f))
+if str(d.get('pid')) == sys.argv[2] and not d.get('released'):
+    d['released']=time.time(); json.dump(d,open(f,'w'))" "$L/j10glx02-card$1.json" "$$"; }
 C=
 take() {
   while :; do
