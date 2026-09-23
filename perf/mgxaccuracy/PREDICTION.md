@@ -162,3 +162,29 @@ than the design path, and it would be the ATTRIBUTION answer.
 to be run on the 1536 designs, which is queued and costs the same. Two designs also cannot
 measure a small systematic offset — they can only catch one big enough to move a verdict,
 which is the thing that would matter.
+
+## Outcomes, recorded after the fact and marked as such
+
+Nothing above this line has been edited since it was written. This section only records what
+happened, including where a prediction was wrong.
+
+- **P1 CONFIRMED.** pxdesign on the gpb dimer at 1616 tokens reads `fit_rmsd` **0.1747 A**,
+  predicted "under 2 A", against 95.183 A at the same token count on the disconnected
+  fixture. 545x, and 86x under the 15 A gate.
+- **P2 CONFIRMED.** 1224 tokens, the most a user can submit, reads **0.1423 A**.
+- **P3 follows:** no pxdesign conditioning defect exists on any valid target at any reachable
+  size, and the 95.183 A belongs to `make_big_target.py`'s construction.
+- **P4b, docking half: WRONG, and informatively so.** It expected the `big_1831` arm to read
+  worse because its conditioning graph is disconnected. All eight boltzgen designs there are
+  **in contact** — 0.75-1.85 A closest heavy atom, 916-1679 contacts — as are all eight on
+  the valid target. BoltzGen conditions on coordinates, not on a 22 A-clamped distogram, so
+  the fixture that destroys pxdesign's conditioning does not destroy boltzgen's docking. The
+  scRMSD half is still open.
+- **P5 CONFIRMED on its verdict clause, and its premise was wrong.** Upstream fp32 refolding
+  the device's own designs reads 1.736 A where the card read 0.865, and 13.688 A where it
+  read 12.897 — both keep their side of both bars, exactly as predicted. But the premise that
+  a difference between the two refolders would be *measurable* is false: a second upstream
+  run of the SAME design, same config, same thread count, reads **0.874 A**. The refolder's
+  own run-to-run spread is 0.86 A, so at n=1 per side nothing about the two refolders is
+  resolvable. The control was queued before the first pair finished; had it not been, a
+  +0.83 A "offset" would have shipped as a finding.
