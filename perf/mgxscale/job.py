@@ -394,6 +394,11 @@ def run_job(args) -> dict:
            "host_threads": args.host_threads, "batch_size": args.batch_size,
            "cmd": " ".join(cmd[3:]), "tag": args.tag.lstrip("_") or None,
            "crop_offset": args.crop_offset,
+           # The SOURCE target, not the generated fixture. Two rows at the same size and offset
+           # from different structures are different binding problems, and a report that keys
+           # only on (size, offset) pools them -- which is the exact confound this row exists to
+           # separate. cmd carries the fixture YAML, which does not name the structure.
+           "target": str(target),
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
     rts = [r["runtime_s"] for r in rows if isinstance(r.get("runtime_s"), (int, float))]

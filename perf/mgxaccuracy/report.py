@@ -108,6 +108,14 @@ def load(paths) -> list[dict]:
                 continue
             out.append({
                 "model": r.get("model", "?"),
+                # WHICH target, not just how big. Keying a cell on (size, offset) alone pools
+                # two different structures at the same size -- measured: the gpb-dimer and
+                # big_1831 512 rows collapsed into one n=17 cell whose members have medians
+                # 8.455 and 10.590, and the across-target floor then read "only 1 target".
+                # Rows written before job.py recorded `target` fall back to the tag, and a row
+                # with neither is kept SEPARATE rather than merged into anything.
+                "target": (r.get("target") or "").rsplit("/", 1)[-1]
+                          or f"?tag={r.get('tag')}@{p.name}",
                 "size": r.get("target_res"),
                 "offset": r.get("crop_offset", 0) or 0,
                 "scrmsd": [float(v) for v in sc],
@@ -167,7 +175,7 @@ def main() -> int:
     cells: dict[tuple, list[float]] = {}
     meta: dict[tuple, list[str]] = {}
     for r in rows:
-        k = (r["side"], r["size"], r["offset"])
+        k = (r["side"], r["target"], r["size"], r["offset"])
         cells.setdefault(k, []).extend(r["scrmsd"])
         meta.setdefault(k, []).append(
             f"{r['src']}" + (f" card{r['card']}" if r["card"] is not None else "")
@@ -181,10 +189,10 @@ def main() -> int:
             + "".join(f"{h:>9}" for h in ("min", "median", "max"))
             + "".join(f"{name:>7}" for name, _ in bars))
     print(head + "   provenance")
-    for k in sorted(cells):
-        side, size, off = k
+    for k in sorted(cells, key=lambda k: (k[0], k[2], k[3], k[1])):
+        side, target, size, off = k
         c = cell(cells[k], bars)
-        line = (f"{side:<10}{size:>6}{off:>8}{c['n']:>4}"
+        line = (f"{side:<8}{target[:23]:<24}{size:>6}{off:>7}{c['n']:>4}"
                 + fmt.format(c["min"]) + fmt.format(c["median"]) + fmt.format(c["max"])
                 + "".join(f"{v*100:>6.0f}%" for v in c["bars"]))
         print(f"{line}   {meta[k][0]}")
@@ -195,8 +203,8 @@ def main() -> int:
     print(f"\n{'-'*94}\nfixed-size spread across targets — the floor a size effect must beat"
           f"\n{'-'*94}")
     floors = {}
-    for side, size in sorted({(k[0], k[1]) for k in cells}):
-        meds = [st.median(cells[k]) for k in cells if k[0] == side and k[1] == size]
+    for side, size in sorted({(k[0], k[2]) for k in cells}):
+        meds = [st.median(cells[k]) for k in cells if k[0] == side and k[2] == size]
         if len(meds) < 2:
             print(f"{side:<10}{size:>6}  only {len(meds)} target(s) — no floor yet")
             continue
@@ -208,8 +216,8 @@ def main() -> int:
     # Only now the size comparison.
     print(f"\n{'-'*94}\n512 vs 1536\n{'-'*94}")
     for side in sorted({k[0] for k in cells}):
-        a = [v for k in cells if k[0] == side and k[1] == 512 for v in cells[k]]
-        b = [v for k in cells if k[0] == side and k[1] == 1536 for v in cells[k]]
+        a = [v for k in cells if k[0] == side and k[2] == 512 for v in cells[k]]
+        b = [v for k in cells if k[0] == side and k[2] == 1536 for v in cells[k]]
         if not a or not b:
             print(f"{side}: have {len(a)} designs at 512 and {len(b)} at 1536 — incomplete")
             continue
