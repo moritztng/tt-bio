@@ -683,7 +683,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "costs exactly the tokens it adds), so ladder_ligand_atoms=0 counts a "
                      "ligand against the 1664. Was 1024/1056 from the 2026-09-09 GWH02 and "
                      "09-11 j10glx02 single-sequence ladders, walked before pair-residency and "
-                     "bigalloc reached this trunk",
+                     "bigalloc reached this trunk. Re-checked on cc908c377 (diffusion conditioning "
+                     "prepared once per fold), card 29: 1792 single-sequence still fails on the "
+                     "same request after 255.0 s, but now with 137.7 MiB free per bank and a "
+                     "122.2 MiB largest block, so the merge turned a full chip into a "
+                     "fragmented one 8.5 MiB short of the wall",
         ),
     },
     "esmfold2-fast": {
@@ -707,7 +711,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "were apo and the wall is on TOKENS (same trunk and tokenisation as "
                      "esmfold2), so ladder_ligand_atoms=0 counts a ligand against the 1664. "
                      "Was 1152/1248 from the 2026-09-09 and 09-11 ladders, walked before "
-                     "pair-residency and bigalloc reached this trunk",
+                     "pair-residency and bigalloc reached this trunk. Re-checked on cc908c377 "
+                     "(diffusion conditioning prepared once per fold), card 29: 1792 still fails "
+                     "on the same request after 270.2 s, now with 141.8 MiB free per bank but no "
+                     "block large enough, fragmentation rather than residency",
         ),
     },
     "protenix-v1": {

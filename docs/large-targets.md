@@ -132,8 +132,8 @@ can hold:
   memory free but no block large enough.
 
 `esmfold2` and `esmfold2-fast` both fold 1664 and fail at 1792 in the pair feed-forward, whose
-1.5 GiB output does not fit on a chip that is by then 99 % full, so for them the wall is total
-residency rather than one oversized block. `esmfold2` lands in the same place with its alignment
+1.5 GiB output needs 130.7 MiB in every DRAM bank. The largest free block is about 122 MiB by then,
+with 86 % of the chip in use. `esmfold2` lands in the same place with its alignment
 and single-sequence, because its MSA encoder sees at most 1024 rows per trunk loop.
 
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
