@@ -3700,6 +3700,11 @@ def standardize(smiles: str) -> Optional[str]:
     if exclude:
         raise ValueError("Molecule is excluded")
 
+    # The fragment chooser counts implicit Hs, which RDKit 2026.03 refuses on an unsanitized
+    # mol ("getNumImplicitHs() called without preceding call to calcImplicitValence()"), so
+    # every salt-form ligand failed here. Computing valences without sanitizing leaves a
+    # single-fragment result unchanged.
+    mol.UpdatePropertyCache(strict=False)
     # Standardize with ChEMBL data curation pipeline. During standardization, the molecule may be broken
     # Choose molecule with largest component
     mol = LARGEST_FRAGMENT_CHOOSER.choose(mol)
