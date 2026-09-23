@@ -26,6 +26,16 @@ OUT=${2:?out jsonl path on whglx}
 CAP=${3:-3}
 LINES=${4:-}
 
+# OUT is single-quoted inside the remote command, so it is NOT expanded on whglx: a
+# $HOME-relative path arrives literally and fan.py creates a directory called '$HOME' inside
+# the checkout. Caught by passing one.
+case "$OUT" in
+    /*) ;;
+    *) echo "REFUSED: OUT must be an absolute path on whglx (got '$OUT') — a \$HOME-relative"
+       echo "         one is not expanded there and lands as a literal directory in the repo."
+       exit 1;;
+esac
+
 if [ -e "$GATE" ]; then
     echo "REFUSED: the MGX quiet window is OPEN, so nothing new starts. Contents:"
     sed 's/^/    /' "$GATE"
