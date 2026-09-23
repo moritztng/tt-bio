@@ -34,7 +34,7 @@ class Fixture:
     """Enough of ttnn to run `_calibrate_linear`, with an allocation that can be made to refuse."""
 
     def __init__(self, refuse=None, times=None):
-        self.refuse = refuse            # name of the reference output that raises, or None
+        self.refuse = refuse            # "rref" / "ref" / "timed", or None: which allocation raises
         self.times = list(times or [])  # `_mm_time` results, last one repeats
         self.live = []
         self.overlaps = []              # reference-output names alive together, per allocation
@@ -42,6 +42,8 @@ class Fixture:
 
     # -- the pieces model.py calls ------------------------------------------------------------
     def linear(self, a, b, **kw):
+        if self.timing and self.refuse == "timed":
+            raise RuntimeError("Out of Memory: Not enough space to allocate the timed default")
         kept = "program_config" not in kw and not self.timing
         name = {"rx": "rref", "x": "ref"}.get(a.name, "cand") if kept else "cand"
         if kept:
@@ -121,6 +123,22 @@ def test_a_candidate_that_beats_the_budget_is_still_chosen(monkeypatch):
     """The decline paths must not cost the win: a faster exact candidate still comes back."""
     fx = Fixture(times=[0.010, 0.001]).install(monkeypatch)
     assert calibrate(fx) == "pc-a"
+    assert fx.leaked() == []
+
+
+def test_a_timed_default_that_does_not_fit_PROPAGATES(monkeypatch):
+    """The one allocation left unguarded, and it has to stay that way.
+
+    Every other allocation here is calibration's own scratch, so refusing it costs speed and
+    nothing else. The timed default is not scratch: it holds ONE output, which is exactly what
+    the model's own `ttnn.linear` will hold a moment later, so an allocator refusal on it is the
+    MODEL's ceiling. Swallowing it would turn a real wall into a silent skip and the run would
+    fail later somewhere less informative -- which is the whole failure mode this file exists to
+    stop, pointing the other way.
+    """
+    fx = Fixture(refuse="timed", times=[0.010]).install(monkeypatch)
+    with pytest.raises(RuntimeError, match="Out of Memory"):
+        calibrate(fx)
     assert fx.leaked() == []
 
 
