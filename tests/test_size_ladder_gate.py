@@ -108,6 +108,9 @@ def test_an_overloaded_rung_voids_its_intervals_and_nothing_else(rg):
     assert "768 aa was timed at 8.4x nproc" in r["exponents_void"]["512->768"]
     assert "256->512" in r["exponents"]
     assert _check(rg, cliff, load=quiet)["gate"] is False
+    # a baseline written before the recorder learned to skip is read the same way
+    r = _check(rg, cliff, load=quiet, base={**_baseline(), "load": busy})
+    assert r["gate"] is True and set(r["exponents_void"]) == {"512->768"}
     # a lever going dark is load-blind and still fails on the busy host
     dark = {"resolved": "True", "served": 0, "declined": 10, "frac": 0.0, "how": "stats"}
     assert _check(rg, dict(BASE_RUNTIME), levers=dark, load=busy)["gate"] is False

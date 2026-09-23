@@ -3946,7 +3946,8 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         t2 = meas["runtime_s"].get(str(n2))
         if t1 is None or t2 is None:
             continue  # custom RELEASE_GATE_SIZE_RUNGS narrower than the baseline
-        busy = _size_ladder_overloaded(meas.get("load"), (n1, n2))
+        busy = (_size_ladder_overloaded(meas.get("load"), (n1, n2))
+                or _size_ladder_overloaded(base_model.get("load"), (n1, n2)))
         if busy:
             void[interval] = busy
             continue
