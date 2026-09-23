@@ -474,11 +474,16 @@ class OpenFold3Forward:
                                  c(ag.Tensor(ft(n_emb.reshape(1, 1, 256)))),
                                  c(ft(tok.reshape(n_token, 1).unsqueeze(0))))
                 zij = s.dc.pair(c(z_trunk), c(relpos_d), c(pair_mask_dm))
+                # The conditioning hands back bf16 si/zij; the rollout lifts them to the
+                # activation dtype inside `pad_dim`. Fed bf16, the fp32 module's one-step
+                # denoise read 0.80-0.88 A RMS from the truth, varying run to run, against
+                # 0.18 A lifted and 0.52 A for the noisy input (PROBE_FWD_T64_*.json). The
+                # noisy coordinates are uploaded at that dtype too, as the rollout does.
                 xl_den = s.dm(
-                    c(s_trunk), si, zij,
+                    c(s_trunk), c(si), c(zij),
                     c(ag.Tensor(dm_aux["cl0_d"])), c(ag.Tensor(dm_aux["plm0_d"])),
-                    c(ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"])))),
-                    c(ag.Tensor(ft(xl_noisy.unsqueeze(0)))),
+                    ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"]), s._act_dtype)),
+                    ag.Tensor(ft(xl_noisy.unsqueeze(0), s._act_dtype)),
                     c(dm_aux["amc_d"]), c(dm_aux["amc_na_d"]),
                     dm_aux["idx_tt"], dm_aux["flat_tt"],
                     c(dm_aux["zij_mask_d"]), dm_aux["kidx_tt"], dm_aux["valid_d"],
