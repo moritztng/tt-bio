@@ -299,25 +299,29 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences)")
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
-    # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
-    # target_id. target_id is the input filename stem (e.g. "target_1") and
-    # repeats across inputs, so a target-keyed prefix makes one run's cached a3m
-    # get reused by another: a single-chain run caches one query, then a later
-    # multi-chain run with the same target_id reuses it while expecting N queries
-    # and dies with KeyError on the missing query index. A content hash keys the
-    # cache by what was actually searched — collision-free, still reused when the
-    # same sequence set recurs.
-    tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
     paired = _generate_paired_a3m(seqs, target_id, msa_dir, url, strategy,
                                   username, password, api_key) or {}
     out_dir = paired_msa_dir(msa_dir, seqs_list) or msa_dir
 
-    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{tag}_unpaired_tmp", use_env=True,
+    unpaired = run_mmseqs2(seqs_list, _mmseqs_prefix(msa_dir, seqs_list, "unpaired"), use_env=True,
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
     write_boltz_csvs(out_dir, paired, dict(zip(seqs, unpaired)))
+
+
+def _mmseqs_prefix(msa_dir: Path, seqs, kind: str) -> Path:
+    """``run_mmseqs2``'s working dir, keyed by the exact sequences searched.
+
+    ``run_mmseqs2`` reuses an ``out.tar.gz`` it finds there, so a prefix keyed by the input
+    file stem (which repeats: "target_1", "complex") hands one run's alignments to the next
+    run under the same name. With the same number of queries nothing fails: each new sequence
+    is cached with another protein's MSA. A content hash is still reused when the same
+    sequences recur.
+    """
+    tag = hashlib.sha256("\n".join(seqs).encode()).hexdigest()[:16]
+    return msa_dir / f"{tag}_{kind}_tmp"
 
 
 def write_boltz_csvs(out_dir: Path, paired: dict[str, str], unpaired: dict[str, str]) -> None:
@@ -2734,7 +2738,7 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                             use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
-    res = run_mmseqs2(list(seqs.values()), msa_dir / f"{target_id}_esm_tmp", use_env=use_envdb,
+    res = run_mmseqs2(list(seqs.values()), _mmseqs_prefix(msa_dir, seqs.values(), "esm"), use_env=use_envdb,
                       use_pairing=False, host_url=msa_url, pairing_strategy=msa_strategy,
                       msa_server_username=msa_user, msa_server_password=msa_pass, auth_headers=headers)
     for i, h in enumerate(seqs):
@@ -2774,7 +2778,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
             headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
                        if api_key_value else None)
             keys = sorted(seqs, key=seqs.get)   # one order per complex, whatever the chain order
-            res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{pdir.name}_paired_tmp",
+            res = run_mmseqs2([seqs[k] for k in keys], _mmseqs_prefix(msa_dir, [seqs[k] for k in keys], "paired"),
                               use_env=True, use_pairing=True, host_url=msa_server_url,
                               pairing_strategy=msa_pairing_strategy,
                               msa_server_username=msa_server_username,
