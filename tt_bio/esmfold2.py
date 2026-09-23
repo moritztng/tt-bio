@@ -1324,9 +1324,13 @@ class MSAEncoderBlock(Module):
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
             m = _msa_transition_residual(m, self.msa_transition)
-        pair = ttnn.add(pair, self.tri_out(pair, None))
-        pair = ttnn.add(pair, self.tri_in(pair, None))
-        pair = ttnn.add(pair, self.pair_transition(pair))
+        # From here `pair` is this block's own tensor, so the residuals add in place. A fresh sum
+        # is a third pair tensor beside the MSA: 3abq at 1536 with its MSA was refused the
+        # pair-transition sum, 1193803776 B against a 64.7 MiB/bank largest block.
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
+            u = f(pair)
+            ttnn.add_(pair, u)
+            ttnn.deallocate(u)
         return m, pair
 
 
