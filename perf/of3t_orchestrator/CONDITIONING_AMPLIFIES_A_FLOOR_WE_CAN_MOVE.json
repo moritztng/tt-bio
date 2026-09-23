@@ -1,0 +1,42 @@
+{
+ "what": "an arithmetic reading of of3t-adaln's own K-ladder that the row did not draw, plus one code observation. The row concluded the disagreement is 'the amplification of a device arithmetic floor by an ill-conditioned reduction' and that no fix is available. The first half is right. The second is not established, and its own data argues against it.",
+
+ "the_rows_ladder_with_one_column_added": {
+  "note": "device and host-fp32 are the row's measurements; device/host is the ratio it did not compute.",
+  "rungs": [
+   {"K": 3.009e+01, "device": 2.059085e-03, "host_fp32": 4.027367e-07, "device_over_host": 5113},
+   {"K": 2.112e+02, "device": 7.351748e-03, "host_fp32": 2.671127e-06, "device_over_host": 2752},
+   {"K": 2.100e+03, "device": 5.864179e-02, "host_fp32": 2.747817e-05, "device_over_host": 2134},
+   {"K": 2.100e+04, "device": 5.744067e-01, "host_fp32": 2.598909e-04, "device_over_host": 2210},
+   {"K": 2.100e+05, "device": 4.161453e+00, "host_fp32": 2.595698e-03, "device_over_host": 1603},
+   {"K": 2.100e+06, "device": 2.635289e+01, "host_fp32": 3.324537e-02, "device_over_host": 793}
+  ],
+  "reading": "BOTH columns are linear in K and the ratio between them is roughly CONSTANT across five decades -- 793 to 5113, median 2172. So the conditioning is a MULTIPLIER applied equally to both, and what separates us from torch fp32 is a constant arithmetic floor, not the conditioning."
+ },
+
+ "the_consequence_the_row_did_not_draw": {
+  "claim": "the ill-conditioned sum is computable to bar in single precision. We are about 2,000x above single precision on it.",
+  "evidence": "at the row's top rung, K = 2.1e+06, torch float32 on a CPU reads 3.324537e-02 -- INSIDE the 5.0e-02 per-tensor bar -- while our device path reads 2.635289e+01. At the interpolated real K ~ 1.3e+06 the same slope puts host fp32 near 1.7e-02, comfortably inside bar.",
+  "arithmetic": "closing the observed median 2172x gap would put the real tensor's 18.504 at 0.0085 -- inside the 2.0e-02 median bar, not merely the 5.0e-02 per-tensor one.",
+  "why_it_matters": "the row's framing invites the conclusion that this gradient component is simply not computable and the campaign should stop chasing it. That conclusion needs the floor to be irreducible, and nothing has shown that. It would also be the single most consequential wrong turn available right now, because it would retire 25.5795 % of the model as unfixable on an untested premise."
+ },
+
+ "what_the_row_priced_and_what_it_did_not": {
+  "priced": "AdaLN's WEIGHT dtype. `tenstorrent.py:9791-9794` hands `torch_to_tt` the literal ttnn.bfloat16 instead of routing through `_dtype`, so the four weights stay bf16 even under an fp32 activation override. Measured worth: 2.4x at K = 20, 1.2x at K = 2.1e+04, 1.0x at K = 2.1e+06. Real, small, and worthless at the conditioning in question. That is a sound elimination.",
+  "not_priced": "the precision of the ARITHMETIC that forms and accumulates the summands. Those are different levers and only the first was tested. The row's own result that weights buy 1.0x at high K is itself the argument that the floor at high K lives in the accumulation, not in the operands' storage."
+ },
+
+ "a_specific_untested_lever_found_by_source": {
+  "site": "autograd.py:683 and :1611 -- both layer_norm backward rules",
+  "code": "gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))",
+  "observation": "`_sum_leading` DOES pass compute_kernel_config=precise_config() -- it is the one reduction in the tape with its own recorded measurement (cosine 0.379 -> 0.999995). But the ELEMENTWISE PRODUCT that forms its 18,432 summands has no kernel config and no dtype, so the summands are formed and stored at activation dtype (bf16) and then summed precisely. Summing bf16 numbers in fp32 does not recover the bits lost in making them.",
+  "why_this_is_exactly_the_shape_of_the_problem": "this is a lever that SURVIVES a 'we made the reduction precise' fix, and it sits on the gain gradient -- the precise quantity that reads 18.504. bf16 unit roundoff is ~3.9e-03 against fp32's ~6e-08, a factor of 6.5e+04; the measured device/host gap is ~2.2e+03, which is the same quantity after partial cancellation of independent rounding errors. The magnitudes are compatible; that is suggestive, not a derivation.",
+  "status": "LEAD. Untested. It is distinct from D55, which is about reductions that lack the config entirely; here the reduction HAS it and its input does not."
+ },
+
+ "the_test": "on the row's own K-ladder harness, which already exists and runs in 6 s per arm: add a third column for a device arm with the summand product formed in fp32 (`ttnn.multiply(g, norm, dtype=ttnn.float32)` plus a precise kernel config, from outside tt_bio/ as the row already did for weights). If the device column moves toward the host-fp32 column at HIGH K, the floor is reducible and 25.5795 % of the model is back in play. If it does not move at high K, the floor is elsewhere and this lead is refuted -- which is equally worth knowing, because it is the difference between a fixable port gap and a property of the arithmetic.",
+ "the_control_it_needs": "a deliberately-worse arm (LoFi, fp32_dest_acc_en off, bf16 out) must make the number WORSE on the same rung. A precision change that moves nothing in either direction never reached the kernel.",
+
+ "what_this_does_not_claim": "it does not say the lever works -- it is untested. It does not dispute any of of3t-adaln's measurements, all of which stand: the AdaLN backward is correct (4 of 4 at 8.7e-04..2.2e-03, cosines above 0.9999981), the fused sigmoid is bit-identical to the unfused form, and input magnitude, the sample axis and the block weights together move the headline under 7 %. It disputes one inference drawn from them.",
+ "provenance": "computed 2026-09-20 pass 155 by of3t-orchestrator on pc, CPU only, from state/of3t-adaln.md's published ladder and a source read of tt_bio/autograd.py on wk/of3t. No device opened, no run made."
+}
