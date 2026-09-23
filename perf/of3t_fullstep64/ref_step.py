@@ -89,9 +89,14 @@ class RssGuard(threading.Thread):
         return 0.0
 
     def run(self):
+        n = 0
         while True:
             r = self.rss_gb()
             self.peak = max(self.peak, r)
+            n += 1
+            if n % 50 == 0:
+                print(f"RSS {time.strftime('%H:%M:%S')} {r:.1f} GB (peak {self.peak:.1f})",
+                      file=sys.stderr, flush=True)
             if r > self.cap:
                 print(f"RSS {r:.1f} GB over the {self.cap} GB cap -- exiting", flush=True)
                 os._exit(99)
@@ -180,7 +185,8 @@ class DiskSaved:
 
 
 LEAVES = ("tri_mul_out", "tri_mul_in", "tri_att_start", "tri_att_end", "pair_transition",
-          "attn_pair_bias", "single_transition")
+          "attn_pair_bias", "single_transition", "outer_product_mean", "msa_att_row",
+          "msa_transition")
 
 
 def checkpoint_leaves(stack):
@@ -355,6 +361,10 @@ def main() -> int:
         disk_checkpoint(model.pairformer_stack, a.disk_checkpoint / "trunk")
         disk_checkpoint(model.aux_heads.pairformer_embedding.pairformer_stack,
                         a.disk_checkpoint / "confidence")
+        # The MSA module and template stack run the same pair sub-layers without a per-block
+        # checkpoint; their whole-block float64 backward is what broke the cap after the trunk.
+        checkpoint_leaves(model.msa_module)
+        checkpoint_leaves(model.template_embedder)
     batch = bm.move(torch.load(a.batch, weights_only=False), "cpu", dtype)
     replay = None
     if a.replay_draws:
