@@ -341,13 +341,48 @@ def _components(sd, config):
     return built
 
 
+def _msa_per_loop(kw, total_steps, max_depth, col_rate):
+    """The MSA encoder's inputs for each trunk loop, the way esm 3.4.1 draws them
+    (`model.py` forward + `_run_one_loop`, `layers.py::maybe_apply_msa_column_masking` /
+    `maybe_subsample_msa`): `col_rate` of the columns masked once in every row but the query,
+    then, when the MSA is deeper than `max_depth`, a fresh `max_depth`-row subsample per loop
+    that always keeps the query. Draws come from the global torch RNG, which `fold()` seeds.
+
+    `kw` holds the vendored forward's tensors, rows on axis 2: `msa_oh` [B,L,M,C] and
+    `has_deletion` / `deletion_value` / `msa_attention_mask` [B,L,M]. Returns one kwargs dict
+    per loop, or a single one when every loop would see the same MSA.
+    """
+    mask, oh = kw["msa_attention_mask"], kw["msa_oh"]
+    B, L, M = mask.shape
+    if col_rate > 0 and M > 1:
+        keep = (torch.rand(B, L) >= col_rate)[:, :, None].expand(B, L, M).clone()
+        keep[:, :, 0] = True
+        mask = (mask.bool() & keep.to(mask.device)).to(mask.dtype)
+        # the bias-free embed needs masked entries zeroed, as upstream does before the encoder
+        oh = oh * mask.unsqueeze(-1).to(oh.dtype)
+    kw = dict(kw, msa_attention_mask=mask, msa_oh=oh)
+    if not max_depth or M <= max_depth:
+        return [kw]
+    loops = []
+    for _ in range(total_steps):
+        idx = torch.zeros(max_depth, dtype=torch.long)
+        idx[1:] = torch.randperm(M - 1)[: max_depth - 1] + 1
+        idx = idx.sort().values
+        loops.append(dict(kw, **{k: kw[k].index_select(2, idx.to(kw[k].device))
+                                 for k in ("msa_oh", "has_deletion", "deletion_value",
+                                           "msa_attention_mask")}))
+    return loops
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
     Two wins over the per-module reference loop:
       * Deterministic inference (the per-loop lm_dropout's expectation is the
-        identity) makes the LM-encoder, MSA-encoder and injection projection
-        LOOP-INVARIANT — they are computed once instead of every iteration.
+        identity) makes the LM-encoder LOOP-INVARIANT, computed once. The MSA encoder
+        and injection projection are too, unless the MSA is deeper than
+        `msa_encoder.max_depth`: then each loop encodes its own row subsample, as
+        upstream does (`_msa_per_loop`).
       * The pair state z stays resident on the TT device across all trunk
         iterations: the parcae recurrence (a*z + inject) and the folding trunk
         both run on-device, so the ~L²·256 pair tensor is never round-tripped
@@ -362,22 +397,33 @@ def _install_resident_trunk_loop(model):
     ftw = model.folding_trunk.m  # _Adapter.m -> E.FoldingTrunk TorchWrapper
     overwrite = bool(getattr(model.config, "msa_encoder_overwrite", True))
 
+    msa_cfg = getattr(model.config, "msa_encoder", None)
+    max_depth = getattr(msa_cfg, "max_depth", None)
+    col_rate = float(getattr(msa_cfg, "column_mask_rate", 0.0) or 0.0)
+
     def _run_one_loop(self, z, z_init, lm_z, _msa_kwargs, pair_mask, a, b_mat, total_steps):
-        # --- loop-invariant injection, computed ONCE ---
-        z_inject = z_init
-        if self.msa_encoder is not None and _msa_kwargs is not None:
-            # reference passes x_pair (the current pair state) separately from _msa_kwargs
-            msa_pair = self.msa_encoder(x_pair=z_inject, **_msa_kwargs).to(z_init.dtype)
-            z_inject = msa_pair if overwrite else (z_inject + msa_pair)
-            dram_peak("esmfold2/msa-encoder")
+        refined = None  # LM encoder: loop-invariant, computed once
         if lm_z is not None and self.lm_encoder is not None:
             if isinstance(lm_z, _DevPair):
                 refined = _trunk_on_device(self.lm_encoder.m, lm_z)
             else:
                 refined = self.lm_encoder(lm_z.to(z_init.dtype), pair_attention_mask=pair_mask)
-            z_inject = z_inject + refined.to(z_init.dtype)
-        injected = self.parcae_input_norm(z_inject)
-        inject_proj = F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
+            refined = refined.to(z_init.dtype)
+        msa_loops = None
+        if self.msa_encoder is not None and _msa_kwargs is not None:
+            msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
+
+        def inject_proj(msa_kw):
+            z_inject = z_init
+            if msa_kw is not None:
+                # reference passes x_pair (the current pair state) separately from _msa_kwargs
+                msa_pair = self.msa_encoder(x_pair=z_inject, **msa_kw).to(z_init.dtype)
+                z_inject = msa_pair if overwrite else (z_inject + msa_pair)
+                dram_peak("esmfold2/msa-encoder")
+            if refined is not None:
+                z_inject = z_inject + refined
+            injected = self.parcae_input_norm(z_inject)
+            return F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
 
         # --- resident-z recurrence on device ---
         Lp = z.shape[1]
@@ -389,14 +435,23 @@ def _install_resident_trunk_loop(model):
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
         zt = ftw._from_torch(padz(z).float())
-        ipt = ftw._from_torch(padz(inject_proj).float())
+        # The injection is loop-invariant unless the MSA is subsampled per loop; then each
+        # loop encodes its own draw, as upstream does.
+        per_loop = msa_loops is not None and len(msa_loops) > 1
+        ipt = None if per_loop else ftw._from_torch(
+            padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
+            if per_loop:
+                ipt = ftw._from_torch(padz(inject_proj(msa_loops[_step])).float())
             az = ttnn.multiply(zt, at)
             ttnn.deallocate(zt)
             znew = ttnn.add(az, ipt)
             ttnn.deallocate(az)
+            if per_loop:
+                ttnn.deallocate(ipt)
+                ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
         z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
