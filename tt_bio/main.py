@@ -317,9 +317,16 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
-    for i, name in enumerate(seqs):
+    write_boltz_csvs(out_dir, paired, dict(zip(seqs, unpaired)))
+
+
+def write_boltz_csvs(out_dir: Path, paired: dict[str, str], unpaired: dict[str, str]) -> None:
+    """Write one Boltz-2 ``{seq_hash}.csv`` per sequence: its paired a3m rows keyed 0..n on top
+    (row j of every chain is one genome), then its unpaired rows keyed -1. ``paired`` and
+    ``unpaired`` map seq_hash -> a3m text; a sequence with no paired a3m gets unpaired rows only."""
+    for name, text in unpaired.items():
         paired_seqs = [s for s in paired.get(name, "").strip().splitlines()[1::2][:const.max_paired_seqs] if s != "-" * len(s)]
-        unpaired_seqs = unpaired[i].strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
+        unpaired_seqs = text.strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
         if paired_seqs:
             unpaired_seqs = unpaired_seqs[1:]
         keys = list(range(len(paired_seqs))) + [-1] * len(unpaired_seqs)

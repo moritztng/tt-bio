@@ -14,6 +14,7 @@ from score import _fit, score
 
 HERE = Path(__file__).resolve().parent
 CRYSTAL = {"1emv": ("1EMV", "A,B"), "1brs": ("1BRS", "A,D"), "1hvr": ("1HVR", "A,B"),
+           "8pu1": ("8PU1", "A,B"), "8wt4": ("8WT4", "A,B"),
            "im9": ("1EMV", "A")}
 
 
