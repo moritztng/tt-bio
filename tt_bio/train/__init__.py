@@ -47,7 +47,8 @@ from typing import TYPE_CHECKING
 # contract and removing one breaks a test rather than a user's script silently.
 TIER2 = (
     "plan", "batches", "Mesh", "AdamW", "Checkpointer", "LoraConfig", "trainable",
-    "lora_factors_for", "weights_for", "lora_factors", "lora_linear", "attach", "census",
+    "lora_factors_for", "weights_for", "walked_weights", "lora_factors", "lora_linear",
+    "attach", "census",
     "select", "af3_lr", "to_host",
     "to_device", "objectives", "losses", "provenance", "save_adapter", "load_adapter",
     "install", "uninstall", "backward", "no_grad", "Tensor", "UnreducedGradients",
@@ -65,6 +66,7 @@ _WHERE = {
     "LoraConfig": "lora", "LoraSite": "lora", "lora_factors": "lora",
     "lora_factors_for": "lora", "lora_linear": "lora", "census": "lora", "select": "lora",
     "attach": "lora", "trainable": "lora", "weights_for": "lora",
+    "walked_weights": "lora", "Parameters": "lora",
     "Checkpointer": "checkpoint", "save_adapter": "checkpoint",
     "load_adapter": "checkpoint",
     "to_host": "tensors", "to_device": "tensors",
@@ -89,8 +91,8 @@ if TYPE_CHECKING:  # for editors only; never executed, so it cannot import ttnn 
     from .sharding import Batch, batches
     from .checkpoint import Checkpointer, load_adapter, save_adapter
     from .checks import gradcheck
-    from .lora import (LoraConfig, attach, lora_factors, lora_factors_for, lora_linear,
-                       trainable, weights_for)
+    from .lora import (LoraConfig, Parameters, attach, lora_factors, lora_factors_for,
+                       lora_linear, trainable, walked_weights, weights_for)
     from .loop import Run, finetune
     from .mesh import Axis, Mesh, UnreducedGradients
     from .optim import AdamW, af3_lr
