@@ -264,9 +264,11 @@ def build_protein_features(sequence: str, a3m: str | None = None) -> dict:
 def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     """Map a `bond` constraint endpoint (chain id, 1-indexed residue, atom name) to its
     global token index, using the per-chain placement recorded in build_complex_features.
-    A standard polymer residue is one token (atom name unused); a ligand and a MODIFIED
-    residue are tokenized per atom, so there the atom name picks the token and an unknown
-    name is an error rather than a bond quietly landing on the wrong atom."""
+    A standard polymer residue is one token, so its atom name does not pick the token; it is
+    still checked against the residue's atoms, because SG named on an Asp is a wrong input and
+    not a bond. A ligand and a MODIFIED residue are tokenized per atom, so there the atom name
+    picks the token. Either way an unknown name is an error rather than a bond quietly
+    landing on the wrong atom."""
     cid = str(cid)
     if cid not in placement:
         raise ValueError(f"bond constraint references chain '{cid}', which is not in the input.")
@@ -287,6 +289,12 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
             raise ValueError(f"bond constraint references atom '{atom}' on modified residue "
                              f"{res} of chain '{cid}', which has no such atom.")
         return start + mod_atoms[atom]
+    from .data import const
+    name = p["res_names"][res - 1]
+    known = const.ref_atoms.get(name, [])
+    if atom not in known and atom not in ("OXT", "OP3"):
+        raise ValueError(f"bond constraint references atom '{atom}' on residue {res} ({name}) "
+                         f"of chain '{cid}', which has atoms {', '.join(known)}.")
     return start + p["res_tok"][res - 1]
 
 
@@ -405,7 +413,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
                                              "atoms": name_to_local, "res_tok": res_tok,
-                                             "res_atoms": res_atoms}
+                                             "res_atoms": res_atoms,
+                                             "res_names": _res_names(seq, mt)}
         tok_off += n
         res_off += n_res
     N_tot = tok_off
@@ -619,6 +628,17 @@ def seq_to_restype(seq: str, mol_type: str = "protein") -> torch.Tensor:
         return aatype_from_sequence(seq)
     table, unk = (_RNA_LETTER_IDX, 25) if mol_type == "rna" else (_DNA_LETTER_IDX, 30)
     return torch.tensor([table.get(c.upper(), unk) for c in seq], dtype=torch.long)
+
+
+def _res_names(seq, mol_type: str) -> list:
+    """Per-residue CCD code of a polymer chain, the key into const.ref_atoms (None for a ligand)."""
+    from .data import const
+    if mol_type == "ligand":
+        return None
+    seq = "".join(str(seq).split())
+    if mol_type in ("rna", "dna"):
+        return _na_res_codes(seq, mol_type)
+    return [const.prot_letter_to_token.get(c.upper(), "UNK") for c in seq]
 
 
 def _na_res_codes(seq: str, mol_type: str) -> list:

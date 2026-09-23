@@ -217,3 +217,17 @@ def test_declaring_the_residue_as_a_modification_clears_the_refusal():
     feats = build_complex_features([("ACDEFXGHIK", None, "protein")],
                                    modifications=[[{"position": 6, "ccd": "MSE"}]])
     assert feats["restype"].shape[0] == feats["residue_index"].shape[0]
+
+
+def test_reader_uppercases_polymers_not_smiles(tmp_path):
+    # RF3's tokenizer rejects a lowercase sequence the other models accept; the shared reader
+    # normalises once. A SMILES is case-sensitive (aromatic c) and must pass through untouched.
+    from tt_bio.main import _read_bio_chains
+    y = tmp_path / "in.yaml"
+    y.write_text("version: 1\nsequences:\n"
+                 "  - protein: {id: A, sequence: mqifvk}\n"
+                 "  - rna: {id: R, sequence: gcau}\n"
+                 "  - ligand: {id: L, smiles: 'c1ccccc1O'}\n")
+    assert [c[1] for c in _read_bio_chains(y)] == ["MQIFVK", "GCAU", "c1ccccc1O"]
+    f = _fasta(tmp_path, ">A|protein|empty\nmqifvk\n>L|smiles\nc1ccccc1O\n")
+    assert [c[1] for c in _read_bio_chains(f)] == ["MQIFVK", "c1ccccc1O"]

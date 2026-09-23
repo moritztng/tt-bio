@@ -3315,10 +3315,19 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                 msg = f"Bond constraint was not properly specified"
                 raise ValueError(msg)
 
-            c1, r1, a1 = tuple(constraint["bond"]["atom1"])
-            c2, r2, a2 = tuple(constraint["bond"]["atom2"])
-            c1, r1, a1 = atom_idx_map[(c1, r1 - 1, a1)]  # 1-indexed
-            c2, r2, a2 = atom_idx_map[(c2, r2 - 1, a2)]  # 1-indexed
+            ends = []
+            for key in ("atom1", "atom2"):
+                c, r, a = tuple(constraint["bond"][key])
+                hit = atom_idx_map.get((c, r - 1, a))  # 1-indexed
+                if hit is None:
+                    here = sorted(n for (cc, rr, n) in atom_idx_map if cc == c and rr == r - 1)
+                    raise ValueError(
+                        f"Bond {key} [{c}, {r}, {a}] names an atom that is not in the input: "
+                        + (f"residue {r} of chain '{c}' has atoms {', '.join(here)}."
+                           if here else f"chain '{c}' has no residue {r}.")
+                    )
+                ends.append(hit)
+            (c1, r1, a1), (c2, r2, a2) = ends
             connections.append((c1, c2, r1, r2, a1, a2))
         elif "pocket" in constraint:
             if (

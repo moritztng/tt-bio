@@ -2299,7 +2299,8 @@ def _read_bio_chains(path, what="input"):
     and one set of accepted keys.
 
     The FASTA type field and the YAML entry key select the modality; protein keeps its
-    MSA, nucleic-acid and ligand chains are single-sequence (``msa_spec=None``). A ligand
+    MSA, nucleic-acid and ligand chains are single-sequence (``msa_spec=None``). Polymer
+    sequences are uppercased here, once, because RF3's tokenizer rejects lowercase. A ligand
     carries its spec in the ``sequence`` slot: ``CCD_<code>`` for a CCD component (comma
     separated for a multi-residue ligand chain) or a raw SMILES string. ``modifications``
     is the polymer's ``[{"position": N, "ccd": CODE}]`` list (1-indexed, Boltz
@@ -2317,7 +2318,8 @@ def _read_bio_chains(path, what="input"):
             # we auto-assign below — gate on `is not None` so it isn't silently dropped.
             if cid is not None and buf:
                 seq = "".join(buf)
-                seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
+                # ccd code -> CCD_ spec; a polymer is case-insensitive, a SMILES is not
+                seq = "CCD_" + seq.upper() if mt == "_ccd" else seq if mt == "ligand" else seq.upper()
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
                 for c in cid.split(","):
                     chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype, None))
@@ -2359,7 +2361,7 @@ def _read_bio_chains(path, what="input"):
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), sub["sequence"], m, mt, mods))
+                    chains.append((c.strip(), str(sub["sequence"]).upper(), m, mt, mods))
             lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
             if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
                 if lig.get("ccd"):
