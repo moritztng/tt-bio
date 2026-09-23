@@ -719,13 +719,13 @@ Model-specific options are labelled below.
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
-| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 4 for Protenix-v1 (its checkpoint's own `N_cycle`); 10 for Protenix-v2/OpenDDE/ESMFold2/RF3 (the ESMFold2 paper's benchmark setting) |
+| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3; 4 for Protenix-v1 (its checkpoint's own `N_cycle`); 10 for Protenix-v2/OpenDDE/ESMFold2/RF3 (the ESMFold2 paper's benchmark setting). Boltz-2, ESMFold2 and the OpenFold3 family run one more trunk cycle than asked and accept 0; Protenix, OpenDDE and RF3 count cycles, so their smallest value is 1 |
 | `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
-| `--diffusion_samples` | `1` | Number of structure samples |
+| `--diffusion_samples` | `1` | Number of structure samples. Device memory stays flat past the chunk width and time grows linearly, see [docs/sample-scaling.md](docs/sample-scaling.md) |
 | `--partial_t` | `0` | rf3 only. Schedule index the diffusion rollout starts at, so it refines `--partial_structure` instead of folding from scratch. Higher stays closer to that structure |
 | `--partial_structure` | — | rf3 only. The `.cif`/`.pdb`/`.json` structure `--partial_t` refines. It supplies the sequences too, so no MSA is attached |
 | `--early_stop_plddt` | — | rf3 only. Abandon a target after the first trunk recycle if its mean pLDDT is below this. Writes no structure; the results entry carries `early_stopped` |
-| `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
+| `--max_parallel_samples` | `5` | **(Boltz-2/Protenix/OpenDDE)** Diffusion samples denoised in one batched forward. Device memory grows linearly in it; lower it if a large target runs out of memory. ESMFold2 sizes its own chunk to free memory; OpenFold3, OpenBind and RF3 denoise one sample at a time |
 | `--output_format` | `cif` | `cif` or `pdb`. A PDB has one column for the chain id, so a longer name is rewritten `A`, `B`, `C`... and the originals go into a `REMARK 999` block; `cif` keeps them as submitted. See [docs/model-capabilities.md](docs/model-capabilities.md#outputs) |
 | `--seed` | `0` | Random seed for the diffusion sampler |
 | `--trace` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream. Lossless, and removes the per-step host dispatch; reserves 1 GiB of device memory |
