@@ -1,0 +1,2 @@
+{"tag": "b_2048_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_2048_small.yaml"}
+{"tag": "b_2560_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_2560_small.yaml"}
