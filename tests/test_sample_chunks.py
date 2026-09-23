@@ -179,3 +179,19 @@ def test_every_batched_sampler_goes_through_the_one_helper():
     # OpenDDE, OpenDDE-AbAg and PXDesign sample through protenix.edm_sample.
     for rel in ("opendde.py", "pxdesign/model.py"):
         assert "edm_sample(" in (ROOT / "tt_bio" / rel).read_text(), rel
+
+
+def test_a_width_change_keeps_the_staged_token_bias():
+    """The token bias does not depend on the width, and staging it frees the caller's device
+    tensor it came from, so a narrower chunk must keep the staged copy rather than re-stage."""
+    pytest.importorskip("ttnn")
+    from tt_bio.tenstorrent import DiffusionModule
+    dm = DiffusionModule.__new__(DiffusionModule)
+    torch.nn.Module.__init__(dm)
+    dm.module, dm._first_forward_pass = None, False
+    bias, ref = object(), object()
+    dm._runtime_cache = {"bias_token": bias, "cond_ref": ref, "q": object(), "c": object()}
+    dm.reset_sample_width()
+    assert dm._runtime_cache == {"bias_token": bias, "cond_ref": ref} and dm._first_forward_pass
+    dm.reset_static_cache()
+    assert dm._runtime_cache == {}

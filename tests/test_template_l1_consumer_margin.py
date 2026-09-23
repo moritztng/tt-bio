@@ -149,4 +149,4 @@ def test_the_residency_window_is_still_the_projections_only(part):
     tpl = src[src.index("def _template("):]
     tpl = tpl[:tpl.index("\n    def ")]
     assert tpl.index("ttnn.deallocate(zn)") < tpl.index("for pl in self.TPL:")   # the block loop
-    assert "_l1_layer_norm(x, 1.5" in src   # the call these numbers were measured at
+    assert "l1_headroom=1.5 if" in src   # the call these numbers were measured at

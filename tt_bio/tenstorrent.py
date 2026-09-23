@@ -70,6 +70,9 @@ PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
 # Triangle-attention shapes whose whole-tensor path DRAM refused, and the row block they settled
 # at. See TriangleAttention.__call__.
 _TRIATT_WHOLE_REFUSED: dict = {}
+# The same for the always-blocked path (above SEQ_LEN_MORE_CHUNKING): shapes whose 512-row block
+# DRAM refused, and the block they settled at.
+_TRIATT_BLOCK_REFUSED: dict = {}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -8076,8 +8079,15 @@ class TriangleAttention(Module):
                 ("tri_att", tuple(x.padded_shape), self.ending), x,
                 lambda: self._attend_pair(x, attn_mask, rows, add_to_input))
 
+        key = (tuple(x.padded_shape), self.ending)
         if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
-            return blocked(TRIANGLE_ATT_CHUNK_SIZE)
+            # A block can be refused too: the affinity bias is [rows, heads, S, S], 10070523904 B
+            # for nesso1 at 1568 tokens, and whether 839 MB per bank is still contiguous depends
+            # on what ran before it (refused with 907 MB free, 823 MB largest block). Halving
+            # moves row boundaries only.
+            return row_block_after_refusal(
+                _TRIATT_BLOCK_REFUSED, key, lambda: blocked(TRIANGLE_ATT_CHUNK_SIZE), blocked,
+                rows=TRIANGLE_ATT_CHUNK_SIZE // 2, tag="tri_att")
         # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
         # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
         # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
@@ -8085,8 +8095,7 @@ class TriangleAttention(Module):
         # which never builds more than one block of them, and a size that fits keeps its single
         # pass byte for byte.
         return row_block_after_refusal(
-            _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
-            lambda: self._attend_pair(x, attn_mask, None), blocked,
+            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None), blocked,
             rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
 
     def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
@@ -10736,6 +10745,11 @@ class DiffusionTransformer(Module):
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
 
+    def _peak_tag(self, a):
+        # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
+        # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
+        return f"dit[{'atom' if self.atom_level else 'token'} B={a.shape[0]}] layer"
+
     def __call__(
         self,
         a: ttnn.Tensor,
@@ -10788,6 +10802,7 @@ class DiffusionTransformer(Module):
                               cond=cond)
                     for x in parts:
                         ttnn.deallocate(x)
+                    dram_peak(self._peak_tag(a))
                 return a
             dim = z.shape[1] // len(self.layers)
             for i, layer in enumerate(self.layers):
@@ -10802,6 +10817,7 @@ class DiffusionTransformer(Module):
                 )
                 for x in parts:
                     ttnn.deallocate(x)
+                dram_peak(self._peak_tag(a))
             return a
         finally:
             if cond_all is not None:
@@ -12509,29 +12525,8 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("bias_decoder", self._hoist_layer_bias(
                 prepare_atom_bias(bias_decoder), self.module.decoder))
 
-            if isinstance(bias_token, ttnn.Tensor):
-                # PairConditioningDevice produced it on the device, already padded. Both the
-                # 201 MB download the host path did to build it and this upload disappear.
-                bias = bias_token
-            else:
-                if token_pad:
-                    bias_token = torch.nn.functional.pad(
-                        bias_token, (0, 0, 0, token_pad, 0, token_pad))
-                bias = self._from_torch(bias_token)
-            # Scale the permuted copy, not `bias`: the device-built bias belongs to the caller, and
-            # a narrower sample chunk re-stages from it (sample_chunks.denoise_in_chunks), which
-            # would otherwise scale it twice. Same multiply on the same elements either way.
-            bias_token_tt = ttnn.multiply_(
-                ttnn.permute(bias, (0, 3, 1, 2)), (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
-            )
-            if token_pad:
-                # Fuse additive padding mask into token bias (bfloat16 for -1e9)
-                seq_mask = torch.zeros(1, 1, 1, padded_seq)
-                seq_mask[..., seq_len:] = -1e9
-                bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-            self._cache_set("bias_token", self._hoist_layer_bias(
-                bias_token_tt,
-                None if self.module.token_transformer_fp32 else self.module.token_transformer))
+            if self._cache_get("bias_token") is None:
+                self._cache_set("bias_token", self._stage_token_bias(bias_token, token_pad, seq_len))
 
             if atom_pad or token_pad:
                 atom_to_token = torch.nn.functional.pad(atom_to_token, (0, token_pad, 0, atom_pad))
@@ -12549,6 +12544,38 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("cond_ref", cond_key)
             self._first_forward_pass = False
         return seq_len, N, N_padded
+
+    def _stage_token_bias(self, bias_token, token_pad: int, seq_len: int):
+        """Scale, permute and pad-mask the token DiT's attention bias. It does not depend on the
+        sample width, so a narrower chunk keeps it (``reset_sample_width``)."""
+        padded_seq = seq_len + token_pad
+        if isinstance(bias_token, ttnn.Tensor):
+            # PairConditioningDevice produced it on the device, already padded. Both the
+            # 201 MB download the host path did to build it and this upload disappear.
+            bias = bias_token
+        else:
+            if token_pad:
+                bias_token = torch.nn.functional.pad(
+                    bias_token, (0, 0, 0, token_pad, 0, token_pad))
+            bias = self._from_torch(bias_token)
+        bias = ttnn.multiply_(
+            bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
+        )
+        bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
+        if isinstance(bias_token, ttnn.Tensor):
+            # The device conditioning hands its tensor over (the multiply_ above already
+            # scaled it in place) and nothing reads it after this permute. Kept, it was a
+            # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
+            # 1728 tokens. Nothing may re-stage from it, hence reset_sample_width.
+            ttnn.deallocate(bias)
+        if token_pad:
+            # Fuse additive padding mask into token bias (bfloat16 for -1e9)
+            seq_mask = torch.zeros(1, 1, 1, padded_seq)
+            seq_mask[..., seq_len:] = -1e9
+            bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
+        return self._hoist_layer_bias(
+            bias_token_tt,
+            None if self.module.token_transformer_fp32 else self.module.token_transformer)
 
     def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
         """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
@@ -12707,6 +12734,15 @@ class DiffusionModule(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
         return result[:, :N, :]
+
+    def reset_sample_width(self):
+        """Drop what is staged per sample batch so a narrower chunk re-stages it, but keep the
+        token bias: it does not depend on the width, and its device source was freed when it
+        was staged. ``cond_ref`` stays so a new fold still resets everything."""
+        kept = {k: self._runtime_cache.pop(k) for k in ("bias_token", "cond_ref")
+                if k in self._runtime_cache}
+        self.reset_static_cache()
+        self._runtime_cache.update(kept)
 
     def reset_static_cache(self):
         super().reset_static_cache()

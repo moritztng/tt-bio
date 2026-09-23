@@ -47,6 +47,12 @@ class _LazyTenstorrent:
 
 tenstorrent = _LazyTenstorrent()
 
+
+def _dram_peak(tag):
+    """tenstorrent.dram_peak without importing ttnn when the census is off (CPU/GPU hosts)."""
+    if os.environ.get("TT_BIO_DRAM_PEAK"):
+        tenstorrent.dram_peak(tag)
+
 # Lazy imports for fallback modules to avoid circular imports
 # These are imported inside classes that use them
 def _get_pytorch_modules():
@@ -4450,7 +4456,7 @@ class AtomDiffusion(Module):
                 # DiT keeps the reshaped atom conditioning and the atom layers' output gate as
                 # module state. A second width meets those stale caches and dies with a
                 # broadcasting TT_FATAL mid-trajectory (measured 2026-07-29, multiplicity=5,
-                # mps=3), so a narrower retry drops them first (reset_static_cache).
+                # mps=3), so a narrower retry drops them first (reset_sample_width).
                 def _denoise_chunk(r_chunk, width):
                     n_real = r_chunk.shape[0]
                     if n_real < width:
@@ -4459,7 +4465,7 @@ class AtomDiffusion(Module):
                         r_chunk = torch.cat(
                             [r_chunk, r_chunk[-1:].expand(width - n_real, -1, -1)]
                         )
-                    return self.preconditioned_network_forward(
+                    out = self.preconditioned_network_forward(
                         r_chunk,
                         t_hat,
                         network_condition_kwargs=dict(
@@ -4467,10 +4473,12 @@ class AtomDiffusion(Module):
                             **network_condition_kwargs,
                         ),
                     )[:n_real]
+                    _dram_peak(f"diffusion chunk [W={width}]")
+                    return out
 
                 atom_coords_denoised, chunk_width = denoise_in_chunks(
                     atom_coords_noisy, chunk_width, _denoise_chunk,
-                    reset=self.score_model.reset_static_cache if self.use_tenstorrent else None,
+                    reset=self.score_model.reset_sample_width if self.use_tenstorrent else None,
                     tag="boltz2 diffusion")
 
                 if steering_args["fk_steering"] and (
@@ -5823,6 +5831,10 @@ class Boltz2(nn.Module):
                 # Taken once and owned here, because two stages read it: the diffusion
                 # conditioning before the sampler and the confidence head after it.
                 device_z = _trunk.pop_device_z()
+            # The trunk's staged inputs (MSA features, z_init, template statics) are dead once
+            # it returns, but the next fold's reset is what used to free them, so they sat
+            # through diffusion and confidence: 2.6 GiB at 1728 tokens with a deep MSA.
+            _trunk.reset_static_cache()
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
@@ -5934,6 +5946,11 @@ class Boltz2(nn.Module):
                     progress_fn=_pfn,
                 )
                 dict_out.update(struct_out)
+            # Same for the sampler's staged conditioning (the per-layer token bias alone is
+            # [n, n, heads * layers]): release it before the confidence head allocates.
+            for m in self.structure_module.modules():
+                if hasattr(m, "reset_static_cache"):
+                    m.reset_static_cache()
 
             if self.predict_bfactor:
                 pbfactor = self.bfactor_module(s)
@@ -5966,6 +5983,7 @@ class Boltz2(nn.Module):
                     z_device=device_z if device_confidence else None,
                 )
             )
+            _dram_peak(f"confidence done [samples={diffusion_samples}]")
         if device_z is not None:
             tenstorrent.free(device_z[0])
             device_z = None

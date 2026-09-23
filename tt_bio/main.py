@@ -2822,6 +2822,21 @@ RECYCLING_STEPS_DEFAULT = 3
 #: built from this, because it used to name openfold3 alone.
 TRUNK_CYCLES_PLUS_ONE = ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind")
 
+
+def _check_recycling_steps(recycling_steps, model):
+    """Refuse a --recycling_steps that would run no trunk.
+
+    Models outside TRUNK_CYCLES_PLUS_ONE count trunk cycles, not recycles after a first pass,
+    so 0 asks for no trunk at all: protenix folded one from the input embedding alone and rf3
+    silently ran its default of 10 instead (recycle ladder, 2026-09-23).
+    """
+    if recycling_steps is not None and recycling_steps < (0 if model in TRUNK_CYCLES_PLUS_ONE else 1):
+        raise click.BadParameter(
+            f"--recycling_steps counts trunk cycles for {model}, so the smallest is 1 "
+            f"(got {recycling_steps}). " + ", ".join(TRUNK_CYCLES_PLUS_ONE)
+            + " count recycles after a first pass and accept 0.")
+
+
 #: Requested diffusion-sampling steps per model, and what the request executes where the
 #: two differ (see _resolve_sampling_steps for why). The help is built from this: it used
 #: to say "every other model 200" while rf3 has shipped 50 since its port.
@@ -2991,7 +3006,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int)
+@click.option("--diffusion_samples", default=1, type=int,
+              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+                   "growing once the count passes the chunk width and time grows linearly. See "
+                   "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
               help="RF3 only. Start the diffusion rollout at schedule index N instead of "
                    "from pure noise, so the rollout refines --partial_structure rather than "
@@ -3007,9 +3025,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "confidence head and abandon the target if it is below this. Writes no "
                    "structure and reports early_stopped in the metrics.")
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
-              help="Diffusion samples denoised in one batched forward. Higher is faster but "
-                   "costs device memory linearly; if the chip refuses a batch, it halves on its "
-                   "own, down to one sample.")
+              help="Diffusion samples denoised in one batched forward by boltz2, protenix-v1/v2, "
+                   "opendde, opendde-abag and pxdesign; the other models pick their own width. "
+                   "Device memory grows linearly in it; if the chip refuses a batch, it halves on "
+                   "its own, down to one sample.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -3157,6 +3176,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--diffusion_samples_affinity must be at least 1")
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
+    _check_recycling_steps(recycling_steps, model)
 
     # Per-model trunk-recycling default (see RECYCLING_STEPS): protenix-v2/opendde/esmfold2/rf3
     # -> 10, protenix-v1 -> 4, boltz2/openfold3 -> 3; --recycling_steps overrides any of them.
