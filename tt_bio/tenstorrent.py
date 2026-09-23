@@ -4321,11 +4321,13 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     per_core_N = -(-seq_len_tiles // gx)
     # The band's block is priced like every other matmul plan and narrowed only when its
     # circular buffers overflow the bank. On a Wormhole 8x9 grid that starts at Kt = 80
-    # (2560 padded tokens): at Kt = 81 the band's 9 wants 1345536 B of CBs and the allocator
-    # refused it beside live L1 ("static circular buffer region ends at 1449248", Nesso-1 at
-    # 2560 aa + a 20-token ligand). Every shape that fit before keeps its block, so its output
-    # is unchanged; a narrowed block reorders the fp32 K accumulation of a shape that used to
-    # throw, and nothing else.
+    # (2560 padded tokens): at Kt = 81 the band's 9 prices at 1476608 B against a 1395424 B
+    # bank, and the device refused it beside live L1 ("static circular buffer region ends at
+    # 1449248", Nesso-1 at 2560 aa + a 20-token ligand). On Blackhole's 11x10 it starts at
+    # Kt = 100. Below that every shape keeps its block and its output; a narrowed block
+    # reorders the fp32 K accumulation of a shape that threw or sat within a live
+    # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
+    # the output block itself is the next wall.
     budget = _matmul_cb_budget()
     in0_block_w = _trimul_in0_block_w(seq_len_tiles)
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
