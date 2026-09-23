@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Run affinity jobs through the shipped CLI, one pinned chip per lane, one JSON per job.
 
-    python3 perf/mgx_affinity/lane.py --pool "2 3 4" --cards 1 plan.jsonl
-    python3 perf/mgx_affinity/lane.py --pool "2 3 4 5" --cards 4 plan.jsonl   # multi-chip job
+    python3 perf/mgx_affinity/lane.py --pool "2 3 4 5" a.jsonl b.jsonl c.jsonl:2
+
+One process, one lane (thread) per plan, `:N` for N chips per job. Claims go through one lock, so
+two lanes never take the same chip.
 
 A plan line is {"tag", "surface": "nesso1"|"boltz2", "input", "args": [...]}. A job whose
 results/<tag>.json exists is skipped, so a relaunch continues. Per job it records the exit code,
@@ -30,7 +32,7 @@ import time
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
-from perf.clocksample import during  # noqa: E402
+from perf.clocksample import TT_SMI  # noqa: E402
 
 HOST = os.uname().nodename
 LEASES = pathlib.Path(os.environ.get("TT_BIO_LEASE_DIR", str(pathlib.Path.home() / "leases")))
@@ -77,34 +79,47 @@ def release(c):
 
 
 def take(pool, n, held, avoid):
-    while len(held) < n:
-        for c in pool:
-            if c in BLOCKED or c in held or avoid.get(c, 0) > time.time():
-                continue
-            if free(c):
-                claim(c)
-                held.append(c)
-                print(f"{time.strftime('%H:%M:%S')} took card {c}", flush=True)
-                if len(held) == n:
-                    break
-        else:
-            time.sleep(30)
+    """One pass over the pool; the caller sleeps outside the lock and comes back."""
+    for c in pool:
+        if len(held) == n:
+            break
+        if c in BLOCKED or c in held or avoid.get(c, 0) > time.time():
+            continue
+        if free(c):
+            claim(c)
+            held.append(c)
+            print(f"{time.strftime('%H:%M:%S')} took card {c}", flush=True)
     return held
 
 
-class loadwatch(threading.Thread):
-    def __init__(self):
+class watch(threading.Thread):
+    """Host load every 10 s and each granted chip's AICLK every 20 s, for the job's duration.
+    tt-smi is pinned per call (lanes are threads of one process, so the env is not theirs)."""
+
+    def __init__(self, grant):
         super().__init__(daemon=True)
-        self.xs, self.stop = [], threading.Event()
+        self.grant, self.load, self.clk, self.stop = grant, [], {}, threading.Event()
 
     def run(self):
+        n = 0
         while not self.stop.is_set():
-            self.xs.append(float(open("/proc/loadavg").read().split()[0]))
+            self.load.append(float(open("/proc/loadavg").read().split()[0]))
+            if n % 2 == 0:
+                try:
+                    r = subprocess.run([TT_SMI, "-s"], capture_output=True, text=True, timeout=60,
+                                       env=dict(os.environ, TT_VISIBLE_DEVICES=self.grant))
+                    for i, dev in enumerate(json.loads(r.stdout).get("device_info", [])):
+                        self.clk.setdefault(i, []).append(int(dev["telemetry"]["aiclk"]))
+                except Exception:
+                    pass
+            n += 1
             self.stop.wait(10)
 
     def summary(self):
-        s = sorted(self.xs) or [float("nan")]
-        return {"min": s[0], "median": s[len(s) // 2], "max": s[-1], "nproc": os.cpu_count()}
+        s = sorted(self.load) or [float("nan")]
+        clk = {i: {"min": min(v), "median": sorted(v)[len(v) // 2], "max": max(v), "n": len(v)}
+               for i, v in self.clk.items() if v}
+        return clk, {"min": s[0], "median": s[len(s) // 2], "max": s[-1], "nproc": os.cpu_count()}
 
 
 def census(path):
@@ -144,7 +159,8 @@ def command(job, out):
             *job.get("args", [])]
 
 
-def run(job, cards):
+def run(job, cards, adopt=None):
+    """Run the job on ``cards``; or, with ``adopt=(pid, t0)``, watch an already running one."""
     tag = job["tag"]
     out, log, dram = OUT / tag, OUT / f"{tag}.log", OUT / f"{tag}.dram"
     OUT.mkdir(parents=True, exist_ok=True)
@@ -160,60 +176,99 @@ def run(job, cards):
     cmd = command(job, out)
     commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
                             capture_output=True, text=True).stdout.strip()
-    os.environ["TT_VISIBLE_DEVICES"] = grant  # so tt-smi reports the granted chips
-    lw = loadwatch()
-    lw.start()
-    t0 = time.time()
-    with during(period=5.0) as clk, open(log, "w") as fh:
-        fh.write(f"START {time.strftime('%FT%TZ', time.gmtime())} cards={grant} commit={commit}\n"
-                 f"CMD {' '.join(cmd)}\n")
-        fh.flush()
-        rc = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT).returncode
+    w = watch(grant)
+    w.start()
+    if adopt:
+        pid, t0 = adopt
+        while os.path.exists(f"/proc/{pid}"):
+            time.sleep(10)
+        rc = None  # not our child; the rows below are the outcome
+    else:
+        t0 = time.time()
+        with open(log, "w") as fh:
+            fh.write(f"START {time.strftime('%FT%TZ', time.gmtime())} cards={grant} commit={commit}\n"
+                     f"CMD {' '.join(cmd)}\n")
+            fh.flush()
+            rc = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT).returncode
     wall = time.time() - t0
-    lw.stop.set()
+    w.stop.set()
+    aiclk, load = w.summary()
     text = log.read_text(errors="replace")
     row = {"tag": tag, "surface": job["surface"], "input": job["input"], "args": job.get("args", []),
            "host": HOST, "cards": cards, "commit": commit, "rc": rc, "wall_s": round(wall, 1),
-           "aiclk": clk.summary(), "load": lw.summary(), "census": census(dram),
+           "aiclk": aiclk, "load": load, "census": census(dram), "adopted": bool(adopt),
            "rows": scalars(job["surface"], out),
            "contention": bool(re.search(r"DeviceInUseError|is in use by worker:", text)),
            "errors": [ln[:400] for ln in text.splitlines()
                       if re.search(r"(?i)out of memory|Out of Memory|allocat|Traceback|Error:|error:", ln)][-12:],
-           "tail": text.splitlines()[-25:] if rc else []}
+           "tail": text.splitlines()[-25:] if rc != 0 else []}
     return row
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("plan", type=pathlib.Path)
-    ap.add_argument("--pool", required=True, help="candidate cards, space separated")
-    ap.add_argument("--cards", type=int, default=1, help="chips per job")
-    a = ap.parse_args()
-    pool = [int(x) for x in a.pool.split()]
-    RES.mkdir(parents=True, exist_ok=True)
+LOCK = threading.Lock()
+
+
+def lane(plan, pool, n, adopt=None):
     held, avoid = [], {}
-    for line in a.plan.read_text().splitlines():
+    for line in plan.read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         job = json.loads(line)
         if (RES / f"{job['tag']}.json").exists():
             continue
         while True:
-            held = take(pool, a.cards, held, avoid)
+            if adopt and adopt[0] == job["tag"]:
+                held = adopt[1]
+                row = run(job, held, adopt=adopt[2:])
+                adopt = None
+                break
+            while len(held) < n:
+                with LOCK:
+                    held = take(pool, n, held, avoid)
+                if len(held) < n:
+                    time.sleep(30)
             row = run(job, held)
-            for c in held:
-                claim(c)
             if not row["contention"]:
                 break
+            # Refused: some other holder owns at least one of these now. Never write a lease we
+            # may not own; drop them all and come back to them later.
             for c in held:
                 avoid[c] = time.time() + 600
             held = []
+        for c in held:
+            claim(c)
         (RES / f"{job['tag']}.json").write_text(json.dumps(row, indent=1) + "\n")
-        print(f"{time.strftime('%H:%M:%S')} {job['tag']} rc={row['rc']} wall={row['wall_s']}s "
-              f"aiclk={row['aiclk']} rows={len(row['rows'])}", flush=True)
+        print(f"{time.strftime('%H:%M:%S')} {plan.stem} {job['tag']} rc={row['rc']} "
+              f"wall={row['wall_s']}s aiclk={row['aiclk']} rows={len(row['rows'])}", flush=True)
     for c in held:
         release(c)
-    print("LANE_DONE", flush=True)
+    print(f"LANE_DONE {plan.stem}", flush=True)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("plans", nargs="+", help="plan.jsonl, or plan.jsonl:N for N chips per job")
+    ap.add_argument("--pool", required=True, help="candidate cards, space separated")
+    ap.add_argument("--adopt", default=None,
+                    help="TAG:CARDS:PID:EPOCH -- watch an already running job of the first plan "
+                         "instead of starting it (CARDS comma separated)")
+    a = ap.parse_args()
+    pool = [int(x) for x in a.pool.split()]
+    RES.mkdir(parents=True, exist_ok=True)
+    adopt = None
+    if a.adopt:
+        tag, cards, pid, t0 = a.adopt.split(":")
+        adopt = (tag, [int(c) for c in cards.split(",")], int(pid), float(t0))
+    threads = []
+    for k, spec in enumerate(a.plans):
+        path, _, n = spec.partition(":")
+        th = threading.Thread(target=lane, args=(pathlib.Path(path), pool, int(n or 1),
+                                                  adopt if k == 0 else None))
+        th.start()
+        threads.append(th)
+        time.sleep(1)
+    for th in threads:
+        th.join()
 
 
 if __name__ == "__main__":
