@@ -73,7 +73,7 @@ for job in "$@"; do
     rc=$?
     echo "EXIT=$rc WALL=$(( $(date +%s) - start ))s" >> "$out/$s.log"
     if free "$C"; then claim "$C"; else C=; fi
-    grep -qE 'DeviceInUseError|is in use by worker:' "$out/$s.log" || break
+    grep -qE 'DeviceInUseError|is in use by worker:|leased by another process' "$out/$s.log" || break
     [ -n "$C" ] && AVOID[$C]=$(( $(date +%s) + 600 )); C=
   done
 done
