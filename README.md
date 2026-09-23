@@ -138,7 +138,7 @@ walked with the settings the platform sends:
 | `protenix-v1` | 1920 | 2048 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
-| `esmc-6b` (embed) | 1968 | 1984 |
+| `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `nesso1` has no measured

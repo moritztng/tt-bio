@@ -42,13 +42,38 @@ def pcc(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.corrcoef(a, b)[0, 1])
 
 
+def reference_state_dict(name: str) -> dict:
+    """The fp32 weights of `name`, read from the artifact the device loads.
+
+    Both sides go through ``tt_bio.weights.fetch``, so both read the pinned revision. The
+    6B reference used to download its own snapshot and got the hub's live ``main``, which
+    was re-published with new key names; see ``load_reference``.
+    """
+    from tt_bio import weights
+
+    if name == "esmc-6b":
+        return tt_esmc.load_esmc6b_state_dict(str(weights.fetch(name)), dtype=torch.float32)
+    sd = torch.load(weights.fetch(name), map_location="cpu", weights_only=False)
+    return sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+
+
 def load_reference(name: str, sd: dict):
-    """Build the reference esm ESMC for `name` and load `sd` into it."""
+    """Build the reference esm ESMC for `name` and load `sd` into it.
+
+    Refuses a state dict that leaves any reference parameter at its random init. The 6B
+    reference once matched 0 of its 808 keys against a re-published checkpoint and every
+    6B parity number scored the device against noise (PCC ~0.00) without an error. The 6B
+    has no sequence head, so only its ``sequence_head.*`` may be absent.
+    """
     from esmc_reference import ESMCReference  # noqa: E402  (tests/ on path)
 
-    cfg = tt_esmc.CONFIGS[name][0]
-    ref = ESMCReference(**cfg).eval()
-    ref.load_state_dict(sd, strict=False)
+    ref = ESMCReference(**tt_esmc.ARCH_CONFIGS[name]).eval()
+    missing, _ = ref.load_state_dict(sd, strict=False)
+    if name == "esmc-6b":
+        missing = [k for k in missing if not k.startswith("sequence_head.")]
+    if missing:
+        raise RuntimeError(f"{name} reference: {len(missing)} of {len(ref.state_dict())} "
+                           f"parameters absent from the checkpoint, e.g. {missing[:3]}")
     return ref
 
 
@@ -88,14 +113,9 @@ def run_esmc_parity(
     torch.set_grad_enabled(False)
 
     # --- real trained weights (downloads on first use) ---
-    from huggingface_hub import hf_hub_download
-
-    _cfg, repo_id, wpath = tt_esmc.CONFIGS[name]
     if verbose:
-        print(f"Fetching {name} weights from {repo_id} …", flush=True)
-    path = hf_hub_download(repo_id, wpath)
-    sd = torch.load(path, map_location="cpu", weights_only=False)
-    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+        print(f"Fetching {name} weights …", flush=True)
+    sd = reference_state_dict(name)
 
     # --- reference (CPU torch) ---
     if verbose:
@@ -172,16 +192,12 @@ def run_multi(
     """
     import json  # noqa: E402  (local import keeps the single-seq path import-light)
 
-    from huggingface_hub import hf_hub_download  # noqa: E402
 
     torch.set_grad_enabled(False)
 
     if verbose := True:
         print(f"Fetching {name} weights …", flush=True)
-    _cfg, repo_id, wpath = tt_esmc.CONFIGS[name]
-    path = hf_hub_download(repo_id, wpath)
-    sd = torch.load(path, map_location="cpu", weights_only=False)
-    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+    sd = reference_state_dict(name)
 
     print("Building reference esm ESMC …", flush=True)
     ref = load_reference(name, sd)
