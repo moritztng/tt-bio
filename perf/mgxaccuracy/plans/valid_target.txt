@@ -1,0 +1,24 @@
+# Quality at 512 against 1536 on a target that IS a target.
+#
+# perf/bhdesign/targets/big_1831.cif cannot answer this: its chains are 246.9 A apart, so every
+# rung above 1008 residues is two proteins in one file rather than a design problem
+# (perf/mgxaccuracy/make_contact_target.py). gpb_dimer_1646.cif is the 1GPB biological assembly,
+# 1646 residues across a real 1.88 A interface, Rg 37.4 A at the 1536 crop against 123.3 A.
+#
+# Order is by what each job decides, not by size:
+#   1-2  pxdesign at both sizes. fit_rmsd is the model's own end-to-end conditioning signal and
+#        release_gate gates it at 15 A. On the fake target 1536 read 95.18 A. If it stays
+#        sub-angstrom here, the 95 A was the fixture; if it does not, it is the size. Cheapest
+#        job in the plan and the one that settles the question.
+#   3-4  boltzgen designability at both sizes, full pipeline, the row's headline metric.
+#   5-6  a SECOND 512 target from the same structure (offset 823 = chain B 1-512), so the
+#        fixed-size across-target spread is measured rather than assumed.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --designs 8 --steps 400 --host-threads 2 --timeout 10800 --tag gpb
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --designs 8 --steps 400 --host-threads 2 --timeout 7200  --tag gpb
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag gpb
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag gpb
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --crop-offset 823 --designs 8 --steps 400 --host-threads 2 --timeout 7200 --tag gpb
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --crop-offset 823 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag gpb
+# The one job still worth running on the ORIGINAL fixture: boltzgen scRMSD at n=8 at 1536 there
+# completes the withdrawal of the claim that opened this row, on the fixture it was made on.
+--model boltzgen --target-res 1536 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag q

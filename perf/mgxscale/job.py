@@ -325,6 +325,16 @@ def run_job(args) -> dict:
     rts = [r["runtime_s"] for r in rows if isinstance(r.get("runtime_s"), (int, float))]
     if rts:
         rec["runtime_s"] = round(max(rts), 1)
+    # pxdesign's own end-to-end correctness signal, and the one scripts/release_gate.py gates
+    # at 15 A. A throughput harness that records seconds and not this reads a job that returned
+    # eight undocked binders as a clean eight-design row (measured: 95.18 A at a 1536-residue
+    # two-body target, 0.0765 A at 512).
+    fits = sorted(r["fit_rmsd"] for r in rows
+                  if isinstance(r.get("fit_rmsd"), (int, float)))
+    if fits:
+        rec["fit_rmsd"] = {"n": len(fits), "min": round(fits[0], 4),
+                           "median": round(fits[len(fits) // 2], 4),
+                           "max": round(fits[-1], 4)}
     if rows and "ranked" in rows[0]:
         rec["ranked"] = rows[0]["ranked"]
 
