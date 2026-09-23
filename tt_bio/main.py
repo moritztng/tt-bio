@@ -3008,7 +3008,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "structure and reports early_stopped in the metrics.")
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
               help="Diffusion samples denoised in one batched forward. Higher is faster but "
-                   "costs device memory linearly; lower it if a large target runs out.")
+                   "costs device memory linearly; if the chip refuses a batch, it halves on its "
+                   "own, down to one sample.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
