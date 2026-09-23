@@ -1,6 +1,6 @@
 version: 1
 # Covalent bond constraint for OpenDDE (protein-protein: a disulfide-style crosslink
-# between Cys7 on chain A and Cys5 on chain B). atom1/atom2 are [chain_id, residue_1indexed,
+# between Cys2 on chain A and Cys4 on chain B). atom1/atom2 are [chain_id, residue_1indexed,
 # atom_name]. For a covalent INHIBITOR (protein Cys <-> ligand atom) see
 # examples/opendde_covalent_ligand.yaml.
 # Fold with:  tt-bio predict examples/opendde_covalent_bond.yaml --model opendde
@@ -14,5 +14,5 @@ sequences:
       sequence: NKLCGHEITWD
 constraints:
   - bond:
-      atom1: [A, 7, SG]
-      atom2: [B, 5, SG]
+      atom1: [A, 2, SG]
+      atom2: [B, 4, SG]
