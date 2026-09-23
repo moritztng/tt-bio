@@ -9,7 +9,8 @@
                 then a DRAM census of each at 20 steps (the census drains the pipeline, so its
                 runs are memory-only).
   fix_nesso1    the size_nesso1 grid again after 29b285fb7 (trunk off the cross-chain mask path),
-                the refused 1536 ligand rungs first; tags nf_*.
+                the refused 1536 ligand rungs first, then 2048 with each ligand and
+                2560/3072 to find the new wall; tags nf_*.
   screen_*      the 100-ligand screens. Nesso-1 YSK4 in two shards on two chips, Nesso-1 LCK on
                 one, Boltz-2 LCK as one `predict` over the directory on two chips, which is how
                 the shipped CLI spreads a screen across cards.
@@ -54,6 +55,7 @@ def main():
              {"tag": "mn_1536_b12", "surface": "nesso1", "input": size(1536, "b12"), "census": True}])
     fix = [(1536, "rap"), (1536, "b12"), (512, "small"), (1536, "small"), (1024, "small"),
            (1664, "small"), (1792, "small"), (2048, "small"), (512, "rap"), (512, "b12")]
+    fix += [(2048, "rap"), (2048, "b12"), (2560, "small"), (3072, "small")]
     write("fix_nesso1", [{"tag": f"nf_{n}_{lig}", "surface": "nesso1", "input": size(n, lig)}
                          for n, lig in fix])
     ysk4 = sorted((HERE / "inputs/screen/ysk4").glob("*.yaml"))

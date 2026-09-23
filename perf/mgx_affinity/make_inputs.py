@@ -35,7 +35,8 @@ BASE = re.search(r"sequence: (\S+)", (ROOT / "perf/nesso1/inputs/ladder/aa1536/c
 SMALL = re.search(r"smiles: '([^']+)'", (ROOT / "perf/nesso1/inputs/ladder/aa1536/cdk2_1536.yaml")
                   .read_text()).group(1)
 LIGANDS = {"small": ("smiles", SMALL), "rap": ("ccd", "RAP"), "b12": ("ccd", "B12")}
-SIZES = {"small": (512, 1024, 1536, 1664, 1792, 2048), "rap": (512, 1536), "b12": (512, 1536)}
+SIZES = {"small": (512, 1024, 1536, 1664, 1792, 2048, 2560, 3072), "rap": (512, 1536, 2048),
+         "b12": (512, 1536, 2048)}
 BAD_SMILES = "C1CC(N"  # unclosed ring and branch: RDKit returns None
 TARGETS = ("YSK4", "LCK")
 
@@ -53,7 +54,7 @@ def tiled(n):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--davis", required=True, type=pathlib.Path)
+    ap.add_argument("--davis", type=pathlib.Path, help="DAVIS tsv; without it only the size rungs")
     a = ap.parse_args()
 
     size = HERE / "inputs/size"
@@ -61,6 +62,8 @@ def main():
     for lig, ns in SIZES.items():
         for n in ns:
             (size / f"cdk2_{n}_{lig}.yaml").write_text(yaml(tiled(n), *LIGANDS[lig]))
+    if a.davis is None:
+        return
 
     rows = list(csv.DictReader(open(a.davis), delimiter="\t"))
     constructed = sorted((ROOT / "perf/nesso1/inputs/screen").glob("*.yaml"))[:30]
