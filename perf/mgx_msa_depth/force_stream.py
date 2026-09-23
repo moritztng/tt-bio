@@ -6,12 +6,17 @@
 The streamed path normally runs only after DRAM refuses the whole alignment, so at a size where
 both run this is the A/B that scores what the depth-chunked OPM costs in Angstrom.
 """
+import os
 import runpy
 import sys
 
 import tt_bio.esmfold2 as e
 
-rows = int(sys.argv.pop(1))
+# predict folds in a spawned worker, which re-imports this file as __mp_main__ with the parent's
+# (already shortened) argv, so the row count travels by environment and only the parent runs the CLI.
+if __name__ == "__main__":
+    os.environ["MSAD_FORCE_ROWS"] = sys.argv.pop(1)
+rows = int(os.environ["MSAD_FORCE_ROWS"])
 
 
 class _Refused(dict):
@@ -23,5 +28,6 @@ class _Refused(dict):
 
 
 e._MSA_DEPTH_REFUSED = _Refused()
-sys.argv[0] = "tt_bio.main"
-runpy.run_module("tt_bio.main", run_name="__main__")
+if __name__ == "__main__":
+    sys.argv[0] = "tt_bio.main"
+    runpy.run_module("tt_bio.main", run_name="__main__")
