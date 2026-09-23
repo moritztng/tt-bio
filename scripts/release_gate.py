@@ -3014,8 +3014,11 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
 def _size_ladder_dark(entry: dict) -> bool:
     """A lever counts as dark when it resolved ON yet served no call. setlen
     levers have no served counter; their dark state is a non-empty overflow set.
-    not-imported / False / off-by-design levers are absent, not dark."""
-    if entry["resolved"] in ("False", "not-imported", "MISSING", "None", ""):
+    not-imported / False / off-by-design levers are absent, not dark. "none" is what a per-site
+    flag (`tenstorrent.site_flags_on`) resolves to when no site of the model turned it on, so it
+    is off too: read as on, it demanded an exemption at every rung of nesso1, which has no
+    triangle-attention site to put TRIATT_SDPA_HIFI on."""
+    if entry["resolved"] in ("False", "not-imported", "MISSING", "None", "none", ""):
         return False
     if entry.get("how") == "setlen":
         return bool(entry.get("declined"))

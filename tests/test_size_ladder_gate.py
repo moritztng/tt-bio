@@ -158,6 +158,15 @@ def test_dark_lever_without_an_exemption_reason_fails(rg):
     assert any("no exemption reason in the baseline" in f for f in r["findings"])
 
 
+def test_a_site_flag_no_site_turned_on_is_off_not_dark(rg):
+    """`site_flags_on` resolves to "none" when no site of the model enabled the flag. That is
+    the lever OFF, exactly like "False", and must not demand an exemption reason."""
+    off = {"resolved": "none", "served": 0, "declined": 0, "frac": 0.0, "how": "stats-dict"}
+    assert rg._size_ladder_dark(off) is False
+    # control: the same counters with a site on is dark and still needs its reason
+    assert rg._size_ladder_dark({**off, "resolved": "triatt.pairformer"}) is True
+
+
 def test_a_todo_is_not_an_exemption_reason(rg):
     """Recording seeds every newly dark lever with a TODO carrying the measured clause. The
     TODO must not satisfy the gate, or the record step becomes the sign-off."""
@@ -1118,6 +1127,8 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
         for model, entry in sorted(blk.get("models", {}).items()):
+            if model in rg.SIZE_LADDER_EXEMPT:
+                continue      # the check never walks it, so its cells owe no new rung
             want = {str(r) for r in rg._size_ladder_model_rungs(model, card=card)}
             # A refused rung IS coverage: the guard declining a size is the information the
             # arm exists to carry, so it counts the same as a timed one.
