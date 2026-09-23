@@ -1,0 +1,49 @@
+{
+ "ladder": {
+  "32": {
+   "rel": 0.14114909269515152,
+   "real_tokens": 32,
+   "rel_real": 0.14114909269515152
+  },
+  "64": {
+   "rel": 0.15000071427060976,
+   "real_tokens": 56,
+   "rel_real": 0.15876967800798084
+  },
+  "96": {
+   "rel": 0.12706379463805617,
+   "real_tokens": 56,
+   "rel_real": 0.15971332659545223
+  },
+  "128": {
+   "rel": 0.11266160302012018,
+   "real_tokens": 56,
+   "rel_real": 0.15971332659545218
+  },
+  "192": {
+   "rel": 0.09571559044498744,
+   "real_tokens": 56,
+   "rel_real": 0.15983503805031382
+  },
+  "256": {
+   "rel": 0.08513543355265508,
+   "real_tokens": 56,
+   "rel_real": 0.15910585074506423
+  },
+  "320": {
+   "rel": 0.07833371049281518,
+   "real_tokens": 56,
+   "rel_real": 0.1590925965431974
+  },
+  "384": {
+   "rel": 0.07369642375530609,
+   "real_tokens": 56,
+   "rel_real": 0.15915151761827262
+  }
+ },
+ "struct": 0,
+ "inputs": "truncated REAL captured activations",
+ "dtype_device": "DataType.FLOAT32",
+ "dtype_reference": "float64",
+ "tenancy": "3"
+}
