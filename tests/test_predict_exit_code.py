@@ -126,8 +126,9 @@ def test_ttnn_model_branch_controller_all_failed_exits_1(host_predict, tmp_path)
 
 
 def _refused(path):
-    """A target protenix-v2 refuses at check time: it has no cyclic-peptide path."""
-    path.write_text(_target(path).read_text() + "      cyclic: true\n")
+    """A target protenix-v2 refuses at check time: it has no pocket constraint embedder."""
+    path.write_text(_target(path).read_text() + "constraints:\n  - pocket:\n      binder: A\n"
+                    "      contacts: [[A, 1]]\n")
     return path
 
 
@@ -152,10 +153,10 @@ def test_one_refused_file_does_not_abort_the_batch(host_predict, monkeypatch, tm
               "--out_dir", str(tmp_path / "out")])
     assert sorted(sent) == ["a", "c"] and host_predict["total"] == 2
     assert result.exit_code == 2, result.output
-    assert "b" in result.output and "cyclic" in result.output
+    assert "b" in result.output and "pocket" in result.output
     rows = json.loads(next((tmp_path / "out").glob("*/results.json")).read_text())
     assert [(r["id"], r["status"]) for r in rows] == [("b", "failed")]
-    assert "cyclic" in rows[0]["error"]
+    assert "pocket" in rows[0]["error"]
 
 
 def test_a_batch_that_is_all_refused_still_stops_before_dispatch(host_predict, tmp_path):

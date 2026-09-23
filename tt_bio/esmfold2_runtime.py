@@ -608,7 +608,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
 MOL_TYPES = ("protein", "dna", "rna", "ligand")
 
 
-def build_spi(chains):
+def build_spi(chains, bonds=None):
     """Canonical ``chains`` -> the vendored ``StructurePredictionInput``.
 
     One entry per chain: ``(chain_id, sequence, msa, mol_type, modifications)``, the
@@ -673,11 +673,66 @@ def build_spi(chains):
             kwargs["msa"] = msa
         return _POLYMER[mol_type](**kwargs)
 
-    return StructurePredictionInput(sequences=[_entry(c) for c in chains])
+    spi = StructurePredictionInput(sequences=[_entry(c) for c in chains])
+    if bonds:
+        spi.covalent_bonds = _covalent_bonds(spi, bonds)
+    return spi
+
+
+def _covalent_bonds(spi, bonds):
+    """`bond` endpoints ``(chain, 1-indexed residue, atom name)`` as upstream's
+    ``CovalentBond``, which names an atom by its index in that residue's atom list.
+
+    The list is read off the featurizer's own tokenization of this input, with the bonded
+    chains already marked covalent: a covalently bound CCD ligand drops its leaving atoms,
+    so the indices depend on it. A SMILES atom takes the portable name (C1 = first carbon in
+    the SMILES), resolved against the heavy atoms in SMILES order the tokenizer emits.
+    """
+    from collections import defaultdict
+
+    from tt_bio._vendor.esm.models.esmfold2 import CovalentBond, LigandInput
+    from tt_bio._vendor.esm.models.esmfold2.prepare_input import build_chains_from_input
+    from tt_bio.data.parse import _resolve_bond_atom, portable_atom_names
+
+    spi.covalent_bonds = [CovalentBond(a[0], 0, 0, b[0], 0, 0) for a, b in bonds]
+    infos, tokens, atoms = build_chains_from_input(spi, seed=0)
+    asym = {c.chain_id: c.asym_id for c in infos}
+    smiles = {i for e in spi.sequences if isinstance(e, LigandInput) and e.smiles
+              for i in ([e.id] if isinstance(e.id, str) else e.id)}
+    residue = defaultdict(list)
+    for a in atoms:
+        if a.is_valid and a.token_index < len(tokens):
+            t = tokens[a.token_index]
+            residue[(t.asym_id, t.residue_index)].append(a)
+
+    def end(cid, res, name, key):
+        if cid not in asym:
+            raise ValueError(f"bond constraint references chain '{cid}', which is not in the "
+                             "input.")
+        here = residue.get((asym[cid], res - 1))
+        if not here:
+            raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
+                             "which it does not have.")
+        names, shown, asked = [a.name for a in here], None, name
+        if cid in smiles:
+            portable = portable_atom_names((a.name, a.element) for a in here)
+            name, shown = _resolve_bond_atom(portable, cid, name, key), list(portable)
+        if name not in names:
+            raise ValueError(f"bond constraint references atom '{asked}' on residue {res} of "
+                             f"chain '{cid}', which it does not have. Its atoms: "
+                             f"{', '.join(shown or names)}.")
+        return res - 1, names.index(name)
+
+    out = []
+    for a1, a2 in bonds:
+        r1, i1 = end(*a1, "atom1")
+        r2, i2 = end(*a2, "atom2")
+        out.append(CovalentBond(a1[0], r1, i1, a2[0], r2, i2))
+    return out
 
 
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
-                 num_diffusion_samples=1, seed=0, return_all=False):
+                 num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
 
     `chains` is the canonical chain list :func:`build_spi` documents: protein, DNA, RNA
@@ -702,7 +757,7 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     """
     from tt_bio._vendor.esm.models.esmfold2 import ESMFold2InputBuilder
 
-    spi = build_spi(chains)
+    spi = build_spi(chains, bonds)
     # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
     # the default M=8192 and grows with L: every MSA fold died in the encoder with

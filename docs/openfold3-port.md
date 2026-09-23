@@ -42,8 +42,9 @@ It shares Protenix-v2's scheduler, worker, multi-card fan-out and MSA cache, so
 
 MSAs and templates attach per chain in the YAML. An MSA path is a ColabFold `.a3m` or
 a benchmark MSA directory; a template is a precomputed alignment `.npz` (the format the
-upstream benchmark cache ships). There is no template search — you supply the
-alignment, and the structures it names are fetched from RCSB.
+upstream benchmark cache ships), whose structures are fetched from RCSB, or a
+top-level `templates:` block naming an mmCIF, which is aligned to the chain for you
+(see the README's Templates section). There is no template search.
 
 ```yaml
 version: 1
@@ -77,15 +78,15 @@ defect it found, which is fixed.
 | protein chains | ported, parity-gated |
 | multi-chain complexes | ported, parity-gated (9BK6 heterodimer) |
 | RNA, DNA | ported, folds end to end |
-| templates | ported, per-chain alignment npz; no template search |
+| templates | ported: per-chain alignment npz, or an mmCIF aligned to the chain; no template search |
 | MSA | ported: per-chain file or directory, shared hash-cache search, `--single_sequence`. An MSA that was requested but cannot be resolved raises rather than folding single-sequence |
 | `--single_sequence` | upstream's no-MSA mode: nothing is searched, and every MSA-less protein/RNA chain folds on a one-row alignment of its own sequence with the MSA stack on (upstream's `augment_main_msa_with_query_sequence`). On ubiquitin this folds at 0.84 Å CA-RMSD against the crystal structure, inside upstream's 1.8 Å single-sequence ceiling |
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
 | ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
-| covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
-| cyclic chains (`cyclic: true`) | **not supported** — loud error. Upstream's query format carries `Chain.cyclic` and derives a `cyclic_mask` feature from it; neither was vendored, so the fold would return a linear structure. Use `--model rf3` or `boltz2` |
+| covalent `bond` | supported when one end is on a ligand or a modified residue: the bond is added to the atom array before tokenization, where upstream reads it (`Query.covalent_bonds` is declared upstream and read by nothing). A bond between two standard residues, such as a disulfide, is refused: upstream's cleanup removes those bonds from its training structures. `pocket`/`contact` are refused, no constraint embedder |
+| cyclic chains (`cyclic: true`) | supported: sets upstream's `cyclic_mask`, which `relpos_complex` reads to wrap the relative position encoding of that chain |
 | paired MSA | ported; a complex with two or more different protein sequences reads its ColabFold paired MSA as `colabfold_paired`, with upstream 0.5.0's fix that keeps those rows (PR #373) |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
@@ -130,7 +131,7 @@ Neither checkpoint can share one featurizer, so both keep their own.
 |---|---|
 | ligands, SMILES or CCD code | ported. `ligand: {smiles: ...}` or `ligand: {ccd: ...}` in the YAML, same schema as `boltz2` / `protenix-v2` |
 | everything `openfold3` supports | inherited unchanged: protein / RNA / DNA, MSA, per-chain templates, recycling, sample ranking, multi-card |
-| covalent bonds / `constraints:` | **not supported** — loud error, same as `openfold3` |
+| covalent `bond` | same as `openfold3`: a bond to a ligand or modified residue is supported, a bond between two standard residues is refused |
 | binding affinity | **not predicted.** A `properties: affinity` block is not answered and warns; use `--model boltz2` for affinity |
 | chemical steering | **not in `v0.5.0`.** The OpenBind announcement describes chemical steering during diffusion sampling; it is not in the released code (no module, no flag, no config key), so tt-bio has nothing to run for it |
 
@@ -224,8 +225,7 @@ measures; whether the checkpoint is good enough for your target is a separate qu
 and the confidence outputs are the way to answer it.
 
 A complex with two or more different protein sequences folds with a species-paired MSA
-above the per-chain ones, as upstream does. Ligands, covalent bonds and PAE output are not
-there yet.
+above the per-chain ones, as upstream does. PAE output is not there yet.
 
 ## Reproducing the parity legs
 
