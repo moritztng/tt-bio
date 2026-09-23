@@ -131,7 +131,7 @@ walked with the settings the platform sends:
 | `openfold3` | 1536 | 1664 |
 | `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1408 (residues; a ligand adds tokens) | none found yet; 1536 not yet walked |
+| `protenix-v2` | 1536 (residues; a ligand adds tokens) | none found yet |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rf3` | 1600 | 1664 |
