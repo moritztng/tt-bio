@@ -369,8 +369,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "openfold3": {
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=14190,
-            evidence="1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+            msa_rows=16384,
+            evidence="1536 residues fold at 16384 alignment rows, the most the featurizer ever "
+                     "keeps, on the j10glx02 Galaxy, 2026-09-23 (ws:mgx-msa-depth, chip 9, tt-bio "
+                     "3f10800fd): cdk2_1536_d16384 PASS in 2599.8 s at AICLK 1000 MHz sampled "
+                     "DURING the fold, 4 refusals recovered. "
+                     "1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
