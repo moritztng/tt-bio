@@ -1,0 +1,27 @@
+host_quiet GREEN before up_f64_chain load[0.24 0.27 0.58] host=tt-quietbox 2026-09-23T02:27:34Z
+host_quiet GREEN before up_bf16_chain load[1.59 0.70 0.71] host=tt-quietbox 2026-09-23T02:28:36Z
+host_quiet GREEN before up_bf16_tf load[1.72 0.97 0.81] host=tt-quietbox 2026-09-23T02:29:40Z
+host_quiet GREEN before up_f32_tf load[1.58 1.08 0.86] host=tt-quietbox 2026-09-23T02:30:33Z
+host_quiet GREEN before up_bf16_chain_rb load[1.80 1.32 0.97] host=tt-quietbox 2026-09-23T02:31:37Z
+host_quiet GREEN before up_f32_chain_rb load[2.00 1.48 1.04] host=tt-quietbox 2026-09-23T02:32:31Z
+host_quiet GREEN before up_f32_chain load[1.40 1.40 1.04] host=tt-quietbox 2026-09-23T02:33:25Z
+host_quiet GREEN before ours_dev load[0.34 1.08 0.99] host=tt-quietbox board=p150a card=1 2026-09-23T02:36:11Z
+host_quiet GREEN before ours_tf load[0.34 1.03 0.97] host=tt-quietbox board=p150a card=1 2026-09-23T02:36:33Z
+host_quiet GREEN before ours_host32 load[0.39 1.03 0.97] host=tt-quietbox board=p150a card=1 2026-09-23T02:36:42Z
+host_quiet GREEN before ours_host16 load[0.57 1.04 0.98] host=tt-quietbox board=p150a card=1 2026-09-23T02:36:50Z
+host_quiet GREEN before ours_host32z load[0.72 1.06 0.99] host=tt-quietbox board=p150a card=1 2026-09-23T02:36:58Z
+host_quiet GREEN before ours_host32m load[0.74 1.06 0.99] host=tt-quietbox board=p150a card=1 2026-09-23T02:37:06Z
+host_quiet GREEN before ours_dev32 load[1.34 1.17 1.03] host=tt-quietbox board=p150a card=1 2026-09-23T02:37:14Z
+host_quiet GREEN before ours_dev32z load[1.29 1.17 1.03] host=tt-quietbox board=p150a card=1 2026-09-23T02:37:25Z
+host_quiet GREEN before up_bf16_chain_recheck load[0.19 0.79 0.90] host=tt-quietbox 2026-09-23T02:39:30Z
+host_quiet GREEN before up_op load[1.02 0.93 0.95] host=tt-quietbox 2026-09-23T02:40:23Z
+host_quiet GREEN before ours_ops_pt load[1.19 1.21 1.05] host=tt-quietbox board=p150a card=1 2026-09-23T02:42:29Z
+host_quiet GREEN before ours_ln_probe load[0.71 1.01 0.99] host=tt-quietbox board=p150a card=1 2026-09-23T02:43:58Z
+host_quiet GREEN before ours_ln_probe load[0.48 0.93 0.97] host=tt-quietbox board=p150a card=1 2026-09-23T02:44:32Z
+host_quiet GREEN before up_op(rerun, +ln weights) load[0.51 0.86 0.94] host=tt-quietbox 2026-09-23T02:45:26Z
+host_quiet GREEN before ours_ln_probe load[1.98 1.29 1.09] host=tt-quietbox board=p150a card=1 2026-09-23T02:46:59Z
+host_quiet GREEN before ours_dev_AA load[1.31 1.21 1.07] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:35Z
+host_quiet GREEN before ours_dev_lnhost load[1.26 1.20 1.07] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:43Z
+host_quiet GREEN before ours_dev32_lnhost load[1.24 1.20 1.07] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:51Z
+host_quiet GREEN before ours_host16_lnhost load[1.77 1.31 1.11] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:59Z
+host_quiet GREEN before ours_tf_lnhost load[1.57 1.28 1.10] host=tt-quietbox board=p150a card=1 2026-09-23T02:48:08Z
