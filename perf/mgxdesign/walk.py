@@ -24,6 +24,7 @@ import json
 import os
 import pathlib
 import random
+import signal
 import subprocess
 import sys
 import time
@@ -73,6 +74,30 @@ def free_cards() -> list[int]:
     return out
 
 
+# The rung currently running, so a signal can reach it. Killing this driver alone leaves the
+# ladder child and its tt_bio.main grandchild ALIVE, holding a chip: on 2026-09-23 a killed
+# boltzgen driver left an orphan (ppid 1) computing on card 17 for 18 minutes, and two more
+# orphans wrote FAIL rows into the JSONL for rungs their driver no longer owned. A restart of
+# this driver must not cost the box a chip.
+_CHILD: subprocess.Popen | None = None
+
+
+def _bail(signum, _frame):
+    if _CHILD and _CHILD.poll() is None:
+        try:
+            os.killpg(os.getpgid(_CHILD.pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            _CHILD.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(_CHILD.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+    sys.exit(128 + signum)
+
+
 def run_rung(a, size: int, contig: str, card: int) -> subprocess.CompletedProcess:
     cmd = [sys.executable, "-u", str(ROOT / "perf/bhdesign/ladder.py"),
            "--model", a.model, "--sizes", str(size), "--card", str(card),
@@ -83,7 +108,14 @@ def run_rung(a, size: int, contig: str, card: int) -> subprocess.CompletedProces
         cmd += ["--steps", str(a.steps)]
     if contig:
         cmd += ["--rfd3-contig", contig]
-    return subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+    global _CHILD
+    # Its own process group, so one killpg reaches the ladder AND the tt_bio.main it spawns.
+    _CHILD = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, start_new_session=True)
+    out, _ = _CHILD.communicate()
+    rc = _CHILD.returncode
+    _CHILD = None
+    return subprocess.CompletedProcess(cmd, rc, out, "")
 
 
 def main() -> int:
@@ -106,6 +138,8 @@ def main() -> int:
                          "requires; past it, measuring on a second chip beats measuring nothing")
     ap.add_argument("--stop-on-fail", action="store_true")
     a = ap.parse_args()
+    for _sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(_sig, _bail)
     logdir = pathlib.Path(a.work)
     logdir.mkdir(parents=True, exist_ok=True)
 
