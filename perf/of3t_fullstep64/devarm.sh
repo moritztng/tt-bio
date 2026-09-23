@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # of3t-fullstep64: one arm of our full step on qb2 card 1, replaying the float64 run's draws.
 #
-#   devarm.sh <TAG> on|off [weights|-] [BATCH DRAWS]  -> perf/of3t_fullstep64/DEV_<TAG>.json
+#   devarm.sh <TAG> on|off [weights|-] [BATCH DRAWS]   (DEVSTEP_EXTRA=--trunk-masks: diagnostic)  -> perf/of3t_fullstep64/DEV_<TAG>.json
 #                                        /home/ttuser/of3t_fullstep64/grad_<TAG>.pt
 #
 # stackship's stepcost.sh with the draws and the gradient dump added. The writer stamps host,
@@ -28,7 +28,7 @@ QUIET=$(python3 perf/c12_orchestrator/pair_guard/host_quiet.py 2>&1 | tail -3)
 echo "=== $TAG exact=$EXACT start $(date -u +%FT%TZ) $(hostname) card $CARD $BOARD ==="
 echo "$QUIET"
 env "${ENV[@]}" timeout 7200 python3 perf/of3t_fullstep64/devstep.py --exact "$EXACT" \
-  --draws "$DRAWS" --grad-out "$S/grad_${TAG}.pt" "${WARG[@]}" --out "$OUT" 2>&1 \
+  --draws "$DRAWS" --grad-out "$S/grad_${TAG}.pt" "${WARG[@]}" --out "$OUT" ${DEVSTEP_EXTRA:-} 2>&1 \
   | grep --line-buffered -vE 'TT_FATAL|DEBUG|Config\{' | tail -20
 rc=${PIPESTATUS[0]}
 QUIET_AFTER=$(python3 perf/c12_orchestrator/pair_guard/host_quiet.py 2>&1 | tail -3)

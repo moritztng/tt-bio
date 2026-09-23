@@ -8,6 +8,11 @@ draws come from the float64 reference's `draws.pt` (via `draws.Draws`, the same 
 reference sampled with), every parameter's gradient is saved (`trainfwd_run --grad-out`), and
 optionally the walked device weights are saved for the bijection. `--exact off` is the public off
 switch, `autograd.exact_training(False)`.
+
+`--trunk-masks` is a DIAGNOSTIC, not a fix: `OpenFold3Forward` builds the token pair mask and the
+additive attention mask but calls `m.trunk(...)` without them, so the training trunk runs
+unmasked over the batch's padded tokens. The flag hands the trunk the same two masks, built the
+same way from `token_mask`, and changes nothing else.
 """
 from __future__ import annotations
 
@@ -16,6 +21,9 @@ import json
 import os
 import sys
 from pathlib import Path
+
+
+TOKEN_MASK = {"tok": None, "calls": 0}
 
 
 def main() -> int:
@@ -56,6 +64,25 @@ def main() -> int:
         return got
 
     OpenFold3Forward.parameters = parameters
+    if "--trunk-masks" in argv:
+        import ttnn
+        from tt_bio.openfold3_trunk import OF3Trunk
+        orig_trunk, orig_call = OF3Trunk.__call__, OpenFold3Forward.__call__
+
+        def trunk(self, *a, pair_mask=None, attn_mask=None, **k):
+            tok = TOKEN_MASK["tok"]
+            ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.device, dtype=ttnn.bfloat16)
+            pair_mask = ft((tok[:, None] * tok[None, :]).unsqueeze(0))
+            attn_mask = ft(((1.0 - tok) * -1e9).reshape(1, 1, 1, -1))
+            TOKEN_MASK["calls"] += 1
+            return orig_trunk(self, *a, pair_mask=pair_mask, attn_mask=attn_mask, **k)
+
+        def fwd_call(self, batch):
+            TOKEN_MASK["tok"] = batch["features"]["token_mask"].float()
+            return orig_call(self, batch)
+
+        OF3Trunk.__call__, OpenFold3Forward.__call__ = trunk, fwd_call
 
     sys.argv = ["trainfwd_run.py", "--arm", "full", "--out", str(out), "--grad-out", grad_out]
     if batch:
@@ -66,6 +93,8 @@ def main() -> int:
     rec = json.loads(out.read_text())
     rec["fullstep64"] = {
         "exact": exact, "exact_training_ops": ops,
+        "trunk_masks_diagnostic": {"on": "--trunk-masks" in argv,
+                                   "trunk_calls": TOKEN_MASK["calls"]},
         "counters": {"softmax": dict(ag.EXACT_SOFTMAX_STATS),
                      "layer_norm": dict(ag.EXACT_LAYER_NORM_STATS)},
         "draws": {"file": draws_path, "n_recorded": len(replay), "rollout_calls": log["calls"],
