@@ -50,6 +50,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **An RF3 fold no longer depends on what the same process folded before it.** The atom
+  transformer cached its output gate keyed by the length of the input, so a second input of the
+  same length in one `predict` batch, or in a server that keeps the model loaded, reused the gate
+  computed for the first. The first fold of a length was always right; later ones were not. On the
+  1a8q fixture the no-template fold moved 1.08 A after a templated fold of the same protein and
+  1.27 A after a no-MSA fold, on every card. The cache is now keyed by the conditioning it was
+  built from, and each fold of a five-input batch comes back bit-identical to the same input folded
+  alone. A fold that ran first, or alone, gives the same bytes as before. Boltz-2 shares the module
+  and already reset it between folds, so it is unaffected.
+
 - **The softmax backward leaked a row sum, and every gradient below it carried the term.**
   `ttnn.softmax` does not return rows that sum to one: mean 0.9934 over the OpenFold3 trunk's own
   shapes, worst row 0.9506, and fp32 storage does not fix it. So the card computes `c * softmax(x)`
@@ -85,6 +95,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   off; the setting now stops at the verb's edge. Same inputs give the same outputs.
 
 ### Added
+
+- **A structure template given as an mmCIF works on every model that takes templates.** The
+  top-level `templates:` block (`cif`, optional `chain_id` and `template_id`) was read only by
+  Boltz-2 and refused elsewhere. Protenix-v2, OpenDDE, OpenDDE-abag, OpenFold3, OpenBind and RF3
+  now align each chain to the template's sequence and take it the way they take a precomputed
+  alignment `.npz`, which RF3 also accepts now. On the 1a8q fixture the cif and the npz give
+  bit-identical structures on all six, CA-RMSD to the crystal 0.13-0.25 A against 15.8-18.9 A
+  without a template. `force`, pdb templates and more than one template per chain on RF3 are
+  refused with the reason. Boltz-2 now refuses a per-chain `.npz`, which its parser never read
+  (it folded as if no template had been given); it takes the same template as a cif.
+  Protenix-v1 and ESMFold2 still refuse templates: v1's checkpoint ships
+  an empty template stack and ESMFold2 has no template input.
 
 - **Protenix-v2 and OpenDDE now report per-chain-pair ipTM in `results.json`.** A multi-chain
   entry carries `pair_chains_iptm` and `chains_ptm`, the same two fields Boltz-2 already writes

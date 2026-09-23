@@ -38,10 +38,13 @@ FEATURES: dict[str, tuple[str, str]] = {
                      "there is no protein for the model to fold it with"),
     "cyclic": ("`cyclic: true`", "the fold would return a linear structure"),
     "modifications": ("`modifications:`", "the fold would return the unmodified residue"),
-    "templates": ("`templates:`", "the fold would ignore the template you supplied"),
+    "templates": ("a per-chain `templates:` alignment npz",
+                  "the fold would ignore the template you supplied"),
     "template_structure": ("a top-level `templates:` structure file",
                            "the fold would ignore the template you supplied"),
     "bond": ("a `bond` constraint", "the fold would ignore the covalent bond"),
+    "polymer_bond": ("a `bond` between two standard polymer residues (a disulfide, a "
+                     "crosslink)", "the fold would ignore the covalent bond"),
     "pocket": ("a `pocket`/`contact` constraint",
                "the fold would ignore the binding constraint"),
     "affinity": ("`properties: affinity`", "no affinity value is written"),
@@ -51,58 +54,60 @@ _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
 
 
 def _row(**overrides) -> dict[str, str]:
-    # A top-level `templates:` block (a cif/pdb per chain) is Boltz-2's own schema and only
-    # its parser reads it. The shared reader accepts the key for Boltz-2's sake, so every
-    # other model folded straight past it; refused unless a row says otherwise.
-    return {**_ALL_HONOURED, "template_structure": REFUSED, **overrides}
+    return {**_ALL_HONOURED, **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
 #: completeness test refuses a new port that does not declare one.
 #:
 #: Boltz-2 honours the rest of the reader: its own upstream parser (tt_bio/data/parse.py), a
-#: constraint embedder for pocket/contact, a template pipeline and an affinity head. That
-#: parser reads a template only from the top-level `templates:` block, so a per-chain npz
-#: folded bit-identically to no template at all (measured on 1a8q, CA-RMSD 9.19 A either way,
-#: 0.29 A with the same template as a cif).
+#: constraint embedder for pocket/contact, a template pipeline and an affinity head.
 #:
-#: ``modifications`` reaches the featurizer on every model except RF3, which reads its own
-#: JSON/CIF spec here. Protenix and OpenDDE tokenize a modified residue per atom from its CCD
-#: component (``protenix_data.polymer_chain_features``); the OF3 family passes it as
-#: ``non_canonical_residues``, upstream's own field.
+#: ``modifications`` reaches the featurizer on every model. Protenix and OpenDDE tokenize a
+#: modified residue per atom from its CCD component (``protenix_data.polymer_chain_features``);
+#: the OF3 family passes it as ``non_canonical_residues`` and RF3 as a ``(CCD)`` residue in
+#: the sequence, each upstream's own field.
 #:
 #: ``templates`` takes the same alignment npz on the OF3 family and on protenix-v2 / OpenDDE,
 #: whose template embedder used to run on ``dummy_template_features`` whatever the input said.
-#: It stays REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
+#: ``template_structure`` is Boltz-2's top-level structure-file form, and it reaches all of
+#: them too: ``template_cif`` aligns it into that npz. Boltz-2 is the other way round: its
+#: parser reads only the structure file, so a per-chain npz folded bit-identically to no
+#: template (1a8q, CA-RMSD 9.19 A either way, 0.29 A with the same template as a cif).
+#: Both stay REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
 #: stack, so upstream returns literal 0 from the template embedder and a template could only
-#: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
-#: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
+#: be dropped (pinned by tests/test_protenix_template_gate.py), and on ESMFold2, which has no
+#: template stack at all. RF3 templates by coordinate: the same alignment puts the template's
+#: CA positions on the aligned residues (``rf3.featurize.apply_template_ca``).
 CAPABILITY: dict[str, dict[str, str]] = {
-    "boltz2": _row(templates=REFUSED, template_structure=HONOURED),
+    "boltz2": _row(templates=REFUSED),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
-    # fold_complex call). It has no constraint, template or affinity path, and its trunk is
-    # conditioned on the protein language model, so a complex needs at least one protein.
-    "esmfold2": _row(protein_free=REFUSED, cyclic=REFUSED, templates=REFUSED, bond=REFUSED,
+    # fold_complex call). A `bond` is upstream's covalent_bonds, which its pair init reads
+    # through token_bonds; `cyclic: true` is the head-to-tail amide on the same route, as on
+    # Protenix. It has no template, pocket or affinity path, and its trunk is conditioned on
+    # the protein language model, so a complex needs at least one protein.
+    "esmfold2": _row(protein_free=REFUSED, templates=REFUSED, template_structure=REFUSED,
                      pocket=REFUSED, affinity=NOTED),
-    "esmfold2-fast": _row(protein_free=REFUSED, cyclic=REFUSED, templates=REFUSED,
-                          bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "esmfold2-fast": _row(protein_free=REFUSED, templates=REFUSED, template_structure=REFUSED,
+                          pocket=REFUSED, affinity=NOTED),
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
-    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
-    "protenix-v2": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
-    "opendde": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
-    "opendde-abag": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # `cyclic: true` reaches it as the head-to-tail amide bond (main._read_bio_bonds), the
+    # route upstream documents; it has no relpos wrap. v1's checkpoint does not close it (WHY).
+    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
+                        pocket=REFUSED, affinity=NOTED),
+    "protenix-v2": _row(pocket=REFUSED, affinity=NOTED),
+    "opendde": _row(pocket=REFUSED, affinity=NOTED),
+    "opendde-abag": _row(pocket=REFUSED, affinity=NOTED),
     # Ligands stay refused for OF3-preview2 and honoured for OpenBind, the checkpoint
-    # upstream trained for co-folding. Templates are opt-in per protein chain (a precomputed
-    # alignment npz); there is no template search.
-    "openfold3": _row(ligand=REFUSED, cyclic=REFUSED, bond=REFUSED,
-                      pocket=REFUSED, affinity=NOTED),
-    "openbind": _row(cyclic=REFUSED, bond=REFUSED, pocket=REFUSED,
-                     affinity=NOTED),
-    # RF3 the model carries bonds, modified residues and cyclic chains, but only through its
-    # own JSON/CIF spec; the YAML door here builds a spec from the chain reader alone.
-    "rf3": _row(cyclic=REFUSED, modifications=REFUSED, templates=REFUSED, bond=REFUSED,
-                pocket=REFUSED, affinity=NOTED),
+    # upstream trained for co-folding. Templates are opt-in, in either form; there is no
+    # template search. `cyclic: true` is upstream's relpos wrap (cyclic_mask); a `bond`
+    # joins the atoms before tokenization, where upstream reads them.
+    "openfold3": _row(ligand=REFUSED, polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "openbind": _row(polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # RF3's YAML door writes upstream's own spec fields: `(CCD)` residues in the sequence and
+    # top-level `bonds`. Upstream's cyclic_chains does not close the ring (WHY below).
+    "rf3": _row(cyclic=REFUSED, polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
     # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
     # so nothing it drops can come back as a wrong structure, and the docs tell users to
     # reuse their Boltz-2 affinity yaml, which carries msa:, constraints: and properties:
@@ -111,8 +116,9 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # for molecule types and refuses a third entity type by name ("Unsupported entity type
     # 'rna' (only protein, ligand)"), which is why the chain columns here record a verdict
     # this module does not apply itself.
-    "nesso1": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED, modifications=NOTED,
-                   templates=NOTED, template_structure=NOTED, bond=NOTED, pocket=NOTED),
+    "nesso1": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED,
+                   modifications=NOTED, templates=NOTED, template_structure=NOTED, bond=NOTED,
+                   polymer_bond=NOTED, pocket=NOTED),
 }
 
 #: Molecule-type features: they come from the parsed chain list, not from a yaml key.
@@ -139,28 +145,39 @@ WHY: dict[tuple[str, str], str] = {
         "preview2 was released as a polymer model and was never trained to place a ligand, "
         "so it is polymer-only here; the featurizer would build one and the sampler would "
         "return a status=ok structure anyway"),
+    # Both upstream data pipelines drop these bonds before training: OF3's
+    # cleanup.remove_intra/inter_chain_poly_links, and atomworks, which adds struct_conn
+    # `covale` bonds only ("except for disulfides"). Measured: on RF3 a Cys-Cys bond leaves
+    # every feature bit-identical; on OF3 it atomizes both residues into tokens it never saw.
+    **{(m, "polymer_bond"): (
+        f"{fam} was trained with bonds between two standard residues removed from its data, "
+        "so it cannot read one; a bond to a ligand or a modified residue does reach it")
+       for m, fam in (("openfold3", "OpenFold3"), ("openbind", "OpenFold3"), ("rf3", "RF3"))},
+    # perf/mgx_constraints: cyclic QLEDSEVEAVAKG, 5 samples each, N1-C13 on TT and in the
+    # upstream torch reference on CPU (rf3_upstream_ring.py; Protenix v0.5.0 folding the
+    # same token_bonds its current inference builds, include_discont_poly_poly_bonds).
+    ("rf3", "cyclic"): (
+        "RF3's cyclic offset brings the chain ends together but does not form the closing "
+        "peptide bond: on a cyclic 13-mer the N-C distance stays 2.4-2.9 A, in upstream RF3 "
+        "as here, where a closed amide is 1.33 A"),
+    ("protenix-v1", "cyclic"): (
+        "the v0.5.0 checkpoint reads the closing bond but does not form it: on a cyclic "
+        "13-mer the N-C distance stays 2.1-2.2 A, in upstream Protenix as here, where a "
+        "closed amide is 1.33 A; protenix-v2 closes it"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
     ("boltz2", "templates"): "Boltz-2 reads a template as a structure file, a top-level "
         "`templates:` entry with `cif:` and `chain_id:`, not as a per-chain alignment npz",
+    **{(m, f): "its v0.5.0 checkpoint ships an empty template stack, so upstream Protenix-v1 "
+       "ignores a template too; protenix-v2 is the same model with one"
+       for m in ("protenix-v1",) for f in ("templates", "template_structure")},
+    **{(m, f): "ESMFold2 has no template input"
+       for m in ("esmfold2", "esmfold2-fast") for f in ("templates", "template_structure")},
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
 }
 
-WHY.update({(m, "template_structure"): "this model takes a template as a per-chain "
-            "`templates:` alignment npz, not as a structure file"
-            for m, caps in CAPABILITY.items() if caps["templates"] == HONOURED and m != "boltz2"})
-
-WHY.update({(m, "cyclic"): "the fold would return a linear structure. This model takes the "
-            "closure as a head-to-tail `bond` constraint instead, atom1 [<chain>, <last "
-            "residue>, C] and atom2 [<chain>, 1, N]"
-            for m, caps in CAPABILITY.items()
-            if caps["cyclic"] == REFUSED and caps["bond"] == HONOURED})
-
 #: A route the model offers outside the YAML front door, appended to its refusals.
-ELSEWHERE: dict[str, str] = {
-    "rf3": "RF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified "
-           "residues and cyclic chains.",
-}
+ELSEWHERE: dict[str, str] = {}
 
 
 def honoured_by(feature: str) -> tuple[str, ...]:
@@ -272,20 +289,39 @@ def detect(path, chains=None) -> dict[str, str]:
             for feature in per_chain:
                 if sub.get(feature):
                     per_chain[feature] += _ids(sub)
+    # A top-level `templates:` block is the same template given as a structure file
+    # (tt_bio/template_cif.py turns it into the per-chain alignment).
+    tops = []
+    for t in doc.get("templates") or []:
+        if isinstance(t, dict):
+            ids = t.get("chain_id")
+            tops += ([str(x) for x in ids] if isinstance(ids, list)
+                     else [str(ids) if ids is not None else "all"])
+    per_chain["template_structure"] = tops
     for feature, hits in per_chain.items():
         if hits:
             found[feature] = "chain(s) " + ", ".join(hits)
+    # A bond endpoint on a ligand or a modified residue makes that residue atomized upstream;
+    # two standard residues (a disulfide) are the separate `polymer_bond` case.
+    standard = {cid: (mt, {m["position"] for m in (mods or [])})
+                for cid, _s, _sp, mt, mods in (chains or [])}
+
+    def on_standard(atom):
+        mt, modded = standard.get(str(atom[0]), ("ligand", ()))
+        return mt != "ligand" and atom[1] not in modded
+
     for c in doc.get("constraints") or []:
         if not isinstance(c, dict):
             continue
         if "bond" in c:
             found.setdefault("bond", "constraints")
+            b = c["bond"] if isinstance(c["bond"], dict) else {}
+            ends = [b.get("atom1"), b.get("atom2")]
+            if all(isinstance(a, (list, tuple)) and len(a) == 3 and on_standard(a) for a in ends):
+                found.setdefault("polymer_bond", "constraints: " + " - ".join(
+                    "/".join(str(x) for x in a) for a in ends))
         elif "pocket" in c or "contact" in c:
             found.setdefault("pocket", "constraints")
-    tops = [str(t.get("chain_id", "?")) for t in (doc.get("templates") or [])
-            if isinstance(t, dict)]
-    if tops:
-        found["template_structure"] = "chain(s) " + ", ".join(tops)
     binders = [str(pr["affinity"].get("binder")) for pr in (doc.get("properties") or [])
                if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
     if binders:
@@ -341,9 +377,10 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("protein_free", "no protein chain"),
     ("cyclic", "cyclic"),
     ("modifications", "modifications"),
-    ("templates", "templates"),
-    ("template_structure", "structure template"),
+    ("templates", "template npz"),
+    ("template_structure", "template cif"),
     ("bond", "bond constraint"),
+    ("polymer_bond", "residue-residue bond"),
     ("pocket", "pocket/contact"),
     ("affinity", "affinity"),
 )

@@ -142,3 +142,20 @@ def test_boltz_bond_on_missing_atom_names_the_atoms():
     with pytest.raises(ValueError, match=r"\[B, 1, Q9\] names an atom that is not in the input: "
                                          r"residue 1 of chain 'B' has atoms "):
         parse_boltz_schema("t", schema, ccd={}, mol_dir=_MOL_DIR, boltz_2=True)
+
+
+def test_boltz_bond_takes_the_portable_smiles_name():
+    """C1 is the first carbon written in the SMILES on every model. Boltz-2 names it by
+    canonical rank (C8 for C=CC(=O)N), and that name still resolves to the same atom."""
+    from tt_bio.data.parse import parse_boltz_schema
+
+    def conn(atom):
+        schema = {"version": 1, "sequences": [
+            {"protein": {"id": "A", "sequence": PROT, "msa": "empty"}},
+            {"ligand": {"id": "B", "smiles": "C=CC(=O)N"}}],
+            "constraints": [{"bond": {"atom1": ["A", 2, "SG"], "atom2": ["B", 1, atom]}}]}
+        t = parse_boltz_schema("t", schema, ccd={}, mol_dir=_MOL_DIR, boltz_2=True)
+        return t.structure.bonds.tolist()
+
+    assert conn("C1") == conn("C8")
+    assert conn("C1") != conn("C3")
