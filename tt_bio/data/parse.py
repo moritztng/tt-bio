@@ -2684,14 +2684,26 @@ def parse_polymer(
     )
 
 
+def portable_atom_names(atoms) -> dict[str, str]:
+    """``{portable name: the model's own name}`` for a SMILES ligand's heavy atoms, given as
+    ``(name, element)`` in SMILES order. The portable name is the element and its 1-based
+    count among that element's atoms: C1 is the first carbon written."""
+    out, seen = {}, {}
+    for name, element in atoms:
+        el = str(element).upper()
+        seen[el] = seen.get(el, 0) + 1
+        out[f"{el}{seen[el]}"] = name
+    return out
+
+
 def _resolve_bond_atom(portable, chain, name, key):
-    """The name this parser gave the SMILES-ligand atom a `bond` endpoint means.
+    """The name a model gave the SMILES-ligand atom a `bond` endpoint means.
 
     Every tt-bio model reads a SMILES atom name the portable way: element plus its 1-based
     count in SMILES order, heavy atoms only, so C1 is the first carbon written (Protenix's
     and OpenFold3's naming, atomworks' documented one). Boltz-2 names the same atoms by
     RDKit canonical rank over the molecule with hydrogens (C7, O6, N10 for ``C=CC(=O)N``),
-    which is what its structures carry, so that name keeps working when it cannot be read
+    and so does ESMFold2; that is what their structures carry, so that name keeps working when it cannot be read
     the other way. A name that is valid in both schemes and means different atoms is refused
     rather than guessed. ``portable`` is None for anything that is not a SMILES ligand.
     """
@@ -3078,12 +3090,8 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                     raise ValueError(msg)
                 atom.SetProp("name", atom_name)
             # AddHs appends the hydrogens, so the heavy atoms are still in SMILES order.
-            portable, seen = {}, {}
-            for atom in mol.GetAtoms():
-                if atom.GetAtomicNum() > 1:
-                    el = atom.GetSymbol().upper()
-                    seen[el] = seen.get(el, 0) + 1
-                    portable[f"{el}{seen[el]}"] = atom.GetProp("name")
+            portable = portable_atom_names(
+                (a.GetProp("name"), a.GetSymbol()) for a in mol.GetAtoms() if a.GetAtomicNum() > 1)
 
             success = compute_3d_conformer(mol)
             if not success:

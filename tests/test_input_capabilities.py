@@ -125,17 +125,18 @@ def test_cyclic_false_is_not_a_refusal(tmp_path, model):
 
 def test_every_refused_feature_is_named_at_once(tmp_path):
     """A user fixing one key should not have to run again to find the next."""
-    text = (_HEAD + "      cyclic: true\n"
+    text = (_HEAD + "      templates: /nonexistent/tmpl.npz\n"
             + "constraints:\n  - pocket:\n      binder: A\n      contacts: [[A, 5]]\n")
     with pytest.raises(RuntimeError) as e:
         _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
-    assert "cyclic" in msg and "pocket" in msg
+    assert "templates" in msg and "pocket" in msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
     text = (f"version: 1\nsequences:\n  - protein:\n      id: [A, B]\n      sequence: {SEQ}\n"
-            f"      cyclic: true\n  - protein:\n      id: C\n      sequence: {SEQ}\n")
+            f"      templates: /nonexistent/tmpl.npz\n  - protein:\n      id: C\n"
+            f"      sequence: {SEQ}\n")
     with pytest.raises(RuntimeError) as e:
         _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
@@ -161,12 +162,12 @@ def test_an_empty_or_odd_yaml_does_not_raise_by_accident(tmp_path):
         assert detect(p, []) == {}
 
 
-def test_the_committed_cyclic_example_is_refused():
+@pytest.mark.parametrize("model", sorted(PREDICT_MODELS))
+def test_the_committed_cyclic_example_is_accepted(model):
     p = Path(__file__).resolve().parent.parent / "examples" / "cyclic_prot.yaml"
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
-    with pytest.raises(RuntimeError, match="cyclic"):
-        check_capabilities(p, _read_bio_chains(p), "esmfold2", echo=None)
+    assert "cyclic" in check_capabilities(p, _read_bio_chains(p), model, echo=None)
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -190,8 +191,8 @@ def test_the_dispatch_path_refuses_before_any_device_work(tmp_path, model):
 
     state = object.__new__(_WorkerState)
     with pytest.raises(RuntimeError) as e:
-        state.predict_one(_yaml(tmp_path, INPUTS["cyclic"]), {"model": model})
-    assert model in str(e.value) and "cyclic" in str(e.value)
+        state.predict_one(_yaml(tmp_path, INPUTS["pocket"]), {"model": model})
+    assert model in str(e.value) and "pocket" in str(e.value)
 
 
 def test_a_plain_job_still_gets_past_the_dispatch_guard(tmp_path):
@@ -204,21 +205,27 @@ def test_a_plain_job_still_gets_past_the_dispatch_guard(tmp_path):
         state.predict_one(_yaml(tmp_path, PLAIN), {"model": "esmfold2"})
 
 
-def test_the_vendored_of3_tree_still_has_no_cyclic_field():
-    """Why the OF3/OpenBind cyclic rows are REFUSED. If a vendor bump restores Chain.cyclic
-    and the cyclic_mask feature, this fails and the row should be revisited rather than left
-    refusing something the tree now supports."""
-    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
-        Chain,
-    )
-    assert "cyclic" not in Chain.model_fields
+def test_cyclic_and_bond_reach_every_path_that_honours_them():
+    """A row that says `yes` over a door that never reads the key is the silent drop this
+    table exists to stop. Each predict path must read `cyclic` and `bond` itself:
+    `_read_bio_bonds` for the token-bond models (Protenix, OpenDDE, ESMFold2, which get a
+    ring as its closing amide), `_read_cyclic` plus the constraints for RF3 and the OF3 family,
+    which have their own ring encoding."""
+    from tt_bio.worker import _WorkerState
 
-
-def test_the_reader_still_drops_what_the_table_refuses():
-    """Why the cyclic rows are REFUSED rather than honoured: there is no path from the key to
-    the featurizer. This failing means a port gained the feature and its row is now wrong."""
-    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
-        "the reader now carries `cyclic` -- revisit the cyclic rows"
+    reads = {"_predict_esmfold2_one": ("_read_bio_bonds(path, chains)",),
+             "_predict_opendde_one": ("_read_bio_bonds(path, chains)",),
+             "_protenix_inputs": ("_read_bio_bonds(path, chains)",),
+             "_predict_rf3_one": ("cyclic_chains=_read_cyclic(path)",
+                                  "_rf3_bonds(components, _read_bio_constraints(path))"),
+             "_predict_openfold3_one": ("bonds=_read_bio_constraints(path), "
+                                        "cyclic=_read_cyclic(path)",)}
+    for method, needles in reads.items():
+        src = inspect.getsource(getattr(_WorkerState, method))
+        for needle in needles:
+            assert needle in src, f"{method} no longer reads {needle}"
+    for model in PREDICT_MODELS:
+        assert CAPABILITY[model]["cyclic"] == HONOURED, model
 
 
 def test_modifications_reach_every_featurizer_that_honours_them():

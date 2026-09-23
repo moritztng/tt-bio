@@ -839,7 +839,8 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.esmfold2_runtime import fold_complex, resolve_msa
-        from tt_bio.main import _generate_esmfold2_a3m, _read_bio_chains, _write_structure
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains,
+                                 _write_structure)
 
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
@@ -847,6 +848,8 @@ class _WorkerState:
         if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
             raise RuntimeError("esmfold2 needs at least one protein chain")
         check_capabilities(path, chains, cfg.get("model", "esmfold2"))
+        # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
+        bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
@@ -904,7 +907,7 @@ class _WorkerState:
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
             num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
-            return_all=True,
+            return_all=True, bonds=bonds,
         )
         res = ranked[0]
         # Write every sample, not just the winner: best as "{stem}.{fmt}" and the rest as

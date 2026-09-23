@@ -84,8 +84,8 @@ defect it found, which is fixed.
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
 | ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
-| covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
-| cyclic chains (`cyclic: true`) | **not supported** — loud error. Upstream's query format carries `Chain.cyclic` and derives a `cyclic_mask` feature from it; neither was vendored, so the fold would return a linear structure. Use `--model rf3` or `boltz2` |
+| covalent `bond` | supported when one end is on a ligand or a modified residue: the bond is added to the atom array before tokenization, where upstream reads it (`Query.covalent_bonds` is declared upstream and read by nothing). A bond between two standard residues, such as a disulfide, is refused: upstream's cleanup removes those bonds from its training structures. `pocket`/`contact` are refused, no constraint embedder |
+| cyclic chains (`cyclic: true`) | supported: sets upstream's `cyclic_mask`, which `relpos_complex` reads to wrap the relative position encoding of that chain |
 | paired MSA | **not ported** — complexes fold on per-chain unpaired MSAs |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
@@ -130,7 +130,7 @@ Neither checkpoint can share one featurizer, so both keep their own.
 |---|---|
 | ligands, SMILES or CCD code | ported. `ligand: {smiles: ...}` or `ligand: {ccd: ...}` in the YAML, same schema as `boltz2` / `protenix-v2` |
 | everything `openfold3` supports | inherited unchanged: protein / RNA / DNA, MSA, per-chain templates, recycling, sample ranking, multi-card |
-| covalent bonds / `constraints:` | **not supported** — loud error, same as `openfold3` |
+| covalent `bond` | same as `openfold3`: a bond to a ligand or modified residue is supported, a bond between two standard residues is refused |
 | binding affinity | **not predicted.** A `properties: affinity` block is not answered and warns; use `--model boltz2` for affinity |
 | chemical steering | **not in `v0.5.0`.** The OpenBind announcement describes chemical steering during diffusion sampling; it is not in the released code (no module, no flag, no config key), so tt-bio has nothing to run for it |
 
@@ -223,8 +223,7 @@ checkpoint, not AF3. tt-bio's job is to reproduce it faithfully, which the parit
 measures; whether the checkpoint is good enough for your target is a separate question,
 and the confidence outputs are the way to answer it.
 
-Complexes fold on unpaired per-chain MSAs. Ligands, covalent bonds and PAE output are
-not there yet.
+Complexes fold on unpaired per-chain MSAs. PAE output is not there yet.
 
 ## Reproducing the parity legs
 

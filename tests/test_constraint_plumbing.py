@@ -104,3 +104,24 @@ def test_of3_features_see_the_bond_and_the_ring():
     # on the ring the last residue sits one step before the first, as residue 1 does on a
     # line (the first 66 channels are the residue-offset one-hot, 2 * 32 + 2 bins)
     assert r1[0, 13, :66].argmax() == r0[1, 0, :66].argmax() != r0[0, 13, :66].argmax()
+
+
+def test_esmfold2_token_bonds_see_the_bond_and_the_ring():
+    from tt_bio._vendor.esm.models.esmfold2 import prepare_esmfold2_input
+    from tt_bio.esmfold2_runtime import build_spi
+
+    def tb(chains, bonds=None):
+        return prepare_esmfold2_input(build_spi(chains, bonds), seed=0)[0][
+            "token_bonds"].reshape(-1)
+
+    pep = [("A", SFTI, None, "protein", None)]
+    n = len(SFTI)
+    assert tb(pep).sum() == 0
+    assert tb(pep, [(("A", 3, "SG"), ("A", 11, "SG"))])[2 * n + 10] == 1
+    assert tb(pep, [(("A", 14, "C"), ("A", 1, "N"))])[13] == 1
+    lig = [("A", "GCGSQWDRSGR", None, "protein", None), ("B", "C=CC(=O)N", None, "ligand", None)]
+    # C1 (portable, first carbon written) and C8 (ESMFold2's canonical-rank name) are one atom
+    assert build_spi(lig, [(("A", 2, "SG"), ("B", 1, "C1"))]).covalent_bonds == \
+        build_spi(lig, [(("A", 2, "SG"), ("B", 1, "C8"))]).covalent_bonds
+    with pytest.raises(ValueError, match="Its atoms: N, CA, C, O"):
+        build_spi(lig, [(("A", 3, "SG"), ("B", 1, "C1"))])

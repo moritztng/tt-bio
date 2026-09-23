@@ -78,11 +78,11 @@ def _row(**overrides) -> dict[str, str]:
 CAPABILITY: dict[str, dict[str, str]] = {
     "boltz2": _row(template_structure=HONOURED),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
-    # fold_complex call). It has no constraint, template or affinity path.
-    "esmfold2": _row(cyclic=REFUSED, templates=REFUSED, bond=REFUSED, polymer_bond=REFUSED,
-                     pocket=REFUSED, affinity=NOTED),
-    "esmfold2-fast": _row(cyclic=REFUSED, templates=REFUSED, bond=REFUSED,
-                          polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # fold_complex call). A `bond` is upstream's covalent_bonds, which its pair init reads
+    # through token_bonds; `cyclic: true` is the head-to-tail amide on the same route, as on
+    # Protenix. It has no template, pocket or affinity path.
+    "esmfold2": _row(templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "esmfold2-fast": _row(templates=REFUSED, pocket=REFUSED, affinity=NOTED),
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
     # `cyclic: true` reaches it as the head-to-tail amide bond (main._read_bio_bonds), the

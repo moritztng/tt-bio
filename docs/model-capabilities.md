@@ -12,8 +12,8 @@ changing the structure. That prints a warning and the fold runs.
 | model | ligand | RNA | DNA | cyclic | modifications | templates | structure template | bond constraint | residue-residue bond | pocket/contact | affinity |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
-| `esmfold2` | yes | yes | yes | refused | yes | refused | refused | refused | refused | refused | ignored, warns |
-| `esmfold2-fast` | yes | yes | yes | refused | yes | refused | refused | refused | refused | refused | ignored, warns |
+| `esmfold2` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
+| `esmfold2-fast` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `protenix-v1` | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `protenix-v2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
 | `openfold3` | refused | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
@@ -70,17 +70,28 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   would return a confident structure for one anyway. `openbind` is the checkpoint upstream
   trained for co-folding, and it is the same implementation.
 - **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
-- **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. Express
-  the cyclisation as a covalent `bond` constraint on the models that take one.
+- **cyclic** -- `cyclic: true` on a protein chain closes the backbone head to tail. Each model
+  gets it the way its upstream expresses a ring: Boltz-2, RF3 and the OpenFold3 family wrap the
+  relative position encoding, and Protenix, OpenDDE and ESMFold2, which have no such encoding,
+  receive the closing amide bond (C of the last residue to N of the first). On those three, only a
+  protein chain can be cyclic.
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
-  model folds the modified chemistry except RF3, which carries modified residues through its
-  own JSON/CIF spec rather than through this YAML.
+  model folds the modified chemistry.
 - **templates** -- a precomputed template alignment per protein chain. There is no template
   *search*: you supply the file.
 - **structure template** -- a top-level `templates:` block naming a cif/pdb file per chain, the
   Boltz-2 form. Only Boltz-2 reads it; the other template models take the alignment npz above.
-- **bond constraint** -- a covalent bond between two named atoms (a covalent inhibitor, a
-  glycan, a crosslink). RF3 carries bonds through its own JSON/CIF spec, not through YAML.
+- **bond constraint** -- a covalent bond between two named atoms where at least one end is on a
+  ligand or a modified residue (a covalent inhibitor, a glycan).
+- **residue-residue bond** -- a `bond` between two standard polymer residues, such as a
+  disulfide. RF3 and the OpenFold3 family refuse it: both were trained with those bonds removed
+  from their data, so neither can read one. Boltz-2, Protenix, OpenDDE and ESMFold2 take it.
+
+A ligand atom in a `bond` is named the same way on every model: its element and its 1-based
+count among that element's atoms in the SMILES string, hydrogens not counted. In
+`C=CC(=O)N`, `C1` is the first carbon written, `O1` the oxygen and `N1` the nitrogen. A CCD
+ligand uses the CCD's own atom names. Boltz-2 also accepts the names its output structures
+carry, and refuses a name that would mean different atoms under the two schemes.
 - **pocket/contact** -- a binding constraint. It needs a constraint embedder in the
   checkpoint, which only Boltz-2 has.
 - **affinity** -- a predicted binding affinity for a named binder chain. Boltz-2 has the
