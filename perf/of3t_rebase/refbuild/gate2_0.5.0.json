@@ -1,0 +1,115 @@
+{
+ "gate": "reference build gate (D23/R126): key sets AND revision window",
+ "tag": "0.5.0",
+ "tree": "/home/ttuser/of3t_gradients/of3pkg",
+ "tree_version": "0.5.0",
+ "tree_properties": {
+  "transpose_bias_true_in_base_blocks": 1,
+  "has_DiffusionAttentionPairBias_class": true,
+  "layer_norm_z_mentions_in_attention_pair_bias": 3,
+  "behaves_as": "0.5.0 on at least one D23 change"
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "n_tensors": 4935
+ },
+ "build": {
+  "dtype": "float32",
+  "seed": 20260919,
+  "num_recycles": 0,
+  "n_model_params": 4147,
+  "n_model_state_dict": 4890
+ },
+ "gate1_keys": {
+  "missing": {
+   "n": 3,
+   "by_leaf": {
+    "layer_norm_z.weight": 2,
+    "version_tensor": 1
+   },
+   "all": [
+    "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight",
+    "version_tensor"
+   ]
+  },
+  "unexpected": {
+   "n": 48,
+   "by_leaf": {
+    "layer_norm_z.weight": 48
+   },
+   "all": [
+    "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_z.weight",
+    "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_z.weight",
+    "sample_diffusion.diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_z.weight"
+   ]
+  },
+  "upstream_rule": "InferenceRunner._load_state_dict_with_version_validation, 0.5.0 entry_points/experiment_runner.py:750",
+  "upstream_branch_taken": "raise ValueError",
+  "upstream_called": {
+   "available": true,
+   "method": "_load_state_dict_with_version_validation",
+   "raised": "ValueError",
+   "message": "Checkpoint state_dict keys do not match model state_dict keys. Missing keys: {'model.diffusion_module.diffusion_transformer.layer_norm_z.weight', 'model.sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight', 'model.version_tensor'}, Unexpected keys: {'model.diffusion_module.di"
+  },
+  "pass": false
+ },
+ "gate2_version_window": {
+  "checked": true,
+  "registry_name": "openfold3-p2-155k",
+  "declared_version_compatibility": ">=0.4,<0.4.4dev0",
+  "installed_version": "0.5.0",
+  "inside_window": false,
+  "is_default_checkpoint": false,
+  "listed_legacy": true,
+  "source": "openfold3/entry_points/parameters.py in the tree being built"
+ },
+ "enforced": false,
+ "verdict": "RECORDED (gate not enforced)"
+}
