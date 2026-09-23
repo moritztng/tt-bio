@@ -14,6 +14,7 @@ Stops at the first non-PASS rung: a ceiling is capped below its FIRST failure.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import subprocess
@@ -29,6 +30,7 @@ sys.path.insert(0, str(ROOT / "perf" / "whceil"))
 
 from clocksample import during  # noqa: E402
 from ladder import run_rung  # noqa: E402
+from tt_bio.device_lease import DeviceInUseError, DeviceLease, lease_dir, lease_host  # noqa: E402
 
 HOLDER = "worker:mgx-ceilings"
 
@@ -49,29 +51,56 @@ def _descendants(root: int) -> list[int]:
     return out
 
 
-def _handoff(lease, stop: threading.Event) -> None:
-    """Hand the chip to this walk's own fold and to nobody else.
+def _flock_holders(path: str) -> set[int]:
+    """Pids holding a flock on ``path``, read from /proc/locks."""
+    st = os.stat(path)
+    dev = f"{os.major(st.st_dev):02x}:{os.minor(st.st_dev):02x}:{st.st_ino}"
+    out = set()
+    for line in Path("/proc/locks").read_text().splitlines():
+        f = line.split()
+        if len(f) > 5 and f[1] == "FLOCK" and f[5] == dev:
+            out.add(int(f[4]))
+    return out
+
+
+def _handoff(lease, stop: threading.Event, back: list) -> None:
+    """Hand the chip to this walk's own fold, then queue to take it back when the fold exits.
 
     tt_bio's lease is the flock, held only while a fold runs, so a walk that let go between
     rungs lost its chip twice on 2026-09-23 (card 9 to mgx-msa-depth, card 3 to mgx-accuracy):
-    another row's open took the flock while the next rung was still importing. The walk now
-    holds the flock itself and drops it only once a process under it has the lease file open,
-    which DeviceLease.acquire does for its whole wait. The gap is one of its 0.25 s polls.
+    another row's open took the flock while the next rung was still importing. The walk holds
+    the flock itself and drops it only once a process under it has the lease file open, which
+    DeviceLease.acquire does for its whole wait. The gap is one of its 0.25 s polls.
+
+    Dropping it is half the job. Rows waiting on the chip poll every 0.25 s while the fold runs,
+    and one of them won the fold's exit twice more the same afternoon (card 5 to mgx-bigalloc,
+    card 29 to mgx-diffusion). So once the fold holds the flock, this thread blocks on it: the
+    kernel wakes a blocked waiter at unlock, ahead of anyone polling, and the chip comes straight
+    back to the walk. The regained lease lands in ``back``.
     """
     path = os.path.realpath(lease.path)
-    while not stop.is_set():
+    handed = False
+    while not stop.is_set() and not handed:
         for pid in _descendants(os.getpid()):
             try:
-                fds = os.listdir(f"/proc/{pid}/fd")
+                handed = any(os.readlink(f"/proc/{pid}/fd/{fd}") == path
+                             for fd in os.listdir(f"/proc/{pid}/fd"))
             except OSError:
                 continue
-            for fd in fds:
-                try:
-                    if os.readlink(f"/proc/{pid}/fd/{fd}") == path:
-                        lease.release()
-                        return
-                except OSError:
-                    continue
+            if handed:
+                lease.release()
+                break
+        else:
+            stop.wait(0.05)
+    while not stop.is_set():
+        if _flock_holders(path) & set(_descendants(os.getpid())):
+            fd = os.open(path, os.O_RDWR)
+            fcntl.flock(fd, fcntl.LOCK_EX)   # returns the moment the fold exits
+            again = DeviceLease(card=lease.card, timeout=0)
+            again._fd = fd
+            again._write_metadata()
+            back.append(again)
+            return
         stop.wait(0.05)
 
 
@@ -100,7 +129,6 @@ def main() -> int:
                             text=True).stdout.strip()
     dirty = bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", "tt_bio"],
                                 capture_output=True, text=True).stdout.strip())
-    from tt_bio.device_lease import DeviceInUseError, DeviceLease, lease_dir, lease_host
     try:
         meta = json.loads(Path(lease_dir(), f"{lease_host()}-card{a.card}.json").read_text())
     except (OSError, ValueError):
@@ -110,15 +138,16 @@ def main() -> int:
     os.environ["TT_BIO_LEASE_HOLDER"] = HOLDER
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    wait = 0.0   # the first claim must find the chip free; later ones only cover a fold's exit
+    lease, wait = None, 0.0   # the first claim must find the chip free
     for n in (int(s) for s in a.sizes.split(",")):
-        try:
-            lease = DeviceLease(card=a.card, timeout=wait).acquire()
-        except DeviceInUseError as e:
-            sys.exit(f"lost card {a.card} before {n}: {e}")
+        if lease is None:   # first rung, or a fold that never took the lease
+            try:
+                lease = DeviceLease(card=a.card, timeout=wait).acquire()
+            except DeviceInUseError as e:
+                sys.exit(f"lost card {a.card} before {n}: {e}")
         wait = 5.0
-        stop = threading.Event()
-        handoff = threading.Thread(target=_handoff, args=(lease, stop), daemon=True)
+        stop, back = threading.Event(), []
+        handoff = threading.Thread(target=_handoff, args=(lease, stop, back), daemon=True)
         handoff.start()
         rung = Path(a.fixture or Path(a.rung_dir) / f"cdk2x2_{n}_d{a.depth}.yaml")
         load0 = os.getloadavg()[0]
@@ -128,8 +157,9 @@ def main() -> int:
                                list(a.extra))
         finally:
             stop.set()
-            handoff.join()
-            lease.release()
+            handoff.join(timeout=30)
+            lease.release()   # no-op once handed over
+            lease = back[0] if back else None
         s = clk.summary().get(0, {})
         row.update(size=n, depth=a.depth, commit=commit, tt_bio_dirty=dirty,
                    aiclk=s, load_start=round(load0, 1), load_end=round(os.getloadavg()[0], 1),
@@ -140,6 +170,8 @@ def main() -> int:
         print(json.dumps(row), flush=True)
         if row["verdict"] != "PASS":
             break
+    if lease is not None:
+        lease.release()
     return 0
 
 
