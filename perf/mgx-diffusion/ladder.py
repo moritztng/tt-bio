@@ -11,8 +11,8 @@ One JSON line per point in perf/mgx-diffusion/runs.jsonl, carrying:
   dram        with probe=1 only: the peak DRAM used and the tag it was reached at, plus the
               peak inside the diffusion + confidence phase and inside the trunk. The probe
               drains the pipeline at every tag, so a probe=1 runtime is NOT a timing
-  progress    trunk cycles actually run (the progress stream's trunk total) and the seconds
-              from the first trunk event to the first diffusion event, and from there to done
+  progress    trunk cycles actually run (the progress stream's trunk total), and seconds per
+              phase (trunk, diffusion, confidence...) from the fold log's stage lines
   n_struct    structures written, which must equal the samples asked for
   cold        the kernel cache grew during the fold, so it compiled and its runtime is not a
               timing; a cold timing point (probe off) is folded again at once and both kept
@@ -111,23 +111,36 @@ def dram_cell(path):
             "other": pk(rest), "n_tags": len(rows)}
 
 
-def progress_cell(path, t_start):
-    """Trunk cycles run and phase seconds, read off the live progress stream."""
-    if not path.exists():
-        return None
+STAGE = re.compile(r"^(\d\d):(\d\d):(\d\d)\s+\[[^\]]+\]\s+([a-z][a-z ]*?)(?: (\d+)/(\d+))?\s*$", re.M)
+
+
+def progress_cell(cap, log_text):
+    """Trunk cycles run, and seconds per phase, off the live progress stream.
+
+    The captured events carry the counts but no clock, so the phase seconds come from the
+    fold log's own timestamped stage lines (the same stream, as the display printed it).
+    """
     evs = []
-    for ln in path.read_text(errors="replace").splitlines():
-        try:
-            evs.append(json.loads(ln))
-        except ValueError:
-            pass
-    stage = lambda e: str(e.get("stage") or e.get("phase") or e.get("name") or "")
-    trunk = [e for e in evs if "trunk" in stage(e).lower() or "recycl" in stage(e).lower()]
-    diff = [e for e in evs if "diffus" in stage(e).lower()]
-    tot = lambda es: max((int(e.get("total") or 0) for e in es), default=None)
-    return {"n_events": len(evs), "trunk_total": tot(trunk),
+    if cap.exists():
+        for ln in cap.read_text(errors="replace").splitlines():
+            try:
+                evs.append(json.loads(ln))
+            except ValueError:
+                pass
+    trunk = [e for e in evs if e.get("stage") == "trunk"]
+    diff = [e for e in evs if e.get("stage") == "diffusion"]
+    first = {}
+    for m in STAGE.finditer(log_text):
+        t = int(m[1]) * 3600 + int(m[2]) * 60 + int(m[3])
+        first.setdefault(m[4].strip(), t)
+    order = sorted(first.items(), key=lambda kv: kv[1])
+    phase = {}
+    for (name, t), (_n, t_next) in zip(order, order[1:]):
+        phase[name] = (t_next - t) % 86400
+    return {"trunk_total": max((int(e.get("total") or 0) for e in trunk), default=None),
             "trunk_steps_seen": len({e.get("step") for e in trunk}),
-            "diffusion_total": tot(diff), "stages": sorted({stage(e) for e in evs})[:20]}
+            "diffusion_total": max((int(e.get("total") or 0) for e in diff), default=None),
+            "phase_s": phase}
 
 
 def cache_files():
@@ -162,9 +175,9 @@ def fold(p, ident):
                                      env=env)
     cell = {**ident, **p, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
             "wall_s": round(time.time() - t0, 1), "aiclk": rg._aiclk_cell(clk),
-            "load": load.cell(), "dram": dram_cell(probe), "progress": progress_cell(cap, t0),
-            "cold": cache_files() > n_cache, "log": str(log)}
+            "load": load.cell(), "dram": dram_cell(probe), "cold": cache_files() > n_cache, "log": str(log)}
     text = rg._fold_log_text(log)
+    cell["progress"] = progress_cell(cap, text)
     if timed_out:
         cell["error"] = f"timed out after {TIMEOUT:.0f}s"
     elif rc != 0:
