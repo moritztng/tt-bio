@@ -2115,6 +2115,34 @@ _SDPA_QK_OVER_L1: set = set()
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
+def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None):
+    """Above `triatt_sdpa._Q_SPLIT_MAX_S`, the fused kernel in its own (q_chunk, k_chunk) order:
+    `(o, q_chunk, k_chunk)`, or None when the call is not eligible or no pair ran.
+
+    One route for both triangle-attention entry points. The stock ladder takes it at the op's
+    default fidelity; `_tri_att_sdpa_hifi_inner` takes it at `_TRIATT_FUSED_HIFI_CKC`. Without the
+    second caller the HiFi route offered only the stock ladder's q_chunks above the cap, every one
+    of which `fill_preconditions` declines, so OpenFold3 and OpenBind at 1280 tokens served 0 of
+    1728 calls fused and fell to the materialised fp32 softmax (~205 s per trunk recycle).
+    """
+    q_len = int(q.shape[2])
+    if not (_SDPA_FUSED_LARGE_S and q_len == int(k.shape[2]) and q_len % SDPA_CHUNK_TILE == 0
+            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
+        return None
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
+            q_len, int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
+                              q_split_cap=0, gate=gate)
+        if o is not None:
+            SDPA_FUSED_LARGE_S_STATS[0] += 1
+            return o, q_chunk, k_chunk
+    # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
+    # 32-aligned divisor. Counted so the census reads a reach, not just a default.
+    SDPA_FUSED_LARGE_S_STATS[1] += 1
+    return None
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
 
@@ -2124,21 +2152,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
-    if (_SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0
-            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
-        cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
-        for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
-                int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
-                                  q_split_cap=0, gate=gate)
-            if o is not None:
-                SDPA_K_CHUNK_STATS[0] += 1
-                SDPA_FUSED_LARGE_S_STATS[0] += 1
-                _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
-                return o
-        # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
-        # 32-aligned divisor. Counted so the census reads a reach, not just a default.
-        SDPA_FUSED_LARGE_S_STATS[1] += 1
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
+    if served is not None:
+        o, q_chunk, k_chunk = served
+        SDPA_K_CHUNK_STATS[0] += 1
+        _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+        return o
     k_chunks = _tri_att_k_chunks(q_len, k_len, int(q.shape[1]), int(q.shape[3]),
                                  q.dtype)
     if len(k_chunks) > 1:
@@ -2488,6 +2507,12 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, _TRIATT_FUSED_HIFI_CKC)
+    if served is not None:
+        o, q_chunk, k_chunk = served
+        TRIATT_FUSED_HIFI_STATS["served"] += 1
+        TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, 2]
+        return o
     shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
     padded_k = _padded_sdpa_len(k_len)
     k_chunks = (padded_k, shipped_k) if one_k_chunk and padded_k != shipped_k else (shipped_k,)
